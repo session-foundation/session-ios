@@ -204,8 +204,8 @@ extension MessageReceiver {
             let allClosedGroupPublicKeys = storage.getUserClosedGroupPublicKeys()
             for closedGroup in message.closedGroups {
                 guard !allClosedGroupPublicKeys.contains(closedGroup.publicKey) else { continue }
-                handleNewClosedGroup(groupPublicKey: closedGroup.publicKey, name: closedGroup.name, encryptionKeyPair: closedGroup.encryptionKeyPair,
-                    members: [String](closedGroup.members), admins: [String](closedGroup.admins), expirationTimer: closedGroup.expirationTimer,
+                handleNewClosedGroup(groupPublicKey: closedGroup.publicKey, name: closedGroup.name, x25519KeyPair: closedGroup.encryptionKeyPair,
+                    members: [String](closedGroup.members), admins: [String](closedGroup.admins), expirationTimer: closedGroup.expirationTimer, ed25519KeyPair: nil,
                     messageSentTimestamp: message.sentTimestamp!, using: transaction)
             }
             // Open groups
@@ -357,15 +357,15 @@ extension MessageReceiver {
     }
     
     private static func handleNewClosedGroup(_ message: ClosedGroupControlMessage, using transaction: Any) {
-        guard case let .new(publicKeyAsData, name, encryptionKeyPair, membersAsData, adminsAsData, expirationTimer) = message.kind else { return }
+        guard case let .new(publicKeyAsData, name, x25519KeyPair, membersAsData, adminsAsData, expirationTimer, ed25519KeyPair) = message.kind else { return }
         let groupPublicKey = publicKeyAsData.toHexString()
         let members = membersAsData.map { $0.toHexString() }
         let admins = adminsAsData.map { $0.toHexString() }
-        handleNewClosedGroup(groupPublicKey: groupPublicKey, name: name, encryptionKeyPair: encryptionKeyPair,
-            members: members, admins: admins, expirationTimer: expirationTimer, messageSentTimestamp: message.sentTimestamp!, using: transaction)
+        handleNewClosedGroup(groupPublicKey: groupPublicKey, name: name, x25519KeyPair: x25519KeyPair,
+            members: members, admins: admins, expirationTimer: expirationTimer, ed25519KeyPair: ed25519KeyPair, messageSentTimestamp: message.sentTimestamp!, using: transaction)
     }
 
-    private static func handleNewClosedGroup(groupPublicKey: String, name: String, encryptionKeyPair: ECKeyPair, members: [String], admins: [String], expirationTimer: UInt32, messageSentTimestamp: UInt64, using transaction: Any) {
+    private static func handleNewClosedGroup(groupPublicKey: String, name: String, x25519KeyPair: ECKeyPair, members: [String], admins: [String], expirationTimer: UInt32, ed25519KeyPair: Sign.KeyPair?, messageSentTimestamp: UInt64, using transaction: Any) {
         let transaction = transaction as! YapDatabaseReadWriteTransaction
         // Create the group
         let groupID = LKGroupUtilities.getEncodedClosedGroupIDAsData(groupPublicKey)
@@ -393,8 +393,11 @@ extension MessageReceiver {
         configuration.save(with: transaction)
         // Add the group to the user's set of public keys to poll for
         Storage.shared.addClosedGroupPublicKey(groupPublicKey, using: transaction)
-        // Store the key pair
-        Storage.shared.addClosedGroupEncryptionKeyPair(encryptionKeyPair, for: groupPublicKey, using: transaction)
+        // Store the encryption and authentication key pairs
+        let timestamp = Storage.shared.addClosedGroupEncryptionKeyPair(x25519KeyPair, for: groupPublicKey, using: transaction)
+        if let ed25519KeyPair = ed25519KeyPair {
+            Storage.shared.addClosedGroupAuthenticationKeyPair(ed25519KeyPair, for: groupPublicKey, timestamp: timestamp, using: transaction)
+        }
         // Store the formation timestamp
         Storage.shared.setClosedGroupFormationTimestamp(to: messageSentTimestamp, for: groupPublicKey, using: transaction)
         // Start polling

@@ -40,6 +40,22 @@ extension Storage {
         return "SNClosedGroupAuthenticationKeyPairCollection-\(groupPublicKey)"
     }
     
+    public func getClosedGroupAuthenticationKeyPairs(for groupPublicKey: String) -> [Sign.KeyPair] {
+        let collection = Storage.getClosedGroupAuthenticationKeyPairCollection(for: groupPublicKey)
+        var timestampsAndKeyPairs: [(timestamp: Double, keyPair: Sign.KeyPair)] = []
+        Storage.read { transaction in
+            transaction.enumerateKeysAndObjects(inCollection: collection) { key, object, _ in
+                guard let timestamp = Double(key), let keyPair = object as? Sign.KeyPair else { return }
+                timestampsAndKeyPairs.append((timestamp, keyPair))
+            }
+        }
+        return timestampsAndKeyPairs.sorted { $0.timestamp < $1.timestamp }.map { $0.keyPair }
+    }
+
+    public func getLatestClosedGroupAuthenticationKeyPair(for groupPublicKey: String) -> Sign.KeyPair? {
+        return getClosedGroupAuthenticationKeyPairs(for: groupPublicKey).last
+    }
+    
     public func addClosedGroupAuthenticationKeyPair(_ keyPair: Sign.KeyPair, for groupPublicKey: String, timestamp: String, using transaction: Any) {
         let collection = Storage.getClosedGroupAuthenticationKeyPairCollection(for: groupPublicKey)
         (transaction as! YapDatabaseReadWriteTransaction).setObject(keyPair, forKey: timestamp, inCollection: collection)
