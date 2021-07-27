@@ -179,7 +179,7 @@ public final class ClosedGroupControlMessage : ControlMessage {
         switch closedGroupControlMessageProto.type {
         case .new:
             guard let publicKey = closedGroupControlMessageProto.publicKey, let name = closedGroupControlMessageProto.name,
-                let encryptionKeyPairAsProto = closedGroupControlMessageProto.encryptionKeyPair else { return nil }
+                let encryptionKeyPairAsProto = closedGroupControlMessageProto.x25519 else { return nil }
             let expirationTimer = closedGroupControlMessageProto.expirationTimer
             do {
                 let encryptionKeyPair = try ECKeyPair(publicKeyData: encryptionKeyPairAsProto.publicKey.removing05PrefixIfNeeded(), privateKeyData: encryptionKeyPairAsProto.privateKey)
@@ -222,7 +222,7 @@ public final class ClosedGroupControlMessage : ControlMessage {
                 closedGroupControlMessage.setName(name)
                 let encryptionKeyPairAsProto = SNProtoKeyPair.builder(publicKey: encryptionKeyPair.publicKey, privateKey: encryptionKeyPair.privateKey)
                 do {
-                    closedGroupControlMessage.setEncryptionKeyPair(try encryptionKeyPairAsProto.build())
+                    closedGroupControlMessage.setX25519(try encryptionKeyPairAsProto.build())
                 } catch {
                     SNLog("Couldn't construct closed group update proto from: \(self).")
                     return nil
