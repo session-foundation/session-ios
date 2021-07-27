@@ -2129,13 +2129,16 @@ extension SNProtoDataMessage.SNProtoDataMessageBuilder {
         if let _value = name {
             builder.setName(_value)
         }
-        if let _value = encryptionKeyPair {
-            builder.setEncryptionKeyPair(_value)
+        if let _value = x25519 {
+            builder.setX25519(_value)
         }
         builder.setMembers(members)
         builder.setAdmins(admins)
         if hasExpirationTimer {
             builder.setExpirationTimer(expirationTimer)
+        }
+        if let _value = ed25519 {
+            builder.setEd25519(_value)
         }
         return builder
     }
@@ -2154,8 +2157,8 @@ extension SNProtoDataMessage.SNProtoDataMessageBuilder {
             proto.name = valueParam
         }
 
-        @objc public func setEncryptionKeyPair(_ valueParam: SNProtoKeyPair) {
-            proto.encryptionKeyPair = valueParam.proto
+        @objc public func setX25519(_ valueParam: SNProtoKeyPair) {
+            proto.x25519 = valueParam.proto
         }
 
         @objc public func addMembers(_ valueParam: Data) {
@@ -2182,6 +2185,10 @@ extension SNProtoDataMessage.SNProtoDataMessageBuilder {
             proto.expirationTimer = valueParam
         }
 
+        @objc public func setEd25519(_ valueParam: SNProtoKeyPair) {
+            proto.ed25519 = valueParam.proto
+        }
+
         @objc public func build() throws -> SNProtoConfigurationMessageClosedGroup {
             return try SNProtoConfigurationMessageClosedGroup.parseProto(proto)
         }
@@ -2193,7 +2200,9 @@ extension SNProtoDataMessage.SNProtoDataMessageBuilder {
 
     fileprivate let proto: SessionProtos_ConfigurationMessage.ClosedGroup
 
-    @objc public let encryptionKeyPair: SNProtoKeyPair?
+    @objc public let x25519: SNProtoKeyPair?
+
+    @objc public let ed25519: SNProtoKeyPair?
 
     @objc public var publicKey: Data? {
         guard proto.hasPublicKey else {
@@ -2231,9 +2240,11 @@ extension SNProtoDataMessage.SNProtoDataMessageBuilder {
     }
 
     private init(proto: SessionProtos_ConfigurationMessage.ClosedGroup,
-                 encryptionKeyPair: SNProtoKeyPair?) {
+                 x25519: SNProtoKeyPair?,
+                 ed25519: SNProtoKeyPair?) {
         self.proto = proto
-        self.encryptionKeyPair = encryptionKeyPair
+        self.x25519 = x25519
+        self.ed25519 = ed25519
     }
 
     @objc
@@ -2247,9 +2258,14 @@ extension SNProtoDataMessage.SNProtoDataMessageBuilder {
     }
 
     fileprivate class func parseProto(_ proto: SessionProtos_ConfigurationMessage.ClosedGroup) throws -> SNProtoConfigurationMessageClosedGroup {
-        var encryptionKeyPair: SNProtoKeyPair? = nil
-        if proto.hasEncryptionKeyPair {
-            encryptionKeyPair = try SNProtoKeyPair.parseProto(proto.encryptionKeyPair)
+        var x25519: SNProtoKeyPair? = nil
+        if proto.hasX25519 {
+            x25519 = try SNProtoKeyPair.parseProto(proto.x25519)
+        }
+
+        var ed25519: SNProtoKeyPair? = nil
+        if proto.hasEd25519 {
+            ed25519 = try SNProtoKeyPair.parseProto(proto.ed25519)
         }
 
         // MARK: - Begin Validation Logic for SNProtoConfigurationMessageClosedGroup -
@@ -2257,7 +2273,8 @@ extension SNProtoDataMessage.SNProtoDataMessageBuilder {
         // MARK: - End Validation Logic for SNProtoConfigurationMessageClosedGroup -
 
         let result = SNProtoConfigurationMessageClosedGroup(proto: proto,
-                                                            encryptionKeyPair: encryptionKeyPair)
+                                                            x25519: x25519,
+                                                            ed25519: ed25519)
         return result
     }
 

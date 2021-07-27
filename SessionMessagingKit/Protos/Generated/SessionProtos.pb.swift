@@ -979,14 +979,14 @@ struct SessionProtos_ConfigurationMessage {
     /// Clears the value of `name`. Subsequent reads from it will return its default value.
     mutating func clearName() {self._name = nil}
 
-    var encryptionKeyPair: SessionProtos_KeyPair {
-      get {return _encryptionKeyPair ?? SessionProtos_KeyPair()}
-      set {_encryptionKeyPair = newValue}
+    var x25519: SessionProtos_KeyPair {
+      get {return _x25519 ?? SessionProtos_KeyPair()}
+      set {_x25519 = newValue}
     }
-    /// Returns true if `encryptionKeyPair` has been explicitly set.
-    var hasEncryptionKeyPair: Bool {return self._encryptionKeyPair != nil}
-    /// Clears the value of `encryptionKeyPair`. Subsequent reads from it will return its default value.
-    mutating func clearEncryptionKeyPair() {self._encryptionKeyPair = nil}
+    /// Returns true if `x25519` has been explicitly set.
+    var hasX25519: Bool {return self._x25519 != nil}
+    /// Clears the value of `x25519`. Subsequent reads from it will return its default value.
+    mutating func clearX25519() {self._x25519 = nil}
 
     var members: [Data] = []
 
@@ -1001,14 +1001,24 @@ struct SessionProtos_ConfigurationMessage {
     /// Clears the value of `expirationTimer`. Subsequent reads from it will return its default value.
     mutating func clearExpirationTimer() {self._expirationTimer = nil}
 
+    var ed25519: SessionProtos_KeyPair {
+      get {return _ed25519 ?? SessionProtos_KeyPair()}
+      set {_ed25519 = newValue}
+    }
+    /// Returns true if `ed25519` has been explicitly set.
+    var hasEd25519: Bool {return self._ed25519 != nil}
+    /// Clears the value of `ed25519`. Subsequent reads from it will return its default value.
+    mutating func clearEd25519() {self._ed25519 = nil}
+
     var unknownFields = SwiftProtobuf.UnknownStorage()
 
     init() {}
 
     fileprivate var _publicKey: Data? = nil
     fileprivate var _name: String? = nil
-    fileprivate var _encryptionKeyPair: SessionProtos_KeyPair? = nil
+    fileprivate var _x25519: SessionProtos_KeyPair? = nil
     fileprivate var _expirationTimer: UInt32? = nil
+    fileprivate var _ed25519: SessionProtos_KeyPair? = nil
   }
 
   struct Contact {
@@ -2335,14 +2345,16 @@ extension SessionProtos_ConfigurationMessage.ClosedGroup: SwiftProtobuf.Message,
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "publicKey"),
     2: .same(proto: "name"),
-    3: .same(proto: "encryptionKeyPair"),
+    3: .same(proto: "x25519"),
     4: .same(proto: "members"),
     5: .same(proto: "admins"),
     6: .same(proto: "expirationTimer"),
+    7: .same(proto: "ed25519"),
   ]
 
   public var isInitialized: Bool {
-    if let v = self._encryptionKeyPair, !v.isInitialized {return false}
+    if let v = self._x25519, !v.isInitialized {return false}
+    if let v = self._ed25519, !v.isInitialized {return false}
     return true
   }
 
@@ -2354,10 +2366,11 @@ extension SessionProtos_ConfigurationMessage.ClosedGroup: SwiftProtobuf.Message,
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularBytesField(value: &self._publicKey) }()
       case 2: try { try decoder.decodeSingularStringField(value: &self._name) }()
-      case 3: try { try decoder.decodeSingularMessageField(value: &self._encryptionKeyPair) }()
+      case 3: try { try decoder.decodeSingularMessageField(value: &self._x25519) }()
       case 4: try { try decoder.decodeRepeatedBytesField(value: &self.members) }()
       case 5: try { try decoder.decodeRepeatedBytesField(value: &self.admins) }()
       case 6: try { try decoder.decodeSingularUInt32Field(value: &self._expirationTimer) }()
+      case 7: try { try decoder.decodeSingularMessageField(value: &self._ed25519) }()
       default: break
       }
     }
@@ -2370,7 +2383,7 @@ extension SessionProtos_ConfigurationMessage.ClosedGroup: SwiftProtobuf.Message,
     if let v = self._name {
       try visitor.visitSingularStringField(value: v, fieldNumber: 2)
     }
-    if let v = self._encryptionKeyPair {
+    if let v = self._x25519 {
       try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
     }
     if !self.members.isEmpty {
@@ -2382,16 +2395,20 @@ extension SessionProtos_ConfigurationMessage.ClosedGroup: SwiftProtobuf.Message,
     if let v = self._expirationTimer {
       try visitor.visitSingularUInt32Field(value: v, fieldNumber: 6)
     }
+    if let v = self._ed25519 {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: SessionProtos_ConfigurationMessage.ClosedGroup, rhs: SessionProtos_ConfigurationMessage.ClosedGroup) -> Bool {
     if lhs._publicKey != rhs._publicKey {return false}
     if lhs._name != rhs._name {return false}
-    if lhs._encryptionKeyPair != rhs._encryptionKeyPair {return false}
+    if lhs._x25519 != rhs._x25519 {return false}
     if lhs.members != rhs.members {return false}
     if lhs.admins != rhs.admins {return false}
     if lhs._expirationTimer != rhs._expirationTimer {return false}
+    if lhs._ed25519 != rhs._ed25519 {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

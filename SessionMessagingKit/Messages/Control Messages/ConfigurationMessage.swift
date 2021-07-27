@@ -141,7 +141,7 @@ extension ConfigurationMessage {
         public static func fromProto(_ proto: SNProtoConfigurationMessageClosedGroup) -> ClosedGroup? {
             guard let publicKey = proto.publicKey?.toHexString(),
                 let name = proto.name,
-                let encryptionKeyPairAsProto = proto.encryptionKeyPair else { return nil }
+                let encryptionKeyPairAsProto = proto.x25519 else { return nil }
             let encryptionKeyPair: ECKeyPair
             do {
                 encryptionKeyPair = try ECKeyPair(publicKeyData: encryptionKeyPairAsProto.publicKey, privateKeyData: encryptionKeyPairAsProto.privateKey)
@@ -164,7 +164,7 @@ extension ConfigurationMessage {
             result.setName(name)
             do {
                 let encryptionKeyPairAsProto = try SNProtoKeyPair.builder(publicKey: encryptionKeyPair.publicKey, privateKey: encryptionKeyPair.privateKey).build()
-                result.setEncryptionKeyPair(encryptionKeyPairAsProto)
+                result.setX25519(encryptionKeyPairAsProto)
             } catch {
                 SNLog("Couldn't construct closed group proto from: \(self).")
                 return nil
