@@ -204,7 +204,7 @@ extension MessageReceiver {
             let allClosedGroupPublicKeys = storage.getUserClosedGroupPublicKeys()
             for closedGroup in message.closedGroups {
                 guard !allClosedGroupPublicKeys.contains(closedGroup.publicKey) else { continue }
-                handleNewClosedGroup(groupPublicKey: closedGroup.publicKey, name: closedGroup.name, x25519KeyPair: closedGroup.encryptionKeyPair,
+                handleNewClosedGroup(groupPublicKey: closedGroup.publicKey, name: closedGroup.name, x25519KeyPair: closedGroup.x25519KeyPair,
                     members: [String](closedGroup.members), admins: [String](closedGroup.admins), expirationTimer: closedGroup.expirationTimer, ed25519KeyPair: nil,
                     messageSentTimestamp: message.sentTimestamp!, using: transaction)
             }
