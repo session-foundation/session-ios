@@ -74,8 +74,8 @@ extension MessageSender {
             privateKey: newKeyPair.privateKey).build()
         let plaintext = try! proto.serializedData()
         let wrappers = targetMembers.compactMap { publicKey -> ClosedGroupControlMessage.KeyPairWrapper in
-            let ciphertext = try! MessageSender.encryptWithSessionProtocol(plaintext, for: publicKey)
-            return ClosedGroupControlMessage.KeyPairWrapper(publicKey: publicKey, encryptedKeyPair: ciphertext)
+            let encryptedX25519KeyPair = try! MessageSender.encryptWithSessionProtocol(plaintext, for: publicKey)
+            return ClosedGroupControlMessage.KeyPairWrapper(publicKey: publicKey, encryptedX25519KeyPair: encryptedX25519KeyPair, encryptedED25519KeyPair: nil)
         }
         let closedGroupControlMessage = ClosedGroupControlMessage(kind: .encryptionKeyPair(publicKey: nil, wrappers: wrappers))
         var distributingKeyPairs = distributingClosedGroupEncryptionKeyPairs[groupPublicKey] ?? []
@@ -330,7 +330,7 @@ extension MessageSender {
         let contactThread = TSContactThread.getOrCreateThread(withContactSessionID: publicKey, transaction: transaction)
         guard let ciphertext = try? MessageSender.encryptWithSessionProtocol(plaintext, for: publicKey) else { return }
         SNLog("Sending latest encryption key pair to: \(publicKey).")
-        let wrapper = ClosedGroupControlMessage.KeyPairWrapper(publicKey: publicKey, encryptedKeyPair: ciphertext)
+        let wrapper = ClosedGroupControlMessage.KeyPairWrapper(publicKey: publicKey, encryptedX25519KeyPair: ciphertext, encryptedED25519KeyPair: nil)
         let closedGroupControlMessage = ClosedGroupControlMessage(kind: .encryptionKeyPair(publicKey: Data(hex: groupPublicKey), wrappers: [ wrapper ]))
         MessageSender.send(closedGroupControlMessage, in: contactThread, using: transaction)
     }

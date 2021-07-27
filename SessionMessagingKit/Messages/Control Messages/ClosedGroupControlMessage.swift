@@ -15,7 +15,7 @@ public final class ClosedGroupControlMessage : ControlMessage {
     // MARK: Kind
     public enum Kind : CustomStringConvertible {
         case new(publicKey: Data, name: String, encryptionKeyPair: ECKeyPair, members: [Data], admins: [Data], expirationTimer: UInt32)
-        /// An encryption key pair encrypted for each member individually.
+        /// The group x25519 and ed25519 encryption key pairs encrypted for each member individually.
         ///
         /// - Note: `publicKey` is only set when an encryption key pair is sent in a one-to-one context (i.e. not in a group).
         case encryptionKeyPair(publicKey: Data?, wrappers: [KeyPairWrapper])
@@ -42,32 +42,37 @@ public final class ClosedGroupControlMessage : ControlMessage {
     @objc(SNKeyPairWrapper)
     public final class KeyPairWrapper : NSObject, NSCoding { // NSObject/NSCoding conformance is needed for YapDatabase compatibility
         public var publicKey: String?
-        public var encryptedKeyPair: Data?
+        public var encryptedX25519KeyPair: Data?
+        public var encryptedED25519KeyPair: Data?
 
-        public var isValid: Bool { publicKey != nil && encryptedKeyPair != nil }
+        public var isValid: Bool { publicKey != nil && encryptedX25519KeyPair != nil }
 
-        public init(publicKey: String, encryptedKeyPair: Data) {
+        public init(publicKey: String, encryptedX25519KeyPair: Data, encryptedED25519KeyPair: Data?) {
             self.publicKey = publicKey
-            self.encryptedKeyPair = encryptedKeyPair
+            self.encryptedX25519KeyPair = encryptedX25519KeyPair
+            self.encryptedED25519KeyPair = encryptedED25519KeyPair
         }
 
         public required init?(coder: NSCoder) {
             if let publicKey = coder.decodeObject(forKey: "publicKey") as! String? { self.publicKey = publicKey }
-            if let encryptedKeyPair = coder.decodeObject(forKey: "encryptedKeyPair") as! Data? { self.encryptedKeyPair = encryptedKeyPair }
+            if let encryptedX25519KeyPair = coder.decodeObject(forKey: "encryptedKeyPair") as! Data? { self.encryptedX25519KeyPair = encryptedX25519KeyPair }
+            if let encryptedED25519KeyPair = coder.decodeObject(forKey: "encryptedED25519KeyPair") as! Data? { self.encryptedED25519KeyPair = encryptedED25519KeyPair }
         }
 
         public func encode(with coder: NSCoder) {
             coder.encode(publicKey, forKey: "publicKey")
-            coder.encode(encryptedKeyPair, forKey: "encryptedKeyPair")
+            coder.encode(encryptedX25519KeyPair, forKey: "encryptedKeyPair")
+            coder.encode(encryptedED25519KeyPair, forKey: "encryptedED25519KeyPair")
         }
 
         public static func fromProto(_ proto: SNProtoDataMessageClosedGroupControlMessageKeyPairWrapper) -> KeyPairWrapper? {
-            return KeyPairWrapper(publicKey: proto.publicKey.toHexString(), encryptedKeyPair: proto.encryptedKeyPair)
+            return KeyPairWrapper(publicKey: proto.publicKey.toHexString(), encryptedX25519KeyPair: proto.x25519, encryptedED25519KeyPair: proto.ed25519)
         }
 
         public func toProto() -> SNProtoDataMessageClosedGroupControlMessageKeyPairWrapper? {
-            guard let publicKey = publicKey, let encryptedKeyPair = encryptedKeyPair else { return nil }
-            let result = SNProtoDataMessageClosedGroupControlMessageKeyPairWrapper.builder(publicKey: Data(hex: publicKey), encryptedKeyPair: encryptedKeyPair)
+            guard let publicKey = publicKey, let encryptedX25519KeyPair = encryptedX25519KeyPair else { return nil }
+            let result = SNProtoDataMessageClosedGroupControlMessageKeyPairWrapper.builder(publicKey: Data(hex: publicKey), x25519: encryptedX25519KeyPair)
+            if let encryptedED25519KeyPair = encryptedED25519KeyPair { result.setEd25519(encryptedED25519KeyPair) }
             do {
                 return try result.build()
             } catch {
@@ -89,7 +94,7 @@ public final class ClosedGroupControlMessage : ControlMessage {
     public override var isValid: Bool {
         guard super.isValid, let kind = kind else { return false }
         switch kind {
-        case .new(let publicKey, let name, let encryptionKeyPair, let members, let admins, let expirationTimer):
+        case .new(let publicKey, let name, let encryptionKeyPair, let members, let admins, _):
             return !publicKey.isEmpty && !name.isEmpty && !encryptionKeyPair.publicKey.isEmpty
                 && !encryptionKeyPair.privateKey.isEmpty && !members.isEmpty && !admins.isEmpty
         case .encryptionKeyPair: return true

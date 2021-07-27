@@ -1412,13 +1412,16 @@ extension SNProtoDataMessageOpenGroupInvitation.SNProtoDataMessageOpenGroupInvit
 
     // MARK: - SNProtoDataMessageClosedGroupControlMessageKeyPairWrapperBuilder
 
-    @objc public class func builder(publicKey: Data, encryptedKeyPair: Data) -> SNProtoDataMessageClosedGroupControlMessageKeyPairWrapperBuilder {
-        return SNProtoDataMessageClosedGroupControlMessageKeyPairWrapperBuilder(publicKey: publicKey, encryptedKeyPair: encryptedKeyPair)
+    @objc public class func builder(publicKey: Data, x25519: Data) -> SNProtoDataMessageClosedGroupControlMessageKeyPairWrapperBuilder {
+        return SNProtoDataMessageClosedGroupControlMessageKeyPairWrapperBuilder(publicKey: publicKey, x25519: x25519)
     }
 
     // asBuilder() constructs a builder that reflects the proto's contents.
     @objc public func asBuilder() -> SNProtoDataMessageClosedGroupControlMessageKeyPairWrapperBuilder {
-        let builder = SNProtoDataMessageClosedGroupControlMessageKeyPairWrapperBuilder(publicKey: publicKey, encryptedKeyPair: encryptedKeyPair)
+        let builder = SNProtoDataMessageClosedGroupControlMessageKeyPairWrapperBuilder(publicKey: publicKey, x25519: x25519)
+        if let _value = ed25519 {
+            builder.setEd25519(_value)
+        }
         return builder
     }
 
@@ -1428,19 +1431,23 @@ extension SNProtoDataMessageOpenGroupInvitation.SNProtoDataMessageOpenGroupInvit
 
         @objc fileprivate override init() {}
 
-        @objc fileprivate init(publicKey: Data, encryptedKeyPair: Data) {
+        @objc fileprivate init(publicKey: Data, x25519: Data) {
             super.init()
 
             setPublicKey(publicKey)
-            setEncryptedKeyPair(encryptedKeyPair)
+            setX25519(x25519)
         }
 
         @objc public func setPublicKey(_ valueParam: Data) {
             proto.publicKey = valueParam
         }
 
-        @objc public func setEncryptedKeyPair(_ valueParam: Data) {
-            proto.encryptedKeyPair = valueParam
+        @objc public func setX25519(_ valueParam: Data) {
+            proto.x25519 = valueParam
+        }
+
+        @objc public func setEd25519(_ valueParam: Data) {
+            proto.ed25519 = valueParam
         }
 
         @objc public func build() throws -> SNProtoDataMessageClosedGroupControlMessageKeyPairWrapper {
@@ -1456,14 +1463,24 @@ extension SNProtoDataMessageOpenGroupInvitation.SNProtoDataMessageOpenGroupInvit
 
     @objc public let publicKey: Data
 
-    @objc public let encryptedKeyPair: Data
+    @objc public let x25519: Data
+
+    @objc public var ed25519: Data? {
+        guard proto.hasEd25519 else {
+            return nil
+        }
+        return proto.ed25519
+    }
+    @objc public var hasEd25519: Bool {
+        return proto.hasEd25519
+    }
 
     private init(proto: SessionProtos_DataMessage.ClosedGroupControlMessage.KeyPairWrapper,
                  publicKey: Data,
-                 encryptedKeyPair: Data) {
+                 x25519: Data) {
         self.proto = proto
         self.publicKey = publicKey
-        self.encryptedKeyPair = encryptedKeyPair
+        self.x25519 = x25519
     }
 
     @objc
@@ -1482,10 +1499,10 @@ extension SNProtoDataMessageOpenGroupInvitation.SNProtoDataMessageOpenGroupInvit
         }
         let publicKey = proto.publicKey
 
-        guard proto.hasEncryptedKeyPair else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: encryptedKeyPair")
+        guard proto.hasX25519 else {
+            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: x25519")
         }
-        let encryptedKeyPair = proto.encryptedKeyPair
+        let x25519 = proto.x25519
 
         // MARK: - Begin Validation Logic for SNProtoDataMessageClosedGroupControlMessageKeyPairWrapper -
 
@@ -1493,7 +1510,7 @@ extension SNProtoDataMessageOpenGroupInvitation.SNProtoDataMessageOpenGroupInvit
 
         let result = SNProtoDataMessageClosedGroupControlMessageKeyPairWrapper(proto: proto,
                                                                                publicKey: publicKey,
-                                                                               encryptedKeyPair: encryptedKeyPair)
+                                                                               x25519: x25519)
         return result
     }
 

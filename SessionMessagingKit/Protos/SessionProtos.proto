@@ -122,9 +122,10 @@ message DataMessage {
 
     message KeyPairWrapper {
       // @required
-      required bytes publicKey        = 1; // The public key of the user the key pair is meant for
+      required bytes publicKey = 1; // The public key of the user the key pair is meant for
       // @required
-      required bytes encryptedKeyPair = 2; // The encrypted key pair
+      required bytes x25519    = 2; // The encrypted x25519 key pair
+      optional bytes ed25519   = 3; // The encrypted ed25519 key pair
     }
 
     // @required

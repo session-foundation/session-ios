@@ -848,21 +848,32 @@ struct SessionProtos_DataMessage {
       mutating func clearPublicKey() {self._publicKey = nil}
 
       /// @required
-      var encryptedKeyPair: Data {
-        get {return _encryptedKeyPair ?? Data()}
-        set {_encryptedKeyPair = newValue}
+      var x25519: Data {
+        get {return _x25519 ?? Data()}
+        set {_x25519 = newValue}
       }
-      /// Returns true if `encryptedKeyPair` has been explicitly set.
-      var hasEncryptedKeyPair: Bool {return self._encryptedKeyPair != nil}
-      /// Clears the value of `encryptedKeyPair`. Subsequent reads from it will return its default value.
-      mutating func clearEncryptedKeyPair() {self._encryptedKeyPair = nil}
+      /// Returns true if `x25519` has been explicitly set.
+      var hasX25519: Bool {return self._x25519 != nil}
+      /// Clears the value of `x25519`. Subsequent reads from it will return its default value.
+      mutating func clearX25519() {self._x25519 = nil}
+
+      /// The encrypted ed25519 key pair
+      var ed25519: Data {
+        get {return _ed25519 ?? Data()}
+        set {_ed25519 = newValue}
+      }
+      /// Returns true if `ed25519` has been explicitly set.
+      var hasEd25519: Bool {return self._ed25519 != nil}
+      /// Clears the value of `ed25519`. Subsequent reads from it will return its default value.
+      mutating func clearEd25519() {self._ed25519 = nil}
 
       var unknownFields = SwiftProtobuf.UnknownStorage()
 
       init() {}
 
       fileprivate var _publicKey: Data? = nil
-      fileprivate var _encryptedKeyPair: Data? = nil
+      fileprivate var _x25519: Data? = nil
+      fileprivate var _ed25519: Data? = nil
     }
 
     init() {}
@@ -2188,12 +2199,13 @@ extension SessionProtos_DataMessage.ClosedGroupControlMessage.KeyPairWrapper: Sw
   static let protoMessageName: String = SessionProtos_DataMessage.ClosedGroupControlMessage.protoMessageName + ".KeyPairWrapper"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "publicKey"),
-    2: .same(proto: "encryptedKeyPair"),
+    2: .same(proto: "x25519"),
+    3: .same(proto: "ed25519"),
   ]
 
   public var isInitialized: Bool {
     if self._publicKey == nil {return false}
-    if self._encryptedKeyPair == nil {return false}
+    if self._x25519 == nil {return false}
     return true
   }
 
@@ -2204,7 +2216,8 @@ extension SessionProtos_DataMessage.ClosedGroupControlMessage.KeyPairWrapper: Sw
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularBytesField(value: &self._publicKey) }()
-      case 2: try { try decoder.decodeSingularBytesField(value: &self._encryptedKeyPair) }()
+      case 2: try { try decoder.decodeSingularBytesField(value: &self._x25519) }()
+      case 3: try { try decoder.decodeSingularBytesField(value: &self._ed25519) }()
       default: break
       }
     }
@@ -2214,15 +2227,19 @@ extension SessionProtos_DataMessage.ClosedGroupControlMessage.KeyPairWrapper: Sw
     if let v = self._publicKey {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 1)
     }
-    if let v = self._encryptedKeyPair {
+    if let v = self._x25519 {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 2)
+    }
+    if let v = self._ed25519 {
+      try visitor.visitSingularBytesField(value: v, fieldNumber: 3)
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: SessionProtos_DataMessage.ClosedGroupControlMessage.KeyPairWrapper, rhs: SessionProtos_DataMessage.ClosedGroupControlMessage.KeyPairWrapper) -> Bool {
     if lhs._publicKey != rhs._publicKey {return false}
-    if lhs._encryptedKeyPair != rhs._encryptedKeyPair {return false}
+    if lhs._x25519 != rhs._x25519 {return false}
+    if lhs._ed25519 != rhs._ed25519 {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

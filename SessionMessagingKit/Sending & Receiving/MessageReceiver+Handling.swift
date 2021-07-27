@@ -422,10 +422,10 @@ extension MessageReceiver {
             return SNLog("Ignoring closed group encryption key pair from non-admin.")
         }
         // Find our wrapper and decrypt it if possible
-        guard let wrapper = wrappers.first(where: { $0.publicKey == userPublicKey }), let encryptedKeyPair = wrapper.encryptedKeyPair else { return }
+        guard let wrapper = wrappers.first(where: { $0.publicKey == userPublicKey }), let encryptedX25519KeyPair = wrapper.encryptedX25519KeyPair else { return }
         let plaintext: Data
         do {
-            plaintext = try MessageReceiver.decryptWithSessionProtocol(ciphertext: encryptedKeyPair, using: userKeyPair).plaintext
+            plaintext = try MessageReceiver.decryptWithSessionProtocol(ciphertext: encryptedX25519KeyPair, using: userKeyPair).plaintext
         } catch {
             return SNLog("Couldn't decrypt closed group encryption key pair.")
         }
