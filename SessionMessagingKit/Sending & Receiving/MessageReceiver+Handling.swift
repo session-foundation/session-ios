@@ -1,4 +1,5 @@
 import SignalCoreKit
+import Sodium
 
 extension MessageReceiver {
 
@@ -423,32 +424,61 @@ extension MessageReceiver {
         }
         // Find our wrapper and decrypt it if possible
         guard let wrapper = wrappers.first(where: { $0.publicKey == userPublicKey }), let encryptedX25519KeyPair = wrapper.encryptedX25519KeyPair else { return }
+        // Handle the X25519 key pair
+        let timestamp = handleEncryptedX25519KeyPair(encryptedX25519KeyPair, for: groupPublicKey, userKeyPair: userKeyPair, transaction: transaction)
+        // Handle the ED25519 key pair if needed
+        if let timestamp = timestamp, let encryptedED25519KeyPair = wrapper.encryptedED25519KeyPair {
+            handleEncryptedED25519KeyPair(encryptedED25519KeyPair, for: groupPublicKey, timestamp: timestamp, userKeyPair: userKeyPair, transaction: transaction)
+        }
+    }
+    
+    private static func handleEncryptedX25519KeyPair(_ encryptedX25519KeyPair: Data, for groupPublicKey: String, userKeyPair: ECKeyPair, transaction: Any) -> String? {
         let plaintext: Data
         do {
             plaintext = try MessageReceiver.decryptWithSessionProtocol(ciphertext: encryptedX25519KeyPair, using: userKeyPair).plaintext
         } catch {
-            return SNLog("Couldn't decrypt closed group encryption key pair.")
+            SNLog("Couldn't decrypt closed group encryption key pair."); return nil
         }
         // Parse it
         let proto: SNProtoKeyPair
         do {
             proto = try SNProtoKeyPair.parseData(plaintext)
         } catch {
-            return SNLog("Couldn't parse closed group encryption key pair.")
+            SNLog("Couldn't parse closed group encryption key pair."); return nil
         }
         let keyPair: ECKeyPair
         do {
             keyPair = try ECKeyPair(publicKeyData: proto.publicKey.removing05PrefixIfNeeded(), privateKeyData: proto.privateKey)
         } catch {
-            return SNLog("Couldn't parse closed group encryption key pair.")
+            SNLog("Couldn't parse closed group encryption key pair."); return nil
         }
         // Store it if needed
         let closedGroupEncryptionKeyPairs = Storage.shared.getClosedGroupEncryptionKeyPairs(for: groupPublicKey)
         guard !closedGroupEncryptionKeyPairs.contains(keyPair) else {
-            return SNLog("Ignoring duplicate closed group encryption key pair.")
+            SNLog("Ignoring duplicate closed group encryption key pair."); return nil
         }
-        Storage.shared.addClosedGroupEncryptionKeyPair(keyPair, for: groupPublicKey, using: transaction)
         SNLog("Received a new closed group encryption key pair.")
+        return Storage.shared.addClosedGroupEncryptionKeyPair(keyPair, for: groupPublicKey, using: transaction)
+    }
+    
+    private static func handleEncryptedED25519KeyPair(_ encryptedED25519KeyPair: Data, for groupPublicKey: String, timestamp: String, userKeyPair: ECKeyPair, transaction: Any) {
+        let plaintext: Data
+        do {
+            plaintext = try MessageReceiver.decryptWithSessionProtocol(ciphertext: encryptedED25519KeyPair, using: userKeyPair).plaintext
+        } catch {
+            return SNLog("Couldn't decrypt closed group authentication key pair.")
+        }
+        // Parse it
+        let proto: SNProtoKeyPair
+        do {
+            proto = try SNProtoKeyPair.parseData(plaintext)
+        } catch {
+            return SNLog("Couldn't parse closed group authentication key pair.")
+        }
+        let keyPair = Sign.KeyPair(publicKey: Bytes(proto.publicKey), secretKey: Bytes(proto.privateKey))
+        // Store it
+        SNLog("Received a new closed group authentication key pair.")
+        return Storage.shared.addClosedGroupAuthenticationKeyPair(keyPair, for: groupPublicKey, timestamp: timestamp, using: transaction)
     }
     
     private static func handleClosedGroupNameChanged(_ message: ClosedGroupControlMessage, using transaction: Any) {
