@@ -439,3 +439,9 @@ extension TruncatedList: Collection {
         return contents.index(after: i)
     }
 }
+
+public protocol IndividualCallNotificationInfo {
+    var remoteAddress: SignalServiceAddress { get }
+    var localId: UUID { get }
+    var offerMediaType: TSRecentCallOfferType { get }
+}

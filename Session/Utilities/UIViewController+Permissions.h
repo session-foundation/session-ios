@@ -11,6 +11,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)ows_askForCameraPermissions:(void (^)(BOOL granted))callback;
 - (void)ows_askForMediaLibraryPermissions:(void (^)(BOOL granted))callbackParam;
 - (void)ows_askForMicrophonePermissions:(void (^)(BOOL granted))callback;
+- (void)ows_showNoMicrophonePermissionActionSheet;
 
 @end
 

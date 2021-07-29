@@ -171,6 +171,11 @@ NS_ASSUME_NONNULL_BEGIN
     [[AVAudioSession sharedInstance] requestRecordPermission:callback];
 }
 
+- (void)ows_showNoMicrophonePermissionActionSheet
+{
+    // TODO: Implement this. Ideally we'd subclass the Sheet class to keep things consistent in terms of style.
+}
+
 @end
 
 NS_ASSUME_NONNULL_END

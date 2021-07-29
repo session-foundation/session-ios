@@ -219,11 +219,10 @@ import WebRTC
         sentAtTimestamp: UInt64,
         serverReceivedTimestamp: UInt64,
         serverDeliveryTimestamp: UInt64,
-        callType: SSKProtoCallMessageOfferType,
+        callType: SNProtoCallMessageOfferType,
         supportsMultiRing: Bool
     ) {
         AssertIsOnMainThread()
-        Logger.info("callId: \(callId), thread: \(thread.contactAddress)")
 
         // opaque is required. sdp is obsolete, but it might still come with opaque.
         guard let opaque = opaque else {
@@ -239,26 +238,6 @@ import WebRTC
         )
 
         BenchEventStart(title: "Incoming Call Connection", eventId: "call-\(newCall.individualCall.localId)")
-
-        guard tsAccountManager.isOnboarded() else {
-            Logger.warn("user is not onboarded, skipping call.")
-            let callRecord = TSCall(
-                callType: .incomingMissed,
-                offerType: newCall.individualCall.offerMediaType,
-                thread: thread,
-                sentAtTimestamp: sentAtTimestamp
-            )
-            assert(newCall.individualCall.callRecord == nil)
-            newCall.individualCall.callRecord = callRecord
-            databaseStorage.asyncWrite { transaction in
-                callRecord.anyInsert(transaction: transaction)
-            }
-
-            newCall.individualCall.state = .localFailure
-            callService.terminate(call: newCall)
-
-            return
-        }
 
         if let untrustedIdentity = self.identityManager.untrustedIdentityForSending(to: thread.contactAddress) {
             Logger.warn("missed a call due to untrusted identity: \(newCall)")
@@ -323,7 +302,7 @@ import WebRTC
                 call: newCall,
                 destinationDeviceId: sourceDevice,
                 hangupType: .needPermission,
-                deviceId: tsAccountManager.storedDeviceId(),
+                deviceId: 1,
                 useLegacyHangupMessage: true
             )
 
@@ -373,12 +352,8 @@ import WebRTC
             messageAgeSec = (serverDeliveryTimestamp - serverReceivedTimestamp) / 1000
         }
 
-        // Get the current local device Id, must be valid for lifetime of the call.
-        let localDeviceId = tsAccountManager.storedDeviceId()
-        let isPrimaryDevice = tsAccountManager.isPrimaryDevice
-
         do {
-            try callManager.receivedOffer(call: newCall, sourceDevice: sourceDevice, callId: callId, opaque: opaque, messageAgeSec: messageAgeSec, callMediaType: newCall.individualCall.offerMediaType.asCallMediaType, localDevice: localDeviceId, remoteSupportsMultiRing: supportsMultiRing, isLocalDevicePrimary: isPrimaryDevice, senderIdentityKey: identityKeys.contactIdentityKey, receiverIdentityKey: identityKeys.localIdentityKey)
+            try callManager.receivedOffer(call: newCall, sourceDevice: sourceDevice, callId: callId, opaque: opaque, messageAgeSec: messageAgeSec, callMediaType: newCall.individualCall.offerMediaType.asCallMediaType, localDevice: 1, remoteSupportsMultiRing: supportsMultiRing, isLocalDevicePrimary: true, senderIdentityKey: identityKeys.contactIdentityKey, receiverIdentityKey: identityKeys.localIdentityKey)
         } catch {
             handleFailedCall(failedCall: newCall, error: error)
         }
@@ -389,7 +364,6 @@ import WebRTC
      */
     public func handleReceivedAnswer(thread: TSContactThread, callId: UInt64, sourceDevice: UInt32, sdp: String?, opaque: Data?, supportsMultiRing: Bool) {
         AssertIsOnMainThread()
-        Logger.info("callId: \(callId), thread: \(thread.contactAddress)")
 
         // opaque is required. sdp is obsolete, but it might still come with opaque.
         guard let opaque = opaque else {
@@ -420,7 +394,6 @@ import WebRTC
      */
     public func handleReceivedIceCandidates(thread: TSContactThread, callId: UInt64, sourceDevice: UInt32, candidates: [SSKProtoCallMessageIceUpdate]) {
         AssertIsOnMainThread()
-        Logger.info("callId: \(callId), thread: \(thread.contactAddress)")
 
         let iceCandidates = candidates.filter { $0.id == callId && $0.opaque != nil }.map { $0.opaque! }
 
@@ -443,7 +416,6 @@ import WebRTC
      */
     public func handleReceivedHangup(thread: TSContactThread, callId: UInt64, sourceDevice: UInt32, type: SSKProtoCallMessageHangupType, deviceId: UInt32) {
         AssertIsOnMainThread()
-        Logger.info("callId: \(callId), thread: \(thread.contactAddress)")
 
         let hangupType: HangupType
         switch type {
@@ -469,7 +441,6 @@ import WebRTC
      */
     public func handleReceivedBusy(thread: TSContactThread, callId: UInt64, sourceDevice: UInt32) {
         AssertIsOnMainThread()
-        Logger.info("callId: \(callId), thread: \(thread.contactAddress)")
 
         do {
             try callManager.receivedBusy(sourceDevice: sourceDevice, callId: callId)
@@ -827,7 +798,7 @@ import WebRTC
         Logger.info("shouldSendOffer")
 
         firstly { () throws -> Promise<Void> in
-            let offerBuilder = SSKProtoCallMessageOffer.builder(id: callId)
+            let offerBuilder = SNProtoCallMessageOffer.builder(id: callId)
             offerBuilder.setOpaque(opaque)
             switch callMediaType {
             case .audioCall: offerBuilder.setType(.offerAudioCall)
@@ -850,7 +821,7 @@ import WebRTC
         Logger.info("shouldSendAnswer")
 
         firstly { () throws -> Promise<Void> in
-            let answerBuilder = SSKProtoCallMessageAnswer.builder(id: callId)
+            let answerBuilder = SNProtoCallMessageAnswer.builder(id: callId)
             answerBuilder.setOpaque(opaque)
             let callMessage = OWSOutgoingCallMessage(thread: call.individualCall.thread, answerMessage: try answerBuilder.build(), destinationDeviceId: NSNumber(value: destinationDeviceId))
             return messageSender.sendMessage(.promise, callMessage.asPreparer)
@@ -869,11 +840,11 @@ import WebRTC
         Logger.info("shouldSendIceCandidates")
 
         firstly { () throws -> Promise<Void> in
-            var iceUpdateProtos = [SSKProtoCallMessageIceUpdate]()
+            var iceUpdateProtos = [SNProtoCallMessageIceUpdate]()
 
             for iceCandidate in candidates {
-                let iceUpdateProto: SSKProtoCallMessageIceUpdate
-                let iceUpdateBuilder = SSKProtoCallMessageIceUpdate.builder(id: callId)
+                let iceUpdateProto: SNProtoCallMessageIceUpdate
+                let iceUpdateBuilder = SNProtoCallMessageIceUpdate.builder(id: callId)
                 iceUpdateBuilder.setOpaque(iceCandidate)
 
                 iceUpdateProto = try iceUpdateBuilder.build()
@@ -901,7 +872,7 @@ import WebRTC
         Logger.info("shouldSendHangup")
 
         firstly { () throws -> Promise<Void> in
-            let hangupBuilder = SSKProtoCallMessageHangup.builder(id: callId)
+            let hangupBuilder = SNProtoCallMessageHangup.builder(id: callId)
 
             switch hangupType {
             case .normal: hangupBuilder.setType(.hangupNormal)
@@ -939,7 +910,7 @@ import WebRTC
         Logger.info("shouldSendBusy")
 
         firstly { () throws -> Promise<Void> in
-            let busyBuilder = SSKProtoCallMessageBusy.builder(id: callId)
+            let busyBuilder = SNProtoCallMessageBusy.builder(id: callId)
             let callMessage = OWSOutgoingCallMessage(thread: call.individualCall.thread, busyMessage: try busyBuilder.build(), destinationDeviceId: NSNumber(value: destinationDeviceId))
             return messageSender.sendMessage(.promise, callMessage.asPreparer)
         }.done {
