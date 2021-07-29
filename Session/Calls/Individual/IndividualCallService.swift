@@ -151,8 +151,8 @@ import WebRTC
                 thread: call.individualCall.thread,
                 sentAtTimestamp: call.individualCall.sentAtTimestamp
             )
-            databaseStorage.asyncWrite { transaction in
-                callRecord.anyInsert(transaction: transaction)
+            Storage.write { transaction in
+                callRecord.save(with: transaction)
             }
             call.individualCall.callRecord = callRecord
         } else {
@@ -244,14 +244,15 @@ import WebRTC
 
             let callerName = self.contactsManager.displayName(for: thread.contactAddress)
 
+            let notificationPresenter = AppEnvironment.shared.notificationPresenter
             switch untrustedIdentity.verificationState {
             case .verified:
                 owsFailDebug("shouldn't have missed a call due to untrusted identity if the identity is verified")
-                self.notificationPresenter.presentMissedCall(newCall.individualCall, callerName: callerName)
+                notificationPresenter.presentMissedCall(newCall.individualCall, callerName: callerName)
             case .default:
-                self.notificationPresenter.presentMissedCallBecauseOfNewIdentity(call: newCall.individualCall, callerName: callerName)
+                notificationPresenter.presentMissedCallBecauseOfNewIdentity(call: newCall.individualCall, callerName: callerName)
             case .noLongerVerified:
-                self.notificationPresenter.presentMissedCallBecauseOfNoLongerVerifiedIdentity(call: newCall.individualCall, callerName: callerName)
+                notificationPresenter.presentMissedCallBecauseOfNoLongerVerifiedIdentity(call: newCall.individualCall, callerName: callerName)
             }
 
             let callRecord = TSCall(
