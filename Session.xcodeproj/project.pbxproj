@@ -168,6 +168,7 @@
 		B8214A2B25D63EB9009C0F2A /* MessagesTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8214A2A25D63EB9009C0F2A /* MessagesTableView.swift */; };
 		B822F9BD26B26CA2003B8CB8 /* TSCall.m in Sources */ = {isa = PBXBuildFile; fileRef = B822F9BC26B26CA2003B8CB8 /* TSCall.m */; };
 		B822F9BE26B26CA8003B8CB8 /* TSCall.h in Headers */ = {isa = PBXBuildFile; fileRef = B822F9BB26B26C82003B8CB8 /* TSCall.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		B822F9C526B27C9B003B8CB8 /* Dependencies+MainApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B822F9C426B27C9B003B8CB8 /* Dependencies+MainApp.swift */; };
 		B8269D2925C7A4B400488AB4 /* InputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8269D2825C7A4B400488AB4 /* InputView.swift */; };
 		B8269D3325C7A8C600488AB4 /* InputViewButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8269D3225C7A8C600488AB4 /* InputViewButton.swift */; };
 		B8269D3D25C7B34D00488AB4 /* InputTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8269D3C25C7B34D00488AB4 /* InputTextView.swift */; };
@@ -1168,6 +1169,7 @@
 		B822F9BB26B26C82003B8CB8 /* TSCall.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TSCall.h; sourceTree = "<group>"; };
 		B822F9BC26B26CA2003B8CB8 /* TSCall.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TSCall.m; sourceTree = "<group>"; };
 		B822F9C326B275FA003B8CB8 /* INSTRUCTIONS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = INSTRUCTIONS.md; sourceTree = "<group>"; };
+		B822F9C426B27C9B003B8CB8 /* Dependencies+MainApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Dependencies+MainApp.swift"; sourceTree = "<group>"; };
 		B8269D2825C7A4B400488AB4 /* InputView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputView.swift; sourceTree = "<group>"; };
 		B8269D3225C7A8C600488AB4 /* InputViewButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputViewButton.swift; sourceTree = "<group>"; };
 		B8269D3C25C7B34D00488AB4 /* InputTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputTextView.swift; sourceTree = "<group>"; };
@@ -3478,6 +3480,7 @@
 				76EB03C318170B33006006FC /* AppDelegate.m */,
 				C3AAFFF125AE99710089E6DD /* AppDelegate.swift */,
 				34D99CE3217509C1000AFB39 /* AppEnvironment.swift */,
+				B822F9C426B27C9B003B8CB8 /* Dependencies+MainApp.swift */,
 				B81D260326158DF5004D1FE1 /* Certificates */,
 				B8FF8E6025C10D8B004D1F22 /* Countries */,
 				34330A581E7875FB00DF2FB9 /* Fonts */,
@@ -4930,6 +4933,7 @@
 				45A6DAD61EBBF85500893231 /* ReminderView.swift in Sources */,
 				B82B408E239DC00D00A248E7 /* DisplayNameVC.swift in Sources */,
 				B8214A2B25D63EB9009C0F2A /* MessagesTableView.swift in Sources */,
+				B822F9C526B27C9B003B8CB8 /* Dependencies+MainApp.swift in Sources */,
 				B835246E25C38ABF0089A44F /* ConversationVC.swift in Sources */,
 				B8AF4BB426A5204600583500 /* SendSeedModal.swift in Sources */,
 				B821494625D4D6FF009C0F2A /* URLModal.swift in Sources */,

@@ -3,7 +3,7 @@
 //
 
 import Foundation
-import SignalUtilitiesKit
+import WebRTC
 import SignalUtilitiesKit
 
 @objc public class AppEnvironment: NSObject {
@@ -25,6 +25,15 @@ import SignalUtilitiesKit
         }
     }
 
+    @objc
+    public var callMessageHandlerRef: WebRTCCallMessageHandler
+
+    @objc
+    public var callServiceRef: CallService
+
+    @objc
+    public var outboundIndividualCallInitiatorRef: OutboundIndividualCallInitiator
+    
     @objc
     public var accountManager: AccountManager
 
