@@ -1167,6 +1167,7 @@
 		B8214A2A25D63EB9009C0F2A /* MessagesTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesTableView.swift; sourceTree = "<group>"; };
 		B822F9BB26B26C82003B8CB8 /* TSCall.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TSCall.h; sourceTree = "<group>"; };
 		B822F9BC26B26CA2003B8CB8 /* TSCall.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TSCall.m; sourceTree = "<group>"; };
+		B822F9C326B275FA003B8CB8 /* INSTRUCTIONS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = INSTRUCTIONS.md; sourceTree = "<group>"; };
 		B8269D2825C7A4B400488AB4 /* InputView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputView.swift; sourceTree = "<group>"; };
 		B8269D3225C7A8C600488AB4 /* InputViewButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputViewButton.swift; sourceTree = "<group>"; };
 		B8269D3C25C7B34D00488AB4 /* InputTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputTextView.swift; sourceTree = "<group>"; };
@@ -2200,6 +2201,7 @@
 		B882A74F26AE878300B5AB69 /* Calls */ = {
 			isa = PBXGroup;
 			children = (
+				B822F9C326B275FA003B8CB8 /* INSTRUCTIONS.md */,
 				B882A75026AE878300B5AB69 /* CallService.swift */,
 				B882A75126AE878300B5AB69 /* Group */,
 				B882A75426AE878300B5AB69 /* CallAudioService.swift */,
