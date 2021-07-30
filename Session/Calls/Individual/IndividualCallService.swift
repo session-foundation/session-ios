@@ -69,8 +69,8 @@ import WebRTC
             thread: call.individualCall.thread,
             sentAtTimestamp: call.individualCall.sentAtTimestamp
         )
-        databaseStorage.asyncWrite { transaction in
-            callRecord.anyInsert(transaction: transaction)
+        Storage.write { transaction in
+            callRecord.save(with: transaction)
         }
         call.individualCall.callRecord = callRecord
 
@@ -105,8 +105,8 @@ import WebRTC
             thread: call.individualCall.thread,
             sentAtTimestamp: call.individualCall.sentAtTimestamp
         )
-        databaseStorage.asyncWrite { transaction in
-            callRecord.anyInsert(transaction: transaction)
+        Storage.write { transaction in
+            callRecord.save(with: transaction)
         }
         call.individualCall.callRecord = callRecord
 
@@ -177,15 +177,9 @@ import WebRTC
     // MARK: - Signaling Functions
 
     private func allowsInboundCallsInThread(_ thread: TSContactThread) -> Bool {
-        return databaseStorage.read { transaction in
-            // IFF one of the following things is true, we can handle inbound call offers
-            // * The thread is in our profile whitelist
-            // * The thread belongs to someone in our system contacts
-            // * The thread existed before messages requests
-            return self.profileManager.isThread(inProfileWhitelist: thread, transaction: transaction)
-                || self.contactsManager.isSystemContact(address: thread.contactAddress)
-                || GRDBThreadFinder.isPreMessageRequestsThread(thread, transaction: transaction.unwrapGrdbRead)
-        }
+        // TODO: We might want to add some conditions here, like whether people have messaged
+        // eachother, whether the contact is blocked, etc.
+        return true
     }
 
     private struct CallIdentityKeys {
@@ -194,17 +188,16 @@ import WebRTC
     }
 
     private func getIdentityKeys(thread: TSContactThread) -> CallIdentityKeys? {
-        return databaseStorage.read { transaction -> CallIdentityKeys? in
-            guard let localIdentityKey = self.identityManager.identityKeyPair(with: transaction)?.publicKey else {
-                owsFailDebug("missing localIdentityKey")
-                return nil
-            }
-            guard let contactIdentityKey = self.identityManager.identityKey(for: thread.contactAddress, transaction: transaction) else {
-                owsFailDebug("missing contactIdentityKey")
-                return nil
-            }
-            return CallIdentityKeys(localIdentityKey: localIdentityKey, contactIdentityKey: contactIdentityKey)
+        let identityManager = OWSIdentityManager.shared()
+        guard let localIdentityKey = identityManager.identityKeyPair()?.publicKey else {
+            owsFailDebug("missing localIdentityKey")
+            return nil
         }
+        guard let contactIdentityKey = identityManager.recipientIdentity(forRecipientId: thread.contactSessionID())?.identityKey else {
+            owsFailDebug("Looks like we're not actually maintaining the identity key for contacts. How will we fix that given that CallIdentityKeys wants this?")
+            return nil
+        }
+        return CallIdentityKeys(localIdentityKey: localIdentityKey, contactIdentityKey: contactIdentityKey)
     }
 
     /**
@@ -239,6 +232,8 @@ import WebRTC
 
         BenchEventStart(title: "Incoming Call Connection", eventId: "call-\(newCall.individualCall.localId)")
 
+        /*
+         * We might not need the below code, since we don't have the concept of untrusted identities
         if let untrustedIdentity = self.identityManager.untrustedIdentityForSending(to: thread.contactAddress) {
             Logger.warn("missed a call due to untrusted identity: \(newCall)")
 
@@ -272,6 +267,7 @@ import WebRTC
 
             return
         }
+         */
 
         guard let identityKeys = getIdentityKeys(thread: thread) else {
             owsFailDebug("missing identity keys, skipping call.")
@@ -283,8 +279,8 @@ import WebRTC
             )
             assert(newCall.individualCall.callRecord == nil)
             newCall.individualCall.callRecord = callRecord
-            databaseStorage.write { transaction in
-                callRecord.anyInsert(transaction: transaction)
+            Storage.write { transaction in
+                callRecord.save(with: transaction)
             }
 
             newCall.individualCall.state = .localFailure
@@ -294,7 +290,7 @@ import WebRTC
         }
 
         guard allowsInboundCallsInThread(thread) else {
-            Logger.info("Ignoring call offer from \(thread.contactAddress) due to insufficient permissions.")
+            Logger.info("Ignoring call offer from \(thread.contactSessionID()) due to insufficient permissions.")
 
             // Send the need permission message to the caller, so they know why we rejected their call.
             callManager(
@@ -318,8 +314,8 @@ import WebRTC
             )
             assert(newCall.individualCall.callRecord == nil)
             newCall.individualCall.callRecord = callRecord
-            databaseStorage.asyncWrite { transaction in
-                callRecord.anyInsert(transaction: transaction)
+            Storage.write { transaction in
+                callRecord.save(with: transaction)
             }
 
             newCall.individualCall.state = .localFailure
@@ -469,13 +465,13 @@ import WebRTC
 
             var isUnknownCaller = false
             if call.individualCall.direction == .incoming {
-                isUnknownCaller = !self.contactsManagerImpl.isSystemContactWithSignalAccount(call.individualCall.thread.contactAddress)
+                isUnknownCaller = !Storage.shared.getAllContacts().contains { $0.sessionID == call.individualCall.thread.contactSessionID() }
                 if isUnknownCaller {
                     Logger.warn("Using relay server because remote user is an unknown caller")
                 }
             }
 
-            let useTurnOnly = isUnknownCaller || Self.preferences.doCallsHideIPAddress()
+            let useTurnOnly = isUnknownCaller
 
             let useLowBandwidth = CallService.useLowBandwidthWithSneakyTransaction()
             Logger.info("Configuring call for \(useLowBandwidth ? "low" : "standard") bandwidth")
@@ -668,7 +664,9 @@ import WebRTC
                     thread: call.individualCall.thread,
                     sentAtTimestamp: call.individualCall.sentAtTimestamp
                 )
-                databaseStorage.asyncWrite { callRecord.anyInsert(transaction: $0) }
+                Storage.write { transaction in
+                    callRecord.save(with: transaction)
+                }
                 call.individualCall.callRecord = callRecord
                 callUIAdapter.reportMissedCall(call)
             }
@@ -808,10 +806,10 @@ import WebRTC
             let callMessage = OWSOutgoingCallMessage(thread: call.individualCall.thread, offerMessage: try offerBuilder.build(), destinationDeviceId: NSNumber(value: destinationDeviceId))
             return messageSender.sendMessage(.promise, callMessage.asPreparer)
         }.done {
-            Logger.info("sent offer message to \(call.individualCall.thread.contactAddress) device: \((destinationDeviceId != nil) ? String(destinationDeviceId!) : "nil")")
+            Logger.info("sent offer message to \(call.individualCall.thread.contactSessionID()) device: \((destinationDeviceId != nil) ? String(destinationDeviceId!) : "nil")")
             try self.callManager.signalingMessageDidSend(callId: callId)
         }.catch { error in
-            Logger.error("failed to send offer message to \(call.individualCall.thread.contactAddress) with error: \(error)")
+            Logger.error("failed to send offer message to \(call.individualCall.thread.contactSessionID()) with error: \(error)")
             self.callManager.signalingMessageDidFail(callId: callId)
         }
     }
@@ -827,10 +825,10 @@ import WebRTC
             let callMessage = OWSOutgoingCallMessage(thread: call.individualCall.thread, answerMessage: try answerBuilder.build(), destinationDeviceId: NSNumber(value: destinationDeviceId))
             return messageSender.sendMessage(.promise, callMessage.asPreparer)
         }.done {
-            Logger.debug("sent answer message to \(call.individualCall.thread.contactAddress) device: \((destinationDeviceId != nil) ? String(destinationDeviceId!) : "nil")")
+            Logger.debug("sent answer message to \(call.individualCall.thread.contactSessionID()) device: \((destinationDeviceId != nil) ? String(destinationDeviceId!) : "nil")")
             try self.callManager.signalingMessageDidSend(callId: callId)
         }.catch { error in
-            Logger.error("failed to send answer message to \(call.individualCall.thread.contactAddress) with error: \(error)")
+            Logger.error("failed to send answer message to \(call.individualCall.thread.contactSessionID()) with error: \(error)")
             self.callManager.signalingMessageDidFail(callId: callId)
         }
     }
@@ -859,10 +857,10 @@ import WebRTC
             let callMessage = OWSOutgoingCallMessage(thread: call.individualCall.thread, iceUpdateMessages: iceUpdateProtos, destinationDeviceId: NSNumber(value: destinationDeviceId))
             return messageSender.sendMessage(.promise, callMessage.asPreparer)
         }.done {
-            Logger.debug("sent ice update message to \(call.individualCall.thread.contactAddress) device: \((destinationDeviceId != nil) ? String(destinationDeviceId!) : "nil")")
+            Logger.debug("sent ice update message to \(call.individualCall.thread.contactSessionID()) device: \((destinationDeviceId != nil) ? String(destinationDeviceId!) : "nil")")
             try self.callManager.signalingMessageDidSend(callId: callId)
         }.catch { error in
-            Logger.error("failed to send ice update message to \(call.individualCall.thread.contactAddress) with error: \(error)")
+            Logger.error("failed to send ice update message to \(call.individualCall.thread.contactSessionID()) with error: \(error)")
             callManager.signalingMessageDidFail(callId: callId)
         }
     }
@@ -897,10 +895,10 @@ import WebRTC
             }
             return messageSender.sendMessage(.promise, callMessage.asPreparer)
         }.done {
-            Logger.debug("sent hangup message to \(call.individualCall.thread.contactAddress) device: \((destinationDeviceId != nil) ? String(destinationDeviceId!) : "nil")")
+            Logger.debug("sent hangup message to \(call.individualCall.thread.contactSessionID()) device: \((destinationDeviceId != nil) ? String(destinationDeviceId!) : "nil")")
             try self.callManager.signalingMessageDidSend(callId: callId)
         }.catch { error in
-            Logger.error("failed to send hangup message to \(call.individualCall.thread.contactAddress) with error: \(error)")
+            Logger.error("failed to send hangup message to \(call.individualCall.thread.contactSessionID()) with error: \(error)")
             self.callManager.signalingMessageDidFail(callId: callId)
         }
     }
@@ -915,10 +913,10 @@ import WebRTC
             let callMessage = OWSOutgoingCallMessage(thread: call.individualCall.thread, busyMessage: try busyBuilder.build(), destinationDeviceId: NSNumber(value: destinationDeviceId))
             return messageSender.sendMessage(.promise, callMessage.asPreparer)
         }.done {
-            Logger.debug("sent busy message to \(call.individualCall.thread.contactAddress) device: \((destinationDeviceId != nil) ? String(destinationDeviceId!) : "nil")")
+            Logger.debug("sent busy message to \(call.individualCall.thread.contactSessionID()) device: \((destinationDeviceId != nil) ? String(destinationDeviceId!) : "nil")")
             try self.callManager.signalingMessageDidSend(callId: callId)
         }.catch { error in
-            Logger.error("failed to send busy message to \(call.individualCall.thread.contactAddress) with error: \(error)")
+            Logger.error("failed to send busy message to \(call.individualCall.thread.contactSessionID()) with error: \(error)")
             self.callManager.signalingMessageDidFail(callId: callId)
         }
     }
@@ -947,8 +945,8 @@ import WebRTC
 
         switch callRecord.callType {
         case .incomingMissed:
-            databaseStorage.asyncWrite { transaction in
-                callRecord.anyUpsert(transaction: transaction)
+            Storage.write { transaction in
+                callRecord.save(with: transaction)
             }
             callUIAdapter.reportMissedCall(call)
         case .incomingIncomplete, .incoming:
@@ -958,12 +956,12 @@ import WebRTC
             callRecord.updateCallType(.outgoingMissed)
         case .incomingMissedBecauseOfChangedIdentity, .incomingDeclined, .outgoingMissed, .outgoing, .incomingAnsweredElsewhere, .incomingDeclinedElsewhere, .incomingBusyElsewhere:
             owsFailDebug("unexpected RPRecentCallType: \(callRecord.callType)")
-            databaseStorage.asyncWrite { transaction in
-                callRecord.anyUpsert(transaction: transaction)
+            Storage.write { transaction in
+                callRecord.save(with: transaction)
             }
         @unknown default:
-            databaseStorage.asyncWrite { transaction in
-                callRecord.anyUpsert(transaction: transaction)
+            Storage.write { transaction in
+                callRecord.save(with: transaction)
             }
             owsFailDebug("unknown RPRecentCallType: \(callRecord.callType)")
         }
@@ -983,7 +981,9 @@ import WebRTC
                 sentAtTimestamp: call.individualCall.sentAtTimestamp
             )
             call.individualCall.callRecord = callRecord
-            databaseStorage.asyncWrite { callRecord.anyInsert(transaction: $0) }
+            Storage.write { transaction in
+                callRecord.save(with: transaction)
+            }
         }
 
         call.individualCall.state = .answeredElsewhere
@@ -1008,7 +1008,9 @@ import WebRTC
                 sentAtTimestamp: call.individualCall.sentAtTimestamp
             )
             call.individualCall.callRecord = callRecord
-            databaseStorage.asyncWrite { callRecord.anyInsert(transaction: $0) }
+            Storage.write { transaction in
+                callRecord.save(with: transaction)
+            }
         }
 
         call.individualCall.state = .declinedElsewhere
@@ -1033,7 +1035,9 @@ import WebRTC
                 sentAtTimestamp: call.individualCall.sentAtTimestamp
             )
             call.individualCall.callRecord = callRecord
-            databaseStorage.asyncWrite { callRecord.anyInsert(transaction: $0) }
+            Storage.write { transaction in
+                callRecord.save(with: transaction)
+            }
         }
 
         call.individualCall.state = .busyElsewhere

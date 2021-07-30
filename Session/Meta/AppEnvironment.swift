@@ -59,6 +59,9 @@ import SignalUtilitiesKit
     public var backupLazyRestore: BackupLazyRestore
 
     private override init() {
+        self.callMessageHandlerRef = WebRTCCallMessageHandler()
+        self.callServiceRef = CallService()
+        self.outboundIndividualCallInitiatorRef = OutboundIndividualCallInitiator()
         self.accountManager = AccountManager()
         self.notificationPresenter = NotificationPresenter()
         self.pushRegistrationManager = PushRegistrationManager()

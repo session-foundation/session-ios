@@ -20,7 +20,7 @@ public class WebRTCCallMessageHandler: NSObject, OWSCallMessageHandler {
 
     public func receivedOffer(
         _ offer: SNProtoCallMessageOffer,
-        from caller: SignalServiceAddress,
+        from caller: String,
         sourceDevice: UInt32,
         sentAtTimestamp: UInt64,
         serverReceivedTimestamp: UInt64,
@@ -31,13 +31,13 @@ public class WebRTCCallMessageHandler: NSObject, OWSCallMessageHandler {
 
         let callType: SNProtoCallMessageOfferType
         if offer.hasType {
-            callType = offer.unwrappedType
+            callType = SNProtoCallMessageOfferType(rawValue: offer.type.rawValue)!
         } else {
             // The type is not defined so assume the default, audio.
             callType = .offerAudioCall
         }
 
-        let thread = TSContactThread.getOrCreateThread(contactAddress: caller)
+        let thread = TSContactThread.getOrCreateThread(contactSessionID: caller)
         self.callService.individualCallService.handleReceivedOffer(
             thread: thread,
             callId: offer.id,
@@ -52,10 +52,10 @@ public class WebRTCCallMessageHandler: NSObject, OWSCallMessageHandler {
         )
     }
 
-    public func receivedAnswer(_ answer: SNProtoCallMessageAnswer, from caller: SignalServiceAddress, sourceDevice: UInt32, supportsMultiRing: Bool) {
+    public func receivedAnswer(_ answer: SNProtoCallMessageAnswer, from caller: String, sourceDevice: UInt32, supportsMultiRing: Bool) {
         AssertIsOnMainThread()
 
-        let thread = TSContactThread.getOrCreateThread(contactAddress: caller)
+        let thread = TSContactThread.getOrCreateThread(contactSessionID: caller)
         self.callService.individualCallService.handleReceivedAnswer(
             thread: thread,
             callId: answer.id,
@@ -66,10 +66,10 @@ public class WebRTCCallMessageHandler: NSObject, OWSCallMessageHandler {
         )
     }
 
-    public func receivedIceUpdate(_ iceUpdate: [SNProtoCallMessageIceUpdate], from caller: SignalServiceAddress, sourceDevice: UInt32) {
+    public func receivedIceUpdate(_ iceUpdate: [SNProtoCallMessageIceUpdate], from caller: String, sourceDevice: UInt32) {
         AssertIsOnMainThread()
 
-        let thread = TSContactThread.getOrCreateThread(contactAddress: caller)
+        let thread = TSContactThread.getOrCreateThread(contactSessionID: caller)
         self.callService.individualCallService.handleReceivedIceCandidates(
             thread: thread,
             callId: iceUpdate[0].id,
@@ -78,7 +78,7 @@ public class WebRTCCallMessageHandler: NSObject, OWSCallMessageHandler {
         )
     }
 
-    public func receivedHangup(_ hangup: SNProtoCallMessageHangup, from caller: SignalServiceAddress, sourceDevice: UInt32) {
+    public func receivedHangup(_ hangup: SNProtoCallMessageHangup, from caller: String, sourceDevice: UInt32) {
         AssertIsOnMainThread()
 
         // deviceId is optional and defaults to 0.
@@ -86,7 +86,7 @@ public class WebRTCCallMessageHandler: NSObject, OWSCallMessageHandler {
 
         let type: SNProtoCallMessageHangupType
         if hangup.hasType {
-            type = hangup.unwrappedType
+            type = SNProtoCallMessageHangupType(rawValue: hangup.type.rawValue)!
 
             if hangup.hasDeviceID {
                 deviceId = hangup.deviceID
@@ -96,7 +96,7 @@ public class WebRTCCallMessageHandler: NSObject, OWSCallMessageHandler {
             type = .hangupNormal
         }
 
-        let thread = TSContactThread.getOrCreateThread(contactAddress: caller)
+        let thread = TSContactThread.getOrCreateThread(contactSessionID: caller)
         self.callService.individualCallService.handleReceivedHangup(
             thread: thread,
             callId: hangup.id,
@@ -106,10 +106,10 @@ public class WebRTCCallMessageHandler: NSObject, OWSCallMessageHandler {
         )
     }
 
-    public func receivedBusy(_ busy: SNProtoCallMessageBusy, from caller: SignalServiceAddress, sourceDevice: UInt32) {
+    public func receivedBusy(_ busy: SNProtoCallMessageBusy, from caller: String, sourceDevice: UInt32) {
         AssertIsOnMainThread()
 
-        let thread = TSContactThread.getOrCreateThread(contactAddress: caller)
+        let thread = TSContactThread.getOrCreateThread(contactSessionID: caller)
         self.callService.individualCallService.handleReceivedBusy(
             thread: thread,
             callId: busy.id,
@@ -119,7 +119,7 @@ public class WebRTCCallMessageHandler: NSObject, OWSCallMessageHandler {
 
     public func receivedOpaque(
         _ opaque: SNProtoCallMessageOpaque,
-        from caller: SignalServiceAddress,
+        from caller: String,
         sourceDevice: UInt32,
         serverReceivedTimestamp: UInt64,
         serverDeliveryTimestamp: UInt64
@@ -131,19 +131,15 @@ public class WebRTCCallMessageHandler: NSObject, OWSCallMessageHandler {
             return owsFailDebug("Received opaque call message without data")
         }
 
-        guard let senderUuid = caller.uuid else {
-            return owsFailDebug("Received opaque call message from sender without UUID")
-        }
-
         var messageAgeSec: UInt64 = 0
         if serverReceivedTimestamp > 0 && serverDeliveryTimestamp >= serverReceivedTimestamp {
             messageAgeSec = (serverDeliveryTimestamp - serverReceivedTimestamp) / 1000
         }
 
         self.callService.callManager.receivedCallMessage(
-            senderUuid: senderUuid,
+            senderUuid: caller,
             senderDeviceId: sourceDevice,
-            localDeviceId: TSAccountManager.shared.storedDeviceId(),
+            localDeviceId: 1,
             message: message,
             messageAgeSec: messageAgeSec
         )
@@ -154,11 +150,11 @@ public class WebRTCCallMessageHandler: NSObject, OWSCallMessageHandler {
         for groupThread: TSGroupThread,
         serverReceivedTimestamp: UInt64) {
 
-        Logger.info("Received group call update for thread \(groupThread.uniqueId)")
+        Logger.info("Received group call update for thread \(groupThread.uniqueId!)")
         callService.groupCallMessageHandler.handleUpdateMessage(update, for: groupThread, serverReceivedTimestamp: serverReceivedTimestamp)
     }
 
-    public func externallyHandleCallMessage(envelope: SNProtoEnvelope, plaintextData: Data, wasReceivedByUD: Bool, serverDeliveryTimestamp: UInt64, transaction: SDSAnyWriteTransaction) -> Bool {
+    public func externallyHandleCallMessage(envelope: SNProtoEnvelope, plaintextData: Data, wasReceivedByUD: Bool, serverDeliveryTimestamp: UInt64, transaction: YapDatabaseReadWriteTransaction) -> Bool {
         return false
     }
 }

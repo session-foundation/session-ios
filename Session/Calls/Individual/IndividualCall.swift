@@ -52,19 +52,11 @@ public class IndividualCall: NSObject, IndividualCallNotificationInfo {
     // Mark -
 
     var backgroundTask: OWSBackgroundTask? {
-        didSet {
-            AssertIsOnMainThread()
-
-            Logger.info("")
-        }
+        didSet { AssertIsOnMainThread() }
     }
 
     var callId: UInt64? {
-        didSet {
-            AssertIsOnMainThread()
-
-            Logger.info("")
-        }
+        didSet { AssertIsOnMainThread() }
     }
 
     let callAdapterType: CallAdapterType
@@ -72,8 +64,6 @@ public class IndividualCall: NSObject, IndividualCallNotificationInfo {
     weak var remoteVideoTrack: RTCVideoTrack? {
         didSet {
             AssertIsOnMainThread()
-
-            Logger.info("")
             delegate?.individualCallRemoteVideoMuteDidChange(self, isVideoMuted: !isRemoteVideoEnabled)
         }
     }
@@ -81,8 +71,6 @@ public class IndividualCall: NSObject, IndividualCallNotificationInfo {
     var isRemoteVideoEnabled = false {
         didSet {
             AssertIsOnMainThread()
-
-            Logger.info("\(isRemoteVideoEnabled)")
             delegate?.individualCallRemoteVideoMuteDidChange(self, isVideoMuted: !isRemoteVideoEnabled)
         }
     }
@@ -90,8 +78,6 @@ public class IndividualCall: NSObject, IndividualCallNotificationInfo {
     var isRemoteSharingScreen = false {
         didSet {
             AssertIsOnMainThread()
-
-            Logger.info("\(isRemoteSharingScreen)")
             delegate?.individualCallRemoteSharingScreenDidChange(self, isRemoteSharingScreen: isRemoteSharingScreen)
         }
     }
@@ -191,7 +177,6 @@ public class IndividualCall: NSObject, IndividualCallNotificationInfo {
     }
 
     deinit {
-        Logger.debug("")
         if !isEnded {
             owsFailDebug("isEnded was unexpectedly false")
         }
