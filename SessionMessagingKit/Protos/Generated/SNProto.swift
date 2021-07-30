@@ -2813,6 +2813,100 @@ extension SNProtoDataMessageClosedGroupControlMessage.SNProtoDataMessageClosedGr
 
 #endif
 
+// MARK: - SNProtoDataMessageGroupCallUpdate
+
+@objc public class SNProtoDataMessageGroupCallUpdate: NSObject {
+
+    // MARK: - SNProtoDataMessageGroupCallUpdateBuilder
+
+    @objc public class func builder() -> SNProtoDataMessageGroupCallUpdateBuilder {
+        return SNProtoDataMessageGroupCallUpdateBuilder()
+    }
+
+    // asBuilder() constructs a builder that reflects the proto's contents.
+    @objc public func asBuilder() -> SNProtoDataMessageGroupCallUpdateBuilder {
+        let builder = SNProtoDataMessageGroupCallUpdateBuilder()
+        if let _value = eraID {
+            builder.setEraID(_value)
+        }
+        return builder
+    }
+
+    @objc public class SNProtoDataMessageGroupCallUpdateBuilder: NSObject {
+
+        private var proto = SessionProtos_DataMessage.GroupCallUpdate()
+
+        @objc fileprivate override init() {}
+
+        @objc public func setEraID(_ valueParam: String) {
+            proto.eraID = valueParam
+        }
+
+        @objc public func build() throws -> SNProtoDataMessageGroupCallUpdate {
+            return try SNProtoDataMessageGroupCallUpdate.parseProto(proto)
+        }
+
+        @objc public func buildSerializedData() throws -> Data {
+            return try SNProtoDataMessageGroupCallUpdate.parseProto(proto).serializedData()
+        }
+    }
+
+    fileprivate let proto: SessionProtos_DataMessage.GroupCallUpdate
+
+    @objc public var eraID: String? {
+        guard proto.hasEraID else {
+            return nil
+        }
+        return proto.eraID
+    }
+    @objc public var hasEraID: Bool {
+        return proto.hasEraID
+    }
+
+    private init(proto: SessionProtos_DataMessage.GroupCallUpdate) {
+        self.proto = proto
+    }
+
+    @objc
+    public func serializedData() throws -> Data {
+        return try self.proto.serializedData()
+    }
+
+    @objc public class func parseData(_ serializedData: Data) throws -> SNProtoDataMessageGroupCallUpdate {
+        let proto = try SessionProtos_DataMessage.GroupCallUpdate(serializedData: serializedData)
+        return try parseProto(proto)
+    }
+
+    fileprivate class func parseProto(_ proto: SessionProtos_DataMessage.GroupCallUpdate) throws -> SNProtoDataMessageGroupCallUpdate {
+        // MARK: - Begin Validation Logic for SNProtoDataMessageGroupCallUpdate -
+
+        // MARK: - End Validation Logic for SNProtoDataMessageGroupCallUpdate -
+
+        let result = SNProtoDataMessageGroupCallUpdate(proto: proto)
+        return result
+    }
+
+    @objc public override var debugDescription: String {
+        return "\(proto)"
+    }
+}
+
+#if DEBUG
+
+extension SNProtoDataMessageGroupCallUpdate {
+    @objc public func serializedDataIgnoringErrors() -> Data? {
+        return try! self.serializedData()
+    }
+}
+
+extension SNProtoDataMessageGroupCallUpdate.SNProtoDataMessageGroupCallUpdateBuilder {
+    @objc public func buildIgnoringErrors() -> SNProtoDataMessageGroupCallUpdate? {
+        return try! self.build()
+    }
+}
+
+#endif
+
 // MARK: - SNProtoDataMessage
 
 @objc public class SNProtoDataMessage: NSObject {
@@ -2867,6 +2961,9 @@ extension SNProtoDataMessageClosedGroupControlMessage.SNProtoDataMessageClosedGr
             builder.setQuote(_value)
         }
         builder.setPreview(preview)
+        if let _value = groupCallUpdate {
+            builder.setGroupCallUpdate(_value)
+        }
         if let _value = profile {
             builder.setProfile(_value)
         }
@@ -2936,6 +3033,10 @@ extension SNProtoDataMessageClosedGroupControlMessage.SNProtoDataMessageClosedGr
             proto.preview = wrappedItems.map { $0.proto }
         }
 
+        @objc public func setGroupCallUpdate(_ valueParam: SNProtoDataMessageGroupCallUpdate) {
+            proto.groupCallUpdate = valueParam.proto
+        }
+
         @objc public func setProfile(_ valueParam: SNProtoDataMessageLokiProfile) {
             proto.profile = valueParam.proto
         }
@@ -2970,6 +3071,8 @@ extension SNProtoDataMessageClosedGroupControlMessage.SNProtoDataMessageClosedGr
     @objc public let quote: SNProtoDataMessageQuote?
 
     @objc public let preview: [SNProtoDataMessagePreview]
+
+    @objc public let groupCallUpdate: SNProtoDataMessageGroupCallUpdate?
 
     @objc public let profile: SNProtoDataMessageLokiProfile?
 
@@ -3033,6 +3136,7 @@ extension SNProtoDataMessageClosedGroupControlMessage.SNProtoDataMessageClosedGr
                  group: SNProtoGroupContext?,
                  quote: SNProtoDataMessageQuote?,
                  preview: [SNProtoDataMessagePreview],
+                 groupCallUpdate: SNProtoDataMessageGroupCallUpdate?,
                  profile: SNProtoDataMessageLokiProfile?,
                  openGroupInvitation: SNProtoDataMessageOpenGroupInvitation?,
                  closedGroupControlMessage: SNProtoDataMessageClosedGroupControlMessage?) {
@@ -3041,6 +3145,7 @@ extension SNProtoDataMessageClosedGroupControlMessage.SNProtoDataMessageClosedGr
         self.group = group
         self.quote = quote
         self.preview = preview
+        self.groupCallUpdate = groupCallUpdate
         self.profile = profile
         self.openGroupInvitation = openGroupInvitation
         self.closedGroupControlMessage = closedGroupControlMessage
@@ -3073,6 +3178,11 @@ extension SNProtoDataMessageClosedGroupControlMessage.SNProtoDataMessageClosedGr
         var preview: [SNProtoDataMessagePreview] = []
         preview = try proto.preview.map { try SNProtoDataMessagePreview.parseProto($0) }
 
+        var groupCallUpdate: SNProtoDataMessageGroupCallUpdate? = nil
+        if proto.hasGroupCallUpdate {
+            groupCallUpdate = try SNProtoDataMessageGroupCallUpdate.parseProto(proto.groupCallUpdate)
+        }
+
         var profile: SNProtoDataMessageLokiProfile? = nil
         if proto.hasProfile {
             profile = try SNProtoDataMessageLokiProfile.parseProto(proto.profile)
@@ -3097,6 +3207,7 @@ extension SNProtoDataMessageClosedGroupControlMessage.SNProtoDataMessageClosedGr
                                         group: group,
                                         quote: quote,
                                         preview: preview,
+                                        groupCallUpdate: groupCallUpdate,
                                         profile: profile,
                                         openGroupInvitation: openGroupInvitation,
                                         closedGroupControlMessage: closedGroupControlMessage)

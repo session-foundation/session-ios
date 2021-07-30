@@ -857,6 +857,15 @@ struct SessionProtos_DataMessage {
     set {_uniqueStorage()._preview = newValue}
   }
 
+  var groupCallUpdate: SessionProtos_DataMessage.GroupCallUpdate {
+    get {return _storage._groupCallUpdate ?? SessionProtos_DataMessage.GroupCallUpdate()}
+    set {_uniqueStorage()._groupCallUpdate = newValue}
+  }
+  /// Returns true if `groupCallUpdate` has been explicitly set.
+  var hasGroupCallUpdate: Bool {return _storage._groupCallUpdate != nil}
+  /// Clears the value of `groupCallUpdate`. Subsequent reads from it will return its default value.
+  mutating func clearGroupCallUpdate() {_uniqueStorage()._groupCallUpdate = nil}
+
   var profile: SessionProtos_DataMessage.LokiProfile {
     get {return _storage._profile ?? SessionProtos_DataMessage.LokiProfile()}
     set {_uniqueStorage()._profile = newValue}
@@ -1293,6 +1302,27 @@ struct SessionProtos_DataMessage {
     fileprivate var _name: String? = nil
     fileprivate var _encryptionKeyPair: SessionProtos_KeyPair? = nil
     fileprivate var _expirationTimer: UInt32? = nil
+  }
+
+  struct GroupCallUpdate {
+    // SwiftProtobuf.Message conformance is added in an extension below. See the
+    // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+    // methods supported on all messages.
+
+    var eraID: String {
+      get {return _eraID ?? String()}
+      set {_eraID = newValue}
+    }
+    /// Returns true if `eraID` has been explicitly set.
+    var hasEraID: Bool {return self._eraID != nil}
+    /// Clears the value of `eraID`. Subsequent reads from it will return its default value.
+    mutating func clearEraID() {self._eraID = nil}
+
+    var unknownFields = SwiftProtobuf.UnknownStorage()
+
+    init() {}
+
+    fileprivate var _eraID: String? = nil
   }
 
   init() {}
@@ -2507,6 +2537,7 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
     7: .same(proto: "timestamp"),
     8: .same(proto: "quote"),
     10: .same(proto: "preview"),
+    19: .same(proto: "groupCallUpdate"),
     101: .same(proto: "profile"),
     102: .same(proto: "openGroupInvitation"),
     104: .same(proto: "closedGroupControlMessage"),
@@ -2523,6 +2554,7 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
     var _timestamp: UInt64? = nil
     var _quote: SessionProtos_DataMessage.Quote? = nil
     var _preview: [SessionProtos_DataMessage.Preview] = []
+    var _groupCallUpdate: SessionProtos_DataMessage.GroupCallUpdate? = nil
     var _profile: SessionProtos_DataMessage.LokiProfile? = nil
     var _openGroupInvitation: SessionProtos_DataMessage.OpenGroupInvitation? = nil
     var _closedGroupControlMessage: SessionProtos_DataMessage.ClosedGroupControlMessage? = nil
@@ -2542,6 +2574,7 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
       _timestamp = source._timestamp
       _quote = source._quote
       _preview = source._preview
+      _groupCallUpdate = source._groupCallUpdate
       _profile = source._profile
       _openGroupInvitation = source._openGroupInvitation
       _closedGroupControlMessage = source._closedGroupControlMessage
@@ -2585,6 +2618,7 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
         case 7: try { try decoder.decodeSingularUInt64Field(value: &_storage._timestamp) }()
         case 8: try { try decoder.decodeSingularMessageField(value: &_storage._quote) }()
         case 10: try { try decoder.decodeRepeatedMessageField(value: &_storage._preview) }()
+        case 19: try { try decoder.decodeSingularMessageField(value: &_storage._groupCallUpdate) }()
         case 101: try { try decoder.decodeSingularMessageField(value: &_storage._profile) }()
         case 102: try { try decoder.decodeSingularMessageField(value: &_storage._openGroupInvitation) }()
         case 104: try { try decoder.decodeSingularMessageField(value: &_storage._closedGroupControlMessage) }()
@@ -2624,6 +2658,9 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
       if !_storage._preview.isEmpty {
         try visitor.visitRepeatedMessageField(value: _storage._preview, fieldNumber: 10)
       }
+      if let v = _storage._groupCallUpdate {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 19)
+      }
       if let v = _storage._profile {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 101)
       }
@@ -2654,6 +2691,7 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
         if _storage._timestamp != rhs_storage._timestamp {return false}
         if _storage._quote != rhs_storage._quote {return false}
         if _storage._preview != rhs_storage._preview {return false}
+        if _storage._groupCallUpdate != rhs_storage._groupCallUpdate {return false}
         if _storage._profile != rhs_storage._profile {return false}
         if _storage._openGroupInvitation != rhs_storage._openGroupInvitation {return false}
         if _storage._closedGroupControlMessage != rhs_storage._closedGroupControlMessage {return false}
@@ -3055,6 +3093,38 @@ extension SessionProtos_DataMessage.ClosedGroupControlMessage.KeyPairWrapper: Sw
   static func ==(lhs: SessionProtos_DataMessage.ClosedGroupControlMessage.KeyPairWrapper, rhs: SessionProtos_DataMessage.ClosedGroupControlMessage.KeyPairWrapper) -> Bool {
     if lhs._publicKey != rhs._publicKey {return false}
     if lhs._encryptedKeyPair != rhs._encryptedKeyPair {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension SessionProtos_DataMessage.GroupCallUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = SessionProtos_DataMessage.protoMessageName + ".GroupCallUpdate"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "eraId"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self._eraID) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if let v = self._eraID {
+      try visitor.visitSingularStringField(value: v, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: SessionProtos_DataMessage.GroupCallUpdate, rhs: SessionProtos_DataMessage.GroupCallUpdate) -> Bool {
+    if lhs._eraID != rhs._eraID {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
