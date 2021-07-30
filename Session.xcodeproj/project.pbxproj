@@ -169,6 +169,9 @@
 		B822F9BD26B26CA2003B8CB8 /* TSCall.m in Sources */ = {isa = PBXBuildFile; fileRef = B822F9BC26B26CA2003B8CB8 /* TSCall.m */; };
 		B822F9BE26B26CA8003B8CB8 /* TSCall.h in Headers */ = {isa = PBXBuildFile; fileRef = B822F9BB26B26C82003B8CB8 /* TSCall.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		B822F9C526B27C9B003B8CB8 /* Dependencies+MainApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B822F9C426B27C9B003B8CB8 /* Dependencies+MainApp.swift */; };
+		B822F9C826B376EF003B8CB8 /* DarwinNotificationCenter.m in Sources */ = {isa = PBXBuildFile; fileRef = B822F9C726B376EF003B8CB8 /* DarwinNotificationCenter.m */; };
+		B822F9C926B376F6003B8CB8 /* DarwinNotificationCenter.h in Headers */ = {isa = PBXBuildFile; fileRef = B822F9C626B376D2003B8CB8 /* DarwinNotificationCenter.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		B822F9CB26B37798003B8CB8 /* DarwinNotificationName.swift in Sources */ = {isa = PBXBuildFile; fileRef = B822F9CA26B37798003B8CB8 /* DarwinNotificationName.swift */; };
 		B8269D2925C7A4B400488AB4 /* InputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8269D2825C7A4B400488AB4 /* InputView.swift */; };
 		B8269D3325C7A8C600488AB4 /* InputViewButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8269D3225C7A8C600488AB4 /* InputViewButton.swift */; };
 		B8269D3D25C7B34D00488AB4 /* InputTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8269D3C25C7B34D00488AB4 /* InputTextView.swift */; };
@@ -1170,6 +1173,9 @@
 		B822F9BC26B26CA2003B8CB8 /* TSCall.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TSCall.m; sourceTree = "<group>"; };
 		B822F9C326B275FA003B8CB8 /* INSTRUCTIONS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = INSTRUCTIONS.md; sourceTree = "<group>"; };
 		B822F9C426B27C9B003B8CB8 /* Dependencies+MainApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Dependencies+MainApp.swift"; sourceTree = "<group>"; };
+		B822F9C626B376D2003B8CB8 /* DarwinNotificationCenter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DarwinNotificationCenter.h; sourceTree = "<group>"; };
+		B822F9C726B376EF003B8CB8 /* DarwinNotificationCenter.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = DarwinNotificationCenter.m; sourceTree = "<group>"; };
+		B822F9CA26B37798003B8CB8 /* DarwinNotificationName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DarwinNotificationName.swift; sourceTree = "<group>"; };
 		B8269D2825C7A4B400488AB4 /* InputView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputView.swift; sourceTree = "<group>"; };
 		B8269D3225C7A8C600488AB4 /* InputViewButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputViewButton.swift; sourceTree = "<group>"; };
 		B8269D3C25C7B34D00488AB4 /* InputTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputTextView.swift; sourceTree = "<group>"; };
@@ -2334,6 +2340,9 @@
 				B882A79826AE897E00B5AB69 /* Atomics.swift */,
 				C33FDAA8255A57FF00E217F9 /* BuildConfiguration.swift */,
 				B8F5F58225EC94A6003BF8D4 /* Collection+Subscripting.swift */,
+				B822F9C626B376D2003B8CB8 /* DarwinNotificationCenter.h */,
+				B822F9C726B376EF003B8CB8 /* DarwinNotificationCenter.m */,
+				B822F9CA26B37798003B8CB8 /* DarwinNotificationName.swift */,
 				B8AE75A325A6C6A6001A84D2 /* Data+Trimming.swift */,
 				C3C2A5D52553860A00C340D1 /* Dictionary+Description.swift */,
 				B87EF18026377A1D00124B3C /* Features.swift */,
@@ -3699,6 +3708,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C32C5FAA256DFED9003C73A2 /* NSArray+Functional.h in Headers */,
+				B822F9C926B376F6003B8CB8 /* DarwinNotificationCenter.h in Headers */,
 				C3D9E3FA25676BCE0040E4F3 /* TSYapDatabaseObject.h in Headers */,
 				C3D9E3A4256763DE0040E4F3 /* AppContext.h in Headers */,
 				C3D9E38A256760390040E4F3 /* OWSFileSystem.h in Headers */,
@@ -4662,6 +4672,7 @@
 				C3BBE0A82554D4DE0050F1E3 /* JSON.swift in Sources */,
 				C352A36D2557858E00338F3E /* NSTimer+Proxying.m in Sources */,
 				C32C5A2D256DB849003C73A2 /* LKGroupUtilities.m in Sources */,
+				B822F9CB26B37798003B8CB8 /* DarwinNotificationName.swift in Sources */,
 				C3C2ABD22553C6C900C340D1 /* Data+SecureRandom.swift in Sources */,
 				B8856E09256F1676001CE70E /* UIDevice+featureSupport.swift in Sources */,
 				B8856DEF256F161F001CE70E /* NSString+SSK.m in Sources */,
@@ -4679,6 +4690,7 @@
 				C32C600F256E07F5003C73A2 /* NSUserDefaults+OWS.m in Sources */,
 				C3D9E35E25675F640040E4F3 /* OWSFileSystem.m in Sources */,
 				C3C2AC2E2553CBEB00C340D1 /* String+Trimming.swift in Sources */,
+				B822F9C826B376EF003B8CB8 /* DarwinNotificationCenter.m in Sources */,
 				C32C5B48256DC211003C73A2 /* NSNotificationCenter+OWS.m in Sources */,
 				C3D9E3C925676AF30040E4F3 /* TSYapDatabaseObject.m in Sources */,
 				C352A3A62557B60D00338F3E /* TSRequest.m in Sources */,

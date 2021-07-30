@@ -68,7 +68,6 @@ extension AppNotificationCategory {
         case .missedCallFromNoLongerVerifiedIdentity:
             return "Signal.AppNotificationCategory.missedCallFromNoLongerVerifiedIdentity"
         }
-        }
     }
 
     var actions: [AppNotificationAction] {
@@ -186,8 +185,8 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
     }
     
     public func presentIncomingCall(_ call: IndividualCallNotificationInfo, callerName: String) {
-        let remoteAddress = call.remoteAddress
-        let thread = TSContactThread.getOrCreateThread(contactAddress: remoteAddress)
+        let publicKey = call.publicKey
+        let thread = TSContactThread.getOrCreateThread(contactSessionID: publicKey)
 
         let notificationTitle: String?
         let threadIdentifier: String?
@@ -201,9 +200,10 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
         }
 
         let notificationBody: String
+        // TODO: Distinguish between incoming audio calls and incoming video calls in the copy here
         switch call.offerMediaType {
-        case .audio: notificationBody = NotificationStrings.incomingAudioCallBody
-        case .video: notificationBody = NotificationStrings.incomingVideoCallBody
+        case .audio: notificationBody = NotificationStrings.incomingCallBody
+        case .video: notificationBody = NotificationStrings.incomingCallBody
         }
 
         let userInfo = [
@@ -215,7 +215,6 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
             self.adaptee.notify(category: .incomingCall,
                                 title: notificationTitle,
                                 body: notificationBody,
-                                threadIdentifier: threadIdentifier,
                                 userInfo: userInfo,
                                 sound: nil,
                                 replacingIdentifier: call.localId.uuidString)
@@ -223,9 +222,8 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
     }
 
     public func presentMissedCall(_ call: IndividualCallNotificationInfo, callerName: String) {
-
-        let remoteAddress = call.remoteAddress
-        let thread = TSContactThread.getOrCreateThread(contactAddress: remoteAddress)
+        let publicKey = call.publicKey
+        let thread = TSContactThread.getOrCreateThread(contactSessionID: publicKey)
 
         let notificationTitle: String?
         let threadIdentifier: String?
@@ -239,12 +237,13 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
         }
 
         let notificationBody: String
+        // TODO: Distinguish between incoming audio calls and incoming video calls in the copy here
         switch call.offerMediaType {
-        case .audio: notificationBody = NotificationStrings.missedAudioCallBody
-        case .video: notificationBody = NotificationStrings.missedVideoCallBody
+        case .audio: notificationBody = NotificationStrings.missedCallBody
+        case .video: notificationBody = NotificationStrings.missedCallBody
         }
 
-        let userInfo = userInfoForMissedCall(thread: thread, remoteAddress: remoteAddress)
+        let userInfo = userInfoForMissedCall(thread: thread, publicKey: publicKey)
 
         let category: AppNotificationCategory = (shouldShowActions
             ? .missedCallWithActions
@@ -254,7 +253,6 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
             self.adaptee.notify(category: category,
                                 title: notificationTitle,
                                 body: notificationBody,
-                                threadIdentifier: threadIdentifier,
                                 userInfo: userInfo,
                                 sound: sound,
                                 replacingIdentifier: call.localId.uuidString)
@@ -286,7 +284,6 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
             self.adaptee.notify(category: .missedCallFromNoLongerVerifiedIdentity,
                                 title: notificationTitle,
                                 body: notificationBody,
-                                threadIdentifier: threadIdentifier,
                                 userInfo: userInfo,
                                 sound: sound,
                                 replacingIdentifier: call.localId.uuidString)
@@ -295,8 +292,8 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
 
     public func presentMissedCallBecauseOfNewIdentity(call: IndividualCallNotificationInfo, callerName: String) {
 
-        let remoteAddress = call.remoteAddress
-        let thread = TSContactThread.getOrCreateThread(contactAddress: remoteAddress)
+        let publicKey = call.publicKey
+        let thread = TSContactThread.getOrCreateThread(contactSessionID: publicKey)
 
         let notificationTitle: String?
         let threadIdentifier: String?
@@ -309,7 +306,7 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
             threadIdentifier = thread.uniqueId
         }
         let notificationBody = NotificationStrings.missedCallBecauseOfIdentityChangeBody
-        let userInfo = userInfoForMissedCall(thread: thread, remoteAddress: remoteAddress)
+        let userInfo = userInfoForMissedCall(thread: thread, publicKey: publicKey)
 
         let category: AppNotificationCategory = (shouldShowActions
             ? .missedCallWithActions
@@ -319,16 +316,15 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
             self.adaptee.notify(category: category,
                                 title: notificationTitle,
                                 body: notificationBody,
-                                threadIdentifier: threadIdentifier,
                                 userInfo: userInfo,
                                 sound: sound,
                                 replacingIdentifier: call.localId.uuidString)
         }
     }
 
-    private func userInfoForMissedCall(thread: TSThread, remoteAddress: SignalServiceAddress) -> [String: Any] {
+    private func userInfoForMissedCall(thread: TSThread, publicKey: String) -> [String: Any] {
         var userInfo: [String: Any] = [
-            AppNotificationUserInfoKey.threadId: thread.uniqueId
+            AppNotificationUserInfoKey.threadId: thread.uniqueId!
         ]
         if let uuid = remoteAddress.uuid {
             userInfo[AppNotificationUserInfoKey.callBackUuid] = uuid.uuidString
@@ -630,7 +626,7 @@ extension TruncatedList: Collection {
 }
 
 public protocol IndividualCallNotificationInfo {
-    var remoteAddress: SignalServiceAddress { get }
+    var publicKey: String { get }
     var localId: UUID { get }
     var offerMediaType: TSRecentCallOfferType { get }
 }

@@ -827,7 +827,7 @@ extension CallService {
             owsFailDebug("Unknown thread")
             return
         }
-        Self.notificationPresenter.notifyUser(for: message, thread: thread, wantsSound: true, transaction: transaction)
+        AppEnvironment.shared.notificationPresenter.notifyUser(for: message, thread: thread, wantsSound: true, transaction: transaction)
     }
 }
 
@@ -891,7 +891,7 @@ extension CallService: CallManagerDelegate {
                 transaction: transaction
             )
         }.then { thread throws -> Promise<Void> in
-            let opaqueBuilder = SSKProtoCallMessageOpaque.builder()
+            let opaqueBuilder = SNProtoCallMessageOpaque.builder()
             opaqueBuilder.setData(message)
 
             let callMessage = OWSOutgoingCallMessage(
@@ -955,7 +955,7 @@ extension CallService: CallManagerDelegate {
 
             return request
         }
-
+        
         firstly(on: .sharedUtility) {
             session.dataTaskPromise(url, method: httpMethod, headers: headers, body: body)
         }.done(on: .main) { response in

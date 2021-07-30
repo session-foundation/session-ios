@@ -39,7 +39,7 @@ class GroupCallUpdateMessageHandler: CallServiceObserver, CallObserver, Dependen
         }
     }
 
-    func handleUpdateMessage(_ message: SSKProtoDataMessageGroupCallUpdate, for thread: TSGroupThread, serverReceivedTimestamp: UInt64) {
+    func handleUpdateMessage(_ message: SNProtoDataMessageGroupCallUpdate, for thread: TSGroupThread, serverReceivedTimestamp: UInt64) {
         Logger.info("Received group call update message for thread: \(thread.uniqueId) eraId: \(String(describing: message.eraID))")
         DispatchQueue.main.async {
             Self.callService.peekCallAndUpdateThread(

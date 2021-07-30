@@ -393,7 +393,7 @@ import WebRTC
     /**
      * Remote client (could be caller or callee) sent us a connectivity update.
      */
-    public func handleReceivedIceCandidates(thread: TSContactThread, callId: UInt64, sourceDevice: UInt32, candidates: [SSKProtoCallMessageIceUpdate]) {
+    public func handleReceivedIceCandidates(thread: TSContactThread, callId: UInt64, sourceDevice: UInt32, candidates: [SNProtoCallMessageIceUpdate]) {
         AssertIsOnMainThread()
 
         let iceCandidates = candidates.filter { $0.id == callId && $0.opaque != nil }.map { $0.opaque! }
@@ -415,7 +415,7 @@ import WebRTC
     /**
      * The remote client (caller or callee) ended the call.
      */
-    public func handleReceivedHangup(thread: TSContactThread, callId: UInt64, sourceDevice: UInt32, type: SSKProtoCallMessageHangupType, deviceId: UInt32) {
+    public func handleReceivedHangup(thread: TSContactThread, callId: UInt64, sourceDevice: UInt32, type: SNProtoCallMessageHangupType, deviceId: UInt32) {
         AssertIsOnMainThread()
 
         let hangupType: HangupType

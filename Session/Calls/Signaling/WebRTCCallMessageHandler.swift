@@ -19,7 +19,7 @@ public class WebRTCCallMessageHandler: NSObject, OWSCallMessageHandler {
     // MARK: - Call Handlers
 
     public func receivedOffer(
-        _ offer: SSKProtoCallMessageOffer,
+        _ offer: SNProtoCallMessageOffer,
         from caller: SignalServiceAddress,
         sourceDevice: UInt32,
         sentAtTimestamp: UInt64,
@@ -29,7 +29,7 @@ public class WebRTCCallMessageHandler: NSObject, OWSCallMessageHandler {
     ) {
         AssertIsOnMainThread()
 
-        let callType: SSKProtoCallMessageOfferType
+        let callType: SNProtoCallMessageOfferType
         if offer.hasType {
             callType = offer.unwrappedType
         } else {
@@ -52,7 +52,7 @@ public class WebRTCCallMessageHandler: NSObject, OWSCallMessageHandler {
         )
     }
 
-    public func receivedAnswer(_ answer: SSKProtoCallMessageAnswer, from caller: SignalServiceAddress, sourceDevice: UInt32, supportsMultiRing: Bool) {
+    public func receivedAnswer(_ answer: SNProtoCallMessageAnswer, from caller: SignalServiceAddress, sourceDevice: UInt32, supportsMultiRing: Bool) {
         AssertIsOnMainThread()
 
         let thread = TSContactThread.getOrCreateThread(contactAddress: caller)
@@ -66,7 +66,7 @@ public class WebRTCCallMessageHandler: NSObject, OWSCallMessageHandler {
         )
     }
 
-    public func receivedIceUpdate(_ iceUpdate: [SSKProtoCallMessageIceUpdate], from caller: SignalServiceAddress, sourceDevice: UInt32) {
+    public func receivedIceUpdate(_ iceUpdate: [SNProtoCallMessageIceUpdate], from caller: SignalServiceAddress, sourceDevice: UInt32) {
         AssertIsOnMainThread()
 
         let thread = TSContactThread.getOrCreateThread(contactAddress: caller)
@@ -78,13 +78,13 @@ public class WebRTCCallMessageHandler: NSObject, OWSCallMessageHandler {
         )
     }
 
-    public func receivedHangup(_ hangup: SSKProtoCallMessageHangup, from caller: SignalServiceAddress, sourceDevice: UInt32) {
+    public func receivedHangup(_ hangup: SNProtoCallMessageHangup, from caller: SignalServiceAddress, sourceDevice: UInt32) {
         AssertIsOnMainThread()
 
         // deviceId is optional and defaults to 0.
         var deviceId: UInt32 = 0
 
-        let type: SSKProtoCallMessageHangupType
+        let type: SNProtoCallMessageHangupType
         if hangup.hasType {
             type = hangup.unwrappedType
 
@@ -106,7 +106,7 @@ public class WebRTCCallMessageHandler: NSObject, OWSCallMessageHandler {
         )
     }
 
-    public func receivedBusy(_ busy: SSKProtoCallMessageBusy, from caller: SignalServiceAddress, sourceDevice: UInt32) {
+    public func receivedBusy(_ busy: SNProtoCallMessageBusy, from caller: SignalServiceAddress, sourceDevice: UInt32) {
         AssertIsOnMainThread()
 
         let thread = TSContactThread.getOrCreateThread(contactAddress: caller)
@@ -118,7 +118,7 @@ public class WebRTCCallMessageHandler: NSObject, OWSCallMessageHandler {
     }
 
     public func receivedOpaque(
-        _ opaque: SSKProtoCallMessageOpaque,
+        _ opaque: SNProtoCallMessageOpaque,
         from caller: SignalServiceAddress,
         sourceDevice: UInt32,
         serverReceivedTimestamp: UInt64,
@@ -150,7 +150,7 @@ public class WebRTCCallMessageHandler: NSObject, OWSCallMessageHandler {
     }
 
     public func receivedGroupCallUpdateMessage(
-        _ update: SSKProtoDataMessageGroupCallUpdate,
+        _ update: SNProtoDataMessageGroupCallUpdate,
         for groupThread: TSGroupThread,
         serverReceivedTimestamp: UInt64) {
 
@@ -158,7 +158,7 @@ public class WebRTCCallMessageHandler: NSObject, OWSCallMessageHandler {
         callService.groupCallMessageHandler.handleUpdateMessage(update, for: groupThread, serverReceivedTimestamp: serverReceivedTimestamp)
     }
 
-    public func externallyHandleCallMessage(envelope: SSKProtoEnvelope, plaintextData: Data, wasReceivedByUD: Bool, serverDeliveryTimestamp: UInt64, transaction: SDSAnyWriteTransaction) -> Bool {
+    public func externallyHandleCallMessage(envelope: SNProtoEnvelope, plaintextData: Data, wasReceivedByUD: Bool, serverDeliveryTimestamp: UInt64, transaction: SDSAnyWriteTransaction) -> Bool {
         return false
     }
 }
