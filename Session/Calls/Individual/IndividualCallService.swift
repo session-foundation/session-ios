@@ -800,10 +800,9 @@ import SessionMessagingKit
         firstly { () throws -> Promise<Void> in
             let message = IndividualCallMessage()
             message.callID = callId
-            message.opaque = opaque
             switch callMediaType {
-            case .audioCall: message.kind = .offer(callType: .audio)
-            case .videoCall: message.kind = .offer(callType: .video)
+            case .audioCall: message.kind = .offer(opaque: opaque, callType: .audio)
+            case .videoCall: message.kind = .offer(opaque: opaque, callType: .video)
             }
             Storage.write { transaction in
                 MessageSender.send(message, in: call.individualCall.thread, using: transaction)
@@ -825,8 +824,7 @@ import SessionMessagingKit
         firstly { () throws -> Promise<Void> in
             let message = IndividualCallMessage()
             message.callID = callId
-            message.opaque = opaque
-            message.kind = .answer
+            message.kind = .answer(opaque: opaque)
             Storage.write { transaction in
                 MessageSender.send(message, in: call.individualCall.thread, using: transaction)
             }
@@ -844,24 +842,18 @@ import SessionMessagingKit
         owsAssertDebug(call.isIndividualCall)
         Logger.info("shouldSendIceCandidates")
 
+        guard !candidates.isEmpty else {
+            Logger.error("no ice updates to send")
+            return callManager.signalingMessageDidFail(callId: callId)
+        }
+        
         firstly { () throws -> Promise<Void> in
-            var iceUpdateProtos = [SNProtoCallMessageIceUpdate]()
-
-            for iceCandidate in candidates {
-                let iceUpdateProto: SNProtoCallMessageIceUpdate
-                let iceUpdateBuilder = SNProtoCallMessageIceUpdate.builder(id: callId)
-                iceUpdateBuilder.setOpaque(iceCandidate)
-
-                iceUpdateProto = try iceUpdateBuilder.build()
-                iceUpdateProtos.append(iceUpdateProto)
+            let message = IndividualCallMessage()
+            message.callID = callId
+            message.kind = .iceUpdate(candidates: candidates)
+            Storage.write { transaction in
+                MessageSender.send(message, in: call.individualCall.thread, using: transaction)
             }
-
-            guard !iceUpdateProtos.isEmpty else {
-                throw OWSAssertionError("no ice updates to send")
-            }
-
-            let callMessage = OWSOutgoingCallMessage(thread: call.individualCall.thread, iceUpdateMessages: iceUpdateProtos, destinationDeviceId: NSNumber(value: destinationDeviceId))
-            return messageSender.sendMessage(.promise, callMessage.asPreparer)
         }.done {
             Logger.debug("sent ice update message to \(call.individualCall.thread.contactSessionID()) device: \((destinationDeviceId != nil) ? String(destinationDeviceId!) : "nil")")
             try self.callManager.signalingMessageDidSend(callId: callId)
@@ -877,29 +869,20 @@ import SessionMessagingKit
         Logger.info("shouldSendHangup")
 
         firstly { () throws -> Promise<Void> in
-            let hangupBuilder = SNProtoCallMessageHangup.builder(id: callId)
-
+            let type: IndividualCallMessage.HangupType
             switch hangupType {
-            case .normal: hangupBuilder.setType(.hangupNormal)
-            case .accepted: hangupBuilder.setType(.hangupAccepted)
-            case .declined: hangupBuilder.setType(.hangupDeclined)
-            case .busy: hangupBuilder.setType(.hangupBusy)
-            case .needPermission: hangupBuilder.setType(.hangupNeedPermission)
+            case .normal: type = .normal
+            case .accepted: type = .accepted
+            case .declined: type = .declined
+            case .busy: type = .busy
+            case .needPermission: type = .needPermission
             }
-
-            if hangupType != .normal {
-                // deviceId is optional and only used when indicated by a hangup due to
-                // a call being accepted elsewhere.
-                hangupBuilder.setDeviceID(deviceId)
+            let message = IndividualCallMessage()
+            message.callID = callId
+            message.kind = .hangup(type: type)
+            Storage.write { transaction in
+                MessageSender.send(message, in: call.individualCall.thread, using: transaction)
             }
-
-            let callMessage: OWSOutgoingCallMessage
-            if useLegacyHangupMessage {
-                callMessage = OWSOutgoingCallMessage(thread: call.individualCall.thread, legacyHangupMessage: try hangupBuilder.build(), destinationDeviceId: NSNumber(value: destinationDeviceId))
-            } else {
-                callMessage = OWSOutgoingCallMessage(thread: call.individualCall.thread, hangupMessage: try hangupBuilder.build(), destinationDeviceId: NSNumber(value: destinationDeviceId))
-            }
-            return messageSender.sendMessage(.promise, callMessage.asPreparer)
         }.done {
             Logger.debug("sent hangup message to \(call.individualCall.thread.contactSessionID()) device: \((destinationDeviceId != nil) ? String(destinationDeviceId!) : "nil")")
             try self.callManager.signalingMessageDidSend(callId: callId)
@@ -915,9 +898,12 @@ import SessionMessagingKit
         Logger.info("shouldSendBusy")
 
         firstly { () throws -> Promise<Void> in
-            let busyBuilder = SNProtoCallMessageBusy.builder(id: callId)
-            let callMessage = OWSOutgoingCallMessage(thread: call.individualCall.thread, busyMessage: try busyBuilder.build(), destinationDeviceId: NSNumber(value: destinationDeviceId))
-            return messageSender.sendMessage(.promise, callMessage.asPreparer)
+            let message = IndividualCallMessage()
+            message.callID = callId
+            message.kind = .busy
+            Storage.write { transaction in
+                MessageSender.send(message, in: call.individualCall.thread, using: transaction)
+            }
         }.done {
             Logger.debug("sent busy message to \(call.individualCall.thread.contactSessionID()) device: \((destinationDeviceId != nil) ? String(destinationDeviceId!) : "nil")")
             try self.callManager.signalingMessageDidSend(callId: callId)
