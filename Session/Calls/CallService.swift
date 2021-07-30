@@ -815,7 +815,7 @@ extension CallService {
         }
     }
 
-    fileprivate func postUserNotificationIfNecessary(message: OWSGroupCallMessage, transaction: SDSAnyWriteTransaction) {
+    fileprivate func postUserNotificationIfNecessary(message: OWSGroupCallMessage, transaction: YapDatabaseReadWriteTransaction) {
         // The message can't be for the current call
         guard self.currentCall?.thread.uniqueId != message.uniqueThreadId else { return }
         // The creator of the call must be known, and it can't be the local user
@@ -823,7 +823,7 @@ extension CallService {
         // The message must have at least one participant
         guard (message.joinedMemberUuids?.count ?? 0) > 0 else { return }
 
-        guard let thread = TSGroupThread.anyFetch(uniqueId: message.uniqueThreadId, transaction: transaction) else {
+        guard let thread = TSGroupThread.fetch(uniqueId: message.uniqueThreadId, transaction: transaction) else {
             owsFailDebug("Unknown thread")
             return
         }
@@ -836,10 +836,10 @@ extension CallService: DatabaseChangeDelegate {
 
     public func databaseChangesDidUpdate(databaseChanges: DatabaseChanges) {
         AssertIsOnMainThread()
-        owsAssertDebug(AppReadiness.isAppReady)
+        owsAssertDebug(AppReadiness.isAppReady())
 
         guard let thread = currentCall?.thread,
-              thread.isGroupThread,
+              thread.isGroupThread(),
               databaseChanges.didUpdate(thread: thread) else { return }
 
         updateGroupMembersForCurrentCallIfNecessary()
@@ -847,14 +847,14 @@ extension CallService: DatabaseChangeDelegate {
 
     public func databaseChangesDidUpdateExternally() {
         AssertIsOnMainThread()
-        owsAssertDebug(AppReadiness.isAppReady)
+        owsAssertDebug(AppReadiness.isAppReady())
 
         updateGroupMembersForCurrentCallIfNecessary()
     }
 
     public func databaseChangesDidReset() {
         AssertIsOnMainThread()
-        owsAssertDebug(AppReadiness.isAppReady)
+        owsAssertDebug(AppReadiness.isAppReady())
 
         updateGroupMembersForCurrentCallIfNecessary()
     }

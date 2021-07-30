@@ -6,6 +6,7 @@ import Foundation
 import PromiseKit
 import SignalRingRTC
 import WebRTC
+import SessionMessagingKit
 
 // MARK: - CallService
 
@@ -797,14 +798,16 @@ import WebRTC
         Logger.info("shouldSendOffer")
 
         firstly { () throws -> Promise<Void> in
-            let offerBuilder = SNProtoCallMessageOffer.builder(id: callId)
-            offerBuilder.setOpaque(opaque)
+            let message = IndividualCallMessage()
+            message.callID = callId
+            message.opaque = opaque
             switch callMediaType {
-            case .audioCall: offerBuilder.setType(.offerAudioCall)
-            case .videoCall: offerBuilder.setType(.offerVideoCall)
+            case .audioCall: message.kind = .offer(callType: .audio)
+            case .videoCall: message.kind = .offer(callType: .video)
             }
-            let callMessage = OWSOutgoingCallMessage(thread: call.individualCall.thread, offerMessage: try offerBuilder.build(), destinationDeviceId: NSNumber(value: destinationDeviceId))
-            return messageSender.sendMessage(.promise, callMessage.asPreparer)
+            Storage.write { transaction in
+                MessageSender.send(message, in: call.individualCall.thread, using: transaction)
+            }
         }.done {
             Logger.info("sent offer message to \(call.individualCall.thread.contactSessionID()) device: \((destinationDeviceId != nil) ? String(destinationDeviceId!) : "nil")")
             try self.callManager.signalingMessageDidSend(callId: callId)
@@ -820,10 +823,13 @@ import WebRTC
         Logger.info("shouldSendAnswer")
 
         firstly { () throws -> Promise<Void> in
-            let answerBuilder = SNProtoCallMessageAnswer.builder(id: callId)
-            answerBuilder.setOpaque(opaque)
-            let callMessage = OWSOutgoingCallMessage(thread: call.individualCall.thread, answerMessage: try answerBuilder.build(), destinationDeviceId: NSNumber(value: destinationDeviceId))
-            return messageSender.sendMessage(.promise, callMessage.asPreparer)
+            let message = IndividualCallMessage()
+            message.callID = callId
+            message.opaque = opaque
+            message.kind = .answer
+            Storage.write { transaction in
+                MessageSender.send(message, in: call.individualCall.thread, using: transaction)
+            }
         }.done {
             Logger.debug("sent answer message to \(call.individualCall.thread.contactSessionID()) device: \((destinationDeviceId != nil) ? String(destinationDeviceId!) : "nil")")
             try self.callManager.signalingMessageDidSend(callId: callId)

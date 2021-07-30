@@ -172,6 +172,7 @@
 		B822F9C826B376EF003B8CB8 /* DarwinNotificationCenter.m in Sources */ = {isa = PBXBuildFile; fileRef = B822F9C726B376EF003B8CB8 /* DarwinNotificationCenter.m */; };
 		B822F9C926B376F6003B8CB8 /* DarwinNotificationCenter.h in Headers */ = {isa = PBXBuildFile; fileRef = B822F9C626B376D2003B8CB8 /* DarwinNotificationCenter.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		B822F9CB26B37798003B8CB8 /* DarwinNotificationName.swift in Sources */ = {isa = PBXBuildFile; fileRef = B822F9CA26B37798003B8CB8 /* DarwinNotificationName.swift */; };
+		B822F9CD26B3C538003B8CB8 /* IndividualCallMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B822F9CC26B3C538003B8CB8 /* IndividualCallMessage.swift */; };
 		B8269D2925C7A4B400488AB4 /* InputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8269D2825C7A4B400488AB4 /* InputView.swift */; };
 		B8269D3325C7A8C600488AB4 /* InputViewButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8269D3225C7A8C600488AB4 /* InputViewButton.swift */; };
 		B8269D3D25C7B34D00488AB4 /* InputTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8269D3C25C7B34D00488AB4 /* InputTextView.swift */; };
@@ -1176,6 +1177,7 @@
 		B822F9C626B376D2003B8CB8 /* DarwinNotificationCenter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DarwinNotificationCenter.h; sourceTree = "<group>"; };
 		B822F9C726B376EF003B8CB8 /* DarwinNotificationCenter.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = DarwinNotificationCenter.m; sourceTree = "<group>"; };
 		B822F9CA26B37798003B8CB8 /* DarwinNotificationName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DarwinNotificationName.swift; sourceTree = "<group>"; };
+		B822F9CC26B3C538003B8CB8 /* IndividualCallMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndividualCallMessage.swift; sourceTree = "<group>"; };
 		B8269D2825C7A4B400488AB4 /* InputView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputView.swift; sourceTree = "<group>"; };
 		B8269D3225C7A8C600488AB4 /* InputViewButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputViewButton.swift; sourceTree = "<group>"; };
 		B8269D3C25C7B34D00488AB4 /* InputTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputTextView.swift; sourceTree = "<group>"; };
@@ -2474,6 +2476,7 @@
 				B8F5F60225EDE16F003BF8D4 /* DataExtractionNotification.swift */,
 				C300A5E62554B07300555489 /* ExpirationTimerUpdate.swift */,
 				C3DA9C0625AE7396008F7C7E /* ConfigurationMessage.swift */,
+				B822F9CC26B3C538003B8CB8 /* IndividualCallMessage.swift */,
 			);
 			path = "Control Messages";
 			sourceTree = "<group>";
@@ -4735,6 +4738,7 @@
 				C352A32F2557549C00338F3E /* NotifyPNServerJob.swift in Sources */,
 				C300A5F22554B09800555489 /* MessageSender.swift in Sources */,
 				C3C2A74D2553A39700C340D1 /* VisibleMessage.swift in Sources */,
+				B822F9CD26B3C538003B8CB8 /* IndividualCallMessage.swift in Sources */,
 				C32C5AAD256DBE8F003C73A2 /* TSInfoMessage.m in Sources */,
 				C32C5A13256DB7A5003C73A2 /* PushNotificationAPI.swift in Sources */,
 				C32A026325A801AA000ED5D4 /* NSData+messagePadding.m in Sources */,

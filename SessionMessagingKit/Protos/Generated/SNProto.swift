@@ -354,6 +354,9 @@ extension SNProtoTypingMessage.SNProtoTypingMessageBuilder {
         if let _value = dataMessage {
             builder.setDataMessage(_value)
         }
+        if let _value = callMessage {
+            builder.setCallMessage(_value)
+        }
         if let _value = receiptMessage {
             builder.setReceiptMessage(_value)
         }
@@ -377,6 +380,10 @@ extension SNProtoTypingMessage.SNProtoTypingMessageBuilder {
 
         @objc public func setDataMessage(_ valueParam: SNProtoDataMessage) {
             proto.dataMessage = valueParam.proto
+        }
+
+        @objc public func setCallMessage(_ valueParam: SNProtoCallMessage) {
+            proto.callMessage = valueParam.proto
         }
 
         @objc public func setReceiptMessage(_ valueParam: SNProtoReceiptMessage) {
@@ -408,6 +415,8 @@ extension SNProtoTypingMessage.SNProtoTypingMessageBuilder {
 
     @objc public let dataMessage: SNProtoDataMessage?
 
+    @objc public let callMessage: SNProtoCallMessage?
+
     @objc public let receiptMessage: SNProtoReceiptMessage?
 
     @objc public let typingMessage: SNProtoTypingMessage?
@@ -418,12 +427,14 @@ extension SNProtoTypingMessage.SNProtoTypingMessageBuilder {
 
     private init(proto: SessionProtos_Content,
                  dataMessage: SNProtoDataMessage?,
+                 callMessage: SNProtoCallMessage?,
                  receiptMessage: SNProtoReceiptMessage?,
                  typingMessage: SNProtoTypingMessage?,
                  configurationMessage: SNProtoConfigurationMessage?,
                  dataExtractionNotification: SNProtoDataExtractionNotification?) {
         self.proto = proto
         self.dataMessage = dataMessage
+        self.callMessage = callMessage
         self.receiptMessage = receiptMessage
         self.typingMessage = typingMessage
         self.configurationMessage = configurationMessage
@@ -444,6 +455,11 @@ extension SNProtoTypingMessage.SNProtoTypingMessageBuilder {
         var dataMessage: SNProtoDataMessage? = nil
         if proto.hasDataMessage {
             dataMessage = try SNProtoDataMessage.parseProto(proto.dataMessage)
+        }
+
+        var callMessage: SNProtoCallMessage? = nil
+        if proto.hasCallMessage {
+            callMessage = try SNProtoCallMessage.parseProto(proto.callMessage)
         }
 
         var receiptMessage: SNProtoReceiptMessage? = nil
@@ -472,6 +488,7 @@ extension SNProtoTypingMessage.SNProtoTypingMessageBuilder {
 
         let result = SNProtoContent(proto: proto,
                                     dataMessage: dataMessage,
+                                    callMessage: callMessage,
                                     receiptMessage: receiptMessage,
                                     typingMessage: typingMessage,
                                     configurationMessage: configurationMessage,

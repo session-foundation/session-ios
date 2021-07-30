@@ -210,6 +210,15 @@ struct SessionProtos_Content {
   /// Clears the value of `dataMessage`. Subsequent reads from it will return its default value.
   mutating func clearDataMessage() {self._dataMessage = nil}
 
+  var callMessage: SessionProtos_CallMessage {
+    get {return _callMessage ?? SessionProtos_CallMessage()}
+    set {_callMessage = newValue}
+  }
+  /// Returns true if `callMessage` has been explicitly set.
+  var hasCallMessage: Bool {return self._callMessage != nil}
+  /// Clears the value of `callMessage`. Subsequent reads from it will return its default value.
+  mutating func clearCallMessage() {self._callMessage = nil}
+
   var receiptMessage: SessionProtos_ReceiptMessage {
     get {return _receiptMessage ?? SessionProtos_ReceiptMessage()}
     set {_receiptMessage = newValue}
@@ -251,6 +260,7 @@ struct SessionProtos_Content {
   init() {}
 
   fileprivate var _dataMessage: SessionProtos_DataMessage? = nil
+  fileprivate var _callMessage: SessionProtos_CallMessage? = nil
   fileprivate var _receiptMessage: SessionProtos_ReceiptMessage? = nil
   fileprivate var _typingMessage: SessionProtos_TypingMessage? = nil
   fileprivate var _configurationMessage: SessionProtos_ConfigurationMessage? = nil
@@ -1959,6 +1969,7 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
   static let protoMessageName: String = _protobuf_package + ".Content"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "dataMessage"),
+    3: .same(proto: "callMessage"),
     5: .same(proto: "receiptMessage"),
     6: .same(proto: "typingMessage"),
     7: .same(proto: "configurationMessage"),
@@ -1981,6 +1992,7 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularMessageField(value: &self._dataMessage) }()
+      case 3: try { try decoder.decodeSingularMessageField(value: &self._callMessage) }()
       case 5: try { try decoder.decodeSingularMessageField(value: &self._receiptMessage) }()
       case 6: try { try decoder.decodeSingularMessageField(value: &self._typingMessage) }()
       case 7: try { try decoder.decodeSingularMessageField(value: &self._configurationMessage) }()
@@ -1993,6 +2005,9 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
     if let v = self._dataMessage {
       try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
+    }
+    if let v = self._callMessage {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
     }
     if let v = self._receiptMessage {
       try visitor.visitSingularMessageField(value: v, fieldNumber: 5)
@@ -2011,6 +2026,7 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
 
   static func ==(lhs: SessionProtos_Content, rhs: SessionProtos_Content) -> Bool {
     if lhs._dataMessage != rhs._dataMessage {return false}
+    if lhs._callMessage != rhs._callMessage {return false}
     if lhs._receiptMessage != rhs._receiptMessage {return false}
     if lhs._typingMessage != rhs._typingMessage {return false}
     if lhs._configurationMessage != rhs._configurationMessage {return false}
