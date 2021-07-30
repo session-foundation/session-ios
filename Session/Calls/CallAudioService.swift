@@ -278,7 +278,7 @@ protocol CallAudioServiceDelegate: AnyObject {
         AssertIsOnMainThread()
         Logger.debug("")
 
-        play(sound: .callEnded)
+        play(sound: .callFailure)
         handleCallEnded(call: call)
     }
 
@@ -286,7 +286,7 @@ protocol CallAudioServiceDelegate: AnyObject {
         AssertIsOnMainThread()
         Logger.debug("")
 
-        play(sound: .callEnded)
+        play(sound: .callFailure)
         handleCallEnded(call: call)
     }
 
@@ -296,7 +296,7 @@ protocol CallAudioServiceDelegate: AnyObject {
 
         vibrate()
 
-        play(sound: .callEnded)
+        play(sound: .callFailure)
         handleCallEnded(call: call)
     }
 
@@ -316,7 +316,7 @@ protocol CallAudioServiceDelegate: AnyObject {
         AssertIsOnMainThread()
         Logger.debug("")
 
-        play(sound: .callEnded)
+        play(sound: .callFailure)
         handleCallEnded(call: call)
     }
 
@@ -348,12 +348,12 @@ protocol CallAudioServiceDelegate: AnyObject {
         stopRinging()
     }
 
-    private func prepareToPlay(sound: OWSStandardSound) -> OWSAudioPlayer? {
-        guard let newPlayer = OWSSounds.audioPlayer(forSound: sound.rawValue, audioBehavior: .call) else {
-            owsFailDebug("unable to build player for sound: \(OWSSounds.displayName(forSound: sound.rawValue))")
+    private func prepareToPlay(sound: OWSSound) -> OWSAudioPlayer? {
+        guard let newPlayer = OWSSounds.audioPlayer(for: sound, audioBehavior: .call) else {
+            owsFailDebug("unable to build player for sound: \(OWSSounds.displayName(for: sound))")
             return nil
         }
-        Logger.info("playing sound: \(OWSSounds.displayName(forSound: sound.rawValue))")
+        Logger.info("playing sound: \(OWSSounds.displayName(for: sound))")
 
         // It's important to stop the current player **before** starting the new player. In the case that
         // we're playing the same sound, since the player is memoized on the sound instance, we'd otherwise
@@ -364,7 +364,7 @@ protocol CallAudioServiceDelegate: AnyObject {
         return newPlayer
     }
 
-    private func play(sound: OWSStandardSound) {
+    private func play(sound: OWSSound) {
         guard let newPlayer = prepareToPlay(sound: sound) else { return }
         newPlayer.play()
     }

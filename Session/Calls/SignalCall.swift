@@ -109,7 +109,7 @@ public class SignalCall: NSObject, CallManagerCallReference {
         case messageSendFailure(underlyingError: Error)
     }
 
-    var participantAddresses: [SignalServiceAddress] {
+    var participantAddresses: [String] {
         switch mode {
         case .group(let call):
             return call.remoteDeviceStates.values.map { $0.address }
@@ -132,7 +132,7 @@ public class SignalCall: NSObject, CallManagerCallReference {
     init(individualCall: IndividualCall) {
         mode = .individual(individualCall)
         audioActivity = AudioActivity(
-            audioDescription: "[SignalCall] with individual \(individualCall.remoteAddress)",
+            audioDescription: "[SignalCall] with individual \(individualCall.thread.contactSessionID())",
             behavior: .call
         )
         thread = individualCall.thread
@@ -174,7 +174,7 @@ public class SignalCall: NSObject, CallManagerCallReference {
 
     public class func incomingIndividualCall(
         localId: UUID,
-        remoteAddress: SignalServiceAddress,
+        publicKey: String,
         sentAtTimestamp: UInt64,
         offerMediaType: TSRecentCallOfferType
     ) -> SignalCall {
@@ -195,7 +195,7 @@ public class SignalCall: NSObject, CallManagerCallReference {
             direction: .incoming,
             localId: localId,
             state: .answering,
-            remoteAddress: remoteAddress,
+            publicKey: publicKey,
             sentAtTimestamp: sentAtTimestamp,
             callAdapterType: callAdapterType
         )
