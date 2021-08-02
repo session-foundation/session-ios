@@ -62,7 +62,7 @@ public final class IndividualCallMessage : ControlMessage {
     // MARK: Validation
     public override var isValid: Bool {
         guard super.isValid else { return false }
-        return true
+        return callID != nil && kind != nil
     }
 
     // MARK: Coding
