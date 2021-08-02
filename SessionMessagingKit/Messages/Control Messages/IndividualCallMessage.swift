@@ -68,10 +68,50 @@ public final class IndividualCallMessage : ControlMessage {
     // MARK: Coding
     public required init?(coder: NSCoder) {
         super.init(coder: coder)
+        guard let rawKind = coder.decodeObject(forKey: "kind") as? String,
+            let callID = coder.decodeObject(forKey: "callID") as? UInt64 else { return nil }
+        self.callID = callID
+        switch rawKind {
+        case "offer":
+            guard let opaque = coder.decodeObject(forKey: "opaque") as? Data,
+                let rawCallType = coder.decodeObject(forKey: "callType") as? String else { return nil }
+            self.kind = .offer(opaque: opaque, callType: CallType(rawValue: rawCallType)!)
+        case "answer":
+            guard let opaque = coder.decodeObject(forKey: "opaque") as? Data else { return nil }
+            self.kind = .answer(opaque: opaque)
+        case "iceUpdate":
+            guard let candidates = coder.decodeObject(forKey: "candidates") as? [Data] else { return nil }
+            self.kind = .iceUpdate(candidates: candidates)
+        case "hangup":
+            guard let rawType = coder.decodeObject(forKey: "type") as? String else { return nil }
+            self.kind = .hangup(type: HangupType(rawValue: rawType)!)
+        case "busy":
+            self.kind = .busy
+        default: return nil
+        }
     }
 
     public override func encode(with coder: NSCoder) {
         super.encode(with: coder)
+        guard let callID = callID, let kind = kind else { return }
+        coder.encode(callID, forKey: "callID")
+        switch kind {
+        case let .offer(opaque, callType):
+            coder.encode("offer", forKey: "kind")
+            coder.encode(opaque, forKey: "opaque")
+            coder.encode(callType.rawValue, forKey: "callType")
+        case let .answer(opaque):
+            coder.encode("answer", forKey: "kind")
+            coder.encode(opaque, forKey: "opaque")
+        case let .iceUpdate(candidates):
+            coder.encode("iceUpdate", forKey: "kind")
+            coder.encode(candidates, forKey: "candidates")
+        case let .hangup(type):
+            coder.encode("hangup", forKey: "kind")
+            coder.encode(type.rawValue, forKey: "type")
+        case .busy:
+            coder.encode("busy", forKey: "kind")
+        }
     }
 
     // MARK: Proto Conversion
