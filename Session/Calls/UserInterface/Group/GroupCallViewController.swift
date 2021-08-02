@@ -121,7 +121,7 @@ class GroupCallViewController: UIViewController {
                 let vc = GroupCallViewController(call: groupCall)
                 vc.modalTransitionStyle = .crossDissolve
 
-                OWSWindowManager.shared.startCall(vc)
+                OWSWindowManager.shared().startCall(vc)
             })
         })
 
@@ -177,7 +177,7 @@ class GroupCallViewController: UIViewController {
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: coordinator)
 
-        let wasOnSpeakerPage = scrollView.contentOffset.y >= view.height
+        let wasOnSpeakerPage = scrollView.contentOffset.y >= view.height()
 
         coordinator.animate(alongsideTransition: { _ in
             self.updateCallUI(size: size)
@@ -209,14 +209,6 @@ class GroupCallViewController: UIViewController {
             self.view.transform = .identity
         }) { _ in
             splitViewSnapshot.removeFromSuperview()
-        }
-    }
-
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-
-        if hasUnresolvedSafetyNumberMismatch {
-            resolveSafetyNumberMismatch()
         }
     }
 
@@ -266,7 +258,7 @@ class GroupCallViewController: UIViewController {
 
     func updateVideoOverflowTrailingConstraint() {
         var trailingConstraintConstant = -(GroupCallVideoOverflow.itemHeight * ReturnToCallViewController.pipSize.aspectRatio + 4)
-        if view.width + trailingConstraintConstant > videoOverflow.contentSize.width {
+        if view.width() + trailingConstraintConstant > videoOverflow.contentSize.width() {
             trailingConstraintConstant += 16
         }
         videoOverflowTrailingConstraint.constant = trailingConstraintConstant
@@ -280,7 +272,7 @@ class GroupCallViewController: UIViewController {
 
         let yMax = (controlsAreHidden ? size.height - 16 : callControls.frame.minY) - 16
 
-        videoOverflowTopConstraint.constant = yMax - videoOverflow.height
+        videoOverflowTopConstraint.constant = yMax - videoOverflow.height()
 
         updateVideoOverflowTrailingConstraint()
 
@@ -342,7 +334,7 @@ class GroupCallViewController: UIViewController {
             return
         }
 
-        swipeToastView.alpha = 1.0 - (scrollView.contentOffset.y / view.height)
+        swipeToastView.alpha = 1.0 - (scrollView.contentOffset.y / view.height())
         swipeToastView.text = isAnyRemoteDeviceScreenSharing
             ? NSLocalizedString(
                 "GROUP_CALL_SCREEN_SHARE_TOAST",
@@ -353,7 +345,7 @@ class GroupCallViewController: UIViewController {
                 comment: "Toast view text informing user about swiping to speaker view"
             )
 
-        if scrollView.contentOffset.y >= view.height {
+        if scrollView.contentOffset.y >= view.height() {
             swipeToastView.isHidden = true
 
             if isAnyRemoteDeviceScreenSharing {
@@ -435,7 +427,7 @@ class GroupCallViewController: UIViewController {
         callService.terminate(call: call)
 
         guard let splitViewSnapshot = SignalApp.shared().snapshotSplitViewController(afterScreenUpdates: false) else {
-            OWSWindowManager.shared.endCall(self)
+            OWSWindowManager.shared().endCall(self)
             return owsFailDebug("failed to snapshot rootViewController")
         }
 
@@ -446,7 +438,7 @@ class GroupCallViewController: UIViewController {
             self.view.alpha = 0
         }) { _ in
             splitViewSnapshot.removeFromSuperview()
-            OWSWindowManager.shared.endCall(self)
+            OWSWindowManager.shared().endCall(self)
         }
     }
 
@@ -497,7 +489,7 @@ extension GroupCallViewController: CallViewControllerWindowReference {
 
     var remoteVideoAddress: String {
         guard let firstMember = groupCall.remoteDeviceStates.sortedByAddedTime.first else {
-            return tsAccountManager.localAddress!
+            return getUserHexEncodedPublicKey()
         }
         return firstMember.address
     }
@@ -547,95 +539,7 @@ extension GroupCallViewController: CallViewControllerWindowReference {
         }) { _ in
             splitViewSnapshot.removeFromSuperview()
             pipSnapshot.removeFromSuperview()
-
-            if self.hasUnresolvedSafetyNumberMismatch {
-                self.resolveSafetyNumberMismatch()
-            }
         }
-    }
-
-    func resolveSafetyNumberMismatch() {
-        if !isCallMinimized, CurrentAppContext().isAppForegroundAndActive() {
-            presentSafetyNumberChangeSheetIfNecessary { [weak self] success in
-                guard let self = self else { return }
-                if success {
-                    self.groupCall.resendMediaKeys()
-                    self.hasUnresolvedSafetyNumberMismatch = false
-                } else {
-                    self.dismissCall()
-                }
-            }
-        } else {
-            let notificationPresenter = AppEnvironment.shared.notificationPresenter
-            notificationPresenter.notifyForGroupCallSafetyNumberChange(inThread: call.thread)
-        }
-    }
-
-    func presentSafetyNumberChangeSheetIfNecessary(completion: @escaping (Bool) -> Void) {
-        let localDeviceHasNotJoined = groupCall.localDeviceState.joinState == .notJoined
-        let currentParticipantAddresses = groupCall.remoteDeviceStates.map { $0.value.address }
-
-        // If we haven't joined the call yet, we want to alert for all members of the group
-        // If we are in the call, we only care about safety numbers for the active call participants
-        let addressesToAlert = call.thread.recipientAddresses.filter { memberAddress in
-            let isUntrusted = Self.identityManager.untrustedIdentityForSending(to: memberAddress) != nil
-            let isMemberInCall = currentParticipantAddresses.contains(memberAddress)
-
-            // We want to alert for safety number changes of all members if we haven't joined yet
-            // If we're already in the call, we only care about active call participants
-            return isUntrusted && (isMemberInCall || localDeviceHasNotJoined)
-        }
-
-        // There are no unverified addresses that we're currently concerned about. No need to show a sheet
-        guard addressesToAlert.count > 0 else { return completion(true) }
-
-        let startCallString = NSLocalizedString("GROUP_CALL_START_BUTTON", comment: "Button to start a group call")
-        let joinCallString = NSLocalizedString("GROUP_CALL_JOIN_BUTTON", comment: "Button to join an ongoing group call")
-        let continueCallString = NSLocalizedString("GROUP_CALL_CONTINUE_BUTTON", comment: "Button to continue an ongoing group call")
-        let leaveCallString = NSLocalizedString("GROUP_CALL_LEAVE_BUTTON", comment: "Button to leave a group call")
-        let cancelString = CommonStrings.cancelButton
-
-        let approveText: String
-        let denyText: String
-        if localDeviceHasNotJoined {
-            let deviceCount = call.groupCall.peekInfo?.deviceCount ?? 0
-            approveText = deviceCount > 0 ? joinCallString : startCallString
-            denyText = cancelString
-        } else {
-            approveText = continueCallString
-            denyText = leaveCallString
-        }
-
-        let sheet = SafetyNumberConfirmationSheet(
-            addressesToConfirm: addressesToAlert,
-            confirmationText: approveText,
-            cancelText: denyText,
-            theme: .translucentDark) { didApprove in
-
-            if didApprove {
-                SDSDatabaseStorage.shared.asyncWrite { writeTx in
-                    let identityManager = Self.identityManager
-                    for address in addressesToAlert {
-                        guard let identityKey = identityManager.identityKey(for: address, transaction: writeTx) else { return }
-                        let currentState = identityManager.verificationState(for: address, transaction: writeTx)
-                        let newState = (currentState == .noLongerVerified) ? .default : currentState
-
-                        identityManager.setVerificationState(newState,
-                            identityKey: identityKey,
-                            address: address,
-                            isUserInitiatedChange: true,
-                            transaction: writeTx)
-                    }
-                } completion: {
-                    completion(true)
-                }
-
-            } else {
-                completion(false)
-            }
-        }
-        sheet.allowsDismissal = localDeviceHasNotJoined
-        present(sheet, animated: true, completion: nil)
     }
 }
 
@@ -707,13 +611,7 @@ extension GroupCallViewController: CallObserver {
     }
 
     func callMessageSendFailedUntrustedIdentity(_ call: SignalCall) {
-        AssertIsOnMainThread()
-        guard call == self.call else { return owsFailDebug("Unexpected call \(call)") }
-
-        if !hasUnresolvedSafetyNumberMismatch {
-            hasUnresolvedSafetyNumberMismatch = true
-            resolveSafetyNumberMismatch()
-        }
+        // TODO: Do something
     }
 }
 
@@ -758,12 +656,7 @@ extension GroupCallViewController: CallControlsDelegate {
     }
 
     func didPressJoin(sender: UIButton) {
-        presentSafetyNumberChangeSheetIfNecessary { [weak self] success in
-            guard let self = self else { return }
-            if success {
-                self.callService.joinGroupCallIfNecessary(self.call)
-            }
-        }
+        self.callService.joinGroupCallIfNecessary(self.call)
     }
 }
 
@@ -771,7 +664,7 @@ extension GroupCallViewController: CallHeaderDelegate {
     func didTapBackButton() {
         if groupCall.localDeviceState.joinState == .joined {
             isCallMinimized = true
-            OWSWindowManager.shared.leaveCallView()
+            OWSWindowManager.shared().leaveCallView()
         } else {
             dismissCall()
         }
@@ -785,7 +678,7 @@ extension GroupCallViewController: CallHeaderDelegate {
 
 extension GroupCallViewController: GroupCallVideoOverflowDelegate {
     var firstOverflowMemberIndex: Int {
-        if scrollView.contentOffset.y >= view.height {
+        if scrollView.contentOffset.y >= view.height() {
             return 1
         } else {
             return videoGrid.maxItems
@@ -796,7 +689,7 @@ extension GroupCallViewController: GroupCallVideoOverflowDelegate {
 extension GroupCallViewController: UIScrollViewDelegate {
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         // If we changed pages, update the overflow view.
-        if scrollView.contentOffset.y == 0 || scrollView.contentOffset.y == view.height {
+        if scrollView.contentOffset.y == 0 || scrollView.contentOffset.y == view.height() {
             videoOverflow.reloadData()
             updateCallUI()
         }
@@ -810,6 +703,7 @@ extension GroupCallViewController: UIScrollViewDelegate {
 }
 
 extension GroupCallViewController: GroupCallMemberViewDelegate {
+    
     func memberView(_ view: GroupCallMemberView, userRequestedInfoAboutError error: GroupCallMemberView.ErrorState) {
         let title: String
         let message: String
