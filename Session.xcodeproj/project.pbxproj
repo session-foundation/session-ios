@@ -2221,13 +2221,13 @@
 			isa = PBXGroup;
 			children = (
 				B82A0C0426B7B45200C1BCE3 /* Group */,
+				B82A0C1526B7B45200C1BCE3 /* Individual */,
 				B82A0C1026B7B45200C1BCE3 /* LocalVideoView.swift */,
 				B82A0C1126B7B45200C1BCE3 /* CallHeader.swift */,
 				B82A0C1226B7B45200C1BCE3 /* CallButton.swift */,
 				B82A0C1326B7B45200C1BCE3 /* CallControls.swift */,
 				B82A0C1426B7B45200C1BCE3 /* RemoteVideoView.h */,
 				B82A0C0F26B7B45200C1BCE3 /* RemoteVideoView.m */,
-				B82A0C1526B7B45200C1BCE3 /* Individual */,
 			);
 			path = UserInterface;
 			sourceTree = "<group>";
@@ -2252,9 +2252,9 @@
 		B82A0C1526B7B45200C1BCE3 /* Individual */ = {
 			isa = PBXGroup;
 			children = (
+				B82A0C1826B7B45200C1BCE3 /* CallKit */,
 				B82A0C1626B7B45200C1BCE3 /* NonCallKitCallUIAdaptee.swift */,
 				B82A0C1726B7B45200C1BCE3 /* IndividualCallViewController.swift */,
-				B82A0C1826B7B45200C1BCE3 /* CallKit */,
 				B82A0C1B26B7B45200C1BCE3 /* CallUIAdapter.swift */,
 			);
 			path = Individual;

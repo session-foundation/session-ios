@@ -27,7 +27,7 @@ protocol CallUIAdaptee {
     func failCall(_ call: SignalCall, error: SignalCall.CallError)
     func setIsMuted(call: SignalCall, isMuted: Bool)
     func setHasLocalVideo(call: SignalCall, hasLocalVideo: Bool)
-    func startAndShowOutgoingCall(address: SignalServiceAddress, hasLocalVideo: Bool)
+    func startAndShowOutgoingCall(address: String, hasLocalVideo: Bool)
 }
 
 // Shared default implementations
@@ -39,7 +39,7 @@ extension CallUIAdaptee {
         let callViewController = IndividualCallViewController(call: call)
         callViewController.modalTransitionStyle = .crossDissolve
 
-        OWSWindowManager.shared.startCall(callViewController)
+        OWSWindowManager.shared().startCall(callViewController)
     }
 
     internal func reportMissedCall(_ call: SignalCall, callerName: String) {
@@ -48,11 +48,11 @@ extension CallUIAdaptee {
         notificationPresenter.presentMissedCall(call.individualCall, callerName: callerName)
     }
 
-    internal func startAndShowOutgoingCall(address: SignalServiceAddress, hasLocalVideo: Bool) {
+    internal func startAndShowOutgoingCall(address: String, hasLocalVideo: Bool) {
         AssertIsOnMainThread()
 
         guard let call = self.callService.buildOutgoingIndividualCallIfPossible(
-            address: address,
+            publicKey: address,
             hasVideo: hasLocalVideo
         ) else {
             // @integration This is not unexpected, it could happen if Bob tries
@@ -140,12 +140,13 @@ public class CallUIAdapter: NSObject, CallServiceObserver {
     internal func reportIncomingCall(_ call: SignalCall, thread: TSContactThread) {
         AssertIsOnMainThread()
 
-        Logger.info("remoteAddress: \(call.individualCall.remoteAddress)")
+        Logger.info("remoteAddress: \(call.individualCall.publicKey)")
 
         // make sure we don't terminate audio session during call
         _ = audioSession.startAudioActivity(call.audioActivity)
 
-        let callerName = self.contactsManager.displayName(for: call.individualCall.remoteAddress)
+        let publicKey = call.individualCall.publicKey
+        let callerName = Storage.shared.getContact(with: publicKey)?.displayName(for: .regular) ?? publicKey
 
         Logger.verbose("callerName: \(callerName)")
 
@@ -181,7 +182,8 @@ public class CallUIAdapter: NSObject, CallServiceObserver {
     internal func reportMissedCall(_ call: SignalCall) {
         AssertIsOnMainThread()
 
-        let callerName = self.contactsManager.displayName(for: call.individualCall.remoteAddress)
+        let publicKey = call.individualCall.publicKey
+        let callerName = Storage.shared.getContact(with: publicKey)?.displayName(for: .regular) ?? publicKey
         adaptee(for: call).reportMissedCall(call, callerName: callerName)
     }
 
@@ -213,7 +215,7 @@ public class CallUIAdapter: NSObject, CallServiceObserver {
         adaptee(for: call).answerCall(call)
     }
 
-    @objc public func startAndShowOutgoingCall(address: SignalServiceAddress, hasLocalVideo: Bool) {
+    @objc public func startAndShowOutgoingCall(address: String, hasLocalVideo: Bool) {
         AssertIsOnMainThread()
 
         defaultAdaptee.startAndShowOutgoingCall(address: address, hasLocalVideo: hasLocalVideo)

@@ -66,8 +66,7 @@ class IndividualCallViewController: OWSViewController, CallObserver, CallAudioSe
     // MARK: - Contact Views
 
     private lazy var contactNameLabel = MarqueeLabel()
-    private lazy var contactAvatarView = ConversationAvatarView(diameterPoints: 200,
-                                                                localUserDisplayMode: .asUser)
+    private lazy var profilePictureView = ProfilePictureView()
     private lazy var contactAvatarContainerView = UIView.container()
     private lazy var callStatusLabel = UILabel()
     private lazy var backButton = UIButton()
@@ -217,6 +216,10 @@ class IndividualCallViewController: OWSViewController, CallObserver, CallAudioSe
         self.shouldUseTheme = false
     }
 
+    required init?(coder: NSCoder) {
+        preconditionFailure()
+    }
+    
     deinit {
         // These views might be in the return to call PIP's hierarchy,
         // we want to remove them so they are free'd when the call ends
@@ -394,13 +397,8 @@ class IndividualCallViewController: OWSViewController, CallObserver, CallAudioSe
 
         topGradientView.addSubview(callStatusLabel)
 
-        contactAvatarContainerView.addSubview(contactAvatarView)
+        contactAvatarContainerView.addSubview(profilePictureView)
         view.insertSubview(contactAvatarContainerView, belowSubview: localVideoView)
-
-        backButton.accessibilityIdentifier = UIView.accessibilityIdentifier(in: self, name: "leaveCallViewButton")
-        contactNameLabel.accessibilityIdentifier = UIView.accessibilityIdentifier(in: self, name: "contactNameLabel")
-        callStatusLabel.accessibilityIdentifier = UIView.accessibilityIdentifier(in: self, name: "callStatusLabel")
-        contactAvatarView.accessibilityIdentifier = UIView.accessibilityIdentifier(in: self, name: "contactAvatarView")
     }
 
     func createOngoingCallControls() {
@@ -497,12 +495,7 @@ class IndividualCallViewController: OWSViewController, CallObserver, CallAudioSe
 
     @objc
     func updateAvatarImage() {
-        databaseStorage.read { transaction in
-            contactAvatarView.configure(thread: thread, transaction: transaction)
-            backgroundAvatarView.image = contactsManagerImpl.avatarImage(forAddress: thread.contactAddress,
-                                                                         shouldValidate: true,
-                                                                         transaction: transaction)
-        }
+        profilePictureView.update(for: thread.contactSessionID())
     }
 
     func createIncomingCallControls() {
@@ -600,7 +593,11 @@ class IndividualCallViewController: OWSViewController, CallObserver, CallAudioSe
         contactAvatarContainerView.autoPinEdge(.bottom, to: .top, of: ongoingAudioCallControls, withOffset: -avatarMargin)
         contactAvatarContainerView.autoPinWidthToSuperview(withMargin: avatarMargin)
 
-        contactAvatarView.autoCenterInSuperview()
+        let size = Values.smallProfilePictureSize
+        profilePictureView.size = size
+        profilePictureView.set(.width, to: size)
+        profilePictureView.set(.height, to: size)
+        profilePictureView.autoCenterInSuperview()
 
         ongoingAudioCallControls.autoPinEdge(toSuperviewEdge: .top, withInset: gradientMargin)
         incomingVideoCallControls.autoPinEdge(toSuperviewEdge: .top)
@@ -843,7 +840,7 @@ class IndividualCallViewController: OWSViewController, CallObserver, CallAudioSe
         let hasRemoteVideo = !remoteVideoView.isHidden
         remoteVideoView.isFullScreen = true
         remoteVideoView.isScreenShare = call.individualCall.isRemoteSharingScreen
-        contactAvatarView.isHidden = hasRemoteVideo || isRenderingLocalVanityVideo
+        profilePictureView.isHidden = hasRemoteVideo || isRenderingLocalVanityVideo
 
         // Layout controls immediately to avoid spurious animation.
         for controls in [incomingVideoCallControls, incomingAudioCallControls, ongoingAudioCallControls, ongoingVideoCallControls] {
@@ -1289,7 +1286,7 @@ extension IndividualCallViewController: UIGestureRecognizerDelegate {
 extension IndividualCallViewController: CallViewControllerWindowReference {
     var remoteVideoViewReference: UIView { remoteVideoView }
     var localVideoViewReference: UIView { localVideoView }
-    var remoteVideoAddress: SignalServiceAddress { thread.contactAddress }
+    var remoteVideoAddress: String { thread.contactSessionID() }
 
     @objc
     public func returnFromPip(pipWindow: UIWindow) {
