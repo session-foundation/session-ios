@@ -36,15 +36,8 @@ final class CallKitCallManager: NSObject {
         let handle: CXHandle
 
         if showNamesOnCallScreen {
-            let type: CXHandle.HandleType
-            let value: String
-            if let phoneNumber = call.individualCall.remoteAddress.phoneNumber {
-                type = .phoneNumber
-                value = phoneNumber
-            } else {
-                type = .generic
-                value = call.individualCall.remoteAddress.stringForDisplay
-            }
+            let type: CXHandle.HandleType = .phoneNumber
+            let value: String = call.individualCall.publicKey
             handle = CXHandle(type: type, value: value)
         } else {
             let callKitId = CallKitCallManager.kAnonymousCallHandlePrefix + call.individualCall.localId.uuidString

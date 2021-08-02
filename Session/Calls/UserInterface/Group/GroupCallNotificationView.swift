@@ -172,16 +172,10 @@ private class BannerView: UIView {
             backgroundColor = .black.withAlphaComponent(0.4)
         }
 
-        let displayNames = databaseStorage.read { transaction in
-            return addresses.map { address in
-                return (
-                    displayName: self.contactsManager.displayName(for: address, transaction: transaction),
-                    comparableName: self.contactsManager.comparableName(for: address, transaction: transaction)
-                )
-            }
-        }.sorted { $0.comparableName.caseInsensitiveCompare($1.comparableName) == .orderedAscending }
-        .map { $0.displayName }
-
+        let displayNames = addresses.map { publicKey in
+            Storage.shared.getContact(with: publicKey)?.displayName(for: .regular) ?? publicKey
+        }.sorted { $0 < $1 }
+        
         let actionText: String
         if displayNames.count > 2 {
             let formatText = action == .join
@@ -255,7 +249,7 @@ private class BannerView: UIView {
         hStack.addArrangedSubview(label)
         label.setCompressionResistanceHorizontalHigh()
         label.numberOfLines = 0
-        label.font = UIFont.ows_dynamicTypeSubheadlineClamped.ows_semibold
+        label.font = .boldSystemFont(ofSize: Values.mediumFontSize)
         label.textColor = .ows_white
         label.text = actionText
 

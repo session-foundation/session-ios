@@ -328,7 +328,7 @@ private class GroupMembersButton: UIButton {
     }
 
     func updateMemberCount(_ count: Int) {
-        countLabel.text = String(OWSFormat.formatInt(count))
+        countLabel.text = String(OWSFormat.formatInt(Int32(count)))
     }
 
     required init?(coder: NSCoder) {

@@ -197,6 +197,8 @@
 		B82A0C2D26B7B45200C1BCE3 /* CallKitCallManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C1926B7B45200C1BCE3 /* CallKitCallManager.swift */; };
 		B82A0C2E26B7B45200C1BCE3 /* CallKitCallUIAdaptee.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C1A26B7B45200C1BCE3 /* CallKitCallUIAdaptee.swift */; };
 		B82A0C2F26B7B45200C1BCE3 /* CallUIAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C1B26B7B45200C1BCE3 /* CallUIAdapter.swift */; };
+		B82A0C3126B7BFF800C1BCE3 /* TSConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C3026B7BFF800C1BCE3 /* TSConstants.swift */; };
+		B82A0C3426B7C0C900C1BCE3 /* TSAccountManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C3326B7C0C900C1BCE3 /* TSAccountManager.swift */; };
 		B82B40882399EB0E00A248E7 /* LandingVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82B40872399EB0E00A248E7 /* LandingVC.swift */; };
 		B82B408A2399EC0600A248E7 /* FakeChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82B40892399EC0600A248E7 /* FakeChatView.swift */; };
 		B82B408C239A068800A248E7 /* RegisterVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82B408B239A068800A248E7 /* RegisterVC.swift */; };
@@ -1224,6 +1226,8 @@
 		B82A0C1926B7B45200C1BCE3 /* CallKitCallManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CallKitCallManager.swift; sourceTree = "<group>"; };
 		B82A0C1A26B7B45200C1BCE3 /* CallKitCallUIAdaptee.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CallKitCallUIAdaptee.swift; sourceTree = "<group>"; };
 		B82A0C1B26B7B45200C1BCE3 /* CallUIAdapter.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CallUIAdapter.swift; sourceTree = "<group>"; };
+		B82A0C3026B7BFF800C1BCE3 /* TSConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TSConstants.swift; sourceTree = "<group>"; };
+		B82A0C3326B7C0C900C1BCE3 /* TSAccountManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TSAccountManager.swift; sourceTree = "<group>"; };
 		B82B40872399EB0E00A248E7 /* LandingVC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LandingVC.swift; sourceTree = "<group>"; };
 		B82B40892399EC0600A248E7 /* FakeChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FakeChatView.swift; sourceTree = "<group>"; };
 		B82B408B239A068800A248E7 /* RegisterVC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegisterVC.swift; sourceTree = "<group>"; };
@@ -2099,6 +2103,7 @@
 				B83F2B87240CB75A000A54AB /* UIImage+Scaling.swift */,
 				C31A6C59247F214E001123EF /* UIView+Glow.swift */,
 				C3548F0724456AB6009433A8 /* UIView+Wrapping.swift */,
+				B82A0C3026B7BFF800C1BCE3 /* TSConstants.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -2269,6 +2274,14 @@
 			path = CallKit;
 			sourceTree = "<group>";
 		};
+		B82A0C3226B7C0AD00C1BCE3 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				B82A0C3326B7C0C900C1BCE3 /* TSAccountManager.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
 		B835246C25C38AA20089A44F /* Conversations */ = {
 			isa = PBXGroup;
 			children = (
@@ -2316,6 +2329,7 @@
 				B882A77426AE878300B5AB69 /* Individual */,
 				B882A75126AE878300B5AB69 /* Group */,
 				B82A0C0326B7B45200C1BCE3 /* UserInterface */,
+				B82A0C3226B7C0AD00C1BCE3 /* Utilities */,
 			);
 			path = Calls;
 			sourceTree = "<group>";
@@ -5071,6 +5085,7 @@
 				B8F5F71A25F1B35C003BF8D4 /* MediaPlaceholderView.swift in Sources */,
 				341341EF2187467A00192D59 /* ConversationViewModel.m in Sources */,
 				4C21D5D8223AC60F00EF8A77 /* PhotoCapture.swift in Sources */,
+				B82A0C3426B7C0C900C1BCE3 /* TSAccountManager.swift in Sources */,
 				C331FFF32558FF0300070591 /* PathStatusView.swift in Sources */,
 				B8569AD325CBA13D00DBA3DB /* MediaTextOverlayView.swift in Sources */,
 				4CC1ECFB211A553000CC13BE /* AppUpdateNag.swift in Sources */,
@@ -5108,6 +5123,7 @@
 				4CA46F4C219CCC630038ABDE /* CaptionView.swift in Sources */,
 				B82A0C2D26B7B45200C1BCE3 /* CallKitCallManager.swift in Sources */,
 				C328253025CA55370062D0A7 /* ContextMenuWindow.swift in Sources */,
+				B82A0C3126B7BFF800C1BCE3 /* TSConstants.swift in Sources */,
 				B82A0C2426B7B45200C1BCE3 /* GroupCallTooltip.swift in Sources */,
 				B82A0C1E26B7B45200C1BCE3 /* GroupCallMemberSheet.swift in Sources */,
 				340FC8B7204DAC8D007AEB0F /* OWSConversationSettingsViewController.m in Sources */,

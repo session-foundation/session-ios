@@ -92,8 +92,8 @@ class GroupCallVideoGridLayout: UICollectionViewLayout {
 
         guard let (numberOfRows, numberOfColumns) = possibleGrids.first else { return owsFailDebug("missing grid") }
 
-        let totalViewWidth = collectionView.width
-        let totalViewHeight = collectionView.height
+        let totalViewWidth = collectionView.width()
+        let totalViewHeight = collectionView.height()
 
         let verticalSpacersWidth = (2 * vInset) + (vSpacing * (CGFloat(numberOfRows) - 1))
         let verticalCellSpace = totalViewHeight - verticalSpacersWidth

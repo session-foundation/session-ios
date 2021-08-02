@@ -114,7 +114,7 @@ public class SignalCall: NSObject, CallManagerCallReference {
         case .group(let call):
             return call.remoteDeviceStates.values.map { $0.address }
         case .individual(let call):
-            return [call.remoteAddress]
+            return [call.publicKey]
         }
     }
 
@@ -141,10 +141,8 @@ public class SignalCall: NSObject, CallManagerCallReference {
     }
 
     public class func groupCall(thread: TSGroupThread) -> SignalCall? {
-        owsAssertDebug(thread.groupModel.groupsVersion == .V2)
-
         let videoCaptureController = VideoCaptureController()
-        let sfuURL = DebugFlags.callingUseTestSFU.get() ? TSConstants.sfuTestURL : TSConstants.sfuURL
+        let sfuURL = TSConstants.sfuURL
 
         guard let groupCall = Self.callService.callManager.createGroupCall(
             groupId: thread.groupModel.groupId,

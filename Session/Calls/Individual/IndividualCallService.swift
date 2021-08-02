@@ -1287,7 +1287,7 @@ import SessionMessagingKit
             return
         }
 
-        guard !OWSWindowManager.shared.hasCall else {
+        guard !OWSWindowManager.shared().hasCall() else {
             // call screen is visible
             return
         }
