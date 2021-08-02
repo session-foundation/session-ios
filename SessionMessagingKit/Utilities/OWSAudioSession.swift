@@ -24,7 +24,7 @@ public class AudioActivity: NSObject {
     // MARK: Dependencies
 
     var audioSession: OWSAudioSession {
-        return Environment.shared.audioSession
+        return Environment.shared.audioSessionRef
     }
 
     // MARK: 

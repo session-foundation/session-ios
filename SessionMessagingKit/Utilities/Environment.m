@@ -9,7 +9,7 @@ static Environment *sharedEnvironment = nil;
 
 @interface Environment ()
 
-@property (nonatomic) OWSAudioSession *audioSession;
+@property (nonatomic) OWSAudioSession *audioSessionRef;
 @property (nonatomic) OWSPreferences *preferences;
 @property (nonatomic) id<OWSProximityMonitoringManager> proximityMonitoringManager;
 @property (nonatomic) OWSSounds *sounds;
@@ -53,7 +53,7 @@ static Environment *sharedEnvironment = nil;
         return self;
     }
 
-    _audioSession = audioSession;
+    _audioSessionRef = audioSession;
     _preferences = preferences;
     _proximityMonitoringManager = proximityMonitoringManager;
     _sounds = sounds;

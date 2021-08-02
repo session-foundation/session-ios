@@ -30,7 +30,6 @@ final class ConversationVC : BaseVC, ConversationViewModelDelegate, OWSConversat
     var scrollDistanceToBottomBeforeUpdate: CGFloat?
     var baselineKeyboardHeight: CGFloat = 0
 
-    var audioSession: OWSAudioSession { Environment.shared.audioSession }
     var dbConnection: YapDatabaseConnection { OWSPrimaryStorage.shared().uiDatabaseConnection }
     var viewItems: [ConversationViewItem] { viewModel.viewState.viewItems }
     override var canBecomeFirstResponder: Bool { true }

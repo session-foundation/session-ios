@@ -235,7 +235,7 @@ class CallHeader: UIView {
                         "GROUP_CALL_MANY_PEOPLE_HERE_FORMAT",
                         comment: "Text explaining that there are more than three people in the group call. Embeds {{ %1$@ participant1, %2$@ participant2, %3$@ participantCount-2 }}"
                     )
-                    callTitleText = String(format: formatString, memberNames[0], memberNames[1], OWSFormat.formatInt(memberNames.count - 2))
+                    callTitleText = String(format: formatString, memberNames[0], memberNames[1], OWSFormat.formatInt(Int32(memberNames.count) - 2))
                 }
             }
         }
@@ -311,10 +311,10 @@ private class GroupMembersButton: UIButton {
         autoSetDimension(.height, toSize: 40)
 
         iconImageView.contentMode = .scaleAspectFit
-        iconImageView.setTemplateImage(#imageLiteral(resourceName: "group-solid-24"), tintColor: .ows_white)
+        iconImageView.setTemplateImage(#imageLiteral(resourceName: "group-solid-24"), tintColor: .white)
         addSubview(iconImageView)
         iconImageView.autoPinEdge(toSuperviewEdge: .leading)
-        iconImageView.autoSetDimensions(to: CGSize(square: 22))
+        iconImageView.autoSetDimensions(to: CGSize(width: 22, height: 22))
         iconImageView.autoPinEdge(toSuperviewEdge: .top, withInset: 2)
 
         countLabel.font = .systemFont(ofSize: Values.mediumFontSize)

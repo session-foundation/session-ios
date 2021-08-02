@@ -164,12 +164,12 @@ private class BannerView: UIView {
         clipsToBounds = true
 
         if UIAccessibility.isReduceTransparencyEnabled {
-            backgroundColor = .ows_blackAlpha80
+            backgroundColor = .black.withAlphaComponent(0.8)
         } else {
             let blurEffectView = UIVisualEffectView(effect: UIBlurEffect(style: .dark))
             addSubview(blurEffectView)
             blurEffectView.autoPinEdgesToSuperviewEdges()
-            backgroundColor = .ows_blackAlpha40
+            backgroundColor = .black.withAlphaComponent(0.4)
         }
 
         let displayNames = databaseStorage.read { transaction in

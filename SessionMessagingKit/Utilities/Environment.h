@@ -24,7 +24,7 @@
                               sounds:(OWSSounds *)sounds
                        windowManager:(OWSWindowManager *)windowManager;
 
-@property (nonatomic, readonly) OWSAudioSession *audioSession;
+@property (nonatomic, readonly) OWSAudioSession *audioSessionRef;
 @property (nonatomic, readonly) id<OWSProximityMonitoringManager> proximityMonitoringManager;
 @property (nonatomic, readonly) OWSPreferences *preferences;
 @property (nonatomic, readonly) OWSSounds *sounds;
