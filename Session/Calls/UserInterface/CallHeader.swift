@@ -39,7 +39,7 @@ class CallHeader: UIView {
 
         let gradientLayer = CAGradientLayer()
         gradientLayer.colors = [
-            UIColor.ows_blackAlpha60.cgColor,
+            UIColor.black.withAlphaComponent(0.6).cgColor,
             UIColor.black.withAlphaComponent(0).cgColor
         ]
         let gradientView = OWSLayerView(frame: .zero) { view in
@@ -64,7 +64,7 @@ class CallHeader: UIView {
 
         let backButton = UIButton()
         let backButtonImage = CurrentAppContext().isRTL ? #imageLiteral(resourceName: "NavBarBackRTL") : #imageLiteral(resourceName: "NavBarBack")
-        backButton.setTemplateImage(backButtonImage, tintColor: .ows_white)
+        backButton.setTemplateImage(backButtonImage, tintColor: .white)
         backButton.autoSetDimensions(to: CGSize(square: 40))
         backButton.imageEdgeInsets = UIEdgeInsets(top: -12, leading: -18, bottom: 0, trailing: 0)
         backButton.addTarget(delegate, action: #selector(CallHeaderDelegate.didTapBackButton), for: .touchUpInside)
@@ -91,7 +91,7 @@ class CallHeader: UIView {
         // Add trailing space after the name scrolls before it wraps around and scrolls back in.
         callTitleLabel.trailingBuffer = ScaleFromIPhone5(80.0)
 
-        callTitleLabel.font = UIFont.ows_dynamicTypeHeadlineClamped.ows_semibold
+        callTitleLabel.font = .boldSystemFont(ofSize: Values.mediumFontSize)
         callTitleLabel.textAlignment = .center
         callTitleLabel.textColor = UIColor.white
         addShadow(to: callTitleLabel)
@@ -317,7 +317,7 @@ private class GroupMembersButton: UIButton {
         iconImageView.autoSetDimensions(to: CGSize(square: 22))
         iconImageView.autoPinEdge(toSuperviewEdge: .top, withInset: 2)
 
-        countLabel.font = UIFont.ows_dynamicTypeFootnoteClamped.ows_monospaced
+        countLabel.font = .systemFont(ofSize: Values.mediumFontSize)
         countLabel.textColor = .ows_white
         addSubview(countLabel)
         countLabel.autoPinEdge(.leading, to: .trailing, of: iconImageView, withOffset: 5)

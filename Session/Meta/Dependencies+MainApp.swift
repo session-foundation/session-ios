@@ -33,3 +33,32 @@ public extension NSObject {
         AppEnvironment.shared.outboundIndividualCallInitiatorRef
     }
 }
+
+public protocol Dependencies { }
+
+public extension Dependencies {
+
+    var individualCallUIAdapter: CallUIAdapter {
+        AppEnvironment.shared.callServiceRef.individualCallService.callUIAdapter
+    }
+
+    static var individualCallUIAdapter: CallUIAdapter {
+        AppEnvironment.shared.callServiceRef.individualCallService.callUIAdapter
+    }
+
+    var callService: CallService {
+        AppEnvironment.shared.callServiceRef
+    }
+
+    static var callService: CallService {
+        AppEnvironment.shared.callServiceRef
+    }
+
+    var outboundIndividualCallInitiator: OutboundIndividualCallInitiator {
+        AppEnvironment.shared.outboundIndividualCallInitiatorRef
+    }
+
+    static var outboundIndividualCallInitiator: OutboundIndividualCallInitiator {
+        AppEnvironment.shared.outboundIndividualCallInitiatorRef
+    }
+}

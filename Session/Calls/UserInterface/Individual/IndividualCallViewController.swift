@@ -36,7 +36,7 @@ class IndividualCallViewController: OWSViewController, CallObserver, CallAudioSe
     private lazy var topGradientView: UIView = {
         let gradientLayer = CAGradientLayer()
         gradientLayer.colors = [
-            UIColor.ows_blackAlpha60.cgColor,
+            UIColor.black.withAlphaComponent(0.6).cgColor,
             UIColor.black.withAlphaComponent(0).cgColor
         ]
         let view = OWSLayerView(frame: .zero) { view in
@@ -52,7 +52,7 @@ class IndividualCallViewController: OWSViewController, CallObserver, CallAudioSe
         let gradientLayer = CAGradientLayer()
         gradientLayer.colors = [
             UIColor.black.withAlphaComponent(0).cgColor,
-            UIColor.ows_blackAlpha60.cgColor
+            UIColor.black.withAlphaComponent(0.6).cgColor
         ]
         let view = OWSLayerView(frame: .zero) { view in
             gradientLayer.frame = view.bounds

@@ -829,7 +829,7 @@ extension GroupCallViewController: GroupCallMemberViewDelegate {
             let titleFormat = NSLocalizedString(
                 "GROUP_CALL_BLOCKED_ALERT_TITLE_FORMAT",
                 comment: "Title for alert explaining that a group call participant is blocked. Embeds {{ user's name }}")
-            let displayName = contactsManager.displayName(for: address)
+            let displayName = Storage.shared.getContact(with: address)?.displayName(for: .regular) ?? address
             title = String(format: titleFormat, displayName)
 
         case let .noMediaKeys(address):
@@ -840,7 +840,7 @@ extension GroupCallViewController: GroupCallMemberViewDelegate {
             let titleFormat = NSLocalizedString(
                 "GROUP_CALL_NO_KEYS_ALERT_TITLE_FORMAT",
                 comment: "Title for alert explaining that a group call participant cannot be displayed because of missing keys. Embeds {{ user's name }}")
-            let displayName = contactsManager.displayName(for: address)
+            let displayName = Storage.shared.getContact(with: address)?.displayName(for: .regular) ?? address
             title = String(format: titleFormat, displayName)
         }
 

@@ -27,7 +27,7 @@ protocol CallUIAdaptee {
     func failCall(_ call: SignalCall, error: SignalCall.CallError)
     func setIsMuted(call: SignalCall, isMuted: Bool)
     func setHasLocalVideo(call: SignalCall, hasLocalVideo: Bool)
-    func startAndShowOutgoingCall(address: String, hasLocalVideo: Bool)
+    func startAndShowOutgoingCall(publicKey: String, hasLocalVideo: Bool)
 }
 
 // Shared default implementations
@@ -48,17 +48,17 @@ extension CallUIAdaptee {
         notificationPresenter.presentMissedCall(call.individualCall, callerName: callerName)
     }
 
-    internal func startAndShowOutgoingCall(address: String, hasLocalVideo: Bool) {
+    internal func startAndShowOutgoingCall(publicKey: String, hasLocalVideo: Bool) {
         AssertIsOnMainThread()
 
         guard let call = self.callService.buildOutgoingIndividualCallIfPossible(
-            publicKey: address,
+            publicKey: publicKey,
             hasVideo: hasLocalVideo
         ) else {
             // @integration This is not unexpected, it could happen if Bob tries
             // to start an outgoing call at the same moment Alice has already
             // sent him an Offer that is being processed.
-            Logger.info("found an existing call when trying to start outgoing call: \(address)")
+            Logger.info("found an existing call when trying to start outgoing call: \(publicKey)")
             return
         }
 
@@ -91,6 +91,7 @@ public class CallUIAdapter: NSObject, CallServiceObserver {
             return nil
         } else {
             Logger.info("using callkit adaptee for iOS11+")
+            let preferences = Environment.shared.preferences!
             let showNames = preferences.notificationPreviewType() != .noNameNoPreview
             let useSystemCallLog = preferences.isSystemCallLogEnabled()
 
@@ -215,10 +216,10 @@ public class CallUIAdapter: NSObject, CallServiceObserver {
         adaptee(for: call).answerCall(call)
     }
 
-    @objc public func startAndShowOutgoingCall(address: String, hasLocalVideo: Bool) {
+    @objc public func startAndShowOutgoingCall(publicKey: String, hasLocalVideo: Bool) {
         AssertIsOnMainThread()
 
-        defaultAdaptee.startAndShowOutgoingCall(address: address, hasLocalVideo: hasLocalVideo)
+        defaultAdaptee.startAndShowOutgoingCall(publicKey: publicKey, hasLocalVideo: hasLocalVideo)
     }
 
     internal func recipientAcceptedCall(_ call: SignalCall) {

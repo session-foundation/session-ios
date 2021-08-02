@@ -19,8 +19,8 @@ class CallButton: UIButton {
     var selectedIconColor: UIColor = .ows_gray75 { didSet { updateAppearance() } }
     var currentIconColor: UIColor { isSelected ? selectedIconColor : iconColor }
 
-    var unselectedBackgroundColor = UIColor.ows_whiteAlpha40 { didSet { updateAppearance() } }
-    var selectedBackgroundColor = UIColor.ows_white { didSet { updateAppearance() } }
+    var unselectedBackgroundColor = UIColor.white.withAlphaComponent(0.4) { didSet { updateAppearance() } }
+    var selectedBackgroundColor = UIColor.white { didSet { updateAppearance() } }
 
     var currentBackgroundColor: UIColor {
         return isSelected ? selectedBackgroundColor : unselectedBackgroundColor
@@ -119,9 +119,9 @@ class CallButton: UIButton {
         NSLayoutConstraint.deactivate(currentConstraints)
         currentConstraints.removeAll()
 
-        currentConstraints += circleView.autoSetDimensions(to: CGSize(square: currentIconSize))
+        currentConstraints += circleView.autoSetDimensions(to: CGSize(width: currentIconSize, height: currentIconSize))
         circleView.layer.shadowPath = UIBezierPath(
-            ovalIn: CGRect(origin: .zero, size: .square(currentIconSize))
+            ovalIn: CGRect(origin: .zero, size: CGSize(width: currentIconSize, height: currentIconSize))
         ).cgPath
         currentConstraints += iconView.autoPinEdgesToSuperviewEdges(with: currentIconInsets)
         if let dropdownIconView = dropdownIconView {
@@ -136,7 +136,7 @@ class CallButton: UIButton {
             self.dropdownIconView = dropdownIconView
             circleView.addSubview(dropdownIconView)
 
-            dropdownIconView.autoSetDimensions(to: CGSize(square: 12))
+            dropdownIconView.autoSetDimensions(to: CGSize(width: 12, height: 12))
             dropdownIconView.autoVCenterInSuperview()
 
             updateSizing()

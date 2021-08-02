@@ -8,13 +8,13 @@ class GroupCallSwipeToastView: UIView {
 
     private let imageView: UIImageView = {
         let view = UIImageView()
-        view.setTemplateImageName("arrow-up-20", tintColor: .ows_white)
+        view.setTemplateImageName("arrow-up-20", tintColor: .white)
         return view
     }()
 
     private let label: UILabel = {
         let label = UILabel()
-        label.font = UIFont.ows_dynamicTypeBody2
+        label.font = .systemFont(ofSize: Values.mediumFontSize)
         label.textColor = .ows_gray05
         label.numberOfLines = 0
         label.lineBreakMode = .byWordWrapping
