@@ -89,7 +89,7 @@ public final class ClosedGroupControlMessage : ControlMessage {
     public override var isValid: Bool {
         guard super.isValid, let kind = kind else { return false }
         switch kind {
-        case .new(let publicKey, let name, let encryptionKeyPair, let members, let admins, let expirationTimer):
+        case .new(let publicKey, let name, let encryptionKeyPair, let members, let admins, _):
             return !publicKey.isEmpty && !name.isEmpty && !encryptionKeyPair.publicKey.isEmpty
                 && !encryptionKeyPair.privateKey.isEmpty && !members.isEmpty && !admins.isEmpty
         case .encryptionKeyPair: return true
