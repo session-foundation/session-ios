@@ -177,6 +177,26 @@
 		B8269D3325C7A8C600488AB4 /* InputViewButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8269D3225C7A8C600488AB4 /* InputViewButton.swift */; };
 		B8269D3D25C7B34D00488AB4 /* InputTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8269D3C25C7B34D00488AB4 /* InputTextView.swift */; };
 		B82A0C0026B79EB700C1BCE3 /* GroupCallUpdateMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0BFF26B79EB700C1BCE3 /* GroupCallUpdateMessage.swift */; };
+		B82A0C1C26B7B45200C1BCE3 /* GroupCallNotificationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C0526B7B45200C1BCE3 /* GroupCallNotificationView.swift */; };
+		B82A0C1D26B7B45200C1BCE3 /* GroupCallVideoOverflow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C0626B7B45200C1BCE3 /* GroupCallVideoOverflow.swift */; };
+		B82A0C1E26B7B45200C1BCE3 /* GroupCallMemberSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C0726B7B45200C1BCE3 /* GroupCallMemberSheet.swift */; };
+		B82A0C1F26B7B45200C1BCE3 /* GroupCallViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C0826B7B45200C1BCE3 /* GroupCallViewController.swift */; };
+		B82A0C2026B7B45200C1BCE3 /* GroupCallVideoGridLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C0926B7B45200C1BCE3 /* GroupCallVideoGridLayout.swift */; };
+		B82A0C2126B7B45200C1BCE3 /* GroupCallVideoGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C0A26B7B45200C1BCE3 /* GroupCallVideoGrid.swift */; };
+		B82A0C2226B7B45200C1BCE3 /* GroupCallSwipeToastView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C0B26B7B45200C1BCE3 /* GroupCallSwipeToastView.swift */; };
+		B82A0C2326B7B45200C1BCE3 /* GroupCallErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C0C26B7B45200C1BCE3 /* GroupCallErrorView.swift */; };
+		B82A0C2426B7B45200C1BCE3 /* GroupCallTooltip.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C0D26B7B45200C1BCE3 /* GroupCallTooltip.swift */; };
+		B82A0C2526B7B45200C1BCE3 /* GroupCallMemberView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C0E26B7B45200C1BCE3 /* GroupCallMemberView.swift */; };
+		B82A0C2626B7B45200C1BCE3 /* RemoteVideoView.m in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C0F26B7B45200C1BCE3 /* RemoteVideoView.m */; };
+		B82A0C2726B7B45200C1BCE3 /* LocalVideoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C1026B7B45200C1BCE3 /* LocalVideoView.swift */; };
+		B82A0C2826B7B45200C1BCE3 /* CallHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C1126B7B45200C1BCE3 /* CallHeader.swift */; };
+		B82A0C2926B7B45200C1BCE3 /* CallButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C1226B7B45200C1BCE3 /* CallButton.swift */; };
+		B82A0C2A26B7B45200C1BCE3 /* CallControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C1326B7B45200C1BCE3 /* CallControls.swift */; };
+		B82A0C2B26B7B45200C1BCE3 /* NonCallKitCallUIAdaptee.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C1626B7B45200C1BCE3 /* NonCallKitCallUIAdaptee.swift */; };
+		B82A0C2C26B7B45200C1BCE3 /* IndividualCallViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C1726B7B45200C1BCE3 /* IndividualCallViewController.swift */; };
+		B82A0C2D26B7B45200C1BCE3 /* CallKitCallManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C1926B7B45200C1BCE3 /* CallKitCallManager.swift */; };
+		B82A0C2E26B7B45200C1BCE3 /* CallKitCallUIAdaptee.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C1A26B7B45200C1BCE3 /* CallKitCallUIAdaptee.swift */; };
+		B82A0C2F26B7B45200C1BCE3 /* CallUIAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C1B26B7B45200C1BCE3 /* CallUIAdapter.swift */; };
 		B82B40882399EB0E00A248E7 /* LandingVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82B40872399EB0E00A248E7 /* LandingVC.swift */; };
 		B82B408A2399EC0600A248E7 /* FakeChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82B40892399EC0600A248E7 /* FakeChatView.swift */; };
 		B82B408C239A068800A248E7 /* RegisterVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82B408B239A068800A248E7 /* RegisterVC.swift */; };
@@ -1183,6 +1203,27 @@
 		B8269D3225C7A8C600488AB4 /* InputViewButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputViewButton.swift; sourceTree = "<group>"; };
 		B8269D3C25C7B34D00488AB4 /* InputTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputTextView.swift; sourceTree = "<group>"; };
 		B82A0BFF26B79EB700C1BCE3 /* GroupCallUpdateMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupCallUpdateMessage.swift; sourceTree = "<group>"; };
+		B82A0C0526B7B45200C1BCE3 /* GroupCallNotificationView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GroupCallNotificationView.swift; sourceTree = "<group>"; };
+		B82A0C0626B7B45200C1BCE3 /* GroupCallVideoOverflow.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GroupCallVideoOverflow.swift; sourceTree = "<group>"; };
+		B82A0C0726B7B45200C1BCE3 /* GroupCallMemberSheet.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GroupCallMemberSheet.swift; sourceTree = "<group>"; };
+		B82A0C0826B7B45200C1BCE3 /* GroupCallViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GroupCallViewController.swift; sourceTree = "<group>"; };
+		B82A0C0926B7B45200C1BCE3 /* GroupCallVideoGridLayout.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GroupCallVideoGridLayout.swift; sourceTree = "<group>"; };
+		B82A0C0A26B7B45200C1BCE3 /* GroupCallVideoGrid.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GroupCallVideoGrid.swift; sourceTree = "<group>"; };
+		B82A0C0B26B7B45200C1BCE3 /* GroupCallSwipeToastView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GroupCallSwipeToastView.swift; sourceTree = "<group>"; };
+		B82A0C0C26B7B45200C1BCE3 /* GroupCallErrorView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GroupCallErrorView.swift; sourceTree = "<group>"; };
+		B82A0C0D26B7B45200C1BCE3 /* GroupCallTooltip.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GroupCallTooltip.swift; sourceTree = "<group>"; };
+		B82A0C0E26B7B45200C1BCE3 /* GroupCallMemberView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GroupCallMemberView.swift; sourceTree = "<group>"; };
+		B82A0C0F26B7B45200C1BCE3 /* RemoteVideoView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = RemoteVideoView.m; sourceTree = "<group>"; };
+		B82A0C1026B7B45200C1BCE3 /* LocalVideoView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LocalVideoView.swift; sourceTree = "<group>"; };
+		B82A0C1126B7B45200C1BCE3 /* CallHeader.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CallHeader.swift; sourceTree = "<group>"; };
+		B82A0C1226B7B45200C1BCE3 /* CallButton.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CallButton.swift; sourceTree = "<group>"; };
+		B82A0C1326B7B45200C1BCE3 /* CallControls.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CallControls.swift; sourceTree = "<group>"; };
+		B82A0C1426B7B45200C1BCE3 /* RemoteVideoView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RemoteVideoView.h; sourceTree = "<group>"; };
+		B82A0C1626B7B45200C1BCE3 /* NonCallKitCallUIAdaptee.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NonCallKitCallUIAdaptee.swift; sourceTree = "<group>"; };
+		B82A0C1726B7B45200C1BCE3 /* IndividualCallViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = IndividualCallViewController.swift; sourceTree = "<group>"; };
+		B82A0C1926B7B45200C1BCE3 /* CallKitCallManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CallKitCallManager.swift; sourceTree = "<group>"; };
+		B82A0C1A26B7B45200C1BCE3 /* CallKitCallUIAdaptee.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CallKitCallUIAdaptee.swift; sourceTree = "<group>"; };
+		B82A0C1B26B7B45200C1BCE3 /* CallUIAdapter.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CallUIAdapter.swift; sourceTree = "<group>"; };
 		B82B40872399EB0E00A248E7 /* LandingVC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LandingVC.swift; sourceTree = "<group>"; };
 		B82B40892399EC0600A248E7 /* FakeChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FakeChatView.swift; sourceTree = "<group>"; };
 		B82B408B239A068800A248E7 /* RegisterVC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegisterVC.swift; sourceTree = "<group>"; };
@@ -2176,6 +2217,58 @@
 			path = "Views & Modals";
 			sourceTree = "<group>";
 		};
+		B82A0C0326B7B45200C1BCE3 /* UserInterface */ = {
+			isa = PBXGroup;
+			children = (
+				B82A0C0426B7B45200C1BCE3 /* Group */,
+				B82A0C1026B7B45200C1BCE3 /* LocalVideoView.swift */,
+				B82A0C1126B7B45200C1BCE3 /* CallHeader.swift */,
+				B82A0C1226B7B45200C1BCE3 /* CallButton.swift */,
+				B82A0C1326B7B45200C1BCE3 /* CallControls.swift */,
+				B82A0C1426B7B45200C1BCE3 /* RemoteVideoView.h */,
+				B82A0C0F26B7B45200C1BCE3 /* RemoteVideoView.m */,
+				B82A0C1526B7B45200C1BCE3 /* Individual */,
+			);
+			path = UserInterface;
+			sourceTree = "<group>";
+		};
+		B82A0C0426B7B45200C1BCE3 /* Group */ = {
+			isa = PBXGroup;
+			children = (
+				B82A0C0526B7B45200C1BCE3 /* GroupCallNotificationView.swift */,
+				B82A0C0626B7B45200C1BCE3 /* GroupCallVideoOverflow.swift */,
+				B82A0C0726B7B45200C1BCE3 /* GroupCallMemberSheet.swift */,
+				B82A0C0826B7B45200C1BCE3 /* GroupCallViewController.swift */,
+				B82A0C0926B7B45200C1BCE3 /* GroupCallVideoGridLayout.swift */,
+				B82A0C0A26B7B45200C1BCE3 /* GroupCallVideoGrid.swift */,
+				B82A0C0B26B7B45200C1BCE3 /* GroupCallSwipeToastView.swift */,
+				B82A0C0C26B7B45200C1BCE3 /* GroupCallErrorView.swift */,
+				B82A0C0D26B7B45200C1BCE3 /* GroupCallTooltip.swift */,
+				B82A0C0E26B7B45200C1BCE3 /* GroupCallMemberView.swift */,
+			);
+			path = Group;
+			sourceTree = "<group>";
+		};
+		B82A0C1526B7B45200C1BCE3 /* Individual */ = {
+			isa = PBXGroup;
+			children = (
+				B82A0C1626B7B45200C1BCE3 /* NonCallKitCallUIAdaptee.swift */,
+				B82A0C1726B7B45200C1BCE3 /* IndividualCallViewController.swift */,
+				B82A0C1826B7B45200C1BCE3 /* CallKit */,
+				B82A0C1B26B7B45200C1BCE3 /* CallUIAdapter.swift */,
+			);
+			path = Individual;
+			sourceTree = "<group>";
+		};
+		B82A0C1826B7B45200C1BCE3 /* CallKit */ = {
+			isa = PBXGroup;
+			children = (
+				B82A0C1926B7B45200C1BCE3 /* CallKitCallManager.swift */,
+				B82A0C1A26B7B45200C1BCE3 /* CallKitCallUIAdaptee.swift */,
+			);
+			path = CallKit;
+			sourceTree = "<group>";
+		};
 		B835246C25C38AA20089A44F /* Conversations */ = {
 			isa = PBXGroup;
 			children = (
@@ -2215,13 +2308,14 @@
 			children = (
 				B822F9C326B275FA003B8CB8 /* INSTRUCTIONS.md */,
 				B882A75026AE878300B5AB69 /* CallService.swift */,
-				B882A75126AE878300B5AB69 /* Group */,
 				B882A75426AE878300B5AB69 /* CallAudioService.swift */,
 				B882A75526AE878300B5AB69 /* OWSAudioSession+WebRTC.swift */,
 				B882A75626AE878300B5AB69 /* SignalCall.swift */,
-				B882A77026AE878300B5AB69 /* Signaling */,
 				B882A77326AE878300B5AB69 /* AudioSource.swift */,
+				B882A77026AE878300B5AB69 /* Signaling */,
 				B882A77426AE878300B5AB69 /* Individual */,
+				B882A75126AE878300B5AB69 /* Group */,
+				B82A0C0326B7B45200C1BCE3 /* UserInterface */,
 			);
 			path = Calls;
 			sourceTree = "<group>";
@@ -4881,6 +4975,7 @@
 				452EC6DF205E9E30000E787C /* MediaGalleryViewController.swift in Sources */,
 				3496956E21A301A100DCFE74 /* OWSBackupExportJob.m in Sources */,
 				4C1885D2218F8E1C00B67051 /* PhotoGridViewCell.swift in Sources */,
+				B82A0C2C26B7B45200C1BCE3 /* IndividualCallViewController.swift in Sources */,
 				34D1F0501F7D45A60066283D /* GifPickerCell.swift in Sources */,
 				B882A79226AE878300B5AB69 /* WebRTCCallMessageHandler.swift in Sources */,
 				B882A79326AE878300B5AB69 /* TurnServerInfo.swift in Sources */,
@@ -4918,6 +5013,7 @@
 				34B0796D1FCF46B100E248C2 /* MainAppContext.m in Sources */,
 				34A8B3512190A40E00218A25 /* MediaAlbumView.swift in Sources */,
 				4C4AEC4520EC343B0020E72B /* DismissableTextField.swift in Sources */,
+				B82A0C2626B7B45200C1BCE3 /* RemoteVideoView.m in Sources */,
 				3496955E219B605E00DCFE74 /* PhotoLibrary.swift in Sources */,
 				C3A76A8D25DB83F90074CB90 /* PermissionMissingModal.swift in Sources */,
 				340FC8A9204DAC8D007AEB0F /* NotificationSettingsOptionsViewController.m in Sources */,
@@ -4925,6 +5021,7 @@
 				B882A79726AE878300B5AB69 /* IndividualCall.swift in Sources */,
 				C3D0972B2510499C00F6E3E4 /* BackgroundPoller.swift in Sources */,
 				C3548F0624456447009433A8 /* PNModeVC.swift in Sources */,
+				B82A0C1D26B7B45200C1BCE3 /* GroupCallVideoOverflow.swift in Sources */,
 				B80A579F23DFF1F300876683 /* NewClosedGroupVC.swift in Sources */,
 				D221A09A169C9E5E00537ABF /* main.m in Sources */,
 				3496957221A301A100DCFE74 /* OWSBackup.m in Sources */,
@@ -4934,7 +5031,9 @@
 				34E3E5681EC4B19400495BAC /* AudioProgressView.swift in Sources */,
 				B8D0A26925E4A2C200C1835E /* Onboarding.swift in Sources */,
 				B882A79526AE878300B5AB69 /* IndividualCallService.swift in Sources */,
+				B82A0C2026B7B45200C1BCE3 /* GroupCallVideoGridLayout.swift in Sources */,
 				34D1F0521F7E8EA30066283D /* GiphyDownloader.swift in Sources */,
+				B82A0C1C26B7B45200C1BCE3 /* GroupCallNotificationView.swift in Sources */,
 				450DF2051E0D74AC003D14BE /* Platform.swift in Sources */,
 				4CC613362227A00400E21A3A /* ConversationSearch.swift in Sources */,
 				B882A77B26AE878300B5AB69 /* CallAudioService.swift in Sources */,
@@ -4942,12 +5041,14 @@
 				B82B408C239A068800A248E7 /* RegisterVC.swift in Sources */,
 				346129991FD1E4DA00532771 /* SignalApp.m in Sources */,
 				3496957121A301A100DCFE74 /* OWSBackupImportJob.m in Sources */,
+				B82A0C2B26B7B45200C1BCE3 /* NonCallKitCallUIAdaptee.swift in Sources */,
 				34BECE301F7ABCF800D7438D /* GifPickerLayout.swift in Sources */,
 				C331FFFE2558FF3B00070591 /* ConversationCell.swift in Sources */,
 				B882A77D26AE878300B5AB69 /* SignalCall.swift in Sources */,
 				B8F5F72325F1B4CA003BF8D4 /* DownloadAttachmentModal.swift in Sources */,
 				C3DFFAC623E96F0D0058DAF8 /* Sheet.swift in Sources */,
 				C31FFE57254A5FFE00F19441 /* KeyPairUtilities.swift in Sources */,
+				B82A0C2126B7B45200C1BCE3 /* GroupCallVideoGrid.swift in Sources */,
 				B8D84EA325DF745A005A043E /* LinkPreviewState.swift in Sources */,
 				45C0DC1E1E69011F00E04C47 /* UIStoryboard+OWS.swift in Sources */,
 				45A6DAD61EBBF85500893231 /* ReminderView.swift in Sources */,
@@ -4960,6 +5061,7 @@
 				C374EEEB25DA3CA70073A857 /* ConversationTitleView.swift in Sources */,
 				B882A77A26AE878300B5AB69 /* GroupCallRemoteVideoManager.swift in Sources */,
 				B88FA7F2260C3EB10049422F /* OpenGroupSuggestionGrid.swift in Sources */,
+				B82A0C1F26B7B45200C1BCE3 /* GroupCallViewController.swift in Sources */,
 				4CA485BB2232339F004B9E7D /* PhotoCaptureViewController.swift in Sources */,
 				34330AA31E79686200DF2FB9 /* OWSProgressView.m in Sources */,
 				344825C6211390C800DB4BD8 /* OWSOrphanDataCleaner.m in Sources */,
@@ -4974,10 +5076,12 @@
 				4CC1ECFB211A553000CC13BE /* AppUpdateNag.swift in Sources */,
 				B848A4C5269EAAA200617031 /* UserDetailsSheet.swift in Sources */,
 				34B6A903218B3F63007C4606 /* TypingIndicatorView.swift in Sources */,
+				B82A0C2226B7B45200C1BCE3 /* GroupCallSwipeToastView.swift in Sources */,
 				B886B4A72398B23E00211ABE /* QRCodeVC.swift in Sources */,
 				B8544E3323D50E4900299F14 /* SNAppearance.swift in Sources */,
 				4C586926224FAB83003FD070 /* AVAudioSession+OWS.m in Sources */,
 				C331FFF42558FF0300070591 /* PNOptionView.swift in Sources */,
+				B82A0C2F26B7B45200C1BCE3 /* CallUIAdapter.swift in Sources */,
 				B882A79626AE878300B5AB69 /* OutboundIndividualCallInitiator.swift in Sources */,
 				4C4AE6A1224AF35700D4AF6F /* SendMediaNavigationController.swift in Sources */,
 				45F32C222057297A00A300D5 /* MediaDetailViewController.m in Sources */,
@@ -4988,11 +5092,13 @@
 				34ABC0E421DD20C500ED9469 /* ConversationMessageMapping.swift in Sources */,
 				B882A77926AE878300B5AB69 /* GroupCallUpdateMessageHandler.swift in Sources */,
 				B85357C323A1BD1200AAF6CD /* SeedVC.swift in Sources */,
+				B82A0C2926B7B45200C1BCE3 /* CallButton.swift in Sources */,
 				45B5360E206DD8BB00D61655 /* UIResponder+OWS.swift in Sources */,
 				B8D84ECF25E3108A005A043E /* ExpandingAttachmentsButton.swift in Sources */,
 				B875885A264503A6000E60D0 /* JoinOpenGroupModal.swift in Sources */,
 				B8CCF6432397711F0091D419 /* SettingsVC.swift in Sources */,
 				C354E75A23FE2A7600CE22E3 /* BaseVC.swift in Sources */,
+				B82A0C2826B7B45200C1BCE3 /* CallHeader.swift in Sources */,
 				3441FD9F21A3604F00BB9542 /* BackupRestoreViewController.swift in Sources */,
 				45C0DC1B1E68FE9000E04C47 /* UIApplication+OWS.swift in Sources */,
 				4539B5861F79348F007141FF /* PushRegistrationManager.swift in Sources */,
@@ -5000,7 +5106,10 @@
 				45F32C232057297A00A300D5 /* MediaPageViewController.swift in Sources */,
 				34D2CCDA2062E7D000CB1A14 /* OWSScreenLockUI.m in Sources */,
 				4CA46F4C219CCC630038ABDE /* CaptionView.swift in Sources */,
+				B82A0C2D26B7B45200C1BCE3 /* CallKitCallManager.swift in Sources */,
 				C328253025CA55370062D0A7 /* ContextMenuWindow.swift in Sources */,
+				B82A0C2426B7B45200C1BCE3 /* GroupCallTooltip.swift in Sources */,
+				B82A0C1E26B7B45200C1BCE3 /* GroupCallMemberSheet.swift in Sources */,
 				340FC8B7204DAC8D007AEB0F /* OWSConversationSettingsViewController.m in Sources */,
 				34BECE2E1F7ABCE000D7438D /* GifPickerViewController.swift in Sources */,
 				B84664F5235022F30083A1CD /* MentionUtilities.swift in Sources */,
@@ -5008,11 +5117,13 @@
 				C328250F25CA06020062D0A7 /* VoiceMessageView.swift in Sources */,
 				B82B4090239DD75000A248E7 /* RestoreVC.swift in Sources */,
 				3488F9362191CC4000E524CC /* MediaView.swift in Sources */,
+				B82A0C2526B7B45200C1BCE3 /* GroupCallMemberView.swift in Sources */,
 				B8569AC325CB5D2900DBA3DB /* ConversationVC+Interaction.swift in Sources */,
 				3496955C219B605E00DCFE74 /* ImagePickerController.swift in Sources */,
 				C31D1DE32521718E005D4DA8 /* UserSelectionVC.swift in Sources */,
 				34A6C28021E503E700B5B12E /* OWSImagePickerController.swift in Sources */,
 				C31A6C5C247F2CF3001123EF /* CGRect+Utilities.swift in Sources */,
+				B82A0C2326B7B45200C1BCE3 /* GroupCallErrorView.swift in Sources */,
 				4C21D5D6223A9DC500EF8A77 /* UIAlerts+iOS9.m in Sources */,
 				3496957021A301A100DCFE74 /* OWSBackupIO.m in Sources */,
 				B8269D3325C7A8C600488AB4 /* InputViewButton.swift in Sources */,
@@ -5020,12 +5131,14 @@
 				76EB054018170B33006006FC /* AppDelegate.m in Sources */,
 				340FC8B6204DAC8D007AEB0F /* OWSQRCodeScanningViewController.m in Sources */,
 				C33100082558FF6D00070591 /* NewConversationButtonSet.swift in Sources */,
+				B82A0C2A26B7B45200C1BCE3 /* CallControls.swift in Sources */,
 				C3AAFFF225AE99710089E6DD /* AppDelegate.swift in Sources */,
 				B8BB82A5238F627000BA5194 /* HomeVC.swift in Sources */,
 				C31A6C5A247F214E001123EF /* UIView+Glow.swift in Sources */,
 				C31D1DE9252172D4005D4DA8 /* ContactUtilities.swift in Sources */,
 				4521C3C01F59F3BA00B4C582 /* TextFieldHelper.swift in Sources */,
 				340FC8AC204DAC8D007AEB0F /* PrivacySettingsTableViewController.m in Sources */,
+				B82A0C2E26B7B45200C1BCE3 /* CallKitCallUIAdaptee.swift in Sources */,
 				B8569AE325CBB19A00DBA3DB /* DocumentView.swift in Sources */,
 				B85357BF23A1AE0800AAF6CD /* SeedReminderView.swift in Sources */,
 				B821494F25D4E163009C0F2A /* BodyTextView.swift in Sources */,
@@ -5037,6 +5150,7 @@
 				B894D0752339EDCF00B4D94D /* NukeDataModal.swift in Sources */,
 				B897621C25D201F7004F83B2 /* ScrollToBottomButton.swift in Sources */,
 				346B66311F4E29B200E5122F /* CropScaleImageViewController.swift in Sources */,
+				B82A0C2726B7B45200C1BCE3 /* LocalVideoView.swift in Sources */,
 				45E5A6991F61E6DE001E4A8A /* MarqueeLabel.swift in Sources */,
 				C302093E25DCBF08001F572D /* MentionSelectionView.swift in Sources */,
 				C328251F25CA3A900062D0A7 /* QuoteView.swift in Sources */,
