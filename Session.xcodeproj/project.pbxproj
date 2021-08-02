@@ -185,7 +185,6 @@
 		B82A0C2126B7B45200C1BCE3 /* GroupCallVideoGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C0A26B7B45200C1BCE3 /* GroupCallVideoGrid.swift */; };
 		B82A0C2226B7B45200C1BCE3 /* GroupCallSwipeToastView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C0B26B7B45200C1BCE3 /* GroupCallSwipeToastView.swift */; };
 		B82A0C2326B7B45200C1BCE3 /* GroupCallErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C0C26B7B45200C1BCE3 /* GroupCallErrorView.swift */; };
-		B82A0C2426B7B45200C1BCE3 /* GroupCallTooltip.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C0D26B7B45200C1BCE3 /* GroupCallTooltip.swift */; };
 		B82A0C2526B7B45200C1BCE3 /* GroupCallMemberView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C0E26B7B45200C1BCE3 /* GroupCallMemberView.swift */; };
 		B82A0C2626B7B45200C1BCE3 /* RemoteVideoView.m in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C0F26B7B45200C1BCE3 /* RemoteVideoView.m */; };
 		B82A0C2726B7B45200C1BCE3 /* LocalVideoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82A0C1026B7B45200C1BCE3 /* LocalVideoView.swift */; };
@@ -1213,7 +1212,6 @@
 		B82A0C0A26B7B45200C1BCE3 /* GroupCallVideoGrid.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GroupCallVideoGrid.swift; sourceTree = "<group>"; };
 		B82A0C0B26B7B45200C1BCE3 /* GroupCallSwipeToastView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GroupCallSwipeToastView.swift; sourceTree = "<group>"; };
 		B82A0C0C26B7B45200C1BCE3 /* GroupCallErrorView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GroupCallErrorView.swift; sourceTree = "<group>"; };
-		B82A0C0D26B7B45200C1BCE3 /* GroupCallTooltip.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GroupCallTooltip.swift; sourceTree = "<group>"; };
 		B82A0C0E26B7B45200C1BCE3 /* GroupCallMemberView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GroupCallMemberView.swift; sourceTree = "<group>"; };
 		B82A0C0F26B7B45200C1BCE3 /* RemoteVideoView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = RemoteVideoView.m; sourceTree = "<group>"; };
 		B82A0C1026B7B45200C1BCE3 /* LocalVideoView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LocalVideoView.swift; sourceTree = "<group>"; };
@@ -2248,7 +2246,6 @@
 				B82A0C0A26B7B45200C1BCE3 /* GroupCallVideoGrid.swift */,
 				B82A0C0B26B7B45200C1BCE3 /* GroupCallSwipeToastView.swift */,
 				B82A0C0C26B7B45200C1BCE3 /* GroupCallErrorView.swift */,
-				B82A0C0D26B7B45200C1BCE3 /* GroupCallTooltip.swift */,
 				B82A0C0E26B7B45200C1BCE3 /* GroupCallMemberView.swift */,
 			);
 			path = Group;
@@ -5124,7 +5121,6 @@
 				B82A0C2D26B7B45200C1BCE3 /* CallKitCallManager.swift in Sources */,
 				C328253025CA55370062D0A7 /* ContextMenuWindow.swift in Sources */,
 				B82A0C3126B7BFF800C1BCE3 /* TSConstants.swift in Sources */,
-				B82A0C2426B7B45200C1BCE3 /* GroupCallTooltip.swift in Sources */,
 				B82A0C1E26B7B45200C1BCE3 /* GroupCallMemberSheet.swift in Sources */,
 				340FC8B7204DAC8D007AEB0F /* OWSConversationSettingsViewController.m in Sources */,
 				34BECE2E1F7ABCE000D7438D /* GifPickerViewController.swift in Sources */,
