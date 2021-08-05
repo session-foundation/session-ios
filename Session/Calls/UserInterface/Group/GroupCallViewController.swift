@@ -351,15 +351,25 @@ class GroupCallViewController: UIViewController {
             if isAnyRemoteDeviceScreenSharing {
                 if !isAutoScrollingToScreenShare {
                     didUserEverSwipeToScreenShare = true
+                    
+                    // TODO: Implement
+                    
+                    /*
                     SDSDatabaseStorage.shared.asyncWrite { writeTx in
                         Self.keyValueStore.setBool(true, key: Self.didUserSwipeToScreenShareKey, transaction: writeTx)
                     }
+                     */
                 }
             } else {
                 didUserEverSwipeToSpeakerView = true
+                
+                // TODO: Implement
+                
+                /*
                 SDSDatabaseStorage.shared.asyncWrite { writeTx in
                     Self.keyValueStore.setBool(true, key: Self.didUserSwipeToSpeakerViewKey, transaction: writeTx)
                 }
+                 */
             }
 
         } else if swipeToastView.isHidden {

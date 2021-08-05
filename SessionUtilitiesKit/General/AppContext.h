@@ -45,6 +45,8 @@ NSString *NSStringForUIApplicationState(UIApplicationState value);
 
 @property (atomic, nullable) UIWindow *mainWindow;
 
+@property (nonatomic, readonly) CGRect frame;
+
 // Unlike UIApplication.applicationState, this is thread-safe.
 // It contains the "last known" application state.
 //

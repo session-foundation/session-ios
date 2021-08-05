@@ -234,6 +234,9 @@ private class BannerView: UIView {
             avatarView.autoVCenterInSuperview()
             avatarView.autoMatch(.height, to: .width, of: avatarView)
 
+            // TODO: Implement
+            
+            /*
             if address.isLocalAddress,
                let avatarImage = profileManager.localProfileAvatarImage() {
                 avatarView.image = avatarImage
@@ -243,6 +246,7 @@ private class BannerView: UIView {
                                                                                  localUserDisplayMode: .asUser)
                 avatarView.image = avatar
             }
+             */
         }
 
         let label = UILabel()

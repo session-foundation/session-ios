@@ -4,7 +4,7 @@
 
 import PromiseKit
 
-extension TSAccountManager {
+extension AccountManager {
     
     func getTurnServerInfo() -> Promise<TurnServerInfo> {
         let request = TSRequest(url: URL(string: "v1/accounts/turn")!, method: "GET", parameters: [:])

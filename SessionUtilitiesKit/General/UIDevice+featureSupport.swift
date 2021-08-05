@@ -66,4 +66,21 @@ public extension UIDevice {
         // https://stackoverflow.com/questions/20987249/how-do-i-programmatically-set-device-orientation-in-ios7
         UINavigationController.attemptRotationToDeviceOrientation()
     }
+    
+    var isFullScreen: Bool {
+        let windowSize = CurrentAppContext().frame.size
+        let screenSize = UIScreen.main.bounds.size
+        return windowSize.largerAxis == screenSize.largerAxis && windowSize.smallerAxis == screenSize.smallerAxis
+    }
+}
+
+extension CGSize {
+    
+    var largerAxis: CGFloat {
+        Swift.max(width, height)
+    }
+
+    var smallerAxis: CGFloat {
+        min(width, height)
+    }
 }

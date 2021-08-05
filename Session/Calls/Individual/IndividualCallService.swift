@@ -1165,7 +1165,7 @@ import SessionMessagingKit
     private func getIceServers() -> Promise<[RTCIceServer]> {
 
         return firstly {
-            accountManager.getTurnServerInfo()
+            AppEnvironment.shared.accountManager.getTurnServerInfo()
         }.map(on: .global()) { turnServerInfo -> [RTCIceServer] in
             Logger.debug("got turn server urls: \(turnServerInfo.urls)")
 
