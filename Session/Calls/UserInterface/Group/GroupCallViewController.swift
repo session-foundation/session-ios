@@ -568,6 +568,9 @@ extension GroupCallViewController: CallObserver {
     }
 
     func groupCallEnded(_ call: SignalCall, reason: GroupCallEndReason) {
+        // TODO: Implement
+        
+        /*
         AssertIsOnMainThread()
         owsAssertDebug(call.isGroupCall)
 
@@ -608,6 +611,7 @@ extension GroupCallViewController: CallObserver {
             }
         ))
         presentActionSheet(actionSheet)
+         */
     }
 
     func callMessageSendFailedUntrustedIdentity(_ call: SignalCall) {
@@ -671,8 +675,11 @@ extension GroupCallViewController: CallHeaderDelegate {
     }
 
     func didTapMembersButton() {
+        // TODO: Implement
+        /*
         let sheet = GroupCallMemberSheet(call: call)
         present(sheet, animated: true)
+         */
     }
 }
 
@@ -705,6 +712,9 @@ extension GroupCallViewController: UIScrollViewDelegate {
 extension GroupCallViewController: GroupCallMemberViewDelegate {
     
     func memberView(_ view: GroupCallMemberView, userRequestedInfoAboutError error: GroupCallMemberView.ErrorState) {
+        // TODO: Implement
+        
+        /*
         let title: String
         let message: String
 
@@ -735,5 +745,6 @@ extension GroupCallViewController: GroupCallMemberViewDelegate {
         let actionSheet = ActionSheetController(title: title, message: message, theme: .translucentDark)
         actionSheet.addAction(ActionSheetAction(title: CommonStrings.okButton))
         presentActionSheet(actionSheet)
+         */
     }
 }

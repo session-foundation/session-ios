@@ -42,7 +42,7 @@ final class CallKitCallManager: NSObject {
         } else {
             let callKitId = CallKitCallManager.kAnonymousCallHandlePrefix + call.individualCall.localId.uuidString
             handle = CXHandle(type: .generic, value: callKitId)
-            CallKitIdStore.setAddress(call.individualCall.remoteAddress, forCallKitId: callKitId)
+            CallKitIdStore.setAddress(call.individualCall.publicKey, forCallKitId: callKitId)
         }
 
         let startCallAction = CXStartCallAction(call: call.individualCall.localId, handle: handle)

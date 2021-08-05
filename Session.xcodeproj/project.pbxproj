@@ -279,6 +279,8 @@
 		B88FA7F2260C3EB10049422F /* OpenGroupSuggestionGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = B88FA7F1260C3EB10049422F /* OpenGroupSuggestionGrid.swift */; };
 		B88FA7FB26114EA70049422F /* Hex.swift in Sources */ = {isa = PBXBuildFile; fileRef = B88FA7FA26114EA70049422F /* Hex.swift */; };
 		B893063F2383961A005EAA8E /* ScanQRCodeWrapperVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = B893063E2383961A005EAA8E /* ScanQRCodeWrapperVC.swift */; };
+		B893550126BB9FB3008A7A3A /* ConversationSplitViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B893550026BB9FB3008A7A3A /* ConversationSplitViewController.swift */; };
+		B893550326BBA26F008A7A3A /* CallKitIdStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B893550226BBA26F008A7A3A /* CallKitIdStore.swift */; };
 		B894D0752339EDCF00B4D94D /* NukeDataModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = B894D0742339EDCF00B4D94D /* NukeDataModal.swift */; };
 		B897621C25D201F7004F83B2 /* ScrollToBottomButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = B897621B25D201F7004F83B2 /* ScrollToBottomButton.swift */; };
 		B8AE75A425A6C6A6001A84D2 /* Data+Trimming.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8AE75A325A6C6A6001A84D2 /* Data+Trimming.swift */; };
@@ -1289,6 +1291,8 @@
 		B88FA7F1260C3EB10049422F /* OpenGroupSuggestionGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenGroupSuggestionGrid.swift; sourceTree = "<group>"; };
 		B88FA7FA26114EA70049422F /* Hex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Hex.swift; sourceTree = "<group>"; };
 		B893063E2383961A005EAA8E /* ScanQRCodeWrapperVC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanQRCodeWrapperVC.swift; sourceTree = "<group>"; };
+		B893550026BB9FB3008A7A3A /* ConversationSplitViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationSplitViewController.swift; sourceTree = "<group>"; };
+		B893550226BBA26F008A7A3A /* CallKitIdStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallKitIdStore.swift; sourceTree = "<group>"; };
 		B894D0742339EDCF00B4D94D /* NukeDataModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NukeDataModal.swift; sourceTree = "<group>"; };
 		B897621B25D201F7004F83B2 /* ScrollToBottomButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollToBottomButton.swift; sourceTree = "<group>"; };
 		B8AE75A325A6C6A6001A84D2 /* Data+Trimming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Data+Trimming.swift"; sourceTree = "<group>"; };
@@ -2233,6 +2237,7 @@
 				B82A0C1326B7B45200C1BCE3 /* CallControls.swift */,
 				B82A0C1426B7B45200C1BCE3 /* RemoteVideoView.h */,
 				B82A0C0F26B7B45200C1BCE3 /* RemoteVideoView.m */,
+				B893550026BB9FB3008A7A3A /* ConversationSplitViewController.swift */,
 			);
 			path = UserInterface;
 			sourceTree = "<group>";
@@ -2277,6 +2282,7 @@
 			isa = PBXGroup;
 			children = (
 				B82A0C3326B7C0C900C1BCE3 /* TSAccountManager.swift */,
+				B893550226BBA26F008A7A3A /* CallKitIdStore.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -5066,6 +5072,7 @@
 				B82A0C2126B7B45200C1BCE3 /* GroupCallVideoGrid.swift in Sources */,
 				B8D84EA325DF745A005A043E /* LinkPreviewState.swift in Sources */,
 				45C0DC1E1E69011F00E04C47 /* UIStoryboard+OWS.swift in Sources */,
+				B893550326BBA26F008A7A3A /* CallKitIdStore.swift in Sources */,
 				45A6DAD61EBBF85500893231 /* ReminderView.swift in Sources */,
 				B82B408E239DC00D00A248E7 /* DisplayNameVC.swift in Sources */,
 				B8214A2B25D63EB9009C0F2A /* MessagesTableView.swift in Sources */,
@@ -5085,6 +5092,7 @@
 				34D5CCA91EAE3D30005515DB /* AvatarViewHelper.m in Sources */,
 				B8F5F71A25F1B35C003BF8D4 /* MediaPlaceholderView.swift in Sources */,
 				341341EF2187467A00192D59 /* ConversationViewModel.m in Sources */,
+				B893550126BB9FB3008A7A3A /* ConversationSplitViewController.swift in Sources */,
 				4C21D5D8223AC60F00EF8A77 /* PhotoCapture.swift in Sources */,
 				B82A0C3426B7C0C900C1BCE3 /* TSAccountManager.swift in Sources */,
 				C331FFF32558FF0300070591 /* PathStatusView.swift in Sources */,

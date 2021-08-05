@@ -141,14 +141,13 @@ final class CallKitCallUIAdaptee: NSObject, CallUIAdaptee, CXProviderDelegate {
         let update = CXCallUpdate()
 
         if showNamesOnCallScreen {
-            update.localizedCallerName = contactsManager.displayName(for: call.individualCall.remoteAddress)
-            if let phoneNumber = call.individualCall.remoteAddress.phoneNumber {
-                update.remoteHandle = CXHandle(type: .phoneNumber, value: phoneNumber)
-            }
+            let publicKey = call.individualCall.publicKey
+            update.localizedCallerName = Storage.shared.getContact(with: publicKey)?.displayName(for: Contact.Context.regular) ?? publicKey
+            update.remoteHandle = CXHandle(type: .phoneNumber, value: publicKey)
         } else {
             let callKitId = CallKitCallManager.kAnonymousCallHandlePrefix + call.individualCall.localId.uuidString
             update.remoteHandle = CXHandle(type: .generic, value: callKitId)
-            CallKitIdStore.setAddress(call.individualCall.remoteAddress, forCallKitId: callKitId)
+            CallKitIdStore.setAddress(call.individualCall.publicKey, forCallKitId: callKitId)
             update.localizedCallerName = NSLocalizedString("CALLKIT_ANONYMOUS_CONTACT_NAME", comment: "The generic name used for calls if CallKit privacy is enabled")
         }
 

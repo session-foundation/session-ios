@@ -41,11 +41,6 @@ class PhotoCapture: NSObject {
         self.session = AVCaptureSession()
         self.captureOutput = CaptureOutput()
     }
-    
-    // MARK: - Dependencies
-    var audioSession: OWSAudioSession {
-        return Environment.shared.audioSession
-    }
 
     // MARK: -
     var audioDeviceInput: AVCaptureDeviceInput?

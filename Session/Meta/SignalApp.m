@@ -163,6 +163,16 @@ NS_ASSUME_NONNULL_BEGIN
     [self setSignUpFlowNavigationController:nil];
 }
 
+- (nullable UIView *)snapshotSplitViewControllerAfterScreenUpdates:(BOOL)afterScreenUpdates
+{
+    return [self.conversationSplitViewController.view snapshotViewAfterScreenUpdates:afterScreenUpdates];
+}
+
+- (nullable ConversationSplitViewController *)conversationSplitViewControllerForSwift
+{
+    return self.conversationSplitViewController;
+}
+
 @end
 
 NS_ASSUME_NONNULL_END
