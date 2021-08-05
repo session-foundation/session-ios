@@ -31,6 +31,7 @@ typedef void (^AppReadyBlock)(void);
 //   on app launch, especially work that uses other components.
 // * We should usually use "did become ready" blocks since they are safer.
 + (void)runNowOrWhenAppWillBecomeReady:(AppReadyBlock)block NS_SWIFT_NAME(runNowOrWhenAppWillBecomeReady(_:));
++ (void)runNowOrWhenAppDidBecomeReadySync:(AppReadyBlock)block NS_SWIFT_NAME(runNowOrWhenAppDidBecomeReadySync(_:));
 + (void)runNowOrWhenAppDidBecomeReady:(AppReadyBlock)block NS_SWIFT_NAME(runNowOrWhenAppDidBecomeReady(_:));
 
 @end

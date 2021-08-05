@@ -73,6 +73,13 @@ NS_ASSUME_NONNULL_BEGIN
     [self.appWillBecomeReadyBlocks addObject:block];
 }
 
++ (void)runNowOrWhenAppDidBecomeReadySync:(AppReadyBlock)block
+{
+    DispatchSyncMainThreadSafe(^{
+        [self.sharedManager runNowOrWhenAppDidBecomeReady:block];
+    });
+}
+
 + (void)runNowOrWhenAppDidBecomeReady:(AppReadyBlock)block
 {
     DispatchMainThreadSafe(^{

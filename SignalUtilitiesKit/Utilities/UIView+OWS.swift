@@ -393,3 +393,48 @@ public extension UIBarButtonItem {
         self.accessibilityIdentifier = accessibilityIdentifier
     }
 }
+
+// MARK: -
+
+@objc
+public extension UIButton {
+    
+    func setTemplateImage(_ templateImage: UIImage?, tintColor: UIColor) {
+        guard let templateImage = templateImage else {
+            owsFailDebug("Missing image")
+            return
+        }
+        setImage(templateImage.withRenderingMode(.alwaysTemplate), for: .normal)
+        self.tintColor = tintColor
+    }
+
+    func setTemplateImageName(_ imageName: String, tintColor: UIColor) {
+        guard let image = UIImage(named: imageName) else {
+            owsFailDebug("Couldn't load image: \(imageName)")
+            return
+        }
+        setTemplateImage(image, tintColor: tintColor)
+    }
+}
+
+// MARK: -
+@objc
+public extension UIImageView {
+
+    func setTemplateImage(_ templateImage: UIImage?, tintColor: UIColor) {
+        guard let templateImage = templateImage else {
+            owsFailDebug("Missing image")
+            return
+        }
+        self.image = templateImage.withRenderingMode(.alwaysTemplate)
+        self.tintColor = tintColor
+    }
+
+    func setTemplateImageName(_ imageName: String, tintColor: UIColor) {
+        guard let image = UIImage(named: imageName) else {
+            owsFailDebug("Couldn't load image: \(imageName)")
+            return
+        }
+        setTemplateImage(image, tintColor: tintColor)
+    }
+}
