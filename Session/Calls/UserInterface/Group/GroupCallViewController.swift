@@ -236,11 +236,12 @@ class GroupCallViewController: UIViewController {
 
             scrollView.isScrollEnabled = true
             videoGrid.isHidden = false
+            let height = size.height - view.safeAreaInsets.top - (controlsAreHidden ? 16 : callControls.height()) - (hasOverflowMembers ? videoOverflow.height() + 32 : 0)
             videoGrid.frame = CGRect(
                 x: 0,
                 y: view.safeAreaInsets.top,
                 width: size.width,
-                height: size.height - view.safeAreaInsets.top - (controlsAreHidden ? 16 : callControls.height) - (hasOverflowMembers ? videoOverflow.height + 32 : 0)
+                height: height
             )
             speakerPage.frame = CGRect(
                 x: 0,
@@ -258,7 +259,7 @@ class GroupCallViewController: UIViewController {
 
     func updateVideoOverflowTrailingConstraint() {
         var trailingConstraintConstant = -(GroupCallVideoOverflow.itemHeight * ReturnToCallViewController.pipSize.aspectRatio + 4)
-        if view.width() + trailingConstraintConstant > videoOverflow.contentSize.width() {
+        if view.width() + trailingConstraintConstant > videoOverflow.contentSize.width {
             trailingConstraintConstant += 16
         }
         videoOverflowTrailingConstraint.constant = trailingConstraintConstant

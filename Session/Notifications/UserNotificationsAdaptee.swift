@@ -40,6 +40,7 @@ class UserNotificationConfig {
             return UNNotificationAction(identifier: action.identifier,
                                         title: CallStrings.showThreadButtonTitle,
                                         options: [.foreground])
+        default: preconditionFailure() // TODO: Implement
         }
     }
 
@@ -248,6 +249,7 @@ public class UserNotificationActionHandler: NSObject {
             return try actionHandler.reply(userInfo: userInfo, replyText: textInputResponse.userText)
         case .showThread:
             return try actionHandler.showThread(userInfo: userInfo)
+        default: preconditionFailure() // TODO: Implement
         }
     }
 }
