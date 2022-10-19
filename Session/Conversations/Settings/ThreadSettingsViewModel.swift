@@ -151,7 +151,8 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                            NavItem(
                                id: .edit,
                                systemItem: .edit,
-                               accessibilityIdentifier: "Edit button"
+                               accessibilityIdentifier: "Edit button",
+                               accessibilityLabel: "Edit user nickname"
                            ) { [weak self] in self?.setIsEditing(true) }
                        ]
                }
@@ -240,6 +241,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     "vc_conversation_settings_copy_session_id_button_title".localized()
                                 ),
                                 accessibilityIdentifier: "\(ThreadSettingsViewModel.self).copy_thread_id",
+                                accessibilityLabel: "Copy Session ID",
                                 onTap: {
                                     UIPasteboard.general.string = threadId
                                     self?.showToast(
@@ -258,6 +260,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                             ),
                             title: MediaStrings.allMedia,
                             accessibilityIdentifier: "\(ThreadSettingsViewModel.self).all_media",
+                            accessibilityLabel: "All media",
                             onTap: { [weak self] in
                                 self?.transitionToScreen(
                                     MediaGalleryViewModel.createAllMediaViewController(
@@ -277,6 +280,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                             ),
                             title: "CONVERSATION_SETTINGS_SEARCH".localized(),
                             accessibilityIdentifier: "\(ThreadSettingsViewModel.self).search",
+                            accessibilityLabel: "Search",
                             onTap: { [weak self] in
                                 self?.didTriggerSearch()
                             }
@@ -324,6 +328,8 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     "DISAPPEARING_MESSAGES_SUBTITLE_OFF".localized()
                                 ),
                                 accessibilityIdentifier: "\(ThreadSettingsViewModel.self).disappearing_messages",
+                                accessibilityLabel: "Disappearing messages",
+                                leftAccessoryAccessibilityLabel: "Timer icon",
                                 onTap: { [weak self] in
                                     self?.transitionToScreen(
                                         SessionTableViewController(
@@ -346,6 +352,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 ),
                                 title: "EDIT_GROUP_ACTION".localized(),
                                 accessibilityIdentifier: "\(ThreadSettingsViewModel.self).edit_group",
+                                accessibilityLabel: "Edit group",
                                 onTap: { [weak self] in
                                     self?.transitionToScreen(EditClosedGroupVC(threadId: threadId))
                                 }
@@ -361,6 +368,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 ),
                                 title: "LEAVE_GROUP_ACTION".localized(),
                                 accessibilityIdentifier: "\(ThreadSettingsViewModel.self).leave_group",
+                                accessibilityLabel: "Leave group",
                                 confirmationInfo: ConfirmationModal.Info(
                                     title: "CONFIRM_LEAVE_GROUP_TITLE".localized(),
                                     explanation: (currentUserIsClosedGroupMember ?
@@ -417,6 +425,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     currentUserIsClosedGroupMember
                                 ),
                                 accessibilityIdentifier: "\(ThreadSettingsViewModel.self).notify_for_mentions_only",
+                                accessibilityLabel: "Mentions only",
                                 onTap: {
                                     let newValue: Bool = !(threadViewModel.threadOnlyNotifyForMentions == true)
                                     
@@ -449,6 +458,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     currentUserIsClosedGroupMember
                                 ),
                                 accessibilityIdentifier: "\(ThreadSettingsViewModel.self).mute",
+                                accessibilityLabel: "Mute notifications",
                                 onTap: {
                                     dependencies.storage.writeAsync { db in
                                         let currentValue: TimeInterval? = try SessionThread
@@ -485,6 +495,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     .boolValue(threadViewModel.threadIsBlocked == true)
                                 ),
                                 accessibilityIdentifier: "\(ThreadSettingsViewModel.self).block",
+                                accessibilityLabel: "Block",
                                 confirmationInfo: ConfirmationModal.Info(
                                     title: {
                                         guard threadViewModel.threadIsBlocked == true else {
@@ -503,10 +514,12 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                         nil :
                                         "BLOCK_USER_BEHAVIOR_EXPLANATION".localized()
                                     ),
+                                    accessibilityLabel: "Confirm block",
                                     confirmTitle: (threadViewModel.threadIsBlocked == true ?
                                         "BLOCK_LIST_UNBLOCK_BUTTON".localized() :
                                         "BLOCK_LIST_BLOCK_BUTTON".localized()
                                     ),
+                                    confirmAccessibilityLabel: "Confirm blocked user",
                                     confirmStyle: .danger,
                                     cancelStyle: .alert_text
                                 ),
@@ -638,6 +651,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 ) :
                                 nil
                             ),
+                            accessibilityLabel: oldBlockedState == false ? "User blocked" : "Confirm unblock",
                             cancelTitle: "BUTTON_OK".localized(),
                             cancelStyle: .alert_text
                         )

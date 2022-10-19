@@ -69,6 +69,8 @@ extension ConversationVC:
                     title: "modal_call_permission_request_title".localized(),
                     explanation: "modal_call_permission_request_explanation".localized(),
                     confirmTitle: "vc_settings_title".localized(),
+                    confirmAccessibilityLabel: "Settings",
+                    cancelAccessibilityLabel: "Cancel",
                     dismissOnConfirm: false // Custom dismissal logic
                 ) { [weak self] _ in
                     self?.dismiss(animated: true) {
@@ -854,6 +856,8 @@ extension ConversationVC:
                             range: (message as NSString).range(of: cellViewModel.authorName)
                         ),
                     confirmTitle: "modal_download_button_title".localized(),
+                    confirmAccessibilityLabel: "Download media",
+                    cancelAccessibilityLabel: "Don't download media",
                     dismissOnConfirm: false // Custom dismissal logic
                 ) { [weak self] _ in
                     self?.viewModel.trustContact()

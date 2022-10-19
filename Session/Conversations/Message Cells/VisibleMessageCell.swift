@@ -144,6 +144,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     
     internal lazy var messageStatusImageView: UIImageView = {
         let result = UIImageView()
+        result.accessibilityLabel = "Message sent status tick"
         result.contentMode = .scaleAspectFit
         result.layer.cornerRadius = VisibleMessageCell.messageStatusImageViewSize / 2
         result.layer.masksToBounds = true

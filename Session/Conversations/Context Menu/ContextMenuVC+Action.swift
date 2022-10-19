@@ -10,6 +10,7 @@ extension ContextMenuVC {
         let isEmojiAction: Bool
         let isEmojiPlus: Bool
         let isDismissAction: Bool
+        let accessibilityLabel: String?
         let work: () -> Void
         
         // MARK: - Initialization
@@ -20,6 +21,7 @@ extension ContextMenuVC {
             isEmojiAction: Bool = false,
             isEmojiPlus: Bool = false,
             isDismissAction: Bool = false,
+            accessibilityLabel: String? = nil,
             work: @escaping () -> Void
         ) {
             self.icon = icon
@@ -27,6 +29,7 @@ extension ContextMenuVC {
             self.isEmojiAction = isEmojiAction
             self.isEmojiPlus = isEmojiPlus
             self.isDismissAction = isDismissAction
+            self.accessibilityLabel = accessibilityLabel
             self.work = work
         }
         
@@ -35,7 +38,8 @@ extension ContextMenuVC {
         static func reply(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
                 icon: UIImage(named: "ic_reply"),
-                title: "context_menu_reply".localized()
+                title: "context_menu_reply".localized(),
+                accessibilityLabel: "Reply to message"
             ) { delegate?.reply(cellViewModel) }
         }
 
@@ -56,14 +60,16 @@ extension ContextMenuVC {
         static func delete(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
                 icon: UIImage(named: "ic_trash"),
-                title: "TXT_DELETE_TITLE".localized()
+                title: "TXT_DELETE_TITLE".localized(),
+                accessibilityLabel: "Delete message"
             ) { delegate?.delete(cellViewModel) }
         }
 
         static func save(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
                 icon: UIImage(named: "ic_download"),
-                title: "context_menu_save".localized()
+                title: "context_menu_save".localized(),
+                accessibilityLabel: "Save attachment"
             ) { delegate?.save(cellViewModel) }
         }
 

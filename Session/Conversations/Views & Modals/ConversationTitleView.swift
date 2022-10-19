@@ -22,6 +22,7 @@ final class ConversationTitleView: UIView {
     
     private lazy var titleLabel: UILabel = {
         let result: UILabel = UILabel()
+        result.accessibilityLabel = "Username"
         result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
         result.themeTextColor = .textPrimary
         result.lineBreakMode = .byTruncatingTail

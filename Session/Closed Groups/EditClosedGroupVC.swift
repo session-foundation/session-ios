@@ -30,6 +30,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
     
     private lazy var groupNameLabel: UILabel = {
         let result: UILabel = UILabel()
+        result.accessibilityLabel = "Group name"
         result.font = .boldSystemFont(ofSize: Values.veryLargeFontSize)
         result.themeTextColor = .textPrimary
         result.lineBreakMode = .byTruncatingTail
@@ -50,6 +51,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
 
     private lazy var addMembersButton: SessionButton = {
         let result: SessionButton = SessionButton(style: .bordered, size: .medium)
+        result.accessibilityLabel = "Add members"
         result.setTitle("vc_conversation_settings_invite_button_title".localized(), for: .normal)
         result.addTarget(self, action: #selector(addMembers), for: UIControl.Event.touchUpInside)
         result.contentEdgeInsets = UIEdgeInsets(top: 0, leading: Values.mediumSpacing, bottom: 0, trailing: Values.mediumSpacing)
@@ -59,6 +61,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
 
     @objc private lazy var tableView: UITableView = {
         let result: UITableView = UITableView()
+        result.accessibilityLabel = "Contact"
         result.dataSource = self
         result.delegate = self
         result.separatorStyle = .none
@@ -264,6 +267,12 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         }
         
         let doneButton = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(handleDoneButtonTapped))
+        if isEditingGroupName {
+            doneButton.accessibilityLabel = "Accept name change"
+        }
+        else {
+            doneButton.accessibilityLabel = "Apply changes"
+        }
         doneButton.themeTintColor = .textPrimary
         navigationItem.rightBarButtonItem = doneButton
     }

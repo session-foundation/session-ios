@@ -240,6 +240,7 @@ private final class EnterPublicKeyVC: UIViewController {
         let result = TextView(placeholder: "vc_enter_public_key_text_field_hint".localized()) { [weak self] text in
             self?.nextButton.isEnabled = !text.isEmpty
         }
+        result.accessibilityLabel = "Session id input box"
         result.autocapitalizationType = .none
         
         return result
@@ -387,6 +388,7 @@ private final class EnterPublicKeyVC: UIViewController {
     
     private lazy var nextButton: SessionButton = {
         let result = SessionButton(style: .bordered, size: .large)
+        result.accessibilityLabel = "Next"
         result.setTitle("next".localized(), for: .normal)
         result.isEnabled = false
         result.addTarget(self, action: #selector(startNewDMIfPossible), for: .touchUpInside)

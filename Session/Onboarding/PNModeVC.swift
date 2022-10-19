@@ -69,6 +69,7 @@ final class PNModeVC: BaseVC, OptionViewDelegate {
         
         // Set up register button
         let registerButton = SessionButton(style: .filled, size: .large)
+        registerButton.accessibilityLabel = "Continue with settings"
         registerButton.setTitle("continue_2".localized(), for: .normal)
         registerButton.addTarget(self, action: #selector(register), for: UIControl.Event.touchUpInside)
         

@@ -15,8 +15,8 @@ final class DisplayNameVC: BaseVC {
     
     private lazy var displayNameTextField: TextField = {
         let result = TextField(placeholder: "vc_display_name_text_field_hint".localized())
+        result.accessibilityLabel = "Enter display name"
         result.themeBorderColor = .textPrimary
-        result.accessibilityLabel = "Display name text field"
         
         return result
     }()
@@ -56,6 +56,7 @@ final class DisplayNameVC: BaseVC {
         
         // Set up register button
         let registerButton = SessionButton(style: .filled, size: .large)
+        registerButton.accessibilityLabel = "Continue"
         registerButton.setTitle("continue_2".localized(), for: UIControl.State.normal)
         registerButton.addTarget(self, action: #selector(register), for: UIControl.Event.touchUpInside)
         

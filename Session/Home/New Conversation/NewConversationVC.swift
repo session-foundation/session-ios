@@ -14,8 +14,19 @@ final class NewConversationVC: BaseVC, ThemedNavigation, UITableViewDelegate, UI
     
     var navigationBackground: ThemeValue { .newConversation_background }
     
-    private lazy var newDMButton: NewConversationButton = NewConversationButton(icon: #imageLiteral(resourceName: "Message"), title: "vc_create_private_chat_title".localized())
-    private lazy var newGroupButton: NewConversationButton = NewConversationButton(icon: #imageLiteral(resourceName: "Group"), title: "vc_create_closed_group_title".localized())
+    private lazy var newDMButton: NewConversationButton = {
+        let result = NewConversationButton(icon: #imageLiteral(resourceName: "Message"), title: "vc_create_private_chat_title".localized())
+        result.accessibilityLabel = "New direct message"
+        
+        return result
+    }()
+    
+    private lazy var newGroupButton: NewConversationButton = {
+        let result = NewConversationButton(icon: #imageLiteral(resourceName: "Group"), title: "vc_create_closed_group_title".localized())
+        result.accessibilityLabel = "Create group"
+        
+        return result
+    }()
     private lazy var joinCommunityButton: NewConversationButton = NewConversationButton(icon: #imageLiteral(resourceName: "Globe"), title: "vc_join_public_chat_title".localized(), shouldShowSeparator: false)
     
     private lazy var buttonStackView: UIStackView = {

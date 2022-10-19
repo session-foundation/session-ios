@@ -393,13 +393,15 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
             message: nil,
             preferredStyle: .actionSheet
         )
-        actionSheet.addAction(UIAlertAction(
+        let action = UIAlertAction(
             title: "MEDIA_FROM_LIBRARY_BUTTON".localized(),
             style: .default,
             handler: { [weak self] _ in
                 self?.showPhotoLibraryForAvatar()
             }
-        ))
+        )
+        action.accessibilityLabel = "Photo library"
+        actionSheet.addAction(action)
         actionSheet.addAction(UIAlertAction(title: "cancel".localized(), style: .cancel, handler: nil))
         
         self.transitionToScreen(actionSheet, transitionType: .present)

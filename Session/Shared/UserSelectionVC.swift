@@ -48,7 +48,10 @@ final class UserSelectionVC: BaseVC, UITableViewDataSource, UITableViewDelegate 
         
         setNavBarTitle(navBarTitle)
         
-        navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(handleDoneButtonTapped))
+        let doneButton = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(handleDoneButtonTapped))
+        doneButton.accessibilityLabel = "Done"
+        navigationItem.rightBarButtonItem = doneButton
+        
         view.addSubview(tableView)
         tableView.pin(to: view)
     }

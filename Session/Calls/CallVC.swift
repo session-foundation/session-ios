@@ -111,6 +111,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
     
     private lazy var hangUpButton: UIButton = {
         let result = UIButton(type: .custom)
+        result.accessibilityLabel = "End call button"
         result.setImage(
             UIImage(named: "EndCall")?
                 .withRenderingMode(.alwaysTemplate),

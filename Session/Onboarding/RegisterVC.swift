@@ -17,7 +17,7 @@ final class RegisterVC : BaseVC {
         let result = UILabel()
         result.font = Fonts.spaceMono(ofSize: isIPhone5OrSmaller ? Values.mediumFontSize : 20)
         result.themeTextColor = .textPrimary
-        result.accessibilityLabel = "Session ID label"
+        result.accessibilityLabel = "Session ID"
         result.lineBreakMode = .byCharWrapping
         result.numberOfLines = 0
         
@@ -86,6 +86,7 @@ final class RegisterVC : BaseVC {
         
         // Set up register button
         let registerButton = SessionButton(style: .filled, size: .large)
+        registerButton.accessibilityLabel = "Continue"
         registerButton.setTitle("continue_2".localized(), for: .normal)
         registerButton.addTarget(self, action: #selector(register), for: UIControl.Event.touchUpInside)
         
