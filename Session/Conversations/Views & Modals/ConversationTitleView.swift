@@ -28,6 +28,12 @@ final class ConversationTitleView: UIView {
         
         return result
     }()
+    
+    private lazy var pagedScrollView: PagedScrollView = {
+        let result = PagedScrollView()
+        
+        return result
+    }()
 
     private lazy var subtitleLabel: UILabel = {
         let result: UILabel = UILabel()
@@ -38,8 +44,30 @@ final class ConversationTitleView: UIView {
         return result
     }()
     
+    private lazy var disappearingMessageSettingLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.font = .systemFont(ofSize: 13)
+        result.themeTextColor = .textPrimary
+        result.lineBreakMode = .byTruncatingTail
+        
+        return result
+    }()
+    
+    private lazy var disappearingMessageSettingsStackView: UIStackView = {
+        let icon = UIImageView(image: UIImage(named: "ic_timer")?.withRenderingMode(.alwaysTemplate))
+        icon.themeTintColor = .textPrimary
+        
+        let result = UIStackView(arrangedSubviews: [ icon, disappearingMessageSettingLabel ])
+        result.axis = .horizontal
+        result.spacing = 2
+        result.alignment = .center
+        result.isHidden = true
+        
+        return result
+    }()
+    
     private lazy var stackView: UIStackView = {
-        let result = UIStackView(arrangedSubviews: [ titleLabel, subtitleLabel ])
+        let result = UIStackView(arrangedSubviews: [ titleLabel, subtitleLabel, disappearingMessageSettingsStackView ])
         result.axis = .vertical
         result.alignment = .center
         

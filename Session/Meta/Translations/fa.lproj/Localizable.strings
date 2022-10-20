@@ -578,6 +578,8 @@
 "COMMUNITY_ERROR_INVALID_URL" = "";
 "COMMUNITY_ERROR_GENERIC" = "نمی‌توانید محلق شوید";
 "DISAPPERING_MESSAGES_TITLE" = "پیام‌ها ناپدید میشوند";
+"DISAPPERING_MESSAGES_SUBTITLE_CONTACTS" = "This setting applies to everyone in this conversation.";
+"DISAPPERING_MESSAGES_SUBTITLE_GROUPS" = "Messages disappear after they have been sent.";
 "DISAPPERING_MESSAGES_TYPE_TITLE" = "حذف تایپ";
 "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE" = "ناپدید‌شدن پس از خواندن";
 "DISAPPERING_MESSAGES_TYPE_AFTER_READ_DESCRIPTION" = "حذف پیام‌ها بعد از خواندن شان";

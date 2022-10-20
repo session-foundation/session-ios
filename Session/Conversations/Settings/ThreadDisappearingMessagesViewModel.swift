@@ -12,7 +12,6 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
     // MARK: - Config
     
     enum NavButton: Equatable {
-        case cancel
         case save
     }
     
@@ -30,6 +29,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
     
     private let dependencies: Dependencies
     private let threadId: String
+    private let threadVariant: SessionThread.Variant
     private let config: DisappearingMessagesConfiguration
     private var storedSelection: TimeInterval
     private var currentSelection: CurrentValueSubject<TimeInterval, Never>
@@ -39,27 +39,18 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
     init(
         dependencies: Dependencies = Dependencies(),
         threadId: String,
+        threadVariant: SessionThread.Variant,
         config: DisappearingMessagesConfiguration
     ) {
         self.dependencies = dependencies
         self.threadId = threadId
+        self.threadVariant = threadVariant
         self.config = config
         self.storedSelection = (config.isEnabled ? config.durationSeconds : 0)
         self.currentSelection = CurrentValueSubject(self.storedSelection)
     }
     
     // MARK: - Navigation
-    
-    override var leftNavItems: AnyPublisher<[NavItem]?, Never> {
-        Just([
-            NavItem(
-                id: .cancel,
-                systemItem: .cancel,
-                accessibilityIdentifier: "Cancel button"
-            ) { [weak self] in self?.dismissScreen() }
-        ]).eraseToAnyPublisher()
-    }
-
     override var rightNavItems: AnyPublisher<[NavItem]?, Never> {
         currentSelection
             .removeDuplicates()
@@ -84,6 +75,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
     // MARK: - Content
     
     override var title: String { "DISAPPEARING_MESSAGES".localized() }
+    var subtitle: String { threadVariant == .contact ? "DISAPPERING_MESSAGES_SUBTITLE_CONTACTS".localized() : "DISAPPERING_MESSAGES_SUBTITLE_GROUPS".localized() }
     
     private var _settingsData: [SectionModel] = []
     public override var settingsData: [SectionModel] { _settingsData }

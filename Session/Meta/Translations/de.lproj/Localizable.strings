@@ -578,6 +578,8 @@
 "COMMUNITY_ERROR_INVALID_URL" = "Please check the URL you entered and try again.";
 "COMMUNITY_ERROR_GENERIC" = "Couldn't Join";
 "DISAPPERING_MESSAGES_TITLE" = "Disappearing Messages";
+"DISAPPERING_MESSAGES_SUBTITLE_CONTACTS" = "This setting applies to everyone in this conversation.";
+"DISAPPERING_MESSAGES_SUBTITLE_GROUPS" = "Messages disappear after they have been sent.";
 "DISAPPERING_MESSAGES_TYPE_TITLE" = "Delete Type";
 "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE" = "Disappear After Read";
 "DISAPPERING_MESSAGES_TYPE_AFTER_READ_DESCRIPTION" = "Messages delete after they have been read.";
