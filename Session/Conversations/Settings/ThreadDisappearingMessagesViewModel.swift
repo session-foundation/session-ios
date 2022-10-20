@@ -16,13 +16,24 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
     }
     
     public enum Section: SessionTableSection {
-        case content
+        case type
+        case timer
+        
+        var title: String? {
+            switch self {
+                case .type: return "DISAPPERING_MESSAGES_TYPE_TITLE".localized()
+                case .timer: return "DISAPPERING_MESSAGES_TIMER_TITLE".localized()
+            }
+        }
+        
+        var style: SessionTableSectionStyle { return .title }
     }
     
-    public struct Item: Equatable, Hashable, Differentiable {
-        let title: String
-        
-        public var differenceIdentifier: String { title }
+    public enum Item: Differentiable {
+        case off
+        case disappearAfterRead
+        case disappearAfterSend
+        case currentSetting
     }
     
     // MARK: - Variables
@@ -65,7 +76,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                         accessibilityIdentifier: "Save button"
                     ) { [weak self] in
                         self?.saveChanges()
-                        self?.dismissScreen()
+//                        self?.dismissScreen()
                     }
                 ]
             }
@@ -93,33 +104,53 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
         .trackingConstantRegion { [weak self, config] db -> [SectionModel] in
             return [
                 SectionModel(
-                    model: .content,
+                    model: .type,
                     elements: [
                         SessionCell.Info(
-                            id: Item(title: "DISAPPEARING_MESSAGES_OFF".localized()),
+                            id: .off,
                             title: "DISAPPEARING_MESSAGES_OFF".localized(),
                             rightAccessory: .radio(
                                 isSelected: { (self?.currentSelection.value == 0) }
                             ),
                             onTap: { self?.currentSelection.send(0) }
+                        ),
+                        SessionCell.Info(
+                            id: .disappearAfterRead,
+                            title: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE".localized(),
+                            subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_DESCRIPTION".localized(),
+                            rightAccessory: .radio(
+                                isSelected: { (self?.currentSelection.value != 0) }
+                            ),
+                            onTap: { self?.currentSelection.send(24 * 60 * 60) }
+                        ),
+                        SessionCell.Info(
+                            id: .disappearAfterSend,
+                            title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
+                            subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
+                            rightAccessory: .radio(
+                                isSelected: { (self?.currentSelection.value != 0) }
+                            ),
+                            onTap: { self?.currentSelection.send(24 * 60 * 60) }
                         )
-                    ].appending(
-                        contentsOf: DisappearingMessagesConfiguration.validDurationsSeconds
-                            .map { duration in
-                                let title: String = duration.formatted(format: .long)
-                                
-                                return SessionCell.Info(
-                                    id: Item(title: title),
-                                    title: title,
-                                    rightAccessory: .radio(
-                                        isSelected: { (self?.currentSelection.value == duration) }
-                                    ),
-                                    onTap: { self?.currentSelection.send(duration) }
-                                )
-                            }
-                    )
+                    ]
                 )
-            ]
+            ].appending(
+                (self?.currentSelection.value == 0) ? nil :
+                    SectionModel(
+                        model: .timer,
+                        elements: [
+                            SessionCell.Info(
+                                id: .currentSetting,
+                                title: (self?.currentSelection.value.formatted(format: .long) ?? ""),
+                                rightAccessory: .icon(
+                                    UIImage(named: "ic_chevron_down")?
+                                        .withRenderingMode(.alwaysTemplate)
+                                ),
+                                onTap: {  }
+                            )
+                        ]
+                    )
+            )
         }
         .removeDuplicates()
         .publisher(in: dependencies.storage, scheduling: dependencies.scheduler)
