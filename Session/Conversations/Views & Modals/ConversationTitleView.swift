@@ -14,6 +14,8 @@ final class ConversationTitleView: UIView {
     override var intrinsicContentSize: CGSize {
         return UIView.layoutFittingExpandedSize
     }
+    
+    private lazy var pagedScrollViewWidth = pagedScrollView.set(.width, to: 0)
 
     // MARK: - UI Components
     
@@ -31,7 +33,6 @@ final class ConversationTitleView: UIView {
     
     private lazy var pagedScrollView: PagedScrollView = {
         let result = PagedScrollView()
-        result.set(.width, to: 320)
         return result
     }()
 
@@ -71,19 +72,6 @@ final class ConversationTitleView: UIView {
         return result
     }()
     
-    private lazy var disappearingMessageSettingsStackView: UIStackView = {
-        let icon = UIImageView(image: UIImage(named: "ic_timer")?.withRenderingMode(.alwaysTemplate))
-        icon.themeTintColor = .textPrimary
-        
-        let result = UIStackView(arrangedSubviews: [ icon, disappearingMessageSettingLabel ])
-        result.axis = .horizontal
-        result.spacing = 2
-        result.alignment = .center
-        result.isHidden = true
-        
-        return result
-    }()
-    
     private lazy var stackView: UIStackView = {
         let result = UIStackView(arrangedSubviews: [ titleLabel, pagedScrollView ])
         result.axis = .vertical
@@ -91,8 +79,6 @@ final class ConversationTitleView: UIView {
         
         return result
     }()
-    
-    private var slides: [UIView] = []
 
     // MARK: - Initialization
     
@@ -131,18 +117,21 @@ final class ConversationTitleView: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
         
-        self.pagedScrollView.update(with: slides, slideSize: CGSize(width: bounds.size.width, height: 20), shouldAutoScroll: false)
-        
         // There is an annoying issue where pushing seems to update the width of this
         // view resulting in the content shifting to the right during
         guard self.oldSize != .zero, self.oldSize != bounds.size else {
             self.oldSize = bounds.size
+            if pagedScrollViewWidth.constant == 0 {
+                pagedScrollViewWidth.constant = bounds.size.width - 8
+            }
             return
         }
         
         let diff: CGFloat = (bounds.size.width - oldSize.width)
         self.stackViewTrailingConstraint.constant = -max(0, diff)
         self.oldSize = bounds.size
+        
+        print("\(bounds.size.width), \(diff)")
     }
     
     public func update(
@@ -232,7 +221,14 @@ final class ConversationTitleView: UIView {
             }
             
             // TODO: Disappearing message settings
-            self?.slides = slides.compactMap{ $0 }
+            self?.pagedScrollView.update(
+                with: slides.compactMap{ $0 },
+                slideSize: CGSize(
+                    width: self?.pagedScrollViewWidth.constant ?? 0,
+                    height: 20
+                ),
+                shouldAutoScroll: false
+            )
         }
         
         // Contact threads also have the call button to compensate for
