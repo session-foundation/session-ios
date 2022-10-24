@@ -4,11 +4,14 @@ import UIKit
 import SessionUIKit
 
 final class PagedScrollView: UIView {
-    private static let autoScrollingTimeInterval: TimeInterval = 3
+    private static let autoScrollingTimeInterval: TimeInterval = 10
     private var slides: [UIView] = []
     private var slideSize: CGSize = .zero
     private var shouldAutoScroll: Bool = false
     private var timer: Timer?
+    
+    private lazy var contentWidth = stackView.set(.width, to: 0)
+    private lazy var contentHeight = stackView.set(.height, to: 0)
     
     // MARK: - UI Components
     
@@ -30,7 +33,11 @@ final class PagedScrollView: UIView {
     
     private lazy var pageControl: UIPageControl = {
         let result = UIPageControl(frame: .zero)
-        
+        result.currentPageIndicatorTintColor = .black
+        result.pageIndicatorTintColor = .gray
+        result.themeTintColor = .textPrimary
+        result.set(.height, to: 5)
+        result.transform = CGAffineTransform(scaleX: 0.5, y: 0.5)
         return result
     }()
     
@@ -57,6 +64,11 @@ final class PagedScrollView: UIView {
         pageControl.currentPage = 0
         pageControl.isHidden = (slides.count == 1)
         
+        let contentSize = CGSize(width: slideSize.width * CGFloat(slides.count), height: slideSize.height)
+        scrollView.contentSize = contentSize
+        contentWidth.constant = contentSize.width
+        contentHeight.constant = contentSize.height
+        
         stackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
         
         self.slides.forEach {
@@ -79,15 +91,15 @@ final class PagedScrollView: UIView {
         
         addSubview(pageControl)
         pageControl.center(.horizontal, in: self)
-        pageControl.pin(.bottom, to: .bottom, of: self)
+        pageControl.pin(.bottom, to: .bottom, of: self, withInset: -1)
         
         scrollView.addSubview(stackView)
-        stackView.pin([ UIView.HorizontalEdge.leading, UIView.VerticalEdge.top ], to: scrollView)
     }
     
     private func startScrolling() {
         timer?.invalidate()
         timer = Timer.scheduledTimerOnMainThread(withTimeInterval: Self.autoScrollingTimeInterval, repeats: true) { _ in
+            guard self.slides.count != 0 else { return }
             let targetPage = (self.pageControl.currentPage + 1) % self.slides.count
             self.scrollView.scrollRectToVisible(
                 CGRect(

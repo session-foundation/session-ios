@@ -31,11 +31,29 @@ final class ConversationTitleView: UIView {
     
     private lazy var pagedScrollView: PagedScrollView = {
         let result = PagedScrollView()
-        
+        result.set(.width, to: 320)
         return result
     }()
 
     private lazy var subtitleLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.font = .systemFont(ofSize: 13)
+        result.themeTextColor = .textPrimary
+        result.lineBreakMode = .byTruncatingTail
+        
+        return result
+    }()
+    
+    private lazy var userCountLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.font = .systemFont(ofSize: 13)
+        result.themeTextColor = .textPrimary
+        result.lineBreakMode = .byTruncatingTail
+        
+        return result
+    }()
+    
+    private lazy var notificationSettingsLabel: UILabel = {
         let result: UILabel = UILabel()
         result.font = .systemFont(ofSize: 13)
         result.themeTextColor = .textPrimary
@@ -67,12 +85,14 @@ final class ConversationTitleView: UIView {
     }()
     
     private lazy var stackView: UIStackView = {
-        let result = UIStackView(arrangedSubviews: [ titleLabel, subtitleLabel, disappearingMessageSettingsStackView ])
+        let result = UIStackView(arrangedSubviews: [ titleLabel, pagedScrollView ])
         result.axis = .vertical
         result.alignment = .center
         
         return result
     }()
+    
+    private var slides: [UIView] = []
 
     // MARK: - Initialization
     
@@ -110,6 +130,8 @@ final class ConversationTitleView: UIView {
     
     override func layoutSubviews() {
         super.layoutSubviews()
+        
+        self.pagedScrollView.update(with: slides, slideSize: CGSize(width: bounds.size.width, height: 20), shouldAutoScroll: false)
         
         // There is an annoying issue where pushing seems to update the width of this
         // view resulting in the content shifting to the right during
@@ -159,11 +181,13 @@ final class ConversationTitleView: UIView {
             )
         )
         
-        ThemeManager.onThemeChange(observer: self.subtitleLabel) { [weak subtitleLabel] theme, _ in
+        ThemeManager.onThemeChange(observer: self.subtitleLabel) { [weak self] theme, _ in
             guard let textPrimary: UIColor = theme.color(for: .textPrimary) else { return }
             
-            guard Date().timeIntervalSince1970 > (mutedUntilTimestamp ?? 0) else {
-                subtitleLabel?.attributedText = NSAttributedString(
+            var slides: [UIView?] = []
+            
+            if Date().timeIntervalSince1970 <= (mutedUntilTimestamp ?? 0) {
+                self?.notificationSettingsLabel.attributedText = NSAttributedString(
                     string: "\u{e067}  ",
                     attributes: [
                         .font: UIFont.ows_elegantIconsFont(10),
@@ -171,9 +195,9 @@ final class ConversationTitleView: UIView {
                     ]
                 )
                 .appending(string: "Muted")
-                return
-            }
-            guard !onlyNotifyForMentions else {
+                self?.notificationSettingsLabel.isHidden = false
+                slides.append(self?.notificationSettingsLabel)
+            } else if onlyNotifyForMentions{
                 let imageAttachment = NSTextAttachment()
                 imageAttachment.image = UIImage(named: "NotifyMentions.png")?.withTint(textPrimary)
                 imageAttachment.bounds = CGRect(
@@ -183,26 +207,32 @@ final class ConversationTitleView: UIView {
                     height: Values.smallFontSize
                 )
                 
-                subtitleLabel?.attributedText = NSAttributedString(attachment: imageAttachment)
+                self?.notificationSettingsLabel.attributedText = NSAttributedString(attachment: imageAttachment)
                     .appending(string: "  ")
                     .appending(string: "view_conversation_title_notify_for_mentions_only".localized())
-                return
+                self?.notificationSettingsLabel.isHidden = false
+                slides.append(self?.notificationSettingsLabel)
             }
-            guard let userCount: Int = userCount else { return }
             
-            switch threadVariant {
-                case .contact: break
-                    
-                case .closedGroup:
-                    subtitleLabel?.attributedText = NSAttributedString(
-                        string: "\(userCount) member\(userCount == 1 ? "" : "s")"
-                    )
-                    
-                case .openGroup:
-                    subtitleLabel?.attributedText = NSAttributedString(
-                        string: "\(userCount) active member\(userCount == 1 ? "" : "s")"
-                    )
+            if let userCount: Int = userCount {
+                switch threadVariant {
+                    case .contact: break
+                        
+                    case .closedGroup:
+                        self?.userCountLabel.attributedText = NSAttributedString(
+                            string: "\(userCount) member\(userCount == 1 ? "" : "s")"
+                        )
+                        
+                    case .openGroup:
+                        self?.userCountLabel.attributedText = NSAttributedString(
+                            string: "\(userCount) active member\(userCount == 1 ? "" : "s")"
+                        )
+                }
+                slides.append(self?.userCountLabel)
             }
+            
+            // TODO: Disappearing message settings
+            self?.slides = slides.compactMap{ $0 }
         }
         
         // Contact threads also have the call button to compensate for
