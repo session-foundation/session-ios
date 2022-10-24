@@ -42,8 +42,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
     private let threadId: String
     private let threadVariant: SessionThread.Variant
     private let config: DisappearingMessagesConfiguration
-    private var storedSelection: TimeInterval
-    private var currentSelection: CurrentValueSubject<TimeInterval, Never>
+    private var currentSelection: CurrentValueSubject<DisappearingMessagesConfiguration, Error>
     
     // MARK: - Initialization
     
@@ -57,30 +56,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
         self.threadId = threadId
         self.threadVariant = threadVariant
         self.config = config
-        self.storedSelection = (config.isEnabled ? config.durationSeconds : 0)
-        self.currentSelection = CurrentValueSubject(self.storedSelection)
-    }
-    
-    // MARK: - Navigation
-    override var rightNavItems: AnyPublisher<[NavItem]?, Never> {
-        currentSelection
-            .removeDuplicates()
-            .map { [weak self] currentSelection in (self?.storedSelection != currentSelection) }
-            .map { isChanged in
-                guard isChanged else { return [] }
-                
-                return [
-                    NavItem(
-                        id: .save,
-                        systemItem: .save,
-                        accessibilityIdentifier: "Save button"
-                    ) { [weak self] in
-                        self?.saveChanges()
-//                        self?.dismissScreen()
-                    }
-                ]
-            }
-           .eraseToAnyPublisher()
+        self.currentSelection = CurrentValueSubject(self.config)
     }
     
     // MARK: - Content
@@ -100,61 +76,86 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
     /// this is due to the behaviour of `ValueConcurrentObserver.asyncStartObservation` which triggers it's own
     /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
-    private lazy var _observableSettingsData: ObservableData = ValueObservation
-        .trackingConstantRegion { [weak self, config] db -> [SectionModel] in
-            return [
-                SectionModel(
-                    model: .type,
-                    elements: [
-                        SessionCell.Info(
-                            id: .off,
-                            title: "DISAPPEARING_MESSAGES_OFF".localized(),
-                            rightAccessory: .radio(
-                                isSelected: { (self?.currentSelection.value == 0) }
-                            ),
-                            onTap: { self?.currentSelection.send(0) }
-                        ),
-                        SessionCell.Info(
-                            id: .disappearAfterRead,
-                            title: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE".localized(),
-                            subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_DESCRIPTION".localized(),
-                            rightAccessory: .radio(
-                                isSelected: { (self?.currentSelection.value != 0) }
-                            ),
-                            onTap: { self?.currentSelection.send(24 * 60 * 60) }
-                        ),
-                        SessionCell.Info(
-                            id: .disappearAfterSend,
-                            title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
-                            subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
-                            rightAccessory: .radio(
-                                isSelected: { (self?.currentSelection.value != 0) }
-                            ),
-                            onTap: { self?.currentSelection.send(24 * 60 * 60) }
-                        )
-                    ]
-                )
-            ].appending(
-                (self?.currentSelection.value == 0) ? nil :
+    private lazy var _observableSettingsData: ObservableData = {
+        self.currentSelection
+            .map { [weak self] currentSelection in
+                return [
                     SectionModel(
-                        model: .timer,
+                        model: .type,
                         elements: [
                             SessionCell.Info(
-                                id: .currentSetting,
-                                title: (self?.currentSelection.value.formatted(format: .long) ?? ""),
-                                rightAccessory: .icon(
-                                    UIImage(named: "ic_chevron_down")?
-                                        .withRenderingMode(.alwaysTemplate)
+                                id: .off,
+                                title: "DISAPPEARING_MESSAGES_OFF".localized(),
+                                rightAccessory: .radio(
+                                    isSelected: { (currentSelection.isEnabled == false) }
                                 ),
-                                onTap: {  }
+                                onTap: {
+//                                    let updatedConfig: DisappearingMessagesConfiguration = currentSelection
+//                                        .with(
+//                                            isEnabled: false,
+//                                            durationSeconds: 0,
+//                                            type: nil
+//                                        )
+//                                    self?.currentSelection.send(updatedConfig)
+                                }
+                            ),
+                            SessionCell.Info(
+                                id: .disappearAfterRead,
+                                title: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE".localized(),
+                                subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_DESCRIPTION".localized(),
+                                rightAccessory: .radio(
+                                    isSelected: { (currentSelection.type == DisappearingMessagesConfiguration.DisappearingMessageType.disappearAfterRead) }
+                                ),
+                                onTap: {
+//                                    let updatedConfig: DisappearingMessagesConfiguration = currentSelection
+//                                        .with(
+//                                            isEnabled: true,
+//                                            durationSeconds: (24 * 60 * 60),
+//                                            type: DisappearingMessagesConfiguration.DisappearingMessageType.disappearAfterRead
+//                                        )
+//                                    self?.currentSelection.send(updatedConfig)
+                                }
+                            ),
+                            SessionCell.Info(
+                                id: .disappearAfterSend,
+                                title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
+                                subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
+                                rightAccessory: .radio(
+                                    isSelected: { (currentSelection.type == DisappearingMessagesConfiguration.DisappearingMessageType.disappearAfterSend) }
+                                ),
+                                onTap: {
+//                                    let updatedConfig: DisappearingMessagesConfiguration = currentSelection
+//                                        .with(
+//                                            isEnabled: true,
+//                                            durationSeconds: (24 * 60 * 60),
+//                                            type: DisappearingMessagesConfiguration.DisappearingMessageType.disappearAfterSend
+//                                        )
+//                                    self?.currentSelection.send(updatedConfig)
+                                }
                             )
                         ]
                     )
-            )
-        }
-        .removeDuplicates()
-        .publisher(in: dependencies.storage, scheduling: dependencies.scheduler)
-    
+                ].appending(
+                    (currentSelection.isEnabled == false) ? nil :
+                        SectionModel(
+                            model: .timer,
+                            elements: [
+                                SessionCell.Info(
+                                    id: .currentSetting,
+                                    title: currentSelection.durationSeconds.formatted(format: .long),
+                                    rightAccessory: .icon(
+                                        UIImage(named: "ic_chevron_down")?
+                                            .withRenderingMode(.alwaysTemplate)
+                                    ),
+                                    onTap: { }
+                                )
+                            ]
+                        )
+                )
+            }
+            .removeDuplicates()
+            .eraseToAnyPublisher()
+    }()
     // MARK: - Functions
 
     public override func updateSettings(_ updatedSettings: [SectionModel]) {
@@ -163,12 +164,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
     
     private func saveChanges() {
         let threadId: String = self.threadId
-        let currentSelection: TimeInterval = self.currentSelection.value
-        let updatedConfig: DisappearingMessagesConfiguration = self.config
-            .with(
-                isEnabled: (currentSelection != 0),
-                durationSeconds: currentSelection
-            )
+        let updatedConfig: DisappearingMessagesConfiguration = self.currentSelection.value
         
         guard self.config != updatedConfig else { return }
         
