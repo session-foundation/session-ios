@@ -87,16 +87,16 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                 id: .off,
                                 title: "DISAPPEARING_MESSAGES_OFF".localized(),
                                 rightAccessory: .radio(
-                                    isSelected: { (currentSelection.isEnabled == false) }
+                                    isSelected: { (self?.currentSelection.value.isEnabled == false) }
                                 ),
                                 onTap: {
-//                                    let updatedConfig: DisappearingMessagesConfiguration = currentSelection
-//                                        .with(
-//                                            isEnabled: false,
-//                                            durationSeconds: 0,
-//                                            type: nil
-//                                        )
-//                                    self?.currentSelection.send(updatedConfig)
+                                    let updatedConfig: DisappearingMessagesConfiguration = currentSelection
+                                        .with(
+                                            isEnabled: false,
+                                            durationSeconds: 0,
+                                            type: nil
+                                        )
+                                    self?.currentSelection.send(updatedConfig)
                                 }
                             ),
                             SessionCell.Info(
@@ -104,16 +104,16 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                 title: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE".localized(),
                                 subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_DESCRIPTION".localized(),
                                 rightAccessory: .radio(
-                                    isSelected: { (currentSelection.type == DisappearingMessagesConfiguration.DisappearingMessageType.disappearAfterRead) }
+                                    isSelected: { (self?.currentSelection.value.type == .disappearAfterRead) }
                                 ),
                                 onTap: {
-//                                    let updatedConfig: DisappearingMessagesConfiguration = currentSelection
-//                                        .with(
-//                                            isEnabled: true,
-//                                            durationSeconds: (24 * 60 * 60),
-//                                            type: DisappearingMessagesConfiguration.DisappearingMessageType.disappearAfterRead
-//                                        )
-//                                    self?.currentSelection.send(updatedConfig)
+                                    let updatedConfig: DisappearingMessagesConfiguration = currentSelection
+                                        .with(
+                                            isEnabled: true,
+                                            durationSeconds: (24 * 60 * 60),
+                                            type: DisappearingMessagesConfiguration.DisappearingMessageType.disappearAfterRead
+                                        )
+                                    self?.currentSelection.send(updatedConfig)
                                 }
                             ),
                             SessionCell.Info(
@@ -121,16 +121,16 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                 title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
                                 subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
                                 rightAccessory: .radio(
-                                    isSelected: { (currentSelection.type == DisappearingMessagesConfiguration.DisappearingMessageType.disappearAfterSend) }
+                                    isSelected: { (self?.currentSelection.value.type == .disappearAfterSend) }
                                 ),
                                 onTap: {
-//                                    let updatedConfig: DisappearingMessagesConfiguration = currentSelection
-//                                        .with(
-//                                            isEnabled: true,
-//                                            durationSeconds: (24 * 60 * 60),
-//                                            type: DisappearingMessagesConfiguration.DisappearingMessageType.disappearAfterSend
-//                                        )
-//                                    self?.currentSelection.send(updatedConfig)
+                                    let updatedConfig: DisappearingMessagesConfiguration = currentSelection
+                                        .with(
+                                            isEnabled: true,
+                                            durationSeconds: (24 * 60 * 60),
+                                            type: DisappearingMessagesConfiguration.DisappearingMessageType.disappearAfterSend
+                                        )
+                                    self?.currentSelection.send(updatedConfig)
                                 }
                             )
                         ]
@@ -165,41 +165,41 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
     private func saveChanges() {
         let threadId: String = self.threadId
         let updatedConfig: DisappearingMessagesConfiguration = self.currentSelection.value
-        
+
         guard self.config != updatedConfig else { return }
-        
-        dependencies.storage.writeAsync { db in
-            guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
-                return
-            }
-            
-            let config: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
-                .fetchOne(db, id: threadId)
-                .defaulting(to: DisappearingMessagesConfiguration.defaultWith(threadId))
-                .with(
-                    isEnabled: (currentSelection != 0),
-                    durationSeconds: currentSelection
-                )
-                .saved(db)
-            
-            let interaction: Interaction = try Interaction(
-                threadId: threadId,
-                authorId: getUserHexEncodedPublicKey(db),
-                variant: .infoDisappearingMessagesUpdate,
-                body: config.messageInfoString(with: nil),
-                timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
-            )
-            .inserted(db)
-            
-            try MessageSender.send(
-                db,
-                message: ExpirationTimerUpdate(
-                    syncTarget: nil,
-                    duration: UInt32(floor(updatedConfig.isEnabled ? updatedConfig.durationSeconds : 0))
-                ),
-                interactionId: interaction.id,
-                in: thread
-            )
-        }
+
+//        dependencies.storage.writeAsync { db in
+//            guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
+//                return
+//            }
+//
+//            let config: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
+//                .fetchOne(db, id: threadId)
+//                .defaulting(to: DisappearingMessagesConfiguration.defaultWith(threadId))
+//                .with(
+//                    isEnabled: (currentSelection != 0),
+//                    durationSeconds: currentSelection
+//                )
+//                .saved(db)
+//
+//            let interaction: Interaction = try Interaction(
+//                threadId: threadId,
+//                authorId: getUserHexEncodedPublicKey(db),
+//                variant: .infoDisappearingMessagesUpdate,
+//                body: config.messageInfoString(with: nil),
+//                timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
+//            )
+//            .inserted(db)
+//
+//            try MessageSender.send(
+//                db,
+//                message: ExpirationTimerUpdate(
+//                    syncTarget: nil,
+//                    duration: UInt32(floor(updatedConfig.isEnabled ? updatedConfig.durationSeconds : 0))
+//                ),
+//                interactionId: interaction.id,
+//                in: thread
+//            )
+//        }
     }
 }
