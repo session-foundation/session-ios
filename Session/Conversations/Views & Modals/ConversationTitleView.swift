@@ -130,8 +130,6 @@ final class ConversationTitleView: UIView {
         let diff: CGFloat = (bounds.size.width - oldSize.width)
         self.stackViewTrailingConstraint.constant = -max(0, diff)
         self.oldSize = bounds.size
-        
-        print("\(bounds.size.width), \(diff)")
     }
     
     public func update(

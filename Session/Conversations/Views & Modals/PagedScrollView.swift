@@ -3,7 +3,7 @@
 import UIKit
 import SessionUIKit
 
-final class PagedScrollView: UIView {
+final class PagedScrollView: UIView, UIScrollViewDelegate {
     private static let autoScrollingTimeInterval: TimeInterval = 10
     private var slides: [UIView] = []
     private var slideSize: CGSize = .zero
@@ -20,6 +20,7 @@ final class PagedScrollView: UIView {
         result.isPagingEnabled = true
         result.showsVerticalScrollIndicator = false
         result.showsHorizontalScrollIndicator = false
+        result.delegate = self
         
         return result
     }()
@@ -33,8 +34,8 @@ final class PagedScrollView: UIView {
     
     private lazy var pageControl: UIPageControl = {
         let result = UIPageControl(frame: .zero)
-        result.currentPageIndicatorTintColor = .black
-        result.pageIndicatorTintColor = .gray
+        result.themeCurrentPageIndicatorTintColor = .textPrimary
+        result.themePageIndicatorTintColor = .textSecondary
         result.themeTintColor = .textPrimary
         result.set(.height, to: 5)
         result.transform = CGAffineTransform(scaleX: 0.5, y: 0.5)
@@ -111,12 +112,16 @@ final class PagedScrollView: UIView {
                 ),
                 animated: true
             )
-            self.pageControl.currentPage = targetPage
         }
     }
     
     private func stopScrolling() {
         timer?.invalidate()
         timer = nil
+    }
+    
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        let pageIndex = round(scrollView.contentOffset.x/slideSize.width)
+        pageControl.currentPage = Int(pageIndex)
     }
 }
