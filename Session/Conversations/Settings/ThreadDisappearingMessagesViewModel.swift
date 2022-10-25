@@ -189,7 +189,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                     )
                                 ].appending(
                                     contentsOf: DisappearingMessagesConfiguration
-                                        .validDurationsSeconds(.disappearAfterRead)
+                                        .validDurationsSeconds(.disappearAfterSend)
                                         .map { duration in
                                             let title: String = duration.formatted(format: .long)
                                             
@@ -204,7 +204,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                                         .with(
                                                             isEnabled: true,
                                                             durationSeconds: duration,
-                                                            type: .disappearAfterRead
+                                                            type: .disappearAfterSend
                                                         )
                                                     self?.currentSelection.send(updatedConfig)
                                                 }
