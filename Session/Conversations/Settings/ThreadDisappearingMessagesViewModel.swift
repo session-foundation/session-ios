@@ -18,22 +18,23 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
     public enum Section: SessionTableSection {
         case type
         case timer
+        case timerWithOff
         
         var title: String? {
             switch self {
                 case .type: return "DISAPPERING_MESSAGES_TYPE_TITLE".localized()
                 case .timer: return "DISAPPERING_MESSAGES_TIMER_TITLE".localized()
+                case .timerWithOff: return nil
             }
         }
         
         var style: SessionTableSectionStyle { return .title }
     }
     
-    public enum Item: Differentiable {
-        case off
-        case disappearAfterRead
-        case disappearAfterSend
-        case currentSetting
+    public struct Item: Equatable, Hashable, Differentiable {
+        let title: String
+            
+        public var differenceIdentifier: String { title }
     }
     
     // MARK: - Variables
@@ -79,79 +80,135 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
     private lazy var _observableSettingsData: ObservableData = {
         self.currentSelection
             .map { [weak self] currentSelection in
-                return [
-                    SectionModel(
-                        model: .type,
-                        elements: [
-                            SessionCell.Info(
-                                id: .off,
-                                title: "DISAPPEARING_MESSAGES_OFF".localized(),
-                                rightAccessory: .radio(
-                                    isSelected: { (self?.currentSelection.value.isEnabled == false) }
-                                ),
-                                onTap: {
-                                    let updatedConfig: DisappearingMessagesConfiguration = currentSelection
-                                        .with(
-                                            isEnabled: false,
-                                            durationSeconds: 0,
-                                            type: nil
+                guard let threadVariant = self?.threadVariant else { return [] }
+                
+                switch threadVariant {
+                    case .contact:
+                        return [
+                            SectionModel(
+                                model: .type,
+                                elements: [
+                                    SessionCell.Info(
+                                        id: Item(title: "DISAPPEARING_MESSAGES_OFF".localized()),
+                                        title: "DISAPPEARING_MESSAGES_OFF".localized(),
+                                        rightAccessory: .radio(
+                                            isSelected: { (self?.currentSelection.value.isEnabled == false) }
+                                        ),
+                                        onTap: {
+                                            let updatedConfig: DisappearingMessagesConfiguration = currentSelection
+                                                .with(
+                                                    isEnabled: false,
+                                                    durationSeconds: 0,
+                                                    type: nil
+                                                )
+                                            self?.currentSelection.send(updatedConfig)
+                                        }
+                                    ),
+                                    SessionCell.Info(
+                                        id: Item(title: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE".localized()),
+                                        title: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE".localized(),
+                                        subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_DESCRIPTION".localized(),
+                                        rightAccessory: .radio(
+                                            isSelected: { (self?.currentSelection.value.isEnabled == true) && (self?.currentSelection.value.type == .disappearAfterRead) }
+                                        ),
+                                        onTap: {
+                                            let updatedConfig: DisappearingMessagesConfiguration = currentSelection
+                                                .with(
+                                                    isEnabled: true,
+                                                    durationSeconds: (24 * 60 * 60),
+                                                    type: DisappearingMessagesConfiguration.DisappearingMessageType.disappearAfterRead
+                                                )
+                                            self?.currentSelection.send(updatedConfig)
+                                        }
+                                    ),
+                                    SessionCell.Info(
+                                        id: Item(title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized()),
+                                        title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
+                                        subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
+                                        rightAccessory: .radio(
+                                            isSelected: { (self?.currentSelection.value.isEnabled == true) && (self?.currentSelection.value.type == .disappearAfterSend) }
+                                        ),
+                                        onTap: {
+                                            let updatedConfig: DisappearingMessagesConfiguration = currentSelection
+                                                .with(
+                                                    isEnabled: true,
+                                                    durationSeconds: (24 * 60 * 60),
+                                                    type: DisappearingMessagesConfiguration.DisappearingMessageType.disappearAfterSend
+                                                )
+                                            self?.currentSelection.send(updatedConfig)
+                                        }
+                                    )
+                                ]
+                            )
+                        ].appending(
+                            (currentSelection.isEnabled == false) ? nil :
+                                SectionModel(
+                                    model: .timer,
+                                    elements: [
+                                        SessionCell.Info(
+                                            id: Item(title: "Current Setting"),
+                                            title: currentSelection.durationSeconds.formatted(format: .long),
+                                            rightAccessory: .icon(
+                                                UIImage(named: "ic_chevron_down")?
+                                                    .withRenderingMode(.alwaysTemplate)
+                                            ),
+                                            onTap: {
+                                                
+                                            }
                                         )
-                                    self?.currentSelection.send(updatedConfig)
-                                }
-                            ),
-                            SessionCell.Info(
-                                id: .disappearAfterRead,
-                                title: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE".localized(),
-                                subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_DESCRIPTION".localized(),
-                                rightAccessory: .radio(
-                                    isSelected: { (self?.currentSelection.value.type == .disappearAfterRead) }
-                                ),
-                                onTap: {
-                                    let updatedConfig: DisappearingMessagesConfiguration = currentSelection
-                                        .with(
-                                            isEnabled: true,
-                                            durationSeconds: (24 * 60 * 60),
-                                            type: DisappearingMessagesConfiguration.DisappearingMessageType.disappearAfterRead
-                                        )
-                                    self?.currentSelection.send(updatedConfig)
-                                }
-                            ),
-                            SessionCell.Info(
-                                id: .disappearAfterSend,
-                                title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
-                                subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
-                                rightAccessory: .radio(
-                                    isSelected: { (self?.currentSelection.value.type == .disappearAfterSend) }
-                                ),
-                                onTap: {
-                                    let updatedConfig: DisappearingMessagesConfiguration = currentSelection
-                                        .with(
-                                            isEnabled: true,
-                                            durationSeconds: (24 * 60 * 60),
-                                            type: DisappearingMessagesConfiguration.DisappearingMessageType.disappearAfterSend
-                                        )
-                                    self?.currentSelection.send(updatedConfig)
-                                }
+                                    ]
+                                )
+                        )
+                    case .closedGroup:
+                        return [
+                            SectionModel(
+                                model: .timerWithOff,
+                                elements: [
+                                    SessionCell.Info(
+                                        id: Item(title: "DISAPPEARING_MESSAGES_OFF".localized()),
+                                        title: "DISAPPEARING_MESSAGES_OFF".localized(),
+                                        rightAccessory: .radio(
+                                            isSelected: { (self?.currentSelection.value.isEnabled == false) }
+                                        ),
+                                        onTap: {
+                                            let updatedConfig: DisappearingMessagesConfiguration = currentSelection
+                                                .with(
+                                                    isEnabled: false,
+                                                    durationSeconds: 0,
+                                                    type: nil
+                                                )
+                                            self?.currentSelection.send(updatedConfig)
+                                        }
+                                    )
+                                ].appending(
+                                    contentsOf: DisappearingMessagesConfiguration
+                                        .validDurationsSeconds(.disappearAfterRead)
+                                        .map { duration in
+                                            let title: String = duration.formatted(format: .long)
+                                            
+                                            return SessionCell.Info(
+                                                id: Item(title: title),
+                                                title: title,
+                                                rightAccessory: .radio(
+                                                    isSelected: { (self?.currentSelection.value.isEnabled == true) && (self?.currentSelection.value.durationSeconds == duration) }
+                                                ),
+                                                onTap: {
+                                                    let updatedConfig: DisappearingMessagesConfiguration = currentSelection
+                                                        .with(
+                                                            isEnabled: true,
+                                                            durationSeconds: duration,
+                                                            type: .disappearAfterRead
+                                                        )
+                                                    self?.currentSelection.send(updatedConfig)
+                                                }
+                                            )
+                                        }
+                                )
                             )
                         ]
-                    )
-                ].appending(
-                    (currentSelection.isEnabled == false) ? nil :
-                        SectionModel(
-                            model: .timer,
-                            elements: [
-                                SessionCell.Info(
-                                    id: .currentSetting,
-                                    title: currentSelection.durationSeconds.formatted(format: .long),
-                                    rightAccessory: .icon(
-                                        UIImage(named: "ic_chevron_down")?
-                                            .withRenderingMode(.alwaysTemplate)
-                                    ),
-                                    onTap: { }
-                                )
-                            ]
-                        )
-                )
+                    case . openGroup:
+                        return [] // Should not happen
+                }
             }
             .removeDuplicates()
             .eraseToAnyPublisher()

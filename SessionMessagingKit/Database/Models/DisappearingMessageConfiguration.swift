@@ -134,6 +134,27 @@ extension DisappearingMessagesConfiguration {
     public static var maxDurationSeconds: TimeInterval = {
         return (validDurationsSeconds.max() ?? 0)
     }()
+    
+    public static func validDurationsSeconds(_ type: DisappearingMessageType) -> [TimeInterval] {
+        switch type {
+            case .disappearAfterRead:
+                return [
+                    (5 * 60),
+                    (1 * 60 * 60),
+                    (12 * 60 * 60),
+                    (24 * 60 * 60),
+                    (7 * 24 * 60 * 60),
+                    (2 * 7 * 24 * 60 * 60)
+                ]
+            case .disappearAfterSend:
+                return [
+                    (12 * 60 * 60),
+                    (24 * 60 * 60),
+                    (7 * 24 * 60 * 60),
+                    (2 * 7 * 24 * 60 * 60)
+                ]
+            }
+    }
 }
 
 // MARK: - Objective-C Support
