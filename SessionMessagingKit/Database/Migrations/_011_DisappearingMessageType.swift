@@ -15,14 +15,32 @@ enum _011_DisappearingMessageType: Migration {
             t.add(.type, .integer)
         }
         
-        _ = try DisappearingMessagesConfiguration
-            .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
-            .updateAll(
-                db,
-                DisappearingMessagesConfiguration.Columns.type.set(
-                    to: DisappearingMessagesConfiguration.DisappearingMessageType.disappearAfterRead
+        func updateDisappearingMessageType(_ db: GRDB.Database, id: String, type: DisappearingMessagesConfiguration.DisappearingMessageType) throws {
+            _ = try DisappearingMessagesConfiguration
+                .filter(DisappearingMessagesConfiguration.Columns.threadId == id)
+                .updateAll(
+                    db,
+                    DisappearingMessagesConfiguration.Columns.type.set(to: type)
                 )
-            )
+        }
+        
+        try DisappearingMessagesConfiguration
+            .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
+            .fetchAll(db)
+            .forEach { config in
+                if let thread = try? SessionThread.fetchOne(db, id: config.threadId) {
+                    guard !thread.isNoteToSelf(db) else {
+                        try updateDisappearingMessageType(db, id: config.threadId, type: .disappearAfterSend)
+                        return
+                    }
+                    
+                    switch thread.variant {
+                        case .contact: try updateDisappearingMessageType(db, id: config.threadId, type: .disappearAfterRead)
+                        case .closedGroup: try updateDisappearingMessageType(db, id: config.threadId, type: .disappearAfterSend)
+                        case .openGroup: return
+                    }
+                }
+            }
         
         Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
     }
