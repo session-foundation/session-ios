@@ -144,19 +144,26 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                             (currentSelection.isEnabled == false) ? nil :
                                 SectionModel(
                                     model: .timer,
-                                    elements: [
-                                        SessionCell.Info(
-                                            id: Item(title: "Current Setting"),
-                                            title: currentSelection.durationSeconds.formatted(format: .long),
-                                            rightAccessory: .icon(
-                                                UIImage(named: "ic_chevron_down")?
-                                                    .withRenderingMode(.alwaysTemplate)
-                                            ),
-                                            onTap: {
-                                                
-                                            }
-                                        )
-                                    ]
+                                    elements: DisappearingMessagesConfiguration
+                                        .validDurationsSeconds(.disappearAfterRead)
+                                        .map { duration in
+                                            let title: String = duration.formatted(format: .long)
+                                            
+                                            return SessionCell.Info(
+                                                id: Item(title: title),
+                                                title: title,
+                                                rightAccessory: .radio(
+                                                    isSelected: { (self?.currentSelection.value.isEnabled == true) && (self?.currentSelection.value.durationSeconds == duration) }
+                                                ),
+                                                onTap: {
+                                                    let updatedConfig: DisappearingMessagesConfiguration = currentSelection
+                                                        .with(
+                                                            durationSeconds: duration
+                                                        )
+                                                    self?.currentSelection.send(updatedConfig)
+                                                }
+                                            )
+                                        }
                                 )
                         )
                     case .closedGroup:
