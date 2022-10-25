@@ -145,7 +145,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                 SectionModel(
                                     model: .timer,
                                     elements: DisappearingMessagesConfiguration
-                                        .validDurationsSeconds(.disappearAfterRead)
+                                        .validDurationsSeconds(currentSelection.type ?? .disappearAfterRead)
                                         .map { duration in
                                             let title: String = duration.formatted(format: .long)
                                             
