@@ -137,6 +137,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                     .conversationQuery(threadId: threadId, userPublicKey: userPublicKey)
                     .fetchOne(db)
                 
+                
                 return threadViewModel
                     .map { $0.with(recentReactionEmoji: recentReactionEmoji) }
             }

@@ -110,7 +110,8 @@ final class ConversationTitleView: UIView {
             threadVariant: threadVariant,
             mutedUntilTimestamp: nil,
             onlyNotifyForMentions: false,
-            userCount: (threadVariant != .contact ? 0 : nil)
+            userCount: (threadVariant != .contact ? 0 : nil),
+            disappearingMessagesConfig: nil
         )
     }
     
@@ -138,7 +139,8 @@ final class ConversationTitleView: UIView {
         threadVariant: SessionThread.Variant,
         mutedUntilTimestamp: TimeInterval?,
         onlyNotifyForMentions: Bool,
-        userCount: Int?
+        userCount: Int?,
+        disappearingMessagesConfig: DisappearingMessagesConfiguration?
     ) {
         guard Thread.isMainThread else {
             DispatchQueue.main.async { [weak self] in
@@ -148,7 +150,8 @@ final class ConversationTitleView: UIView {
                     threadVariant: threadVariant,
                     mutedUntilTimestamp: mutedUntilTimestamp,
                     onlyNotifyForMentions: onlyNotifyForMentions,
-                    userCount: userCount
+                    userCount: userCount,
+                    disappearingMessagesConfig: disappearingMessagesConfig
                 )
             }
             return
@@ -157,7 +160,8 @@ final class ConversationTitleView: UIView {
         let shouldHaveSubtitle: Bool = (
             Date().timeIntervalSince1970 <= (mutedUntilTimestamp ?? 0) ||
             onlyNotifyForMentions ||
-            userCount != nil
+            userCount != nil ||
+            disappearingMessagesConfig?.isEnabled == true
         )
         
         self.titleLabel.text = name
@@ -219,6 +223,25 @@ final class ConversationTitleView: UIView {
             }
             
             // TODO: Disappearing message settings
+            if let config = disappearingMessagesConfig, config.isEnabled == true {
+                let imageAttachment = NSTextAttachment()
+                imageAttachment.image = UIImage(named: "ic_timer")?.withTint(textPrimary)
+                imageAttachment.bounds = CGRect(
+                    x: 0,
+                    y: -2,
+                    width: Values.smallFontSize,
+                    height: Values.smallFontSize
+                )
+                
+                self?.notificationSettingsLabel.attributedText = NSAttributedString(attachment: imageAttachment)
+                    .appending(string: "  ")
+                    .appending(string: config.type == .disappearAfterRead ? "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE".localized() : "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized())
+                    .appending(string: " - ")
+                    .appending(string: config.durationString)
+                self?.disappearingMessageSettingLabel.isHidden = false
+                slides.append(self?.disappearingMessageSettingLabel)
+            }
+            
             self?.pagedScrollView.update(
                 with: slides.compactMap{ $0 },
                 slideSize: CGSize(

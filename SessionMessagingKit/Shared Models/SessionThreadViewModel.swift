@@ -32,6 +32,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public static let threadContactIsTypingKey: SQL = SQL(stringLiteral: CodingKeys.threadContactIsTyping.stringValue)
     public static let threadUnreadCountKey: SQL = SQL(stringLiteral: CodingKeys.threadUnreadCount.stringValue)
     public static let threadUnreadMentionCountKey: SQL = SQL(stringLiteral: CodingKeys.threadUnreadMentionCount.stringValue)
+    public static let disappearingMessagesConfigurationKey: SQL = SQL(stringLiteral: CodingKeys.disappearingMessagesConfiguration.stringValue)
     public static let contactProfileKey: SQL = SQL(stringLiteral: CodingKeys.contactProfile.stringValue)
     public static let closedGroupNameKey: SQL = SQL(stringLiteral: CodingKeys.closedGroupName.stringValue)
     public static let closedGroupUserCountKey: SQL = SQL(stringLiteral: CodingKeys.closedGroupUserCount.stringValue)
@@ -105,6 +106,8 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     }
     
     // Thread display info
+    
+    public let disappearingMessagesConfiguration: DisappearingMessagesConfiguration?
     
     private let contactProfile: Profile?
     private let closedGroupProfileFront: Profile?
@@ -239,7 +242,8 @@ public extension SessionThreadViewModel {
         threadIsNoteToSelf: Bool = false,
         contactProfile: Profile? = nil,
         currentUserIsClosedGroupMember: Bool? = nil,
-        unreadCount: UInt = 0
+        unreadCount: UInt = 0,
+        disappearingMessagesConfiguration: DisappearingMessagesConfiguration? = nil
     ) {
         self.rowId = -1
         self.threadId = (threadId ?? SessionThreadViewModel.invalidId)
@@ -262,6 +266,8 @@ public extension SessionThreadViewModel {
         self.threadUnreadMentionCount = nil
         
         // Thread display info
+        
+        self.disappearingMessagesConfiguration = disappearingMessagesConfiguration
         
         self.contactProfile = contactProfile
         self.closedGroupProfileFront = nil
@@ -323,6 +329,7 @@ public extension SessionThreadViewModel {
             threadContactIsTyping: self.threadContactIsTyping,
             threadUnreadCount: self.threadUnreadCount,
             threadUnreadMentionCount: self.threadUnreadMentionCount,
+            disappearingMessagesConfiguration: self.disappearingMessagesConfiguration,
             contactProfile: self.contactProfile,
             closedGroupProfileFront: self.closedGroupProfileFront,
             closedGroupProfileBack: self.closedGroupProfileBack,
@@ -376,6 +383,7 @@ public extension SessionThreadViewModel {
             threadContactIsTyping: self.threadContactIsTyping,
             threadUnreadCount: self.threadUnreadCount,
             threadUnreadMentionCount: self.threadUnreadMentionCount,
+            disappearingMessagesConfiguration: self.disappearingMessagesConfiguration,
             contactProfile: self.contactProfile,
             closedGroupProfileFront: self.closedGroupProfileFront,
             closedGroupProfileBack: self.closedGroupProfileBack,
@@ -703,6 +711,7 @@ public extension SessionThreadViewModel {
     /// but including this warning just in case there is a discrepancy)
     static func conversationQuery(threadId: String, userPublicKey: String) -> AdaptedFetchRequest<SQLRequest<SessionThreadViewModel>> {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
+        let disappearingMessagesConfiguration: TypedTableAlias<DisappearingMessagesConfiguration> = TypedTableAlias()
         let contact: TypedTableAlias<Contact> = TypedTableAlias()
         let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
@@ -745,6 +754,8 @@ public extension SessionThreadViewModel {
                 \(thread[.messageDraft]) AS \(ViewModel.threadMessageDraftKey),
         
                 \(Interaction.self).\(ViewModel.threadUnreadCountKey),
+        
+                \(ViewModel.disappearingMessagesConfigurationKey).*,
             
                 \(ViewModel.contactProfileKey).*,
                 \(closedGroup[.name]) AS \(ViewModel.closedGroupNameKey),
@@ -761,6 +772,7 @@ public extension SessionThreadViewModel {
                 \(SQL("\(userPublicKey)")) AS \(ViewModel.currentUserPublicKeyKey)
             
             FROM \(SessionThread.self)
+            LEFT JOIN \(DisappearingMessagesConfiguration.self) ON \(disappearingMessagesConfiguration[.threadId]) = \(thread[.id])
             LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])
             LEFT JOIN (
                 -- Fetch all interaction-specific data in a subquery to be more efficient
@@ -811,6 +823,7 @@ public extension SessionThreadViewModel {
     
     static func conversationSettingsQuery(threadId: String, userPublicKey: String) -> AdaptedFetchRequest<SQLRequest<SessionThreadViewModel>> {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
+        let disappearingMessagesConfiguration: TypedTableAlias<DisappearingMessagesConfiguration> = TypedTableAlias()
         let contact: TypedTableAlias<Contact> = TypedTableAlias()
         let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
@@ -838,6 +851,8 @@ public extension SessionThreadViewModel {
                 \(contact[.isBlocked]) AS \(ViewModel.threadIsBlockedKey),
                 \(thread[.mutedUntilTimestamp]) AS \(ViewModel.threadMutedUntilTimestampKey),
                 \(thread[.onlyNotifyForMentions]) AS \(ViewModel.threadOnlyNotifyForMentionsKey),
+                            
+                \(ViewModel.disappearingMessagesConfigurationKey).*,
         
                 \(ViewModel.contactProfileKey).*,
                 \(ViewModel.closedGroupProfileFrontKey).*,
@@ -852,6 +867,7 @@ public extension SessionThreadViewModel {
                 \(SQL("\(userPublicKey)")) AS \(ViewModel.currentUserPublicKeyKey)
             
             FROM \(SessionThread.self)
+            LEFT JOIN \(DisappearingMessagesConfiguration.self) ON \(disappearingMessagesConfiguration[.threadId]) = \(thread[.id])
             LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])
             LEFT JOIN \(Profile.self) AS \(ViewModel.contactProfileKey) ON \(ViewModel.contactProfileKey).\(profileIdColumnLiteral) = \(thread[.id])
             LEFT JOIN \(OpenGroup.self) ON \(openGroup[.threadId]) = \(thread[.id])

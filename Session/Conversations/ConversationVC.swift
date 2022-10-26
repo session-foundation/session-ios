@@ -556,7 +556,8 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             viewModel.threadData.threadIsNoteToSelf != updatedThreadData.threadIsNoteToSelf ||
             viewModel.threadData.threadMutedUntilTimestamp != updatedThreadData.threadMutedUntilTimestamp ||
             viewModel.threadData.threadOnlyNotifyForMentions != updatedThreadData.threadOnlyNotifyForMentions ||
-            viewModel.threadData.userCount != updatedThreadData.userCount
+            viewModel.threadData.userCount != updatedThreadData.userCount ||
+            viewModel.threadData.disappearingMessagesConfiguration != updatedThreadData.disappearingMessagesConfiguration
         {
             titleView.update(
                 with: updatedThreadData.displayName,
@@ -564,7 +565,8 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                 threadVariant: updatedThreadData.threadVariant,
                 mutedUntilTimestamp: updatedThreadData.threadMutedUntilTimestamp,
                 onlyNotifyForMentions: (updatedThreadData.threadOnlyNotifyForMentions == true),
-                userCount: updatedThreadData.userCount
+                userCount: updatedThreadData.userCount,
+                disappearingMessagesConfig: updatedThreadData.disappearingMessagesConfiguration
             )
         }
         
