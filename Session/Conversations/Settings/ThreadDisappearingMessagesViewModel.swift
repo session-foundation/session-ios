@@ -255,20 +255,21 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
 
         guard self.config != updatedConfig else { return }
 
-//        dependencies.storage.writeAsync { db in
-//            guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
-//                return
-//            }
-//
-//            let config: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
-//                .fetchOne(db, id: threadId)
-//                .defaulting(to: DisappearingMessagesConfiguration.defaultWith(threadId))
-//                .with(
-//                    isEnabled: (currentSelection != 0),
-//                    durationSeconds: currentSelection
-//                )
-//                .saved(db)
-//
+        dependencies.storage.writeAsync { db in
+            guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
+                return
+            }
+
+            let config: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
+                .fetchOne(db, id: threadId)
+                .defaulting(to: DisappearingMessagesConfiguration.defaultWith(threadId))
+                .with(
+                    isEnabled: updatedConfig.isEnabled,
+                    durationSeconds: updatedConfig.durationSeconds,
+                    type: updatedConfig.type
+                )
+                .saved(db)
+
 //            let interaction: Interaction = try Interaction(
 //                threadId: threadId,
 //                authorId: getUserHexEncodedPublicKey(db),
@@ -287,6 +288,6 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
 //                interactionId: interaction.id,
 //                in: thread
 //            )
-//        }
+        }
     }
 }
