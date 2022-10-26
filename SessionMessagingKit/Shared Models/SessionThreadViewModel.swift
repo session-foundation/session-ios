@@ -64,6 +64,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public static let threadUnreadMentionCountString: String = CodingKeys.threadUnreadMentionCount.stringValue
     public static let closedGroupUserCountString: String = CodingKeys.closedGroupUserCount.stringValue
     public static let openGroupUserCountString: String = CodingKeys.openGroupUserCount.stringValue
+    public static let disappearingMessagesConfigurationString: String = CodingKeys.disappearingMessagesConfiguration.stringValue
     public static let contactProfileString: String = CodingKeys.contactProfile.stringValue
     public static let closedGroupProfileFrontString: String = CodingKeys.closedGroupProfileFront.stringValue
     public static let closedGroupProfileBackString: String = CodingKeys.closedGroupProfileBack.stringValue
@@ -812,18 +813,19 @@ public extension SessionThreadViewModel {
         return request.adapted { db in
             let adapters = try splittingRowAdapters(columnCounts: [
                 numColumnsBeforeProfiles,
+                DisappearingMessagesConfiguration.numberOfSelectedColumns(db),
                 Profile.numberOfSelectedColumns(db)
             ])
             
             return ScopeAdapter([
-                ViewModel.contactProfileString: adapters[1]
+                ViewModel.disappearingMessagesConfigurationString: adapters[1],
+                ViewModel.contactProfileString: adapters[2]
             ])
         }
     }
     
     static func conversationSettingsQuery(threadId: String, userPublicKey: String) -> AdaptedFetchRequest<SQLRequest<SessionThreadViewModel>> {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
-        let disappearingMessagesConfiguration: TypedTableAlias<DisappearingMessagesConfiguration> = TypedTableAlias()
         let contact: TypedTableAlias<Contact> = TypedTableAlias()
         let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
@@ -852,8 +854,6 @@ public extension SessionThreadViewModel {
                 \(thread[.mutedUntilTimestamp]) AS \(ViewModel.threadMutedUntilTimestampKey),
                 \(thread[.onlyNotifyForMentions]) AS \(ViewModel.threadOnlyNotifyForMentionsKey),
                             
-                \(ViewModel.disappearingMessagesConfigurationKey).*,
-        
                 \(ViewModel.contactProfileKey).*,
                 \(ViewModel.closedGroupProfileFrontKey).*,
                 \(ViewModel.closedGroupProfileBackKey).*,
@@ -867,7 +867,6 @@ public extension SessionThreadViewModel {
                 \(SQL("\(userPublicKey)")) AS \(ViewModel.currentUserPublicKeyKey)
             
             FROM \(SessionThread.self)
-            LEFT JOIN \(DisappearingMessagesConfiguration.self) ON \(disappearingMessagesConfiguration[.threadId]) = \(thread[.id])
             LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])
             LEFT JOIN \(Profile.self) AS \(ViewModel.contactProfileKey) ON \(ViewModel.contactProfileKey).\(profileIdColumnLiteral) = \(thread[.id])
             LEFT JOIN \(OpenGroup.self) ON \(openGroup[.threadId]) = \(thread[.id])
