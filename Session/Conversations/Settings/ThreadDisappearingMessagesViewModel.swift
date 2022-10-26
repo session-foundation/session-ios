@@ -44,6 +44,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
     private let threadVariant: SessionThread.Variant
     private let config: DisappearingMessagesConfiguration
     private var currentSelection: CurrentValueSubject<DisappearingMessagesConfiguration, Error>
+    private var shouldShowConfirmButton: CurrentValueSubject<Bool, Never>
     
     // MARK: - Initialization
     
@@ -58,6 +59,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
         self.threadVariant = threadVariant
         self.config = config
         self.currentSelection = CurrentValueSubject(self.config)
+        self.shouldShowConfirmButton = CurrentValueSubject(false)
     }
     
     // MARK: - Content
@@ -67,6 +69,21 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
     
     private var _settingsData: [SectionModel] = []
     public override var settingsData: [SectionModel] { _settingsData }
+    
+    override var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> {
+        self.shouldShowConfirmButton
+            .removeDuplicates()
+            .map { [weak self] shouldShowConfirmButton in
+                guard shouldShowConfirmButton else { return nil }
+                return SessionButton.Info(
+                    style: .bordered,
+                    title: "DISAPPERING_MESSAGES_SAVE_TITLE".localized(),
+                    isEnabled: true,
+                    onTap: { self?.saveChanges() }
+                )
+            }
+            .eraseToAnyPublisher()
+    }
     
     public override var observableSettingsData: ObservableData { _observableSettingsData }
     
@@ -101,6 +118,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                                     durationSeconds: 0,
                                                     type: nil
                                                 )
+                                            self?.shouldShowConfirmButton.send(updatedConfig != self?.config)
                                             self?.currentSelection.send(updatedConfig)
                                         }
                                     ),
@@ -118,6 +136,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                                     durationSeconds: (24 * 60 * 60),
                                                     type: DisappearingMessagesConfiguration.DisappearingMessageType.disappearAfterRead
                                                 )
+                                            self?.shouldShowConfirmButton.send(updatedConfig != self?.config)
                                             self?.currentSelection.send(updatedConfig)
                                         }
                                     ),
@@ -135,6 +154,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                                     durationSeconds: (24 * 60 * 60),
                                                     type: DisappearingMessagesConfiguration.DisappearingMessageType.disappearAfterSend
                                                 )
+                                            self?.shouldShowConfirmButton.send(updatedConfig != self?.config)
                                             self?.currentSelection.send(updatedConfig)
                                         }
                                     )
@@ -160,6 +180,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                                         .with(
                                                             durationSeconds: duration
                                                         )
+                                                    self?.shouldShowConfirmButton.send(updatedConfig != self?.config)
                                                     self?.currentSelection.send(updatedConfig)
                                                 }
                                             )
@@ -184,6 +205,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                                     durationSeconds: 0,
                                                     type: nil
                                                 )
+                                            self?.shouldShowConfirmButton.send(updatedConfig != self?.config)
                                             self?.currentSelection.send(updatedConfig)
                                         }
                                     )
@@ -206,6 +228,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                                             durationSeconds: duration,
                                                             type: .disappearAfterSend
                                                         )
+                                                    self?.shouldShowConfirmButton.send(updatedConfig != self?.config)
                                                     self?.currentSelection.send(updatedConfig)
                                                 }
                                             )
