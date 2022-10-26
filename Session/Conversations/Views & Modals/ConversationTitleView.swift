@@ -123,7 +123,7 @@ final class ConversationTitleView: UIView {
         guard self.oldSize != .zero, self.oldSize != bounds.size else {
             self.oldSize = bounds.size
             if pagedScrollViewWidth.constant == 0 {
-                pagedScrollViewWidth.constant = bounds.size.width - 8
+                pagedScrollViewWidth.constant = bounds.size.width - stackViewLeadingConstraint.constant
             }
             return
         }
@@ -233,7 +233,7 @@ final class ConversationTitleView: UIView {
                     height: Values.smallFontSize
                 )
                 
-                self?.notificationSettingsLabel.attributedText = NSAttributedString(attachment: imageAttachment)
+                self?.disappearingMessageSettingLabel.attributedText = NSAttributedString(attachment: imageAttachment)
                     .appending(string: "  ")
                     .appending(string: config.type == .disappearAfterRead ? "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE".localized() : "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized())
                     .appending(string: " - ")
@@ -250,6 +250,8 @@ final class ConversationTitleView: UIView {
                 ),
                 shouldAutoScroll: false
             )
+            
+            self?.pagedScrollView.isHidden = (slides.count == 0)
         }
         
         // Contact threads also have the call button to compensate for
