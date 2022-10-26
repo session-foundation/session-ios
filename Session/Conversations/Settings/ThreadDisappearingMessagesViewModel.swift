@@ -79,7 +79,10 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                     style: .bordered,
                     title: "DISAPPERING_MESSAGES_SAVE_TITLE".localized(),
                     isEnabled: true,
-                    onTap: { self?.saveChanges() }
+                    onTap: {
+                        self?.saveChanges()
+                        self?.dismissScreen()
+                    }
                 )
             }
             .eraseToAnyPublisher()

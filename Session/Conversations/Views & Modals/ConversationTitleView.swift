@@ -38,7 +38,7 @@ final class ConversationTitleView: UIView {
 
     private lazy var subtitleLabel: UILabel = {
         let result: UILabel = UILabel()
-        result.font = .systemFont(ofSize: 13)
+        result.font = .systemFont(ofSize: Values.verySmallFontSize)
         result.themeTextColor = .textPrimary
         result.lineBreakMode = .byTruncatingTail
         
@@ -47,7 +47,7 @@ final class ConversationTitleView: UIView {
     
     private lazy var userCountLabel: UILabel = {
         let result: UILabel = UILabel()
-        result.font = .systemFont(ofSize: 13)
+        result.font = .systemFont(ofSize: Values.verySmallFontSize)
         result.themeTextColor = .textPrimary
         result.lineBreakMode = .byTruncatingTail
         
@@ -56,7 +56,7 @@ final class ConversationTitleView: UIView {
     
     private lazy var notificationSettingsLabel: UILabel = {
         let result: UILabel = UILabel()
-        result.font = .systemFont(ofSize: 13)
+        result.font = .systemFont(ofSize: Values.verySmallFontSize)
         result.themeTextColor = .textPrimary
         result.lineBreakMode = .byTruncatingTail
         
@@ -65,7 +65,7 @@ final class ConversationTitleView: UIView {
     
     private lazy var disappearingMessageSettingLabel: UILabel = {
         let result: UILabel = UILabel()
-        result.font = .systemFont(ofSize: 13)
+        result.font = .systemFont(ofSize: Values.verySmallFontSize)
         result.themeTextColor = .textPrimary
         result.lineBreakMode = .byTruncatingTail
         
@@ -194,8 +194,8 @@ final class ConversationTitleView: UIView {
                 imageAttachment.bounds = CGRect(
                     x: 0,
                     y: -2,
-                    width: Values.smallFontSize,
-                    height: Values.smallFontSize
+                    width: Values.verySmallFontSize,
+                    height: Values.verySmallFontSize
                 )
                 
                 self?.notificationSettingsLabel.attributedText = NSAttributedString(attachment: imageAttachment)
@@ -229,12 +229,12 @@ final class ConversationTitleView: UIView {
                 imageAttachment.bounds = CGRect(
                     x: 0,
                     y: -2,
-                    width: Values.smallFontSize,
-                    height: Values.smallFontSize
+                    width: Values.verySmallFontSize,
+                    height: Values.verySmallFontSize
                 )
                 
                 self?.disappearingMessageSettingLabel.attributedText = NSAttributedString(attachment: imageAttachment)
-                    .appending(string: "  ")
+                    .appending(string: " ")
                     .appending(string: config.type == .disappearAfterRead ? "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE".localized() : "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized())
                     .appending(string: " - ")
                     .appending(string: config.durationString)
