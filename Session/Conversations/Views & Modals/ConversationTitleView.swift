@@ -225,7 +225,7 @@ final class ConversationTitleView: UIView {
             // TODO: Disappearing message settings
             if let config = disappearingMessagesConfig, config.isEnabled == true {
                 let imageAttachment = NSTextAttachment()
-                imageAttachment.image = UIImage(named: "ic_timer")?.withTint(textPrimary)
+                imageAttachment.image = UIImage(systemName: "timer")?.withTint(textPrimary)
                 imageAttachment.bounds = CGRect(
                     x: 0,
                     y: -2,

@@ -308,12 +308,8 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                             SessionCell.Info(
                                 id: .disappearingMessages,
                                 leftAccessory: .icon(
-                                    UIImage(
-                                        named: (disappearingMessagesConfig.isEnabled ?
-                                            "ic_timer" :
-                                            "ic_timer_disabled"
-                                        )
-                                    )?.withRenderingMode(.alwaysTemplate)
+                                    UIImage(systemName: "timer")?
+                                        .withRenderingMode(.alwaysTemplate)
                                 ),
                                 title: "DISAPPEARING_MESSAGES".localized(),
                                 subtitle: (disappearingMessagesConfig.isEnabled ?
