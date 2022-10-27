@@ -183,6 +183,19 @@ public final class VisibleMessage: Message {
             dataMessage.setReaction(reactionProto)
         }
         
+        // DisappearingMessagesConfiguration
+        if let threadId = self.threadId,
+            let disappearingMessagesConfiguration = try? DisappearingMessagesConfiguration.fetchOne(db, id: threadId)
+        {
+            proto.setExpirationTimer(UInt32(disappearingMessagesConfiguration.durationSeconds))
+            
+            if disappearingMessagesConfiguration.isEnabled,
+                let type = disappearingMessagesConfiguration.type
+            {
+                proto.setExpirationType(type.toProto())
+            }
+        }
+        
         // Group context
         do {
             try setGroupContextIfNeeded(db, on: dataMessage)

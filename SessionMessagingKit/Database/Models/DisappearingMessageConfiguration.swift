@@ -20,6 +20,24 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatabl
     public enum DisappearingMessageType: Int, Codable, Hashable, DatabaseValueConvertible {
         case disappearAfterRead
         case disappearAfterSend
+        
+        init(protoType: SNProtoContent.SNProtoContentExpirationType) {
+            switch protoType {
+                case .deleteAfterSend:
+                    self = .disappearAfterSend
+                case .deleteAfterRead:
+                    self = .disappearAfterRead
+            }
+        }
+        
+        func toProto() -> SNProtoContent.SNProtoContentExpirationType {
+            switch self {
+                case .disappearAfterRead:
+                    return .deleteAfterRead
+                case .disappearAfterSend:
+                    return .deleteAfterSend
+            }
+        }
     }
     
     public var id: String { threadId }  // Identifiable
