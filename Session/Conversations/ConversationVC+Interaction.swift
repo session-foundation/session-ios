@@ -440,6 +440,7 @@ extension ConversationVC:
                     body: text,
                     timestampMs: sentTimestampMs,
                     hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: text),
+                    // No matter the disappearing message type is D.A.R or D.A.S, it is the same on the sender's side
                     expiresInSeconds: try? DisappearingMessagesConfiguration
                         .select(.durationSeconds)
                         .filter(id: threadId)
