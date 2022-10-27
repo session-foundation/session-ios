@@ -585,6 +585,27 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
 
 @objc public class SNProtoContent: NSObject {
 
+    // MARK: - SNProtoContentExpirationType
+
+    @objc public enum SNProtoContentExpirationType: Int32 {
+        case deleteAfterSend = 1
+        case deleteAfterRead = 2
+    }
+
+    private class func SNProtoContentExpirationTypeWrap(_ value: SessionProtos_Content.ExpirationType) -> SNProtoContentExpirationType {
+        switch value {
+        case .deleteAfterSend: return .deleteAfterSend
+        case .deleteAfterRead: return .deleteAfterRead
+        }
+    }
+
+    private class func SNProtoContentExpirationTypeUnwrap(_ value: SNProtoContentExpirationType) -> SessionProtos_Content.ExpirationType {
+        switch value {
+        case .deleteAfterSend: return .deleteAfterSend
+        case .deleteAfterRead: return .deleteAfterRead
+        }
+    }
+
     // MARK: - SNProtoContentBuilder
 
     @objc public class func builder() -> SNProtoContentBuilder {
@@ -617,6 +638,15 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
         }
         if let _value = messageRequestResponse {
             builder.setMessageRequestResponse(_value)
+        }
+        if hasExpirationType {
+            builder.setExpirationType(expirationType)
+        }
+        if hasExpirationTimer {
+            builder.setExpirationTimer(expirationTimer)
+        }
+        if hasLastDisappearingMessageChangeTimestamp {
+            builder.setLastDisappearingMessageChangeTimestamp(lastDisappearingMessageChangeTimestamp)
         }
         return builder
     }
@@ -659,6 +689,18 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
             proto.messageRequestResponse = valueParam.proto
         }
 
+        @objc public func setExpirationType(_ valueParam: SNProtoContentExpirationType) {
+            proto.expirationType = SNProtoContentExpirationTypeUnwrap(valueParam)
+        }
+
+        @objc public func setExpirationTimer(_ valueParam: UInt32) {
+            proto.expirationTimer = valueParam
+        }
+
+        @objc public func setLastDisappearingMessageChangeTimestamp(_ valueParam: UInt32) {
+            proto.lastDisappearingMessageChangeTimestamp = valueParam
+        }
+
         @objc public func build() throws -> SNProtoContent {
             return try SNProtoContent.parseProto(proto)
         }
@@ -685,6 +727,27 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
     @objc public let unsendRequest: SNProtoUnsendRequest?
 
     @objc public let messageRequestResponse: SNProtoMessageRequestResponse?
+
+    @objc public var expirationType: SNProtoContentExpirationType {
+        return SNProtoContent.SNProtoContentExpirationTypeWrap(proto.expirationType)
+    }
+    @objc public var hasExpirationType: Bool {
+        return proto.hasExpirationType
+    }
+
+    @objc public var expirationTimer: UInt32 {
+        return proto.expirationTimer
+    }
+    @objc public var hasExpirationTimer: Bool {
+        return proto.hasExpirationTimer
+    }
+
+    @objc public var lastDisappearingMessageChangeTimestamp: UInt32 {
+        return proto.lastDisappearingMessageChangeTimestamp
+    }
+    @objc public var hasLastDisappearingMessageChangeTimestamp: Bool {
+        return proto.hasLastDisappearingMessageChangeTimestamp
+    }
 
     private init(proto: SessionProtos_Content,
                  dataMessage: SNProtoDataMessage?,
