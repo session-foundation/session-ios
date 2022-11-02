@@ -67,6 +67,21 @@ public class Message: Codable {
     public func toProto(_ db: Database) -> SNProtoContent? {
         preconditionFailure("toProto(_:) is abstract and must be overridden.")
     }
+    
+    public func setDisappearingMessagesConfigurationIfNeeded(_ db: Database, on proto: SNProtoContent.SNProtoContentBuilder) throws {
+        guard
+            let threadId: String = threadId,
+            let disappearingMessagesConfiguration = try? DisappearingMessagesConfiguration.fetchOne(db, id: threadId)
+        else { return }
+        
+        proto.setExpirationTimer(UInt32(disappearingMessagesConfiguration.durationSeconds))
+        
+        if disappearingMessagesConfiguration.isEnabled,
+            let type = disappearingMessagesConfiguration.type
+        {
+            proto.setExpirationType(type.toProto())
+        }
+    }
 
     public func setGroupContextIfNeeded(_ db: Database, on dataMessage: SNProtoDataMessage.SNProtoDataMessageBuilder) throws {
         guard
