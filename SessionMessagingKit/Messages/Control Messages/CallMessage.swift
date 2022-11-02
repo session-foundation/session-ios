@@ -198,6 +198,14 @@ public final class CallMessage: ControlMessage {
             SNLog("Couldn't construct call message proto from: \(self).")
             return nil
         }
+        
+        // DisappearingMessagesConfiguration
+        do {
+            try setDisappearingMessagesConfigurationIfNeeded(db, on: contentProto)
+        } catch {
+            SNLog("Couldn't construct call message proto from: \(self).")
+            return nil
+        }
     }
     
     // MARK: - Description
