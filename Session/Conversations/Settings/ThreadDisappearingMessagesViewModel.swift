@@ -119,7 +119,8 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                                 .with(
                                                     isEnabled: false,
                                                     durationSeconds: 0,
-                                                    type: nil
+                                                    type: nil,
+                                                    lastChangeTimestampMs: Int64(floor((Date().timeIntervalSince1970 * 1000)))
                                                 )
                                             self?.shouldShowConfirmButton.send(updatedConfig != self?.config)
                                             self?.currentSelection.send(updatedConfig)
@@ -137,7 +138,8 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                                 .with(
                                                     isEnabled: true,
                                                     durationSeconds: (24 * 60 * 60),
-                                                    type: DisappearingMessagesConfiguration.DisappearingMessageType.disappearAfterRead
+                                                    type: DisappearingMessagesConfiguration.DisappearingMessageType.disappearAfterRead,
+                                                    lastChangeTimestampMs: Int64(floor((Date().timeIntervalSince1970 * 1000)))
                                                 )
                                             self?.shouldShowConfirmButton.send(updatedConfig != self?.config)
                                             self?.currentSelection.send(updatedConfig)
@@ -155,7 +157,8 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                                 .with(
                                                     isEnabled: true,
                                                     durationSeconds: (24 * 60 * 60),
-                                                    type: DisappearingMessagesConfiguration.DisappearingMessageType.disappearAfterSend
+                                                    type: DisappearingMessagesConfiguration.DisappearingMessageType.disappearAfterSend,
+                                                    lastChangeTimestampMs: Int64(floor((Date().timeIntervalSince1970 * 1000)))
                                                 )
                                             self?.shouldShowConfirmButton.send(updatedConfig != self?.config)
                                             self?.currentSelection.send(updatedConfig)
@@ -181,7 +184,8 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                                 onTap: {
                                                     let updatedConfig: DisappearingMessagesConfiguration = currentSelection
                                                         .with(
-                                                            durationSeconds: duration
+                                                            durationSeconds: duration,
+                                                            lastChangeTimestampMs: Int64(floor((Date().timeIntervalSince1970 * 1000)))
                                                         )
                                                     self?.shouldShowConfirmButton.send(updatedConfig != self?.config)
                                                     self?.currentSelection.send(updatedConfig)
@@ -206,7 +210,8 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                                 .with(
                                                     isEnabled: false,
                                                     durationSeconds: 0,
-                                                    type: nil
+                                                    type: nil,
+                                                    lastChangeTimestampMs: Int64(floor((Date().timeIntervalSince1970 * 1000)))
                                                 )
                                             self?.shouldShowConfirmButton.send(updatedConfig != self?.config)
                                             self?.currentSelection.send(updatedConfig)
@@ -229,7 +234,8 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                                         .with(
                                                             isEnabled: true,
                                                             durationSeconds: duration,
-                                                            type: .disappearAfterSend
+                                                            type: .disappearAfterSend,
+                                                            lastChangeTimestampMs: Int64(floor((Date().timeIntervalSince1970 * 1000)))
                                                         )
                                                     self?.shouldShowConfirmButton.send(updatedConfig != self?.config)
                                                     self?.currentSelection.send(updatedConfig)
