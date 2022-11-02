@@ -221,6 +221,9 @@ public enum MessageReceiver {
             default: fatalError()
         }
         
+        // Update any disappearing messages configuration if needed
+        try MessageReceiver.updateDisappearingMessagesConfigurationIfNeeded(db, threadId: message.threadId, proto: proto)
+        
         // Perform any required post-handling logic
         try MessageReceiver.postHandleMessage(db, message: message, openGroupId: openGroupId)
     }
@@ -302,6 +305,34 @@ public enum MessageReceiver {
         guard let contactId: String = (maybeSyncTarget ?? message.sender) else { return nil }
         
         return (contactId, .contact)
+    }
+    
+    internal static func updateDisappearingMessagesConfigurationIfNeeded(
+        _ db: Database,
+        threadId: String?,
+        proto: SNProtoContent
+    ) throws {
+        guard let threadId = threadId, proto.hasLastDisappearingMessageChangeTimestamp else { return }
+        
+        let protoLastChangeTimestampMs: Int64 = Int64(proto.lastDisappearingMessageChangeTimestamp)
+        let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
+            .fetchOne(db, id: threadId)
+            .defaulting(to: DisappearingMessagesConfiguration.defaultWith(threadId))
+        
+        guard protoLastChangeTimestampMs > localConfig.lastChangeTimestampMs else { return }
+        
+        let durationSeconds: TimeInterval = proto.hasExpirationTimer ? TimeInterval(proto.expirationTimer) : 0
+        let isEnable: Bool = (durationSeconds != 0)
+        let type: DisappearingMessagesConfiguration.DisappearingMessageType? = proto.hasExpirationType ? .init(protoType: proto.expirationType) : nil
+        let remoteConfig: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
+            threadId: threadId,
+            isEnabled: isEnable,
+            durationSeconds: durationSeconds,
+            type: type,
+            lastChangeTimestampMs: protoLastChangeTimestampMs
+        )
+        
+        try remoteConfig.save(db)
     }
     
     internal static func updateProfileIfNeeded(
