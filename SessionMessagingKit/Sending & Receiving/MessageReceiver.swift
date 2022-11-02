@@ -182,6 +182,19 @@ public enum MessageReceiver {
         openGroupId: String?,
         dependencies: SMKDependencies = SMKDependencies()
     ) throws {
+        
+        // Update any disappearing messages configuration if needed.
+        // We need to update this before processing the messages, because
+        // the message with the disappearing message config update should
+        // follow the new config.
+        try MessageReceiver.updateDisappearingMessagesConfigurationIfNeeded(
+            db,
+            threadId: message.threadId,
+            sender: message.sender,
+            sentTimestamp: message.sentTimestamp,
+            proto: proto
+        )
+        
         switch message {
             case let message as ReadReceipt:
                 try MessageReceiver.handleReadReceipt(db, message: message)
@@ -220,15 +233,6 @@ public enum MessageReceiver {
                 
             default: fatalError()
         }
-        
-        // Update any disappearing messages configuration if needed
-        try MessageReceiver.updateDisappearingMessagesConfigurationIfNeeded(
-            db,
-            threadId: message.threadId,
-            sender: message.sender,
-            sentTimestamp: message.sentTimestamp,
-            proto: proto
-        )
         
         // Perform any required post-handling logic
         try MessageReceiver.postHandleMessage(db, message: message, openGroupId: openGroupId)
