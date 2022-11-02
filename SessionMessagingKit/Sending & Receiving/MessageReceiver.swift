@@ -222,7 +222,13 @@ public enum MessageReceiver {
         }
         
         // Update any disappearing messages configuration if needed
-        try MessageReceiver.updateDisappearingMessagesConfigurationIfNeeded(db, threadId: message.threadId, proto: proto)
+        try MessageReceiver.updateDisappearingMessagesConfigurationIfNeeded(
+            db,
+            threadId: message.threadId,
+            sender: message.sender,
+            sentTimestamp: message.sentTimestamp,
+            proto: proto
+        )
         
         // Perform any required post-handling logic
         try MessageReceiver.postHandleMessage(db, message: message, openGroupId: openGroupId)
@@ -310,9 +316,11 @@ public enum MessageReceiver {
     internal static func updateDisappearingMessagesConfigurationIfNeeded(
         _ db: Database,
         threadId: String?,
+        sender: String?,
+        sentTimestamp: UInt64?,
         proto: SNProtoContent
     ) throws {
-        guard let threadId = threadId, proto.hasLastDisappearingMessageChangeTimestamp else { return }
+        guard let threadId = threadId, let sender = sender, proto.hasLastDisappearingMessageChangeTimestamp else { return }
         
         let protoLastChangeTimestampMs: Int64 = Int64(proto.lastDisappearingMessageChangeTimestamp)
         let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
@@ -331,6 +339,20 @@ public enum MessageReceiver {
             type: type,
             lastChangeTimestampMs: protoLastChangeTimestampMs
         )
+        
+        _ = try Interaction(
+            serverHash: nil, // Intentionally null so sync messages are seen as duplicates
+            threadId: threadId,
+            authorId: sender,
+            variant: .infoDisappearingMessagesUpdate,
+            body: remoteConfig.messageInfoString(
+                with: (sender != getUserHexEncodedPublicKey(db) ?
+                    Profile.displayName(db, id: sender) :
+                    nil
+                )
+            ),
+            timestampMs: Int64(sentTimestamp ?? 0)
+        ).inserted(db)
         
         try remoteConfig.save(db)
     }
