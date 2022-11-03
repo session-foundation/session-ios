@@ -48,9 +48,9 @@ final class InfoMessageCell: MessageCell {
         iconImageViewHeightConstraint.isActive = true
         addSubview(stackView)
         
-        stackView.pin(.left, to: .left, of: self, withInset: InfoMessageCell.inset)
+        stackView.pin(.left, to: .left, of: self, withInset: Values.massiveSpacing)
         stackView.pin(.top, to: .top, of: self, withInset: InfoMessageCell.inset)
-        stackView.pin(.right, to: .right, of: self, withInset: -InfoMessageCell.inset)
+        stackView.pin(.right, to: .right, of: self, withInset: -Values.massiveSpacing)
         stackView.pin(.bottom, to: .bottom, of: self, withInset: -InfoMessageCell.inset)
     }
     
