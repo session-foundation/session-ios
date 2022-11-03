@@ -75,10 +75,7 @@ final class InfoMessageCell: MessageCell {
         let icon: UIImage? = {
             switch cellViewModel.variant {
                 case .infoDisappearingMessagesUpdate:
-                    return (cellViewModel.threadHasDisappearingMessagesEnabled ?
-                        UIImage(named: "ic_timer") :
-                        UIImage(named: "ic_timer_disabled")
-                    )
+                    return UIImage(systemName: "timer")
                     
                 case .infoMediaSavedNotification: return UIImage(named: "ic_download")
                     
