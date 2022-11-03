@@ -99,13 +99,23 @@ public extension DisappearingMessagesConfiguration {
         
         var previewText: String {
             guard let senderName: String = senderName else {
-                // TODO: "YOU"
                 // Changed by this device or via synced transcript
-                guard isEnabled, durationSeconds > 0 else { return "YOU_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION".localized() }
+                guard isEnabled, durationSeconds > 0 else {
+                    return "YOU_DISAPPERING_MESSAGES_INFO_DISABLE".localized()
+                }
+                
+                guard isPreviousOff == true else {
+                    return String(
+                        format: "YOU_DISAPPERING_MESSAGES_INFO_UPDATE".localized(),
+                        floor(durationSeconds).formatted(format: .long),
+                        (type == .disappearAfterRead ? "MESSAGE_STATE_READ".localized() : "MESSAGE_STATE_SENT".localized())
+                    )
+                }
                 
                 return String(
-                    format: "YOU_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION".localized(),
-                    floor(durationSeconds).formatted(format: .long)
+                    format: "YOU_DISAPPERING_MESSAGES_INFO_ENABLE".localized(),
+                    floor(durationSeconds).formatted(format: .long),
+                    (type == .disappearAfterRead ? "MESSAGE_STATE_READ".localized() : "MESSAGE_STATE_SENT".localized())
                 )
             }
             

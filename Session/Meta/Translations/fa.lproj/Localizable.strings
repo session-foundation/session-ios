@@ -595,3 +595,6 @@
 "DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ ناپدید‌شدن پیام ها را خاموش کرده است";
 "MESSAGE_STATE_READ" = "خوانده شد";
 "MESSAGE_STATE_SENT" = "ارسال شد";
+"YOU_DISAPPERING_MESSAGES_INFO_ENABLE" = "You have set messages to disappear %@ after they have been %@";
+"YOU_DISAPPERING_MESSAGES_INFO_UPDATE" = "You have changed messages to disappear %@ after they have been %@";
+"YOU_DISAPPERING_MESSAGES_INFO_DISABLE" = "You have turned off disappearing messages";

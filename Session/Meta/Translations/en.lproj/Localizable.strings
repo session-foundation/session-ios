@@ -595,3 +595,6 @@
 "DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ has turned off disappearing messages";
 "MESSAGE_STATE_READ" = "read";
 "MESSAGE_STATE_SENT" = "sent";
+"YOU_DISAPPERING_MESSAGES_INFO_ENABLE" = "You have set messages to disappear %@ after they have been %@";
+"YOU_DISAPPERING_MESSAGES_INFO_UPDATE" = "You have changed messages to disappear %@ after they have been %@";
+"YOU_DISAPPERING_MESSAGES_INFO_DISABLE" = "You have turned off disappearing messages";
