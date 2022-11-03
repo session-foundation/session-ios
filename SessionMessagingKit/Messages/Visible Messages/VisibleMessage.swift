@@ -238,9 +238,9 @@ public extension VisibleMessage {
         let linkPreview: LinkPreview? = try? interaction.linkPreview.fetchOne(db)
         
         let specifiedTtl: UInt64? = {
-            guard let disappearingMessagesConfiguration = try? DisappearingMessagesConfiguration.fetchOne(db, id: interaction.threadId),
-                  disappearingMessagesConfiguration.isEnabled,
-                  disappearingMessagesConfiguration.type == .disappearAfterSend
+            guard
+                let disappearingMessagesConfiguration = try? DisappearingMessagesConfiguration.fetchOne(db, id: interaction.threadId),
+                disappearingMessagesConfiguration.isEnabled
             else {
                 return nil
             }
