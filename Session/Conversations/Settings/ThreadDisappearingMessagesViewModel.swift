@@ -269,24 +269,16 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                 return
             }
 
-            let config: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
-                .fetchOne(db, id: threadId)
-                .defaulting(to: DisappearingMessagesConfiguration.defaultWith(threadId))
-                .with(
-                    isEnabled: updatedConfig.isEnabled,
-                    durationSeconds: updatedConfig.durationSeconds,
-                    type: updatedConfig.type
-                )
-                .saved(db)
+            _ = try updatedConfig.saved(db)
 
-//            let interaction: Interaction = try Interaction(
-//                threadId: threadId,
-//                authorId: getUserHexEncodedPublicKey(db),
-//                variant: .infoDisappearingMessagesUpdate,
-//                body: config.messageInfoString(with: nil),
-//                timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
-//            )
-//            .inserted(db)
+            let interaction: Interaction = try Interaction(
+                threadId: threadId,
+                authorId: getUserHexEncodedPublicKey(db),
+                variant: .infoDisappearingMessagesUpdate,
+                body: updatedConfig.messageInfoString(with: nil),
+                timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
+            )
+            .inserted(db)
 //
 //            try MessageSender.send(
 //                db,
