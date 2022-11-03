@@ -697,7 +697,7 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
             proto.expirationTimer = valueParam
         }
 
-        @objc public func setLastDisappearingMessageChangeTimestamp(_ valueParam: UInt32) {
+        @objc public func setLastDisappearingMessageChangeTimestamp(_ valueParam: UInt64) {
             proto.lastDisappearingMessageChangeTimestamp = valueParam
         }
 
@@ -742,7 +742,7 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
         return proto.hasExpirationTimer
     }
 
-    @objc public var lastDisappearingMessageChangeTimestamp: UInt32 {
+    @objc public var lastDisappearingMessageChangeTimestamp: UInt64 {
         return proto.lastDisappearingMessageChangeTimestamp
     }
     @objc public var hasLastDisappearingMessageChangeTimestamp: Bool {

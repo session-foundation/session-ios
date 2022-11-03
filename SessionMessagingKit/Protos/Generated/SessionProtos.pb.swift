@@ -366,7 +366,7 @@ struct SessionProtos_Content {
   /// Clears the value of `expirationTimer`. Subsequent reads from it will return its default value.
   mutating func clearExpirationTimer() {_uniqueStorage()._expirationTimer = nil}
 
-  var lastDisappearingMessageChangeTimestamp: UInt32 {
+  var lastDisappearingMessageChangeTimestamp: UInt64 {
     get {return _storage._lastDisappearingMessageChangeTimestamp ?? 0}
     set {_uniqueStorage()._lastDisappearingMessageChangeTimestamp = newValue}
   }
@@ -1994,7 +1994,7 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
     var _messageRequestResponse: SessionProtos_MessageRequestResponse? = nil
     var _expirationType: SessionProtos_Content.ExpirationType? = nil
     var _expirationTimer: UInt32? = nil
-    var _lastDisappearingMessageChangeTimestamp: UInt32? = nil
+    var _lastDisappearingMessageChangeTimestamp: UInt64? = nil
 
     static let defaultInstance = _StorageClass()
 
@@ -2054,7 +2054,7 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
         case 10: try { try decoder.decodeSingularMessageField(value: &_storage._messageRequestResponse) }()
         case 11: try { try decoder.decodeSingularEnumField(value: &_storage._expirationType) }()
         case 12: try { try decoder.decodeSingularUInt32Field(value: &_storage._expirationTimer) }()
-        case 13: try { try decoder.decodeSingularUInt32Field(value: &_storage._lastDisappearingMessageChangeTimestamp) }()
+        case 13: try { try decoder.decodeSingularUInt64Field(value: &_storage._lastDisappearingMessageChangeTimestamp) }()
         default: break
         }
       }
@@ -2094,7 +2094,7 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
         try visitor.visitSingularUInt32Field(value: v, fieldNumber: 12)
       }
       if let v = _storage._lastDisappearingMessageChangeTimestamp {
-        try visitor.visitSingularUInt32Field(value: v, fieldNumber: 13)
+        try visitor.visitSingularUInt64Field(value: v, fieldNumber: 13)
       }
     }
     try unknownFields.traverse(visitor: &visitor)

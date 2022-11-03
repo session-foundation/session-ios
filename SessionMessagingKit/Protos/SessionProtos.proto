@@ -65,7 +65,7 @@ message Content {
   optional MessageRequestResponse     messageRequestResponse                 = 10;
   optional ExpirationType             expirationType                         = 11;
   optional uint32                     expirationTimer                        = 12;
-  optional uint32                     lastDisappearingMessageChangeTimestamp = 13;
+  optional uint64                     lastDisappearingMessageChangeTimestamp = 13;
 }
 
 message CallMessage {
