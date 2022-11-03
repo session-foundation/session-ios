@@ -275,7 +275,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                 threadId: threadId,
                 authorId: getUserHexEncodedPublicKey(db),
                 variant: .infoDisappearingMessagesUpdate,
-                body: updatedConfig.messageInfoString(with: nil),
+                body: updatedConfig.messageInfoString(with: nil, isPreviousOff: !self.config.isEnabled),
                 timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
             )
             .inserted(db)

@@ -355,7 +355,8 @@ public enum MessageReceiver {
                 with: (sender != getUserHexEncodedPublicKey(db) ?
                     Profile.displayName(db, id: sender) :
                     nil
-                )
+                ),
+                isPreviousOff: !localConfig.isEnabled
             ),
             timestampMs: protoLastChangeTimestampMs
         ).inserted(db)

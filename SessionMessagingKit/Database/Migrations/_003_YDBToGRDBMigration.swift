@@ -824,7 +824,9 @@ enum _003_YDBToGRDBMigration: Migration {
                                                     DisappearingMessagesConfiguration.MessageInfo(
                                                         senderName: updateMessage.createdByRemoteName,
                                                         isEnabled: updateMessage.configurationIsEnabled,
-                                                        durationSeconds: TimeInterval(updateMessage.configurationDurationSeconds)
+                                                        durationSeconds: TimeInterval(updateMessage.configurationDurationSeconds),
+                                                        type: .disappearAfterRead, // TODO: Distinguish between 1-1 and closed groups?
+                                                        isPreviousOff: false
                                                     )
                                                 ),
                                                 let infoMessageString: String = String(data: infoMessageData, encoding: .utf8)

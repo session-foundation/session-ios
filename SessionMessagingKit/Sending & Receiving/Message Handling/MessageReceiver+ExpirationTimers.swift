@@ -40,7 +40,8 @@ extension MessageReceiver {
                 with: (sender != getUserHexEncodedPublicKey(db) ?
                     Profile.displayName(db, id: sender) :
                     nil
-                )
+                ),
+                isPreviousOff: false
             ),
             timestampMs: Int64(message.sentTimestamp ?? 0)   // Default to `0` if not set
         ).inserted(db)

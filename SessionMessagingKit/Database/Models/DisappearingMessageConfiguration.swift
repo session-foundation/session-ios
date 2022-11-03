@@ -94,9 +94,12 @@ public extension DisappearingMessagesConfiguration {
         public let senderName: String?
         public let isEnabled: Bool
         public let durationSeconds: TimeInterval
+        public let type: DisappearingMessageType?
+        public let isPreviousOff: Bool?
         
         var previewText: String {
             guard let senderName: String = senderName else {
+                // TODO: "YOU"
                 // Changed by this device or via synced transcript
                 guard isEnabled, durationSeconds > 0 else { return "YOU_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION".localized() }
                 
@@ -107,13 +110,23 @@ public extension DisappearingMessagesConfiguration {
             }
             
             guard isEnabled, durationSeconds > 0 else {
-                return String(format: "OTHER_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION".localized(), senderName)
+                return String(format: "DISAPPERING_MESSAGES_INFO_DISABLE".localized(), senderName)
+            }
+            
+            guard isPreviousOff == true else {
+                return String(
+                    format: "DISAPPERING_MESSAGES_INFO_UPDATE".localized(),
+                    senderName,
+                    floor(durationSeconds).formatted(format: .long),
+                    (type == .disappearAfterRead ? "MESSAGE_STATE_READ".localized() : "MESSAGE_STATE_SENT".localized())
+                )
             }
             
             return String(
-                format: "OTHER_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION".localized(),
+                format: "DISAPPERING_MESSAGES_INFO_ENABLE".localized(),
                 senderName,
-                floor(durationSeconds).formatted(format: .long)
+                floor(durationSeconds).formatted(format: .long),
+                (type == .disappearAfterRead ? "MESSAGE_STATE_READ".localized() : "MESSAGE_STATE_SENT".localized())
             )
         }
     }
@@ -122,11 +135,13 @@ public extension DisappearingMessagesConfiguration {
         floor(durationSeconds).formatted(format: .long)
     }
     
-    func messageInfoString(with senderName: String?) -> String? {
+    func messageInfoString(with senderName: String?, isPreviousOff: Bool) -> String? {
         let messageInfo: MessageInfo = DisappearingMessagesConfiguration.MessageInfo(
             senderName: senderName,
             isEnabled: isEnabled,
-            durationSeconds: durationSeconds
+            durationSeconds: durationSeconds,
+            type: type,
+            isPreviousOff: isPreviousOff
         )
         
         guard let messageInfoData: Data = try? JSONEncoder().encode(messageInfo) else { return nil }
@@ -231,48 +246,5 @@ public class SMKDisappearingMessagesConfiguration: NSObject {
         )
         
         return floor(durationSeconds).formatted(format: .long)
-    }
-    
-    @objc(update:isEnabled:durationIndex:)
-    public static func update(_ threadId: String, isEnabled: Bool, durationIndex: Int) {
-        let durationSeconds: TimeInterval = (
-            durationIndex >= 0 && durationIndex < DisappearingMessagesConfiguration.validDurationsSeconds.count ?
-                DisappearingMessagesConfiguration.validDurationsSeconds[durationIndex] :
-                DisappearingMessagesConfiguration.validDurationsSeconds[0]
-        )
-        
-        Storage.shared.write { db in
-            guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
-                return
-            }
-            
-            let config: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
-                .fetchOne(db, id: threadId)
-                .defaulting(to: DisappearingMessagesConfiguration.defaultWith(threadId))
-                .with(
-                    isEnabled: isEnabled,
-                    durationSeconds: durationSeconds
-                )
-                .saved(db)
-            
-            let interaction: Interaction = try Interaction(
-                threadId: threadId,
-                authorId: getUserHexEncodedPublicKey(db),
-                variant: .infoDisappearingMessagesUpdate,
-                body: config.messageInfoString(with: nil),
-                timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
-            )
-            .inserted(db)
-            
-            try MessageSender.send(
-                db,
-                message: ExpirationTimerUpdate(
-                    syncTarget: nil,
-                    duration: UInt32(floor(isEnabled ? durationSeconds : 0))
-                ),
-                interactionId: interaction.id,
-                in: thread
-            )
-        }
     }
 }
