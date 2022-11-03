@@ -240,7 +240,8 @@ public extension VisibleMessage {
         let specifiedTtl: UInt64? = {
             guard
                 let disappearingMessagesConfiguration = try? DisappearingMessagesConfiguration.fetchOne(db, id: interaction.threadId),
-                disappearingMessagesConfiguration.isEnabled
+                disappearingMessagesConfiguration.isEnabled,
+                disappearingMessagesConfiguration.type == .disappearAfterSend
             else {
                 return nil
             }
