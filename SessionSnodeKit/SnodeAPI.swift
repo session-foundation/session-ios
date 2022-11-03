@@ -728,25 +728,30 @@ public final class SnodeAPI {
     
     public static func updateExpiry(
         publicKey: String,
-        edKeyPair: Box.KeyPair,
-        updatedExpiryMs: UInt64,
+        updatedExpiryMs: Int64,
         serverHashes: [String]
     ) -> Promise<[String: (hashes: [String], expiry: UInt64)]> {
+        guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair() else {
+            return Promise(error: SnodeAPIError.noKeyPair)
+        }
+        
         let publicKey = (Features.useTestnet ? publicKey.removingIdPrefixIfNeeded() : publicKey)
+        
+        let updatedExpiryMsWithNetworkOffset: UInt64 = UInt64(updatedExpiryMs + SnodeAPI.clockOffset.wrappedValue)
         
         return attempt(maxRetryCount: maxRetryCount, recoveringOn: Threading.workQueue) {
             getSwarm(for: publicKey)
                 .then2 { swarm -> Promise<[String: (hashes: [String], expiry: UInt64)]> in
                     // "expire" || expiry || messages[0] || ... || messages[N]
                     let verificationBytes = SnodeAPIEndpoint.expire.rawValue.bytes
-                        .appending(contentsOf: "\(updatedExpiryMs)".data(using: .ascii)?.bytes)
+                        .appending(contentsOf: "\(updatedExpiryMsWithNetworkOffset)".data(using: .ascii)?.bytes)
                         .appending(contentsOf: serverHashes.joined().bytes)
                     
                     guard
                         let snode = swarm.randomElement(),
                         let signature = sodium.sign.signature(
                             message: verificationBytes,
-                            secretKey: edKeyPair.secretKey
+                            secretKey: userED25519KeyPair.secretKey
                         )
                     else {
                         throw SnodeAPIError.signingFailed
@@ -754,8 +759,8 @@ public final class SnodeAPI {
                     
                     let parameters: JSON = [
                         "pubkey" : publicKey,
-                        "pubkey_ed25519" : edKeyPair.publicKey.toHexString(),
-                        "expiry": updatedExpiryMs,
+                        "pubkey_ed25519" : userED25519KeyPair.publicKey.toHexString(),
+                        "expiry": updatedExpiryMsWithNetworkOffset,
                         "messages": serverHashes,
                         "signature": signature.toBase64()
                     ]

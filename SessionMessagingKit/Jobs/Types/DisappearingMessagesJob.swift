@@ -3,6 +3,7 @@
 import Foundation
 import GRDB
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 public enum DisappearingMessagesJob: JobExecutor {
     public static let maxFailureCount: Int = -1
@@ -67,6 +68,16 @@ public extension DisappearingMessagesJob {
     }
     
     @discardableResult static func updateNextRunIfNeeded(_ db: Database, interactionIds: [Int64], startedAtMs: Double) -> Job? {
+        let interactionsByExpiresInSeconds: [TimeInterval?: [Interaction]]? = try? Interaction
+            .filter(interactionIds.contains(Interaction.Columns.id))
+            .filter(
+                Interaction.Columns.expiresInSeconds != nil &&
+                Interaction.Columns.expiresStartedAtMs == nil
+            )
+            .fetchAll(db)
+            .grouped(by: \.expiresInSeconds)
+            
+        
         // Update the expiring messages expiresStartedAtMs value
         let changeCount: Int? = try? Interaction
             .filter(interactionIds.contains(Interaction.Columns.id))
@@ -78,6 +89,18 @@ public extension DisappearingMessagesJob {
         
         // If there were no changes then none of the provided `interactionIds` are expiring messages
         guard (changeCount ?? 0) > 0 else { return nil }
+        
+        interactionsByExpiresInSeconds?.forEach { expiresInSeconds, interactions in
+            let serverHashes = interactions.compactMap { $0.serverHash }
+            guard let expiresInSeconds = expiresInSeconds, !serverHashes.isEmpty else { return }
+            
+            SnodeAPI.updateExpiry(
+                publicKey: getUserHexEncodedPublicKey(db),
+                updatedExpiryMs: Int64(ceil(startedAtMs + expiresInSeconds)),
+                serverHashes: serverHashes
+            )
+            .retainUntilComplete()
+        }
         
         return updateNextRunIfNeeded(db)
     }
