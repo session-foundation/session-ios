@@ -189,9 +189,8 @@ public enum MessageReceiver {
         // follow the new config.
         try MessageReceiver.updateDisappearingMessagesConfigurationIfNeeded(
             db,
-            threadId: message.threadId,
-            sender: message.sender,
-            sentTimestamp: message.sentTimestamp,
+            message: message,
+            openGroupId: openGroupId,
             proto: proto
         )
         
@@ -319,12 +318,15 @@ public enum MessageReceiver {
     
     internal static func updateDisappearingMessagesConfigurationIfNeeded(
         _ db: Database,
-        threadId: String?,
-        sender: String?,
-        sentTimestamp: UInt64?,
+        message: Message,
+        openGroupId: String?,
         proto: SNProtoContent
     ) throws {
-        guard let threadId = threadId, let sender = sender, proto.hasLastDisappearingMessageChangeTimestamp else { return }
+        guard
+            let (threadId, _) = MessageReceiver.threadInfo(db, message: message, openGroupId: openGroupId),
+            let sender = message.sender,
+            proto.hasLastDisappearingMessageChangeTimestamp
+        else { return }
         
         let protoLastChangeTimestampMs: Int64 = Int64(proto.lastDisappearingMessageChangeTimestamp)
         let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
@@ -355,7 +357,7 @@ public enum MessageReceiver {
                     nil
                 )
             ),
-            timestampMs: Int64(sentTimestamp ?? 0)
+            timestampMs: protoLastChangeTimestampMs
         ).inserted(db)
         
         try remoteConfig.save(db)

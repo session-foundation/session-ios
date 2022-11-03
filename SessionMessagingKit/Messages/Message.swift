@@ -80,6 +80,7 @@ public class Message: Codable {
             let type = disappearingMessagesConfiguration.type
         {
             proto.setExpirationType(type.toProto())
+            proto.setLastDisappearingMessageChangeTimestamp(UInt64(disappearingMessagesConfiguration.lastChangeTimestampMs))
         }
     }
 
