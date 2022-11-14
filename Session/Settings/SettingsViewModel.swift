@@ -214,6 +214,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                                             run: { [weak self] button in
                                                 self?.copySessionId(profile.id, button: button)
                                             }
+                                        
                                         ),
                                         SessionCell.Accessory.ThreadInfoStyle.Action(
                                             title: "share".localized(),
@@ -493,6 +494,8 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
         // Ensure we are on the main thread just in case
         DispatchQueue.main.async {
             button.isUserInteractionEnabled = false
+            
+            
             
             UIView.transition(
                 with: button,

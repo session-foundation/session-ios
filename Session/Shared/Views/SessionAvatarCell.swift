@@ -53,6 +53,7 @@ class SessionAvatarCell: UITableViewCell {
     fileprivate let profilePictureView: ProfilePictureView = {
         let view: ProfilePictureView = ProfilePictureView()
         view.accessibilityLabel = "Profile picture"
+        view.isAccessibilityElement = true
         view.translatesAutoresizingMaskIntoConstraints = false
         view.size = Values.largeProfilePictureSize
         
@@ -71,6 +72,7 @@ class SessionAvatarCell: UITableViewCell {
     private lazy var displayNameLabel: UILabel = {
         let label: UILabel = UILabel()
         label.accessibilityLabel = "Username"
+        label.isAccessibilityElement = true
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = .ows_mediumFont(withSize: Values.veryLargeFontSize)
         label.themeTextColor = .textPrimary

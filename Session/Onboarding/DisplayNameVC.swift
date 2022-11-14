@@ -16,6 +16,7 @@ final class DisplayNameVC: BaseVC {
     private lazy var displayNameTextField: TextField = {
         let result = TextField(placeholder: "vc_display_name_text_field_hint".localized())
         result.accessibilityLabel = "Enter display name"
+        result.isAccessibilityElement = true
         result.themeBorderColor = .textPrimary
         
         return result

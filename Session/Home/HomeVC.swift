@@ -109,6 +109,7 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
         
         let button = UIButton()
         button.accessibilityLabel = "New conversation button"
+        button.isAccessibilityElement = true
         button.clipsToBounds = true
         button.setImage(
             UIImage(named: "Plus")?
@@ -466,6 +467,7 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
         let profilePictureSize = Values.verySmallProfilePictureSize
         let profilePictureView = ProfilePictureView()
         profilePictureView.accessibilityLabel = "User settings"
+        profilePictureView.isAccessibilityElement = true
         profilePictureView.size = profilePictureSize
         profilePictureView.update(
             publicKey: getUserHexEncodedPublicKey(),
@@ -521,6 +523,8 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
             case .messageRequests:
                 let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
                 let cell: MessageRequestsCell = tableView.dequeue(type: MessageRequestsCell.self, for: indexPath)
+                cell.accessibilityIdentifier = "Message requests banner"
+                cell.isAccessibilityElement = true
                 cell.update(with: Int(threadViewModel.threadUnreadCount ?? 0))
                 return cell
                 

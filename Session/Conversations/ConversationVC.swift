@@ -195,6 +195,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             messageLabelAccessibilityLabel: "Blocked banner text"
         )
         result.accessibilityLabel = "Blocked banner"
+        result.isAccessibilityElement = true
         let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(unblock))
         result.addGestureRecognizer(tapGestureRecognizer)
         
@@ -243,6 +244,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     private lazy var messageRequestAcceptButton: UIButton = {
         let result: SessionButton = SessionButton(style: .bordered, size: .medium)
         result.accessibilityLabel = "Accept message request"
+        result.isAccessibilityElement = true
         result.translatesAutoresizingMaskIntoConstraints = false
         result.setTitle("TXT_DELETE_ACCEPT".localized(), for: .normal)
         result.addTarget(self, action: #selector(acceptMessageRequest), for: .touchUpInside)
@@ -253,6 +255,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     private lazy var messageRequestDeleteButton: UIButton = {
         let result: SessionButton = SessionButton(style: .destructive, size: .medium)
         result.accessibilityLabel = "Decline message request"
+        result.isAccessibilityElement = true
         result.translatesAutoresizingMaskIntoConstraints = false
         result.setTitle("TXT_DECLINE_TITLE".localized(), for: .normal)
         result.addTarget(self, action: #selector(deleteMessageRequest), for: .touchUpInside)

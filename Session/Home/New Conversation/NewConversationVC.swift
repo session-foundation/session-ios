@@ -16,7 +16,8 @@ final class NewConversationVC: BaseVC, ThemedNavigation, UITableViewDelegate, UI
     
     private lazy var newDMButton: NewConversationButton = {
         let result = NewConversationButton(icon: #imageLiteral(resourceName: "Message"), title: "vc_create_private_chat_title".localized())
-        result.accessibilityLabel = "New direct message"
+        result.accessibilityIdentifier = "New direct message"
+        result.isAccessibilityElement = true
         
         return result
     }()
@@ -24,6 +25,7 @@ final class NewConversationVC: BaseVC, ThemedNavigation, UITableViewDelegate, UI
     private lazy var newGroupButton: NewConversationButton = {
         let result = NewConversationButton(icon: #imageLiteral(resourceName: "Group"), title: "vc_create_closed_group_title".localized())
         result.accessibilityLabel = "Create group"
+        result.isAccessibilityElement = true
         
         return result
     }()
