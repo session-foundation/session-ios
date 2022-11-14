@@ -11,7 +11,7 @@ public final class TypingIndicator: ControlMessage {
     
     public var kind: Kind?
 
-    public override var defaultTtl: UInt64 { 20 * 1000 }
+    public override var ttl: UInt64 { 20 * 1000 }
 
     // MARK: - Kind
     

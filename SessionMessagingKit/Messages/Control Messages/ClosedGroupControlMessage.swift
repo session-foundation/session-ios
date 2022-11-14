@@ -13,7 +13,7 @@ public final class ClosedGroupControlMessage: ControlMessage {
     
     public var kind: Kind?
 
-    public override var defaultTtl: UInt64 {
+    public override var ttl: UInt64 {
         switch kind {
             case .encryptionKeyPair: return 14 * 24 * 60 * 60 * 1000
             default: return 14 * 24 * 60 * 60 * 1000

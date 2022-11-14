@@ -54,8 +54,7 @@ public final class VisibleMessage: Message {
         linkPreview: VMLinkPreview? = nil,
         profile: VMProfile? = nil,
         openGroupInvitation: VMOpenGroupInvitation? = nil,
-        reaction: VMReaction? = nil,
-        specifiedTtl: UInt64? = nil
+        reaction: VMReaction? = nil
     ) {
         self.syncTarget = syncTarget
         self.text = text
@@ -69,8 +68,7 @@ public final class VisibleMessage: Message {
         super.init(
             sentTimestamp: sentTimestamp,
             recipient: recipient,
-            groupPublicKey: groupPublicKey,
-            specifiedTtl: specifiedTtl
+            groupPublicKey: groupPublicKey
         )
     }
     
@@ -237,18 +235,6 @@ public extension VisibleMessage {
     static func from(_ db: Database, interaction: Interaction) -> VisibleMessage {
         let linkPreview: LinkPreview? = try? interaction.linkPreview.fetchOne(db)
         
-        let specifiedTtl: UInt64? = {
-            guard
-                let disappearingMessagesConfiguration = try? DisappearingMessagesConfiguration.fetchOne(db, id: interaction.threadId),
-                disappearingMessagesConfiguration.isEnabled,
-                disappearingMessagesConfiguration.type == .disappearAfterSend
-            else {
-                return nil
-            }
-            
-            return UInt64(disappearingMessagesConfiguration.durationSeconds) * 1000
-        }()
-        
         return VisibleMessage(
             sentTimestamp: UInt64(interaction.timestampMs),
             recipient: (try? interaction.recipientStates.fetchOne(db))?.recipientId,
@@ -278,8 +264,7 @@ public extension VisibleMessage {
                     linkPreview: linkPreview
                 )
             },
-            reaction: nil,   // Reactions are custom messages sent separately
-            specifiedTtl: specifiedTtl
+            reaction: nil   // Reactions are custom messages sent separately
         )
     }
 }
