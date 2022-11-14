@@ -201,7 +201,7 @@ public final class MessageSender {
         let snodeMessage = SnodeMessage(
             recipient: message.recipient!,
             data: base64EncodedData,
-            ttl: message.ttl,
+            ttl: getSpecifiedTTL(db, message: message, isSyncMessage: isSyncMessage) ?? message.ttl,
             timestampMs: UInt64(messageSendTimestamp + SnodeAPI.clockOffset.wrappedValue)
         )
         
