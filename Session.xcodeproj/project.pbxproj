@@ -156,6 +156,7 @@
 		7BC707F227290ACB002817AD /* SessionCallManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BC707F127290ACB002817AD /* SessionCallManager.swift */; };
 		7BCD116C27016062006330F1 /* WebRTCSession+DataChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BCD116B27016062006330F1 /* WebRTCSession+DataChannel.swift */; };
 		7BD01B122921BDDF00E7D9E6 /* MessageSender+TTL.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BD01B112921BDDF00E7D9E6 /* MessageSender+TTL.swift */; };
+		7BD01B142921FD9900E7D9E6 /* SyncedExpiriesMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BD01B132921FD9900E7D9E6 /* SyncedExpiriesMessage.swift */; };
 		7BD477A827EC39F5004E2822 /* Atomic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BD477A727EC39F5004E2822 /* Atomic.swift */; };
 		7BDCFC08242186E700641C39 /* NotificationServiceExtensionContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BDCFC07242186E700641C39 /* NotificationServiceExtensionContext.swift */; };
 		7BDCFC0B2421EB7600641C39 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = B6F509951AA53F760068F56A /* Localizable.strings */; };
@@ -1227,6 +1228,7 @@
 		7BC707F127290ACB002817AD /* SessionCallManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionCallManager.swift; sourceTree = "<group>"; };
 		7BCD116B27016062006330F1 /* WebRTCSession+DataChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WebRTCSession+DataChannel.swift"; sourceTree = "<group>"; };
 		7BD01B112921BDDF00E7D9E6 /* MessageSender+TTL.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageSender+TTL.swift"; sourceTree = "<group>"; };
+		7BD01B132921FD9900E7D9E6 /* SyncedExpiriesMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncedExpiriesMessage.swift; sourceTree = "<group>"; };
 		7BD477A727EC39F5004E2822 /* Atomic.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Atomic.swift; sourceTree = "<group>"; };
 		7BD477A927F15F24004E2822 /* OpenGroupServerIdLookup.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OpenGroupServerIdLookup.swift; sourceTree = "<group>"; };
 		7BDCFC0424206E7300641C39 /* SessionNotificationServiceExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SessionNotificationServiceExtension.entitlements; sourceTree = "<group>"; };
@@ -2654,6 +2656,7 @@
 				C300A5BC2554B00D00555489 /* ReadReceipt.swift */,
 				C300A5D22554B05A00555489 /* TypingIndicator.swift */,
 				7B4C75CA26B37E0F0000AC89 /* UnsendRequest.swift */,
+				7BD01B132921FD9900E7D9E6 /* SyncedExpiriesMessage.swift */,
 			);
 			path = "Control Messages";
 			sourceTree = "<group>";
@@ -5439,6 +5442,7 @@
 				FD245C6A2850666F00B966DD /* FileServerAPI.swift in Sources */,
 				FDC4386927B4E6B800C60D73 /* String+Utlities.swift in Sources */,
 				FD716E6628502EE200C96BF4 /* CurrentCallProtocol.swift in Sources */,
+				7BD01B142921FD9900E7D9E6 /* SyncedExpiriesMessage.swift in Sources */,
 				FD09B7E5288670BB00ED0B66 /* _008_EmojiReacts.swift in Sources */,
 				FDC4385F27B4C4A200C60D73 /* PinnedMessage.swift in Sources */,
 				7BFD1A8C2747150E00FB91B9 /* TurnServerInfo.swift in Sources */,

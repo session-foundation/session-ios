@@ -271,6 +271,75 @@ struct SessionProtos_MessageRequestResponse {
   fileprivate var _profile: SessionProtos_LokiProfile? = nil
 }
 
+struct SessionProtos_SyncedExpiries {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var conversationExpiries: [SessionProtos_SyncedExpiries.SyncedConversationExpiries] = []
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  struct SyncedConversationExpiries {
+    // SwiftProtobuf.Message conformance is added in an extension below. See the
+    // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+    // methods supported on all messages.
+
+    /// @required
+    var syncTarget: String {
+      get {return _syncTarget ?? String()}
+      set {_syncTarget = newValue}
+    }
+    /// Returns true if `syncTarget` has been explicitly set.
+    var hasSyncTarget: Bool {return self._syncTarget != nil}
+    /// Clears the value of `syncTarget`. Subsequent reads from it will return its default value.
+    mutating func clearSyncTarget() {self._syncTarget = nil}
+
+    var expiries: [SessionProtos_SyncedExpiries.SyncedConversationExpiries.SyncedExpiry] = []
+
+    var unknownFields = SwiftProtobuf.UnknownStorage()
+
+    struct SyncedExpiry {
+      // SwiftProtobuf.Message conformance is added in an extension below. See the
+      // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+      // methods supported on all messages.
+
+      /// @required	
+      var serverHash: String {
+        get {return _serverHash ?? String()}
+        set {_serverHash = newValue}
+      }
+      /// Returns true if `serverHash` has been explicitly set.
+      var hasServerHash: Bool {return self._serverHash != nil}
+      /// Clears the value of `serverHash`. Subsequent reads from it will return its default value.
+      mutating func clearServerHash() {self._serverHash = nil}
+
+      /// @required
+      var expirationTimestamp: UInt64 {
+        get {return _expirationTimestamp ?? 0}
+        set {_expirationTimestamp = newValue}
+      }
+      /// Returns true if `expirationTimestamp` has been explicitly set.
+      var hasExpirationTimestamp: Bool {return self._expirationTimestamp != nil}
+      /// Clears the value of `expirationTimestamp`. Subsequent reads from it will return its default value.
+      mutating func clearExpirationTimestamp() {self._expirationTimestamp = nil}
+
+      var unknownFields = SwiftProtobuf.UnknownStorage()
+
+      init() {}
+
+      fileprivate var _serverHash: String? = nil
+      fileprivate var _expirationTimestamp: UInt64? = nil
+    }
+
+    init() {}
+
+    fileprivate var _syncTarget: String? = nil
+  }
+
+  init() {}
+}
+
 struct SessionProtos_Content {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -284,6 +353,15 @@ struct SessionProtos_Content {
   var hasDataMessage: Bool {return _storage._dataMessage != nil}
   /// Clears the value of `dataMessage`. Subsequent reads from it will return its default value.
   mutating func clearDataMessage() {_uniqueStorage()._dataMessage = nil}
+
+  var syncedExpiries: SessionProtos_SyncedExpiries {
+    get {return _storage._syncedExpiries ?? SessionProtos_SyncedExpiries()}
+    set {_uniqueStorage()._syncedExpiries = newValue}
+  }
+  /// Returns true if `syncedExpiries` has been explicitly set.
+  var hasSyncedExpiries: Bool {return _storage._syncedExpiries != nil}
+  /// Clears the value of `syncedExpiries`. Subsequent reads from it will return its default value.
+  mutating func clearSyncedExpiries() {_uniqueStorage()._syncedExpiries = nil}
 
   var callMessage: SessionProtos_CallMessage {
     get {return _storage._callMessage ?? SessionProtos_CallMessage()}
@@ -1967,10 +2045,136 @@ extension SessionProtos_MessageRequestResponse: SwiftProtobuf.Message, SwiftProt
   }
 }
 
+extension SessionProtos_SyncedExpiries: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".SyncedExpiries"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "conversationExpiries"),
+  ]
+
+  public var isInitialized: Bool {
+    if !SwiftProtobuf.Internal.areAllInitialized(self.conversationExpiries) {return false}
+    return true
+  }
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeRepeatedMessageField(value: &self.conversationExpiries) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.conversationExpiries.isEmpty {
+      try visitor.visitRepeatedMessageField(value: self.conversationExpiries, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: SessionProtos_SyncedExpiries, rhs: SessionProtos_SyncedExpiries) -> Bool {
+    if lhs.conversationExpiries != rhs.conversationExpiries {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension SessionProtos_SyncedExpiries.SyncedConversationExpiries: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = SessionProtos_SyncedExpiries.protoMessageName + ".SyncedConversationExpiries"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "syncTarget"),
+    2: .same(proto: "expiries"),
+  ]
+
+  public var isInitialized: Bool {
+    if self._syncTarget == nil {return false}
+    if !SwiftProtobuf.Internal.areAllInitialized(self.expiries) {return false}
+    return true
+  }
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self._syncTarget) }()
+      case 2: try { try decoder.decodeRepeatedMessageField(value: &self.expiries) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if let v = self._syncTarget {
+      try visitor.visitSingularStringField(value: v, fieldNumber: 1)
+    }
+    if !self.expiries.isEmpty {
+      try visitor.visitRepeatedMessageField(value: self.expiries, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: SessionProtos_SyncedExpiries.SyncedConversationExpiries, rhs: SessionProtos_SyncedExpiries.SyncedConversationExpiries) -> Bool {
+    if lhs._syncTarget != rhs._syncTarget {return false}
+    if lhs.expiries != rhs.expiries {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension SessionProtos_SyncedExpiries.SyncedConversationExpiries.SyncedExpiry: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = SessionProtos_SyncedExpiries.SyncedConversationExpiries.protoMessageName + ".SyncedExpiry"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "serverHash"),
+    2: .same(proto: "expirationTimestamp"),
+  ]
+
+  public var isInitialized: Bool {
+    if self._serverHash == nil {return false}
+    if self._expirationTimestamp == nil {return false}
+    return true
+  }
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self._serverHash) }()
+      case 2: try { try decoder.decodeSingularUInt64Field(value: &self._expirationTimestamp) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if let v = self._serverHash {
+      try visitor.visitSingularStringField(value: v, fieldNumber: 1)
+    }
+    if let v = self._expirationTimestamp {
+      try visitor.visitSingularUInt64Field(value: v, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: SessionProtos_SyncedExpiries.SyncedConversationExpiries.SyncedExpiry, rhs: SessionProtos_SyncedExpiries.SyncedConversationExpiries.SyncedExpiry) -> Bool {
+    if lhs._serverHash != rhs._serverHash {return false}
+    if lhs._expirationTimestamp != rhs._expirationTimestamp {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
 extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Content"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "dataMessage"),
+    2: .same(proto: "syncedExpiries"),
     3: .same(proto: "callMessage"),
     5: .same(proto: "receiptMessage"),
     6: .same(proto: "typingMessage"),
@@ -1985,6 +2189,7 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
 
   fileprivate class _StorageClass {
     var _dataMessage: SessionProtos_DataMessage? = nil
+    var _syncedExpiries: SessionProtos_SyncedExpiries? = nil
     var _callMessage: SessionProtos_CallMessage? = nil
     var _receiptMessage: SessionProtos_ReceiptMessage? = nil
     var _typingMessage: SessionProtos_TypingMessage? = nil
@@ -2002,6 +2207,7 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
 
     init(copying source: _StorageClass) {
       _dataMessage = source._dataMessage
+      _syncedExpiries = source._syncedExpiries
       _callMessage = source._callMessage
       _receiptMessage = source._receiptMessage
       _typingMessage = source._typingMessage
@@ -2025,6 +2231,7 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
   public var isInitialized: Bool {
     return withExtendedLifetime(_storage) { (_storage: _StorageClass) in
       if let v = _storage._dataMessage, !v.isInitialized {return false}
+      if let v = _storage._syncedExpiries, !v.isInitialized {return false}
       if let v = _storage._callMessage, !v.isInitialized {return false}
       if let v = _storage._receiptMessage, !v.isInitialized {return false}
       if let v = _storage._typingMessage, !v.isInitialized {return false}
@@ -2045,6 +2252,7 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
         // enabled. https://github.com/apple/swift-protobuf/issues/1034
         switch fieldNumber {
         case 1: try { try decoder.decodeSingularMessageField(value: &_storage._dataMessage) }()
+        case 2: try { try decoder.decodeSingularMessageField(value: &_storage._syncedExpiries) }()
         case 3: try { try decoder.decodeSingularMessageField(value: &_storage._callMessage) }()
         case 5: try { try decoder.decodeSingularMessageField(value: &_storage._receiptMessage) }()
         case 6: try { try decoder.decodeSingularMessageField(value: &_storage._typingMessage) }()
@@ -2065,6 +2273,9 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
     try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
       if let v = _storage._dataMessage {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
+      }
+      if let v = _storage._syncedExpiries {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
       }
       if let v = _storage._callMessage {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
@@ -2106,6 +2317,7 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
         let _storage = _args.0
         let rhs_storage = _args.1
         if _storage._dataMessage != rhs_storage._dataMessage {return false}
+        if _storage._syncedExpiries != rhs_storage._syncedExpiries {return false}
         if _storage._callMessage != rhs_storage._callMessage {return false}
         if _storage._receiptMessage != rhs_storage._receiptMessage {return false}
         if _storage._typingMessage != rhs_storage._typingMessage {return false}
