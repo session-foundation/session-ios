@@ -44,6 +44,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public static let openGroupNameKey: SQL = SQL(stringLiteral: CodingKeys.openGroupName.stringValue)
     public static let openGroupServerKey: SQL = SQL(stringLiteral: CodingKeys.openGroupServer.stringValue)
     public static let openGroupRoomTokenKey: SQL = SQL(stringLiteral: CodingKeys.openGroupRoomToken.stringValue)
+    public static let openGroupPublicKeyKey: SQL = SQL(stringLiteral: CodingKeys.openGroupPublicKey.stringValue)
     public static let openGroupProfilePictureDataKey: SQL = SQL(stringLiteral: CodingKeys.openGroupProfilePictureData.stringValue)
     public static let openGroupUserCountKey: SQL = SQL(stringLiteral: CodingKeys.openGroupUserCount.stringValue)
     public static let openGroupPermissionsKey: SQL = SQL(stringLiteral: CodingKeys.openGroupPermissions.stringValue)
@@ -121,6 +122,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public let openGroupName: String?
     public let openGroupServer: String?
     public let openGroupRoomToken: String?
+    public let openGroupPublicKey: String?
     public let openGroupProfilePictureData: Data?
     private let openGroupUserCount: Int?
     private let openGroupPermissions: OpenGroup.Permissions?
@@ -281,6 +283,7 @@ public extension SessionThreadViewModel {
         self.openGroupName = nil
         self.openGroupServer = nil
         self.openGroupRoomToken = nil
+        self.openGroupPublicKey = nil
         self.openGroupProfilePictureData = nil
         self.openGroupUserCount = nil
         self.openGroupPermissions = nil
@@ -342,6 +345,7 @@ public extension SessionThreadViewModel {
             openGroupName: self.openGroupName,
             openGroupServer: self.openGroupServer,
             openGroupRoomToken: self.openGroupRoomToken,
+            openGroupPublicKey: self.openGroupPublicKey,
             openGroupProfilePictureData: self.openGroupProfilePictureData,
             openGroupUserCount: self.openGroupUserCount,
             openGroupPermissions: self.openGroupPermissions,
@@ -396,6 +400,7 @@ public extension SessionThreadViewModel {
             openGroupName: self.openGroupName,
             openGroupServer: self.openGroupServer,
             openGroupRoomToken: self.openGroupRoomToken,
+            openGroupPublicKey: self.openGroupPublicKey,
             openGroupProfilePictureData: self.openGroupProfilePictureData,
             openGroupUserCount: self.openGroupUserCount,
             openGroupPermissions: self.openGroupPermissions,
@@ -765,6 +770,7 @@ public extension SessionThreadViewModel {
                 \(openGroup[.name]) AS \(ViewModel.openGroupNameKey),
                 \(openGroup[.server]) AS \(ViewModel.openGroupServerKey),
                 \(openGroup[.roomToken]) AS \(ViewModel.openGroupRoomTokenKey),
+                \(openGroup[.publicKey]) AS \(ViewModel.openGroupPublicKeyKey),
                 \(openGroup[.userCount]) AS \(ViewModel.openGroupUserCountKey),
                 \(openGroup[.permissions]) AS \(ViewModel.openGroupPermissionsKey),
         
@@ -862,6 +868,9 @@ public extension SessionThreadViewModel {
                 \(closedGroup[.name]) AS \(ViewModel.closedGroupNameKey),
                 (\(groupMember[.profileId]) IS NOT NULL) AS \(ViewModel.currentUserIsClosedGroupMemberKey),
                 \(openGroup[.name]) AS \(ViewModel.openGroupNameKey),
+                \(openGroup[.server]) AS \(ViewModel.openGroupServerKey),
+                \(openGroup[.roomToken]) AS \(ViewModel.openGroupRoomTokenKey),
+                \(openGroup[.publicKey]) AS \(ViewModel.openGroupPublicKeyKey),
                 \(openGroup[.imageData]) AS \(ViewModel.openGroupProfilePictureDataKey),
                     
                 \(SQL("\(userPublicKey)")) AS \(ViewModel.currentUserPublicKeyKey)
