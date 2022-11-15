@@ -36,6 +36,8 @@ public final class SyncedExpiriesMessage: ControlMessage {
     }
     
     public override func encode(to encoder: Encoder) throws {
+        try super.encode(to: encoder)
+        
         var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
 
         try container.encode(conversationExpiries, forKey: .conversationExpiries)

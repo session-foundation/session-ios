@@ -94,7 +94,7 @@ public extension DisappearingMessagesJob {
             let serverHashes = interactions.compactMap { $0.serverHash }
             guard let expiresInSeconds = expiresInSeconds, !serverHashes.isEmpty else { return }
             
-            let expirationTimestamp: Int64 = Int64(ceil(startedAtMs + expiresInSeconds))
+            let expirationTimestamp: Int64 = Int64(ceil(startedAtMs + expiresInSeconds * 1000))
             let userPublicKey: String = getUserHexEncodedPublicKey(db)
             let threadId: String = interactions[0].threadId
             

@@ -11,6 +11,21 @@ extension MessageReceiver {
         message: SyncedExpiriesMessage,
         dependencies: SMKDependencies
     ) throws {
-        print("Ryan Test: Receive SyncedExpiriesMessage")
+        let userPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
+        guard userPublicKey == message.sender else { return }
+        
+        message.conversationExpiries.forEach { (syncTarget, expiries) in
+            guard let disappearingMessageConfiguration = try? DisappearingMessagesConfiguration.fetchOne(db, id: syncTarget) else { return }
+            expiries.forEach { syncExpiry in
+                let startedAtMs: Double = Double(syncExpiry.expirationTimestamp) - disappearingMessageConfiguration.durationSeconds * 1000
+                
+                let changeCount: Int? = try? Interaction
+                    .filter(
+                        Interaction.Columns.threadId == syncTarget &&
+                        Interaction.Columns.serverHash == syncExpiry.serverHash
+                    )
+                    .updateAll(db, Interaction.Columns.expiresStartedAtMs.set(to: startedAtMs))
+            }
+        }
     }
 }
