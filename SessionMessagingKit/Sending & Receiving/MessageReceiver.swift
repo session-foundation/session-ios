@@ -221,6 +221,9 @@ public enum MessageReceiver {
                 
             case let message as MessageRequestResponse:
                 try MessageReceiver.handleMessageRequestResponse(db, message: message, dependencies: dependencies)
+            
+            case let message as SyncedExpiriesMessage:
+                try MessageReceiver.handleSyncedExpiriesMessage(db, message: message, dependencies: dependencies)
                 
             case let message as VisibleMessage:
                 try MessageReceiver.handleVisibleMessage(

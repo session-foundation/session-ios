@@ -23,6 +23,8 @@ public final class SyncedExpiriesMessage: ControlMessage {
         return conversationExpiries.count > 0
     }
     
+    override public var isSelfSendValid: Bool { true }
+    
     // MARK: - Codable
     
     required init(from decoder: Decoder) throws {

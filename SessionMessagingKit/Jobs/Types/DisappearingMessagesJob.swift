@@ -94,9 +94,35 @@ public extension DisappearingMessagesJob {
             let serverHashes = interactions.compactMap { $0.serverHash }
             guard let expiresInSeconds = expiresInSeconds, !serverHashes.isEmpty else { return }
             
+            let expirationTimestamp: Int64 = Int64(ceil(startedAtMs + expiresInSeconds))
+            let userPublicKey: String = getUserHexEncodedPublicKey(db)
+            let threadId: String = interactions[0].threadId
+            
+            // Send SyncExpiriesMessage
+            let syncTarget: String = interactions[0].authorId
+            let syncExpiries: [SyncedExpiriesMessage.SyncedExpiry] = serverHashes.map { serverHash in
+                return SyncedExpiriesMessage.SyncedExpiry(
+                    serverHash: serverHash,
+                    expirationTimestamp: expirationTimestamp)
+            }
+            
+            let syncExpiriesMessage = SyncedExpiriesMessage(
+                conversationExpiries: [syncTarget: syncExpiries]
+            )
+            
+            MessageSender
+                .send(
+                    db,
+                    message: syncExpiriesMessage,
+                    threadId: threadId,
+                    interactionId: nil,
+                    to: .contact(publicKey: userPublicKey)
+                )
+            
+            // Update the ttls
             SnodeAPI.updateExpiry(
-                publicKey: getUserHexEncodedPublicKey(db),
-                updatedExpiryMs: Int64(ceil(startedAtMs + expiresInSeconds)),
+                publicKey: userPublicKey,
+                updatedExpiryMs: expirationTimestamp,
                 serverHashes: serverHashes
             )
             .retainUntilComplete()
