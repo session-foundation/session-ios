@@ -222,7 +222,6 @@ final class ConversationTitleView: UIView {
                 slides.append(self?.userCountLabel)
             }
             
-            // TODO: Disappearing message settings
             if let config = disappearingMessagesConfig, config.isEnabled == true {
                 let imageAttachment = NSTextAttachment()
                 imageAttachment.image = UIImage(systemName: "timer")?.withTint(textPrimary)
@@ -237,7 +236,7 @@ final class ConversationTitleView: UIView {
                     .appending(string: " ")
                     .appending(string: config.type == .disappearAfterRead ? "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE".localized() : "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized())
                     .appending(string: " - ")
-                    .appending(string: config.durationString)
+                    .appending(string: floor(config.durationSeconds).formatted(format: .short))
                 self?.disappearingMessageSettingLabel.isHidden = false
                 slides.append(self?.disappearingMessageSettingLabel)
             }
