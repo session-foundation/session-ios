@@ -942,9 +942,6 @@ extension SNProtoSyncedExpiries.SNProtoSyncedExpiriesBuilder {
         if let _value = dataMessage {
             builder.setDataMessage(_value)
         }
-        if let _value = syncedExpiries {
-            builder.setSyncedExpiries(_value)
-        }
         if let _value = callMessage {
             builder.setCallMessage(_value)
         }
@@ -975,6 +972,9 @@ extension SNProtoSyncedExpiries.SNProtoSyncedExpiriesBuilder {
         if hasLastDisappearingMessageChangeTimestamp {
             builder.setLastDisappearingMessageChangeTimestamp(lastDisappearingMessageChangeTimestamp)
         }
+        if let _value = syncedExpiries {
+            builder.setSyncedExpiries(_value)
+        }
         return builder
     }
 
@@ -986,10 +986,6 @@ extension SNProtoSyncedExpiries.SNProtoSyncedExpiriesBuilder {
 
         @objc public func setDataMessage(_ valueParam: SNProtoDataMessage) {
             proto.dataMessage = valueParam.proto
-        }
-
-        @objc public func setSyncedExpiries(_ valueParam: SNProtoSyncedExpiries) {
-            proto.syncedExpiries = valueParam.proto
         }
 
         @objc public func setCallMessage(_ valueParam: SNProtoCallMessage) {
@@ -1032,6 +1028,10 @@ extension SNProtoSyncedExpiries.SNProtoSyncedExpiriesBuilder {
             proto.lastDisappearingMessageChangeTimestamp = valueParam
         }
 
+        @objc public func setSyncedExpiries(_ valueParam: SNProtoSyncedExpiries) {
+            proto.syncedExpiries = valueParam.proto
+        }
+
         @objc public func build() throws -> SNProtoContent {
             return try SNProtoContent.parseProto(proto)
         }
@@ -1044,8 +1044,6 @@ extension SNProtoSyncedExpiries.SNProtoSyncedExpiriesBuilder {
     fileprivate let proto: SessionProtos_Content
 
     @objc public let dataMessage: SNProtoDataMessage?
-
-    @objc public let syncedExpiries: SNProtoSyncedExpiries?
 
     @objc public let callMessage: SNProtoCallMessage?
 
@@ -1060,6 +1058,8 @@ extension SNProtoSyncedExpiries.SNProtoSyncedExpiriesBuilder {
     @objc public let unsendRequest: SNProtoUnsendRequest?
 
     @objc public let messageRequestResponse: SNProtoMessageRequestResponse?
+
+    @objc public let syncedExpiries: SNProtoSyncedExpiries?
 
     @objc public var expirationType: SNProtoContentExpirationType {
         return SNProtoContent.SNProtoContentExpirationTypeWrap(proto.expirationType)
@@ -1084,17 +1084,16 @@ extension SNProtoSyncedExpiries.SNProtoSyncedExpiriesBuilder {
 
     private init(proto: SessionProtos_Content,
                  dataMessage: SNProtoDataMessage?,
-                 syncedExpiries: SNProtoSyncedExpiries?,
                  callMessage: SNProtoCallMessage?,
                  receiptMessage: SNProtoReceiptMessage?,
                  typingMessage: SNProtoTypingMessage?,
                  configurationMessage: SNProtoConfigurationMessage?,
                  dataExtractionNotification: SNProtoDataExtractionNotification?,
                  unsendRequest: SNProtoUnsendRequest?,
-                 messageRequestResponse: SNProtoMessageRequestResponse?) {
+                 messageRequestResponse: SNProtoMessageRequestResponse?,
+                 syncedExpiries: SNProtoSyncedExpiries?) {
         self.proto = proto
         self.dataMessage = dataMessage
-        self.syncedExpiries = syncedExpiries
         self.callMessage = callMessage
         self.receiptMessage = receiptMessage
         self.typingMessage = typingMessage
@@ -1102,6 +1101,7 @@ extension SNProtoSyncedExpiries.SNProtoSyncedExpiriesBuilder {
         self.dataExtractionNotification = dataExtractionNotification
         self.unsendRequest = unsendRequest
         self.messageRequestResponse = messageRequestResponse
+        self.syncedExpiries = syncedExpiries
     }
 
     @objc
@@ -1118,11 +1118,6 @@ extension SNProtoSyncedExpiries.SNProtoSyncedExpiriesBuilder {
         var dataMessage: SNProtoDataMessage? = nil
         if proto.hasDataMessage {
             dataMessage = try SNProtoDataMessage.parseProto(proto.dataMessage)
-        }
-
-        var syncedExpiries: SNProtoSyncedExpiries? = nil
-        if proto.hasSyncedExpiries {
-            syncedExpiries = try SNProtoSyncedExpiries.parseProto(proto.syncedExpiries)
         }
 
         var callMessage: SNProtoCallMessage? = nil
@@ -1160,20 +1155,25 @@ extension SNProtoSyncedExpiries.SNProtoSyncedExpiriesBuilder {
             messageRequestResponse = try SNProtoMessageRequestResponse.parseProto(proto.messageRequestResponse)
         }
 
+        var syncedExpiries: SNProtoSyncedExpiries? = nil
+        if proto.hasSyncedExpiries {
+            syncedExpiries = try SNProtoSyncedExpiries.parseProto(proto.syncedExpiries)
+        }
+
         // MARK: - Begin Validation Logic for SNProtoContent -
 
         // MARK: - End Validation Logic for SNProtoContent -
 
         let result = SNProtoContent(proto: proto,
                                     dataMessage: dataMessage,
-                                    syncedExpiries: syncedExpiries,
                                     callMessage: callMessage,
                                     receiptMessage: receiptMessage,
                                     typingMessage: typingMessage,
                                     configurationMessage: configurationMessage,
                                     dataExtractionNotification: dataExtractionNotification,
                                     unsendRequest: unsendRequest,
-                                    messageRequestResponse: messageRequestResponse)
+                                    messageRequestResponse: messageRequestResponse,
+                                    syncedExpiries: syncedExpiries)
         return result
     }
 

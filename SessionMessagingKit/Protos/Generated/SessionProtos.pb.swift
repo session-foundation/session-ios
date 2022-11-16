@@ -354,15 +354,6 @@ struct SessionProtos_Content {
   /// Clears the value of `dataMessage`. Subsequent reads from it will return its default value.
   mutating func clearDataMessage() {_uniqueStorage()._dataMessage = nil}
 
-  var syncedExpiries: SessionProtos_SyncedExpiries {
-    get {return _storage._syncedExpiries ?? SessionProtos_SyncedExpiries()}
-    set {_uniqueStorage()._syncedExpiries = newValue}
-  }
-  /// Returns true if `syncedExpiries` has been explicitly set.
-  var hasSyncedExpiries: Bool {return _storage._syncedExpiries != nil}
-  /// Clears the value of `syncedExpiries`. Subsequent reads from it will return its default value.
-  mutating func clearSyncedExpiries() {_uniqueStorage()._syncedExpiries = nil}
-
   var callMessage: SessionProtos_CallMessage {
     get {return _storage._callMessage ?? SessionProtos_CallMessage()}
     set {_uniqueStorage()._callMessage = newValue}
@@ -452,6 +443,15 @@ struct SessionProtos_Content {
   var hasLastDisappearingMessageChangeTimestamp: Bool {return _storage._lastDisappearingMessageChangeTimestamp != nil}
   /// Clears the value of `lastDisappearingMessageChangeTimestamp`. Subsequent reads from it will return its default value.
   mutating func clearLastDisappearingMessageChangeTimestamp() {_uniqueStorage()._lastDisappearingMessageChangeTimestamp = nil}
+
+  var syncedExpiries: SessionProtos_SyncedExpiries {
+    get {return _storage._syncedExpiries ?? SessionProtos_SyncedExpiries()}
+    set {_uniqueStorage()._syncedExpiries = newValue}
+  }
+  /// Returns true if `syncedExpiries` has been explicitly set.
+  var hasSyncedExpiries: Bool {return _storage._syncedExpiries != nil}
+  /// Clears the value of `syncedExpiries`. Subsequent reads from it will return its default value.
+  mutating func clearSyncedExpiries() {_uniqueStorage()._syncedExpiries = nil}
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -2174,7 +2174,6 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
   static let protoMessageName: String = _protobuf_package + ".Content"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "dataMessage"),
-    2: .same(proto: "syncedExpiries"),
     3: .same(proto: "callMessage"),
     5: .same(proto: "receiptMessage"),
     6: .same(proto: "typingMessage"),
@@ -2185,11 +2184,11 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
     11: .same(proto: "expirationType"),
     12: .same(proto: "expirationTimer"),
     13: .same(proto: "lastDisappearingMessageChangeTimestamp"),
+    14: .same(proto: "syncedExpiries"),
   ]
 
   fileprivate class _StorageClass {
     var _dataMessage: SessionProtos_DataMessage? = nil
-    var _syncedExpiries: SessionProtos_SyncedExpiries? = nil
     var _callMessage: SessionProtos_CallMessage? = nil
     var _receiptMessage: SessionProtos_ReceiptMessage? = nil
     var _typingMessage: SessionProtos_TypingMessage? = nil
@@ -2200,6 +2199,7 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
     var _expirationType: SessionProtos_Content.ExpirationType? = nil
     var _expirationTimer: UInt32? = nil
     var _lastDisappearingMessageChangeTimestamp: UInt64? = nil
+    var _syncedExpiries: SessionProtos_SyncedExpiries? = nil
 
     static let defaultInstance = _StorageClass()
 
@@ -2207,7 +2207,6 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
 
     init(copying source: _StorageClass) {
       _dataMessage = source._dataMessage
-      _syncedExpiries = source._syncedExpiries
       _callMessage = source._callMessage
       _receiptMessage = source._receiptMessage
       _typingMessage = source._typingMessage
@@ -2218,6 +2217,7 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
       _expirationType = source._expirationType
       _expirationTimer = source._expirationTimer
       _lastDisappearingMessageChangeTimestamp = source._lastDisappearingMessageChangeTimestamp
+      _syncedExpiries = source._syncedExpiries
     }
   }
 
@@ -2231,7 +2231,6 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
   public var isInitialized: Bool {
     return withExtendedLifetime(_storage) { (_storage: _StorageClass) in
       if let v = _storage._dataMessage, !v.isInitialized {return false}
-      if let v = _storage._syncedExpiries, !v.isInitialized {return false}
       if let v = _storage._callMessage, !v.isInitialized {return false}
       if let v = _storage._receiptMessage, !v.isInitialized {return false}
       if let v = _storage._typingMessage, !v.isInitialized {return false}
@@ -2239,6 +2238,7 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
       if let v = _storage._dataExtractionNotification, !v.isInitialized {return false}
       if let v = _storage._unsendRequest, !v.isInitialized {return false}
       if let v = _storage._messageRequestResponse, !v.isInitialized {return false}
+      if let v = _storage._syncedExpiries, !v.isInitialized {return false}
       return true
     }
   }
@@ -2252,7 +2252,6 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
         // enabled. https://github.com/apple/swift-protobuf/issues/1034
         switch fieldNumber {
         case 1: try { try decoder.decodeSingularMessageField(value: &_storage._dataMessage) }()
-        case 2: try { try decoder.decodeSingularMessageField(value: &_storage._syncedExpiries) }()
         case 3: try { try decoder.decodeSingularMessageField(value: &_storage._callMessage) }()
         case 5: try { try decoder.decodeSingularMessageField(value: &_storage._receiptMessage) }()
         case 6: try { try decoder.decodeSingularMessageField(value: &_storage._typingMessage) }()
@@ -2263,6 +2262,7 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
         case 11: try { try decoder.decodeSingularEnumField(value: &_storage._expirationType) }()
         case 12: try { try decoder.decodeSingularUInt32Field(value: &_storage._expirationTimer) }()
         case 13: try { try decoder.decodeSingularUInt64Field(value: &_storage._lastDisappearingMessageChangeTimestamp) }()
+        case 14: try { try decoder.decodeSingularMessageField(value: &_storage._syncedExpiries) }()
         default: break
         }
       }
@@ -2273,9 +2273,6 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
     try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
       if let v = _storage._dataMessage {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
-      }
-      if let v = _storage._syncedExpiries {
-        try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
       }
       if let v = _storage._callMessage {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
@@ -2307,6 +2304,9 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
       if let v = _storage._lastDisappearingMessageChangeTimestamp {
         try visitor.visitSingularUInt64Field(value: v, fieldNumber: 13)
       }
+      if let v = _storage._syncedExpiries {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 14)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -2317,7 +2317,6 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
         let _storage = _args.0
         let rhs_storage = _args.1
         if _storage._dataMessage != rhs_storage._dataMessage {return false}
-        if _storage._syncedExpiries != rhs_storage._syncedExpiries {return false}
         if _storage._callMessage != rhs_storage._callMessage {return false}
         if _storage._receiptMessage != rhs_storage._receiptMessage {return false}
         if _storage._typingMessage != rhs_storage._typingMessage {return false}
@@ -2328,6 +2327,7 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
         if _storage._expirationType != rhs_storage._expirationType {return false}
         if _storage._expirationTimer != rhs_storage._expirationTimer {return false}
         if _storage._lastDisappearingMessageChangeTimestamp != rhs_storage._lastDisappearingMessageChangeTimestamp {return false}
+        if _storage._syncedExpiries != rhs_storage._syncedExpiries {return false}
         return true
       }
       if !storagesAreEqual {return false}

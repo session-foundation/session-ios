@@ -74,7 +74,6 @@ message Content {
   }
 
   optional DataMessage                dataMessage                            = 1;
-  optional SyncedExpiries             syncedExpiries                         = 2;
   optional CallMessage                callMessage                            = 3;
   optional ReceiptMessage             receiptMessage                         = 5;
   optional TypingMessage              typingMessage                          = 6;
@@ -85,6 +84,7 @@ message Content {
   optional ExpirationType             expirationType                         = 11;
   optional uint32                     expirationTimer                        = 12;
   optional uint64                     lastDisappearingMessageChangeTimestamp = 13;
+  optional SyncedExpiries             syncedExpiries                         = 14;
 }
 
 message CallMessage {
