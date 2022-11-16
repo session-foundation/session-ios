@@ -21,18 +21,21 @@ public final class SessionButton: UIButton {
         public let style: Style
         public let title: String
         public let isEnabled: Bool
+        public let minWidth: CGFloat
         public let onTap: () -> ()
         
         public init(
             style: Style,
             title: String,
             isEnabled: Bool,
+            minWidth: CGFloat = 0,
             onTap: @escaping () -> ()
         ) {
             self.style = style
             self.title = title
             self.isEnabled = isEnabled
             self.onTap = onTap
+            self.minWidth = minWidth
         }
     }
     
