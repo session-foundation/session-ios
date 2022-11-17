@@ -97,7 +97,7 @@ extension MessageReceiver {
         let disappearingMessagesConfiguration: DisappearingMessagesConfiguration = (try? thread.disappearingMessagesConfiguration.fetchOne(db))
             .defaulting(to: DisappearingMessagesConfiguration.defaultWith(thread.id))
         
-        let expiresStartedAtMs: Double? = (disappearingMessagesConfiguration.isEnabled && disappearingMessagesConfiguration.type == .disappearAfterSend) ? messageSentTimestamp : nil
+        let expiresStartedAtMs: Double? = (disappearingMessagesConfiguration.isEnabled && disappearingMessagesConfiguration.type == .disappearAfterSend) ? Double(message.sentTimestamp ?? 0) : nil
         
         // Try to insert the interaction
         //
