@@ -97,6 +97,8 @@ extension MessageReceiver {
         let disappearingMessagesConfiguration: DisappearingMessagesConfiguration = (try? thread.disappearingMessagesConfiguration.fetchOne(db))
             .defaulting(to: DisappearingMessagesConfiguration.defaultWith(thread.id))
         
+        let expiresStartedAtMs: Double? = (disappearingMessagesConfiguration.isEnabled && disappearingMessagesConfiguration.type == .disappearAfterSend) ? messageSentTimestamp : nil
+        
         // Try to insert the interaction
         //
         // Note: There are now a number of unique constraints on the database which
@@ -124,7 +126,7 @@ extension MessageReceiver {
                     disappearingMessagesConfiguration.durationSeconds :
                     nil
                 ),
-                expiresStartedAtMs: nil,
+                expiresStartedAtMs: expiresStartedAtMs,
                 // OpenGroupInvitations are stored as LinkPreview's in the database
                 linkPreviewUrl: (message.linkPreview?.url ?? message.openGroupInvitation?.url),
                 // Keep track of the open group server message ID ↔ message ID relationship
