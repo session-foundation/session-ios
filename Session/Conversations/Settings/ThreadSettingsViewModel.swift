@@ -346,6 +346,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                             viewModel: ThreadDisappearingMessagesViewModel(
                                                 threadId: threadId,
                                                 threadVariant: threadViewModel.threadVariant,
+                                                currentUserIsClosedGroupAdmin: threadViewModel.currentUserIsClosedGroupAdmin,
                                                 config: disappearingMessagesConfig
                                             )
                                         )

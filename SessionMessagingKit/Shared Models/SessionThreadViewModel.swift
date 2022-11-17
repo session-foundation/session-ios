@@ -866,7 +866,7 @@ public extension SessionThreadViewModel {
                 \(ViewModel.closedGroupProfileBackFallbackKey).*,
                 
                 \(closedGroup[.name]) AS \(ViewModel.closedGroupNameKey),
-                (\(groupMember[.profileId]) IS NOT NULL) AS \(ViewModel.currentUserIsClosedGroupMemberKey),
+                (\(groupMember[.profileId]) IS NOT NULL) AS \(ViewModel.currentUserIsClosedGroupAdminKey),
                 \(openGroup[.name]) AS \(ViewModel.openGroupNameKey),
                 \(openGroup[.server]) AS \(ViewModel.openGroupServerKey),
                 \(openGroup[.roomToken]) AS \(ViewModel.openGroupRoomTokenKey),
@@ -881,7 +881,7 @@ public extension SessionThreadViewModel {
             LEFT JOIN \(OpenGroup.self) ON \(openGroup[.threadId]) = \(thread[.id])
             LEFT JOIN \(ClosedGroup.self) ON \(closedGroup[.threadId]) = \(thread[.id])
             LEFT JOIN \(GroupMember.self) ON (
-                \(SQL("\(groupMember[.role]) = \(GroupMember.Role.standard)")) AND
+                \(SQL("\(groupMember[.role]) = \(GroupMember.Role.admin)")) AND
                 \(groupMember[.groupId]) = \(closedGroup[.threadId]) AND
                 \(SQL("\(groupMember[.profileId]) = \(userPublicKey)"))
             )

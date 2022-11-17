@@ -42,6 +42,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
     private let dependencies: Dependencies
     private let threadId: String
     private let threadVariant: SessionThread.Variant
+    private let currentUserIsClosedGroupAdmin: Bool?
     private let config: DisappearingMessagesConfiguration
     private var currentSelection: CurrentValueSubject<DisappearingMessagesConfiguration, Error>
     private var shouldShowConfirmButton: CurrentValueSubject<Bool, Never>
@@ -52,11 +53,13 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
         dependencies: Dependencies = Dependencies(),
         threadId: String,
         threadVariant: SessionThread.Variant,
+        currentUserIsClosedGroupAdmin: Bool?,
         config: DisappearingMessagesConfiguration
     ) {
         self.dependencies = dependencies
         self.threadId = threadId
         self.threadVariant = threadVariant
+        self.currentUserIsClosedGroupAdmin = currentUserIsClosedGroupAdmin
         self.config = config
         self.currentSelection = CurrentValueSubject(self.config)
         self.shouldShowConfirmButton = CurrentValueSubject(false)
@@ -206,7 +209,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                         rightAccessory: .radio(
                                             isSelected: { (self?.currentSelection.value.isEnabled == false) }
                                         ),
-                                        isEnabled: false,
+                                        isEnabled: (self?.currentUserIsClosedGroupAdmin == true),
                                         onTap: {
                                             let updatedConfig: DisappearingMessagesConfiguration = currentSelection
                                                 .with(
@@ -231,7 +234,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                                 rightAccessory: .radio(
                                                     isSelected: { (self?.currentSelection.value.isEnabled == true) && (self?.currentSelection.value.durationSeconds == duration) }
                                                 ),
-                                                isEnabled: false,
+                                                isEnabled: (self?.currentUserIsClosedGroupAdmin == true),
                                                 onTap: {
                                                     let updatedConfig: DisappearingMessagesConfiguration = currentSelection
                                                         .with(
