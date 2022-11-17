@@ -29,6 +29,14 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
         }
         
         var style: SessionTableSectionStyle { return .title }
+        
+        var footer: String? {
+            switch self {
+                case .type: return nil
+                case .timer: return nil
+            case .timerWithOff: return "DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY".localized()
+            }
+        }
     }
     
     public struct Item: Equatable, Hashable, Differentiable {

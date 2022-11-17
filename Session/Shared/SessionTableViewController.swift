@@ -36,6 +36,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
         result.register(view: SessionAvatarCell.self)
         result.register(view: SessionCell.self)
         result.registerHeaderFooterView(view: SessionHeaderView.self)
+        result.registerHeaderFooterView(view: SessionFooterView.self)
         result.dataSource = self
         result.delegate = self
         
@@ -447,6 +448,19 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
         }
     }
     
+    func tableView(_ tableView: UITableView, viewForFooterInSection section: Int) -> UIView? {
+        let section: SectionModel = viewModel.settingsData[section]
+        
+        if let footerString = section.model.footer {
+            let result: SessionFooterView = tableView.dequeueHeaderFooterView(type: SessionFooterView.self)
+            result.update(title: footerString)
+            
+            return result
+        }
+        
+        return UIView()
+    }
+    
     // MARK: - UITableViewDelegate
     
     func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
@@ -456,6 +470,12 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
             case .none: return 0
             case .padding, .title: return UITableView.automaticDimension
         }
+    }
+    
+    func tableView(_ tableView: UITableView, heightForFooterInSection section: Int) -> CGFloat {
+        let section: SectionModel = viewModel.settingsData[section]
+        
+        return section.model.footer == nil ? 0 : UITableView.automaticDimension
     }
     
     func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {
