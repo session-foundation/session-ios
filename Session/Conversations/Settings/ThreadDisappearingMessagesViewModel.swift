@@ -206,6 +206,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                         rightAccessory: .radio(
                                             isSelected: { (self?.currentSelection.value.isEnabled == false) }
                                         ),
+                                        isEnabled: false,
                                         onTap: {
                                             let updatedConfig: DisappearingMessagesConfiguration = currentSelection
                                                 .with(
@@ -230,6 +231,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                                 rightAccessory: .radio(
                                                     isSelected: { (self?.currentSelection.value.isEnabled == true) && (self?.currentSelection.value.durationSeconds == duration) }
                                                 ),
+                                                isEnabled: false,
                                                 onTap: {
                                                     let updatedConfig: DisappearingMessagesConfiguration = currentSelection
                                                         .with(

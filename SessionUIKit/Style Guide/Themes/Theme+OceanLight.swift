@@ -43,9 +43,11 @@ internal enum Theme_OceanLight: ThemeColors {
         
         // RadioButton
         .radioButton_selectedBackground: .primary,
+        .radioButton_selectedBackground_disabled: .disabledLight,
         .radioButton_unselectedBackground: .clear,
         .radioButton_selectedBorder: .oceanLight1,
         .radioButton_unselectedBorder: .oceanLight3,
+        .radioButton_border_disabled: .disabledLight,
         
         // SessionButton
         .sessionButton_text: .oceanLight1,

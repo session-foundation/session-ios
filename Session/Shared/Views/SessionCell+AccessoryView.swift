@@ -296,18 +296,29 @@ extension SessionCell {
                     let wasOldSelection: Bool = (!isSelected && storedSelection)
                     
                     radioBorderView.isHidden = false
-                    radioBorderView.themeBorderColor = (isSelected ?
-                        .radioButton_selectedBorder :
-                        .radioButton_unselectedBorder
-                    )
+                    if isEnabled {
+                        radioBorderView.themeBorderColor = (isSelected ?
+                            .radioButton_selectedBorder :
+                            .radioButton_unselectedBorder
+                        )
+                    } else {
+                        radioBorderView.themeBorderColor = .radioButton_border_disabled
+                    }
                     radioBorderView.layer.cornerRadius = (size.borderSize / 2)
                     
                     radioView.alpha = (wasOldSelection ? 0.3 : 1)
                     radioView.isHidden = (!isSelected && !storedSelection)
-                    radioView.themeBackgroundColor = (isSelected || wasOldSelection ?
-                        .radioButton_selectedBackground :
-                        .radioButton_unselectedBackground
-                    )
+                    if isEnabled {
+                        radioView.themeBackgroundColor = (isSelected || wasOldSelection ?
+                            .radioButton_selectedBackground :
+                            .radioButton_unselectedBackground
+                        )
+                    } else {
+                        radioView.themeBackgroundColor = (isSelected || wasOldSelection ?
+                            .radioButton_selectedBackground_disabled :
+                            .radioButton_unselectedBackground
+                        )
+                    }
                     radioView.layer.cornerRadius = (size.selectionSize / 2)
                     
                     radioViewWidthConstraint.constant = size.selectionSize
