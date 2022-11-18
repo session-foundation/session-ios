@@ -331,7 +331,8 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         // nav will be offset incorrectly during the push animation (unfortunately the profile icon still
         // doesn't appear until after the animation, I assume it's taking a snapshot or something, but
         // there isn't much we can do about that unfortunately)
-        updateNavBarButtons(threadData: nil, initialVariant: self.viewModel.initialThreadVariant)
+        let isNoteToSelf: Bool = self.viewModel.threadData.threadId == getUserHexEncodedPublicKey()
+        updateNavBarButtons(threadData: nil, initialVariant: self.viewModel.initialThreadVariant, isNoteToSelf: isNoteToSelf)
         titleView.initialSetup(with: self.viewModel.initialThreadVariant)
         
         // Constraints
@@ -604,7 +605,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             viewModel.threadData.threadIsMessageRequest != updatedThreadData.threadIsMessageRequest ||
             viewModel.threadData.profile != updatedThreadData.profile
         {
-            updateNavBarButtons(threadData: updatedThreadData, initialVariant: viewModel.initialThreadVariant)
+            updateNavBarButtons(threadData: updatedThreadData, initialVariant: viewModel.initialThreadVariant, isNoteToSelf: updatedThreadData.threadIsNoteToSelf)
             
             let messageRequestsViewWasVisible: Bool = (
                 messageRequestView.isHidden == false
@@ -1039,7 +1040,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         }
     }
     
-    func updateNavBarButtons(threadData: SessionThreadViewModel?, initialVariant: SessionThread.Variant) {
+    func updateNavBarButtons(threadData: SessionThreadViewModel?, initialVariant: SessionThread.Variant, isNoteToSelf: Bool) {
         navigationItem.hidesBackButton = isShowingSearchUI
 
         if isShowingSearchUI {
@@ -1069,7 +1070,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                             )
                         )
                     ),
-                    (initialVariant == .contact ?
+                    ((initialVariant == .contact  && !isNoteToSelf) ?
                         UIBarButtonItem(customView: UIView(frame: CGRect(x: 0, y: 0, width: 44, height: 44))) :
                         nil
                     )
@@ -1096,7 +1097,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                     settingsButtonItem.accessibilityLabel = "Settings button"
                     settingsButtonItem.isAccessibilityElement = true
                     
-                    if SessionCall.isEnabled && !threadData.threadIsNoteToSelf {
+                    if SessionCall.isEnabled && !isNoteToSelf {
                         let callButton = UIBarButtonItem(
                             image: UIImage(named: "Phone"),
                             style: .plain,
@@ -1537,7 +1538,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         }
         
         // Nav bar buttons
-        updateNavBarButtons(threadData: self.viewModel.threadData, initialVariant: viewModel.initialThreadVariant)
+        updateNavBarButtons(threadData: self.viewModel.threadData, initialVariant: viewModel.initialThreadVariant, isNoteToSelf: self.viewModel.threadData.threadIsNoteToSelf)
         
         // Hack so that the ResultsBar stays on the screen when dismissing the search field
         // keyboard.
@@ -1572,7 +1573,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     @objc func hideSearchUI() {
         isShowingSearchUI = false
         navigationItem.titleView = titleView
-        updateNavBarButtons(threadData: self.viewModel.threadData, initialVariant: viewModel.initialThreadVariant)
+        updateNavBarButtons(threadData: self.viewModel.threadData, initialVariant: viewModel.initialThreadVariant, isNoteToSelf: self.viewModel.threadData.threadIsNoteToSelf)
         
         searchController.uiSearchController.stubbableSearchBar.stubbedNextResponder = nil
         becomeFirstResponder()
