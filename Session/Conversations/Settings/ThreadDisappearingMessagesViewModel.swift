@@ -120,6 +120,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                 switch threadVariant {
                     case .contact:
                         guard self?.threadId != getUserHexEncodedPublicKey() else {
+                            // Note to self
                             return [
                                 SectionModel(
                                     model: .noteToSelf,
