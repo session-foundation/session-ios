@@ -29,39 +29,37 @@ extension ConversationVC:
     }
 
     @objc func openSettings() {
-        let viewController: SessionTableViewController = {
-            switch self.titleView.currentLabelType {
-                case .notificationSettings:
-                    fallthrough
-                case .userCount:
-                    return SessionTableViewController(viewModel: ThreadSettingsViewModel(
-                            threadId: self.viewModel.threadData.threadId,
-                            threadVariant: self.viewModel.threadData.threadVariant,
-                            didTriggerSearch: { [weak self] in
-                                DispatchQueue.main.async {
-                                    self?.showSearchUI()
-                                    self?.popAllConversationSettingsViews {
-                                        // Note: Without this delay the search bar doesn't show
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                            self?.searchController.uiSearchController.searchBar.becomeFirstResponder()
-                                        }
+        switch self.titleView.currentLabelType {
+            case.empty, .notificationSettings, .userCount:
+                let viewController = SessionTableViewController(viewModel: ThreadSettingsViewModel(
+                        threadId: self.viewModel.threadData.threadId,
+                        threadVariant: self.viewModel.threadData.threadVariant,
+                        didTriggerSearch: { [weak self] in
+                            DispatchQueue.main.async {
+                                self?.showSearchUI()
+                                self?.popAllConversationSettingsViews {
+                                    // Note: Without this delay the search bar doesn't show
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                        self?.searchController.uiSearchController.searchBar.becomeFirstResponder()
                                     }
                                 }
                             }
-                        )
+                        }
                     )
-                case .disappearingMessageSetting:
-                    return SessionTableViewController(viewModel: ThreadDisappearingMessagesViewModel(
-                            threadId: self.viewModel.threadData.threadId,
-                            threadVariant: self.viewModel.threadData.threadVariant,
-                            currentUserIsClosedGroupAdmin: self.viewModel.threadData.currentUserIsClosedGroupAdmin,
-                            config: self.viewModel.threadData.disappearingMessagesConfiguration!
-                        )
+                )
+                navigationController?.pushViewController(viewController, animated: true)
+                break
+            case .disappearingMessageSetting:
+                let viewController = SessionTableViewController(viewModel: ThreadDisappearingMessagesViewModel(
+                        threadId: self.viewModel.threadData.threadId,
+                        threadVariant: self.viewModel.threadData.threadVariant,
+                        currentUserIsClosedGroupAdmin: self.viewModel.threadData.currentUserIsClosedGroupAdmin,
+                        config: self.viewModel.threadData.disappearingMessagesConfiguration!
                     )
-            }
-        }()
-        
-        navigationController?.pushViewController(viewController, animated: true)
+                )
+                navigationController?.pushViewController(viewController, animated: true)
+                break
+        }
     }
     
     // MARK: - ScrollToBottomButtonDelegate
