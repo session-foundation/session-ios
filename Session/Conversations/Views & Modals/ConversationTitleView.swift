@@ -15,7 +15,7 @@ final class ConversationTitleView: UIView {
         return UIView.layoutFittingExpandedSize
     }
     
-    private lazy var pagedScrollViewWidth = pagedScrollView.set(.width, to: 0)
+    private lazy var pagedScrollViewWidth = pagedScrollView.set(.width, to: 200)
 
     // MARK: - UI Components
     
@@ -122,9 +122,6 @@ final class ConversationTitleView: UIView {
         // view resulting in the content shifting to the right during
         guard self.oldSize != .zero, self.oldSize != bounds.size else {
             self.oldSize = bounds.size
-            if pagedScrollViewWidth.constant == 0 {
-                pagedScrollViewWidth.constant = bounds.size.width - stackViewLeadingConstraint.constant
-            }
             return
         }
         

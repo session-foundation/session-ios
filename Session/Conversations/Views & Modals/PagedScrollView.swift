@@ -13,6 +13,13 @@ final class PagedScrollView: UIView, UIScrollViewDelegate {
     private lazy var contentWidth = stackView.set(.width, to: 0)
     private lazy var contentHeight = stackView.set(.height, to: 0)
     
+    private var shouldArrowsShow: Bool = false {
+        didSet {
+            arrowLeft.isHidden = !shouldArrowsShow
+            arrowRight.isHidden = !shouldArrowsShow
+        }
+    }
+    
     // MARK: - UI Components
     
     private lazy var scrollView: UIScrollView = {
@@ -42,6 +49,22 @@ final class PagedScrollView: UIView, UIScrollViewDelegate {
         return result
     }()
     
+    private lazy var arrowLeft: UIImageView = {
+        let result = UIImageView(image: UIImage(systemName: "chevron.left")?.withRenderingMode(.alwaysTemplate))
+        result.themeTintColor = .textPrimary
+        result.set(.height, to: 10)
+        result.set(.width, to: 5)
+        return result
+    }()
+    
+    private lazy var arrowRight: UIImageView = {
+        let result = UIImageView(image: UIImage(systemName: "chevron.right")?.withRenderingMode(.alwaysTemplate))
+        result.themeTintColor = .textPrimary
+        result.set(.height, to: 10)
+        result.set(.width, to: 5)
+        return result
+    }()
+    
     // MARK: - Initialization
     
     init(slides: [UIView] = [], slideSize: CGSize = .zero, shouldAutoScroll: Bool = false) {
@@ -60,6 +83,7 @@ final class PagedScrollView: UIView, UIScrollViewDelegate {
         self.slides = slides
         self.slideSize = slideSize
         self.shouldAutoScroll = shouldAutoScroll
+        self.shouldArrowsShow = slides.count > 1
         
         pageControl.numberOfPages = slides.count
         pageControl.currentPage = 0
@@ -89,6 +113,14 @@ final class PagedScrollView: UIView, UIScrollViewDelegate {
     private func setUpViewHierarchy() {
         addSubview(scrollView)
         scrollView.pin(to: self)
+        
+        addSubview(arrowLeft)
+        arrowLeft.pin(.left, to: .left, of: self)
+        arrowLeft.center(.vertical, in: self, withInset: -2)
+        
+        addSubview(arrowRight)
+        arrowRight.pin(.right, to: .right, of: self)
+        arrowRight.center(.vertical, in: self, withInset: -2)
         
         addSubview(pageControl)
         pageControl.center(.horizontal, in: self)
