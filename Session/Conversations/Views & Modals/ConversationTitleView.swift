@@ -15,7 +15,7 @@ final class ConversationTitleView: UIView {
         return UIView.layoutFittingExpandedSize
     }
     
-    private lazy var pagedScrollViewWidth = pagedScrollView.set(.width, to: 200)
+    private lazy var labelCarouselViewWidth = labelCarouselView.set(.width, to: 200)
 
     // MARK: - UI Components
     
@@ -31,49 +31,13 @@ final class ConversationTitleView: UIView {
         return result
     }()
     
-    private lazy var pagedScrollView: PagedScrollView = {
-        let result = PagedScrollView()
-        return result
-    }()
-
-    private lazy var subtitleLabel: UILabel = {
-        let result: UILabel = UILabel()
-        result.font = .systemFont(ofSize: Values.verySmallFontSize)
-        result.themeTextColor = .textPrimary
-        result.lineBreakMode = .byTruncatingTail
-        
-        return result
-    }()
-    
-    private lazy var userCountLabel: UILabel = {
-        let result: UILabel = UILabel()
-        result.font = .systemFont(ofSize: Values.verySmallFontSize)
-        result.themeTextColor = .textPrimary
-        result.lineBreakMode = .byTruncatingTail
-        
-        return result
-    }()
-    
-    private lazy var notificationSettingsLabel: UILabel = {
-        let result: UILabel = UILabel()
-        result.font = .systemFont(ofSize: Values.verySmallFontSize)
-        result.themeTextColor = .textPrimary
-        result.lineBreakMode = .byTruncatingTail
-        
-        return result
-    }()
-    
-    private lazy var disappearingMessageSettingLabel: UILabel = {
-        let result: UILabel = UILabel()
-        result.font = .systemFont(ofSize: Values.verySmallFontSize)
-        result.themeTextColor = .textPrimary
-        result.lineBreakMode = .byTruncatingTail
-        
+    private lazy var labelCarouselView: SessionLabelCarouselView = {
+        let result = SessionLabelCarouselView()
         return result
     }()
     
     private lazy var stackView: UIStackView = {
-        let result = UIStackView(arrangedSubviews: [ titleLabel, pagedScrollView ])
+        let result = UIStackView(arrangedSubviews: [ titleLabel, labelCarouselView ])
         result.axis = .vertical
         result.alignment = .center
         
@@ -169,13 +133,13 @@ final class ConversationTitleView: UIView {
             )
         )
         
-        ThemeManager.onThemeChange(observer: self.subtitleLabel) { [weak self] theme, _ in
+        ThemeManager.onThemeChange(observer: self.labelCarouselView) { [weak self] theme, _ in
             guard let textPrimary: UIColor = theme.color(for: .textPrimary) else { return }
             
-            var slides: [UIView?] = []
+            var labelStrings: [NSAttributedString] = []
             
             if Date().timeIntervalSince1970 <= (mutedUntilTimestamp ?? 0) {
-                self?.notificationSettingsLabel.attributedText = NSAttributedString(
+                let notificationSettingsLabelString = NSAttributedString(
                     string: "\u{e067}  ",
                     attributes: [
                         .font: UIFont.ows_elegantIconsFont(10),
@@ -183,8 +147,8 @@ final class ConversationTitleView: UIView {
                     ]
                 )
                 .appending(string: "Muted")
-                self?.notificationSettingsLabel.isHidden = false
-                slides.append(self?.notificationSettingsLabel)
+                
+                labelStrings.append(notificationSettingsLabelString)
             } else if onlyNotifyForMentions{
                 let imageAttachment = NSTextAttachment()
                 imageAttachment.image = UIImage(named: "NotifyMentions.png")?.withTint(textPrimary)
@@ -195,28 +159,31 @@ final class ConversationTitleView: UIView {
                     height: Values.verySmallFontSize
                 )
                 
-                self?.notificationSettingsLabel.attributedText = NSAttributedString(attachment: imageAttachment)
+                let notificationSettingsLabelString = NSAttributedString(attachment: imageAttachment)
                     .appending(string: "  ")
                     .appending(string: "view_conversation_title_notify_for_mentions_only".localized())
-                self?.notificationSettingsLabel.isHidden = false
-                slides.append(self?.notificationSettingsLabel)
+                
+                labelStrings.append(notificationSettingsLabelString)
             }
             
             if let userCount: Int = userCount {
-                switch threadVariant {
-                    case .contact: break
-                        
-                    case .closedGroup:
-                        self?.userCountLabel.attributedText = NSAttributedString(
-                            string: "\(userCount) member\(userCount == 1 ? "" : "s")"
-                        )
-                        
-                    case .openGroup:
-                        self?.userCountLabel.attributedText = NSAttributedString(
-                            string: "\(userCount) active member\(userCount == 1 ? "" : "s")"
-                        )
-                }
-                slides.append(self?.userCountLabel)
+                let userCountLabelString: NSAttributedString = {
+                    switch threadVariant {
+                        case .contact: return NSAttributedString(string: "") // Should not happen
+                            
+                        case .closedGroup:
+                            return NSAttributedString(
+                                string: "\(userCount) member\(userCount == 1 ? "" : "s")"
+                            )
+                            
+                        case .openGroup:
+                            return NSAttributedString(
+                                string: "\(userCount) active member\(userCount == 1 ? "" : "s")"
+                            )
+                    }
+                }()
+                
+                labelStrings.append(userCountLabelString)
             }
             
             if let config = disappearingMessagesConfig, config.isEnabled == true {
@@ -229,25 +196,25 @@ final class ConversationTitleView: UIView {
                     height: Values.verySmallFontSize
                 )
                 
-                self?.disappearingMessageSettingLabel.attributedText = NSAttributedString(attachment: imageAttachment)
+                let disappearingMessageSettingLabelString = NSAttributedString(attachment: imageAttachment)
                     .appending(string: " ")
                     .appending(string: config.type == .disappearAfterRead ? "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE".localized() : "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized())
                     .appending(string: " - ")
                     .appending(string: floor(config.durationSeconds).formatted(format: .short))
-                self?.disappearingMessageSettingLabel.isHidden = false
-                slides.append(self?.disappearingMessageSettingLabel)
+                
+                labelStrings.append(disappearingMessageSettingLabelString)
             }
             
-            self?.pagedScrollView.update(
-                with: slides.compactMap{ $0 },
-                slideSize: CGSize(
-                    width: self?.pagedScrollViewWidth.constant ?? 0,
+            self?.labelCarouselView.update(
+                with: labelStrings,
+                labelSize: CGSize(
+                    width: self?.labelCarouselViewWidth.constant ?? 0,
                     height: 20
                 ),
                 shouldAutoScroll: false
             )
             
-            self?.pagedScrollView.isHidden = (slides.count == 0)
+            self?.labelCarouselView.isHidden = (labelStrings.count == 0)
         }
         
         // Contact threads also have the call button to compensate for

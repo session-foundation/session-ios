@@ -3,20 +3,21 @@
 import UIKit
 import SessionUIKit
 
-final class PagedScrollView: UIView, UIScrollViewDelegate {
+final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
     private static let autoScrollingTimeInterval: TimeInterval = 10
-    private var slides: [UIView] = []
-    private var slideSize: CGSize = .zero
+    private var labelStrings: [NSAttributedString] = []
+    private var labelSize: CGSize = .zero
     private var shouldAutoScroll: Bool = false
     private var timer: Timer?
     
     private lazy var contentWidth = stackView.set(.width, to: 0)
     private lazy var contentHeight = stackView.set(.height, to: 0)
     
-    private var shouldArrowsShow: Bool = false {
+    private var shouldScroll: Bool = false {
         didSet {
-            arrowLeft.isHidden = !shouldArrowsShow
-            arrowRight.isHidden = !shouldArrowsShow
+            arrowLeft.isHidden = !shouldScroll
+            arrowRight.isHidden = !shouldScroll
+            pageControl.isHidden = !shouldScroll
         }
     }
     
@@ -67,10 +68,10 @@ final class PagedScrollView: UIView, UIScrollViewDelegate {
     
     // MARK: - Initialization
     
-    init(slides: [UIView] = [], slideSize: CGSize = .zero, shouldAutoScroll: Bool = false) {
+    init(labelStrings: [NSAttributedString] = [], labelSize: CGSize = .zero, shouldAutoScroll: Bool = false) {
         super.init(frame: .zero)
         setUpViewHierarchy()
-        self.update(with: slides, slideSize: slideSize, shouldAutoScroll: shouldAutoScroll)
+        self.update(with: labelStrings, labelSize: labelSize, shouldAutoScroll: shouldAutoScroll)
     }
     
     required init?(coder: NSCoder) {
@@ -79,29 +80,47 @@ final class PagedScrollView: UIView, UIScrollViewDelegate {
     
     // MARK: - Content
     
-    public func update(with slides: [UIView] = [], slideSize: CGSize = .zero, shouldAutoScroll: Bool = false) {
-        self.slides = slides
-        self.slideSize = slideSize
+    public func update(with labelStrings: [NSAttributedString] = [], labelSize: CGSize = .zero, shouldAutoScroll: Bool = false) {
+        self.labelStrings = labelStrings
+        self.labelSize = labelSize
         self.shouldAutoScroll = shouldAutoScroll
-        self.shouldArrowsShow = slides.count > 1
+        self.shouldScroll = labelStrings.count > 1
         
-        pageControl.numberOfPages = slides.count
+        if self.shouldScroll {
+            let first: NSAttributedString = labelStrings.first!
+            let last: NSAttributedString = labelStrings.last!
+            self.labelStrings.append(first)
+            self.labelStrings.insert(last, at: 0)
+        }
+        
+        pageControl.numberOfPages = labelStrings.count
         pageControl.currentPage = 0
-        pageControl.isHidden = (slides.count == 1)
         
-        let contentSize = CGSize(width: slideSize.width * CGFloat(slides.count), height: slideSize.height)
+        let contentSize = CGSize(width: labelSize.width * CGFloat(self.labelStrings.count), height: labelSize.height)
         scrollView.contentSize = contentSize
         contentWidth.constant = contentSize.width
         contentHeight.constant = contentSize.height
+        self.scrollView.setContentOffset(
+            CGPoint(
+                x: Int(self.labelSize.width) * (self.shouldScroll ? 1 : 0),
+                y: 0
+            ),
+            animated: false
+        )
         
         stackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
         
-        self.slides.forEach {
+        self.labelStrings.forEach {
             let wrapper: UIView = UIView()
-            wrapper.set(.width, to: slideSize.width)
-            wrapper.set(.height, to: slideSize.height)
-            wrapper.addSubview($0)
-            $0.center(in: wrapper)
+            wrapper.set(.width, to: labelSize.width)
+            wrapper.set(.height, to: labelSize.height)
+            let label: UILabel = UILabel()
+            label.font = .systemFont(ofSize: Values.verySmallFontSize)
+            label.themeTextColor = .textPrimary
+            label.lineBreakMode = .byTruncatingTail
+            label.attributedText = $0
+            wrapper.addSubview(label)
+            label.center(in: wrapper)
             stackView.addArrangedSubview(wrapper)
         }
         
@@ -132,15 +151,15 @@ final class PagedScrollView: UIView, UIScrollViewDelegate {
     private func startScrolling() {
         timer?.invalidate()
         timer = Timer.scheduledTimerOnMainThread(withTimeInterval: Self.autoScrollingTimeInterval, repeats: true) { _ in
-            guard self.slides.count != 0 else { return }
-            let targetPage = (self.pageControl.currentPage + 1) % self.slides.count
+            guard self.labelStrings.count != 0 else { return }
+            let targetPage = (self.pageControl.currentPage + 1) % self.labelStrings.count
             self.scrollView.scrollRectToVisible(
                 CGRect(
                     origin: CGPoint(
-                        x: Int(self.slideSize.width) * targetPage,
+                        x: Int(self.labelSize.width) * targetPage,
                         y: 0
                     ),
-                    size: self.slideSize
+                    size: self.labelSize
                 ),
                 animated: true
             )
@@ -153,7 +172,43 @@ final class PagedScrollView: UIView, UIScrollViewDelegate {
     }
     
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        let pageIndex = round(scrollView.contentOffset.x/slideSize.width)
-        pageControl.currentPage = Int(pageIndex)
+        let pageIndex: Int = {
+            let maybeCurrentPageIndex: Int = Int(round(scrollView.contentOffset.x/labelSize.width))
+            if self.shouldScroll {
+                if maybeCurrentPageIndex == 0 {
+                    return pageControl.numberOfPages - 1
+                }
+                if maybeCurrentPageIndex == self.labelStrings.count - 1 {
+                    return 0
+                }
+                return maybeCurrentPageIndex - 1
+            }
+            return maybeCurrentPageIndex
+        }()
+        
+        pageControl.currentPage = pageIndex
+    }
+    
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        if pageControl.currentPage == 0 {
+            scrollView.setContentOffset(
+                CGPoint(
+                    x: Int(self.labelSize.width) * 1,
+                    y: 0
+                ),
+                animated: false
+            )
+        }
+        
+        if pageControl.currentPage == pageControl.numberOfPages - 1 {
+            let realLastIndex: Int = self.labelStrings.count - 2
+            scrollView.setContentOffset(
+                CGPoint(
+                    x: Int(self.labelSize.width) * realLastIndex,
+                    y: 0
+                ),
+                animated: false
+            )
+        }
     }
 }
