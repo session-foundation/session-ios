@@ -29,37 +29,38 @@ extension ConversationVC:
     }
 
     @objc func openSettings() {
-        let viewModel: SessionTableViewModel = {
+        let viewController: SessionTableViewController = {
             switch self.titleView.currentLabelType {
                 case .notificationSettings:
                     fallthrough
                 case .userCount:
-                    return ThreadSettingsViewModel(
-                        threadId: self.viewModel.threadData.threadId,
-                        threadVariant: self.viewModel.threadData.threadVariant,
-                        didTriggerSearch: { [weak self] in
-                            DispatchQueue.main.async {
-                                self?.showSearchUI()
-                                self?.popAllConversationSettingsViews {
-                                    // Note: Without this delay the search bar doesn't show
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                        self?.searchController.uiSearchController.searchBar.becomeFirstResponder()
+                    return SessionTableViewController(viewModel: ThreadSettingsViewModel(
+                            threadId: self.viewModel.threadData.threadId,
+                            threadVariant: self.viewModel.threadData.threadVariant,
+                            didTriggerSearch: { [weak self] in
+                                DispatchQueue.main.async {
+                                    self?.showSearchUI()
+                                    self?.popAllConversationSettingsViews {
+                                        // Note: Without this delay the search bar doesn't show
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                            self?.searchController.uiSearchController.searchBar.becomeFirstResponder()
+                                        }
                                     }
                                 }
                             }
-                        }
+                        )
                     )
                 case .disappearingMessageSetting:
-                    return ThreadDisappearingMessagesViewModel(
-                        threadId: self.viewModel.threadData.threadId,
-                        threadVariant: self.viewModel.threadData.threadVariant,
-                        currentUserIsClosedGroupAdmin: self.viewModel.threadData.currentUserIsClosedGroupAdmin,
-                        config: self.viewModel.threadData.disappearingMessagesConfiguration!
+                    return SessionTableViewController(viewModel: ThreadDisappearingMessagesViewModel(
+                            threadId: self.viewModel.threadData.threadId,
+                            threadVariant: self.viewModel.threadData.threadVariant,
+                            currentUserIsClosedGroupAdmin: self.viewModel.threadData.currentUserIsClosedGroupAdmin,
+                            config: self.viewModel.threadData.disappearingMessagesConfiguration!
+                        )
                     )
             }
         }()
         
-        let viewController: SessionTableViewController = SessionTableViewController(viewModel: viewModel)
         navigationController?.pushViewController(viewController, animated: true)
     }
     
