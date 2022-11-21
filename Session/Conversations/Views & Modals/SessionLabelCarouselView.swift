@@ -6,6 +6,7 @@ import SessionUIKit
 final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
     private static let autoScrollingTimeInterval: TimeInterval = 10
     private var labelStrings: [NSAttributedString] = []
+    private var labelTypes: [LabelType] = []
     private var labelSize: CGSize = .zero
     private var shouldAutoScroll: Bool = false
     private var timer: Timer?
@@ -19,6 +20,18 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
             arrowRight.isHidden = !shouldScroll
             pageControl.isHidden = !shouldScroll
         }
+    }
+    
+    // MARK: - Types
+    
+    public enum LabelType {
+        case notificationSettings
+        case userCount
+        case disappearingMessageSetting
+    }
+    
+    public var currentLabelType: LabelType {
+        return self.labelTypes[pageControl.currentPage]
     }
     
     // MARK: - UI Components
@@ -68,10 +81,10 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
     
     // MARK: - Initialization
     
-    init(labelStrings: [NSAttributedString] = [], labelSize: CGSize = .zero, shouldAutoScroll: Bool = false) {
+    init(labelStrings: [NSAttributedString] = [], labelTypes: [LabelType] = [], labelSize: CGSize = .zero, shouldAutoScroll: Bool = false) {
         super.init(frame: .zero)
         setUpViewHierarchy()
-        self.update(with: labelStrings, labelSize: labelSize, shouldAutoScroll: shouldAutoScroll)
+        self.update(with: labelStrings, labelTypes: labelTypes, labelSize: labelSize, shouldAutoScroll: shouldAutoScroll)
     }
     
     required init?(coder: NSCoder) {
@@ -80,8 +93,9 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
     
     // MARK: - Content
     
-    public func update(with labelStrings: [NSAttributedString] = [], labelSize: CGSize = .zero, shouldAutoScroll: Bool = false) {
+    public func update(with labelStrings: [NSAttributedString] = [], labelTypes: [LabelType] = [], labelSize: CGSize = .zero, shouldAutoScroll: Bool = false) {
         self.labelStrings = labelStrings
+        self.labelTypes = labelTypes
         self.labelSize = labelSize
         self.shouldAutoScroll = shouldAutoScroll
         self.shouldScroll = labelStrings.count > 1

@@ -16,6 +16,10 @@ final class ConversationTitleView: UIView {
     }
     
     private lazy var labelCarouselViewWidth = labelCarouselView.set(.width, to: 200)
+    
+    public var currentLabelType: SessionLabelCarouselView.LabelType {
+        return self.labelCarouselView.currentLabelType
+    }
 
     // MARK: - UI Components
     
@@ -137,6 +141,7 @@ final class ConversationTitleView: UIView {
             guard let textPrimary: UIColor = theme.color(for: .textPrimary) else { return }
             
             var labelStrings: [NSAttributedString] = []
+            var labelTypes: [SessionLabelCarouselView.LabelType] = []
             
             if Date().timeIntervalSince1970 <= (mutedUntilTimestamp ?? 0) {
                 let notificationSettingsLabelString = NSAttributedString(
@@ -149,6 +154,7 @@ final class ConversationTitleView: UIView {
                 .appending(string: "Muted")
                 
                 labelStrings.append(notificationSettingsLabelString)
+                labelTypes.append(.notificationSettings)
             } else if onlyNotifyForMentions{
                 let imageAttachment = NSTextAttachment()
                 imageAttachment.image = UIImage(named: "NotifyMentions.png")?.withTint(textPrimary)
@@ -164,6 +170,7 @@ final class ConversationTitleView: UIView {
                     .appending(string: "view_conversation_title_notify_for_mentions_only".localized())
                 
                 labelStrings.append(notificationSettingsLabelString)
+                labelTypes.append(.notificationSettings)
             }
             
             if let userCount: Int = userCount {
@@ -184,6 +191,7 @@ final class ConversationTitleView: UIView {
                 }()
                 
                 labelStrings.append(userCountLabelString)
+                labelTypes.append(.userCount)
             }
             
             if let config = disappearingMessagesConfig, config.isEnabled == true {
@@ -203,10 +211,12 @@ final class ConversationTitleView: UIView {
                     .appending(string: floor(config.durationSeconds).formatted(format: .short))
                 
                 labelStrings.append(disappearingMessageSettingLabelString)
+                labelTypes.append(.disappearingMessageSetting)
             }
             
             self?.labelCarouselView.update(
                 with: labelStrings,
+                labelTypes: labelTypes,
                 labelSize: CGSize(
                     width: self?.labelCarouselViewWidth.constant ?? 0,
                     height: 20
