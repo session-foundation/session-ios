@@ -102,13 +102,25 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
             switch self {
                 case .standardIncoming: return true
                 case .infoCall: return true
+                case .infoDisappearingMessagesUpdate, .infoScreenshotNotification, .infoMediaSavedNotification: return true
                 
                 case .standardOutgoing, .standardIncomingDeleted: return false
                 
                 case .infoClosedGroupCreated, .infoClosedGroupUpdated, .infoClosedGroupCurrentUserLeft,
-                    .infoDisappearingMessagesUpdate, .infoScreenshotNotification, .infoMediaSavedNotification,
                     .infoMessageRequestAccepted:
                     return false
+            }
+        }
+        
+        fileprivate var shouldFollowDisappearingMessagesConfiguration: Bool {
+            switch self {
+                case .standardIncoming, .standardOutgoing,
+                    .infoCall,
+                    .infoDisappearingMessagesUpdate,
+                    .infoScreenshotNotification, .infoMediaSavedNotification:
+                    return true
+                
+                default: return false
             }
         }
     }
@@ -170,12 +182,12 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
     public let hasMention: Bool
     
     /// The number of seconds until this message should expire
-    public let expiresInSeconds: TimeInterval?
+    public var expiresInSeconds: TimeInterval?
     
     /// The timestamp in milliseconds since 1970 at which this messages expiration timer started counting
     /// down (this is stored in order to allow the `expiresInSeconds` value to be updated before a
     /// message has expired)
-    public let expiresStartedAtMs: Double?
+    public var expiresStartedAtMs: Double?
     
     /// This value is the url for the link preview for this interaction
     ///
@@ -320,6 +332,17 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         // Automatically mark interactions which can't be unread as read so the unread count
         // isn't impacted
         self.wasRead = (self.wasRead || !self.variant.canBeUnread)
+        
+        // Automatically add disapeparing messages configuration
+        if self.variant.shouldFollowDisappearingMessagesConfiguration,
+           let disappearingMessagesConfiguration = try? DisappearingMessagesConfiguration.fetchOne(db, id: self.threadId),
+           disappearingMessagesConfiguration.isEnabled
+        {
+            self.expiresInSeconds = disappearingMessagesConfiguration.durationSeconds
+            if disappearingMessagesConfiguration.type == .disappearAfterSend {
+                self.expiresStartedAtMs = Double(self.timestampMs)
+            }
+        }
     }
     
     public func aroundInsert(_ db: Database, insert: () throws -> InsertionSuccess) throws {

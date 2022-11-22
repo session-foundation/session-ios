@@ -25,29 +25,13 @@ extension ConversationVC:
         // Don't take the user to settings for unapproved threads
         guard viewModel.threadData.threadRequiresApproval == false else { return }
 
-        openSettings()
+        openSettingsFromTitleView()
     }
-
-    @objc func openSettings() {
+    
+    @objc func  openSettingsFromTitleView() {
         switch self.titleView.currentLabelType {
             case.empty, .notificationSettings, .userCount:
-                let viewController = SessionTableViewController(viewModel: ThreadSettingsViewModel(
-                        threadId: self.viewModel.threadData.threadId,
-                        threadVariant: self.viewModel.threadData.threadVariant,
-                        didTriggerSearch: { [weak self] in
-                            DispatchQueue.main.async {
-                                self?.showSearchUI()
-                                self?.popAllConversationSettingsViews {
-                                    // Note: Without this delay the search bar doesn't show
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                        self?.searchController.uiSearchController.searchBar.becomeFirstResponder()
-                                    }
-                                }
-                            }
-                        }
-                    )
-                )
-                navigationController?.pushViewController(viewController, animated: true)
+                openSettings()
                 break
             case .disappearingMessageSetting:
                 let viewController = SessionTableViewController(viewModel: ThreadDisappearingMessagesViewModel(
@@ -60,6 +44,26 @@ extension ConversationVC:
                 navigationController?.pushViewController(viewController, animated: true)
                 break
         }
+    }
+
+    @objc func openSettings() {
+        let viewController = SessionTableViewController(viewModel: ThreadSettingsViewModel(
+                threadId: self.viewModel.threadData.threadId,
+                threadVariant: self.viewModel.threadData.threadVariant,
+                didTriggerSearch: { [weak self] in
+                    DispatchQueue.main.async {
+                        self?.showSearchUI()
+                        self?.popAllConversationSettingsViews {
+                            // Note: Without this delay the search bar doesn't show
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                self?.searchController.uiSearchController.searchBar.becomeFirstResponder()
+                            }
+                        }
+                    }
+                }
+            )
+        )
+        navigationController?.pushViewController(viewController, animated: true)
     }
     
     // MARK: - ScrollToBottomButtonDelegate
@@ -452,13 +456,6 @@ extension ConversationVC:
                     body: text,
                     timestampMs: sentTimestampMs,
                     hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: text),
-                    // No matter the disappearing message type is D.A.R or D.A.S, it is the same on the sender's side
-                    expiresInSeconds: try? DisappearingMessagesConfiguration
-                        .select(.durationSeconds)
-                        .filter(id: threadId)
-                        .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
-                        .asRequest(of: TimeInterval.self)
-                        .fetchOne(db),
                     linkPreviewUrl: linkPreviewDraft?.urlString
                 ).inserted(db)
                 
@@ -575,13 +572,7 @@ extension ConversationVC:
                     variant: .standardOutgoing,
                     body: text,
                     timestampMs: sentTimestampMs,
-                    hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: text),
-                    expiresInSeconds: try? DisappearingMessagesConfiguration
-                        .select(.durationSeconds)
-                        .filter(id: threadId)
-                        .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
-                        .asRequest(of: TimeInterval.self)
-                        .fetchOne(db)
+                    hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: text)
                 ).inserted(db)
 
                 try MessageSender.send(

@@ -187,6 +187,7 @@ extension DisappearingMessagesConfiguration {
         switch type {
             case .disappearAfterRead:
                 return [
+                    60, // TODO: remove this, for test purpose only
                     (5 * 60),
                     (1 * 60 * 60),
                     (12 * 60 * 60),
@@ -196,6 +197,7 @@ extension DisappearingMessagesConfiguration {
                 ]
             case .disappearAfterSend:
                 return [
+                    60, // TODO: remove this, for test purpose only
                     (12 * 60 * 60),
                     (24 * 60 * 60),
                     (7 * 24 * 60 * 60),

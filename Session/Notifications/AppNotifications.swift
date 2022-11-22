@@ -533,13 +533,7 @@ class NotificationActionHandler {
                 variant: .standardOutgoing,
                 body: replyText,
                 timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000)),
-                hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: replyText),
-                expiresInSeconds: try? DisappearingMessagesConfiguration
-                    .select(.durationSeconds)
-                    .filter(id: threadId)
-                    .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
-                    .asRequest(of: TimeInterval.self)
-                    .fetchOne(db)
+                hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: replyText)
             ).inserted(db)
             
             try Interaction.markAsRead(
