@@ -410,6 +410,14 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
                 
             default: break
         }
+        
+        // Start the disappearing messages timer if needed
+        if self.expiresStartedAtMs != nil {
+            JobRunner.upsert(
+                db,
+                job: DisappearingMessagesJob.updateNextRunIfNeeded(db)
+            )
+        }
     }
     
     public mutating func didInsert(_ inserted: InsertionSuccess) {
