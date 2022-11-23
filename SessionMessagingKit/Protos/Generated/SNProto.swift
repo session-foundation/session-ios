@@ -912,21 +912,21 @@ extension SNProtoSyncedExpiries.SNProtoSyncedExpiriesBuilder {
     // MARK: - SNProtoContentExpirationType
 
     @objc public enum SNProtoContentExpirationType: Int32 {
-        case deleteAfterSend = 1
-        case deleteAfterRead = 2
+        case deleteAfterRead = 1
+        case deleteAfterSend = 2
     }
 
     private class func SNProtoContentExpirationTypeWrap(_ value: SessionProtos_Content.ExpirationType) -> SNProtoContentExpirationType {
         switch value {
-        case .deleteAfterSend: return .deleteAfterSend
         case .deleteAfterRead: return .deleteAfterRead
+        case .deleteAfterSend: return .deleteAfterSend
         }
     }
 
     private class func SNProtoContentExpirationTypeUnwrap(_ value: SNProtoContentExpirationType) -> SessionProtos_Content.ExpirationType {
         switch value {
-        case .deleteAfterSend: return .deleteAfterSend
         case .deleteAfterRead: return .deleteAfterRead
+        case .deleteAfterSend: return .deleteAfterSend
         }
     }
 

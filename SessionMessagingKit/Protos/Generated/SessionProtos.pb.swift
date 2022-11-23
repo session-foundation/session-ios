@@ -418,7 +418,7 @@ struct SessionProtos_Content {
   mutating func clearMessageRequestResponse() {_uniqueStorage()._messageRequestResponse = nil}
 
   var expirationType: SessionProtos_Content.ExpirationType {
-    get {return _storage._expirationType ?? .deleteAfterSend}
+    get {return _storage._expirationType ?? .deleteAfterRead}
     set {_uniqueStorage()._expirationType = newValue}
   }
   /// Returns true if `expirationType` has been explicitly set.
@@ -457,25 +457,25 @@ struct SessionProtos_Content {
 
   enum ExpirationType: SwiftProtobuf.Enum {
     typealias RawValue = Int
-    case deleteAfterSend // = 1
-    case deleteAfterRead // = 2
+    case deleteAfterRead // = 1
+    case deleteAfterSend // = 2
 
     init() {
-      self = .deleteAfterSend
+      self = .deleteAfterRead
     }
 
     init?(rawValue: Int) {
       switch rawValue {
-      case 1: self = .deleteAfterSend
-      case 2: self = .deleteAfterRead
+      case 1: self = .deleteAfterRead
+      case 2: self = .deleteAfterSend
       default: return nil
       }
     }
 
     var rawValue: Int {
       switch self {
-      case .deleteAfterSend: return 1
-      case .deleteAfterRead: return 2
+      case .deleteAfterRead: return 1
+      case .deleteAfterSend: return 2
       }
     }
 
@@ -2339,8 +2339,8 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
 
 extension SessionProtos_Content.ExpirationType: SwiftProtobuf._ProtoNameProviding {
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "DELETE_AFTER_SEND"),
-    2: .same(proto: "DELETE_AFTER_READ"),
+    1: .same(proto: "DELETE_AFTER_READ"),
+    2: .same(proto: "DELETE_AFTER_SEND"),
   ]
 }
 
