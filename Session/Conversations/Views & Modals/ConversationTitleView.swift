@@ -15,7 +15,7 @@ final class ConversationTitleView: UIView {
         return UIView.layoutFittingExpandedSize
     }
     
-    private lazy var labelCarouselViewWidth = labelCarouselView.set(.width, to: 200)
+    private lazy var labelCarouselViewWidth = labelCarouselView.set(.width, to: 185)
     
     public var currentLabelType: SessionLabelCarouselView.LabelType {
         return self.labelCarouselView.currentLabelType
