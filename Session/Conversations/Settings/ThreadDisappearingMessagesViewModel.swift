@@ -349,16 +349,16 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                 timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
             )
             .inserted(db)
-//
-//            try MessageSender.send(
-//                db,
-//                message: ExpirationTimerUpdate(
-//                    syncTarget: nil,
-//                    duration: UInt32(floor(updatedConfig.isEnabled ? updatedConfig.durationSeconds : 0))
-//                ),
-//                interactionId: interaction.id,
-//                in: thread
-//            )
+
+            try MessageSender.send(
+                db,
+                message: ExpirationTimerUpdate(
+                    syncTarget: nil,
+                    duration: UInt32(floor(updatedConfig.isEnabled ? updatedConfig.durationSeconds : 0))
+                ),
+                interactionId: interaction.id,
+                in: thread
+            )
         }
     }
 }
