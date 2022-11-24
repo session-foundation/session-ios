@@ -32,6 +32,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public static let threadContactIsTypingKey: SQL = SQL(stringLiteral: CodingKeys.threadContactIsTyping.stringValue)
     public static let threadUnreadCountKey: SQL = SQL(stringLiteral: CodingKeys.threadUnreadCount.stringValue)
     public static let threadUnreadMentionCountKey: SQL = SQL(stringLiteral: CodingKeys.threadUnreadMentionCount.stringValue)
+    public static let threadHasUnreadMessagesOfAnyKindKey: SQL = SQL(stringLiteral: CodingKeys.threadHasUnreadMessagesOfAnyKind.stringValue)
     public static let disappearingMessagesConfigurationKey: SQL = SQL(stringLiteral: CodingKeys.disappearingMessagesConfiguration.stringValue)
     public static let contactProfileKey: SQL = SQL(stringLiteral: CodingKeys.contactProfile.stringValue)
     public static let closedGroupNameKey: SQL = SQL(stringLiteral: CodingKeys.closedGroupName.stringValue)
@@ -63,6 +64,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     
     public static let threadUnreadCountString: String = CodingKeys.threadUnreadCount.stringValue
     public static let threadUnreadMentionCountString: String = CodingKeys.threadUnreadMentionCount.stringValue
+    public static let threadHasUnreadMessagesOfAnyKindString: String = CodingKeys.threadHasUnreadMessagesOfAnyKind.stringValue
     public static let closedGroupUserCountString: String = CodingKeys.closedGroupUserCount.stringValue
     public static let openGroupUserCountString: String = CodingKeys.openGroupUserCount.stringValue
     public static let disappearingMessagesConfigurationString: String = CodingKeys.disappearingMessagesConfiguration.stringValue
@@ -98,6 +100,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public let threadContactIsTyping: Bool?
     public let threadUnreadCount: UInt?
     public let threadUnreadMentionCount: UInt?
+    public let threadHasUnreadMessagesOfAnyKind: Bool?
     
     public var canWrite: Bool {
         switch threadVariant {
@@ -246,6 +249,7 @@ public extension SessionThreadViewModel {
         contactProfile: Profile? = nil,
         currentUserIsClosedGroupMember: Bool? = nil,
         unreadCount: UInt = 0,
+        hasUnreadMessagesOfAnyKind: Bool = false,
         disappearingMessagesConfiguration: DisappearingMessagesConfiguration? = nil
     ) {
         self.rowId = -1
@@ -267,6 +271,7 @@ public extension SessionThreadViewModel {
         self.threadContactIsTyping = nil
         self.threadUnreadCount = unreadCount
         self.threadUnreadMentionCount = nil
+        self.threadHasUnreadMessagesOfAnyKind = hasUnreadMessagesOfAnyKind
         
         // Thread display info
         
@@ -333,6 +338,7 @@ public extension SessionThreadViewModel {
             threadContactIsTyping: self.threadContactIsTyping,
             threadUnreadCount: self.threadUnreadCount,
             threadUnreadMentionCount: self.threadUnreadMentionCount,
+            threadHasUnreadMessagesOfAnyKind: self.threadHasUnreadMessagesOfAnyKind,
             disappearingMessagesConfiguration: self.disappearingMessagesConfiguration,
             contactProfile: self.contactProfile,
             closedGroupProfileFront: self.closedGroupProfileFront,
@@ -388,6 +394,7 @@ public extension SessionThreadViewModel {
             threadContactIsTyping: self.threadContactIsTyping,
             threadUnreadCount: self.threadUnreadCount,
             threadUnreadMentionCount: self.threadUnreadMentionCount,
+            threadHasUnreadMessagesOfAnyKind: self.threadHasUnreadMessagesOfAnyKind,
             disappearingMessagesConfiguration: self.disappearingMessagesConfiguration,
             contactProfile: self.contactProfile,
             closedGroupProfileFront: self.closedGroupProfileFront,
@@ -472,7 +479,7 @@ public extension SessionThreadViewModel {
             /// parse and might throw
             ///
             /// Explicitly set default values for the fields ignored for search results
-            let numColumnsBeforeProfiles: Int = 12
+            let numColumnsBeforeProfiles: Int = 13
             let numColumnsBetweenProfilesAndAttachmentInfo: Int = 11 // The attachment info columns will be combined
             
             let request: SQLRequest<ViewModel> = """
@@ -491,6 +498,7 @@ public extension SessionThreadViewModel {
                     (\(typingIndicator[.threadId]) IS NOT NULL) AS \(ViewModel.threadContactIsTypingKey),
                     \(Interaction.self).\(ViewModel.threadUnreadCountKey),
                     \(Interaction.self).\(ViewModel.threadUnreadMentionCountKey),
+                    \(Interaction.self).\(ViewModel.threadHasUnreadMessagesOfAnyKindKey),
                 
                     \(ViewModel.contactProfileKey).*,
                     \(ViewModel.closedGroupProfileFrontKey).*,
@@ -537,8 +545,9 @@ public extension SessionThreadViewModel {
                         \(interaction[.authorId]),
                         \(interaction[.linkPreviewUrl]),
             
-                        SUM(\(interaction[.wasRead]) = false) AS \(ViewModel.threadUnreadCountKey),
-                        SUM(\(interaction[.wasRead]) = false AND \(interaction[.hasMention]) = true) AS \(ViewModel.threadUnreadMentionCountKey)
+                        SUM(\(interaction[.wasRead]) = false AND \(interaction[.variant]) IN (\(Interaction.Variant.standardIncoming), \(Interaction.Variant.infoCall))) AS \(ViewModel.threadUnreadCountKey),
+                        SUM(\(interaction[.wasRead]) = false AND \(interaction[.hasMention]) = true) AS \(ViewModel.threadUnreadMentionCountKey),
+                        (SUM(\(interaction[.wasRead]) = false) > 0) AS \(ViewModel.threadHasUnreadMessagesOfAnyKindKey)
                     
                     FROM \(Interaction.self)
                     WHERE \(SQL("\(interaction[.variant]) != \(Interaction.Variant.standardIncomingDeleted)"))
@@ -733,7 +742,7 @@ public extension SessionThreadViewModel {
         /// parse and might throw
         ///
         /// Explicitly set default values for the fields ignored for search results
-        let numColumnsBeforeProfiles: Int = 14
+        let numColumnsBeforeProfiles: Int = 15
         let request: SQLRequest<ViewModel> = """
             SELECT
                 \(thread.alias[Column.rowID]) AS \(ViewModel.rowIdKey),
@@ -760,6 +769,7 @@ public extension SessionThreadViewModel {
                 \(thread[.messageDraft]) AS \(ViewModel.threadMessageDraftKey),
         
                 \(Interaction.self).\(ViewModel.threadUnreadCountKey),
+                \(Interaction.self).\(ViewModel.threadHasUnreadMessagesOfAnyKindKey),
         
                 \(ViewModel.disappearingMessagesConfigurationKey).*,
             
@@ -788,7 +798,8 @@ public extension SessionThreadViewModel {
                     \(interaction[.threadId]),
                     MAX(\(interaction[.timestampMs])),
                     
-                    SUM(\(interaction[.wasRead]) = false) AS \(ViewModel.threadUnreadCountKey)
+                    SUM(\(interaction[.wasRead]) = false AND \(interaction[.variant]) IN (\(Interaction.Variant.standardIncoming), \(Interaction.Variant.infoCall))) AS \(ViewModel.threadUnreadCountKey),
+                    (SUM(\(interaction[.wasRead]) = false) > 0) AS \(ViewModel.threadHasUnreadMessagesOfAnyKindKey)
                 
                 FROM \(Interaction.self)
                 WHERE \(SQL("\(interaction[.threadId]) = \(threadId)"))

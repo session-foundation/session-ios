@@ -396,11 +396,11 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         /// write queue when it isn't needed, in order to do this we:
         ///
         ///   - Don't bother marking anything as read if there are no unread interactions (we can rely on the
-        ///     `threadData.threadUnreadCount` to always be accurate)
+        ///     `threadData.threadHasUnreadMessagesOfAnyKind` to always be accurate)
         ///   - Don't bother marking anything as read if this was called with the same `interactionId` that we
         ///     previously marked as read (ie. when scrolling and the last message hasn't changed)
         guard
-            (self.threadData.threadUnreadCount ?? 0) > 0,
+            self.threadData.threadHasUnreadMessagesOfAnyKind == true,
             let targetInteractionId: Int64 = (interactionId ?? self.threadData.interactionId),
             self.lastInteractionIdMarkedAsRead != targetInteractionId
         else { return }

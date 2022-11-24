@@ -102,11 +102,11 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
             switch self {
                 case .standardIncoming: return true
                 case .infoCall: return true
+                case .infoDisappearingMessagesUpdate, .infoScreenshotNotification, .infoMediaSavedNotification: return true // Won't be count as unread messages
                 
                 case .standardOutgoing, .standardIncomingDeleted: return false
                 
                 case .infoClosedGroupCreated, .infoClosedGroupUpdated, .infoClosedGroupCurrentUserLeft,
-                    .infoDisappearingMessagesUpdate, .infoScreenshotNotification, .infoMediaSavedNotification,
                     .infoMessageRequestAccepted:
                     return false
             }
@@ -559,23 +559,11 @@ public extension Interaction {
             .asRequest(of: Int64.self)
             .fetchAll(db)
         
-        let disappearingInteractionQuery = Interaction
-            .filter(Interaction.Columns.threadId == threadId)
-            .filter(Interaction.Columns.timestampMs <= interactionInfo.timestampMs)
-            .filter(Interaction.Columns.wasRead == true)
-            .filter(Interaction.Columns.expiresInSeconds != nil)
-            .filter(Interaction.Columns.expiresStartedAtMs == nil)
-        
-        let disappearingInteractionIds: [Int64] = try disappearingInteractionQuery
-            .select(.id)
-            .asRequest(of: Int64.self)
-            .fetchAll(db)
-        
         // If there are no other interactions to mark as read then just schedule the jobs
         // for this interaction (need to ensure the disapeparing messages run for sync'ed
         // outgoing messages which will always have 'wasRead' as false)
         guard !interactionIdsToMarkAsRead.isEmpty else {
-            scheduleJobs(interactionIds: [interactionId].appending(contentsOf: disappearingInteractionIds))
+            scheduleJobs(interactionIds: [interactionId])
             return
         }
         
@@ -583,7 +571,7 @@ public extension Interaction {
         try interactionQuery.updateAll(db, Columns.wasRead.set(to: true))
         
         // Retrieve the interaction ids we want to update
-        scheduleJobs(interactionIds: interactionIdsToMarkAsRead.appending(contentsOf: disappearingInteractionIds))
+        scheduleJobs(interactionIds: interactionIdsToMarkAsRead)
     }
     
     /// This method flags sent messages as read for the specified recipients

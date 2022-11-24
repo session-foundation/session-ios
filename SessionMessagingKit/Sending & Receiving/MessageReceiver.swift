@@ -356,9 +356,8 @@ public enum MessageReceiver {
             lastChangeTimestampMs: protoLastChangeTimestampMs
         )
         
-        let expireInSeconds: TimeInterval? = (remoteConfig.isEnabled && message.openGroupServerMessageId == nil) ? remoteConfig.durationSeconds : nil
-        let expiresStartedAtMs: Double? = (remoteConfig.isEnabled && remoteConfig.type == .disappearAfterSend) ? Double(message.sentTimestamp ?? 0) : nil
-        
+        _ = try remoteConfig.save(db)
+
         _ = try Interaction(
             serverHash: nil, // Intentionally null so sync messages are seen as duplicates
             threadId: threadId,
@@ -371,12 +370,8 @@ public enum MessageReceiver {
                 ),
                 isPreviousOff: !localConfig.isEnabled
             ),
-            timestampMs: protoLastChangeTimestampMs,
-            expiresInSeconds: expireInSeconds,
-            expiresStartedAtMs: expiresStartedAtMs
+            timestampMs: protoLastChangeTimestampMs
         ).inserted(db)
-        
-        try remoteConfig.save(db)
     }
     
     internal static func updateProfileIfNeeded(
