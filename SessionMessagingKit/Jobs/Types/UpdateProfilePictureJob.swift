@@ -52,7 +52,7 @@ public enum UpdateProfilePictureJob: JobExecutor {
             image: nil,
             imageFilePath: profileFilePath,
             success: { db, _ in
-                try MessageSender.syncConfiguration(db, forceSyncNow: true).retainUntilComplete()
+                try MessageSender.syncConfiguration(db, forceSyncNow: true).sinkUntilComplete()
                 
                 // Need to call the 'success' closure asynchronously on the queue to prevent a reentrancy
                 // issue as it will write to the database and this closure is already called within

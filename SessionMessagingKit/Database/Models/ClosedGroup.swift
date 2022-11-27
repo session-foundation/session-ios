@@ -88,3 +88,76 @@ public extension ClosedGroup {
             .fetchOne(db)
     }
 }
+
+// MARK: - Convenience
+
+public extension ClosedGroup {
+    func asProfile() -> Profile {
+        return Profile(
+            id: threadId,
+            name: name,
+            profilePictureUrl: groupImageUrl,
+            profilePictureFileName: groupImageFileName,
+            profileEncryptionKey: groupImageEncryptionKey
+        )
+    }
+    
+    static func removeKeysAndUnsubscribe(
+        _ db: Database? = nil,
+        threadId: String,
+        removeGroupData: Bool = false
+    ) throws {
+        try removeKeysAndUnsubscribe(db, threadIds: [threadId], removeGroupData: removeGroupData)
+    }
+    
+    static func removeKeysAndUnsubscribe(
+        _ db: Database? = nil,
+        threadIds: [String],
+        removeGroupData: Bool = false
+    ) throws {
+        guard let db: Database = db else {
+            Storage.shared.write { db in
+                try ClosedGroup.removeKeysAndUnsubscribe(
+                    db,
+                    threadIds: threadIds,
+                    removeGroupData: removeGroupData)
+            }
+            return
+        }
+        
+        // Remove the group from the database and unsubscribe from PNs
+        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        
+        threadIds.forEach { threadId in
+            ClosedGroupPoller.shared.stopPolling(for: threadId)
+            
+            PushNotificationAPI
+                .performOperation(
+                    .unsubscribe,
+                    for: threadId,
+                    publicKey: userPublicKey
+                )
+                .sinkUntilComplete()
+        }
+        
+        // Remove the keys for the group
+        try ClosedGroupKeyPair
+            .filter(threadIds.contains(ClosedGroupKeyPair.Columns.threadId))
+            .deleteAll(db)
+        
+        // Remove the remaining group data if desired
+        if removeGroupData {
+            try SessionThread
+                .filter(ids: threadIds)
+                .deleteAll(db)
+            
+            try ClosedGroup
+                .filter(ids: threadIds)
+                .deleteAll(db)
+            
+            try GroupMember
+                .filter(threadIds.contains(GroupMember.Columns.groupId))
+                .deleteAll(db)
+        }
+    }
+}

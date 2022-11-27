@@ -183,45 +183,45 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
         ModalActivityIndicatorViewController
             .present(fromViewController: navigationController!, canCancel: false) { [weak self] modalActivityIndicator in
             SnodeAPI
-                    .getSessionID(for: onsNameOrPublicKey)
-                    .done { sessionID in
-                        modalActivityIndicator.dismiss {
-                            self?.startNewDM(with: sessionID)
-                        }
+                .getSessionID(for: onsNameOrPublicKey)
+                .done { sessionID in
+                    modalActivityIndicator.dismiss {
+                        self?.startNewDM(with: sessionID)
                     }
-                    .catch { error in
-                        modalActivityIndicator.dismiss {
-                            var messageOrNil: String?
-                            if let error = error as? SnodeAPIError {
-                                switch error {
-                                    case .decryptionFailed, .hashingFailed, .validationFailed:
-                                        messageOrNil = error.errorDescription
-                                    default: break
-                                }
+                }
+                .catch { error in
+                    modalActivityIndicator.dismiss {
+                        var messageOrNil: String?
+                        if let error = error as? SnodeAPIError {
+                            switch error {
+                                case .decryptionFailed, .hashingFailed, .validationFailed:
+                                    messageOrNil = error.errorDescription
+                                default: break
                             }
-                            let message: String = {
-                                if let messageOrNil: String = messageOrNil {
-                                    return messageOrNil
-                                }
-                                
-                                return (maybeSessionId?.prefix == .blinded ?
-                                    "DM_ERROR_DIRECT_BLINDED_ID".localized() :
-                                    "DM_ERROR_INVALID".localized()
-                                )
-                            }()
-                            
-                            let modal: ConfirmationModal = ConfirmationModal(
-                                targetView: self?.view,
-                                info: ConfirmationModal.Info(
-                                    title: "ALERT_ERROR_TITLE".localized(),
-                                    explanation: message,
-                                    cancelTitle: "BUTTON_OK".localized(),
-                                    cancelStyle: .alert_text
-                                )
-                            )
-                            self?.present(modal, animated: true)
                         }
+                        let message: String = {
+                            if let messageOrNil: String = messageOrNil {
+                                return messageOrNil
+                            }
+                            
+                            return (maybeSessionId?.prefix == .blinded ?
+                                "DM_ERROR_DIRECT_BLINDED_ID".localized() :
+                                "DM_ERROR_INVALID".localized()
+                            )
+                        }()
+                        
+                        let modal: ConfirmationModal = ConfirmationModal(
+                            targetView: self?.view,
+                            info: ConfirmationModal.Info(
+                                title: "ALERT_ERROR_TITLE".localized(),
+                                explanation: message,
+                                cancelTitle: "BUTTON_OK".localized(),
+                                cancelStyle: .alert_text
+                            )
+                        )
+                        self?.present(modal, animated: true)
                     }
+                }
         }
     }
 

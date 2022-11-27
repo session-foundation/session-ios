@@ -1,7 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import PromiseKit
+import Combine
 
 public extension HTTP {
     // MARK: - Convenience Aliases
@@ -64,43 +64,66 @@ public extension Decodable {
     }
 }
 
-public extension Promise where T == (ResponseInfoType, Data?) {
-    func decoded(as types: HTTP.BatchResponseTypes, on queue: DispatchQueue? = nil, using dependencies: Dependencies = Dependencies()) -> Promise<HTTP.BatchResponse> {
-        self.map(on: queue) { responseInfo, maybeData -> HTTP.BatchResponse in
-            // Need to split the data into an array of data so each item can be Decoded correctly
-            guard let data: Data = maybeData else { throw HTTPError.parsingFailed }
-            guard let jsonObject: Any = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]) else {
-                throw HTTPError.parsingFailed
+public extension AnyPublisher where Output == (ResponseInfoType, Data?), Failure == Error {
+    func decoded(
+        as types: HTTP.BatchResponseTypes,
+        using dependencies: Dependencies = Dependencies()
+    ) -> AnyPublisher<HTTP.BatchResponse, Error> {
+        self
+            .flatMap { responseInfo, maybeData -> AnyPublisher<HTTP.BatchResponse, Error> in
+                // Need to split the data into an array of data so each item can be Decoded correctly
+                guard let data: Data = maybeData else {
+                    return Fail(error: HTTPError.parsingFailed)
+                        .eraseToAnyPublisher()
+                }
+                guard let jsonObject: Any = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]) else {
+                    return Fail(error: HTTPError.parsingFailed)
+                        .eraseToAnyPublisher()
+                }
+                
+                let dataArray: [Data]
+                
+                switch jsonObject {
+                    case let anyArray as [Any]:
+                        dataArray = anyArray.compactMap { try? JSONSerialization.data(withJSONObject: $0) }
+                        
+                        guard dataArray.count == types.count else {
+                            return Fail(error: HTTPError.parsingFailed)
+                                .eraseToAnyPublisher()
+                        }
+                        
+                    case let anyDict as [String: Any]:
+                        guard
+                            let resultsArray: [Data] = (anyDict["results"] as? [Any])?
+                                .compactMap({ try? JSONSerialization.data(withJSONObject: $0) }),
+                            resultsArray.count == types.count
+                        else {
+                            return Fail(error: HTTPError.parsingFailed)
+                                .eraseToAnyPublisher()
+                        }
+                        
+                        dataArray = resultsArray
+                        
+                    default:
+                        return Fail(error: HTTPError.parsingFailed)
+                            .eraseToAnyPublisher()
+                }
+                
+                do {
+                    // TODO: Remove the 'Swift.'
+                    let result: HTTP.BatchResponse = try Swift.zip(dataArray, types)
+                        .map { data, type in try type.decoded(from: data, using: dependencies) }
+                        .map { data in (responseInfo, data) }
+
+                    return Just(result)
+                        .setFailureType(to: Error.self)
+                        .eraseToAnyPublisher()
+                }
+                catch {
+                    return Fail(error: HTTPError.parsingFailed)
+                        .eraseToAnyPublisher()
+                }
             }
-            
-            let dataArray: [Data]
-            
-            switch jsonObject {
-                case let anyArray as [Any]:
-                    dataArray = anyArray.compactMap { try? JSONSerialization.data(withJSONObject: $0) }
-                    
-                    guard dataArray.count == types.count else { throw HTTPError.parsingFailed }
-                    
-                case let anyDict as [String: Any]:
-                    guard
-                        let resultsArray: [Data] = (anyDict["results"] as? [Any])?
-                            .compactMap({ try? JSONSerialization.data(withJSONObject: $0) }),
-                        resultsArray.count == types.count
-                    else { throw HTTPError.parsingFailed }
-                    
-                    dataArray = resultsArray
-                    
-                default: throw HTTPError.parsingFailed
-            }
-            
-            do {
-                return try zip(dataArray, types)
-                    .map { data, type in try type.decoded(from: data, using: dependencies) }
-                    .map { data in (responseInfo, data) }
-            }
-            catch {
-                throw HTTPError.parsingFailed
-            }
-        }
+            .eraseToAnyPublisher()
     }
 }

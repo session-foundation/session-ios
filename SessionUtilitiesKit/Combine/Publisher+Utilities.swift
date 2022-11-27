@@ -59,4 +59,83 @@ public extension Publisher {
         
         return sink(into: targetSubject, includeCompletions: includeCompletions)
     }
+    
+    /// Automatically retains the subscription until it emits a 'completion' event
+    func sinkUntilComplete(
+        receiveCompletion: ((Subscribers.Completion<Failure>) -> Void)? = nil,
+        receiveValue: ((Output) -> Void)? = nil
+    ) {
+        var retainCycle: Cancellable? = nil
+        retainCycle = self
+            .sink(
+                receiveCompletion: { result in
+                    receiveCompletion?(result)
+                    
+                    // Redundant but without reading 'retainCycle' it will warn that the variable
+                    // isn't used
+                    if retainCycle != nil { retainCycle = nil }
+                },
+                receiveValue: (receiveValue ?? { _ in })
+            )
+    }
+}
+
+public extension AnyPublisher {
+    /// Converts the publisher to output a Result instead of throwing an error, can be used to ensure a subscription never
+    /// closes due to a failure
+    func asResult() -> AnyPublisher<Result<Output, Failure>, Never> {
+        self
+            .map { Result<Output, Failure>.success($0) }
+            .catch { Just(Result<Output, Failure>.failure($0)).eraseToAnyPublisher() }
+            .eraseToAnyPublisher()
+    }
+}
+
+// MARK: - Data Decoding
+
+public extension AnyPublisher where Output == Data, Failure == Error {
+    func decoded<R: Decodable>(
+        as type: R.Type,
+        using dependencies: Dependencies = Dependencies()
+    ) -> AnyPublisher<R, Failure> {
+        self
+            .flatMap { data -> AnyPublisher<R, Error> in
+                do {
+                    return Just(try data.decoded(as: type, using: dependencies))
+                        .setFailureType(to: Error.self)
+                        .eraseToAnyPublisher()
+                }
+                catch {
+                    return Fail(error: error)
+                        .eraseToAnyPublisher()
+                }
+            }
+            .eraseToAnyPublisher()
+    }
+}
+
+public extension AnyPublisher where Output == (ResponseInfoType, Data?), Failure == Error {
+    func decoded<R: Decodable>(
+        as type: R.Type,
+        using dependencies: Dependencies = Dependencies()
+    ) -> AnyPublisher<(ResponseInfoType, R), Error> {
+        self
+            .flatMap { responseInfo, maybeData -> AnyPublisher<(ResponseInfoType, R), Error> in
+                guard let data: Data = maybeData else {
+                    return Fail(error: HTTPError.parsingFailed)
+                        .eraseToAnyPublisher()
+                }
+                
+                do {
+                    return Just((responseInfo, try data.decoded(as: type, using: dependencies)))
+                        .setFailureType(to: Error.self)
+                        .eraseToAnyPublisher()
+                }
+                catch {
+                    return Fail(error: HTTPError.parsingFailed)
+                        .eraseToAnyPublisher()
+                }
+            }
+            .eraseToAnyPublisher()
+    }
 }

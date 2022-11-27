@@ -1,12 +1,12 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import GRDB
-import PromiseKit
-import SignalCoreKit
-import SessionUtilitiesKit
 import AVFAudio
 import AVFoundation
+import Combine
+import GRDB
+import SignalCoreKit
+import SessionUtilitiesKit
 
 public struct Attachment: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "attachment" }
@@ -975,7 +975,7 @@ extension Attachment {
     internal func upload(
         _ db: Database? = nil,
         queue: DispatchQueue,
-        using upload: (Database, Data) -> Promise<String>,
+        using upload: @escaping (Database, Data) -> AnyPublisher<String, Error>,
         encrypt: Bool,
         success: ((String?) -> Void)?,
         failure: ((Error) -> Void)?
@@ -1093,50 +1093,56 @@ extension Attachment {
         }
         
         // Perform the upload
-        let uploadPromise: Promise<String> = {
+        let uploadPublisher: AnyPublisher<String, Error> = {
             guard let db: Database = db else {
-                return Storage.shared.read { db in upload(db, data) }
+                return Storage.shared.readPublisherFlatMap { db in upload(db, data) }
             }
             
             return upload(db, data)
         }()
         
-        uploadPromise
-            .done(on: queue) { fileId in
-                /// Save the final upload info
-                ///
-                /// **Note:** We **MUST** use the `.with` function here to ensure the `isValid` flag is
-                /// updated correctly
-                let uploadedAttachment: Attachment? = Storage.shared.write { db in
-                    try updatedAttachment?
-                        .with(
-                            serverId: "\(fileId)",
-                            state: .uploaded,
-                            creationTimestamp: (
-                                updatedAttachment?.creationTimestamp ??
-                                Date().timeIntervalSince1970
-                            ),
-                            downloadUrl: "\(FileServerAPI.server)/files/\(fileId)"
-                        )
-                        .saved(db)
-                }
-                
-                guard uploadedAttachment != nil else {
-                    SNLog("Couldn't update attachmentUpload job.")
-                    failure?(StorageError.failedToSave)
-                    return
-                }
+        uploadPublisher
+            .sinkUntilComplete(
+                receiveCompletion: { result in
+                    switch result {
+                        case .finished: break
+                        case .failure(let error):
+                            Storage.shared.write { db in
+                                try Attachment
+                                    .filter(id: attachmentId)
+                                    .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.failedUpload))
+                            }
+                            
+                            failure?(error)
+                    }
+                },
+                receiveValue: { fileId in
+                    /// Save the final upload info
+                    ///
+                    /// **Note:** We **MUST** use the `.with` function here to ensure the `isValid` flag is
+                    /// updated correctly
+                    let uploadedAttachment: Attachment? = Storage.shared.write { db in
+                        try updatedAttachment?
+                            .with(
+                                serverId: "\(fileId)",
+                                state: .uploaded,
+                                creationTimestamp: (
+                                    updatedAttachment?.creationTimestamp ??
+                                    Date().timeIntervalSince1970
+                                ),
+                                downloadUrl: "\(FileServerAPI.server)/files/\(fileId)"
+                            )
+                            .saved(db)
+                    }
                     
-                success?(fileId)
-            }
-            .catch(on: queue) { error in
-                Storage.shared.write { db in
-                    try Attachment
-                        .filter(id: attachmentId)
-                        .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.failedUpload))
+                    guard uploadedAttachment != nil else {
+                        SNLog("Couldn't update attachmentUpload job.")
+                        failure?(StorageError.failedToSave)
+                        return
+                    }
+                        
+                    success?(fileId)
                 }
-                
-                failure?(error)
-            }
+            )
     }
 }

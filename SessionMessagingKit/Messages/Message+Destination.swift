@@ -24,7 +24,7 @@ public extension Message {
         )
         case openGroupInbox(server: String, openGroupPublicKey: String, blindedPublicKey: String)
 
-        static func from(
+        public static func from(
             _ db: Database,
             thread: SessionThread,
             fileIds: [String]? = nil

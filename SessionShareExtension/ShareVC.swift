@@ -93,7 +93,7 @@ final class ShareVC: UINavigationController, ShareViewDelegate {
         // If we need a config sync then trigger it now
         if needsConfigSync {
             Storage.shared.write { db in
-                try? MessageSender.syncConfiguration(db, forceSyncNow: true).retainUntilComplete()
+                try? MessageSender.syncConfiguration(db, forceSyncNow: true).sinkUntilComplete()
             }
         }
 

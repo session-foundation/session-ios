@@ -322,7 +322,9 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                 }
                 .done(on: DispatchQueue.main) { thread in
                     Storage.shared.writeAsync { db in
-                        try? MessageSender.syncConfiguration(db, forceSyncNow: true).retainUntilComplete()
+                        try? MessageSender
+                            .syncConfiguration(db, forceSyncNow: true)
+                            .sinkUntilComplete()
                     }
                     
                     self?.presentingViewController?.dismiss(animated: true, completion: nil)

@@ -165,4 +165,96 @@ public class MessageRequestsViewModel {
     public func updateThreadData(_ updatedData: [SectionModel]) {
         self.threadData = updatedData
     }
+    
+    // MARK: - Functions
+    
+    static func deleteMessageRequest(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        viewController: UIViewController?,
+        completion: (() -> Void)? = nil
+    ) {
+        let modal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "MESSAGE_REQUESTS_DELETE_CONFIRMATION_ACTON".localized(),
+                confirmTitle: "TXT_DELETE_TITLE".localized(),
+                confirmStyle: .danger,
+                cancelStyle: .alert_text
+            ) { _ in
+                Storage.shared.write { db in
+                    switch threadVariant {
+                        case .contact, .openGroup:
+                            _ = try SessionThread
+                                .filter(id: threadId)
+                                .deleteAll(db)
+                            
+                        case .closedGroup:
+                            try ClosedGroup.removeKeysAndUnsubscribe(
+                                db,
+                                threadId: threadId,
+                                removeGroupData: true
+                            )
+                            
+                            // Force a config sync
+                            try MessageSender
+                                .syncConfiguration(db, forceSyncNow: true)
+                                .sinkUntilComplete()
+                    }
+                }
+                
+                completion?()
+            }
+        )
+        
+        viewController?.present(modal, animated: true, completion: nil)
+    }
+    
+    static func blockMessageRequest(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        viewController: UIViewController?,
+        completion: (() -> Void)? = nil
+    ) {
+        guard threadVariant == .contact else { return }
+        
+        let modal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON".localized(),
+                confirmTitle: "BLOCK_LIST_BLOCK_BUTTON".localized(),
+                confirmStyle: .danger,
+                cancelStyle: .alert_text
+            ) { _ in
+                Storage.shared.writeAsync(
+                    updates: { db in
+                        // Update the contact
+                        _ = try Contact
+                            .fetchOrCreate(db, id: threadId)
+                            .with(
+                                isApproved: false,
+                                isBlocked: true,
+                                
+                                // Note: We set this to true so the current user will be able to send a
+                                // message to the person who originally sent them the message request in
+                                // the future if they unblock them
+                                didApproveMe: true
+                            )
+                            .saved(db)
+                        
+                        // Remove the thread
+                        _ = try SessionThread
+                            .filter(id: threadId)
+                            .deleteAll(db)
+                        
+                        // Force a config sync
+                        try MessageSender
+                            .syncConfiguration(db, forceSyncNow: true)
+                            .sinkUntilComplete()
+                    },
+                    completion: { _, _ in completion?() }
+                )
+            }
+        )
+        
+        viewController?.present(modal, animated: true, completion: nil)
+    }
 }

@@ -1,68 +1,92 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
-import PromiseKit
 import SessionSnodeKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
 public final class BackgroundPoller {
-    private static var promises: [Promise<Void>] = []
+    private static var publishers: [AnyPublisher<Void, Error>] = []
     public static var isValid: Bool = false
 
     public static func poll(completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-        promises = []
-            .appending(pollForMessages())
-            .appending(contentsOf: pollForClosedGroupMessages())
-            .appending(
-                contentsOf: Storage.shared
-                    .read { db in
-                        // The default room promise creates an OpenGroup with an empty `roomToken` value,
-                        // we don't want to start a poller for this as the user hasn't actually joined a room
-                        try OpenGroup
-                            .select(.server)
-                            .filter(OpenGroup.Columns.roomToken != "")
-                            .filter(OpenGroup.Columns.isActive)
-                            .distinct()
-                            .asRequest(of: String.self)
-                            .fetchSet(db)
-                    }
-                    .defaulting(to: [])
-                    .map { server in
-                        let poller: OpenGroupAPI.Poller = OpenGroupAPI.Poller(for: server)
-                        poller.stop()
-                        
-                        return poller.poll(
-                            calledFromBackgroundPoller: true,
-                            isBackgroundPollerValid: { BackgroundPoller.isValid },
-                            isPostCapabilitiesRetry: false
-                        )
-                    }
+        // TODO: Test this works
+        Publishers
+            .MergeMany(
+                [pollForMessages()]
+                    .appending(contentsOf: pollForClosedGroupMessages())
+                    .appending(
+                        contentsOf: Storage.shared
+                            .read { db in
+                                // The default room promise creates an OpenGroup with an empty
+                                // `roomToken` value, we don't want to start a poller for this
+                                // as the user hasn't actually joined a room
+                                try OpenGroup
+                                    .select(.server)
+                                    .filter(OpenGroup.Columns.roomToken != "")
+                                    .filter(OpenGroup.Columns.isActive)
+                                    .distinct()
+                                    .asRequest(of: String.self)
+                                    .fetchSet(db)
+                            }
+                            .defaulting(to: [])
+                            .map { server -> AnyPublisher<Void, Error> in
+                                let poller: OpenGroupAPI.Poller = OpenGroupAPI.Poller(for: server)
+                                poller.stop()
+                                
+                                return poller.poll(
+                                    calledFromBackgroundPoller: true,
+                                    isBackgroundPollerValid: { BackgroundPoller.isValid },
+                                    isPostCapabilitiesRetry: false
+                                )
+                            }
+                    )
             )
-        
-        when(resolved: promises)
-            .done { _ in
-                // If we have already invalidated the timer then do nothing (we essentially timed out)
-                guard BackgroundPoller.isValid else { return }
-                
-                completionHandler(.newData)
-            }
-            .catch { error in
-                // If we have already invalidated the timer then do nothing (we essentially timed out)
-                guard BackgroundPoller.isValid else { return }
-                
-                SNLog("Background poll failed due to error: \(error)")
-                completionHandler(.failed)
-            }
+            .subscribe(on: DispatchQueue.main)
+            .receiveOnMain(immediately: true)
+            .collect()
+            .sinkUntilComplete(
+                receiveCompletion: { result in
+                    // If we have already invalidated the timer then do nothing (we essentially timed out)
+                    guard BackgroundPoller.isValid else { return }
+                    
+                    switch result {
+                        case .finished: completionHandler(.newData)
+                        case .failure(let error):
+                            SNLog("Background poll failed due to error: \(error)")
+                            completionHandler(.failed)
+                    }
+                }
+            )
     }
     
-    private static func pollForMessages() -> Promise<Void> {
+    private static func pollForMessages() -> AnyPublisher<Void, Error> {
         let userPublicKey: String = getUserHexEncodedPublicKey()
-        return getMessages(for: userPublicKey)
+
+        return SnodeAPI.getSwarm(for: userPublicKey)
+            .subscribe(on: DispatchQueue.main)
+            .receiveOnMain(immediately: true)
+            .flatMap { swarm -> AnyPublisher<Void, Error> in
+                guard let snode = swarm.randomElement() else {
+                    return Fail(error: SnodeAPIError.generic)
+                        .eraseToAnyPublisher()
+                }
+                
+                return CurrentUserPoller.poll(
+                    namespaces: CurrentUserPoller.namespaces,
+                    from: snode,
+                    for: userPublicKey,
+                    on: DispatchQueue.main,
+                    calledFromBackgroundPoller: true,
+                    isBackgroundPollValid: { BackgroundPoller.isValid }
+                )
+            }
+            .eraseToAnyPublisher()
     }
     
-    private static func pollForClosedGroupMessages() -> [Promise<Void>] {
+    private static func pollForClosedGroupMessages() -> [AnyPublisher<Void, Error>] {
         // Fetch all closed groups (excluding any don't contain the current user as a
         // GroupMemeber as the user is no longer a member of those)
         return Storage.shared
@@ -78,90 +102,13 @@ public final class BackgroundPoller {
             }
             .defaulting(to: [])
             .map { groupPublicKey in
-                ClosedGroupPoller.poll(
-                    groupPublicKey,
-                    on: DispatchQueue.main,
-                    maxRetryCount: 0,
-                    calledFromBackgroundPoller: true,
-                    isBackgroundPollValid: { BackgroundPoller.isValid }
-                )
-            }
-    }
-    
-    private static func getMessages(for publicKey: String) -> Promise<Void> {
-        return SnodeAPI.getSwarm(for: publicKey)
-            .then(on: DispatchQueue.main) { swarm -> Promise<Void> in
-                guard let snode = swarm.randomElement() else { throw SnodeAPIError.generic }
-                
-                return SnodeAPI.getMessages(from: snode, associatedWith: publicKey)
-                    .then(on: DispatchQueue.main) { messages, lastHash -> Promise<Void> in
-                        guard !messages.isEmpty, BackgroundPoller.isValid else { return Promise.value(()) }
-                        
-                        var jobsToRun: [Job] = []
-                        var messageCount: Int = 0
-                        var hadValidHashUpdate: Bool = false
-                        
-                        Storage.shared.write { db in
-                            messages
-                                .compactMap { message -> ProcessedMessage? in
-                                    do {
-                                        return try Message.processRawReceivedMessage(db, rawMessage: message)
-                                    }
-                                    catch {
-                                        switch error {
-                                            // Ignore duplicate & selfSend message errors (and don't bother
-                                            // logging them as there will be a lot since we each service node
-                                            // duplicates messages)
-                                            case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
-                                                MessageReceiverError.duplicateMessage,
-                                                MessageReceiverError.duplicateControlMessage,
-                                                MessageReceiverError.selfSend:
-                                                break
-                                                
-                                            case MessageReceiverError.duplicateMessageNewSnode:
-                                                hadValidHashUpdate = true
-                                                break
-                                            
-                                            // In the background ignore 'SQLITE_ABORT' (it generally means
-                                            // the BackgroundPoller has timed out
-                                            case DatabaseError.SQLITE_ABORT: break
-                                            
-                                            default: SNLog("Failed to deserialize envelope due to error: \(error).")
-                                        }
-                                        
-                                        return nil
-                                    }
-                                }
-                                .grouped { threadId, _, _ in (threadId ?? Message.nonThreadMessageId) }
-                                .forEach { threadId, threadMessages in
-                                    messageCount += threadMessages.count
-                                    
-                                    let maybeJob: Job? = Job(
-                                        variant: .messageReceive,
-                                        behaviour: .runOnce,
-                                        threadId: threadId,
-                                        details: MessageReceiveJob.Details(
-                                            messages: threadMessages.map { $0.messageInfo },
-                                            calledFromBackgroundPoller: true
-                                        )
-                                    )
-                                    
-                                    guard let job: Job = maybeJob else { return }
-                                    
-                                    // Add to the JobRunner so they are persistent and will retry on
-                                    // the next app run if they fail
-                                    JobRunner.add(db, job: job, canStartJob: false)
-                                    jobsToRun.append(job)
-                                }
-                            
-                            if messageCount == 0 && !hadValidHashUpdate, let lastHash: String = lastHash {
-                                // Update the cached validity of the messages
-                                try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
-                                    db,
-                                    potentiallyInvalidHashes: [lastHash],
-                                    otherKnownValidHashes: messages.map { $0.info.hash }
-                                )
-                            }
+                SnodeAPI.getSwarm(for: groupPublicKey)
+                    .subscribe(on: DispatchQueue.main)
+                    .receiveOnMain(immediately: true)
+                    .flatMap { swarm -> AnyPublisher<Void, Error> in
+                        guard let snode: Snode = swarm.randomElement() else {
+                            return Fail(error: OnionRequestAPIError.insufficientSnodes)
+                                .eraseToAnyPublisher()
                         }
                         
                         let promises: [Promise<Void>] = jobsToRun.map { job -> Promise<Void> in
@@ -181,6 +128,7 @@ public final class BackgroundPoller {
 
                         return when(fulfilled: promises)
                     }
+                    .eraseToAnyPublisher()
             }
     }
 }

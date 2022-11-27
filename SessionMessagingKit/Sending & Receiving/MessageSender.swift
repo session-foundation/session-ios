@@ -1,8 +1,8 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
-import PromiseKit
 import SessionSnodeKit
 import SessionUtilitiesKit
 import Sodium
@@ -42,38 +42,225 @@ public final class MessageSender {
 
     // MARK: - Convenience
     
-    public static func sendImmediate(_ db: Database, message: Message, to destination: Message.Destination, interactionId: Int64?) throws -> Promise<Void> {
-        switch destination {
-            case .contact, .closedGroup:
-                return try sendToSnodeDestination(db, message: message, to: destination, interactionId: interactionId)
-
-            case .openGroup:
-                return sendToOpenGroupDestination(db, message: message, to: destination, interactionId: interactionId)
-                
-            case .openGroupInbox:
-                return sendToOpenGroupInboxDestination(db, message: message, to: destination, interactionId: interactionId)
+//    public static func sendImmediate(_ db: Database, message: Message, to destination: Message.Destination, interactionId: Int64?) throws -> Promise<Void> {
+//        switch destination {
+//            case .contact, .closedGroup:
+//                return try sendToSnodeDestination(db, message: message, to: destination, interactionId: interactionId)
+//
+//            case .openGroup:
+//                return sendToOpenGroupDestination(db, message: message, to: destination, interactionId: interactionId)
+//
+//            case .openGroupInbox:
+//                return sendToOpenGroupInboxDestination(db, message: message, to: destination, interactionId: interactionId)
+//        }
+//    }
+    // MARK: - Message Preparation
+    
+    public struct PreparedSendData {
+        let shouldSend: Bool
+        
+        let message: Message?
+        let destination: Message.Destination?
+        let interactionId: Int64?
+        let isSyncMessage: Bool?
+        
+        let snodeMessage: SnodeMessage?
+        let plaintext: Data?
+        let ciphertext: Data?
+        
+        // TODO: Replace these with the target namespaces
+        let isClosedGroupMessage: Bool
+        let isConfigMessage: Bool
+        
+        private init(
+            shouldSend: Bool,
+            message: Message?,
+            destination: Message.Destination?,
+            interactionId: Int64?,
+            isSyncMessage: Bool?,
+            snodeMessage: SnodeMessage?,
+            plaintext: Data?,
+            ciphertext: Data?,
+            isClosedGroupMessage: Bool,
+            isConfigMessage: Bool
+        ) {
+            self.shouldSend = shouldSend
+            
+            self.message = message
+            self.destination = destination
+            self.interactionId = interactionId
+            self.isSyncMessage = isSyncMessage
+            
+            self.snodeMessage = snodeMessage
+            self.plaintext = plaintext
+            self.ciphertext = ciphertext
+            self.isClosedGroupMessage = isClosedGroupMessage
+            self.isConfigMessage = isConfigMessage
+        }
+        
+        // The default constructor creats an instance that doesn't actually send a message
+        fileprivate init() {
+            self.shouldSend = false
+            
+            self.message = nil
+            self.destination = nil
+            self.interactionId = nil
+            self.isSyncMessage = nil
+            
+            self.snodeMessage = nil
+            self.plaintext = nil
+            self.ciphertext = nil
+            self.isClosedGroupMessage = false
+            self.isConfigMessage = false
+        }
+        
+        /// This should be used to send a message to one-to-one or closed group conversations
+        fileprivate init(
+            message: Message,
+            destination: Message.Destination,
+            interactionId: Int64?,
+            isSyncMessage: Bool?,
+            snodeMessage: SnodeMessage,
+            isClosedGroupMessage: Bool,
+            isConfigMessage: Bool
+        ) {
+            self.shouldSend = true
+            
+            self.message = message
+            self.destination = destination
+            self.interactionId = interactionId
+            self.isSyncMessage = isSyncMessage
+            
+            self.snodeMessage = snodeMessage
+            self.plaintext = nil
+            self.ciphertext = nil
+            self.isClosedGroupMessage = isClosedGroupMessage
+            self.isConfigMessage = isConfigMessage
+        }
+        
+        /// This should be used to send a message to open group conversations
+        fileprivate init(
+            message: Message,
+            destination: Message.Destination,
+            interactionId: Int64?,
+            plaintext: Data
+        ) {
+            self.shouldSend = true
+            
+            self.message = message
+            self.destination = destination
+            self.interactionId = interactionId
+            self.isSyncMessage = false
+            
+            self.snodeMessage = nil
+            self.plaintext = plaintext
+            self.ciphertext = nil
+            self.isClosedGroupMessage = false
+            self.isConfigMessage = false
+        }
+        
+        /// This should be used to send a message to an open group inbox
+        fileprivate init(
+            message: Message,
+            destination: Message.Destination,
+            interactionId: Int64?,
+            ciphertext: Data
+        ) {
+            self.shouldSend = true
+            
+            self.message = message
+            self.destination = destination
+            self.interactionId = interactionId
+            self.isSyncMessage = false
+            
+            self.snodeMessage = nil
+            self.plaintext = nil
+            self.ciphertext = ciphertext
+            self.isClosedGroupMessage = false
+            self.isConfigMessage = false
+        }
+        
+        // MARK: - Mutation
+        
+        internal func with(fileIds: [String]) -> PreparedSendData {
+            return PreparedSendData(
+                shouldSend: shouldSend,
+                message: message,
+                destination: destination?.with(fileIds: fileIds),
+                interactionId: interactionId,
+                isSyncMessage: isSyncMessage,
+                snodeMessage: snodeMessage,
+                plaintext: plaintext,
+                ciphertext: ciphertext,
+                isClosedGroupMessage: isClosedGroupMessage,
+                isConfigMessage: isConfigMessage
+            )
         }
     }
-
-    // MARK: One-on-One Chats & Closed Groups
     
-    internal static func sendToSnodeDestination(
+    public static func preparedSendData(
         _ db: Database,
         message: Message,
         to destination: Message.Destination,
         interactionId: Int64?,
-        isSyncMessage: Bool = false
-    ) throws -> Promise<Void> {
-        let (promise, seal) = Promise<Void>.pending()
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
-        let isMainAppActive: Bool = (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false)
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData {
+        // Common logic for all destinations
+        let userPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
         let messageSendTimestamp: Int64 = Int64(floor(Date().timeIntervalSince1970 * 1000))
+        let updatedMessage: Message = message
         
-        // Set the timestamp, sender and recipient
-        message.sentTimestamp = (
-            message.sentTimestamp ??     // Visible messages will already have their sent timestamp set
+        // Set the message 'sentTimestamp' (Visible messages will already have their sent timestamp set)
+        updatedMessage.sentTimestamp = (
+            updatedMessage.sentTimestamp ??
             UInt64(messageSendTimestamp)
         )
+        
+        switch destination {
+            case .contact, .closedGroup:
+                return try prepareSendToSnodeDestination(
+                    db,
+                    message: updatedMessage,
+                    to: destination,
+                    interactionId: interactionId,
+                    userPublicKey: userPublicKey,
+                    messageSendTimestamp: messageSendTimestamp,
+                    using: dependencies
+                )
+
+            case .openGroup:
+                return try prepareSendToOpenGroupDestination(
+                    db,
+                    message: updatedMessage,
+                    to: destination,
+                    interactionId: interactionId,
+                    messageSendTimestamp: messageSendTimestamp,
+                    using: dependencies
+                )
+                
+            case .openGroupInbox:
+                return try prepareSendToOpenGroupInboxDestination(
+                    db,
+                    message: message,
+                    to: destination,
+                    interactionId: interactionId,
+                    userPublicKey: userPublicKey,
+                    messageSendTimestamp: messageSendTimestamp,
+                    using: dependencies
+                )
+        }
+    }
+    
+    internal static func prepareSendToSnodeDestination(
+        _ db: Database,
+        message: Message,
+        to destination: Message.Destination,
+        interactionId: Int64?,
+        userPublicKey: String,
+        messageSendTimestamp: Int64,
+        isSyncMessage: Bool = false,
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData {
         message.sender = userPublicKey
         message.recipient = {
             switch destination {
@@ -83,29 +270,27 @@ public final class MessageSender {
             }
         }()
         
-        // Set the failure handler (need it here already for precondition failure handling)
-        func handleFailure(_ db: Database, with error: MessageSenderError) {
-            MessageSender.handleFailedMessageSend(db, message: message, with: error, interactionId: interactionId)
-            seal.reject(error)
-        }
-        
         // Validate the message
         guard message.isValid else {
-            handleFailure(db, with: .invalidMessage)
-            return promise
+            throw MessageSender.handleFailedMessageSend(
+                db,
+                message: message,
+                with: .invalidMessage,
+                interactionId: interactionId,
+                using: dependencies
+            )
         }
         
         // Stop here if this is a self-send, unless we should sync the message
         let isSelfSend: Bool = (message.recipient == userPublicKey)
-
+        
         guard
             !isSelfSend ||
             isSyncMessage ||
             Message.shouldSync(message: message)
         else {
-            try MessageSender.handleSuccessfulMessageSend(db, message: message, to: destination, interactionId: interactionId)
-            seal.fulfill(())
-            return promise
+            try MessageSender.handleSuccessfulMessageSend(db, message: message, to: destination, interactionId: interactionId, using: dependencies)
+            return PreparedSendData()
         }
         
         // Attach the user's profile if needed
@@ -126,8 +311,13 @@ public final class MessageSender {
         
         // Convert it to protobuf
         guard let proto = message.toProto(db) else {
-            handleFailure(db, with: .protoConversionFailed)
-            return promise
+            throw MessageSender.handleFailedMessageSend(
+                db,
+                message: message,
+                with: .protoConversionFailed,
+                interactionId: interactionId,
+                using: dependencies
+            )
         }
         
         // Serialize the protobuf
@@ -138,8 +328,13 @@ public final class MessageSender {
         }
         catch {
             SNLog("Couldn't serialize proto due to error: \(error).")
-            handleFailure(db, with: .other(error))
-            return promise
+            throw MessageSender.handleFailedMessageSend(
+                db,
+                message: message,
+                with: .other(error),
+                interactionId: interactionId,
+                using: dependencies
+            )
         }
         
         // Encrypt the serialized protobuf
@@ -164,8 +359,13 @@ public final class MessageSender {
         }
         catch {
             SNLog("Couldn't encrypt message for destination: \(destination) due to error: \(error).")
-            handleFailure(db, with: .other(error))
-            return promise
+            throw MessageSender.handleFailedMessageSend(
+                db,
+                message: message,
+                with: .other(error),
+                interactionId: interactionId,
+                using: dependencies
+            )
         }
         
         // Wrap the result
@@ -189,18 +389,27 @@ public final class MessageSender {
         
         let wrappedMessage: Data
         do {
-            wrappedMessage = try MessageWrapper.wrap(type: kind, timestamp: message.sentTimestamp!,
-                senderPublicKey: senderPublicKey, base64EncodedContent: ciphertext.base64EncodedString())
+            wrappedMessage = try MessageWrapper.wrap(
+                type: kind,
+                timestamp: message.sentTimestamp!,
+                senderPublicKey: senderPublicKey,
+                base64EncodedContent: ciphertext.base64EncodedString()
+            )
         }
         catch {
             SNLog("Couldn't wrap message due to error: \(error).")
-            handleFailure(db, with: .other(error))
-            return promise
+            throw MessageSender.handleFailedMessageSend(
+                db,
+                message: message,
+                with: .other(error),
+                interactionId: interactionId,
+                using: dependencies
+            )
         }
         
         // Send the result
         let base64EncodedData = wrappedMessage.base64EncodedString()
-
+        
         let snodeMessage = SnodeMessage(
             recipient: message.recipient!,
             data: base64EncodedData,
@@ -208,124 +417,26 @@ public final class MessageSender {
             timestampMs: UInt64(messageSendTimestamp + SnodeAPI.clockOffset.wrappedValue)
         )
         
-        SnodeAPI
-            .sendMessage(
-                snodeMessage,
-                in: namespace
-            )
-            .done(on: DispatchQueue.global(qos: .default)) { promises in
-                let promiseCount = promises.count
-                var isSuccess = false
-                var errorCount = 0
-
-                promises.forEach {
-                    let _ = $0.done(on: DispatchQueue.global(qos: .default)) { responseData in
-                        guard !isSuccess else { return } // Succeed as soon as the first promise succeeds
-                        isSuccess = true
-
-                        Storage.shared.write { db in
-                            let responseJson: JSON? = try? JSONSerialization.jsonObject(with: responseData, options: [ .fragmentsAllowed ]) as? JSON
-                            message.serverHash = (responseJson?["hash"] as? String)
-                            
-                            try MessageSender.handleSuccessfulMessageSend(
-                                db,
-                                message: message,
-                                to: destination,
-                                interactionId: interactionId,
-                                isSyncMessage: isSyncMessage
-                            )
-                            
-                            let shouldNotify: Bool = {
-                                switch message {
-                                    case is VisibleMessage, is UnsendRequest: return !isSyncMessage
-                                    case let callMessage as CallMessage:
-                                        switch callMessage.kind {
-                                            case .preOffer: return true
-                                            default: return false
-                                        }
-                                        
-                                    default: return false
-                                }
-                            }()
-                            
-                            /*
-                            if let closedGroupControlMessage = message as? ClosedGroupControlMessage, case .new = closedGroupControlMessage.kind {
-                                shouldNotify = true
-                            }
-                             */
-                            guard shouldNotify else {
-                                seal.fulfill(())
-                                return
-                            }
-                            
-                            let job: Job? = Job(
-                                variant: .notifyPushServer,
-                                behaviour: .runOnce,
-                                details: NotifyPushServerJob.Details(message: snodeMessage)
-                            )
-                            
-                            if isMainAppActive {
-                                JobRunner.add(db, job: job)
-                                seal.fulfill(())
-                            }
-                            else if let job: Job = job {
-                                NotifyPushServerJob.run(
-                                    job,
-                                    queue: DispatchQueue.global(qos: .default),
-                                    success: { _, _ in seal.fulfill(()) },
-                                    failure: { _, _, _ in
-                                        // Always fulfill because the notify PN server job isn't critical.
-                                        seal.fulfill(())
-                                    },
-                                    deferred: { _ in
-                                        // Always fulfill because the notify PN server job isn't critical.
-                                        seal.fulfill(())
-                                    }
-                                )
-                            }
-                            else {
-                                // Always fulfill because the notify PN server job isn't critical.
-                                seal.fulfill(())
-                            }
-                        }
-                    }
-                    $0.catch(on: DispatchQueue.global(qos: .default)) { error in
-                        errorCount += 1
-                        guard errorCount == promiseCount else { return } // Only error out if all promises failed
-                        
-                        Storage.shared.read { db in
-                            handleFailure(db, with: .other(error))
-                        }
-                    }
-                }
-            }
-            .catch(on: DispatchQueue.global(qos: .default)) { error in
-                SNLog("Couldn't send message due to error: \(error).")
-                
-                Storage.shared.read { db in
-                    handleFailure(db, with: .other(error))
-                }
-            }
-        
-        return promise
+        return PreparedSendData(
+            message: message,
+            destination: destination,
+            interactionId: interactionId,
+            isSyncMessage: isSyncMessage,
+            snodeMessage: snodeMessage,
+            isClosedGroupMessage: (kind == .closedGroupMessage),
+            isConfigMessage: (message is ConfigurationMessage)
+        )
     }
-
-    // MARK: Open Groups
     
-    internal static func sendToOpenGroupDestination(
+    internal static func prepareSendToOpenGroupDestination(
         _ db: Database,
         message: Message,
         to destination: Message.Destination,
         interactionId: Int64?,
-        dependencies: SMKDependencies = SMKDependencies()
-    ) -> Promise<Void> {
-        let (promise, seal) = Promise<Void>.pending()
+        messageSendTimestamp: Int64,
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData {
         let threadId: String
-        
-        // Set the timestamp, sender and recipient
-        if message.sentTimestamp == nil { // Visible messages will already have their sent timestamp set
-            message.sentTimestamp = UInt64(floor(Date().timeIntervalSince1970 * 1000))
-        }
         
         switch destination {
             case .contact, .closedGroup, .openGroupInbox: preconditionFailure()
@@ -347,10 +458,9 @@ public final class MessageSender {
         guard
             let openGroup: OpenGroup = try? OpenGroup.fetchOne(db, id: threadId),
             let userEdKeyPair: Box.KeyPair = Identity.fetchUserEd25519KeyPair(db),
-            case .openGroup(let roomToken, let server, let whisperTo, let whisperMods, let fileIds) = destination
+            case .openGroup(_, let server, _, _, _) = destination
         else {
-            seal.reject(MessageSenderError.invalidMessage)
-            return promise
+            throw MessageSenderError.invalidMessage
         }
         
         message.sender = {
@@ -373,24 +483,21 @@ public final class MessageSender {
             return SessionId(.blinded, publicKey: blindedKeyPair.publicKey).hexString
         }()
         
-        // Set the failure handler (need it here already for precondition failure handling)
-        func handleFailure(_ db: Database, with error: MessageSenderError) {
-            MessageSender.handleFailedMessageSend(db, message: message, with: error, interactionId: interactionId)
-            seal.reject(error)
-        }
-        
         // Validate the message
-        guard let message = message as? VisibleMessage else {
+        guard
+            let message = message as? VisibleMessage,
+            message.isValid
+        else {
             #if DEBUG
-            preconditionFailure()
-            #else
-            handleFailure(db, with: MessageSenderError.invalidMessage)
-            return promise
+            if (message as? VisibleMessage) == nil { preconditionFailure() }
             #endif
-        }
-        guard message.isValid else {
-            handleFailure(db, with: .invalidMessage)
-            return promise
+            throw MessageSender.handleFailedMessageSend(
+                db,
+                message: message,
+                with: .invalidMessage,
+                interactionId: interactionId,
+                using: dependencies
+            )
         }
         
         // Attach the user's profile
@@ -399,14 +506,24 @@ public final class MessageSender {
         )
 
         if (message.profile?.displayName ?? "").isEmpty {
-            handleFailure(db, with: .noUsername)
-            return promise
+            throw MessageSender.handleFailedMessageSend(
+                db,
+                message: message,
+                with: .noUsername,
+                interactionId: interactionId,
+                using: dependencies
+            )
         }
         
         // Convert it to protobuf
         guard let proto = message.toProto(db) else {
-            handleFailure(db, with: .protoConversionFailed)
-            return promise
+            throw MessageSender.handleFailedMessageSend(
+                db,
+                message: message,
+                with: .protoConversionFailed,
+                interactionId: interactionId,
+                using: dependencies
+            )
         }
         
         // Serialize the protobuf
@@ -417,74 +534,38 @@ public final class MessageSender {
         }
         catch {
             SNLog("Couldn't serialize proto due to error: \(error).")
-            handleFailure(db, with: .other(error))
-            return promise
-        }
-        
-        // Send the result
-        OpenGroupAPI
-            .send(
+            throw MessageSender.handleFailedMessageSend(
                 db,
-                plaintext: plaintext,
-                to: roomToken,
-                on: server,
-                whisperTo: whisperTo,
-                whisperMods: whisperMods,
-                fileIds: fileIds,
+                message: message,
+                with: .other(error),
+                interactionId: interactionId,
                 using: dependencies
             )
-            .done(on: DispatchQueue.global(qos: .default)) { responseInfo, data in
-                message.openGroupServerMessageId = UInt64(data.id)
-                let serverTimestampMs: UInt64? = data.posted.map { UInt64(floor($0 * 1000)) }
-                
-                dependencies.storage.write { db in
-                    // The `posted` value is in seconds but we sent it in ms so need that for de-duping
-                    try MessageSender.handleSuccessfulMessageSend(
-                        db,
-                        message: message,
-                        to: destination,
-                        interactionId: interactionId,
-                        serverTimestampMs: serverTimestampMs
-                    )
-                    seal.fulfill(())
-                }
-            }
-            .catch(on: DispatchQueue.global(qos: .default)) { error in
-                dependencies.storage.read { db in
-                    handleFailure(db, with: .other(error))
-                }
-            }
+        }
         
-        return promise
+        return PreparedSendData(
+            message: message,
+            destination: destination,
+            interactionId: interactionId,
+            plaintext: plaintext
+        )
     }
-
-    internal static func sendToOpenGroupInboxDestination(
+    
+    internal static func prepareSendToOpenGroupInboxDestination(
         _ db: Database,
         message: Message,
         to destination: Message.Destination,
         interactionId: Int64?,
-        dependencies: SMKDependencies = SMKDependencies()
-    ) -> Promise<Void> {
-        let (promise, seal) = Promise<Void>.pending()
-        let userPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
-        
-        guard case .openGroupInbox(let server, let openGroupPublicKey, let recipientBlindedPublicKey) = destination else {
-            preconditionFailure()
-        }
-        
-        // Set the timestamp, sender and recipient
-        if message.sentTimestamp == nil { // Visible messages will already have their sent timestamp set
-            message.sentTimestamp = UInt64(floor(Date().timeIntervalSince1970 * 1000))
+        userPublicKey: String,
+        messageSendTimestamp: Int64,
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData {
+        guard case .openGroupInbox(_, let openGroupPublicKey, let recipientBlindedPublicKey) = destination else {
+            throw MessageSenderError.invalidMessage
         }
         
         message.sender = userPublicKey
         message.recipient = recipientBlindedPublicKey
-        
-        // Set the failure handler (need it here already for precondition failure handling)
-        func handleFailure(_ db: Database, with error: MessageSenderError) {
-            MessageSender.handleFailedMessageSend(db, message: message, with: error, interactionId: interactionId)
-            seal.reject(error)
-        }
         
         // Attach the user's profile if needed
         if let message: VisibleMessage = message as? VisibleMessage {
@@ -504,8 +585,13 @@ public final class MessageSender {
         
         // Convert it to protobuf
         guard let proto = message.toProto(db) else {
-            handleFailure(db, with: .protoConversionFailed)
-            return promise
+            throw MessageSender.handleFailedMessageSend(
+                db,
+                message: message,
+                with: .protoConversionFailed,
+                interactionId: interactionId,
+                using: dependencies
+            )
         }
         
         // Serialize the protobuf
@@ -516,8 +602,13 @@ public final class MessageSender {
         }
         catch {
             SNLog("Couldn't serialize proto due to error: \(error).")
-            handleFailure(db, with: .other(error))
-            return promise
+            throw MessageSender.handleFailedMessageSend(
+                db,
+                message: message,
+                with: .other(error),
+                interactionId: interactionId,
+                using: dependencies
+            )
         }
         
         // Encrypt the serialized protobuf
@@ -533,39 +624,326 @@ public final class MessageSender {
         }
         catch {
             SNLog("Couldn't encrypt message for destination: \(destination) due to error: \(error).")
-            handleFailure(db, with: .other(error))
-            return promise
+            throw MessageSender.handleFailedMessageSend(
+                db,
+                message: message,
+                with: .other(error),
+                interactionId: interactionId,
+                using: dependencies
+            )
+        }
+        
+        return PreparedSendData(
+            message: message,
+            destination: destination,
+            interactionId: interactionId,
+            ciphertext: ciphertext
+        )
+    }
+    
+    // MARK: - Sending
+    
+    public static func sendImmediate(
+        data: PreparedSendData,
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) -> AnyPublisher<Void, Error> {
+        guard data.shouldSend else {
+            return Just(())
+                .setFailureType(to: Error.self)
+                .eraseToAnyPublisher()
+        }
+        
+        switch data.destination {
+            case .contact, .closedGroup: return sendToSnodeDestination(data: data, using: dependencies)
+            case .openGroup: return sendToOpenGroupDestination(data: data, using: dependencies)
+            case .openGroupInbox: return sendToOpenGroupInbox(data: data, using: dependencies)
+            case .none:
+                return Fail(error: MessageSenderError.invalidMessage)
+                    .eraseToAnyPublisher()
+        }
+    }
+    
+    // MARK: - One-to-One
+    
+    private static func sendToSnodeDestination(
+        data: PreparedSendData,
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) -> AnyPublisher<Void, Error> {
+        guard
+            let message: Message = data.message,
+            let destination: Message.Destination = data.destination,
+            let isSyncMessage: Bool = data.isSyncMessage,
+            let snodeMessage: SnodeMessage = data.snodeMessage
+        else {
+            return Fail(error: MessageSenderError.invalidMessage)
+                .eraseToAnyPublisher()
+        }
+        
+        let isMainAppActive: Bool = (UserDefaults.sharedLokiProject?[.isMainAppActive])
+            .defaulting(to: false)
+        var isSuccess = false
+        var errorCount = 0
+        
+        return SnodeAPI
+            .sendMessage(
+                snodeMessage,
+                in: (data.isClosedGroupMessage ?
+                    .legacyClosedGroup :
+                    .default
+                )
+            )
+            .subscribe(on: DispatchQueue.global(qos: .default))
+            .flatMap { result, totalCount -> AnyPublisher<Bool, Error> in
+                switch result {
+                    case .success(let response):
+                        // Don't emit if we've already succeeded
+                        guard !isSuccess else {
+                            return Just(false)
+                                .setFailureType(to: Error.self)
+                                .eraseToAnyPublisher()
+                        }
+                        isSuccess = true
+
+                        let updatedMessage: Message = message
+                        updatedMessage.serverHash = response.1.hash
+
+                        let job: Job? = Job(
+                            variant: .notifyPushServer,
+                            behaviour: .runOnce,
+                            details: NotifyPushServerJob.Details(message: snodeMessage)
+                        )
+                        let shouldNotify: Bool = {
+                            switch updatedMessage {
+                                case is VisibleMessage, is UnsendRequest: return !isSyncMessage
+                                case let callMessage as CallMessage:
+                                    switch callMessage.kind {
+                                        case .preOffer: return true
+                                        default: return false
+                                    }
+
+                                default: return false
+                            }
+                        }()
+
+                        return dependencies.storage
+                            .writePublisher { db -> Void in
+                                try MessageSender.handleSuccessfulMessageSend(
+                                    db,
+                                    message: updatedMessage,
+                                    to: destination,
+                                    interactionId: data.interactionId,
+                                    isSyncMessage: isSyncMessage,
+                                    using: dependencies
+                                )
+
+                                guard shouldNotify && isMainAppActive else { return () }
+
+                                JobRunner.add(db, job: job)
+                                return ()
+                            }
+                            .flatMap { _ -> AnyPublisher<Bool, Error> in
+                                guard shouldNotify && !isMainAppActive else {
+                                    return Just(true)
+                                        .setFailureType(to: Error.self)
+                                        .eraseToAnyPublisher()
+                                }
+                                guard let job: Job = job else {
+                                    return Just(true)
+                                        .setFailureType(to: Error.self)
+                                        .eraseToAnyPublisher()
+                                }
+
+                                return Future<Bool, Error> { resolver in
+                                    NotifyPushServerJob.run(
+                                        job,
+                                        queue: DispatchQueue.global(qos: .default),
+                                        success: { _, _ in resolver(Result.success(true)) },
+                                        failure: { _, _, _ in
+                                            // Always fulfill because the notify PN server job isn't critical.
+                                            resolver(Result.success(true))
+                                        },
+                                        deferred: { _ in
+                                            // Always fulfill because the notify PN server job isn't critical.
+                                            resolver(Result.success(true))
+                                        }
+                                    )
+                                }
+                                .eraseToAnyPublisher()
+                            }
+                            .eraseToAnyPublisher()
+
+                    case .failure(let error):
+                        errorCount += 1
+
+                        // Only process the error if all promises failed
+                        guard errorCount == totalCount else {
+                            return Just(false)
+                                .setFailureType(to: Error.self)
+                                .eraseToAnyPublisher()
+                        }
+
+                        return Fail(error: error)
+                            .eraseToAnyPublisher()
+                }
+            }
+            .filter { $0 }
+            .handleEvents(
+                receiveCompletion: { result in
+                    switch result {
+                        case .finished: break
+                        case .failure(let error):
+                            SNLog("Couldn't send message due to error: \(error).")
+
+                            dependencies.storage.read { db in
+                                MessageSender.handleFailedMessageSend(
+                                    db,
+                                    message: message,
+                                    with: .other(error),
+                                    interactionId: data.interactionId,
+                                    using: dependencies
+                                )
+                            }
+                    }
+                }
+            )
+            .map { _ in () }
+            .eraseToAnyPublisher()
+    }
+    
+    // MARK: - Open Groups
+    
+    private static func sendToOpenGroupDestination(
+        data: PreparedSendData,
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) -> AnyPublisher<Void, Error> {
+        guard
+            let message: Message = data.message,
+            let destination: Message.Destination = data.destination,
+            case .openGroup(let roomToken, let server, let whisperTo, let whisperMods, let fileIds) = destination,
+            let plaintext: Data = data.plaintext
+        else {
+            return Fail(error: MessageSenderError.invalidMessage)
+                .eraseToAnyPublisher()
         }
         
         // Send the result
-        OpenGroupAPI
-            .send(
-                db,
-                ciphertext: ciphertext,
-                toInboxFor: recipientBlindedPublicKey,
-                on: server,
-                using: dependencies
-            )
-            .done(on: DispatchQueue.global(qos: .default)) { responseInfo, data in
-                message.openGroupServerMessageId = UInt64(data.id)
+        return dependencies.storage
+            .readPublisherFlatMap { db in
+                OpenGroupAPI
+                    .send(
+                        db,
+                        plaintext: plaintext,
+                        to: roomToken,
+                        on: server,
+                        whisperTo: whisperTo,
+                        whisperMods: whisperMods,
+                        fileIds: fileIds,
+                        using: dependencies
+                    )
+            }
+            .subscribe(on: DispatchQueue.global(qos: .default))
+            .flatMap { (responseInfo, responseData) -> AnyPublisher<Void, Error> in
+                let serverTimestampMs: UInt64? = responseData.posted.map { UInt64(floor($0 * 1000)) }
+                let updatedMessage: Message = message
+                updatedMessage.openGroupServerMessageId = UInt64(responseData.id)
                 
-                dependencies.storage.write { transaction in
+                return dependencies.storage.writePublisher { db in
+                    // The `posted` value is in seconds but we sent it in ms so need that for de-duping
                     try MessageSender.handleSuccessfulMessageSend(
                         db,
-                        message: message,
+                        message: updatedMessage,
                         to: destination,
-                        interactionId: interactionId
+                        interactionId: data.interactionId,
+                        serverTimestampMs: serverTimestampMs,
+                        using: dependencies
                     )
-                    seal.fulfill(())
+                    
+                    return ()
                 }
             }
-            .catch(on: DispatchQueue.global(qos: .default)) { error in
-                dependencies.storage.read { db in
-                    handleFailure(db, with: .other(error))
+            .handleEvents(
+                receiveCompletion: { result in
+                    switch result {
+                        case .finished: break
+                        case .failure(let error):
+                            dependencies.storage.read { db in
+                                MessageSender.handleFailedMessageSend(
+                                    db,
+                                    message: message,
+                                    with: .other(error),
+                                    interactionId: data.interactionId,
+                                    using: dependencies
+                                )
+                            }
+                    }
                 }
-            }
+            )
+            .eraseToAnyPublisher()
+    }
+    
+    private static func sendToOpenGroupInbox(
+        data: PreparedSendData,
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) -> AnyPublisher<Void, Error> {
+        guard
+            let message: Message = data.message,
+            let destination: Message.Destination = data.destination,
+            case .openGroupInbox(let server, _, let recipientBlindedPublicKey) = destination,
+            let ciphertext: Data = data.ciphertext
+        else {
+            return Fail(error: MessageSenderError.invalidMessage)
+                .eraseToAnyPublisher()
+        }
         
-        return promise
+        // Send the result
+        return dependencies.storage
+            .readPublisherFlatMap { db in
+                return OpenGroupAPI
+                    .send(
+                        db,
+                        ciphertext: ciphertext,
+                        toInboxFor: recipientBlindedPublicKey,
+                        on: server,
+                        using: dependencies
+                    )
+            }
+            .subscribe(on: DispatchQueue.global(qos: .default))
+            .flatMap { (responseInfo, responseData) -> AnyPublisher<Void, Error> in
+                let updatedMessage: Message = message
+                updatedMessage.openGroupServerMessageId = UInt64(responseData.id)
+                
+                return dependencies.storage.writePublisher { db in
+                    // The `posted` value is in seconds but we sent it in ms so need that for de-duping
+                    try MessageSender.handleSuccessfulMessageSend(
+                        db,
+                        message: updatedMessage,
+                        to: destination,
+                        interactionId: data.interactionId,
+                        serverTimestampMs: UInt64(floor(responseData.posted * 1000)),
+                        using: dependencies
+                    )
+
+                    return ()
+                }
+            }
+            .handleEvents(
+                receiveCompletion: { result in
+                    switch result {
+                        case .finished: break
+                        case .failure(let error):
+                            dependencies.storage.read { db in
+                                MessageSender.handleFailedMessageSend(
+                                    db,
+                                    message: message,
+                                    with: .other(error),
+                                    interactionId: data.interactionId,
+                                    using: dependencies
+                                )
+                            }
+                    }
+                }
+            )
+            .eraseToAnyPublisher()
     }
 
     // MARK: Success & Failure Handling
@@ -576,7 +954,8 @@ public final class MessageSender {
         to destination: Message.Destination,
         interactionId: Int64?,
         serverTimestampMs: UInt64? = nil,
-        isSyncMessage: Bool = false
+        isSyncMessage: Bool = false,
+        using dependencies: SMKDependencies = SMKDependencies()
     ) throws {
         // If the message was a reaction then we want to update the reaction instead of the original
         // interaciton (which the 'interactionId' is pointing to
@@ -650,27 +1029,34 @@ public final class MessageSender {
             if let message = message as? VisibleMessage { message.syncTarget = publicKey }
             if let message = message as? ExpirationTimerUpdate { message.syncTarget = publicKey }
             
-            // FIXME: Make this a job
-            try sendToSnodeDestination(
-                db,
-                message: message,
-                to: .contact(publicKey: userPublicKey, namespace: namespace),
-                interactionId: interactionId,
-                isSyncMessage: true
-            ).retainUntilComplete()
+            MessageSender
+                .sendToSnodeDestination(
+                    data: try prepareSendToSnodeDestination(
+                        db,
+                        message: message,
+                        to: .contact(publicKey: userPublicKey),
+                        interactionId: interactionId,
+                        userPublicKey: userPublicKey,
+                        messageSendTimestamp: Int64(floor(Date().timeIntervalSince1970 * 1000)),
+                        isSyncMessage: true
+                    ),
+                    using: dependencies
+                )
+                .sinkUntilComplete()
         }
     }
 
-    public static func handleFailedMessageSend(
+    @discardableResult private static func handleFailedMessageSend(
         _ db: Database,
         message: Message,
         with error: MessageSenderError,
-        interactionId: Int64?
-    ) {
+        interactionId: Int64?,
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) -> Error {
         // TODO: Revert the local database change
         // If the message was a reaction then we don't want to do anything to the original
         // interaciton (which the 'interactionId' is pointing to
-        guard (message as? VisibleMessage)?.reaction == nil else { return }
+        guard (message as? VisibleMessage)?.reaction == nil else { return error }
         
         // Check if we need to mark any "sending" recipients as "failed"
         //
@@ -685,12 +1071,12 @@ public final class MessageSender {
             .fetchAll(db))
             .defaulting(to: [])
         
-        guard !rowIds.isEmpty else { return }
+        guard !rowIds.isEmpty else { return error }
         
         // Need to dispatch to a different thread to prevent a potential db re-entrancy
         // issue from occuring in some cases
         DispatchQueue.global(qos: .background).async {
-            Storage.shared.write { db in
+            dependencies.storage.write { db in
                 try RecipientState
                     .filter(rowIds.contains(Column.rowID))
                     .updateAll(
@@ -700,6 +1086,8 @@ public final class MessageSender {
                     )
             }
         }
+        
+        return error
     }
     
     // MARK: - Convenience
@@ -716,28 +1104,5 @@ public final class MessageSender {
         }
         
         return nil
-    }
-}
-
-// MARK: - Objective-C Support
-
-// FIXME: Remove when possible
-
-@objc(SMKMessageSender)
-public class SMKMessageSender: NSObject {
-    @objc(leaveClosedGroupWithPublicKey:)
-    public static func objc_leave(_ groupPublicKey: String) -> AnyPromise {
-        let promise = Storage.shared.writeAsync { db in
-            try MessageSender.leave(db, groupPublicKey: groupPublicKey)
-        }
-        
-        return AnyPromise.from(promise)
-    }
-    
-    @objc(forceSyncConfigurationNow)
-    public static func objc_forceSyncConfigurationNow() {
-        Storage.shared.write { db in
-            try MessageSender.syncConfiguration(db, forceSyncNow: true).retainUntilComplete()
-        }
     }
 }

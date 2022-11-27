@@ -2,8 +2,8 @@
 
 import UIKit
 import CryptoKit
+import Combine
 import GRDB
-import PromiseKit
 import SignalCoreKit
 import SessionUtilitiesKit
 
@@ -185,22 +185,27 @@ public struct ProfileManager {
             return
         }
         
-        let queue: DispatchQueue = DispatchQueue.global(qos: .default)
         let fileName: String = UUID().uuidString.appendingFileExtension("jpg")
         let filePath: String = ProfileManager.profileAvatarFilepath(filename: fileName)
         var backgroundTask: OWSBackgroundTask? = OWSBackgroundTask(label: funcName)
         
-        queue.async {
-            OWSLogger.verbose("downloading profile avatar: \(profile.id)")
-            currentAvatarDownloads.mutate { $0.insert(profile.id) }
-            
-            let useOldServer: Bool = (profileUrlStringAtStart.contains(FileServerAPI.oldServer))
-            
-            FileServerAPI
-                .download(fileId, useOldServer: useOldServer)
-                .done(on: queue) { data in
+        OWSLogger.verbose("downloading profile avatar: \(profile.id)")
+        currentAvatarDownloads.mutate { $0.insert(profile.id) }
+        
+        let useOldServer: Bool = (profileUrlStringAtStart.contains(FileServerAPI.oldServer))
+        
+        FileServerAPI
+            .download(fileId, useOldServer: useOldServer)
+            .receive(on: DispatchQueue.global(qos: .default))
+            .sinkUntilComplete(
+                receiveCompletion: { _ in
                     currentAvatarDownloads.mutate { $0.remove(profile.id) }
                     
+                    // Redundant but without reading 'backgroundTask' it will warn that the variable
+                    // isn't used
+                    if backgroundTask != nil { backgroundTask = nil }
+                },
+                receiveValue: { data in
                     guard let latestProfile: Profile = Storage.shared.read({ db in try Profile.fetchOne(db, id: profile.id) }) else {
                         return
                     }
@@ -242,20 +247,8 @@ public struct ProfileManager {
                             .updateAll(db, Profile.Columns.profilePictureFileName.set(to: fileName))
                         profileAvatarCache.mutate { $0[fileName] = decryptedData }
                     }
-                    
-                    // Redundant but without reading 'backgroundTask' it will warn that the variable
-                    // isn't used
-                    if backgroundTask != nil { backgroundTask = nil }
                 }
-                .catch(on: queue) { _ in
-                    currentAvatarDownloads.mutate { $0.remove(profile.id) }
-                    
-                    // Redundant but without reading 'backgroundTask' it will warn that the variable
-                    // isn't used
-                    if backgroundTask != nil { backgroundTask = nil }
-                }
-                .retainUntilComplete()
-        }
+            )
     }
     
     // MARK: - Current User Profile
@@ -463,38 +456,31 @@ public struct ProfileManager {
             // Upload the avatar to the FileServer
             FileServerAPI
                 .upload(encryptedAvatarData)
-                .done(on: queue) { fileUploadResponse in
-                    let downloadUrl: String = "\(FileServerAPI.server)/files/\(fileUploadResponse.id)"
-                    UserDefaults.standard[.lastProfilePictureUpload] = Date()
-                    
-                    Storage.shared.writeAsync { db in
-                        let profile: Profile = try Profile
-                            .fetchOrCreateCurrentUser(db)
-                            .with(
-                                name: profileName,
-                                profilePictureUrl: .update(downloadUrl),
-                                profilePictureFileName: .update(fileName),
-                                profileEncryptionKey: .update(newProfileKey)
-                            )
-                            .saved(db)
+                .receive(on: queue)
+                .sinkUntilComplete(
+                    receiveCompletion: { result in
+                        switch result {
+                            case .finished: break
+                            case .failure(let error):
+                                SNLog("Updating service with profile failed.")
+                                
+                                let isMaxFileSizeExceeded: Bool = ((error as? HTTPError) == .maxFileSizeExceeded)
+                                failure?(isMaxFileSizeExceeded ?
+                                    .avatarUploadMaxFileSizeExceeded :
+                                    .avatarUploadFailed
+                                )
+                        }
+                    },
+                    receiveValue: { fileUploadResponse in
+                        let downloadUrl: String = "\(FileServerAPI.server)/files/\(fileUploadResponse.id)"
                         
                         // Update the cached avatar image value
                         profileAvatarCache.mutate { $0[fileName] = data }
                         
-                        SNLog("Successfully updated service with profile.")
-                        try success?(db, profile)
+                        SNLog("Successfully uploaded avatar image.")
+                        success((downloadUrl, fileName), newProfileKey)
                     }
-                }
-                .recover(on: queue) { error in
-                    SNLog("Updating service with profile failed.")
-                    
-                    let isMaxFileSizeExceeded: Bool = ((error as? HTTP.Error) == HTTP.Error.maxFileSizeExceeded)
-                    failure?(isMaxFileSizeExceeded ?
-                        .avatarUploadMaxFileSizeExceeded :
-                        .avatarUploadFailed
-                    )
-                }
-                .retainUntilComplete()
+                )
         }
     }
 }

@@ -1,8 +1,9 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
-import PromiseKit
+import SignalCoreKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalCoreKit
@@ -54,7 +55,8 @@ public enum SyncPushTokensJob: JobExecutor {
         let currentAppVersion: String? = AppVersion.sharedInstance().currentAppVersion
         
         PushRegistrationManager.shared.requestPushTokens()
-            .then(on: queue) { (pushToken: String, voipToken: String) -> Promise<Void> in
+            .subscribe(on: queue)
+            .flatMap { (pushToken: String, voipToken: String) -> AnyPublisher<Void, Error> in
                 let lastPushToken: String? = Storage.shared[.lastRecordedPushToken]
                 let lastVoipToken: String? = Storage.shared[.lastRecordedVoipToken]
                 let shouldUploadTokens: Bool = (
@@ -65,30 +67,44 @@ public enum SyncPushTokensJob: JobExecutor {
                     lastAppVersion != currentAppVersion
                 )
 
-                guard shouldUploadTokens else { return Promise.value(()) }
+                guard shouldUploadTokens else {
+                    return Just(())
+                        .setFailureType(to: Error.self)
+                        .eraseToAnyPublisher()
+                }
                 
-                let (promise, seal) = Promise<Void>.pending()
-                
-                SyncPushTokensJob.registerForPushNotifications(
-                    pushToken: pushToken,
-                    voipToken: voipToken,
-                    isForcedUpdate: shouldUploadTokens,
-                    success: { seal.fulfill(()) },
-                    failure: seal.reject
-                )
-                
-                return promise
-                    .done(on: queue) { _ in
-                        Logger.warn("Recording push tokens locally. pushToken: \(redact(pushToken)), voipToken: \(redact(voipToken))")
+                return Future<Void, Error> { resolver in
+                    SyncPushTokensJob.registerForPushNotifications(
+                        pushToken: pushToken,
+                        voipToken: voipToken,
+                        isForcedUpdate: shouldUploadTokens,
+                        // TODO: Remove the 'Swift.'
+                        success: { resolver(Swift.Result.success(())) },
+                        // TODO: Remove the 'Swift.'
+                        failure: { resolver(Swift.Result.failure($0)) }
+                    )
+                }
+                .handleEvents(
+                    receiveCompletion: { result in
+                        switch result {
+                            case .failure: break
+                            case .finished:
+                                Logger.warn("Recording push tokens locally. pushToken: \(redact(pushToken)), voipToken: \(redact(voipToken))")
 
-                        Storage.shared.write { db in
-                            db[.lastRecordedPushToken] = pushToken
-                            db[.lastRecordedVoipToken] = voipToken
+                                Storage.shared.write { db in
+                                    db[.lastRecordedPushToken] = pushToken
+                                    db[.lastRecordedVoipToken] = voipToken
+                                }
                         }
                     }
+                )
+                .eraseToAnyPublisher()
             }
-            .ensure(on: queue) { success(job, false) }    // We want to complete this job regardless of success or failure
-            .retainUntilComplete()
+            .sinkUntilComplete(
+                // We want to complete this job regardless of success or failure
+                receiveCompletion: { _ in success(job, false) },
+                receiveValue: { _ in }
+            )
     }
     
     public static func run(uploadOnlyIfStale: Bool) {
@@ -134,19 +150,26 @@ extension SyncPushTokensJob {
         remainingRetries: Int = 3
     ) {
         let isUsingFullAPNs: Bool = UserDefaults.standard[.isUsingFullAPNs]
-        let pushTokenAsData = Data(hex: pushToken)
-        let promise: Promise<Void> = (isUsingFullAPNs ?
-            PushNotificationAPI.register(
-                with: pushTokenAsData,
-                publicKey: getUserHexEncodedPublicKey(),
-                isForcedUpdate: isForcedUpdate
-            ) :
-            PushNotificationAPI.unregister(pushTokenAsData)
-        )
         
-        promise
-            .done { success() }
-            .catch { error in
+        Just(Data(hex: pushToken))
+            .setFailureType(to: Error.self)
+            .flatMap { pushTokenAsData -> AnyPublisher<Bool, Error> in
+                guard isUsingFullAPNs else {
+                    return PushNotificationAPI.unregister(pushTokenAsData)
+                        .map { _ in true }
+                        .eraseToAnyPublisher()
+                }
+                
+                return PushNotificationAPI
+                    .register(
+                        with: pushTokenAsData,
+                        publicKey: getUserHexEncodedPublicKey(),
+                        isForcedUpdate: isForcedUpdate
+                    )
+                    .map { _ in true }
+                    .eraseToAnyPublisher()
+            }
+            .catch { error -> AnyPublisher<Bool, Error> in
                 guard remainingRetries == 0 else {
                     SyncPushTokensJob.registerForPushNotifications(
                         pushToken: pushToken,
@@ -156,11 +179,28 @@ extension SyncPushTokensJob {
                         failure: failure,
                         remainingRetries: (remainingRetries - 1)
                     )
-                    return
+                    
+                    return Just(false)
+                        .setFailureType(to: Error.self)
+                        .eraseToAnyPublisher()
                 }
                 
-                failure(error)
+                return Fail(error: error)
+                    .eraseToAnyPublisher()
             }
-            .retainUntilComplete()
+            .sinkUntilComplete(
+                receiveCompletion: { result in
+                    // TODO: Test these are called correctly
+                    switch result {
+                        case .finished: break
+                        case .failure(let error): failure(error)
+                    }
+                },
+                receiveValue: { didComplete in
+                    guard didComplete else { return }
+                    
+                    success()
+                }
+            )
     }
 }

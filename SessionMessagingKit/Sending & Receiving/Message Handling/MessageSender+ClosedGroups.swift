@@ -1,16 +1,20 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
 import Sodium
 import Curve25519Kit
-import PromiseKit
 import SessionUtilitiesKit
 
 extension MessageSender {
     public static var distributingKeyPairs: Atomic<[String: [ClosedGroupKeyPair]]> = Atomic([:])
     
-    public static func createClosedGroup(_ db: Database, name: String, members: Set<String>) throws -> Promise<SessionThread> {
+    public static func createClosedGroup(
+        _ db: Database,
+        name: String,
+        members: Set<String>
+    ) -> AnyPublisher<SessionThread, Error> {
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         var members: Set<String> = members
         
@@ -25,98 +29,114 @@ extension MessageSender {
         let admins = [ userPublicKey ]
         let adminsAsData = admins.map { Data(hex: $0) }
         let formationTimestamp: TimeInterval = Date().timeIntervalSince1970
-        let thread: SessionThread = try SessionThread
-            .fetchOrCreate(db, id: groupPublicKey, variant: .closedGroup)
-        try ClosedGroup(
-            threadId: groupPublicKey,
-            name: name,
-            formationTimestamp: formationTimestamp
-        ).insert(db)
+        let thread: SessionThread
+        let memberSendData: [MessageSender.PreparedSendData]
         
-        try admins.forEach { adminId in
-            try GroupMember(
-                groupId: groupPublicKey,
-                profileId: adminId,
-                role: .admin,
-                isHidden: false
+        do {
+            // Create the relevant objects in the database
+            thread = try SessionThread
+                .fetchOrCreate(db, id: groupPublicKey, variant: .closedGroup)
+            try ClosedGroup(
+                threadId: groupPublicKey,
+                name: name,
+                formationTimestamp: formationTimestamp
             ).insert(db)
-        }
-        
-        // Send a closed group update message to all members individually
-        var promises: [Promise<Void>] = []
-        
-        try members.forEach { memberId in
-            try GroupMember(
-                groupId: groupPublicKey,
-                profileId: memberId,
-                role: .standard,
-                isHidden: false
-            ).insert(db)
-        }
-        
-        try members.forEach { memberId in
-            let contactThread: SessionThread = try SessionThread
-                .fetchOrCreate(db, id: memberId, variant: .contact)
             
-            // Sending this non-durably is okay because we show a loader to the user. If they
-            // close the app while the loader is still showing, it's within expectation that
-            // the group creation might be incomplete.
-            promises.append(
-                try MessageSender.sendNonDurably(
-                    db,
-                    message: ClosedGroupControlMessage(
-                        kind: .new(
-                            publicKey: Data(hex: groupPublicKey),
-                            name: name,
-                            encryptionKeyPair: Box.KeyPair(
-                                publicKey: encryptionKeyPair.publicKey.bytes,
-                                secretKey: encryptionKeyPair.privateKey.bytes
+            // Store the key pair
+            try ClosedGroupKeyPair(
+                threadId: groupPublicKey,
+                publicKey: encryptionKeyPair.publicKey,
+                secretKey: encryptionKeyPair.privateKey,
+                receivedTimestamp: Date().timeIntervalSince1970
+            ).insert(db)
+            
+            // Create the member objects
+            try admins.forEach { adminId in
+                try GroupMember(
+                    groupId: groupPublicKey,
+                    profileId: adminId,
+                    role: .admin,
+                    isHidden: false
+                ).insert(db)
+            }
+            
+            try members.forEach { memberId in
+                try GroupMember(
+                    groupId: groupPublicKey,
+                    profileId: memberId,
+                    role: .standard,
+                    isHidden: false
+                ).insert(db)
+            }
+            
+            // Notify the user
+            //
+            // Note: Intentionally don't want a 'serverHash' for closed group creation
+            _ = try Interaction(
+                threadId: thread.id,
+                authorId: userPublicKey,
+                variant: .infoClosedGroupCreated,
+                timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
+            ).inserted(db)
+            
+            memberSendData = try members
+                .map { memberId -> MessageSender.PreparedSendData in
+                    try MessageSender.preparedSendData(
+                        db,
+                        message: LegacyClosedGroupControlMessage(
+                            kind: .new(
+                                publicKey: Data(hex: groupPublicKey),
+                                name: name,
+                                encryptionKeyPair: Box.KeyPair(
+                                    publicKey: encryptionKeyPair.publicKey.bytes,
+                                    secretKey: encryptionKeyPair.privateKey.bytes
+                                ),
+                                members: membersAsData,
+                                admins: adminsAsData,
+                                expirationTimer: 0
                             ),
-                            members: membersAsData,
-                            admins: adminsAsData,
-                            expirationTimer: 0
+                            // Note: We set this here to ensure the value matches
+                            // the 'ClosedGroup' object we created
+                            sentTimestampMs: UInt64(floor(formationTimestamp * 1000))
                         ),
-                        // Note: We set this here to ensure the value matches the 'ClosedGroup'
-                        // object we created
-                        sentTimestampMs: UInt64(floor(formationTimestamp * 1000))
-                    ),
-                    interactionId: nil,
-                    in: contactThread
-                )
-            )
+                        to: try Message.Destination.from(db, thread: thread),
+                        interactionId: nil
+                    )
+                }
+        }
+        catch {
+            return Fail(error: error)
+                .eraseToAnyPublisher()
         }
         
-        // Store the key pair
-        try ClosedGroupKeyPair(
-            threadId: groupPublicKey,
-            publicKey: encryptionKeyPair.publicKey,
-            secretKey: encryptionKeyPair.privateKey,
-            receivedTimestamp: Date().timeIntervalSince1970
-        ).insert(db)
-        
-        // Notify the PN server
-        promises.append(
-            PushNotificationAPI.performOperation(
-                .subscribe,
-                for: groupPublicKey,
-                publicKey: userPublicKey
+        return Publishers
+            .MergeMany(
+                // Send a closed group update message to all members individually
+                memberSendData
+                    .map { MessageSender.sendImmediate(data: $0) }
+                    .appending(
+                        // Notify the PN server
+                        PushNotificationAPI.performOperation(
+                            .subscribe,
+                            for: groupPublicKey,
+                            publicKey: userPublicKey
+                        )
+                    )
             )
-        )
-        
-        // Notify the user
-        //
-        // Note: Intentionally don't want a 'serverHash' for closed group creation
-        _ = try Interaction(
-            threadId: thread.id,
-            authorId: userPublicKey,
-            variant: .infoClosedGroupCreated,
-            timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
-        ).inserted(db)
-        
-        // Start polling
-        ClosedGroupPoller.shared.startPolling(for: groupPublicKey)
-        
-        return when(fulfilled: promises).map2 { thread }
+            .collect()
+            .map { _ in thread }
+            .eraseToAnyPublisher()
+            .handleEvents(
+                receiveCompletion: { result in
+                    switch result {
+                        case .failure: break
+                        case .finished:
+                            // Start polling
+                            ClosedGroupPoller.shared.startIfNeeded(for: groupPublicKey)
+                    }
+                }
+            )
+            .eraseToAnyPublisher()
     }
 
     /// Generates and distributes a new encryption key pair for the group with the given closed group. This sends an
@@ -132,34 +152,39 @@ extension MessageSender {
         allGroupMembers: [GroupMember],
         closedGroup: ClosedGroup,
         thread: SessionThread
-    ) throws -> Promise<Void> {
+    ) -> AnyPublisher<Void, Error> {
         guard allGroupMembers.contains(where: { $0.role == .admin && $0.profileId == userPublicKey }) else {
-            return Promise(error: MessageSenderError.invalidClosedGroupUpdate)
+            return Fail(error: MessageSenderError.invalidClosedGroupUpdate)
+                .eraseToAnyPublisher()
         }
-        // Generate the new encryption key pair
-        let legacyNewKeyPair: ECKeyPair = Curve25519.generateKeyPair()
-        let newKeyPair: ClosedGroupKeyPair = ClosedGroupKeyPair(
-            threadId: closedGroup.threadId,
-            publicKey: legacyNewKeyPair.publicKey,
-            secretKey: legacyNewKeyPair.privateKey,
-            receivedTimestamp: Date().timeIntervalSince1970
-        )
         
-        // Distribute it
-        let proto = try SNProtoKeyPair.builder(
-            publicKey: newKeyPair.publicKey,
-            privateKey: newKeyPair.secretKey
-        ).build()
-        let plaintext = try proto.serializedData()
-        
-        distributingKeyPairs.mutate {
-            $0[closedGroup.id] = ($0[closedGroup.id] ?? [])
-                .appending(newKeyPair)
-        }
+        let newKeyPair: ClosedGroupKeyPair
+        let sendData: MessageSender.PreparedSendData
         
         do {
-            return try MessageSender
-                .sendNonDurably(
+            // Generate the new encryption key pair
+            let legacyNewKeyPair: ECKeyPair = Curve25519.generateKeyPair()
+            newKeyPair = ClosedGroupKeyPair(
+                threadId: closedGroup.threadId,
+                publicKey: legacyNewKeyPair.publicKey,
+                secretKey: legacyNewKeyPair.privateKey,
+                receivedTimestamp: Date().timeIntervalSince1970
+            )
+            
+            // Distribute it
+            let proto = try SNProtoKeyPair.builder(
+                publicKey: newKeyPair.publicKey,
+                privateKey: newKeyPair.secretKey
+            ).build()
+            let plaintext = try proto.serializedData()
+            
+            distributingKeyPairs.mutate {
+                $0[closedGroup.id] = ($0[closedGroup.id] ?? [])
+                    .appending(newKeyPair)
+            }
+            
+            sendData = try MessageSender
+                .preparedSendData(
                     db,
                     message: ClosedGroupControlMessage(
                         kind: .encryptionKeyPair(
@@ -175,27 +200,35 @@ extension MessageSender {
                             }
                         )
                     ),
-                    interactionId: nil,
-                    in: thread
+                    to: try Message.Destination.from(db, thread: thread),
+                    interactionId: nil
                 )
-                .done {
+        }
+        catch {
+            return Fail(error: error)
+                .eraseToAnyPublisher()
+        }
+        
+        return MessageSender.sendImmediate(data: sendData)
+            .map { _ in newKeyPair }
+            .eraseToAnyPublisher()
+            .handleEvents(
+                receiveOutput: { newKeyPair in
                     /// Store it **after** having sent out the message to the group
                     Storage.shared.write { db in
                         try newKeyPair.insert(db)
-                        
-                        distributingKeyPairs.mutate {
-                            if let index = ($0[closedGroup.id] ?? []).firstIndex(of: newKeyPair) {
-                                $0[closedGroup.id] = ($0[closedGroup.id] ?? [])
-                                    .removing(index: index)
-                            }
+                    }
+                    
+                    distributingKeyPairs.mutate {
+                        if let index = ($0[closedGroup.id] ?? []).firstIndex(of: newKeyPair) {
+                            $0[closedGroup.id] = ($0[closedGroup.id] ?? [])
+                                .removing(index: index)
                         }
                     }
                 }
-                .map { _ in }
-        }
-        catch {
-            return Promise(error: MessageSenderError.invalidClosedGroupUpdate)
-        }
+            )
+            .map { _ in () }
+            .eraseToAnyPublisher()
     }
     
     public static func update(
@@ -203,51 +236,59 @@ extension MessageSender {
         groupPublicKey: String,
         with members: Set<String>,
         name: String
-    ) throws -> Promise<Void> {
+    ) -> AnyPublisher<Void, Error> {
         // Get the group, check preconditions & prepare
         guard let thread: SessionThread = try? SessionThread.fetchOne(db, id: groupPublicKey) else {
             SNLog("Can't update nonexistent closed group.")
-            return Promise(error: MessageSenderError.noThread)
+            return Fail(error: MessageSenderError.noThread)
+                .eraseToAnyPublisher()
         }
         guard let closedGroup: ClosedGroup = try? thread.closedGroup.fetchOne(db) else {
-            return Promise(error: MessageSenderError.invalidClosedGroupUpdate)
+            return Fail(error: MessageSenderError.invalidClosedGroupUpdate)
+                .eraseToAnyPublisher()
         }
         
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         
-        // Update name if needed
-        if name != closedGroup.name {
-            // Update the group
-            _ = try ClosedGroup
-                .filter(id: closedGroup.id)
-                .updateAll(db, ClosedGroup.Columns.name.set(to: name))
-            
-            // Notify the user
-            let interaction: Interaction = try Interaction(
-                threadId: thread.id,
-                authorId: userPublicKey,
-                variant: .infoClosedGroupUpdated,
-                body: ClosedGroupControlMessage.Kind
-                    .nameChange(name: name)
-                    .infoMessage(db, sender: userPublicKey),
-                timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
-            ).inserted(db)
-            
-            guard let interactionId: Int64 = interaction.id else { throw StorageError.objectNotSaved }
-            
-            // Send the update to the group
-            let closedGroupControlMessage = ClosedGroupControlMessage(kind: .nameChange(name: name))
-            try MessageSender.send(
-                db,
-                message: closedGroupControlMessage,
-                interactionId: interactionId,
-                in: thread
-            )
+        do {
+            // Update name if needed
+            if name != closedGroup.name {
+                // Update the group
+                _ = try ClosedGroup
+                    .filter(id: closedGroup.id)
+                    .updateAll(db, ClosedGroup.Columns.name.set(to: name))
+                
+                // Notify the user
+                let interaction: Interaction = try Interaction(
+                    threadId: thread.id,
+                    authorId: userPublicKey,
+                    variant: .infoClosedGroupUpdated,
+                    body: LegacyClosedGroupControlMessage.Kind
+                        .nameChange(name: name)
+                        .infoMessage(db, sender: userPublicKey),
+                    timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
+                ).inserted(db)
+                
+                guard let interactionId: Int64 = interaction.id else { throw StorageError.objectNotSaved }
+                
+                // Send the update to the group
+                try MessageSender.send(
+                    db,
+                    message: LegacyClosedGroupControlMessage(kind: .nameChange(name: name)),
+                    interactionId: interactionId,
+                    in: thread
+                )
+            }
+        }
+        catch {
+            return Fail(error: error)
+                .eraseToAnyPublisher()
         }
         
         // Retrieve member info
         guard let allGroupMembers: [GroupMember] = try? closedGroup.allMembers.fetchAll(db) else {
-            return Promise(error: MessageSenderError.invalidClosedGroupUpdate)
+            return Fail(error: MessageSenderError.invalidClosedGroupUpdate)
+                .eraseToAnyPublisher()
         }
                             
         let standardAndZombieMemberIds: [String] = allGroupMembers
@@ -268,7 +309,8 @@ extension MessageSender {
                 )
             }
             catch {
-                return Promise(error: MessageSenderError.invalidClosedGroupUpdate)
+                return Fail(error: MessageSenderError.invalidClosedGroupUpdate)
+                    .eraseToAnyPublisher()
             }
         }
         
@@ -287,11 +329,14 @@ extension MessageSender {
                 )
             }
             catch {
-                return Promise(error: MessageSenderError.invalidClosedGroupUpdate)
+                return Fail(error: MessageSenderError.invalidClosedGroupUpdate)
+                    .eraseToAnyPublisher()
             }
         }
         
-        return Promise.value(())
+        return Just(())
+            .setFailureType(to: Error.self)
+            .eraseToAnyPublisher()
     }
     
 
@@ -395,7 +440,7 @@ extension MessageSender {
         allGroupMembers: [GroupMember],
         closedGroup: ClosedGroup,
         thread: SessionThread
-    ) throws -> Promise<Void> {
+    ) throws -> AnyPublisher<Void, Error> {
         guard !removedMembers.contains(userPublicKey) else {
             SNLog("Invalid closed group update.")
             throw MessageSenderError.invalidClosedGroupUpdate
@@ -443,19 +488,22 @@ extension MessageSender {
         }
         
         // Send the update to the group and generate + distribute a new encryption key pair
-        let promise = try MessageSender
-            .sendNonDurably(
-                db,
-                message: ClosedGroupControlMessage(
-                    kind: .membersRemoved(
-                        members: removedMembers.map { Data(hex: $0) }
+        return MessageSender
+            .sendImmediate(
+                data: try MessageSender
+                    .preparedSendData(
+                        db,
+                        message: LegacyClosedGroupControlMessage(
+                            kind: .membersRemoved(
+                                members: removedMembers.map { Data(hex: $0) }
+                            )
+                        ),
+                        to: try Message.Destination.from(db, thread: thread),
+                        interactionId: interactionId
                     )
-                ),
-                interactionId: interactionId,
-                in: thread
             )
-            .map { _ in
-                try generateAndSendNewEncryptionKeyPair(
+            .flatMap { _ -> AnyPublisher<Void, Error> in
+                generateAndSendNewEncryptionKeyPair(
                     db,
                     targetMembers: members,
                     userPublicKey: userPublicKey,
@@ -464,9 +512,7 @@ extension MessageSender {
                     thread: thread
                 )
             }
-            .map { _ in }
-        
-        return promise
+            .eraseToAnyPublisher()
     }
     
     /// Leave the group with the given `groupPublicKey`. If the current user is the admin, the group is disbanded entirely. If the
@@ -477,104 +523,93 @@ extension MessageSender {
     /// unregisters from push notifications.
     ///
     /// The returned promise is fulfilled when the `MEMBER_LEFT` message has been sent to the group.
-    public static func leave(_ db: Database, groupPublicKey: String) throws -> Promise<Void> {
+    public static func leave(
+        _ db: Database,
+        groupPublicKey: String
+    ) -> AnyPublisher<Void, Error> {
         guard let thread: SessionThread = try? SessionThread.fetchOne(db, id: groupPublicKey) else {
             SNLog("Can't leave nonexistent closed group.")
-            return Promise(error: MessageSenderError.noThread)
+            return Fail(error: MessageSenderError.noThread)
+                .eraseToAnyPublisher()
         }
-        guard let closedGroup: ClosedGroup = try? thread.closedGroup.fetchOne(db) else {
-            return Promise(error: MessageSenderError.invalidClosedGroupUpdate)
+        guard thread.closedGroup.isNotEmpty(db) else {
+            return Fail(error: MessageSenderError.invalidClosedGroupUpdate)
+                .eraseToAnyPublisher()
         }
         
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let sendData: MessageSender.PreparedSendData
         
-        // Notify the user
-        let interaction: Interaction = try Interaction(
-            threadId: thread.id,
-            authorId: userPublicKey,
-            variant: .infoClosedGroupCurrentUserLeft,
-            body: ClosedGroupControlMessage.Kind
-                .memberLeft
-                .infoMessage(db, sender: userPublicKey),
-            timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
-        ).inserted(db)
-        
-        guard let interactionId: Int64 = interaction.id else {
-            throw StorageError.objectNotSaved
-        }
-        
-        // Send the update to the group
-        let promise = try MessageSender
-            .sendNonDurably(
-                db,
-                message: ClosedGroupControlMessage(
-                    kind: .memberLeft
-                ),
-                interactionId: interactionId,
-                in: thread
-            )
-            .done {
-                // Remove the group from the database and unsubscribe from PNs
-                ClosedGroupPoller.shared.stopPolling(for: groupPublicKey)
-                
-                Storage.shared.write { db in
-                    try closedGroup
-                        .keyPairs
-                        .deleteAll(db)
-                    
-                    let _ = PushNotificationAPI.performOperation(
-                        .unsubscribe,
-                        for: groupPublicKey,
-                        publicKey: userPublicKey
-                    )
-                }
+        do {
+            // Notify the user
+            let interaction: Interaction = try Interaction(
+                threadId: thread.id,
+                authorId: userPublicKey,
+                variant: .infoClosedGroupCurrentUserLeft,
+                body: LegacyClosedGroupControlMessage.Kind
+                    .memberLeft
+                    .infoMessage(db, sender: userPublicKey),
+                timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
+            ).inserted(db)
+            
+            guard let interactionId: Int64 = interaction.id else {
+                return Fail(error: StorageError.objectNotSaved)
+                    .eraseToAnyPublisher()
             }
-            .map { _ in }
-        
-        // Update the group (if the admin leaves the group is disbanded)
-        let wasAdminUser: Bool = try GroupMember
-            .filter(GroupMember.Columns.groupId == thread.id)
-            .filter(GroupMember.Columns.profileId == userPublicKey)
-            .filter(GroupMember.Columns.role == GroupMember.Role.admin)
-            .isNotEmpty(db)
-        
-        if wasAdminUser {
-            try GroupMember
-                .filter(GroupMember.Columns.groupId == thread.id)
-                .deleteAll(db)
-        }
-        else {
-            try GroupMember
+            
+            // Send the update to the group
+            sendData = try MessageSender
+                .preparedSendData(
+                    db,
+                    message: LegacyClosedGroupControlMessage(
+                        kind: .memberLeft
+                    ),
+                    to: try Message.Destination.from(db, thread: thread),
+                    interactionId: interactionId
+                )
+            
+            // Update the group (if the admin leaves the group is disbanded)
+            let wasAdminUser: Bool = GroupMember
                 .filter(GroupMember.Columns.groupId == thread.id)
                 .filter(GroupMember.Columns.profileId == userPublicKey)
-                .deleteAll(db)
+                .filter(GroupMember.Columns.role == GroupMember.Role.admin)
+                .isNotEmpty(db)
+            
+            if wasAdminUser {
+                try GroupMember
+                    .filter(GroupMember.Columns.groupId == thread.id)
+                    .deleteAll(db)
+            }
+            else {
+                try GroupMember
+                    .filter(GroupMember.Columns.groupId == thread.id)
+                    .filter(GroupMember.Columns.profileId == userPublicKey)
+                    .deleteAll(db)
+            }
+        }
+        catch {
+            return Fail(error: error)
+                .eraseToAnyPublisher()
         }
         
-        // Return
-        return promise
+        return MessageSender
+            .sendImmediate(data: sendData)
+            .handleEvents(
+                receiveCompletion: { result in
+                    switch result {
+                        case .failure: break
+                        case .finished: try? ClosedGroup.removeKeysAndUnsubscribe(threadId: groupPublicKey)
+                    }
+                }
+            )
+            .eraseToAnyPublisher()
     }
     
-    /*
-    public static func requestEncryptionKeyPair(for groupPublicKey: String, using transaction: YapDatabaseReadWriteTransaction) throws {
-        #if DEBUG
-        preconditionFailure("Shouldn't currently be in use.")
-        #endif
-        // Get the group, check preconditions & prepare
-        let groupID = LKGroupUtilities.getEncodedClosedGroupIDAsData(groupPublicKey)
-        let threadID = TSGroupThread.threadId(fromGroupId: groupID)
-        guard let thread = TSGroupThread.fetch(uniqueId: threadID, transaction: transaction) else {
-            SNLog("Can't request encryption key pair for nonexistent closed group.")
-            throw Error.noThread
-        }
-        let group = thread.groupModel
-        guard group.groupMemberIds.contains(getUserHexEncodedPublicKey()) else { return }
-        // Send the request to the group
-        let closedGroupControlMessage = ClosedGroupControlMessage(kind: .encryptionKeyPairRequest)
-        MessageSender.send(closedGroupControlMessage, in: thread, using: transaction)
-    }
-     */
-    
-    public static func sendLatestEncryptionKeyPair(_ db: Database, to publicKey: String, for groupPublicKey: String) {
+    public static func sendLatestEncryptionKeyPair(
+        _ db: Database,
+        to publicKey: String,
+        for groupPublicKey: String
+    ) {
         guard let thread: SessionThread = try? SessionThread.fetchOne(db, id: groupPublicKey) else {
             return SNLog("Couldn't send key pair for nonexistent closed group.")
         }

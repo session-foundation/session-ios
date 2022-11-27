@@ -485,7 +485,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         
             try MessageSender
                 .syncConfiguration(db, forceSyncNow: true)
-                .retainUntilComplete()
+                .sinkUntilComplete()
         }
     }
     

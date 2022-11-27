@@ -1,7 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import PromiseKit
+import Combine
 import SessionUtilitiesKit
 import SessionSnodeKit
 import SignalCoreKit
@@ -84,119 +84,150 @@ public enum AttachmentDownloadJob: JobExecutor {
         let temporaryFileUrl: URL = URL(
             fileURLWithPath: OWSTemporaryDirectoryAccessibleAfterFirstAuth() + UUID().uuidString
         )
-        let downloadPromise: Promise<Data> = {
-            guard
-                let downloadUrl: String = attachment.downloadUrl,
-                let fileId: String = Attachment.fileId(for: downloadUrl)
-            else {
-                return Promise(error: AttachmentDownloadError.invalidUrl)
-            }
-            
-            let maybeOpenGroupDownloadPromise: Promise<Data>? = Storage.shared.read({ db in
-                guard let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId) else {
-                    return nil  // Not an open group so just use standard FileServer upload
-                }
-                
-                return OpenGroupAPI.downloadFile(db, fileId: fileId, from: openGroup.roomToken, on: openGroup.server)
-                    .map { _, data in data }
-            })
-            
-            return (
-                maybeOpenGroupDownloadPromise ??
-                FileServerAPI.download(fileId, useOldServer: downloadUrl.contains(FileServerAPI.oldServer))
-            )
-        }()
         
-        downloadPromise
-            .then(on: queue) { data -> Promise<Void> in
-                try data.write(to: temporaryFileUrl, options: .atomic)
-                
-                let plaintext: Data = try {
-                    guard
-                        let key: Data = attachment.encryptionKey,
-                        let digest: Data = attachment.digest,
-                        key.count > 0,
-                        digest.count > 0
-                    else { return data } // Open group attachments are unencrypted
-                        
-                    return try Cryptography.decryptAttachment(
-                        data,
-                        withKey: key,
-                        digest: digest,
-                        unpaddedSize: UInt32(attachment.byteCount)
-                    )
-                }()
-                
-                guard try attachment.write(data: plaintext) else {
-                    throw AttachmentDownloadError.failedToSaveFile
+        Just(attachment.downloadUrl)
+            .setFailureType(to: Error.self)
+            .flatMap { maybeDownloadUrl -> AnyPublisher<Data, Error> in
+                guard
+                    let downloadUrl: String = maybeDownloadUrl,
+                    let fileId: String = Attachment.fileId(for: downloadUrl)
+                else {
+                    return Fail(error: AttachmentDownloadError.invalidUrl)
+                        .eraseToAnyPublisher()
                 }
                 
-                return Promise.value(())
-            }
-            .done(on: queue) {
-                // Remove the temporary file
-                OWSFileSystem.deleteFile(temporaryFileUrl.path)
-                
-                /// Update the attachment state
-                ///
-                /// **Note:** We **MUST** use the `'with()` function here as it will update the
-                /// `isValid` and `duration` values based on the downloaded data and the state
-                Storage.shared.write { db in
-                    _ = try attachment
-                        .with(
-                            state: .downloaded,
-                            creationTimestamp: Date().timeIntervalSince1970,
-                            localRelativeFilePath: (
-                                attachment.localRelativeFilePath ??
-                                Attachment.localRelativeFilePath(from: attachment.originalFilePath)
-                            )
-                        )
-                        .saved(db)
-                }
-                
-                success(job, false)
-            }
-            .catch(on: queue) { error in
-                OWSFileSystem.deleteFile(temporaryFileUrl.path)
-                
-                let targetState: Attachment.State
-                let permanentFailure: Bool
-                
-                switch error {
-                    /// If we get a 404 then we got a successful response from the server but the attachment doesn't
-                    /// exist, in this case update the attachment to an "invalid" state so the user doesn't get stuck in
-                    /// a retry download loop
-                    case OnionRequestAPIError.httpRequestFailedAtDestination(let statusCode, _, _) where statusCode == 404:
-                        targetState = .invalid
-                        permanentFailure = true
+                return Storage.shared
+                    .readPublisher { db in try OpenGroup.fetchOne(db, id: threadId) }
+                    .flatMap { maybeOpenGroup -> AnyPublisher<Data, Error> in
+                        guard let openGroup: OpenGroup = maybeOpenGroup else {
+                            return FileServerAPI
+                                .download(
+                                    fileId,
+                                    useOldServer: downloadUrl.contains(FileServerAPI.oldServer)
+                                )
+                                .eraseToAnyPublisher()
+                        }
                         
-                    case OnionRequestAPIError.httpRequestFailedAtDestination(let statusCode, _, _) where statusCode == 400 || statusCode == 401:
-                        /// If we got a 400 or a 401 then we want to fail the download in a way that has to be manually retried as it's
-                        /// likely something else is going on that caused the failure
-                        targetState = .failedDownload
-                        permanentFailure = true
+                        return Storage.shared
+                            .readPublisherFlatMap { db in
+                                OpenGroupAPI
+                                    .downloadFile(
+                                        db,
+                                        fileId: fileId,
+                                        from: openGroup.roomToken,
+                                        on: openGroup.server
+                                    )
+                            }
+                            .map { _, data in data }
+                            .eraseToAnyPublisher()
+                    }
+                    .eraseToAnyPublisher()
+            }
+            .flatMap { data -> AnyPublisher<Void, Error> in
+                do {
+                    // Store the encrypted data temporarily
+                    try data.write(to: temporaryFileUrl, options: .atomic)
                     
-                    /// For any other error it's likely either the server is down or something weird just happened with the request
-                    /// so we want to automatically retry
-                    default:
-                        targetState = .failedDownload
-                        permanentFailure = false
+                    // Decrypt the data
+                    let plaintext: Data = try {
+                        guard
+                            let key: Data = attachment.encryptionKey,
+                            let digest: Data = attachment.digest,
+                            key.count > 0,
+                            digest.count > 0
+                        else { return data } // Open group attachments are unencrypted
+                            
+                        return try Cryptography.decryptAttachment(
+                            data,
+                            withKey: key,
+                            digest: digest,
+                            unpaddedSize: UInt32(attachment.byteCount)
+                        )
+                    }()
+                    
+                    // Write the data to disk
+                    guard try attachment.write(data: plaintext) else {
+                        throw AttachmentDownloadError.failedToSaveFile
+                    }
+                    
+                    return Just(())
+                        .setFailureType(to: Error.self)
+                        .eraseToAnyPublisher()
                 }
-                
-                /// To prevent the attachment from showing a state of downloading forever, we need to update the attachment
-                /// state here based on the type of error that occurred
-                ///
-                /// **Note:** We **MUST** use the `'with()` function here as it will update the
-                /// `isValid` and `duration` values based on the downloaded data and the state
-                Storage.shared.write { db in
-                    _ = try Attachment
-                        .filter(id: attachment.id)
-                        .updateAll(db, Attachment.Columns.state.set(to: targetState))
+                catch {
+                    return Fail(error: error)
+                        .eraseToAnyPublisher()
                 }
-                
-                /// Trigger the failure and provide the `permanentFailure` value defined above
-                failure(job, error, permanentFailure)
             }
+            .sinkUntilComplete(
+                receiveCompletion: { result in
+                    switch result {
+                        case .finished:
+                            // Remove the temporary file
+                            OWSFileSystem.deleteFile(temporaryFileUrl.path)
+                            
+                            /// Update the attachment state
+                            ///
+                            /// **Note:** We **MUST** use the `'with()` function here as it will update the
+                            /// `isValid` and `duration` values based on the downloaded data and the state
+                            Storage.shared.write { db in
+                                _ = try attachment
+                                    .with(
+                                        state: .downloaded,
+                                        creationTimestamp: Date().timeIntervalSince1970,
+                                        localRelativeFilePath: (
+                                            attachment.localRelativeFilePath ??
+                                            Attachment.localRelativeFilePath(from: attachment.originalFilePath)
+                                        )
+                                    )
+                                    .saved(db)
+                            }
+                            
+                            success(job, false)
+                            
+                        case .failure(let error):
+                            OWSFileSystem.deleteFile(temporaryFileUrl.path)
+                            
+                            let targetState: Attachment.State
+                            let permanentFailure: Bool
+                            
+                            switch error {
+                                /// If we get a 404 then we got a successful response from the server but the attachment doesn't
+                                /// exist, in this case update the attachment to an "invalid" state so the user doesn't get stuck in
+                                /// a retry download loop
+                                case OnionRequestAPIError.httpRequestFailedAtDestination(let statusCode, _, _) where statusCode == 404:
+                                    targetState = .invalid
+                                    permanentFailure = true
+                                    
+                                case OnionRequestAPIError.httpRequestFailedAtDestination(let statusCode, _, _) where statusCode == 400 || statusCode == 401:
+                                    /// If we got a 400 or a 401 then we want to fail the download in a way that has to be manually retried as it's
+                                    /// likely something else is going on that caused the failure
+                                    targetState = .failedDownload
+                                    permanentFailure = true
+                                
+                                /// For any other error it's likely either the server is down or something weird just happened with the request
+                                /// so we want to automatically retry
+                                default:
+                                    targetState = .failedDownload
+                                    permanentFailure = false
+                            }
+                            
+                            /// To prevent the attachment from showing a state of downloading forever, we need to update the attachment
+                            /// state here based on the type of error that occurred
+                            ///
+                            /// **Note:** We **MUST** use the `'with()` function here as it will update the
+                            /// `isValid` and `duration` values based on the downloaded data and the state
+                            Storage.shared.write { db in
+                                _ = try Attachment
+                                    .filter(id: attachment.id)
+                                    .updateAll(db, Attachment.Columns.state.set(to: targetState))
+                            }
+                            
+                            /// Trigger the failure and provide the `permanentFailure` value defined above
+                            failure(job, error, permanentFailure)
+                    }
+                }
+            )
     }
 }
 

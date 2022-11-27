@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
 import SessionUtilitiesKit
 
@@ -28,15 +29,22 @@ public enum GetSnodePoolJob: JobExecutor {
         // to block if we have no Snode pool and prevent other jobs from failing but avoids having to
         // wait if we already have a potentially valid snode pool
         guard !SnodeAPI.hasCachedSnodesInclusingExpired() else {
-            SnodeAPI.getSnodePool().retainUntilComplete()
+            SnodeAPI.getSnodePool().sinkUntilComplete()
             success(job, false)
             return
         }
         
         SnodeAPI.getSnodePool()
-            .done(on: queue) { _ in success(job, false) }
-            .catch(on: queue) { error in failure(job, error, false) }
-            .retainUntilComplete()
+            .subscribe(on: queue)
+            .receive(on: queue)
+            .sinkUntilComplete(
+                receiveCompletion: { result in
+                    switch result {
+                        case .finished: success(job, false)
+                        case .failure(let error): failure(job, error, false)
+                    }
+                }
+            )
     }
     
     public static func run() {

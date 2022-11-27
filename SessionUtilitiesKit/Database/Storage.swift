@@ -336,6 +336,26 @@ open class Storage {
         )
     }
     
+    open func writePublisher<T>(updates: @escaping (Database) throws -> T) -> AnyPublisher<T, Error> {
+        guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
+            return Fail<T, Error>(error: StorageError.databaseInvalid)
+                .eraseToAnyPublisher()
+        }
+        
+        return dbWriter.writePublisher(updates: updates)
+            .eraseToAnyPublisher()
+    }
+    
+    open func readPublisher<T>(value: @escaping (Database) throws -> T) -> AnyPublisher<T, Error> {
+        guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
+            return Fail<T, Error>(error: StorageError.databaseInvalid)
+                .eraseToAnyPublisher()
+        }
+        
+        return dbWriter.readPublisher(value: value)
+            .eraseToAnyPublisher()
+    }
+    
     @discardableResult public final func read<T>(_ value: (Database) throws -> T?) -> T? {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return nil }
         
@@ -439,6 +459,20 @@ public extension Storage {
 }
 
 // MARK: - Combine Extensions
+
+public extension Storage {
+    func readPublisherFlatMap<T>(value: @escaping (Database) throws -> AnyPublisher<T, Error>) -> AnyPublisher<T, Error> {
+        return readPublisher(value: value)
+            .flatMap { resultPublisher -> AnyPublisher<T, Error> in resultPublisher }
+            .eraseToAnyPublisher()
+    }
+    
+    func writePublisherFlatMap<T>(updates: @escaping (Database) throws -> AnyPublisher<T, Error>) -> AnyPublisher<T, Error> {
+        return writePublisher(updates: updates)
+            .flatMap { resultPublisher -> AnyPublisher<T, Error> in resultPublisher }
+            .eraseToAnyPublisher()
+    }
+}
 
 public extension ValueObservation {
     func publisher(

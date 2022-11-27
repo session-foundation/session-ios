@@ -64,10 +64,12 @@ public enum AttachmentUploadJob: JobExecutor {
                             on: openGroup.server
                         )
                         .map { _, response -> String in response.id }
+                        .eraseToAnyPublisher()
                 }
                 
                 return FileServerAPI.upload(data)
                     .map { response -> String in response.id }
+                    .eraseToAnyPublisher()
             },
             encrypt: (openGroup == nil),
             success: { _ in success(job, false) },

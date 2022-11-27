@@ -658,7 +658,9 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                     .save(db)
             },
             completion: { [weak self] db, _ in
-                try MessageSender.syncConfiguration(db, forceSyncNow: true).retainUntilComplete()
+                try MessageSender
+                    .syncConfiguration(db, forceSyncNow: true)
+                    .sinkUntilComplete()
                 
                 DispatchQueue.main.async {
                     let modal: ConfirmationModal = ConfirmationModal(

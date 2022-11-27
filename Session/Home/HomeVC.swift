@@ -721,7 +721,7 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                                 )
                             
                             try MessageSender.syncConfiguration(db, forceSyncNow: true)
-                                .retainUntilComplete()
+                                .sinkUntilComplete()
                         }
                     }
                 }

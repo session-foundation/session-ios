@@ -1,10 +1,11 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Combine
 import CoreServices
 import Photos
 import PhotosUI
-import PromiseKit
+import Sodium
 import GRDB
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -1160,7 +1161,7 @@ extension ConversationVC:
         guard cellViewModel.threadVariant == .openGroup else { return }
         
         Storage.shared
-            .read { db -> Promise<Void> in
+            .readPublisherFlatMap { db -> AnyPublisher<(OpenGroupAPI.ReactionRemoveAllResponse, OpenGroupAPI.PendingChange), Error> in
                 guard
                     let openGroup: OpenGroup = try? OpenGroup
                         .fetchOne(db, id: cellViewModel.threadId),
@@ -1170,10 +1171,11 @@ extension ConversationVC:
                         .asRequest(of: Int64.self)
                         .fetchOne(db)
                 else {
-                    return Promise(error: StorageError.objectNotFound)
+                    return Fail(error: StorageError.objectNotFound)
+                        .eraseToAnyPublisher()
                 }
                 
-                let pendingChange = OpenGroupManager
+                let pendingChange: OpenGroupAPI.PendingChange = OpenGroupManager
                     .addPendingReaction(
                         emoji: emoji,
                         id: openGroupServerMessageId,
@@ -1190,23 +1192,28 @@ extension ConversationVC:
                         in: openGroup.roomToken,
                         on: openGroup.server
                     )
-                    .map { _, response in
-                        OpenGroupManager
-                            .updatePendingChange(
-                                pendingChange,
-                                seqNo: response.seqNo
-                            )
-                    }
+                    .map { _, response in (response, pendingChange) }
+                    .eraseToAnyPublisher()
             }
-            .done { _ in
-                Storage.shared.writeAsync { db in
-                    _ = try Reaction
-                        .filter(Reaction.Columns.interactionId == cellViewModel.id)
-                        .filter(Reaction.Columns.emoji == emoji)
-                        .deleteAll(db)
+            .handleEvents(
+                receiveOutput: { response, pendingChange in
+                    OpenGroupManager
+                        .updatePendingChange(
+                            pendingChange,
+                            seqNo: response.seqNo
+                        )
                 }
-            }
-            .retainUntilComplete()
+            )
+            .sinkUntilComplete(
+                receiveCompletion: { _ in
+                    Storage.shared.writeAsync { db in
+                        _ = try Reaction
+                            .filter(Reaction.Columns.interactionId == cellViewModel.id)
+                            .filter(Reaction.Columns.emoji == emoji)
+                            .deleteAll(db)
+                    }
+                }
+            )
     }
     
     func react(_ cellViewModel: MessageViewModel, with emoji: String, remove: Bool) {
@@ -1242,12 +1249,14 @@ extension ConversationVC:
                 .suffix(19))
                 .appending(sentTimestamp)
         }
-        
+        // TODO: Need to test emoji reacts for both open groups and one-to-one to make sure this isn't broken
         // Perform the sending logic
-        Storage.shared.writeAsync(
-            updates: { db in
+        Storage.shared
+            .writePublisherFlatMap { db -> AnyPublisher<MessageSender.PreparedSendData?, Error> in
                 guard let thread: SessionThread = try SessionThread.fetchOne(db, id: cellViewModel.threadId) else {
-                    return
+                    return Just(nil)
+                        .setFailureType(to: Error.self)
+                        .eraseToAnyPublisher()
                 }
                 
                 // Update the thread to be visible
@@ -1296,92 +1305,12 @@ extension ConversationVC:
                     Emoji.addRecent(db, emoji: emoji)
                 }
                 
-                if let openGroup: OpenGroup = try? OpenGroup.fetchOne(db, id: cellViewModel.threadId),
-                   OpenGroupManager.isOpenGroupSupport(.reactions, on: openGroup.server)
-                {
-                    // Send reaction to open groups
-                    guard
-                        let openGroupServerMessageId: Int64 = try? Interaction
-                            .select(.openGroupServerMessageId)
-                            .filter(id: cellViewModel.id)
-                            .asRequest(of: Int64.self)
-                            .fetchOne(db)
-                    else { return }
-                    
-                    if remove {
-                        let pendingChange = OpenGroupManager
-                            .addPendingReaction(
-                                emoji: emoji,
-                                id: openGroupServerMessageId,
-                                in: openGroup.roomToken,
-                                on: openGroup.server,
-                                type: .remove
-                            )
-                        OpenGroupAPI
-                            .reactionDelete(
-                                db,
-                                emoji: emoji,
-                                id: openGroupServerMessageId,
-                                in: openGroup.roomToken,
-                                on: openGroup.server
-                            )
-                            .map { _, response in
-                                OpenGroupManager
-                                    .updatePendingChange(
-                                        pendingChange,
-                                        seqNo: response.seqNo
-                                    )
-                            }
-                            .catch { [weak self] _ in
-                                OpenGroupManager.removePendingChange(pendingChange)
-
-                                self?.handleReactionSentFailure(
-                                    pendingReaction,
-                                    remove: remove
-                                )
-
-                            }
-                            .retainUntilComplete()
-                    }
-                    else {
-                        let pendingChange = OpenGroupManager
-                            .addPendingReaction(
-                                emoji: emoji,
-                                id: openGroupServerMessageId,
-                                in: openGroup.roomToken,
-                                on: openGroup.server,
-                                type: .add
-                            )
-
-                        OpenGroupAPI
-                            .reactionAdd(
-                                db,
-                                emoji: emoji,
-                                id: openGroupServerMessageId,
-                                in: openGroup.roomToken,
-                                on: openGroup.server
-                            )
-                            .map { _, response in
-                                OpenGroupManager
-                                    .updatePendingChange(
-                                        pendingChange,
-                                        seqNo: response.seqNo
-                                    )
-                            }
-                            .catch { [weak self] _ in
-                                OpenGroupManager.removePendingChange(pendingChange)
-                                
-                                self?.handleReactionSentFailure(
-                                    pendingReaction,
-                                    remove: remove
-                                )
-                            }
-                            .retainUntilComplete()
-                    }
-                }
+                // If it's not an OpenGroup then send the message directly to the thread
+                guard
+                    let openGroup: OpenGroup = try? OpenGroup.fetchOne(db, id: cellViewModel.threadId),
+                    OpenGroupManager.isOpenGroupSupport(.reactions, on: openGroup.server)
                 else {
-                    // Send the actual message
-                    try MessageSender.send(
+                    let sendData: MessageSender.PreparedSendData = try MessageSender.preparedSendData(
                         db,
                         message: VisibleMessage(
                             sentTimestamp: UInt64(sentTimestamp),
@@ -1399,12 +1328,100 @@ extension ConversationVC:
                                 kind: (remove ? .remove : .react)
                             )
                         ),
-                        interactionId: cellViewModel.id,
-                        in: thread
+                        to: try Message.Destination.from(db, thread: thread),
+                        interactionId: cellViewModel.id
                     )
+                    
+                    return Just(sendData)
+                        .setFailureType(to: Error.self)
+                        .eraseToAnyPublisher()
                 }
+                    
+                // Otherwise we need to make an API call to the OpenGroup
+                // Send reaction to open groups
+                guard
+                    let openGroupServerMessageId: Int64 = try? Interaction
+                        .select(.openGroupServerMessageId)
+                        .filter(id: cellViewModel.id)
+                        .asRequest(of: Int64.self)
+                        .fetchOne(db)
+                else {
+                    return Fail(error: MessageSenderError.invalidMessage)
+                        .eraseToAnyPublisher()
+                }
+                
+                let pendingChange: OpenGroupAPI.PendingChange = OpenGroupManager
+                    .addPendingReaction(
+                        emoji: emoji,
+                        id: openGroupServerMessageId,
+                        in: openGroup.roomToken,
+                        on: openGroup.server,
+                        type: (remove ? .remove : .add)
+                    )
+                
+                let request: AnyPublisher<Int64?, Error> = {
+                    switch remove {
+                        case true:
+                            return OpenGroupAPI
+                                .reactionDelete(
+                                    db,
+                                    emoji: emoji,
+                                    id: openGroupServerMessageId,
+                                    in: openGroup.roomToken,
+                                    on: openGroup.server
+                                )
+                                .map { _, response in response.seqNo }
+                                .eraseToAnyPublisher()
+                            
+                        case false:
+                            return OpenGroupAPI
+                                .reactionAdd(
+                                    db,
+                                    emoji: emoji,
+                                    id: openGroupServerMessageId,
+                                    in: openGroup.roomToken,
+                                    on: openGroup.server
+                                )
+                                .map { _, response in response.seqNo }
+                                .eraseToAnyPublisher()
+                    }
+                }()
+                    
+                return request
+                    .handleEvents(
+                        receiveOutput: { seqNo in
+                            OpenGroupManager
+                                .updatePendingChange(
+                                    pendingChange,
+                                    seqNo: seqNo
+                                )
+                        },
+                        receiveCompletion: { [weak self] result in
+                            switch result {
+                                case .finished: break
+                                case .failure:
+                                    OpenGroupManager.removePendingChange(pendingChange)
+
+                                    self?.handleReactionSentFailure(
+                                        pendingReaction,
+                                        remove: remove
+                                    )
+                            }
+                        }
+                    )
+                    .map { _ in nil }
+                    .eraseToAnyPublisher()
             }
-        )
+            .flatMap { maybeSendData -> AnyPublisher<Void, Error> in
+                guard let sendData: MessageSender.PreparedSendData = maybeSendData else {
+                    return Just(())
+                        .setFailureType(to: Error.self)
+                        .eraseToAnyPublisher()
+                }
+                
+                return MessageSender.sendImmediate(data: sendData)
+            }
+            .sinkUntilComplete()
     }
     
     func handleReactionSentFailure(_ pendingReaction: Reaction?, remove: Bool) {
@@ -1520,7 +1537,7 @@ extension ConversationVC:
                     }
                     
                     Storage.shared
-                        .writeAsync { db in
+                        .writePublisherFlatMap { db in
                             OpenGroupManager.shared.add(
                                 db,
                                 roomToken: room,
@@ -1529,24 +1546,31 @@ extension ConversationVC:
                                 isConfigMessage: false
                             )
                         }
-                        .done(on: DispatchQueue.main) { _ in
-                            Storage.shared.writeAsync { db in
-                                try MessageSender.syncConfiguration(db, forceSyncNow: true).retainUntilComplete() // FIXME: It's probably cleaner to do this inside addOpenGroup(...)
+                        .receive(on: DispatchQueue.main)
+                        .sinkUntilComplete(
+                            receiveCompletion: { result in
+                                switch result {
+                                    case .finished:
+                                        Storage.shared.writeAsync { db in
+                                            try MessageSender
+                                                .syncConfiguration(db, forceSyncNow: true)
+                                                .sinkUntilComplete() // FIXME: It's probably cleaner to do this inside addOpenGroup(...)
+                                        }
+                                        
+                                    case .failure(let error):
+                                        let errorModal: ConfirmationModal = ConfirmationModal(
+                                            info: ConfirmationModal.Info(
+                                                title: "COMMUNITY_ERROR_GENERIC".localized(),
+                                                explanation: error.localizedDescription,
+                                                cancelTitle: "BUTTON_OK".localized(),
+                                                cancelStyle: .alert_text
+                                            )
+                                        )
+                                        
+                                        presentingViewController.present(errorModal, animated: true, completion: nil)
+                                }
                             }
-                        }
-                        .catch(on: DispatchQueue.main) { error in
-                            let errorModal: ConfirmationModal = ConfirmationModal(
-                                info: ConfirmationModal.Info(
-                                    title: "COMMUNITY_ERROR_GENERIC".localized(),
-                                    explanation: error.localizedDescription,
-                                    cancelTitle: "BUTTON_OK".localized(),
-                                    cancelStyle: .alert_text
-                                )
-                            )
-                            
-                            presentingViewController.present(errorModal, animated: true, completion: nil)
-                        }
-                        .retainUntilComplete()
+                        )
                 }
             )
         )
@@ -1640,34 +1664,38 @@ extension ConversationVC:
         let userPublicKey: String = getUserHexEncodedPublicKey()
         
         // Remote deletion logic
-        func deleteRemotely(from viewController: UIViewController?, request: Promise<Void>, onComplete: (() -> ())?) {
+        func deleteRemotely(from viewController: UIViewController?, request: AnyPublisher<Void, Error>, onComplete: (() -> ())?) {
+            // TODO: Test that this works
             // Show a loading indicator
-            let (promise, seal) = Promise<Void>.pending()
-            
-            ModalActivityIndicatorViewController.present(fromViewController: viewController, canCancel: false) { _ in
-                seal.fulfill(())
+            Future<Void, Error> { resolver in
+                ModalActivityIndicatorViewController.present(fromViewController: viewController, canCancel: false) { _ in
+                    // TODO: Remove the 'Swift.'
+                    resolver(Swift.Result.success(()))
+                }
             }
-            
-            promise
-                .then { _ -> Promise<Void> in request }
-                .done { _ in
-                    // Delete the interaction (and associated data) from the database
-                    Storage.shared.writeAsync { db in
-                        _ = try Interaction
-                            .filter(id: cellViewModel.id)
-                            .deleteAll(db)
+            .flatMap { _ in request }
+            .receive(on: DispatchQueue.main)
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self] result in
+                    switch result {
+                        case .failure: break
+                        case .finished:
+                            // Delete the interaction (and associated data) from the database
+                            Storage.shared.writeAsync { db in
+                                _ = try Interaction
+                                    .filter(id: cellViewModel.id)
+                                    .deleteAll(db)
+                            }
                     }
-                }
-                .ensure {
-                    DispatchQueue.main.async { [weak self] in
-                        if self?.presentedViewController is ModalActivityIndicatorViewController {
-                            self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-                        }
-                        
-                        onComplete?()
+                    
+                    // Regardless of success we should dismiss and callback
+                    if self?.presentedViewController is ModalActivityIndicatorViewController {
+                        self?.dismiss(animated: true, completion: nil) // Dismiss the loader
                     }
+                    
+                    onComplete?()
                 }
-                .retainUntilComplete()
+            )
         }
         
         // How we delete the message differs depending on the type of thread
@@ -1752,7 +1780,7 @@ extension ConversationVC:
                 // Delete the message from the open group
                 deleteRemotely(
                     from: self,
-                    request: Storage.shared.read { db in
+                    request: Storage.shared.readPublisherFlatMap { db in
                         OpenGroupAPI.messageDelete(
                             db,
                             id: openGroupServerMessageId,
@@ -1760,6 +1788,7 @@ extension ConversationVC:
                             on: openGroup.server
                         )
                         .map { _ in () }
+                        .eraseToAnyPublisher()
                     }
                 ) { [weak self] in
                     self?.showInputAccessoryView()
@@ -1838,6 +1867,7 @@ extension ConversationVC:
                                 serverHashes: [serverHash]
                             )
                             .map { _ in () }
+                            .eraseToAnyPublisher()
                     ) { [weak self] in
                         Storage.shared.writeAsync { db in
                             guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
@@ -1939,9 +1969,10 @@ extension ConversationVC:
                 cancelStyle: .alert_text,
                 onConfirm: { [weak self] _ in
                     Storage.shared
-                        .read { db -> Promise<Void> in
+                        .readPublisherFlatMap { db -> AnyPublisher<Void, Error> in
                             guard let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId) else {
-                                return Promise(error: StorageError.objectNotFound)
+                                return Fail(error: StorageError.objectNotFound)
+                                    .eraseToAnyPublisher()
                             }
                             
                             return OpenGroupAPI
@@ -1952,20 +1983,27 @@ extension ConversationVC:
                                     on: openGroup.server
                                 )
                                 .map { _ in () }
+                                .eraseToAnyPublisher()
                         }
-                        .catch(on: DispatchQueue.main) { _ in
-                            let modal: ConfirmationModal = ConfirmationModal(
-                                targetView: self?.view,
-                                info: ConfirmationModal.Info(
-                                    title: CommonStrings.errorAlertTitle,
-                                    explanation: "context_menu_ban_user_error_alert_message".localized(),
-                                    cancelTitle: "BUTTON_OK".localized(),
-                                    cancelStyle: .alert_text
-                                )
-                            )
-                            self?.present(modal, animated: true)
-                        }
-                        .retainUntilComplete()
+                        .receive(on: DispatchQueue.main)
+                        .sinkUntilComplete(
+                            receiveCompletion: { result in
+                                switch result {
+                                    case .finished: break
+                                    case .failure:
+                                        let modal: ConfirmationModal = ConfirmationModal(
+                                            targetView: self?.view,
+                                            info: ConfirmationModal.Info(
+                                                title: CommonStrings.errorAlertTitle,
+                                                explanation: "context_menu_ban_user_error_alert_message".localized(),
+                                                cancelTitle: "BUTTON_OK".localized(),
+                                                cancelStyle: .alert_text
+                                            )
+                                        )
+                                        self?.present(modal, animated: true)
+                                }
+                            }
+                        )
                     
                     self?.becomeFirstResponder()
                 },
@@ -1988,9 +2026,10 @@ extension ConversationVC:
                 cancelStyle: .alert_text,
                 onConfirm: { [weak self] _ in
                     Storage.shared
-                        .read { db -> Promise<Void> in
+                        .readPublisherFlatMap { db -> AnyPublisher<Void, Error> in
                             guard let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId) else {
-                                return Promise(error: StorageError.objectNotFound)
+                                return Fail(error: StorageError.objectNotFound)
+                                    .eraseToAnyPublisher()
                             }
                         
                             return OpenGroupAPI
@@ -2001,20 +2040,27 @@ extension ConversationVC:
                                     on: openGroup.server
                                 )
                                 .map { _ in () }
+                                .eraseToAnyPublisher()
                         }
-                        .catch(on: DispatchQueue.main) { _ in
-                            let modal: ConfirmationModal = ConfirmationModal(
-                                targetView: self?.view,
-                                info: ConfirmationModal.Info(
-                                    title: CommonStrings.errorAlertTitle,
-                                    explanation: "context_menu_ban_user_error_alert_message".localized(),
-                                    cancelTitle: "BUTTON_OK".localized(),
-                                    cancelStyle: .alert_text
-                                )
-                            )
-                            self?.present(modal, animated: true)
-                        }
-                        .retainUntilComplete()
+                        .receive(on: DispatchQueue.main)
+                        .sinkUntilComplete(
+                            receiveCompletion: { result in
+                                switch result {
+                                    case .finished: break
+                                    case .failure:
+                                        let modal: ConfirmationModal = ConfirmationModal(
+                                            targetView: self?.view,
+                                            info: ConfirmationModal.Info(
+                                                title: CommonStrings.errorAlertTitle,
+                                                explanation: "context_menu_ban_user_error_alert_message".localized(),
+                                                cancelTitle: "BUTTON_OK".localized(),
+                                                cancelStyle: .alert_text
+                                            )
+                                        )
+                                        self?.present(modal, animated: true)
+                                }
+                            }
+                        )
                     
                     self?.becomeFirstResponder()
                 },
@@ -2215,6 +2261,21 @@ extension ConversationVC {
         timestampMs: Int64
     ) {
         guard threadVariant == .contact else { return }
+        
+        let updateNavigationBackStack: () -> Void = {
+            // Remove the 'MessageRequestsViewController' from the nav hierarchy if present
+            DispatchQueue.main.async { [weak self] in
+                if
+                    let viewControllers: [UIViewController] = self?.navigationController?.viewControllers,
+                    let messageRequestsIndex = viewControllers.firstIndex(where: { $0 is MessageRequestsViewController }),
+                    messageRequestsIndex > 0
+                {
+                    var newViewControllers = viewControllers
+                    newViewControllers.remove(at: messageRequestsIndex)
+                    self?.navigationController?.viewControllers = newViewControllers
+                }
+            }
+        }
 
         // If the contact doesn't exist then we should create it so we can store the 'isApproved' state
         // (it'll be updated with correct profile info if they accept the message request so this
@@ -2262,20 +2323,7 @@ extension ConversationVC {
                     .syncConfiguration(db, forceSyncNow: true)
                     .retainUntilComplete()
             },
-            completion: { _, _ in
-                // Remove the 'MessageRequestsViewController' from the nav hierarchy if present
-                DispatchQueue.main.async { [weak self] in
-                    if
-                        let viewControllers: [UIViewController] = self?.navigationController?.viewControllers,
-                        let messageRequestsIndex = viewControllers.firstIndex(where: { $0 is MessageRequestsViewController }),
-                        messageRequestsIndex > 0
-                    {
-                        var newViewControllers = viewControllers
-                        newViewControllers.remove(at: messageRequestsIndex)
-                        self?.navigationController?.viewControllers = newViewControllers
-                    }
-                }
-            }
+            completion: { _, _ in updateNavigationBackStack() }
         )
     }
 

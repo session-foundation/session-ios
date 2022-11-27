@@ -1,11 +1,11 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
 import CallKit
 import UserNotifications
 import BackgroundTasks
-import PromiseKit
 import SessionMessagingKit
 import SignalUtilitiesKit
 import SignalCoreKit
@@ -46,11 +46,16 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 
         // Handle the push notification
         AppReadiness.runNowOrWhenAppDidBecomeReady {
-            let openGroupPollingPromises = self.pollForOpenGroups()
+            let openGroupPollingPublishers: [AnyPublisher<Void, Error>] = self.pollForOpenGroups()
             defer {
-                when(resolved: openGroupPollingPromises).done { _ in
-                    self.completeSilenty()
-                }
+                // TODO: Test this
+                Publishers
+                    .MergeMany(openGroupPollingPublishers)
+                    .sinkUntilComplete(
+                        receiveCompletion: { _ in
+                            self.completeSilenty()
+                        }
+                    )
             }
             
             guard
@@ -211,7 +216,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         // If we need a config sync then trigger it now
         if needsConfigSync {
             Storage.shared.write { db in
-                try MessageSender.syncConfiguration(db, forceSyncNow: true).retainUntilComplete()
+                try MessageSender.syncConfiguration(db, forceSyncNow: true).sinkUntilComplete()
             }
         }
 
@@ -322,8 +327,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     
     // MARK: - Poll for open groups
     
-    private func pollForOpenGroups() -> [Promise<Void>] {
-        let promises: [Promise<Void>] = Storage.shared
+    private func pollForOpenGroups() -> [AnyPublisher<Void, Error>] {
+        return Storage.shared
             .read { db in
                 // The default room promise creates an OpenGroup with an empty `roomToken` value,
                 // we don't want to start a poller for this as the user hasn't actually joined a room
@@ -336,16 +341,16 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     .fetchSet(db)
             }
             .defaulting(to: [])
-            .map { server in
+            .map { server -> AnyPublisher<Void, Error> in
                 OpenGroupAPI.Poller(for: server)
                     .poll(calledFromBackgroundPoller: true, isPostCapabilitiesRetry: false)
                     .timeout(
-                        seconds: 20,
-                        timeoutError: NotificationServiceError.timeout
+                        .seconds(20),
+                        scheduler: DispatchQueue.global(qos: .default),
+                        customError: { NotificationServiceError.timeout }
                     )
+                    .eraseToAnyPublisher()
             }
-        
-        return promises
     }
     
     private enum NotificationServiceError: Error {

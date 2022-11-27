@@ -168,7 +168,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         
         ModalActivityIndicatorViewController.present(fromViewController: navigationController, canCancel: false) { [weak self] _ in
             Storage.shared
-                .writeAsync { db in
+                .writePublisher { db in
                     OpenGroupManager.shared.add(
                         db,
                         roomToken: roomToken,
@@ -177,31 +177,39 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                         isConfigMessage: false
                     )
                 }
-                .done(on: DispatchQueue.main) { [weak self] _ in
-                    Storage.shared.writeAsync { db in
-                        try MessageSender.syncConfiguration(db, forceSyncNow: true).retainUntilComplete() // FIXME: It's probably cleaner to do this inside addOpenGroup(...)
+                .receive(on: DispatchQueue.main)
+                .sinkUntilComplete(
+                    receiveCompletion: { result in
+                        switch result {
+                            case .failure(let error):
+                                self?.dismiss(animated: true, completion: nil) // Dismiss the loader
+                                let title = "COMMUNITY_ERROR_GENERIC".localized()
+                                let message = error.localizedDescription
+                                self?.isJoining = false
+                                self?.showError(title: title, message: message)
+                                
+                            case .finished:
+                                Storage.shared.writeAsync { db in
+                                    try MessageSender
+                                        .syncConfiguration(db, forceSyncNow: true)
+                                        .sinkUntilComplete() // FIXME: It's probably cleaner to do this inside addOpenGroup(...)
+                                }
+                                
+                                self?.presentingViewController?.dismiss(animated: true, completion: nil)
+                                
+                                if shouldOpenCommunity {
+                                    SessionApp.presentConversation(
+                                        for: OpenGroup.idFor(roomToken: roomToken, server: server),
+                                        threadVariant: .openGroup,
+                                        isMessageRequest: false,
+                                        action: .compose,
+                                        focusInteractionId: nil,
+                                        animated: false
+                                    )
+                                }
+                        }
                     }
-                    
-                    self?.presentingViewController?.dismiss(animated: true, completion: nil)
-                    
-                    if shouldOpenCommunity {
-                        SessionApp.presentConversation(
-                            for: OpenGroup.idFor(roomToken: roomToken, server: server),
-                            threadVariant: .openGroup,
-                            isMessageRequest: false,
-                            action: .compose,
-                            focusInteractionId: nil,
-                            animated: false
-                        )
-                    }
-                }
-                .catch(on: DispatchQueue.main) { [weak self] error in
-                    self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-                    let title = "COMMUNITY_ERROR_GENERIC".localized()
-                    let message = error.localizedDescription
-                    self?.isJoining = false
-                    self?.showError(title: title, message: message)
-                }
+                )
         }
     }
 

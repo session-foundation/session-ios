@@ -37,7 +37,12 @@ extension MessageReceiver {
         }
         
         if author == message.sender, let serverHash: String = interaction.serverHash {
-            SnodeAPI.deleteMessage(publicKey: author, serverHashes: [serverHash]).retainUntilComplete()
+            SnodeAPI
+                .deleteMessages(
+                    publicKey: author,
+                    serverHashes: [serverHash]
+                )
+                .sinkUntilComplete()
         }
          
         switch (interaction.variant, (author == message.sender)) {

@@ -1,8 +1,9 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
-import PromiseKit
+import Sodium
 import SessionSnodeKit
 import SessionUtilitiesKit
 
@@ -61,11 +62,12 @@ public final class CurrentUserPoller: Poller {
     }
     
     override func getSnodeForPolling(
-        for publicKey: String,
-        on queue: DispatchQueue
-    ) -> Promise<Snode> {
+        for publicKey: String
+    ) -> AnyPublisher<Snode, Error> {
         if let targetSnode: Snode = self.targetSnode.wrappedValue {
-            return Promise.value(targetSnode)
+            return Just(targetSnode)
+                .setFailureType(to: Error.self)
+                .eraseToAnyPublisher()
         }
         
         // Used the cached swarm for the given key and update the list of unusedSnodes
@@ -77,20 +79,26 @@ public final class CurrentUserPoller: Poller {
             self.targetSnode.mutate { $0 = nextSnode }
             self.usedSnodes.mutate { $0.insert(nextSnode) }
             
-            return Promise.value(nextSnode)
+            return Just(nextSnode)
+                .setFailureType(to: Error.self)
+                .eraseToAnyPublisher()
         }
         
         // If we haven't retrieved a target snode at this point then either the cache
         // is empty or we have used all of the snodes and need to start from scratch
         return SnodeAPI.getSwarm(for: publicKey)
-            .then(on: queue) { [weak self] _ -> Promise<Snode> in
-                guard let strongSelf = self else { return Promise(error: SnodeAPIError.generic) }
+            .flatMap { [weak self] _ -> AnyPublisher<Snode, Error> in
+                guard let strongSelf = self else {
+                    return Fail(error: SnodeAPIError.generic)
+                        .eraseToAnyPublisher()
+                }
                 
                 self?.targetSnode.mutate { $0 = nil }
                 self?.usedSnodes.mutate { $0.removeAll() }
                 
-                return strongSelf.getSnodeForPolling(for: publicKey, on: queue)
+                return strongSelf.getSnodeForPolling(for: publicKey)
             }
+            .eraseToAnyPublisher()
     }
     
     override func handlePollError(_ error: Error, for publicKey: String) {

@@ -160,48 +160,58 @@ public enum MessageSendJob: JobExecutor {
         details.message.threadId = (details.message.threadId ?? job.threadId)
         
         // Perform the actual message sending
-        Storage.shared.writeAsync { db -> Promise<Void> in
-            try MessageSender.sendImmediate(
-                db,
-                message: details.message,
-                to: details.destination
-                    .with(fileIds: messageFileIds),
-                interactionId: job.interactionId
-            )
-        }
-        .done(on: queue) { _ in success(job, false) }
-        .catch(on: queue) { error in
-            SNLog("Couldn't send message due to error: \(error).")
-            
-            switch error {
-                case let senderError as MessageSenderError where !senderError.isRetryable:
-                    failure(job, error, true)
-                    
-                case OnionRequestAPIError.httpRequestFailedAtDestination(let statusCode, _, _) where statusCode == 429: // Rate limited
-                    failure(job, error, true)
-                    
-                case SnodeAPIError.clockOutOfSync:
-                    SNLog("\(originalSentTimestamp != nil ? "Permanently Failing" : "Failing") to send \(type(of: details.message)) due to clock out of sync issue.")
-                    failure(job, error, (originalSentTimestamp != nil))
-                    
-                default:
-                    SNLog("Failed to send \(type(of: details.message)).")
-                    
-                    if details.message is VisibleMessage {
-                        guard
-                            let interactionId: Int64 = job.interactionId,
-                            Storage.shared.read({ db in try Interaction.exists(db, id: interactionId) }) == true
-                        else {
-                            // The message has been deleted so permanently fail the job
-                            failure(job, error, true)
-                            return
-                        }
-                    }
-                    
-                    failure(job, error, false)
+        Storage.shared
+            .writePublisher { db in
+                // TODO: Will need to split the attachment upload from the message preparation logic
+                try MessageSender.preparedSendData(
+                    db,
+                    message: details.message,
+                    to: details.destination
+                        .with(fileIds: messageFileIds), // TODO: This???
+                    interactionId: job.interactionId
+                )
             }
-        }
-        .retainUntilComplete()
+            .subscribe(on: queue)
+        // TODO: Is this needed? (should be caught before this??)
+//            .flatMap { MessageSender.performUploadsIfNeeded(preparedSendData: $0) }
+            .flatMap { MessageSender.sendImmediate(data: $0) }
+            .sinkUntilComplete(
+                receiveCompletion: { result in
+                    switch result {
+                        case .finished: success(job, false)
+                        case .failure(let error):
+                            SNLog("Couldn't send message due to error: \(error).")
+                            
+                            switch error {
+                                case let senderError as MessageSenderError where !senderError.isRetryable:
+                                    failure(job, error, true)
+                                    
+                                case OnionRequestAPIError.httpRequestFailedAtDestination(let statusCode, _, _) where statusCode == 429: // Rate limited
+                                    failure(job, error, true)
+                                    
+                                case SnodeAPIError.clockOutOfSync:
+                                    SNLog("\(originalSentTimestamp != nil ? "Permanently Failing" : "Failing") to send \(type(of: details.message)) due to clock out of sync issue.")
+                                    failure(job, error, (originalSentTimestamp != nil))
+                                    
+                                default:
+                                    SNLog("Failed to send \(type(of: details.message)).")
+                                    
+                                    if details.message is VisibleMessage {
+                                        guard
+                                            let interactionId: Int64 = job.interactionId,
+                                            Storage.shared.read({ db in try Interaction.exists(db, id: interactionId) }) == true
+                                        else {
+                                            // The message has been deleted so permanently fail the job
+                                            failure(job, error, true)
+                                            return
+                                        }
+                                    }
+                                    
+                                    failure(job, error, false)
+                            }
+                    }
+                }
+            )
     }
 }
 

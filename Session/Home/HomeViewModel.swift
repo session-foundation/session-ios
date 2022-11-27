@@ -305,9 +305,9 @@ public class HomeViewModel {
         Storage.shared.writeAsync { db in
             switch threadVariant {
                 case .closedGroup:
-                    try MessageSender
+                    MessageSender
                         .leave(db, groupPublicKey: threadId)
-                        .retainUntilComplete()
+                        .sinkUntilComplete()
                     
                 case .openGroup:
                     OpenGroupManager.shared.delete(db, openGroupId: threadId)

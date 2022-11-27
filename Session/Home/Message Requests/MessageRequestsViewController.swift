@@ -396,25 +396,40 @@ class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDat
         switch section.model {
             case .threads:
                 let threadId: String = section.elements[indexPath.row].threadId
+                let threadVariant: SessionThread.Variant = section.elements[indexPath.row].threadVariant
                 let delete: UIContextualAction = UIContextualAction(
                     style: .destructive,
                     title: "TXT_DELETE_TITLE".localized()
                 ) { [weak self] _, _, completionHandler in
-                    self?.delete(threadId)
+                    MessageRequestsViewModel.deleteMessageRequest(
+                        threadId: threadId,
+                        threadVariant: threadVariant,
+                        viewController: self
+                    )
                     completionHandler(true)
                 }
                 delete.themeBackgroundColor = .conversationButton_swipeDestructive
             
-                let block: UIContextualAction = UIContextualAction(
-                    style: .normal,
-                    title: "BLOCK_LIST_BLOCK_BUTTON".localized()
-                ) { [weak self] _, _, completionHandler in
-                    self?.block(threadId)
-                    completionHandler(true)
+                switch threadVariant {
+                    case .contact:
+                        let block: UIContextualAction = UIContextualAction(
+                            style: .normal,
+                            title: "BLOCK_LIST_BLOCK_BUTTON".localized()
+                        ) { [weak self] _, _, completionHandler in
+                            MessageRequestsViewModel.blockMessageRequest(
+                                threadId: threadId,
+                                threadVariant: threadVariant,
+                                viewController: self
+                            )
+                            completionHandler(true)
+                        }
+                        block.themeBackgroundColor = .conversationButton_swipeSecondary
+                        
+                        return UISwipeActionsConfiguration(actions: [ delete, block ])
+                        
+                    case .closedGroup, .openGroup:
+                        return UISwipeActionsConfiguration(actions: [ delete ])
                 }
-                block.themeBackgroundColor = .conversationButton_swipeSecondary
-
-                return UISwipeActionsConfiguration(actions: [ delete, block ])
                 
             default: return nil
         }
@@ -427,9 +442,16 @@ class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDat
             return
         }
         
-        let threadIds: [String] = (viewModel.threadData
+        let contactThreadIds: [String] = (viewModel.threadData
             .first { $0.model == .threads }?
             .elements
+            .filter { $0.threadVariant == .contact }
+            .map { $0.threadId })
+            .defaulting(to: [])
+        let closedGroupThreadIds: [String] = (viewModel.threadData
+            .first { $0.model == .threads }?
+            .elements
+            .filter { $0.threadVariant == .closedGroup }
             .map { $0.threadId })
             .defaulting(to: [])
         let alertVC: UIAlertController = UIAlertController(
@@ -444,62 +466,16 @@ class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDat
             // Clear the requests
             Storage.shared.write { db in
                 _ = try SessionThread
-                    .filter(ids: threadIds)
+                    .filter(ids: contactThreadIds)
                     .deleteAll(db)
-            }
-        })
-        alertVC.addAction(UIAlertAction(title: "TXT_CANCEL_TITLE".localized(), style: .cancel, handler: nil))
-        self.present(alertVC, animated: true, completion: nil)
-    }
-
-    private func delete(_ threadId: String) {
-        let alertVC: UIAlertController = UIAlertController(
-            title: "MESSAGE_REQUESTS_DELETE_CONFIRMATION_ACTON".localized(),
-            message: nil,
-            preferredStyle: .actionSheet
-        )
-        alertVC.addAction(UIAlertAction(
-            title: "TXT_DELETE_TITLE".localized(),
-            style: .destructive
-        ) { _ in
-            Storage.shared.write { db in
-                _ = try SessionThread
-                    .filter(id: threadId)
-                    .deleteAll(db)
-            }
-        })
-        
-        alertVC.addAction(UIAlertAction(title: "TXT_CANCEL_TITLE".localized(), style: .cancel, handler: nil))
-        self.present(alertVC, animated: true, completion: nil)
-    }
-    
-    private func block(_ threadId: String) {
-        let alertVC: UIAlertController = UIAlertController(
-            title: "MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON".localized(),
-            message: nil,
-            preferredStyle: .actionSheet
-        )
-        alertVC.addAction(UIAlertAction(
-            title: "BLOCK_LIST_BLOCK_BUTTON".localized(),
-            style: .destructive
-        ) { _ in
-            Storage.shared.write { db in
-                _ = try SessionThread
-                    .filter(id: threadId)
-                    .deleteAll(db)
-                _ = try Contact
-                    .fetchOrCreate(db, id: threadId)
-                    .with(
-                        isApproved: false,
-                        isBlocked: true
-                    )
-                    .saved(db)
                 
-                // Force a config sync
-                try MessageSender.syncConfiguration(db, forceSyncNow: true).retainUntilComplete()
+                try ClosedGroup.removeKeysAndUnsubscribe(
+                    db,
+                    threadIds: closedGroupThreadIds,
+                    removeGroupData: true
+                )
             }
         })
-        
         alertVC.addAction(UIAlertAction(title: "TXT_CANCEL_TITLE".localized(), style: .cancel, handler: nil))
         self.present(alertVC, animated: true, completion: nil)
     }

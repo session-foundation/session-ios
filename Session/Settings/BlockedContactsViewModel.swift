@@ -141,8 +141,88 @@ public class BlockedContactsViewModel {
         ].flatMap { $0 }
     }
     
-    public func updateContactData(_ updatedData: [SectionModel]) {
-        self.contactData = updatedData
+    private func unblockTapped() {
+        guard !selectedContactIdsSubject.value.isEmpty else { return }
+        
+        let contactIds: Set<String> = selectedContactIdsSubject.value
+        let contactNames: [String] = contactIds
+            .compactMap { contactId in
+                guard
+                    let section: BlockedContactsViewModel.SectionModel = self.tableData
+                        .first(where: { section in section.model == .contacts }),
+                    let info: SessionCell.Info<Profile> = section.elements
+                        .first(where: { info in info.id.id == contactId })
+                else { return contactId }
+                
+                return info.title?.text
+            }
+        let confirmationTitle: String = {
+            guard contactNames.count > 1 else {
+                // Show a single users name
+                return String(
+                    format: "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_SINGLE".localized(),
+                    (
+                        contactNames.first ??
+                        "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_FALLBACK".localized()
+                    )
+                )
+            }
+            guard contactNames.count > 3 else {
+                // Show up to three users names
+                let initialNames: [String] = Array(contactNames.prefix(upTo: (contactNames.count - 1)))
+                let lastName: String = contactNames[contactNames.count - 1]
+                
+                return [
+                    String(
+                        format: "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_1".localized(),
+                        initialNames.joined(separator: ", ")
+                    ),
+                    String(
+                        format: "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_2_SINGLE".localized(),
+                        lastName
+                    )
+                ]
+                .reversed(if: CurrentAppContext().isRTL)
+                .joined(separator: " ")
+            }
+            
+            // If we have exactly 4 users, show the first two names followed by 'and X others', for
+            // more than 4 users, show the first 3 names followed by 'and X others'
+            let numNamesToShow: Int = (contactNames.count == 4 ? 2 : 3)
+            let initialNames: [String] = Array(contactNames.prefix(upTo: numNamesToShow))
+            
+            return [
+                String(
+                    format: "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_1".localized(),
+                    initialNames.joined(separator: ", ")
+                ),
+                String(
+                    format: "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_3".localized(),
+                    (contactNames.count - numNamesToShow)
+                )
+            ]
+            .reversed(if: CurrentAppContext().isRTL)
+            .joined(separator: " ")
+        }()
+        let confirmationModal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: confirmationTitle,
+                confirmTitle: "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_ACTON".localized(),
+                confirmStyle: .danger,
+                cancelStyle: .alert_text
+            ) { _ in
+                // Unblock the contacts
+                Storage.shared.write { db in
+                    _ = try Contact
+                        .filter(ids: contactIds)
+                        .updateAll(db, Contact.Columns.isBlocked.set(to: false))
+                    
+                    // Force a config sync
+                    try MessageSender.syncConfiguration(db, forceSyncNow: true).sinkUntilComplete()
+                }
+            }
+        )
+        self.transitionToScreen(confirmationModal, transitionType: .present)
     }
     
     // MARK: - DataModel

@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
 import SessionUtilitiesKit
 
@@ -167,6 +168,6 @@ extension MessageReceiver {
         // Force a config sync to ensure all devices know the contact approval state if desired
         guard forceConfigSync else { return }
         
-        try MessageSender.syncConfiguration(db, forceSyncNow: true).retainUntilComplete()
+        try MessageSender.syncConfiguration(db, forceSyncNow: true).sinkUntilComplete()
     }
 }

@@ -166,7 +166,7 @@ extension MessageReceiver {
                 if let (room, server, publicKey) = OpenGroupManager.parseOpenGroup(from: openGroupURL) {
                     OpenGroupManager.shared
                         .add(db, roomToken: room, server: server, publicKey: publicKey, isConfigMessage: true)
-                        .retainUntilComplete()
+                        .sinkUntilComplete()
                 }
             }
         }

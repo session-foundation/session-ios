@@ -1,8 +1,8 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
-import PromiseKit
 import SessionMessagingKit
 import SignalUtilitiesKit
 import SignalCoreKit
@@ -88,7 +88,7 @@ let kAudioNotificationsThrottleInterval: TimeInterval = 5
 
 protocol NotificationPresenterAdaptee: AnyObject {
 
-    func registerNotificationSettings() -> Promise<Void>
+    func registerNotificationSettings() -> Future<Void, Never>
 
     func notify(
         category: AppNotificationCategory,
@@ -148,8 +148,9 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
 
     // MARK: - Presenting Notifications
 
-    func registerNotificationSettings() -> Promise<Void> {
+    func registerNotificationSettings() -> AnyPublisher<Void, Never> {
         return adaptee.registerNotificationSettings()
+            .eraseToAnyPublisher()
     }
 
     public func notifyUser(_ db: Database, for interaction: Interaction, in thread: SessionThread) {
@@ -504,73 +505,84 @@ class NotificationActionHandler {
 
     // MARK: -
 
-    func markAsRead(userInfo: [AnyHashable: Any]) throws -> Promise<Void> {
+    func markAsRead(userInfo: [AnyHashable: Any]) -> AnyPublisher<Void, Error> {
         guard let threadId: String = userInfo[AppNotificationUserInfoKey.threadId] as? String else {
-            throw NotificationError.failDebug("threadId was unexpectedly nil")
+            return Fail(error: NotificationError.failDebug("threadId was unexpectedly nil"))
+                .eraseToAnyPublisher()
         }
 
         guard let thread: SessionThread = Storage.shared.read({ db in try SessionThread.fetchOne(db, id: threadId) }) else {
-            throw NotificationError.failDebug("unable to find thread with id: \(threadId)")
+            return Fail(error: NotificationError.failDebug("unable to find thread with id: \(threadId)"))
+                .eraseToAnyPublisher()
         }
 
         return markAsRead(thread: thread)
     }
 
-    func reply(userInfo: [AnyHashable: Any], replyText: String) throws -> Promise<Void> {
+    func reply(userInfo: [AnyHashable: Any], replyText: String) -> AnyPublisher<Void, Error> {
         guard let threadId = userInfo[AppNotificationUserInfoKey.threadId] as? String else {
-            throw NotificationError.failDebug("threadId was unexpectedly nil")
+            return Fail<Void, Error>(error: NotificationError.failDebug("threadId was unexpectedly nil"))
+                .eraseToAnyPublisher()
         }
-
+        
         guard let thread: SessionThread = Storage.shared.read({ db in try SessionThread.fetchOne(db, id: threadId) }) else {
-            throw NotificationError.failDebug("unable to find thread with id: \(threadId)")
+            return Fail<Void, Error>(error: NotificationError.failDebug("unable to find thread with id: \(threadId)"))
+                .eraseToAnyPublisher()
         }
         
-        let (promise, seal) = Promise<Void>.pending()
-        
-        Storage.shared.writeAsync { db in
-            let interaction: Interaction = try Interaction(
-                threadId: thread.id,
-                authorId: getUserHexEncodedPublicKey(db),
-                variant: .standardOutgoing,
-                body: replyText,
-                timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000)),
-                hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: replyText),
-                expiresInSeconds: try? DisappearingMessagesConfiguration
-                    .select(.durationSeconds)
-                    .filter(id: threadId)
-                    .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
-                    .asRequest(of: TimeInterval.self)
-                    .fetchOne(db)
-            ).inserted(db)
-            
-            try Interaction.markAsRead(
-                db,
-                interactionId: interaction.id,
-                threadId: thread.id,
-                includingOlder: true,
-                trySendReadReceipt: true
-            )
-            
-            return try MessageSender.sendNonDurably(
-                db,
-                interaction: interaction,
-                in: thread
-            )
-        }
-        .done { seal.fulfill(()) }
-        .catch { error in
-            Storage.shared.read { [weak self] db in
-                self?.notificationPresenter.notifyForFailedSend(db, in: thread)
+        return Storage.shared
+            .writePublisher { db in
+                let interaction: Interaction = try Interaction(
+                    threadId: thread.id,
+                    authorId: getUserHexEncodedPublicKey(db),
+                    variant: .standardOutgoing,
+                    body: replyText,
+                    timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000)),
+                    hasMention: Interaction.isUserMentioned(
+                        db,
+                        threadId: threadId,
+                        threadVariant: thread.variant,
+                        body: replyText
+                    ),
+                    expiresInSeconds: try? DisappearingMessagesConfiguration
+                        .select(.durationSeconds)
+                        .filter(id: threadId)
+                        .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
+                        .asRequest(of: TimeInterval.self)
+                        .fetchOne(db)
+                ).inserted(db)
+                
+                try Interaction.markAsRead(
+                    db,
+                    interactionId: interaction.id,
+                    threadId: thread.id,
+                    includingOlder: true,
+                    trySendReadReceipt: true
+                )
+                // TODO: Will need to split the attachment upload from the message preparation logic
+                return try MessageSender.preparedSendData(
+                    db,
+                    interaction: interaction,
+                    in: thread
+                )
             }
-            
-            seal.reject(error)
-        }
-        .retainUntilComplete()
-        
-        return promise
+            .flatMap { MessageSender.performUploadsIfNeeded(preparedSendData: $0) }
+            .flatMap { MessageSender.sendImmediate(data: $0) }
+            .handleEvents(
+                receiveCompletion: { result in
+                    switch result {
+                        case .finished: break
+                        case .failure:
+                            Storage.shared.read { [weak self] db in
+                                self?.notificationPresenter.notifyForFailedSend(db, in: thread)
+                            }
+                    }
+                }
+            )
+            .eraseToAnyPublisher()
     }
 
-    func showThread(userInfo: [AnyHashable: Any]) throws -> Promise<Void> {
+    func showThread(userInfo: [AnyHashable: Any]) -> AnyPublisher<Void, Never> {
         guard let threadId = userInfo[AppNotificationUserInfoKey.threadId] as? String else {
             return showHomeVC()
         }
@@ -580,19 +592,19 @@ class NotificationActionHandler {
         // it animate in from the homescreen.
         let shouldAnimate: Bool = (UIApplication.shared.applicationState == .active)
         SessionApp.presentConversation(for: threadId, animated: shouldAnimate)
-        return Promise.value(())
+        return Just(())
+            .eraseToAnyPublisher()
     }
     
-    func showHomeVC() -> Promise<Void> {
+    func showHomeVC() -> AnyPublisher<Void, Never> {
         SessionApp.showHomeView()
-        return Promise.value(())
+        return Just(())
+            .eraseToAnyPublisher()
     }
-
-    private func markAsRead(thread: SessionThread) -> Promise<Void> {
-        let (promise, seal) = Promise<Void>.pending()
-        
-        Storage.shared.writeAsync(
-            updates: { db in
+    
+    private func markAsRead(thread: SessionThread) -> AnyPublisher<Void, Error> {
+        return Storage.shared
+            .writePublisher { db in
                 try Interaction.markAsRead(
                     db,
                     interactionId: try thread.interactions
@@ -604,16 +616,8 @@ class NotificationActionHandler {
                     includingOlder: true,
                     trySendReadReceipt: true
                 )
-            },
-            completion: { _, result in
-                switch result {
-                    case .success: seal.fulfill(())
-                    case .failure(let error): seal.reject(error)
-                }
             }
-        )
-        
-        return promise
+            .eraseToAnyPublisher()
     }
 }
 

@@ -1,4 +1,7 @@
-import PromiseKit
+// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+
+import Foundation
+import Combine
 import NVActivityIndicatorView
 import SessionMessagingKit
 import SessionUIKit
@@ -140,12 +143,10 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
         widthAnchor.constraint(greaterThanOrEqualToConstant: OpenGroupSuggestionGrid.cellHeight).isActive = true
         
         OpenGroupManager.getDefaultRoomsIfNeeded()
-            .done { [weak self] rooms in
-                self?.rooms = rooms
-            }
-            .catch { [weak self] _ in
-                self?.update()
-            }
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self] _ in self?.update() },
+                receiveValue: { [weak self] rooms in self?.rooms = rooms }
+            )
     }
     
     // MARK: - Updating
@@ -315,24 +316,55 @@ extension OpenGroupSuggestionGrid {
                 return
             }
             
-            let promise = Storage.shared.read { db in
-                OpenGroupManager.roomImage(db, fileId: imageId, for: room.token, on: OpenGroupAPI.defaultServer)
-            }
+            imageView.image = nil   // TODO: Test this
             
-            if let imageData: Data = promise.value {
-                imageView.image = UIImage(data: imageData)
-                imageView.isHidden = (imageView.image == nil)
-            }
-            else {
-                imageView.isHidden = true
-                
-                _ = promise.done { [weak self] imageData in
-                    DispatchQueue.main.async {
+            Publishers
+                .MergeMany(
+                    Storage.shared
+                        .readPublisherFlatMap { db in
+                            OpenGroupManager
+                                .roomImage(db, fileId: imageId, for: room.token, on: OpenGroupAPI.defaultServer)
+                        }
+                        .map { ($0, true) }
+                        .eraseToAnyPublisher(),
+                    // If we have already received the room image then the above will emit first and
+                    // we can ignore this 'Just' call which is used to hide the image while loading
+                    Just((Data(), false))
+                        .setFailureType(to: Error.self)
+//                        .delay(for: .milliseconds(10), scheduler: DispatchQueue.main)
+                        .eraseToAnyPublisher()
+                )
+                .receiveOnMain(immediately: true)
+                .sinkUntilComplete(
+                    receiveValue: { [weak self] imageData, hasData in
+                        // TODO: Test this behaviour
+                        guard hasData else {
+                            self?.imageView.isHidden = true
+                            return
+                        }
+                        
                         self?.imageView.image = UIImage(data: imageData)
                         self?.imageView.isHidden = (self?.imageView.image == nil)
                     }
-                }
-            }
+                )
+            
+//            OpenGroupManager.roomImage(db, fileId: imageId, for: room.token, on: OpenGroupAPI.defaultServer)
+//                .values
+//
+//            if let imageData: Data = promise.value {
+//                imageView.image = UIImage(data: imageData)
+//                imageView.isHidden = (imageView.image == nil)
+//            }
+//            else {
+//                imageView.isHidden = true
+//
+//                _ = promise.done { [weak self] imageData in
+//                    DispatchQueue.main.async {
+//                        self?.imageView.image = UIImage(data: imageData)
+//                        self?.imageView.isHidden = (self?.imageView.image == nil)
+//                    }
+//                }
+//            }
         }
     }
 }

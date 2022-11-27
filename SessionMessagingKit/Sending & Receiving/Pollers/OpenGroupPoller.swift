@@ -1,8 +1,8 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
-import PromiseKit
 import SessionSnodeKit
 import SessionUtilitiesKit
 
@@ -12,8 +12,8 @@ extension OpenGroupAPI {
         
         private let server: String
         private var timer: Timer? = nil
-        private var hasStarted = false
-        private var isPolling = false
+        private var hasStarted: Bool = false
+        private var isPolling: Bool = false
 
         // MARK: - Settings
         
@@ -28,6 +28,7 @@ extension OpenGroupAPI {
         }
         
         public func startIfNeeded(using dependencies: OpenGroupManager.OGMDependencies = OpenGroupManager.OGMDependencies()) {
+            return// TODO: Remove this (reentrancy issues - looks like it could be resolved by splitting out the OpenGroupAPI request signing into it's own step)
             guard !hasStarted else { return }
             
             hasStarted = true
@@ -55,7 +56,7 @@ extension OpenGroupAPI {
                 .defaulting(to: 0)
             let nextPollInterval: TimeInterval = getInterval(for: minPollFailureCount, minInterval: Poller.minPollInterval, maxInterval: Poller.maxPollInterval)
             
-            poll(using: dependencies).retainUntilComplete()
+            poll(using: dependencies).sinkUntilComplete()
             timer = Timer.scheduledTimerOnMainThread(withTimeInterval: nextPollInterval, repeats: false) { [weak self] timer in
                 timer.invalidate()
                 
@@ -65,131 +66,144 @@ extension OpenGroupAPI {
             }
         }
         
-        @discardableResult
-        public func poll(using dependencies: OpenGroupManager.OGMDependencies = OpenGroupManager.OGMDependencies()) -> Promise<Void> {
-            return poll(calledFromBackgroundPoller: false, isPostCapabilitiesRetry: false, using: dependencies)
+        public func poll(
+            using dependencies: OpenGroupManager.OGMDependencies = OpenGroupManager.OGMDependencies()
+        ) -> AnyPublisher<Void, Error> {
+            return poll(
+                calledFromBackgroundPoller: false,
+                isPostCapabilitiesRetry: false,
+                using: dependencies
+            )
         }
 
-        @discardableResult
         public func poll(
             calledFromBackgroundPoller: Bool,
             isBackgroundPollerValid: @escaping (() -> Bool) = { true },
             isPostCapabilitiesRetry: Bool,
             using dependencies: OpenGroupManager.OGMDependencies = OpenGroupManager.OGMDependencies()
-        ) -> Promise<Void> {
-            guard !self.isPolling else { return Promise.value(()) }
+        ) -> AnyPublisher<Void, Error> {
+            guard !self.isPolling else {
+                return Just(())
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
+            }
             
             self.isPolling = true
             let server: String = self.server
-            let (promise, seal) = Promise<Void>.pending()
-            promise.retainUntilComplete()
             
-            let pollingLogic: () -> Void = {
-                dependencies.storage
-                    .read { db -> Promise<(Int64, PollResponse)> in
-                        let failureCount: Int64 = (try? OpenGroup
-                            .select(max(OpenGroup.Columns.pollFailureCount))
-                            .asRequest(of: Int64.self)
-                            .fetchOne(db))
-                            .defaulting(to: 0)
-                        
-                        return OpenGroupAPI
-                            .poll(
-                                db,
-                                server: server,
-                                hasPerformedInitialPoll: dependencies.cache.hasPerformedInitialPoll[server] == true,
-                                timeSinceLastPoll: (
-                                    dependencies.cache.timeSinceLastPoll[server] ??
-                                    dependencies.cache.getTimeSinceLastOpen(using: dependencies)
-                                ),
-                                using: dependencies
-                            )
-                            .map(on: OpenGroupAPI.workQueue) { (failureCount, $0) }
-                    }
-                    .done(on: OpenGroupAPI.workQueue) { [weak self] failureCount, response in
+            return dependencies.storage
+                .readPublisherFlatMap { db -> AnyPublisher<(Int64, PollResponse), Error> in
+                    let failureCount: Int64 = (try? OpenGroup
+                        .select(max(OpenGroup.Columns.pollFailureCount))
+                        .asRequest(of: Int64.self)
+                        .fetchOne(db))
+                        .defaulting(to: 0)
+                    
+                    return OpenGroupAPI
+                        .poll(
+                            db,
+                            server: server,
+                            hasPerformedInitialPoll: dependencies.cache.hasPerformedInitialPoll[server] == true,
+                            timeSinceLastPoll: (
+                                dependencies.cache.timeSinceLastPoll[server] ??
+                                dependencies.cache.getTimeSinceLastOpen(using: dependencies)
+                            ),
+                            using: dependencies
+                        )
+                        .map { response in (failureCount, response) }
+                        .eraseToAnyPublisher()
+                }
+                .subscribe(
+                    // If this was run via the background poller then don't run on the pollerQueue
+                    // TODO: Need to test if this dispatches to the next run loop or blocks (want it to block)
+                    on: (calledFromBackgroundPoller ?
+                         DispatchQueue.main :
+                        Threading.pollerQueue
+                    )
+                )
+                .handleEvents(
+                    receiveOutput: { [weak self] failureCount, response in
                         guard !calledFromBackgroundPoller || isBackgroundPollerValid() else {
                             // If this was a background poll and the background poll is no longer valid
                             // then just stop
                             self?.isPolling = false
-                            seal.fulfill(())
                             return
                         }
-                        
+
                         self?.isPolling = false
                         self?.handlePollResponse(
                             response,
                             failureCount: failureCount,
                             using: dependencies
                         )
-                        
+
                         dependencies.mutableCache.mutate { cache in
                             cache.hasPerformedInitialPoll[server] = true
                             cache.timeSinceLastPoll[server] = Date().timeIntervalSince1970
                             UserDefaults.standard[.lastOpen] = Date()
                         }
-                        
+
                         SNLog("Open group polling finished for \(server).")
-                        seal.fulfill(())
                     }
-                    .catch(on: OpenGroupAPI.workQueue) { [weak self] error in
-                        guard !calledFromBackgroundPoller || isBackgroundPollerValid() else {
-                            // If this was a background poll and the background poll is no longer valid
-                            // then just stop
-                            self?.isPolling = false
-                            seal.fulfill(())
-                            return
-                        }
-                        
-                        // If we are retrying then the error is being handled so no need to continue (this
-                        // method will always resolve)
-                        self?.updateCapabilitiesAndRetryIfNeeded(
+                )
+                .map { _ in () }
+                .catch { [weak self] error -> AnyPublisher<Void, Error> in
+                    guard
+                        let strongSelf = self,
+                        (!calledFromBackgroundPoller || isBackgroundPollerValid())
+                    else {
+                        // If this was a background poll and the background poll is no longer valid
+                        // then just stop
+                        self?.isPolling = false
+
+                        return Just(())
+                            .setFailureType(to: Error.self)
+                            .eraseToAnyPublisher()
+                    }
+
+                    // If we are retrying then the error is being handled so no need to continue (this
+                    // method will always resolve)
+                    return strongSelf
+                        .updateCapabilitiesAndRetryIfNeeded(
                             server: server,
                             calledFromBackgroundPoller: calledFromBackgroundPoller,
                             isBackgroundPollerValid: isBackgroundPollerValid,
                             isPostCapabilitiesRetry: isPostCapabilitiesRetry,
                             error: error
                         )
-                        .done(on: OpenGroupAPI.workQueue) { [weak self] didHandleError in
-                            if !didHandleError && isBackgroundPollerValid() {
-                                // Increase the failure count
-                                let pollFailureCount: Int64 = Storage.shared
-                                    .read { db in
+                        .handleEvents(
+                            receiveOutput: { [weak self] didHandleError in
+                                if !didHandleError && isBackgroundPollerValid() {
+                                    // Increase the failure count
+                                    let pollFailureCount: Int64 = Storage.shared
+                                        .read { db in
+                                            try OpenGroup
+                                                .filter(OpenGroup.Columns.server == server)
+                                                .select(max(OpenGroup.Columns.pollFailureCount))
+                                                .asRequest(of: Int64.self)
+                                                .fetchOne(db)
+                                        }
+                                        .defaulting(to: 0)
+
+                                    Storage.shared.writeAsync { db in
                                         try OpenGroup
                                             .filter(OpenGroup.Columns.server == server)
-                                            .select(max(OpenGroup.Columns.pollFailureCount))
-                                            .asRequest(of: Int64.self)
-                                            .fetchOne(db)
+                                            .updateAll(
+                                                db,
+                                                OpenGroup.Columns.pollFailureCount.set(to: (pollFailureCount + 1))
+                                            )
                                     }
-                                    .defaulting(to: 0)
-                                
-                                Storage.shared.writeAsync { db in
-                                    try OpenGroup
-                                        .filter(OpenGroup.Columns.server == server)
-                                        .updateAll(
-                                            db,
-                                            OpenGroup.Columns.pollFailureCount.set(to: (pollFailureCount + 1))
-                                        )
+
+                                    SNLog("Open group polling failed due to error: \(error). Setting failure count to \(pollFailureCount).")
                                 }
-                                
-                                SNLog("Open group polling failed due to error: \(error). Setting failure count to \(pollFailureCount).")
+
+                                self?.isPolling = false
                             }
-                            
-                            self?.isPolling = false
-                            seal.fulfill(()) // The promise is just used to keep track of when we're done
-                        }
-                        .retainUntilComplete()
-                    }
-            }
-            
-            // If this was run via the background poller then don't run on the pollerQueue
-            if calledFromBackgroundPoller {
-                pollingLogic()
-            }
-            else {
-                Threading.pollerQueue.async { pollingLogic() }
-            }
-            
-            return promise
+                        )
+                        .map { _ in () }
+                        .eraseToAnyPublisher()
+                }
+                .eraseToAnyPublisher()
         }
         
         private func updateCapabilitiesAndRetryIfNeeded(
@@ -199,7 +213,7 @@ extension OpenGroupAPI {
             isPostCapabilitiesRetry: Bool,
             error: Error,
             using dependencies: OpenGroupManager.OGMDependencies = OpenGroupManager.OGMDependencies()
-        ) -> Promise<Bool> {
+        ) -> AnyPublisher<Bool, Error> {
             /// We want to custom handle a '400' error code due to not having blinded auth as it likely means that we join the
             /// OpenGroup before blinding was enabled and need to update it's capabilities
             ///
@@ -212,12 +226,14 @@ extension OpenGroupAPI {
                 statusCode == 400,
                 let dataString: String = String(data: data, encoding: .utf8),
                 dataString.contains("Invalid authentication: this server requires the use of blinded ids")
-            else { return Promise.value(false) }
+            else {
+                return Just(false)
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
+            }
             
-            let (promise, seal) = Promise<Bool>.pending()
-            
-            dependencies.storage
-                .read { db in
+            return dependencies.storage
+                .readPublisherFlatMap { db in
                     OpenGroupAPI.capabilities(
                         db,
                         server: server,
@@ -225,8 +241,13 @@ extension OpenGroupAPI {
                         using: dependencies
                     )
                 }
-                .then(on: OpenGroupAPI.workQueue) { [weak self] _, responseBody -> Promise<Void> in
-                    guard let strongSelf = self, isBackgroundPollerValid() else { return Promise.value(()) }
+                .subscribe(on: OpenGroupAPI.workQueue)
+                .flatMap { [weak self] _, responseBody -> AnyPublisher<Void, Error> in
+                    guard let strongSelf = self, isBackgroundPollerValid() else {
+                        return Just(())
+                            .setFailureType(to: Error.self)
+                            .eraseToAnyPublisher()
+                    }
                     
                     // Handle the updated capabilities and re-trigger the poll
                     strongSelf.isPolling = false
@@ -247,15 +268,17 @@ extension OpenGroupAPI {
                         isPostCapabilitiesRetry: true,
                         using: dependencies
                     )
-                    .ensure { seal.fulfill(true) }
+                    .map { _ in () }
+                    .eraseToAnyPublisher()
                 }
-                .catch(on: OpenGroupAPI.workQueue) { error in
+                .map { _ in true }
+                .catch { error -> AnyPublisher<Bool, Error> in
                     SNLog("Open group updating capabilities failed due to error: \(error).")
-                    seal.fulfill(true)
+                    return Just(true)
+                        .setFailureType(to: Error.self)
+                        .eraseToAnyPublisher()
                 }
-                .retainUntilComplete()
-            
-            return promise
+                .eraseToAnyPublisher()
         }
         
         private func handlePollResponse(

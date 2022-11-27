@@ -1,10 +1,11 @@
-//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
+// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import UserNotifications
-import PromiseKit
 import SessionMessagingKit
 import SignalCoreKit
+import SignalUtilitiesKit
 
 class UserNotificationConfig {
 
@@ -18,39 +19,47 @@ class UserNotificationConfig {
     }
 
     class func notificationCategory(_ category: AppNotificationCategory) -> UNNotificationCategory {
-        return UNNotificationCategory(identifier: category.identifier,
-                                      actions: notificationActions(for: category),
-                                      intentIdentifiers: [],
-                                      options: [])
+        return UNNotificationCategory(
+            identifier: category.identifier,
+            actions: notificationActions(for: category),
+            intentIdentifiers: [],
+            options: []
+        )
     }
 
     class func notificationAction(_ action: AppNotificationAction) -> UNNotificationAction {
         switch action {
-        case .markAsRead:
-            return UNNotificationAction(identifier: action.identifier,
-                                        title: MessageStrings.markAsReadNotificationAction,
-                                        options: [])
-        case .reply:
-            return UNTextInputNotificationAction(identifier: action.identifier,
-                                                 title: MessageStrings.replyNotificationAction,
-                                                 options: [],
-                                                 textInputButtonTitle: MessageStrings.sendButton,
-                                                 textInputPlaceholder: "")
-        case .showThread:
-            return UNNotificationAction(identifier: action.identifier,
-                                        title: CallStrings.showThreadButtonTitle,
-                                        options: [.foreground])
+            case .markAsRead:
+                return UNNotificationAction(
+                    identifier: action.identifier,
+                    title: MessageStrings.markAsReadNotificationAction,
+                    options: []
+                )
+                
+            case .reply:
+                return UNTextInputNotificationAction(
+                    identifier: action.identifier,
+                    title: MessageStrings.replyNotificationAction,
+                    options: [],
+                    textInputButtonTitle: MessageStrings.sendButton,
+                    textInputPlaceholder: ""
+                )
+                
+            case .showThread:
+                return UNNotificationAction(
+                    identifier: action.identifier,
+                    title: CallStrings.showThreadButtonTitle,
+                    options: [.foreground]
+                )
         }
     }
 
     class func action(identifier: String) -> AppNotificationAction? {
         return AppNotificationAction.allCases.first { notificationAction($0).identifier == identifier }
     }
-
 }
 
 class UserNotificationPresenterAdaptee: NSObject, UNUserNotificationCenterDelegate {
-
     private let notificationCenter: UNUserNotificationCenter
     private var notifications: [String: UNNotificationRequest] = [:]
 
@@ -64,24 +73,23 @@ class UserNotificationPresenterAdaptee: NSObject, UNUserNotificationCenterDelega
 }
 
 extension UserNotificationPresenterAdaptee: NotificationPresenterAdaptee {
+    func registerNotificationSettings() -> Future<Void, Never> {
+        return Future { [weak self] resolver in
+            self?.notificationCenter.requestAuthorization(options: [.badge, .sound, .alert]) { (granted, error) in
+                self?.notificationCenter.setNotificationCategories(UserNotificationConfig.allNotificationCategories)
 
-    func registerNotificationSettings() -> Promise<Void> {
-        return Promise { resolver in
-            notificationCenter.requestAuthorization(options: [.badge, .sound, .alert]) { (granted, error) in
-                self.notificationCenter.setNotificationCategories(UserNotificationConfig.allNotificationCategories)
-
-                if granted {
-                    
-                } else if error != nil {
-                    Logger.error("failed with error: \(error!)")
-                } else {
+                if granted {}
+                else if let error: Error = error {
+                    Logger.error("failed with error: \(error)")
+                }
+                else {
                     Logger.error("failed without error.")
                 }
 
                 // Note that the promise is fulfilled regardless of if notification permssions were
                 // granted. This promise only indicates that the user has responded, so we can
                 // proceed with requesting push tokens and complete registration.
-                resolver.fulfill(())
+                resolver(Result.success(()))
             }
         }
     }
@@ -240,18 +248,22 @@ public class UserNotificationActionHandler: NSObject {
     @objc
     func handleNotificationResponse( _ response: UNNotificationResponse, completionHandler: @escaping () -> Void) {
         AssertIsOnMainThread()
-        firstly {
-            try handleNotificationResponse(response)
-        }.done {
-            completionHandler()
-        }.catch { error in
-            completionHandler()
-            owsFailDebug("error: \(error)")
-            Logger.error("error: \(error)")
-        }.retainUntilComplete()
+        handleNotificationResponse(response)
+            .sinkUntilComplete(
+                receiveCompletion: { result in
+                    switch result {
+                        case .finished: break
+                        case .failure(let error):
+                            completionHandler()
+                            owsFailDebug("error: \(error)")
+                            Logger.error("error: \(error)")
+                    }
+                },
+                receiveValue: { _ in completionHandler() }
+            )
     }
 
-    func handleNotificationResponse( _ response: UNNotificationResponse) throws -> Promise<Void> {
+    func handleNotificationResponse( _ response: UNNotificationResponse) -> AnyPublisher<Void, Error> {
         AssertIsOnMainThread()
         assert(AppReadiness.isAppReady())
 
@@ -260,12 +272,16 @@ public class UserNotificationActionHandler: NSObject {
         switch response.actionIdentifier {
             case UNNotificationDefaultActionIdentifier:
                 Logger.debug("default action")
-                return try actionHandler.showThread(userInfo: userInfo)
+                return actionHandler.showThread(userInfo: userInfo)
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
                 
             case UNNotificationDismissActionIdentifier:
                 // TODO - mark as read?
                 Logger.debug("dismissed notification")
-                return Promise.value(())
+                return Just(())
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
                 
             default:
                 // proceed
@@ -273,22 +289,26 @@ public class UserNotificationActionHandler: NSObject {
         }
 
         guard let action = UserNotificationConfig.action(identifier: response.actionIdentifier) else {
-            throw NotificationError.failDebug("unable to find action for actionIdentifier: \(response.actionIdentifier)")
+            return Fail(error: NotificationError.failDebug("unable to find action for actionIdentifier: \(response.actionIdentifier)"))
+                .eraseToAnyPublisher()
         }
 
         switch action {
             case .markAsRead:
-                return try actionHandler.markAsRead(userInfo: userInfo)
+                return actionHandler.markAsRead(userInfo: userInfo)
                 
             case .reply:
                 guard let textInputResponse = response as? UNTextInputNotificationResponse else {
-                    throw NotificationError.failDebug("response had unexpected type: \(response)")
+                    return Fail(error: NotificationError.failDebug("response had unexpected type: \(response)"))
+                        .eraseToAnyPublisher()
                 }
 
-                return try actionHandler.reply(userInfo: userInfo, replyText: textInputResponse.userText)
+                return actionHandler.reply(userInfo: userInfo, replyText: textInputResponse.userText)
                     
             case .showThread:
-                return try actionHandler.showThread(userInfo: userInfo)
+                return actionHandler.showThread(userInfo: userInfo)
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
         }
     }
 }

@@ -421,6 +421,47 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
         }
     }
     
+    private func removeProfileImage() {
+        let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self] modalActivityIndicator in
+            ProfileManager.updateLocal(
+                queue: DispatchQueue.global(qos: .default),
+                profileName: (self?.oldDisplayName ?? ""),
+                image: nil,
+                imageFilePath: nil,
+                success: { db, updatedProfile in
+                    UserDefaults.standard[.lastProfilePictureUpdate] = Date()
+                    
+                    try MessageSender.syncConfiguration(db, forceSyncNow: true).sinkUntilComplete()
+
+                    // Wait for the database transaction to complete before updating the UI
+                    db.afterNextTransaction { _ in
+                        DispatchQueue.main.async {
+                            modalActivityIndicator.dismiss(completion: {})
+                        }
+                    }
+                },
+                failure: { [weak self] _ in
+                    DispatchQueue.main.async {
+                        modalActivityIndicator.dismiss {
+                            self?.transitionToScreen(
+                                ConfirmationModal(
+                                    info: ConfirmationModal.Info(
+                                        title: "Unable to remove avatar image",
+                                        cancelTitle: "BUTTON_OK".localized(),
+                                        cancelStyle: .alert_text
+                                    )
+                                ),
+                                transitionType: .present
+                            )
+                        }
+                    }
+                }
+            )
+        }
+        
+        self.transitionToScreen(viewController, transitionType: .present)
+    }
+    
     fileprivate func updateProfile(
         name: String,
         profilePicture: UIImage?,
@@ -448,8 +489,8 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                         UserDefaults.standard[.lastProfilePictureUpdate] = Date()
                     }
 
-                    try MessageSender.syncConfiguration(db, forceSyncNow: true).retainUntilComplete()
-
+                    try MessageSender.syncConfiguration(db, forceSyncNow: true).sinkUntilComplete()
+                    
                     // Wait for the database transaction to complete before updating the UI
                     db.afterNextTransaction { _ in
                         DispatchQueue.main.async {

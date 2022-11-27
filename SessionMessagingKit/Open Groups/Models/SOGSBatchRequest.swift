@@ -1,7 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import PromiseKit
+import Combine
 import SessionUtilitiesKit
 
 internal extension OpenGroupAPI {
@@ -104,18 +104,20 @@ internal extension OpenGroupAPI {
 
 // MARK: - Convenience
 
-internal extension Promise where T == HTTP.BatchResponse {
+internal extension AnyPublisher where Output == HTTP.BatchResponse, Failure == Error {
     func map<E: EndpointType>(
         requests: [OpenGroupAPI.BatchRequest.Info],
         toHashMapFor endpointType: E.Type
-    ) -> Promise<[E: (ResponseInfoType, Codable?)]> {
-        return self.map { result in
-            result.enumerated()
-                .reduce(into: [:]) { prev, next in
-                    guard let endpoint: E = requests[next.offset].endpoint as? E else { return }
-                    
-                    prev[endpoint] = next.element
-                }
-        }
+    ) -> AnyPublisher<[E: (ResponseInfoType, Codable?)], Error> {
+        return self
+            .map { result in
+                result.enumerated()
+                    .reduce(into: [:]) { prev, next in
+                        guard let endpoint: E = requests[next.offset].endpoint as? E else { return }
+                        
+                        prev[endpoint] = next.element
+                    }
+            }
+            .eraseToAnyPublisher()
     }
 }
