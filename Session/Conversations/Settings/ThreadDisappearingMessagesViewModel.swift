@@ -17,14 +17,16 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
     
     public enum Section: SessionTableSection {
         case type
-        case timer
+        case timerDisappearAfterSend
+        case timerDisappearAfterRead
         case noteToSelf
         case group
         
         var title: String? {
             switch self {
                 case .type: return "DISAPPERING_MESSAGES_TYPE_TITLE".localized()
-                case .timer: return "DISAPPERING_MESSAGES_TIMER_TITLE".localized()
+                case .timerDisappearAfterSend: return "DISAPPERING_MESSAGES_TIMER_TITLE".localized()
+                case .timerDisappearAfterRead: return "DISAPPERING_MESSAGES_TIMER_TITLE".localized()
                 case .noteToSelf: return nil
                 case .group: return nil
             }
@@ -34,10 +36,8 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
         
         var footer: String? {
             switch self {
-                case .type: return nil
-                case .timer: return nil
-                case .noteToSelf: return nil
                 case .group: return "DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY".localized()
+                default: return nil
             }
         }
     }
@@ -237,7 +237,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                         ].appending(
                             (currentSelection.isEnabled == false) ? nil :
                                 SectionModel(
-                                    model: .timer,
+                                    model: currentSelection.type == .disappearAfterSend ? .timerDisappearAfterSend : .timerDisappearAfterRead,
                                     elements: DisappearingMessagesConfiguration
                                         .validDurationsSeconds(currentSelection.type ?? .disappearAfterSend)
                                         .map { duration in
