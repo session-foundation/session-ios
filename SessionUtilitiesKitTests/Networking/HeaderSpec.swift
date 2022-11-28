@@ -5,7 +5,7 @@ import Foundation
 import Quick
 import Nimble
 
-@testable import SessionMessagingKit
+@testable import SessionUtilitiesKit
 
 class HeaderSpec: QuickSpec {
     // MARK: - Spec
@@ -13,7 +13,8 @@ class HeaderSpec: QuickSpec {
     override func spec() {
         describe("a Dictionary of Header to String values") {
             it("can be converted into a dictionary of String to String values") {
-                expect([Header.authorization: "test"].toHTTPHeaders()).to(equal(["Authorization": "test"]))
+                expect([HTTPHeader.authorization: "test"].toHTTPHeaders())
+                    .to(equal(["Authorization": "test"]))
             }
         }
     }

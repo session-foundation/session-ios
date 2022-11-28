@@ -132,7 +132,7 @@ class NotificationContentViewModelSpec: QuickSpec {
             
             context("when tapping an item") {
                 it("updates the saved preference") {
-                    viewModel.settingsData.first?.elements.last?.onTap?(nil)
+                    viewModel.tableData.first?.elements.last?.onTap?()
                     
                     expect(mockStorage[.preferencesNotificationPreviewType])
                         .to(equal(Preferences.NotificationPreviewType.noNameNoPreview))
@@ -147,7 +147,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                             receiveCompletion: { _ in },
                             receiveValue: { _ in didDismissScreen = true }
                         )
-                    viewModel.settingsData.first?.elements.last?.onTap?(nil)
+                    viewModel.tableData.first?.elements.last?.onTap?()
                     
                     expect(didDismissScreen).to(beTrue())
                 }

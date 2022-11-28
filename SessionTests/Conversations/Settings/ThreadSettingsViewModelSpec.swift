@@ -97,7 +97,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         .first(where: { $0.model == .content })?
                         .elements
                         .first(where: { $0.id == .searchConversation })?
-                        .onTap?(nil)
+                        .onTap?()
                     
                     expect(didTriggerSearchCallbackTriggered).to(beTrue())
                 }
@@ -106,8 +106,8 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     viewModel.settingsData
                         .first(where: { $0.model == .content })?
                         .elements
-                        .first(where: { $0.id == .notificationMute })?
-                        .onTap?(nil)
+                        .first(where: { $0.id == .notifications })?
+                        .onTap?()
                     
                     expect(
                         mockStorage
@@ -208,15 +208,11 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 context("when entering edit mode") {
                     beforeEach {
                         viewModel.rightNavItems.firstValue()??.first?.action?()
-                        
-                        let leftAccessory: SessionCell.Accessory? = viewModel.settingsData.first?
-                            .elements.first?
-                            .leftAccessory
-                        
-                        switch leftAccessory {
-                            case .threadInfo(_, _, _, _, let titleChanged): titleChanged?("TestNew")
-                            default: break
-                        }
+                        viewModel.textChanged("TestNew", for: .nickname)
+                        // TODO: Enter edit mode by pressing on the first item
+//                        viewModel.tableData.first?
+//                            .elements.first?
+//                            .onTap?()
                     }
                     
                     it("enters the editing state") {
@@ -341,15 +337,12 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 context("when entering edit mode") {
                     beforeEach {
                         viewModel.rightNavItems.firstValue()??.first?.action?()
+                        viewModel.textChanged("TestUserNew", for: .nickname)
                         
-                        let leftAccessory: SessionCell.Accessory? = viewModel.settingsData.first?
-                            .elements.first?
-                            .leftAccessory
-                        
-                        switch leftAccessory {
-                            case .threadInfo(_, _, _, _, let titleChanged): titleChanged?("TestUserNew")
-                            default: break
-                        }
+                        // TODO: Enter edit mode by pressing on the first item
+//                       viewModel.tableData.first?
+//                           .elements.first?
+//                           .onTap?()
                     }
                     
                     it("enters the editing state") {

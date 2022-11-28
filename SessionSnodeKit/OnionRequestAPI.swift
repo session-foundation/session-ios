@@ -393,7 +393,11 @@ public enum OnionRequestAPI: OnionRequestAPIType {
     }
 
     /// Sends an onion request to `server`. Builds new paths as needed.
-    public static func sendOnionRequest(_ request: URLRequest, to server: String, using version: OnionRequestAPIVersion = .v4, with x25519PublicKey: String) -> Promise<(OnionRequestResponseInfoType, Data?)> {
+    public static func sendOnionRequest(
+        _ request: URLRequest,
+        to server: String, // TODO: Remove this 'server' value (unused)
+        with x25519PublicKey: String
+    ) -> Promise<(ResponseInfoType, Data?)> {
         guard let url = request.url, let host = request.url?.host else {
             return Promise(error: OnionRequestAPIError.invalidURL)
         }

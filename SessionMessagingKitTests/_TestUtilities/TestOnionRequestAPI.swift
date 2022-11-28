@@ -13,14 +13,18 @@ class TestOnionRequestAPI: OnionRequestAPIType {
         let urlString: String?
         let httpMethod: String
         let headers: [String: String]
-        let snodeMethod: String?
         let body: Data?
+        let destination: OnionRequestAPIDestination
         
-        let server: String
-        let version: OnionRequestAPIVersion
-        let publicKey: String?
+        var publicKey: String? {
+            switch destination {
+                case .snode: return nil
+                case .server(_, _, let x25519PublicKey, _, _): return x25519PublicKey
+            }
+        }
     }
-    class ResponseInfo: OnionRequestResponseInfoType {
+    
+    class ResponseInfo: ResponseInfoType {
         let requestData: RequestData
         let code: Int
         let headers: [String: String]
@@ -34,18 +38,20 @@ class TestOnionRequestAPI: OnionRequestAPIType {
     
     class var mockResponse: Data? { return nil }
     
-    static func sendOnionRequest(_ request: URLRequest, to server: String, using version: OnionRequestAPIVersion, with x25519PublicKey: String) -> Promise<(OnionRequestResponseInfoType, Data?)> {
+    static func sendOnionRequest(_ request: URLRequest, to server: String, with x25519PublicKey: String) -> Promise<(ResponseInfoType, Data?)> {
         let responseInfo: ResponseInfo = ResponseInfo(
             requestData: RequestData(
                 urlString: request.url?.absoluteString,
                 httpMethod: (request.httpMethod ?? "GET"),
                 headers: (request.allHTTPHeaderFields ?? [:]),
-                snodeMethod: nil,
                 body: request.httpBody,
-                
-                server: server,
-                version: version,
-                publicKey: x25519PublicKey
+                destination: OnionRequestAPIDestination.server(
+                    host: request.url!.host!,
+                    target: OnionRequestAPIVersion.v4.rawValue,
+                    x25519PublicKey: x25519PublicKey,
+                    scheme: request.url!.scheme,
+                    port: request.url!.port.map { UInt16($0) }
+                )
             ),
             code: 200,
             headers: [:]
@@ -54,7 +60,19 @@ class TestOnionRequestAPI: OnionRequestAPIType {
         return Promise.value((responseInfo, mockResponse))
     }
     
-    static func sendOnionRequest(to snode: Snode, invoking method: SnodeAPIEndpoint, with parameters: JSON, associatedWith publicKey: String?) -> Promise<Data> {
-        return Promise.value(mockResponse!)
+    static func sendOnionRequest(_ payload: Data, to snode: Snode) -> Promise<(ResponseInfoType, Data?)> {
+        let responseInfo: ResponseInfo = ResponseInfo(
+            requestData: RequestData(
+                urlString: "\(snode.address):\(snode.port)/onion_req/v2",
+                httpMethod: "POST",
+                headers: [:],
+                body: payload,
+                destination: OnionRequestAPIDestination.snode(snode)
+            ),
+            code: 200,
+            headers: [:]
+        )
+        
+        return Promise.value((responseInfo, mockResponse))
     }
 }

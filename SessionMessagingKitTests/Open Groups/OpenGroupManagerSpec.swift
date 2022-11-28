@@ -47,7 +47,7 @@ class OpenGroupManagerSpec: QuickSpec {
         override class var mockResponse: Data? {
             let responses: [Data] = [
                 try! JSONEncoder().encode(
-                    OpenGroupAPI.BatchSubResponse(
+                    HTTP.BatchSubResponse(
                         code: 200,
                         headers: [:],
                         body: capabilitiesData,
@@ -55,7 +55,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     )
                 ),
                 try! JSONEncoder().encode(
-                    OpenGroupAPI.BatchSubResponse(
+                    HTTP.BatchSubResponse(
                         code: 200,
                         headers: [:],
                         body: roomData,
@@ -917,7 +917,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         
                         expect(error?.localizedDescription)
                             .toEventually(
-                                equal(HTTP.Error.parsingFailed.localizedDescription),
+                                equal(HTTPError.parsingFailed.localizedDescription),
                                 timeout: .milliseconds(50)
                             )
                     }
@@ -1953,7 +1953,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         var didComplete: Bool = false   // Prevent multi-threading test bugs
                         
                         mockOGMCache.when { $0.groupImagePromises }
-                            .thenReturn([OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): Promise(error: HTTP.Error.generic)])
+                            .thenReturn([OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): Promise(error: HTTPError.generic)])
                         
                         testPollInfo = OpenGroupAPI.RoomPollInfo(
                             token: "testRoom",
@@ -3194,7 +3194,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         override class var mockResponse: Data? {
                             let responses: [Data] = [
                                 try! JSONEncoder().encode(
-                                    OpenGroupAPI.BatchSubResponse(
+                                    HTTP.BatchSubResponse(
                                         code: 200,
                                         headers: [:],
                                         body: capabilitiesData,
@@ -3202,7 +3202,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     )
                                 ),
                                 try! JSONEncoder().encode(
-                                    OpenGroupAPI.BatchSubResponse(
+                                    HTTP.BatchSubResponse(
                                         code: 200,
                                         headers: [:],
                                         body: roomsData,
@@ -3349,7 +3349,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     expect(error?.localizedDescription)
                         .toEventually(
-                            equal(HTTP.Error.invalidResponse.localizedDescription),
+                            equal(HTTPError.invalidResponse.localizedDescription),
                             timeout: .milliseconds(50)
                         )
                     expect(TestRoomsApi.callCounter).to(equal(9))   // First attempt + 8 retries
@@ -3369,7 +3369,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     expect(error?.localizedDescription)
                         .toEventually(
-                            equal(HTTP.Error.invalidResponse.localizedDescription),
+                            equal(HTTPError.invalidResponse.localizedDescription),
                             timeout: .milliseconds(50)
                         )
                     expect(mockOGMCache)
@@ -3414,7 +3414,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         override class var mockResponse: Data? {
                             let responses: [Data] = [
                                 try! JSONEncoder().encode(
-                                    OpenGroupAPI.BatchSubResponse(
+                                    HTTP.BatchSubResponse(
                                         code: 200,
                                         headers: [:],
                                         body: capabilitiesData,
@@ -3422,7 +3422,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     )
                                 ),
                                 try! JSONEncoder().encode(
-                                    OpenGroupAPI.BatchSubResponse(
+                                    HTTP.BatchSubResponse(
                                         code: 200,
                                         headers: [:],
                                         body: roomsData,
@@ -3568,12 +3568,12 @@ class OpenGroupManagerSpec: QuickSpec {
                 
                 it("adds the image retrieval promise to the cache") {
                     class TestNeverReturningApi: OnionRequestAPIType {
-                        static func sendOnionRequest(_ request: URLRequest, to server: String, using version: OnionRequestAPIVersion, with x25519PublicKey: String) -> Promise<(OnionRequestResponseInfoType, Data?)> {
-                            return Promise<(OnionRequestResponseInfoType, Data?)>.pending().promise
+                        static func sendOnionRequest(_ request: URLRequest, to server: String, with x25519PublicKey: String) -> Promise<(ResponseInfoType, Data?)> {
+                            return Promise<(ResponseInfoType, Data?)>.pending().promise
                         }
                         
-                        static func sendOnionRequest(to snode: Snode, invoking method: SnodeAPIEndpoint, with parameters: JSON, associatedWith publicKey: String?) -> Promise<Data> {
-                            return Promise.value(Data())
+                        static func sendOnionRequest(_ payload: Data, to snode: Snode) -> Promise<(ResponseInfoType, Data?)> {
+                            return Promise.value((HTTP.ResponseInfo(code: 200, headers: [:]), Data()))
                         }
                     }
                     dependencies = dependencies.with(onionApi: TestNeverReturningApi.self)

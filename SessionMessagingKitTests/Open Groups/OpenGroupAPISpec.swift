@@ -25,8 +25,8 @@ class OpenGroupAPISpec: QuickSpec {
         var mockNonce24Generator: MockNonce24Generator!
         var dependencies: SMKDependencies!
         
-        var response: (OnionRequestResponseInfoType, Codable)? = nil
-        var pollResponse: [OpenGroupAPI.Endpoint: (OnionRequestResponseInfoType, Codable?)]?
+        var response: (ResponseInfoType, Codable)? = nil
+        var pollResponse: [OpenGroupAPI.Endpoint: (ResponseInfoType, Codable?)]?
         var error: Error?
 
         describe("an OpenGroupAPI") {
@@ -136,7 +136,7 @@ class OpenGroupAPISpec: QuickSpec {
                             override class var mockResponse: Data? {
                                 let responses: [Data] = [
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: OpenGroupAPI.Capabilities(capabilities: [], missing: nil),
@@ -144,7 +144,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         )
                                     ),
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: try! JSONDecoder().decode(
@@ -163,7 +163,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         )
                                     ),
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: [OpenGroupAPI.Message](),
@@ -212,7 +212,6 @@ class OpenGroupAPISpec: QuickSpec {
                         let requestData: TestOnionRequestAPI.RequestData? = (pollResponse?[.capabilities]?.0 as? TestOnionRequestAPI.ResponseInfo)?.requestData
                         expect(requestData?.urlString).to(equal("testserver/batch"))
                         expect(requestData?.httpMethod).to(equal("POST"))
-                        expect(requestData?.server).to(equal("testserver"))
                         expect(requestData?.publicKey).to(equal("88672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"))
                     }
                     
@@ -369,7 +368,7 @@ class OpenGroupAPISpec: QuickSpec {
                                 override class var mockResponse: Data? {
                                     let responses: [Data] = [
                                         try! JSONEncoder().encode(
-                                            OpenGroupAPI.BatchSubResponse(
+                                            HTTP.BatchSubResponse(
                                                 code: 200,
                                                 headers: [:],
                                                 body: OpenGroupAPI.Capabilities(capabilities: [], missing: nil),
@@ -377,7 +376,7 @@ class OpenGroupAPISpec: QuickSpec {
                                             )
                                         ),
                                         try! JSONEncoder().encode(
-                                            OpenGroupAPI.BatchSubResponse(
+                                            HTTP.BatchSubResponse(
                                                 code: 200,
                                                 headers: [:],
                                                 body: try! JSONDecoder().decode(
@@ -396,7 +395,7 @@ class OpenGroupAPISpec: QuickSpec {
                                             )
                                         ),
                                         try! JSONEncoder().encode(
-                                            OpenGroupAPI.BatchSubResponse(
+                                            HTTP.BatchSubResponse(
                                                 code: 200,
                                                 headers: [:],
                                                 body: [OpenGroupAPI.Message](),
@@ -404,7 +403,7 @@ class OpenGroupAPISpec: QuickSpec {
                                             )
                                         ),
                                         try! JSONEncoder().encode(
-                                            OpenGroupAPI.BatchSubResponse(
+                                            HTTP.BatchSubResponse(
                                                 code: 200,
                                                 headers: [:],
                                                 body: [OpenGroupAPI.DirectMessage](),
@@ -412,7 +411,7 @@ class OpenGroupAPISpec: QuickSpec {
                                             )
                                         ),
                                         try! JSONEncoder().encode(
-                                            OpenGroupAPI.BatchSubResponse(
+                                            HTTP.BatchSubResponse(
                                                 code: 200,
                                                 headers: [:],
                                                 body: [OpenGroupAPI.DirectMessage](),
@@ -575,7 +574,7 @@ class OpenGroupAPISpec: QuickSpec {
                             override class var mockResponse: Data? {
                                 let responses: [Data] = [
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: OpenGroupAPI.Capabilities(capabilities: [], missing: nil),
@@ -583,7 +582,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         )
                                     ),
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: OpenGroupAPI.PinnedMessage(id: 1, pinnedAt: 1, pinnedBy: ""),
@@ -591,7 +590,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         )
                                     ),
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: OpenGroupAPI.PinnedMessage(id: 1, pinnedAt: 1, pinnedBy: ""),
@@ -626,9 +625,9 @@ class OpenGroupAPISpec: QuickSpec {
                             )
                         expect(error?.localizedDescription).to(beNil())
                         
-                        let capabilitiesResponse: OpenGroupAPI.BatchSubResponse<OpenGroupAPI.Capabilities>? = (pollResponse?[.capabilities]?.1 as? OpenGroupAPI.BatchSubResponse<OpenGroupAPI.Capabilities>)
-                        let pollInfoResponse: OpenGroupAPI.BatchSubResponse<OpenGroupAPI.RoomPollInfo>? = (pollResponse?[.roomPollInfo("testRoom", 0)]?.1 as? OpenGroupAPI.BatchSubResponse<OpenGroupAPI.RoomPollInfo>)
-                        let messagesResponse: OpenGroupAPI.BatchSubResponse<[Failable<OpenGroupAPI.Message>]>? = (pollResponse?[.roomMessagesRecent("testRoom")]?.1 as? OpenGroupAPI.BatchSubResponse<[Failable<OpenGroupAPI.Message>]>)
+                        let capabilitiesResponse: HTTP.BatchSubResponse<OpenGroupAPI.Capabilities>? = (pollResponse?[.capabilities]?.1 as? HTTP.BatchSubResponse<OpenGroupAPI.Capabilities>)
+                        let pollInfoResponse: HTTP.BatchSubResponse<OpenGroupAPI.RoomPollInfo>? = (pollResponse?[.roomPollInfo("testRoom", 0)]?.1 as? HTTP.BatchSubResponse<OpenGroupAPI.RoomPollInfo>)
+                        let messagesResponse: HTTP.BatchSubResponse<[Failable<OpenGroupAPI.Message>]>? = (pollResponse?[.roomMessagesRecent("testRoom")]?.1 as? HTTP.BatchSubResponse<[Failable<OpenGroupAPI.Message>]>)
                         expect(capabilitiesResponse?.failedToParseBody).to(beFalse())
                         expect(pollInfoResponse?.failedToParseBody).to(beTrue())
                         expect(messagesResponse?.failedToParseBody).to(beTrue())
@@ -651,7 +650,7 @@ class OpenGroupAPISpec: QuickSpec {
                         
                         expect(error?.localizedDescription)
                             .toEventually(
-                                equal(HTTP.Error.parsingFailed.localizedDescription),
+                                equal(HTTPError.parsingFailed.localizedDescription),
                                 timeout: .milliseconds(100)
                             )
                         
@@ -680,7 +679,7 @@ class OpenGroupAPISpec: QuickSpec {
                         
                         expect(error?.localizedDescription)
                             .toEventually(
-                                equal(HTTP.Error.parsingFailed.localizedDescription),
+                                equal(HTTPError.parsingFailed.localizedDescription),
                                 timeout: .milliseconds(100)
                             )
                         
@@ -709,7 +708,7 @@ class OpenGroupAPISpec: QuickSpec {
                         
                         expect(error?.localizedDescription)
                             .toEventually(
-                                equal(HTTP.Error.parsingFailed.localizedDescription),
+                                equal(HTTPError.parsingFailed.localizedDescription),
                                 timeout: .milliseconds(100)
                             )
                         
@@ -738,7 +737,7 @@ class OpenGroupAPISpec: QuickSpec {
                         
                         expect(error?.localizedDescription)
                             .toEventually(
-                                equal(HTTP.Error.parsingFailed.localizedDescription),
+                                equal(HTTPError.parsingFailed.localizedDescription),
                                 timeout: .milliseconds(100)
                             )
                         
@@ -750,7 +749,7 @@ class OpenGroupAPISpec: QuickSpec {
                             override class var mockResponse: Data? {
                                 let responses: [Data] = [
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: OpenGroupAPI.Capabilities(capabilities: [], missing: nil),
@@ -758,7 +757,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         )
                                     ),
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: try! JSONDecoder().decode(
@@ -799,7 +798,7 @@ class OpenGroupAPISpec: QuickSpec {
                         
                         expect(error?.localizedDescription)
                             .toEventually(
-                                equal(HTTP.Error.parsingFailed.localizedDescription),
+                                equal(HTTPError.parsingFailed.localizedDescription),
                                 timeout: .milliseconds(100)
                             )
                         
@@ -819,7 +818,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
-                    var response: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Capabilities)?
+                    var response: (info: ResponseInfoType, data: OpenGroupAPI.Capabilities)?
                     
                     mockStorage
                         .read { db in
@@ -846,7 +845,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate request data
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("GET"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/capabilities"))
                 }
             }
@@ -890,7 +888,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
-                    var response: (info: OnionRequestResponseInfoType, data: [OpenGroupAPI.Room])?
+                    var response: (info: ResponseInfoType, data: [OpenGroupAPI.Room])?
                     
                     mockStorage
                         .read { db in
@@ -917,7 +915,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate request data
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("GET"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/rooms"))
                 }
             }
@@ -960,7 +957,7 @@ class OpenGroupAPISpec: QuickSpec {
                             override class var mockResponse: Data? {
                                 let responses: [Data] = [
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: capabilitiesData,
@@ -968,7 +965,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         )
                                     ),
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: roomData,
@@ -982,7 +979,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
-                        var response: (capabilities: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Capabilities?), room: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Room?))?
+                        var response: (capabilities: (info: ResponseInfoType, data: OpenGroupAPI.Capabilities?), room: (info: ResponseInfoType, data: OpenGroupAPI.Room?))?
                         
                         mockStorage
                             .read { db in
@@ -1011,7 +1008,6 @@ class OpenGroupAPISpec: QuickSpec {
                         // Validate request data
                         let requestData: TestOnionRequestAPI.RequestData? = (response?.capabilities.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                         expect(requestData?.httpMethod).to(equal("POST"))
-                        expect(requestData?.server).to(equal("testserver"))
                         expect(requestData?.urlString).to(equal("testserver/sequence"))
                     }
                 }
@@ -1024,7 +1020,7 @@ class OpenGroupAPISpec: QuickSpec {
                             override class var mockResponse: Data? {
                                 let responses: [Data] = [
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: capabilitiesData,
@@ -1038,7 +1034,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
-                        var response: (capabilities: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Capabilities?), room: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Room?))?
+                        var response: (capabilities: (info: ResponseInfoType, data: OpenGroupAPI.Capabilities?), room: (info: ResponseInfoType, data: OpenGroupAPI.Room?))?
                         
                         mockStorage
                             .read { db in
@@ -1056,7 +1052,7 @@ class OpenGroupAPISpec: QuickSpec {
                         
                         expect(error?.localizedDescription)
                             .toEventually(
-                                equal(HTTP.Error.parsingFailed.localizedDescription),
+                                equal(HTTPError.parsingFailed.localizedDescription),
                                 timeout: .milliseconds(100)
                             )
                         
@@ -1096,7 +1092,7 @@ class OpenGroupAPISpec: QuickSpec {
                             override class var mockResponse: Data? {
                                 let responses: [Data] = [
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: roomData,
@@ -1110,7 +1106,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
-                        var response: (capabilities: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Capabilities?), room: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Room?))?
+                        var response: (capabilities: (info: ResponseInfoType, data: OpenGroupAPI.Capabilities?), room: (info: ResponseInfoType, data: OpenGroupAPI.Room?))?
                         
                         mockStorage
                             .read { db in
@@ -1128,7 +1124,7 @@ class OpenGroupAPISpec: QuickSpec {
                         
                         expect(error?.localizedDescription)
                             .toEventually(
-                                equal(HTTP.Error.parsingFailed.localizedDescription),
+                                equal(HTTPError.parsingFailed.localizedDescription),
                                 timeout: .milliseconds(100)
                             )
                         
@@ -1169,7 +1165,7 @@ class OpenGroupAPISpec: QuickSpec {
                             override class var mockResponse: Data? {
                                 let responses: [Data] = [
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: capabilitiesData,
@@ -1177,7 +1173,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         )
                                     ),
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: roomData,
@@ -1185,7 +1181,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         )
                                     ),
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: OpenGroupAPI.PinnedMessage(id: 1, pinnedAt: 1, pinnedBy: ""),
@@ -1199,7 +1195,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
-                        var response: (capabilities: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Capabilities?), room: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Room?))?
+                        var response: (capabilities: (info: ResponseInfoType, data: OpenGroupAPI.Capabilities?), room: (info: ResponseInfoType, data: OpenGroupAPI.Room?))?
                         
                         mockStorage
                             .read { db in
@@ -1216,7 +1212,7 @@ class OpenGroupAPISpec: QuickSpec {
                         
                         expect(error?.localizedDescription)
                             .toEventually(
-                                equal(HTTP.Error.parsingFailed.localizedDescription),
+                                equal(HTTPError.parsingFailed.localizedDescription),
                                 timeout: .milliseconds(100)
                             )
                         
@@ -1258,7 +1254,7 @@ class OpenGroupAPISpec: QuickSpec {
                 }
                 
                 it("correctly sends the message") {
-                    var response: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Message)?
+                    var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                     
                     mockStorage
                         .read { db in
@@ -1291,7 +1287,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate signature headers
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.0 as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("POST"))
-                    expect(requestData?.server).to(equal("testServer"))
                     expect(requestData?.urlString).to(equal("testServer/room/testRoom/message"))
                 }
                 
@@ -1304,7 +1299,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     
                     it("signs the message correctly") {
-                        var response: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Message)?
+                        var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
                             .read { db in
@@ -1344,7 +1339,7 @@ class OpenGroupAPISpec: QuickSpec {
                             _ = try OpenGroup.deleteAll(db)
                         }
                         
-                        var response: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Message)?
+                        var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
                             .read { db in
@@ -1379,7 +1374,7 @@ class OpenGroupAPISpec: QuickSpec {
                             _ = try Identity.filter(id: .x25519PrivateKey).deleteAll(db)
                         }
                         
-                        var response: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Message)?
+                        var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
                             .read { db in
@@ -1412,7 +1407,7 @@ class OpenGroupAPISpec: QuickSpec {
                         mockEd25519.reset() // The 'keyPair' value doesn't equate so have to explicitly reset
                         mockEd25519.when { try $0.sign(data: anyArray(), keyPair: any()) }.thenReturn(nil)
                         
-                        var response: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Message)?
+                        var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
                             .read { db in
@@ -1452,7 +1447,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     
                     it("signs the message correctly") {
-                        var response: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Message)?
+                        var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
                             .read { db in
@@ -1492,7 +1487,7 @@ class OpenGroupAPISpec: QuickSpec {
                             _ = try OpenGroup.deleteAll(db)
                         }
                         
-                        var response: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Message)?
+                        var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
                             .read { db in
@@ -1527,7 +1522,7 @@ class OpenGroupAPISpec: QuickSpec {
                             _ = try Identity.filter(id: .ed25519SecretKey).deleteAll(db)
                         }
                         
-                        var response: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Message)?
+                        var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
                             .read { db in
@@ -1568,7 +1563,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .thenReturn(nil)
                         
-                        var response: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Message)?
+                        var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
                             .read { db in
@@ -1621,7 +1616,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
-                    var response: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Message)?
+                    var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                     
                     mockStorage
                         .read { db in
@@ -1651,7 +1646,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate request data
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("GET"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/room/testRoom/message/123"))
                 }
             }
@@ -1674,7 +1668,7 @@ class OpenGroupAPISpec: QuickSpec {
                 }
                 
                 it("correctly sends the update") {
-                    var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                    var response: (info: ResponseInfoType, data: Data?)?
                     
                     mockStorage
                         .read { db in
@@ -1703,7 +1697,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate signature headers
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.0 as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("PUT"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/room/testRoom/message/123"))
                 }
                 
@@ -1716,7 +1709,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     
                     it("signs the message correctly") {
-                        var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                        var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
                             .read { db in
@@ -1755,7 +1748,7 @@ class OpenGroupAPISpec: QuickSpec {
                             _ = try OpenGroup.deleteAll(db)
                         }
                         
-                        var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                        var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
                             .read { db in
@@ -1789,7 +1782,7 @@ class OpenGroupAPISpec: QuickSpec {
                             _ = try Identity.filter(id: .x25519PrivateKey).deleteAll(db)
                         }
                         
-                        var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                        var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
                             .read { db in
@@ -1821,7 +1814,7 @@ class OpenGroupAPISpec: QuickSpec {
                         mockEd25519.reset() // The 'keyPair' value doesn't equate so have to explicitly reset
                         mockEd25519.when { try $0.sign(data: anyArray(), keyPair: any()) }.thenReturn(nil)
                         
-                        var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                        var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
                             .read { db in
@@ -1860,7 +1853,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     
                     it("signs the message correctly") {
-                        var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                        var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
                             .read { db in
@@ -1899,7 +1892,7 @@ class OpenGroupAPISpec: QuickSpec {
                             _ = try OpenGroup.deleteAll(db)
                         }
                         
-                        var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                        var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
                             .read { db in
@@ -1933,7 +1926,7 @@ class OpenGroupAPISpec: QuickSpec {
                             _ = try Identity.filter(id: .ed25519SecretKey).deleteAll(db)
                         }
                         
-                        var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                        var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
                             .read { db in
@@ -1973,7 +1966,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .thenReturn(nil)
                         
-                        var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                        var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
                             .read { db in
@@ -2010,7 +2003,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
-                    var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                    var response: (info: ResponseInfoType, data: Data?)?
                     
                     mockStorage
                         .read { db in
@@ -2037,13 +2030,12 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate request data
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("DELETE"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/room/testRoom/message/123"))
                 }
             }
             
             context("when deleting all messages for a user") {
-                var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                var response: (info: ResponseInfoType, data: Data?)?
                 
                 beforeEach {
                     class TestApi: TestOnionRequestAPI {
@@ -2082,7 +2074,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate request data
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("DELETE"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/room/testRoom/all/testUserId"))
                 }
             }
@@ -2096,7 +2087,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
-                    var response: OnionRequestResponseInfoType?
+                    var response: ResponseInfoType?
                     
                     mockStorage
                         .read { db in
@@ -2123,7 +2114,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate request data
                     let requestData: TestOnionRequestAPI.RequestData? = (response as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("POST"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/room/testRoom/pin/123"))
                 }
             }
@@ -2135,7 +2125,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
-                    var response: OnionRequestResponseInfoType?
+                    var response: ResponseInfoType?
                     
                     mockStorage
                         .read { db in
@@ -2162,7 +2152,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate request data
                     let requestData: TestOnionRequestAPI.RequestData? = (response as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("POST"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/room/testRoom/unpin/123"))
                 }
             }
@@ -2174,7 +2163,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
-                    var response: OnionRequestResponseInfoType?
+                    var response: ResponseInfoType?
                     
                     mockStorage
                         .read { db in
@@ -2200,7 +2189,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate request data
                     let requestData: TestOnionRequestAPI.RequestData? = (response as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("POST"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/room/testRoom/unpin/all"))
                 }
             }
@@ -2241,7 +2229,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate signature headers
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.0 as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("POST"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/room/testRoom/file"))
                 }
                 
@@ -2277,7 +2264,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     // Validate signature headers
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.0 as? TestOnionRequestAPI.ResponseInfo)?.requestData
-                    expect(requestData?.headers[Header.contentDisposition.rawValue])
+                    expect(requestData?.headers[HTTPHeader.contentDisposition])
                         .toNot(contain("filename"))
                 }
                 
@@ -2314,7 +2301,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     // Validate signature headers
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.0 as? TestOnionRequestAPI.ResponseInfo)?.requestData
-                    expect(requestData?.headers[Header.contentDisposition.rawValue]).to(contain("TestFileName"))
+                    expect(requestData?.headers[HTTPHeader.contentDisposition]).to(contain("TestFileName"))
                 }
             }
             
@@ -2352,7 +2339,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate signature headers
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.0 as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("GET"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/room/testRoom/file/1"))
                 }
             }
@@ -2383,7 +2369,7 @@ class OpenGroupAPISpec: QuickSpec {
                 }
                 
                 it("correctly sends the message request") {
-                    var response: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.SendDirectMessageResponse)?
+                    var response: (info: ResponseInfoType, data: OpenGroupAPI.SendDirectMessageResponse)?
                     
                     mockStorage
                         .read { db in
@@ -2413,7 +2399,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate signature headers
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.0 as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("POST"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/inbox/testUserId"))
                 }
             }
@@ -2421,7 +2406,7 @@ class OpenGroupAPISpec: QuickSpec {
             // MARK: - Users
             
             context("when banning a user") {
-                var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                var response: (info: ResponseInfoType, data: Data?)?
                 
                 beforeEach {
                     class TestApi: TestOnionRequestAPI {
@@ -2461,7 +2446,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate request data
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("POST"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/user/testUserId/ban"))
                 }
                 
@@ -2531,7 +2515,7 @@ class OpenGroupAPISpec: QuickSpec {
             }
             
             context("when unbanning a user") {
-                var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                var response: (info: ResponseInfoType, data: Data?)?
                 
                 beforeEach {
                     class TestApi: TestOnionRequestAPI {
@@ -2570,7 +2554,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate request data
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("POST"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/user/testUserId/unban"))
                 }
                 
@@ -2638,7 +2621,7 @@ class OpenGroupAPISpec: QuickSpec {
             }
             
             context("when updating a users permissions") {
-                var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                var response: (info: ResponseInfoType, data: Data?)?
                 
                 beforeEach {
                     class TestApi: TestOnionRequestAPI {
@@ -2680,7 +2663,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate request data
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("POST"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/user/testUserId/moderator"))
                 }
                 
@@ -2773,7 +2755,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     expect(error?.localizedDescription)
                         .toEventually(
-                            equal(HTTP.Error.generic.localizedDescription),
+                            equal(HTTPError.generic.localizedDescription),
                             timeout: .milliseconds(100)
                         )
                     
@@ -2782,14 +2764,14 @@ class OpenGroupAPISpec: QuickSpec {
             }
             
             context("when banning and deleting all messages for a user") {
-                var response: [OnionRequestResponseInfoType]?
+                var response: [ResponseInfoType]?
                 
                 beforeEach {
                     class TestApi: TestOnionRequestAPI {
                         override class var mockResponse: Data? {
                             let responses: [Data] = [
                                 try! JSONEncoder().encode(
-                                    OpenGroupAPI.BatchSubResponse<NoResponse>(
+                                    HTTP.BatchSubResponse<NoResponse>(
                                         code: 200,
                                         headers: [:],
                                         body: nil,
@@ -2797,7 +2779,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     )
                                 ),
                                 try! JSONEncoder().encode(
-                                    OpenGroupAPI.BatchSubResponse<NoResponse>(
+                                    HTTP.BatchSubResponse<NoResponse>(
                                         code: 200,
                                         headers: [:],
                                         body: nil,
@@ -2842,7 +2824,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate request data
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.first as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("POST"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/sequence"))
                 }
                 
@@ -3013,14 +2994,13 @@ class OpenGroupAPISpec: QuickSpec {
                         let requestData: TestOnionRequestAPI.RequestData? = (response?.0 as? TestOnionRequestAPI.ResponseInfo)?.requestData
                         expect(requestData?.urlString).to(equal("testserver/rooms"))
                         expect(requestData?.httpMethod).to(equal("GET"))
-                        expect(requestData?.server).to(equal("testserver"))
                         expect(requestData?.publicKey).to(equal("88672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"))
                         expect(requestData?.headers).to(haveCount(4))
-                        expect(requestData?.headers[Header.sogsPubKey.rawValue])
+                        expect(requestData?.headers[HTTPHeader.sogsPubKey])
                             .to(equal("00bac6e71efd7dfa4a83c98ed24f254ab2c267f9ccdb172a5280a0444ad24e89cc"))
-                        expect(requestData?.headers[Header.sogsTimestamp.rawValue]).to(equal("1234567890"))
-                        expect(requestData?.headers[Header.sogsNonce.rawValue]).to(equal("pK6YRtQApl4NhECGizF0Cg=="))
-                        expect(requestData?.headers[Header.sogsSignature.rawValue]).to(equal("TestSignature".bytes.toBase64()))
+                        expect(requestData?.headers[HTTPHeader.sogsTimestamp]).to(equal("1234567890"))
+                        expect(requestData?.headers[HTTPHeader.sogsNonce]).to(equal("pK6YRtQApl4NhECGizF0Cg=="))
+                        expect(requestData?.headers[HTTPHeader.sogsSignature]).to(equal("TestSignature".bytes.toBase64()))
                     }
                     
                     it("fails when the signature is not generated") {
@@ -3083,13 +3063,12 @@ class OpenGroupAPISpec: QuickSpec {
                         let requestData: TestOnionRequestAPI.RequestData? = (response?.0 as? TestOnionRequestAPI.ResponseInfo)?.requestData
                         expect(requestData?.urlString).to(equal("testserver/rooms"))
                         expect(requestData?.httpMethod).to(equal("GET"))
-                        expect(requestData?.server).to(equal("testserver"))
                         expect(requestData?.publicKey).to(equal("88672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"))
                         expect(requestData?.headers).to(haveCount(4))
-                        expect(requestData?.headers[Header.sogsPubKey.rawValue]).to(equal("1588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"))
-                        expect(requestData?.headers[Header.sogsTimestamp.rawValue]).to(equal("1234567890"))
-                        expect(requestData?.headers[Header.sogsNonce.rawValue]).to(equal("pK6YRtQApl4NhECGizF0Cg=="))
-                        expect(requestData?.headers[Header.sogsSignature.rawValue]).to(equal("TestSogsSignature".bytes.toBase64()))
+                        expect(requestData?.headers[HTTPHeader.sogsPubKey]).to(equal("1588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"))
+                        expect(requestData?.headers[HTTPHeader.sogsTimestamp]).to(equal("1234567890"))
+                        expect(requestData?.headers[HTTPHeader.sogsNonce]).to(equal("pK6YRtQApl4NhECGizF0Cg=="))
+                        expect(requestData?.headers[HTTPHeader.sogsSignature]).to(equal("TestSogsSignature".bytes.toBase64()))
                     }
                     
                     it("fails when the blindedKeyPair is not generated") {

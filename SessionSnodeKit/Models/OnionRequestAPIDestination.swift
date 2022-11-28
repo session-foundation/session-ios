@@ -2,7 +2,7 @@
 
 import Foundation
 
-public enum OnionRequestAPIDestination: CustomStringConvertible {
+public enum OnionRequestAPIDestination: CustomStringConvertible, Codable {
     case snode(Snode)
     case server(host: String, target: String, x25519PublicKey: String, scheme: String?, port: UInt16?)
     
