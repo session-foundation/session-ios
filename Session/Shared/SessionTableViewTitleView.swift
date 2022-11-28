@@ -8,8 +8,18 @@ import SessionUtilitiesKit
 final class SessionTableViewTitleView: UIView {
     private var oldSize: CGSize = .zero
     
-    override var intrinsicContentSize: CGSize {
-        return UIView.layoutFittingExpandedSize
+    override var frame: CGRect {
+        set(newValue) {
+            super.frame = newValue
+
+            if let superview = self.superview {
+                self.center = CGPoint(x: superview.center.x, y: self.center.y)
+            }
+        }
+
+        get {
+            return super.frame
+        }
     }
 
     // MARK: - UI Components
