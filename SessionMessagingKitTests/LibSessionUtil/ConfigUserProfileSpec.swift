@@ -91,9 +91,6 @@ class ConfigUserProfileSpec: QuickSpec {
             let expHash0: [CChar] = Data(hex: "ea173b57beca8af18c3519a7bbf69c3e7a05d1c049fa9558341d8ebb48b0c965")
                 .bytes
                 .map { CChar(bitPattern: $0) }
-//                .withUnsafeBufferPointer { profileKeyPtr in
-//                    String(cString: profileKeyPtr.baseAddress!)
-//                }
             // The data to be actually pushed, expanded like this to make it somewhat human-readable:
             let expPush1: [CChar] = ["""
                 d
@@ -120,8 +117,7 @@ class ConfigUserProfileSpec: QuickSpec {
                 e
             """.removeCharacters(characterSet: CharacterSet.whitespacesAndNewlines) // For readability
                 .bytes
-                .map { CChar(bitPattern: $0) },
-//             [CChar()] // Need to null-terminate the string or it'll crash
+                .map { CChar(bitPattern: $0) }
             ]
             .flatMap { $0 }
             
@@ -199,9 +195,9 @@ class ConfigUserProfileSpec: QuickSpec {
             expect(config_needs_dump(conf2)).to(beTrue())
             var dump3: UnsafeMutablePointer<CChar>? = nil
             var dump3Len: Int = 0
-            config_dump(conf, &dump3, &dump3Len)
+            config_dump(conf2, &dump3, &dump3Len)
             // (store in db)
-            expect(config_needs_dump(conf2)).to(beFalse())// TODO: This one is broken now!!!
+            expect(config_needs_dump(conf2)).to(beFalse())
             
             // We *don't* need to push: even though we updated, all we did is update to the merged data (and
             // didn't have any sort of merge conflict needed):
@@ -261,22 +257,12 @@ class ConfigUserProfileSpec: QuickSpec {
 
             // Feed the new config into each other.  (This array could hold multiple configs if we pulled
             // down more than one).
-            let mergeData2: [String] = [String(cString: toPush3!)]
-            var mergeData2Ptr = mergeData2.map { value in
-                value.bytes.map { CChar(bitPattern: $0) }.withUnsafeBufferPointer { valuePtr in
-                    valuePtr.baseAddress
-                }
-            }
+            var mergeData2Ptr: [UnsafePointer<CChar>?] = [UnsafePointer(toPush3)]
             var mergeSize2: [Int] = [toPush3Len]
             config_merge(conf2, &mergeData2Ptr, &mergeSize2, 1)
-            let mergeData3: [String] = [String(cString: toPush4!)]
-            var mergeData3Ptr = mergeData3.map { value in
-                value.bytes.map { CChar(bitPattern: $0) }.withUnsafeBufferPointer { valuePtr in
-                    valuePtr.baseAddress
-                }
-            }
+            var mergeData3: [UnsafePointer<CChar>?] = [UnsafePointer(toPush4)]
             var mergeSize3: [Int] = [toPush4Len]
-            config_merge(conf, &mergeData3Ptr, &mergeSize3, 1)
+            config_merge(conf, &mergeData3, &mergeSize3, 1)
             
             // Now after the merge we *will* want to push from both client, since both will have generated a
             // merge conflict update (with seqno = 3).
@@ -300,12 +286,14 @@ class ConfigUserProfileSpec: QuickSpec {
             expect(pic3.url).toNot(beNil())
             expect(String(cString: pic3.url!)).to(equal("http://new.example.com/pic"))
             expect(pic3.key).toNot(beNil())
-            expect(String(cString: pic3.key!)).to(equal("qwert\0yuio"))
+            expect(String(data: Data(bytes: pic3.key, count: pic3.keylen), encoding: .utf8))
+                .to(equal("qwert\0yuio"))
             let pic4 = user_profile_get_pic(conf2)
             expect(pic4.url).toNot(beNil())
             expect(String(cString: pic4.url!)).to(equal("http://new.example.com/pic"))
             expect(pic4.key).toNot(beNil())
-            expect(String(cString: pic4.key!)).to(equal("qwert\0yuio"))
+            expect(String(data: Data(bytes: pic4.key, count: pic4.keylen), encoding: .utf8))
+                .to(equal("qwert\0yuio"))
 
             config_confirm_pushed(conf, seqno5)
             config_confirm_pushed(conf2, seqno6)
