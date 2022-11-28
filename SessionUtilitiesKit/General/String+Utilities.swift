@@ -74,6 +74,20 @@ public extension String {
     }
 }
 
+// MARK: - Convenience
+
+public extension String {
+    /// Initialize with an optional pointer and a spoecific length
+    init?(pointer: UnsafeRawPointer?, length: Int, encoding: String.Encoding = .utf8) {
+        guard
+            let pointer: UnsafeRawPointer = pointer,
+            let result: String = String(data: Data(bytes: pointer, count: length), encoding: encoding)
+        else { return nil }
+        
+        self = result
+    }
+}
+
 // MARK: - Formatting
 
 public extension String {
