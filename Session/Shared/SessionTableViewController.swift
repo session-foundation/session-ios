@@ -26,6 +26,8 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
     
     // MARK: - Components
     
+    private lazy var titleView: SessionTableViewTitleView = SessionTableViewTitleView()
+    
     private lazy var tableView: UITableView = {
         let result: UITableView = UITableView()
         result.translatesAutoresizingMaskIntoConstraints = false
@@ -92,11 +94,8 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        ViewControllerUtilities.setUpDefaultSessionStyle(
-            for: self,
-            title: viewModel.title,
-            hasCustomBackButton: false
-        )
+        navigationItem.titleView = titleView
+        titleView.update(title: self.viewModel.title, subTitle: nil)
         
         view.themeBackgroundColor = .backgroundPrimary
         view.addSubview(tableView)
