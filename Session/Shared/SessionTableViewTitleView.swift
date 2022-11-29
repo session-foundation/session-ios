@@ -35,7 +35,7 @@ final class SessionTableViewTitleView: UIView {
 
     private lazy var subtitleLabel: UILabel = {
         let result: UILabel = UILabel()
-        result.font = .systemFont(ofSize: 13)
+        result.font = .systemFont(ofSize: Values.verySmallFontSize)
         result.themeTextColor = .textPrimary
         result.lineBreakMode = .byTruncatingTail
         
@@ -71,37 +71,22 @@ final class SessionTableViewTitleView: UIView {
 
     // MARK: - Content
     
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        
-        // There is an annoying issue where pushing seems to update the width of this
-        // view resulting in the content shifting to the right during
-        guard self.oldSize != .zero, self.oldSize != bounds.size else {
-            self.oldSize = bounds.size
-            return
-        }
-        
-        let diff: CGFloat = (bounds.size.width - oldSize.width)
-//        self.stackViewTrailingConstraint.constant = -max(0, diff)
-        self.oldSize = bounds.size
-    }
-    
-    public func update(title: String, subTitle: String?) {
+    public func update(title: String, subtitle: String?) {
         guard Thread.isMainThread else {
             DispatchQueue.main.async { [weak self] in
-                self?.update(title: title, subTitle: subTitle)
+                self?.update(title: title, subtitle: subtitle)
             }
             return
         }
         
         self.titleLabel.text = title
         self.titleLabel.font = .boldSystemFont(
-            ofSize: (subTitle != nil ?
-                Values.mediumFontSize :
+            ofSize: (subtitle?.isEmpty == false ?
+                Values.largeFontSize :
                 Values.veryLargeFontSize
             )
         )
         
-        self.subtitleLabel.text = subTitle
+        self.subtitleLabel.text = subtitle
     }
 }

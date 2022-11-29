@@ -79,7 +79,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
     // MARK: - Content
     
     override var title: String { "DISAPPEARING_MESSAGES".localized() }
-    var subtitle: String { threadVariant == .contact ? "DISAPPERING_MESSAGES_SUBTITLE_CONTACTS".localized() : "DISAPPERING_MESSAGES_SUBTITLE_GROUPS".localized() }
+    override var subtitle: String? { threadVariant == .contact ? "DISAPPERING_MESSAGES_SUBTITLE_CONTACTS".localized() : "DISAPPERING_MESSAGES_SUBTITLE_GROUPS".localized() }
     
     private var _settingsData: [SectionModel] = []
     public override var settingsData: [SectionModel] { _settingsData }

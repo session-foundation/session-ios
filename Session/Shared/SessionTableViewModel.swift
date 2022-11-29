@@ -38,6 +38,7 @@ class SessionTableViewModel<NavItemId: Equatable, Section: SessionTableSection, 
     // MARK: - Content
     
     open var title: String { preconditionFailure("abstract class - override in subclass") }
+    open var subtitle: String? { nil }
     open var settingsData: [SectionModel] { preconditionFailure("abstract class - override in subclass") }
     open var observableSettingsData: ObservableData {
         preconditionFailure("abstract class - override in subclass")

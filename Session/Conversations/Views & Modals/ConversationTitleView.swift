@@ -132,7 +132,7 @@ final class ConversationTitleView: UIView {
         self.titleLabel.text = name
         self.titleLabel.font = .boldSystemFont(
             ofSize: (shouldHaveSubtitle ?
-                Values.mediumFontSize :
+                Values.largeFontSize :
                 Values.veryLargeFontSize
             )
         )
@@ -219,7 +219,7 @@ final class ConversationTitleView: UIView {
                 labelTypes: labelTypes,
                 labelSize: CGSize(
                     width: self?.labelCarouselViewWidth.constant ?? 0,
-                    height: 20
+                    height: 15
                 ),
                 shouldAutoScroll: false
             )

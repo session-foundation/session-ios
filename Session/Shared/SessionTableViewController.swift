@@ -95,7 +95,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
         super.viewDidLoad()
         
         navigationItem.titleView = titleView
-        titleView.update(title: self.viewModel.title, subTitle: nil)
+        titleView.update(title: self.viewModel.title, subtitle: self.viewModel.subtitle)
         
         view.themeBackgroundColor = .backgroundPrimary
         view.addSubview(tableView)
