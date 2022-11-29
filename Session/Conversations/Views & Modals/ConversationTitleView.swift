@@ -161,8 +161,8 @@ final class ConversationTitleView: UIView {
                 imageAttachment.bounds = CGRect(
                     x: 0,
                     y: -2,
-                    width: Values.verySmallFontSize,
-                    height: Values.verySmallFontSize
+                    width: Values.miniFontSize,
+                    height: Values.miniFontSize
                 )
                 
                 let notificationSettingsLabelString = NSAttributedString(attachment: imageAttachment)
@@ -200,8 +200,8 @@ final class ConversationTitleView: UIView {
                 imageAttachment.bounds = CGRect(
                     x: 0,
                     y: -2,
-                    width: Values.verySmallFontSize,
-                    height: Values.verySmallFontSize
+                    width: Values.miniFontSize,
+                    height: Values.miniFontSize
                 )
                 
                 let disappearingMessageSettingLabelString = NSAttributedString(attachment: imageAttachment)
@@ -219,7 +219,7 @@ final class ConversationTitleView: UIView {
                 labelTypes: labelTypes,
                 labelSize: CGSize(
                     width: self?.labelCarouselViewWidth.constant ?? 0,
-                    height: 15
+                    height: 14
                 ),
                 shouldAutoScroll: false
             )

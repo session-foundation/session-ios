@@ -35,7 +35,7 @@ final class SessionTableViewTitleView: UIView {
 
     private lazy var subtitleLabel: UILabel = {
         let result: UILabel = UILabel()
-        result.font = .systemFont(ofSize: Values.verySmallFontSize)
+        result.font = .systemFont(ofSize: Values.miniFontSize)
         result.themeTextColor = .textPrimary
         result.lineBreakMode = .byTruncatingTail
         

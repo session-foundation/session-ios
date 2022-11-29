@@ -131,7 +131,7 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
             wrapper.set(.width, to: labelSize.width)
             wrapper.set(.height, to: labelSize.height)
             let label: UILabel = UILabel()
-            label.font = .systemFont(ofSize: Values.verySmallFontSize)
+            label.font = .systemFont(ofSize: Values.miniFontSize)
             label.themeTextColor = .textPrimary
             label.lineBreakMode = .byTruncatingTail
             label.attributedText = $0
@@ -159,7 +159,7 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
         
         addSubview(pageControl)
         pageControl.center(.horizontal, in: self)
-        pageControl.pin(.bottom, to: .bottom, of: self, withInset: 1)
+        pageControl.pin(.bottom, to: .bottom, of: self)
         
         scrollView.addSubview(stackView)
     }
