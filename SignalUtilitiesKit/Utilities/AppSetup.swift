@@ -74,8 +74,13 @@ public enum AppSetup {
             ],
             onProgressUpdate: migrationProgressChanged,
             onComplete: { result, needsConfigSync in
+                // After the migrations have run but before the migration completion we load the
+                // SessionUtil state and update the 'needsConfigSync' flag based on whether the
+                // configs also need to be sync'ed
+                SessionUtil.loadState()
+                
                 DispatchQueue.main.async {
-                    migrationsCompletion(result, needsConfigSync)
+                    migrationsCompletion(result, (needsConfigSync || SessionUtil.needsSync))
                     
                     // The 'if' is only there to prevent the "variable never read" warning from showing
                     if backgroundTask != nil { backgroundTask = nil }

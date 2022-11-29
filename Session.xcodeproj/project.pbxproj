@@ -785,6 +785,7 @@
 		FD8ECF852934508B00C0D1BB /* BatchResponseSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF842934508B00C0D1BB /* BatchResponseSpec.swift */; };
 		FD8ECF8629346DA100C0D1BB /* HeaderSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3C906127E411AF00CD579F /* HeaderSpec.swift */; };
 		FD8ECF8729346DB500C0D1BB /* RequestSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3C906327E4122F00CD579F /* RequestSpec.swift */; };
+		FD8ECF892935AB7200C0D1BB /* SessionUtilError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF882935AB7200C0D1BB /* SessionUtilError.swift */; };
 		FD90040F2818AB6D00ABAAF6 /* GetSnodePoolJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD90040E2818AB6D00ABAAF6 /* GetSnodePoolJob.swift */; };
 		FD9004122818ABDC00ABAAF6 /* Job.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B73F280402C4004C14C5 /* Job.swift */; };
 		FD9004142818AD0B00ABAAF6 /* _002_SetupStandardJobs.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9004132818AD0B00ABAAF6 /* _002_SetupStandardJobs.swift */; };
@@ -1905,6 +1906,7 @@
 		FD8ECF7E2934298100C0D1BB /* SharedConfigDump.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedConfigDump.swift; sourceTree = "<group>"; };
 		FD8ECF812934387A00C0D1BB /* ConfigUserProfileSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigUserProfileSpec.swift; sourceTree = "<group>"; };
 		FD8ECF842934508B00C0D1BB /* BatchResponseSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchResponseSpec.swift; sourceTree = "<group>"; };
+		FD8ECF882935AB7200C0D1BB /* SessionUtilError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionUtilError.swift; sourceTree = "<group>"; };
 		FD90040E2818AB6D00ABAAF6 /* GetSnodePoolJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetSnodePoolJob.swift; sourceTree = "<group>"; };
 		FD9004132818AD0B00ABAAF6 /* _002_SetupStandardJobs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _002_SetupStandardJobs.swift; sourceTree = "<group>"; };
 		FDA8EAFD280E8B78002B68E5 /* FailedMessageSendsJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FailedMessageSendsJob.swift; sourceTree = "<group>"; };
@@ -4027,6 +4029,7 @@
 			children = (
 				FD8ECF7829340F7100C0D1BB /* libsession-util.xcframework */,
 				FD8ECF7A29340FFD00C0D1BB /* SessionUtil.swift */,
+				FD8ECF882935AB7200C0D1BB /* SessionUtilError.swift */,
 			);
 			path = LibSessionUtil;
 			sourceTree = "<group>";
@@ -5564,6 +5567,8 @@
 				FD245C59285065FC00B966DD /* ControlMessage.swift in Sources */,
 				B8DE1FB626C22FCB0079C9CE /* CallMessage.swift in Sources */,
 				FD245C50285065C700B966DD /* VisibleMessage+Quote.swift in Sources */,
+				FD8ECF892935AB7200C0D1BB /* SessionUtilError.swift in Sources */,
+				FD8ECF42292B340D00C0D1BB /* SOGSBatchRequest.swift in Sources */,
 				FD5C7307284F103B0029977D /* MessageReceiver+MessageRequests.swift in Sources */,
 				C3A71D0B2558989C0043A11F /* MessageWrapper.swift in Sources */,
 				FDE77F6B280FEB28002CFC5D /* ControlMessageProcessRecord.swift in Sources */,

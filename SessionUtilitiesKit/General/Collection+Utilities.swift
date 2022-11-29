@@ -8,6 +8,17 @@ extension Collection {
     }
 }
 
+public extension Collection {
+    /// This creates an UnsafeMutableBufferPointer to access data in memory directly. This result pointer provides no automated
+    /// memory management so after use you are responsible for handling the life cycle and need to call `deallocate()`.
+    func unsafeCopy() -> UnsafeMutableBufferPointer<Element> {
+        let copy = UnsafeMutableBufferPointer<Element>.allocate(capacity: self.underestimatedCount)
+        _ = copy.initialize(from: self)
+        return copy
+    }
+}
+
+
 public extension Collection where Element == [CChar] {
     /// This creates an array of UnsafePointer types to access data of the C strings in memory. This array provides no automated
     /// memory management of it's children so after use you are responsible for handling the life cycle of the child elements and

@@ -27,7 +27,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     // MARK: - Lifecycle
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        SessionUtil.loadState() // TODO: Remove this (move to 'Configuration'? Or call directly as part of 'AppSetup'?)
         // These should be the first things we do (the startup process can fail without them)
         SetCurrentAppContext(MainAppContext())
         verifyDBKeysAvailableBeforeBackgroundLaunch()

@@ -13,7 +13,7 @@ internal struct ConfigDump: Codable, Equatable, Hashable, Identifiable, Fetchabl
         case data
     }
     
-    enum Variant: String, Codable, DatabaseValueConvertible {
+    enum Variant: String, Codable, DatabaseValueConvertible, CaseIterable {
         case userProfile
     }
     
