@@ -243,6 +243,9 @@ final class ConversationTitleView: UIView {
     // MARK: - Interaction
     
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        return self.labelCarouselView.scrollView
+        if self.stackView.frame.contains(point) {
+            return self.labelCarouselView.scrollView
+        }
+        return super.hitTest(point, with: event)
     }
 }

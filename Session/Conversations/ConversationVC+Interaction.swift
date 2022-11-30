@@ -22,6 +22,7 @@ extension ConversationVC:
     GifPickerViewControllerDelegate
 {
     // MARK: - Mark as read
+    
     func markVisibleMessagesAsRead() {
         // Note: For the 'tableVisualBottom' we remove the 'Values.mediumSpacing' as that is the distance
         // the table content appears above the input view
