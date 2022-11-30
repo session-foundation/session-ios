@@ -239,4 +239,10 @@ final class ConversationTitleView: UIView {
         )
         self.stackViewTrailingConstraint.constant = 0
     }
+    
+    // MARK: - Interaction
+    
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        return self.labelCarouselView.scrollView
+    }
 }

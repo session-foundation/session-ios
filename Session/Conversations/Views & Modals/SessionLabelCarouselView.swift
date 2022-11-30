@@ -37,7 +37,7 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
     
     // MARK: - UI Components
     
-    private lazy var scrollView: UIScrollView = {
+    public lazy var scrollView: UIScrollView = {
         let result = UIScrollView(frame: .zero)
         result.isPagingEnabled = true
         result.showsVerticalScrollIndicator = false
@@ -163,6 +163,8 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
         
         scrollView.addSubview(stackView)
     }
+    
+    // MARK: - Interaction
     
     private func startScrolling() {
         timer?.invalidate()
