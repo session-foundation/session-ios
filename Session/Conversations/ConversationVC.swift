@@ -994,6 +994,8 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         else {
             self.scrollToBottom(isAnimated: false)
         }
+        
+        self.markVisibleMessagesAsRead()
 
         self.scrollButton.alpha = self.getScrollButtonOpacity()
         self.unreadCountView.alpha = self.scrollButton.alpha
@@ -1435,36 +1437,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         
         // We want to mark messages as read while we scroll, so grab the newest message and mark
         // everything older as read
-        //
-        // Note: For the 'tableVisualBottom' we remove the 'Values.mediumSpacing' as that is the distance
-        // the table content appears above the input view
-        let tableVisualBottom: CGFloat = (tableView.frame.maxY - (tableView.contentInset.bottom - Values.mediumSpacing))
-        
-        if
-            let visibleIndexPaths: [IndexPath] = self.tableView.indexPathsForVisibleRows,
-            let messagesSection: Int = visibleIndexPaths
-                .first(where: { self.viewModel.interactionData[$0.section].model == .messages })?
-                .section,
-            let newestCellViewModel: MessageViewModel = visibleIndexPaths
-                .sorted()
-                .filter({ $0.section == messagesSection })
-                .compactMap({ indexPath -> (frame: CGRect, cellViewModel: MessageViewModel)? in
-                    guard let frame: CGRect = tableView.cellForRow(at: indexPath)?.frame else {
-                        return nil
-                    }
-                    
-                    return (
-                        view.convert(frame, from: tableView),
-                        self.viewModel.interactionData[indexPath.section].elements[indexPath.row]
-                    )
-                })
-                // Exclude messages that are partially off the bottom of the screen
-                .filter({ $0.frame.maxY <= tableVisualBottom })
-                .last?
-                .cellViewModel
-        {
-            self.viewModel.markAsRead(beforeInclusive: newestCellViewModel.id)
-        }
+        self.markVisibleMessagesAsRead()
     }
     
     func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
