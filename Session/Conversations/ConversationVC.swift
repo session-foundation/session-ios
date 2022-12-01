@@ -194,10 +194,14 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     }()
 
     lazy var blockedBanner: InfoBanner = {
-        let result: InfoBanner = InfoBanner(
+        let info: InfoBanner.Info = InfoBanner.Info(
             message: self.viewModel.blockedBannerMessage,
-            backgroundColor: .danger
+            backgroundColor: .danger,
+            messageFont: .boldSystemFont(ofSize: Values.smallFontSize),
+            messageTintColor: .textPrimary,
+            height: 54
         )
+        let result: InfoBanner = InfoBanner(info: info)
         let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(unblock))
         result.addGestureRecognizer(tapGestureRecognizer)
         
