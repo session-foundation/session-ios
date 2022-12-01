@@ -17,6 +17,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
     
     public enum Section: SessionTableSection {
         case type
+        case timerLegacy
         case timerDisappearAfterSend
         case timerDisappearAfterRead
         case noteToSelf
@@ -25,6 +26,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
         var title: String? {
             switch self {
                 case .type: return "DISAPPERING_MESSAGES_TYPE_TITLE".localized()
+                case .timerLegacy: return "DISAPPERING_MESSAGES_TIMER_TITLE".localized()
                 case .timerDisappearAfterSend: return "DISAPPERING_MESSAGES_TIMER_TITLE".localized()
                 case .timerDisappearAfterRead: return "DISAPPERING_MESSAGES_TIMER_TITLE".localized()
                 case .noteToSelf: return nil
