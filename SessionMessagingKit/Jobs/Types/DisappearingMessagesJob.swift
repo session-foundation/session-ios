@@ -90,42 +90,44 @@ public extension DisappearingMessagesJob {
         // If there were no changes then none of the provided `interactionIds` are expiring messages
         guard (changeCount ?? 0) > 0 else { return nil }
         
-        interactionsByExpiresInSeconds?.forEach { expiresInSeconds, interactions in
-            let serverHashes = interactions.compactMap { $0.serverHash }
-            guard let expiresInSeconds = expiresInSeconds, !serverHashes.isEmpty else { return }
-            
-            let expirationTimestamp: Int64 = Int64(ceil(startedAtMs + expiresInSeconds * 1000))
-            let userPublicKey: String = getUserHexEncodedPublicKey(db)
-            let threadId: String = interactions[0].threadId
-            
-            // Send SyncExpiriesMessage
-            let syncTarget: String = interactions[0].authorId
-            let syncExpiries: [SyncedExpiriesMessage.SyncedExpiry] = serverHashes.map { serverHash in
-                return SyncedExpiriesMessage.SyncedExpiry(
-                    serverHash: serverHash,
-                    expirationTimestamp: expirationTimestamp)
-            }
-            
-            let syncExpiriesMessage = SyncedExpiriesMessage(
-                conversationExpiries: [syncTarget: syncExpiries]
-            )
-            
-            MessageSender
-                .send(
-                    db,
-                    message: syncExpiriesMessage,
-                    threadId: threadId,
-                    interactionId: nil,
-                    to: .contact(publicKey: userPublicKey)
+        if DisappearingMessagesConfiguration.isNewConfigurationEnabled {
+            interactionsByExpiresInSeconds?.forEach { expiresInSeconds, interactions in
+                let serverHashes = interactions.compactMap { $0.serverHash }
+                guard let expiresInSeconds = expiresInSeconds, !serverHashes.isEmpty else { return }
+                
+                let expirationTimestamp: Int64 = Int64(ceil(startedAtMs + expiresInSeconds * 1000))
+                let userPublicKey: String = getUserHexEncodedPublicKey(db)
+                let threadId: String = interactions[0].threadId
+                
+                // Send SyncExpiriesMessage
+                let syncTarget: String = interactions[0].authorId
+                let syncExpiries: [SyncedExpiriesMessage.SyncedExpiry] = serverHashes.map { serverHash in
+                    return SyncedExpiriesMessage.SyncedExpiry(
+                        serverHash: serverHash,
+                        expirationTimestamp: expirationTimestamp)
+                }
+                
+                let syncExpiriesMessage = SyncedExpiriesMessage(
+                    conversationExpiries: [syncTarget: syncExpiries]
                 )
-            
-            // Update the ttls
-            SnodeAPI.updateExpiry(
-                publicKey: userPublicKey,
-                updatedExpiryMs: expirationTimestamp,
-                serverHashes: serverHashes
-            )
-            .retainUntilComplete()
+                
+                MessageSender
+                    .send(
+                        db,
+                        message: syncExpiriesMessage,
+                        threadId: threadId,
+                        interactionId: nil,
+                        to: .contact(publicKey: userPublicKey)
+                    )
+                
+                // Update the ttls
+                SnodeAPI.updateExpiry(
+                    publicKey: userPublicKey,
+                    updatedExpiryMs: expirationTimestamp,
+                    serverHashes: serverHashes
+                )
+                .retainUntilComplete()
+            }
         }
         
         return updateNextRunIfNeeded(db)
