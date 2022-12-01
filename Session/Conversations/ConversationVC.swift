@@ -192,6 +192,18 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         
         return result
     }()
+    
+    lazy var outdatedClientBanner: InfoBanner = {
+        let info: InfoBanner.Info = InfoBanner.Info(
+            message: "DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER".localized(),
+            backgroundColor: .primary,
+            messageFont: .systemFont(ofSize: Values.miniFontSize),
+            messageTintColor: .text,
+            height: 20
+        )
+        let result: InfoBanner = InfoBanner(info: info)
+        return result
+    }()
 
     lazy var blockedBanner: InfoBanner = {
         let info: InfoBanner.Info = InfoBanner.Info(
