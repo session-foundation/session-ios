@@ -104,7 +104,7 @@ public class SessionCell: UITableViewCell {
     private let subtitleLabel: UILabel = {
         let result: UILabel = UILabel()
         result.translatesAutoresizingMaskIntoConstraints = false
-        result.font = .systemFont(ofSize: 13)
+        result.font = .systemFont(ofSize: 12)
         result.themeTextColor = .textPrimary
         result.numberOfLines = 0
         result.isHidden = true

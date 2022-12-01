@@ -302,7 +302,7 @@ extension SessionCell {
                             .radioButton_unselectedBorder
                         )
                     } else {
-                        radioBorderView.themeBorderColor = .radioButton_border_disabled
+                        radioBorderView.themeBorderColor = .disabled
                     }
                     radioBorderView.layer.cornerRadius = (size.borderSize / 2)
                     
@@ -315,7 +315,7 @@ extension SessionCell {
                         )
                     } else {
                         radioView.themeBackgroundColor = (isSelected || wasOldSelection ?
-                            .radioButton_selectedBackground_disabled :
+                            .disabled :
                             .radioButton_unselectedBackground
                         )
                     }
