@@ -12,7 +12,7 @@ public enum AppSetup {
     public static func setupEnvironment(
         appSpecificBlock: @escaping () -> (),
         migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
-        migrationsCompletion: @escaping (Result<Database, Error>, Bool) -> ()
+        migrationsCompletion: @escaping (Result<Void, Error>, Bool) -> ()
     ) {
         guard !AppSetup.hasRun else { return }
         
@@ -61,7 +61,7 @@ public enum AppSetup {
     public static func runPostSetupMigrations(
         backgroundTask: OWSBackgroundTask? = nil,
         migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
-        migrationsCompletion: @escaping (Result<Database, Error>, Bool) -> ()
+        migrationsCompletion: @escaping (Result<Void, Error>, Bool) -> ()
     ) {
         var backgroundTask: OWSBackgroundTask? = (backgroundTask ?? OWSBackgroundTask(labelStr: #function))
         

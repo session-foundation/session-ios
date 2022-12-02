@@ -6,6 +6,8 @@ import Foundation
 import Photos
 import PromiseKit
 import CoreServices
+import SignalUtilitiesKit
+import SignalCoreKit
 
 protocol PhotoLibraryDelegate: AnyObject {
     func photoLibraryDidChange(_ photoLibrary: PhotoLibrary)
@@ -53,7 +55,7 @@ class PhotoPickerAssetItem: PhotoGridItem {
         // Surprisingly, iOS will opportunistically run the completion block sync if the image is
         // already available.
         photoCollectionContents.requestThumbnail(for: self.asset, thumbnailSize: photoMediaSize.thumbnailSize) { image, _ in
-            DispatchMainThreadSafe({
+            Threading.dispatchMainThreadSafe {
                 // Once we've _successfully_ completed (e.g. invoked the completion with
                 // a non-nil image), don't invoke the completion again with a nil argument.
                 if !hasLoadedImage || image != nil {
@@ -63,7 +65,7 @@ class PhotoPickerAssetItem: PhotoGridItem {
                         hasLoadedImage = true
                     }
                 }
-            })
+            }
         }
     }
 }

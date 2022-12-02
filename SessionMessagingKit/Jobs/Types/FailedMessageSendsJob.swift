@@ -2,7 +2,7 @@
 
 import Foundation
 import GRDB
-import SignalCoreKit
+//import SignalCoreKit
 import SessionUtilitiesKit
 
 public enum FailedMessageSendsJob: JobExecutor {

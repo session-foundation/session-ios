@@ -19,12 +19,14 @@ public enum MessageReceiverError: LocalizedError {
     case decryptionFailed
     case invalidGroupPublicKey
     case noGroupKeyPair
+    case invalidSharedConfigMessageHandling
 
     public var isRetryable: Bool {
         switch self {
             case .duplicateMessage, .duplicateMessageNewSnode, .duplicateControlMessage,
                 .invalidMessage, .unknownMessage, .unknownEnvelopeType, .invalidSignature,
-                .noData, .senderBlocked, .noThread, .selfSend, .decryptionFailed:
+                .noData, .senderBlocked, .noThread, .selfSend, .decryptionFailed,
+                .invalidSharedConfigMessageHandling:
                 return false
                 
             default: return true
@@ -51,6 +53,8 @@ public enum MessageReceiverError: LocalizedError {
             // Shared sender keys
             case .invalidGroupPublicKey: return "Invalid group public key."
             case .noGroupKeyPair: return "Missing group key pair."
+                
+            case .invalidSharedConfigMessageHandling: return "Invalid handling of a shared config message"
         }
     }
 }

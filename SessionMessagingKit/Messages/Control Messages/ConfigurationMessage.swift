@@ -1,9 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import Sodium
 import GRDB
-import Curve25519Kit
 import SessionUtilitiesKit
 
 public final class ConfigurationMessage: ControlMessage {

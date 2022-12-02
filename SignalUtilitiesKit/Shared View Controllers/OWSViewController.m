@@ -6,6 +6,7 @@
 #import "UIView+OWS.h"
 #import <SessionUIKit/SessionUIKit.h>
 #import "AppContext.h"
+#import <SignalCoreKit/OWSAsserts.h>
 
 NS_ASSUME_NONNULL_BEGIN
 

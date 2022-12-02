@@ -3,6 +3,7 @@
 import UIKit
 import GRDB
 import SignalUtilitiesKit
+import SignalCoreKit
 
 public class StyledSearchController: UISearchController {
     public override var preferredStatusBarStyle: UIStatusBarStyle {

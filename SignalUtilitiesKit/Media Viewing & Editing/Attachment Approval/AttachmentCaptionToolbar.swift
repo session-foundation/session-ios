@@ -1,10 +1,9 @@
-//
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
-//
 
 import Foundation
 import UIKit
 import SessionUIKit
+import SignalCoreKit
 
 protocol AttachmentCaptionToolbarDelegate: AnyObject {
     func attachmentCaptionToolbarDidEdit(_ attachmentCaptionToolbar: AttachmentCaptionToolbar)

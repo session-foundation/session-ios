@@ -3,7 +3,6 @@
 import Foundation
 import GRDB
 import Sodium
-import SignalCoreKit
 import SessionUtilitiesKit
 
 extension MessageReceiver {
@@ -29,7 +28,7 @@ extension MessageReceiver {
             publicKey: userPublicKey,
             name: message.displayName,
             profilePictureUrl: message.profilePictureUrl,
-            profileKey: OWSAES256Key(data: message.profileKey),
+            profileKey: message.profileKey,
             sentTimestamp: messageSentTimestamp
         )
         try Contact(id: userPublicKey)
@@ -73,15 +72,13 @@ extension MessageReceiver {
                 if
                     profile.name != contactInfo.displayName ||
                     profile.profilePictureUrl != contactInfo.profilePictureUrl ||
-                    profile.profileEncryptionKey != contactInfo.profileKey.map({ OWSAES256Key(data: $0) })
+                    profile.profileEncryptionKey != contactInfo.profileKey
                 {
                     try profile
                         .with(
                             name: contactInfo.displayName,
                             profilePictureUrl: .updateIf(contactInfo.profilePictureUrl),
-                            profileEncryptionKey: .updateIf(
-                                contactInfo.profileKey.map { OWSAES256Key(data: $0) }
-                            )
+                            profileEncryptionKey: .updateIf(contactInfo.profileKey)
                         )
                         .save(db)
                 }

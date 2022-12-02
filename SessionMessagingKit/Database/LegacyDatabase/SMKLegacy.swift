@@ -3,7 +3,6 @@
 import Foundation
 import Sodium
 import YapDatabase
-import SignalCoreKit
 import SessionUtilitiesKit
 
 public enum SMKLegacy {
@@ -89,10 +88,23 @@ public enum SMKLegacy {
     
     @objc(SNContact)
     public class _Contact: NSObject, NSCoding {
+        @objc(SNLegacyProfileKey)
+        public class _LegacyProfileKey: NSObject, NSCoding {
+            let keyData: Data
+            
+            public required init?(coder: NSCoder) {
+                keyData = coder.decodeObject(forKey: "keyData") as! Data
+            }
+            
+            public func encode(with coder: NSCoder) {
+                fatalError("encode(with:) should never be called for legacy types")
+            }
+        }
+        
         public let sessionID: String
         public var profilePictureURL: String?
         public var profilePictureFileName: String?
-        public var profileEncryptionKey: OWSAES256Key?
+        public var profileEncryptionKey: _LegacyProfileKey?
         public var threadID: String?
         public var isTrusted = false
         public var isApproved = false
@@ -112,7 +124,7 @@ public enum SMKLegacy {
             if let nickname = coder.decodeObject(forKey: "nickname") as! String? { self.nickname = nickname }
             if let profilePictureURL = coder.decodeObject(forKey: "profilePictureURL") as! String? { self.profilePictureURL = profilePictureURL }
             if let profilePictureFileName = coder.decodeObject(forKey: "profilePictureFileName") as! String? { self.profilePictureFileName = profilePictureFileName }
-            if let profileEncryptionKey = coder.decodeObject(forKey: "profilePictureEncryptionKey") as! OWSAES256Key? { self.profileEncryptionKey = profileEncryptionKey }
+            if let profileEncryptionKey = coder.decodeObject(forKey: "profilePictureEncryptionKey") as! _LegacyProfileKey? { self.profileEncryptionKey = profileEncryptionKey }
             if let threadID = coder.decodeObject(forKey: "threadID") as! String? { self.threadID = threadID }
             
             let isBlockedFlag: Bool = coder.decodeBool(forKey: "isBlocked")
@@ -1627,10 +1639,10 @@ public enum SMKLegacy {
             self.message = message
             
             if let destString: String = _MessageSendJob.process(rawDestination, type: "contact") {
-                destination = .contact(publicKey: destString)
+                destination = .contact(publicKey: destString, namespace: .default)
             }
             else if let destString: String = _MessageSendJob.process(rawDestination, type: "closedGroup") {
-                destination = .closedGroup(groupPublicKey: destString)
+                destination = .closedGroup(groupPublicKey: destString, namespace: .legacyClosedGroup)
             }
             else if _MessageSendJob.process(rawDestination, type: "openGroup") != nil {
                 // We can no longer support sending messages to legacy open groups

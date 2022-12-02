@@ -77,8 +77,8 @@ public final class MessageSender {
         message.sender = userPublicKey
         message.recipient = {
             switch destination {
-                case .contact(let publicKey): return publicKey
-                case .closedGroup(let groupPublicKey): return groupPublicKey
+                case .contact(let publicKey, _): return publicKey
+                case .closedGroup(let groupPublicKey, _): return groupPublicKey
                 case .openGroup, .openGroupInbox: preconditionFailure()
             }
         }()
@@ -112,7 +112,7 @@ public final class MessageSender {
         if var messageWithProfile: MessageWithProfile = message as? MessageWithProfile {
             let profile: Profile = Profile.fetchOrCreateCurrentUser(db)
             
-            if let profileKey: Data = profile.profileEncryptionKey?.keyData, let profilePictureUrl: String = profile.profilePictureUrl {
+            if let profileKey: Data = profile.profileEncryptionKey, let profilePictureUrl: String = profile.profilePictureUrl {
                 messageWithProfile.profile = VisibleMessage.VMProfile(
                     displayName: profile.name,
                     profileKey: profileKey,
@@ -146,10 +146,10 @@ public final class MessageSender {
         let ciphertext: Data
         do {
             switch destination {
-                case .contact(let publicKey):
+                case .contact(let publicKey, _):
                     ciphertext = try encryptWithSessionProtocol(plaintext, for: publicKey)
                     
-                case .closedGroup(let groupPublicKey):
+                case .closedGroup(let groupPublicKey, _):
                     guard let encryptionKeyPair: ClosedGroupKeyPair = try? ClosedGroupKeyPair.fetchLatestKeyPair(db, threadId: groupPublicKey) else {
                         throw MessageSenderError.noKeyPair
                     }
@@ -171,15 +171,18 @@ public final class MessageSender {
         // Wrap the result
         let kind: SNProtoEnvelope.SNProtoEnvelopeType
         let senderPublicKey: String
+        let namespace: SnodeAPI.Namespace
         
         switch destination {
-            case .contact:
+            case .contact(_, let targetNamespace):
                 kind = .sessionMessage
                 senderPublicKey = ""
+                namespace = targetNamespace
                 
-            case .closedGroup(let groupPublicKey):
+            case .closedGroup(let groupPublicKey, let targetNamespace):
                 kind = .closedGroupMessage
                 senderPublicKey = groupPublicKey
+                namespace = targetNamespace
             
             case .openGroup, .openGroupInbox: preconditionFailure()
         }
@@ -208,8 +211,7 @@ public final class MessageSender {
         SnodeAPI
             .sendMessage(
                 snodeMessage,
-                isClosedGroupMessage: (kind == .closedGroupMessage),
-                isConfigMessage: (message is ConfigurationMessage)
+                in: namespace
             )
             .done(on: DispatchQueue.global(qos: .default)) { promises in
                 let promiseCount = promises.count
@@ -488,7 +490,7 @@ public final class MessageSender {
         if let message: VisibleMessage = message as? VisibleMessage {
             let profile: Profile = Profile.fetchOrCreateCurrentUser(db)
             
-            if let profileKey: Data = profile.profileEncryptionKey?.keyData, let profilePictureUrl: String = profile.profilePictureUrl {
+            if let profileKey: Data = profile.profileEncryptionKey, let profilePictureUrl: String = profile.profilePictureUrl {
                 message.profile = VisibleMessage.VMProfile(
                     displayName: profile.name,
                     profileKey: profileKey,
@@ -627,8 +629,8 @@ public final class MessageSender {
         try? ControlMessageProcessRecord(
             threadId: {
                 switch destination {
-                    case .contact(let publicKey): return publicKey
-                    case .closedGroup(let groupPublicKey): return groupPublicKey
+                    case .contact(let publicKey, _): return publicKey
+                    case .closedGroup(let groupPublicKey, _): return groupPublicKey
                     case .openGroup(let roomToken, let server, _, _, _):
                         return OpenGroup.idFor(roomToken: roomToken, server: server)
                     
@@ -644,7 +646,7 @@ public final class MessageSender {
         // • the destination was a contact
         // • we didn't sync it already
         let userPublicKey = getUserHexEncodedPublicKey(db)
-        if case .contact(let publicKey) = destination, !isSyncMessage {
+        if case .contact(let publicKey, let namespace) = destination, !isSyncMessage {
             if let message = message as? VisibleMessage { message.syncTarget = publicKey }
             if let message = message as? ExpirationTimerUpdate { message.syncTarget = publicKey }
             
@@ -652,7 +654,7 @@ public final class MessageSender {
             try sendToSnodeDestination(
                 db,
                 message: message,
-                to: .contact(publicKey: userPublicKey),
+                to: .contact(publicKey: userPublicKey, namespace: namespace),
                 interactionId: interactionId,
                 isSyncMessage: true
             ).retainUntilComplete()

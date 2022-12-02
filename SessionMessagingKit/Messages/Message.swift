@@ -99,6 +99,7 @@ public extension Message {
         case messageRequestResponse
         case visibleMessage
         case callMessage
+        case sharedConfigMessage
         
         init?(from type: Message) {
             switch type {
@@ -112,6 +113,7 @@ public extension Message {
                 case is MessageRequestResponse: self = .messageRequestResponse
                 case is VisibleMessage: self = .visibleMessage
                 case is CallMessage: self = .callMessage
+                case is SharedConfigMessage: self = .sharedConfigMessage
                 default: return nil
             }
         }
@@ -128,6 +130,7 @@ public extension Message {
                 case .messageRequestResponse: return MessageRequestResponse.self
                 case .visibleMessage: return VisibleMessage.self
                 case .callMessage: return CallMessage.self
+                case .sharedConfigMessage: return SharedConfigMessage.self
             }
         }
 
@@ -148,6 +151,7 @@ public extension Message {
                 case .messageRequestResponse: return try container.decode(MessageRequestResponse.self, forKey: key)
                 case .visibleMessage: return try container.decode(VisibleMessage.self, forKey: key)
                 case .callMessage: return try container.decode(CallMessage.self, forKey: key)
+                case .sharedConfigMessage: return try container.decode(SharedConfigMessage.self, forKey: key)
             }
         }
     }
@@ -165,7 +169,8 @@ public extension Message {
             .unsendRequest,
             .messageRequestResponse,
             .visibleMessage,
-            .callMessage
+            .callMessage,
+            .sharedConfigMessage
         ]
         
         return prioritisedVariants

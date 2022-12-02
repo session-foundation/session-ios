@@ -2,6 +2,7 @@
 
 import Foundation
 import GRDB
+import DifferenceKit
 import SessionUtilitiesKit
 
 public struct ClosedGroup: Codable, Identifiable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {

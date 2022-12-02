@@ -7,6 +7,7 @@ import Photos
 import PromiseKit
 import SessionUIKit
 import SignalUtilitiesKit
+import SignalCoreKit
 
 protocol ImagePickerGridControllerDelegate: AnyObject {
     func imagePickerDidCompleteSelection(_ imagePicker: ImagePickerGridController)

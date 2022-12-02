@@ -4,7 +4,6 @@ import UIKit
 import CoreServices
 import Photos
 import PhotosUI
-import Sodium
 import PromiseKit
 import GRDB
 import SessionMessagingKit
@@ -1799,7 +1798,7 @@ extension ConversationVC:
                                 message: unsendRequest,
                                 threadId: threadId,
                                 interactionId: nil,
-                                to: .contact(publicKey: userPublicKey)
+                                to: .contact(publicKey: userPublicKey, namespace: .default)
                             )
                     }
                     return
@@ -1818,7 +1817,7 @@ extension ConversationVC:
                                 message: unsendRequest,
                                 threadId: threadId,
                                 interactionId: nil,
-                                to: .contact(publicKey: userPublicKey)
+                                to: .contact(publicKey: userPublicKey, namespace: .default)
                             )
                     }
                     self?.showInputAccessoryView()

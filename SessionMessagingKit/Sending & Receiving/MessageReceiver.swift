@@ -3,7 +3,6 @@
 import Foundation
 import GRDB
 import Sodium
-import SignalCoreKit
 import SessionUtilitiesKit
 
 public enum MessageReceiver {
@@ -218,6 +217,9 @@ public enum MessageReceiver {
                     openGroupId: openGroupId
                 )
                 
+            // SharedConfigMessages should be handled by the 'SharedUtil' instead of this
+            case is SharedConfigMessage: throw MessageReceiverError.invalidSharedConfigMessageHandling
+                
             default: fatalError()
         }
         
@@ -309,7 +311,7 @@ public enum MessageReceiver {
         publicKey: String,
         name: String?,
         profilePictureUrl: String?,
-        profileKey: OWSAES256Key?,
+        profileKey: Data?,
         sentTimestamp: TimeInterval,
         dependencies: Dependencies = Dependencies()
     ) throws {
@@ -341,9 +343,9 @@ public enum MessageReceiver {
         
         // Profile picture & profile key
         if
-            let profileKey: OWSAES256Key = profileKey,
+            let profileKey: Data = profileKey,
             let profilePictureUrl: String = profilePictureUrl,
-            profileKey.keyData.count == kAES256_KeyByteLength,
+            profileKey.count == ProfileManager.avatarAES256KeyByteLength,
             profileKey != profile.profileEncryptionKey
         {
             let shouldUpdate: Bool

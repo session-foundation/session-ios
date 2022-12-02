@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import CryptoKit
 import GRDB
 import PromiseKit
 import SignalCoreKit
@@ -11,6 +12,9 @@ public struct ProfileManager {
     // Before encrypting and submitting we NULL pad the name data to this length.
     private static let nameDataLength: UInt = 64
     public static let maxAvatarDiameter: CGFloat = 640
+    internal static let avatarAES256KeyByteLength: Int = 32
+    private static let avatarNonceLength: Int = 12
+    private static let avatarTagLength: Int = 16
     
     private static var profileAvatarCache: Atomic<[String: Data]> = Atomic([:])
     private static var currentAvatarDownloads: Atomic<Set<String>> = Atomic([])
@@ -82,16 +86,40 @@ public struct ProfileManager {
     
     // MARK: - Profile Encryption
     
-    private static func encryptProfileData(data: Data, key: OWSAES256Key) -> Data? {
-        guard key.keyData.count == kAES256_KeyByteLength else { return nil }
+    private static func encryptData(data: Data, key: Data) -> Data? {
+        // The key structure is: nonce || ciphertext || authTag
+        guard
+            key.count == ProfileManager.avatarAES256KeyByteLength,
+            let nonceData: Data = try? Randomness.generateRandomBytes(numberBytes: ProfileManager.avatarNonceLength),
+            let nonce: AES.GCM.Nonce = try? AES.GCM.Nonce(data: nonceData),
+            let sealedData: AES.GCM.SealedBox = try? AES.GCM.seal(
+                data,
+                using: SymmetricKey(data: key),
+                nonce: nonce
+            ),
+            let encryptedContent: Data = sealedData.combined
+        else { return nil }
         
-        return Cryptography.encryptAESGCMProfileData(plainTextData: data, key: key)
+        return encryptedContent
     }
     
-    private static func decryptProfileData(data: Data, key: OWSAES256Key) -> Data? {
-        guard key.keyData.count == kAES256_KeyByteLength else { return nil }
+    private static func decryptData(data: Data, key: Data) -> Data? {
+        guard key.count == ProfileManager.avatarAES256KeyByteLength else { return nil }
         
-        return Cryptography.decryptAESGCMProfileData(encryptedData: data, key: key)
+        // The key structure is: nonce || ciphertext || authTag
+        let cipherTextLength: Int = (data.count - (ProfileManager.avatarNonceLength + ProfileManager.avatarTagLength))
+        
+        guard
+            cipherTextLength > 0,
+            let sealedData: AES.GCM.SealedBox = try? AES.GCM.SealedBox(
+                nonce: AES.GCM.Nonce(data: data.subdata(in: 0..<ProfileManager.avatarNonceLength)),
+                ciphertext: data.subdata(in: ProfileManager.avatarNonceLength..<(ProfileManager.avatarNonceLength + cipherTextLength)),
+                tag: data.subdata(in: (data.count - ProfileManager.avatarTagLength)..<data.count)
+            ),
+            let decryptedData: Data = try? AES.GCM.open(sealedData, using: SymmetricKey(data: key))
+        else { return nil }
+        
+        return decryptedData
     }
     
     // MARK: - File Paths
@@ -151,8 +179,8 @@ public struct ProfileManager {
         }
         guard
             let fileId: String = Attachment.fileId(for: profileUrlStringAtStart),
-            let profileKeyAtStart: OWSAES256Key = profile.profileEncryptionKey,
-            profileKeyAtStart.keyData.count > 0
+            let profileKeyAtStart: Data = profile.profileEncryptionKey,
+            profileKeyAtStart.count > 0
         else {
             return
         }
@@ -178,8 +206,8 @@ public struct ProfileManager {
                     }
                     
                     guard
-                        let latestProfileKey: OWSAES256Key = latestProfile.profileEncryptionKey,
-                        !latestProfileKey.keyData.isEmpty,
+                        let latestProfileKey: Data = latestProfile.profileEncryptionKey,
+                        !latestProfileKey.isEmpty,
                         latestProfileKey == profileKeyAtStart
                     else {
                         OWSLogger.warn("Ignoring avatar download for obsolete user profile.")
@@ -240,14 +268,84 @@ public struct ProfileManager {
         success: ((Database, Profile) throws -> ())? = nil,
         failure: ((ProfileManagerError) -> ())? = nil
     ) {
+        prepareAndUploadAvatarImage(
+            queue: queue,
+            image: image,
+            imageFilePath: imageFilePath,
+            success: { fileInfo, newProfileKey in
+                // If we have no download url the we are removing the profile image
+                guard let (downloadUrl, fileName): (String, String) = fileInfo else {
+                    Storage.shared.writeAsync { db in
+                        let existingProfile: Profile = Profile.fetchOrCreateCurrentUser(db)
+                        
+                        OWSLogger.verbose(existingProfile.profilePictureUrl != nil ?
+                            "Updating local profile on service with cleared avatar." :
+                            "Updating local profile on service with no avatar."
+                        )
+                        
+                        let updatedProfile: Profile = try existingProfile
+                            .with(
+                                name: profileName,
+                                profilePictureUrl: nil,
+                                profilePictureFileName: nil,
+                                profileEncryptionKey: (existingProfile.profilePictureUrl != nil ?
+                                    .update(newProfileKey) :
+                                    .existing
+                                )
+                            )
+                            .saved(db)
+                        
+                        try SessionUtil.update(
+                            profile: updatedProfile,
+                            in: .global(variant: .userProfile)
+                        )
+                        
+                        SNLog("Successfully updated service with profile.")
+                        try success?(db, updatedProfile)
+                    }
+                    return
+                }
+                
+                // Update user defaults
+                UserDefaults.standard[.lastProfilePictureUpload] = Date()
+                
+                // Update the profile
+                Storage.shared.writeAsync { db in
+                    let profile: Profile = try Profile
+                        .fetchOrCreateCurrentUser(db)
+                        .with(
+                            name: profileName,
+                            profilePictureUrl: .update(downloadUrl),
+                            profilePictureFileName: .update(fileName),
+                            profileEncryptionKey: .update(newProfileKey)
+                        )
+                        .saved(db)
+                    
+                    SNLog("Successfully updated service with profile.")
+                    try success?(db, profile)
+                }
+            },
+            failure: failure
+        )
+    }
+    
+    public static func prepareAndUploadAvatarImage(
+        queue: DispatchQueue,
+        image: UIImage?,
+        imageFilePath: String?,
+        success: @escaping ((downloadUrl: String, fileName: String)?, Data) -> (),
+        failure: ((ProfileManagerError) -> ())? = nil
+    ) {
         queue.async {
             // If the profile avatar was updated or removed then encrypt with a new profile key
             // to ensure that other users know that our profile picture was updated
-            let newProfileKey: OWSAES256Key = OWSAES256Key.generateRandom()
+            let newProfileKey: Data
             let maxAvatarBytes: UInt = (5 * 1000 * 1000)
             let avatarImageData: Data?
             
             do {
+                newProfileKey = try Randomness.generateRandomBytes(numberBytes: ProfileManager.avatarAES256KeyByteLength)
+                
                 avatarImageData = try {
                     guard var image: UIImage = image else {
                         guard let imageFilePath: String = imageFilePath else { return nil }

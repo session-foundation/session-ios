@@ -4,7 +4,7 @@ import Foundation
 import GRDB
 import SessionUtilitiesKit
 
-internal struct ConfigDump: Codable, Equatable, Hashable, Identifiable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+public struct ConfigDump: Codable, Equatable, Hashable, Identifiable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "configDump" }
     
     public typealias Columns = CodingKeys
@@ -13,15 +13,25 @@ internal struct ConfigDump: Codable, Equatable, Hashable, Identifiable, Fetchabl
         case data
     }
     
-    enum Variant: String, Codable, DatabaseValueConvertible, CaseIterable {
+    public enum Variant: String, Codable, DatabaseValueConvertible, CaseIterable {
         case userProfile
     }
     
-    var id: Variant { variant }
+    public var id: Variant { variant }
     
     /// The type of config this dump is for
     public let variant: Variant
     
     /// The data for this dump
     public let data: Data
+}
+
+// MARK: - Convenience
+
+public extension ConfigDump.Variant {
+    var configMessageKind: SharedConfigMessage.Kind {
+        switch self {
+            case .userProfile: return .userProfile
+        }
+    }
 }

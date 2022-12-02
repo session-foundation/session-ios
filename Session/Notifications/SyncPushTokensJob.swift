@@ -3,9 +3,9 @@
 import Foundation
 import GRDB
 import PromiseKit
-import SignalCoreKit
 import SessionMessagingKit
 import SessionUtilitiesKit
+import SignalCoreKit
 
 public enum SyncPushTokensJob: JobExecutor {
     public static let maxFailureCount: Int = -1

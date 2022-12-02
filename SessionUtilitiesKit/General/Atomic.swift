@@ -43,6 +43,12 @@ public class Atomic<Value> {
             return mutation(&value)
         }
     }
+    
+    @discardableResult public func mutate<T>(_ mutation: (inout Value) throws -> T) throws -> T {
+        return try queue.sync {
+            return try mutation(&value)
+        }
+    }
 }
 
 extension Atomic where Value: CustomDebugStringConvertible {

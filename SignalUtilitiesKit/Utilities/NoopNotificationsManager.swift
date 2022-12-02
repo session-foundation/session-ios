@@ -3,6 +3,7 @@
 import Foundation
 import GRDB
 import SessionMessagingKit
+import SignalCoreKit
 
 public class NoopNotificationsManager: NotificationsProtocol {
     public init() {}

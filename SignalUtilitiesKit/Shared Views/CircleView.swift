@@ -1,7 +1,7 @@
-//
 //  Copyright (c) 2020 Open Whisper Systems. All rights reserved.
-//
+
 import UIKit
+import SignalCoreKit
 
 @objc (OWSCircleView)
 public class CircleView: UIView {

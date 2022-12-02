@@ -4,7 +4,7 @@
 
 #import "MainAppContext.h"
 #import "Session-Swift.h"
-#import <SignalCoreKit/Threading.h>
+#import <SignalCoreKit/OWSAsserts.h>
 #import <SignalUtilitiesKit/SignalUtilitiesKit-Swift.h>
 
 NS_ASSUME_NONNULL_BEGIN
@@ -259,7 +259,7 @@ NSString *const ReportedApplicationStateDidChangeNotification = @"ReportedApplic
 {
     OWSAssertDebug(block);
 
-    DispatchMainThreadSafe(^{
+    [Threading dispatchMainThreadSafe:^{
         if (self.isMainAppAndActive) {
             // App active blocks typically will be used to safely access the
             // shared data container, so use a background task to protect this
@@ -273,7 +273,7 @@ NSString *const ReportedApplicationStateDidChangeNotification = @"ReportedApplic
         }
 
         [self.appActiveBlocks addObject:block];
-    });
+    }];
 }
 
 - (void)runAppActiveBlocks

@@ -5,6 +5,7 @@ import GRDB
 import PromiseKit
 import SessionMessagingKit
 import SignalUtilitiesKit
+import SignalCoreKit
 
 /// There are two primary components in our system notification integration:
 ///

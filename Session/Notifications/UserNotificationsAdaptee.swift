@@ -1,11 +1,10 @@
-//
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
-//
 
 import Foundation
 import UserNotifications
 import PromiseKit
 import SessionMessagingKit
+import SignalCoreKit
 
 class UserNotificationConfig {
 

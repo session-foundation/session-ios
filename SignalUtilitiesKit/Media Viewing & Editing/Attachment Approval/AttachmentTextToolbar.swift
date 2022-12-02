@@ -1,10 +1,9 @@
-//
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
-//
 
 import Foundation
 import UIKit
 import SessionUIKit
+import SignalCoreKit
 
 // Coincides with Android's max text message length
 let kMaxMessageBodyCharacterCount = 2000

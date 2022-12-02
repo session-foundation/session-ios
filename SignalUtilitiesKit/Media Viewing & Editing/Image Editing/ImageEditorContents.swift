@@ -1,8 +1,7 @@
-//
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
-//
 
 import UIKit
+import SignalCoreKit
 
 // ImageEditorContents represents a snapshot of canvas
 // state.

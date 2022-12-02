@@ -3,8 +3,8 @@
 //
 
 #import "NSAttributedString+OWS.h"
-#import "UIView+OWS.h"
 #import <SessionUtilitiesKit/AppContext.h>
+#import <SignalCoreKit/OWSAsserts.h>
 
 NS_ASSUME_NONNULL_BEGIN
 

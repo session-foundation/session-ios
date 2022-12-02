@@ -6,7 +6,20 @@ import SessionUtil
 import SessionUtilitiesKit
 
 /*internal*/public enum SessionUtil {
-    typealias ConfResult = (needsPush: Bool, needsDump: Bool)
+    public typealias ConfResult = (needsPush: Bool, needsDump: Bool)
+    public typealias IncomingConfResult = (needsPush: Bool, needsDump: Bool, latestSentTimestamp: TimeInterval)
+    
+    enum Target {
+        case global(variant: ConfigDump.Variant)
+        case custom(conf: Atomic<UnsafeMutablePointer<config_object>?>)
+        
+        var conf: Atomic<UnsafeMutablePointer<config_object>?> {
+            switch self {
+                case .global(let variant): return SessionUtil.config(for: variant)
+                case .custom(let conf): return conf
+            }
+        }
+    }
     
     // MARK: - Configs
     
@@ -20,6 +33,13 @@ import SessionUtilitiesKit
                 case .userProfile:
                     return (userProfileConfig.wrappedValue.map { config_needs_push($0) } ?? false)
             }
+        }
+    }
+    
+    // MARK: - Convenience
+    private static func config(for variant: ConfigDump.Variant) -> Atomic<UnsafeMutablePointer<config_object>?> {
+        switch variant {
+            case .userProfile: return SessionUtil.userProfileConfig
         }
     }
     
@@ -103,42 +123,104 @@ import SessionUtilitiesKit
         .save(db)
     }
     
-    // MARK: - UserProfile
+    // MARK: - Pushes
     
-    internal static func update(
-        conf: UnsafeMutablePointer<config_object>?,
-        with profile: Profile
-    ) throws -> ConfResult {
-        guard conf != nil else { throw SessionUtilError.nilConfigObject }
+    public static func getChanges(
+        for variants: [ConfigDump.Variant] = ConfigDump.Variant.allCases
+    ) -> [SharedConfigMessage] {
+        return variants
+            .compactMap { variant -> SharedConfigMessage? in
+                let conf = SessionUtil.config(for: variant)
+                
+                // Check if the config needs to be pushed
+                guard config_needs_push(conf.wrappedValue) else { return nil }
+                
+                var toPush: UnsafeMutablePointer<CChar>? = nil
+                var toPushLen: Int = 0
+                let seqNo: Int64 = conf.mutate { config_push($0, &toPush, &toPushLen) }
+                
+                guard let toPush: UnsafeMutablePointer<CChar> = toPush else { return nil }
+                
+                let pushData: Data = Data(bytes: toPush, count: toPushLen)
+                toPush.deallocate()
+                
+                return SharedConfigMessage(
+                    kind: variant.configMessageKind,
+                    seqNo: seqNo,
+                    data: pushData
+                )
+            }
+    }
+    
+    public static func markAsPushed(messages: [SharedConfigMessage]) -> [ConfigDump.Variant: Bool] {
+        messages.reduce(into: [:]) { result, message in
+            let conf = SessionUtil.config(for: message.kind.configDumpVariant)
+            
+            // Mark the config as pushed
+            config_confirm_pushed(conf.wrappedValue, message.seqNo)
+            
+            // Update the result to indicate whether the config needs to be dumped
+            result[message.kind.configDumpVariant] = config_needs_dump(conf.wrappedValue)
+        }
+    }
+    
+    // MARK: - Receiving
+    
+    public static func handleConfigMessages(
+        _ db: Database,
+        messages: [SharedConfigMessage]
+    ) throws {
+        let groupedMessages: [SharedConfigMessage.Kind: [SharedConfigMessage]] = messages
+            .grouped(by: \.kind)
         
-        // Update the name
-        user_profile_set_name(conf, profile.name)
-        
-        let profilePic: user_profile_pic? = profile.profilePictureUrl?
-            .bytes
-            .map { CChar(bitPattern: $0) }
-            .withUnsafeBufferPointer { profileUrlPtr in
-                let profileKey: [CChar]? = profile.profileEncryptionKey?
-                    .keyData
-                    .bytes
-                    .map { CChar(bitPattern: $0) }
+        // Merge the config messages into the current state
+        let results: [ConfigDump.Variant: IncomingConfResult] = groupedMessages
+            .reduce(into: [:]) { result, next in
+                let atomicConf = SessionUtil.config(for: next.key.configDumpVariant)
+                var needsPush: Bool = false
+                var needsDump: Bool = false
+                let messageSentTimestamp: TimeInterval = TimeInterval(
+                    (next.value.compactMap { $0.sentTimestamp }.max() ?? 0) / 1000
+                )
+                
+                // Block the config while we are merging
+                atomicConf.mutate { conf in
+                    var mergeData: [UnsafePointer<CChar>?] = next.value
+                        .map { message -> [CChar] in
+                            message.data
+                                .bytes
+                                .map { CChar(bitPattern: $0) }
+                        }
+                        .unsafeCopy()
+                    var mergeSize: [Int] = messages.map { $0.data.count }
+                    config_merge(conf, &mergeData, &mergeSize, messages.count)
+                    mergeData.forEach { $0?.deallocate() }
                     
-                return profileKey?.withUnsafeBufferPointer { profileKeyPtr in
-                    user_profile_pic(
-                        url: profileUrlPtr.baseAddress,
-                        key: profileKeyPtr.baseAddress,
-                        keylen: (profileKey?.count ?? 0)
-                    )
+                    // Get the state of this variant
+                    needsPush = config_needs_push(conf)
+                    needsDump = config_needs_dump(conf)
                 }
+                
+                // Return the current state of the config
+                result[next.key.configDumpVariant] = (
+                    needsPush: needsPush,
+                    needsDump: needsDump,
+                    latestSentTimestamp: messageSentTimestamp
+                )
             }
         
-        if let profilePic: user_profile_pic = profilePic {
-            user_profile_set_pic(conf, profilePic)
+        // If the data needs to be dumped then apply the relevant local changes
+        try results.forEach { variant, result in
+            switch variant {
+                case .userProfile:
+                    try SessionUtil.handleUserProfileUpdate(
+                        db,
+                        in: .global(variant: variant),
+                        needsDump: result.needsDump,
+                        latestConfigUpdateSentTimestamp: result.latestSentTimestamp
+                    )
+            }
         }
         
-        return (
-            needsPush: config_needs_push(conf),
-            needsDump: config_needs_dump(conf)
-        )
     }
 }

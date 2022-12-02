@@ -3,7 +3,6 @@
 import Foundation
 import GRDB
 import Sodium
-import Curve25519Kit
 import SessionUtilitiesKit
 
 public final class ClosedGroupControlMessage: ControlMessage {

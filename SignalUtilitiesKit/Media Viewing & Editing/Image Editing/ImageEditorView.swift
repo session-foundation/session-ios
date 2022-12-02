@@ -1,9 +1,8 @@
-//
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
-//
 
 import UIKit
 import SessionUtilitiesKit
+import SignalCoreKit
 
 @objc
 public protocol ImageEditorViewDelegate: AnyObject {

@@ -6,6 +6,7 @@ import PromiseKit
 import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
+import SignalCoreKit
 
 class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSource, UIPageViewControllerDelegate, MediaDetailViewControllerDelegate, InteractivelyDismissableViewController {
     class DynamicallySizedView: UIView {

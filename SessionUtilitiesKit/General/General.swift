@@ -20,6 +20,7 @@ public enum General {
 
 public enum GeneralError: Error {
     case keyGenerationFailed
+    case randomGenerationFailed
 }
 
 public func getUserHexEncodedPublicKey(_ db: Database? = nil, dependencies: Dependencies = Dependencies()) -> String {

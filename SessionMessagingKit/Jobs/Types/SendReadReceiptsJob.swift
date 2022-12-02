@@ -156,7 +156,7 @@ public extension SendReadReceiptsJob {
             behaviour: .recurring,
             threadId: threadId,
             details: Details(
-                destination: .contact(publicKey: threadId),
+                destination: .contact(publicKey: threadId, namespace: .default),
                 timestampMsValues: timestampMsValues.asSet()
             )
         )

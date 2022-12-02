@@ -8,6 +8,7 @@ import BackgroundTasks
 import PromiseKit
 import SessionMessagingKit
 import SignalUtilitiesKit
+import SignalCoreKit
 
 public final class NotificationServiceExtension: UNNotificationServiceExtension {
     private var didPerformSetup = false
@@ -136,6 +137,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             }
                             
                             self.handleSuccessForIncomingCall(db, for: callMessage)
+                            
+                        case let sharedConfigMessage as SharedConfigMessage:
+                            try SessionUtil.handleConfigMessages(db, messages: [sharedConfigMessage])
                             
                         default: break
                     }

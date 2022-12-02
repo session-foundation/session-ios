@@ -106,8 +106,8 @@ extension MessageSender {
         if let interactionId: Int64 = interactionId {
             let threadId: String = {
                 switch destination {
-                    case .contact(let publicKey): return publicKey
-                    case .closedGroup(let groupPublicKey): return groupPublicKey
+                    case .contact(let publicKey, _): return publicKey
+                    case .closedGroup(let groupPublicKey, _): return groupPublicKey
                     case .openGroup(let roomToken, let server, _, _, _):
                         return OpenGroup.idFor(roomToken: roomToken, server: server)
                         
@@ -194,16 +194,53 @@ extension MessageSender {
         guard Identity.userExists(db) else { return Promise(error: StorageError.generic) }
         
         let publicKey: String = getUserHexEncodedPublicKey(db)
-        let destination: Message.Destination = Message.Destination.contact(publicKey: publicKey)
-        let configurationMessage = try ConfigurationMessage.getCurrent(db)
+        let legacyDestination: Message.Destination = Message.Destination.contact(
+            publicKey: publicKey,
+            namespace: .default
+        )
+        let legacyConfigurationMessage = try ConfigurationMessage.getCurrent(db)
         let (promise, seal) = Promise<Void>.pending()
+        
+        let userConfigMessageChanges: [SharedConfigMessage] = SessionUtil.getChanges()
+        let destination: Message.Destination = Message.Destination.contact(
+            publicKey: publicKey,
+            namespace: .userProfileConfig
+        )
         
         if forceSyncNow {
             try MessageSender
-                .sendImmediate(db, message: configurationMessage, to: destination, interactionId: nil)
+                .sendImmediate(db, message: legacyConfigurationMessage, to: legacyDestination, interactionId: nil)
                 .done { seal.fulfill(()) }
                 .catch { _ in seal.reject(StorageError.generic) }
                 .retainUntilComplete()
+            when(
+                resolved: try userConfigMessageChanges.map { message in
+                    try MessageSender
+                        .sendImmediate(
+                            db,
+                            message: message,
+                            to: destination,
+                            interactionId: nil
+                        )
+                }
+            )
+            .done { results in
+                let hadError: Bool = results.contains { result in
+                    switch result {
+                        case .fulfilled: return false
+                        case .rejected: return true
+                    }
+                }
+                
+                guard !hadError else {
+                    seal.reject(StorageError.generic)
+                    return
+                }
+                
+                seal.fulfill(())
+            }
+            .catch { _ in seal.reject(StorageError.generic) }
+            .retainUntilComplete()
         }
         else {
             JobRunner.add(
@@ -212,8 +249,8 @@ extension MessageSender {
                     variant: .messageSend,
                     threadId: publicKey,
                     details: MessageSendJob.Details(
-                        destination: destination,
-                        message: configurationMessage
+                        destination: legacyDestination,
+                        message: legacyConfigurationMessage
                     )
                 )
             )

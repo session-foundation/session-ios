@@ -27,11 +27,19 @@ public enum MessageReceiveJob: JobExecutor {
         
         var updatedJob: Job = job
         var leastSevereError: Error?
+        let nonConfigMessages: [Details.MessageInfo] = details.messages
+            .filter { $0.variant != .sharedConfigMessage }
+        let sharedConfigMessages: [SharedConfigMessage] = details.messages
+            .compactMap { $0.message as? SharedConfigMessage }
         
         Storage.shared.write { db in
+            // Send any SharedConfigMessages to the SessionUtil to handle it
+            try SessionUtil.handleConfigMessages(db, messages: sharedConfigMessages)
+            
+            // Handle the remaining messages
             var remainingMessagesToProcess: [Details.MessageInfo] = []
             
-            for messageInfo in details.messages {
+            for messageInfo in nonConfigMessages {
                 do {
                     try MessageReceiver.handle(
                         db,
@@ -100,6 +108,8 @@ public enum MessageReceiveJob: JobExecutor {
 
 extension MessageReceiveJob {
     public struct Details: Codable {
+        typealias SharedConfigInfo = (message: SharedConfigMessage, serializedProtoData: Data)
+        
         public struct MessageInfo: Codable {
             private enum CodingKeys: String, CodingKey {
                 case message

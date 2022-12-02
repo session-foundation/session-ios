@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import SignalCoreKit
 import SessionUtilitiesKit
 
 public enum UpdateProfilePictureJob: JobExecutor {
@@ -37,6 +36,7 @@ public enum UpdateProfilePictureJob: JobExecutor {
                         .updateAll(db, Job.Columns.nextRunTimestamp.set(to: 0))
                 }
             }
+            SNLog("[UpdateProfilePictureJob] Deferred as not enough time has passed since the last update")
             deferred(job)
             return
         }

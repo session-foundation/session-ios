@@ -1,6 +1,4 @@
-//
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
-//
 
 import Foundation
 import MediaPlayer
@@ -8,6 +6,7 @@ import YYImage
 import NVActivityIndicatorView
 import SessionUIKit
 import SessionMessagingKit
+import SignalCoreKit
 
 public protocol MediaMessageViewAudioDelegate: AnyObject {
     func progressChanged(_ progressSeconds: CGFloat, durationSeconds: CGFloat)

@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import SignalCoreKit
 
 public protocol JobExecutor {
     /// The maximum number of times the job can fail before it fails permanently

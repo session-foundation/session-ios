@@ -3,7 +3,6 @@
 import Foundation
 import GRDB
 import PromiseKit
-import SignalCoreKit
 import SessionUtilitiesKit
 
 public enum AttachmentUploadJob: JobExecutor {

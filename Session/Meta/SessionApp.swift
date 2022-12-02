@@ -3,6 +3,7 @@
 import Foundation
 import SessionUtilitiesKit
 import SessionMessagingKit
+import SignalCoreKit
 
 public struct SessionApp {
     static let homeViewController: Atomic<HomeVC?> = Atomic(nil)

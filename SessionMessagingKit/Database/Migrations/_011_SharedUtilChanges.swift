@@ -27,8 +27,8 @@ enum _011_SharedUtilChanges: Migration {
             for: .userProfile
         )
         let confResult: SessionUtil.ConfResult = try SessionUtil.update(
-            conf: userProfileConf,
-            with: Profile.fetchOrCreateCurrentUser(db)
+            profile: Profile.fetchOrCreateCurrentUser(db),
+            in: .custom(conf: Atomic(userProfileConf))
         )
         
         if confResult.needsDump {

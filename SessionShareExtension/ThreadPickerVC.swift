@@ -4,7 +4,6 @@ import UIKit
 import GRDB
 import PromiseKit
 import DifferenceKit
-import Sodium
 import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit

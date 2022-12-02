@@ -6,6 +6,7 @@ import DifferenceKit
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
+import SignalCoreKit
 
 class HelpViewModel: SessionTableViewModel<NoNav, HelpViewModel.Section, HelpViewModel.Section> {
     // MARK: - Section

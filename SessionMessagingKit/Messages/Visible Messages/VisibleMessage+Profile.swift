@@ -114,7 +114,7 @@ public extension VisibleMessage {
 extension VisibleMessage.VMProfile {
     init(profile: Profile) {
         self.displayName = profile.name
-        self.profileKey = profile.profileEncryptionKey?.keyData
+        self.profileKey = profile.profileEncryptionKey
         self.profilePictureUrl = profile.profilePictureUrl
     }
 }

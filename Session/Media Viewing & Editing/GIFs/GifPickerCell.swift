@@ -7,6 +7,7 @@ import PromiseKit
 import SignalUtilitiesKit
 import SignalUtilitiesKit
 import YYImage
+import SignalCoreKit
 
 class GifPickerCell: UICollectionViewCell {
 

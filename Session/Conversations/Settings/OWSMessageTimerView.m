@@ -6,6 +6,7 @@
 #import "OWSMath.h"
 #import "UIView+OWS.h"
 #import <QuartzCore/QuartzCore.h>
+#import <SignalCoreKit/OWSAsserts.h>
 #import <SignalCoreKit/NSDate+OWS.h>
 #import <SessionUtilitiesKit/NSTimer+Proxying.h>
 

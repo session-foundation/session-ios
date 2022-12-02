@@ -12,6 +12,7 @@ import SessionUIKit
 import UserNotifications
 import UIKit
 import SignalUtilitiesKit
+import SignalCoreKit
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {

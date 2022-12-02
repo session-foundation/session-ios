@@ -1,11 +1,10 @@
-//
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
-//
 
 import AFNetworking
 import Foundation
 import PromiseKit
 import CoreServices
+import SignalCoreKit
 
 // There's no UTI type for webp!
 enum GiphyFormat {

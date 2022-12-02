@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import Sodium
 import Curve25519Kit
 import SessionMessagingKit
 

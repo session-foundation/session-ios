@@ -2,10 +2,10 @@
 
 import UIKit
 import PromiseKit
-import SignalCoreKit
 import SignalUtilitiesKit
 import SessionUIKit
 import SessionUtilitiesKit
+import SignalCoreKit
 
 final class SAEScreenLockViewController: ScreenLockViewController {
     private var hasShownAuthUIOnce: Bool = false

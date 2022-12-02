@@ -3,6 +3,7 @@
 import UIKit
 import CryptoSwift
 import SessionUIKit
+import SignalCoreKit
 
 public class PlaceholderIcon {
     private let seed: Int

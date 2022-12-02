@@ -3,7 +3,6 @@
 import Foundation
 import GRDB
 import DifferenceKit
-import SignalCoreKit
 import SessionUtilitiesKit
 
 public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible, CustomStringConvertible, Differentiable {
@@ -42,7 +41,7 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
     public let profilePictureFileName: String?
 
     /// The key with which the profile is encrypted.
-    public let profileEncryptionKey: OWSAES256Key?
+    public let profileEncryptionKey: Data?
     
     // MARK: - Initialization
     
@@ -52,7 +51,7 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
         nickname: String? = nil,
         profilePictureUrl: String? = nil,
         profilePictureFileName: String? = nil,
-        profileEncryptionKey: OWSAES256Key? = nil
+        profileEncryptionKey: Data? = nil
     ) {
         self.id = id
         self.name = name
@@ -68,7 +67,7 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
         """
         Profile(
             name: \(name),
-            profileKey: \(profileEncryptionKey?.keyData.description ?? "null"),
+            profileKey: \(profileEncryptionKey?.description ?? "null"),
             profilePictureUrl: \(profilePictureUrl ?? "null")
         )
         """
@@ -81,7 +80,7 @@ public extension Profile {
     init(from decoder: Decoder) throws {
         let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
         
-        var profileKey: OWSAES256Key?
+        var profileKey: Data?
         var profilePictureUrl: String?
         
         // If we have both a `profileKey` and a `profilePicture` then the key MUST be valid
@@ -89,12 +88,7 @@ public extension Profile {
             let profileKeyData: Data = try? container.decode(Data.self, forKey: .profileEncryptionKey),
             let profilePictureUrlValue: String = try? container.decode(String.self, forKey: .profilePictureUrl)
         {
-            guard let validProfileKey: OWSAES256Key = OWSAES256Key(data: profileKeyData) else {
-                owsFailDebug("Failed to make profile key for key data")
-                throw StorageError.decodingFailed
-            }
-            
-            profileKey = validProfileKey
+            profileKey = profileKeyData
             profilePictureUrl = profilePictureUrlValue
         }
         
@@ -113,10 +107,10 @@ public extension Profile {
 
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
-        try container.encode(nickname, forKey: .nickname)
-        try container.encode(profilePictureUrl, forKey: .profilePictureUrl)
-        try container.encode(profilePictureFileName, forKey: .profilePictureFileName)
-        try container.encode(profileEncryptionKey?.keyData, forKey: .profileEncryptionKey)
+        try container.encodeIfPresent(nickname, forKey: .nickname)
+        try container.encodeIfPresent(profilePictureUrl, forKey: .profilePictureUrl)
+        try container.encodeIfPresent(profilePictureFileName, forKey: .profilePictureFileName)
+        try container.encodeIfPresent(profileEncryptionKey, forKey: .profileEncryptionKey)
     }
 }
 
@@ -126,17 +120,12 @@ public extension Profile {
     static func fromProto(_ proto: SNProtoDataMessage, id: String) -> Profile? {
         guard let profileProto = proto.profile, let displayName = profileProto.displayName else { return nil }
         
-        var profileKey: OWSAES256Key?
+        var profileKey: Data?
         var profilePictureUrl: String?
         
         // If we have both a `profileKey` and a `profilePicture` then the key MUST be valid
         if let profileKeyData: Data = proto.profileKey, profileProto.profilePicture != nil {
-            guard let validProfileKey: OWSAES256Key = OWSAES256Key(data: profileKeyData) else {
-                owsFailDebug("Failed to make profile key for key data")
-                return nil
-            }
-            
-            profileKey = validProfileKey
+            profileKey = profileKeyData
             profilePictureUrl = profileProto.profilePicture
         }
         
@@ -155,8 +144,8 @@ public extension Profile {
         let profileProto = SNProtoLokiProfile.builder()
         profileProto.setDisplayName(name)
         
-        if let profileKey: OWSAES256Key = profileEncryptionKey, let profilePictureUrl: String = profilePictureUrl {
-            dataMessageProto.setProfileKey(profileKey.keyData)
+        if let profileKey: Data = profileEncryptionKey, let profilePictureUrl: String = profilePictureUrl {
+            dataMessageProto.setProfileKey(profileKey)
             profileProto.setProfilePicture(profilePictureUrl)
         }
         
@@ -178,7 +167,7 @@ public extension Profile {
         name: String? = nil,
         profilePictureUrl: Updatable<String?> = .existing,
         profilePictureFileName: Updatable<String?> = .existing,
-        profileEncryptionKey: Updatable<OWSAES256Key> = .existing
+        profileEncryptionKey: Updatable<Data?> = .existing
     ) -> Profile {
         return Profile(
             id: id,

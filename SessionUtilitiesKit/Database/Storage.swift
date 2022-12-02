@@ -4,13 +4,12 @@ import Foundation
 import Combine
 import GRDB
 import PromiseKit
-import SignalCoreKit
 
 open class Storage {
     private static let dbFileName: String = "Session.sqlite"
     private static let keychainService: String = "TSKeyChainService"
     private static let dbCipherKeySpecKey: String = "GRDBDatabaseCipherKeySpec"
-    private static let kSQLCipherKeySpecLength: Int32 = 48
+    private static let kSQLCipherKeySpecLength: Int = 48
     
     private static var sharedDatabaseDirectoryPath: String { "\(OWSFileSystem.appSharedDataDirectoryPath())/database" }
     private static var databasePath: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)" }
@@ -103,7 +102,7 @@ open class Storage {
         migrations: [TargetMigrations],
         async: Bool = true,
         onProgressUpdate: ((CGFloat, TimeInterval) -> ())?,
-        onComplete: @escaping (Swift.Result<Database, Error>, Bool) -> ()
+        onComplete: @escaping (Swift.Result<Void, Error>, Bool) -> ()
     ) {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return }
         
@@ -179,7 +178,7 @@ open class Storage {
         }
         
         // Store the logic to run when the migration completes
-        let migrationCompleted: (Swift.Result<Database, Error>) -> () = { [weak self] result in
+        let migrationCompleted: (Swift.Result<Void, Error>) -> () = { [weak self] result in
             self?.hasCompletedMigrations = true
             self?.migrationProgressUpdater = nil
             SUKLegacy.clearLegacyDatabaseInstance()
@@ -194,16 +193,23 @@ open class Storage {
         // Note: The non-async migration should only be used for unit tests
         guard async else {
             do { try self.migrator?.migrate(dbWriter) }
-            catch {
-                try? dbWriter.read { db in
-                    migrationCompleted(Swift.Result<Database, Error>.failure(error))
-                }
-            }
+            catch { migrationCompleted(Swift.Result<Void, Error>.failure(error)) }
             return
         }
         
         self.migrator?.asyncMigrate(dbWriter) { result in
-            migrationCompleted(result)
+            let finalResult: Swift.Result<Void, Error> = {
+                switch result {
+                    case .failure(let error): return .failure(error)
+                    case .success: return .success(())
+                }
+            }()
+            
+            // Note: We need to dispatch this to the next run toop to prevent any potential re-entrancy
+            // issues since the 'asyncMigrate' returns a result containing a DB instance
+            DispatchQueue.global(qos: .userInitiated).async {
+                migrationCompleted(finalResult)
+            }
         }
     }
     
@@ -251,7 +257,7 @@ open class Storage {
                 case (_, errSecItemNotFound):
                     // No keySpec was found so we need to generate a new one
                     do {
-                        var keySpec: Data = Randomness.generateRandomBytes(kSQLCipherKeySpecLength)
+                        var keySpec: Data = try Randomness.generateRandomBytes(numberBytes: kSQLCipherKeySpecLength)
                         defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
                         
                         try SSKDefaultKeychainStorage.shared.set(data: keySpec, service: keychainService, key: dbCipherKeySpecKey)

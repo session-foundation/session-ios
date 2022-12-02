@@ -4,6 +4,7 @@ import UIKit
 import Photos
 import PromiseKit
 import SignalUtilitiesKit
+import SignalCoreKit
 
 class SendMediaNavigationController: UINavigationController {
     public override var preferredStatusBarStyle: UIStatusBarStyle {

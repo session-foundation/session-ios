@@ -3,7 +3,6 @@
 import Foundation
 import GRDB
 import Sodium
-import SignalCoreKit
 import SessionUtilitiesKit
 
 extension MessageReceiver {
@@ -26,15 +25,12 @@ extension MessageReceiver {
         // Update profile if needed (want to do this regardless of whether the message exists or
         // not to ensure the profile info gets sync between a users devices at every chance)
         if let profile = message.profile {
-            var contactProfileKey: OWSAES256Key? = nil
-            if let profileKey = profile.profileKey { contactProfileKey = OWSAES256Key(data: profileKey) }
-            
             try MessageReceiver.updateProfileIfNeeded(
                 db,
                 publicKey: sender,
                 name: profile.displayName,
                 profilePictureUrl: profile.profilePictureUrl,
-                profileKey: contactProfileKey,
+                profileKey: profile.profileKey,
                 sentTimestamp: messageSentTimestamp
             )
         }

@@ -5,6 +5,7 @@ import PureLayout
 import SessionUIKit
 import SessionUtilitiesKit
 import NVActivityIndicatorView
+import SignalCoreKit
 
 class EmptySearchResultCell: UITableViewCell {
     private lazy var messageLabel: UILabel = {
