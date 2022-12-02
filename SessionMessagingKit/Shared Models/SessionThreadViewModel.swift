@@ -21,6 +21,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public static let threadCreationDateTimestampKey: SQL = SQL(stringLiteral: CodingKeys.threadCreationDateTimestamp.stringValue)
     public static let threadMemberNamesKey: SQL = SQL(stringLiteral: CodingKeys.threadMemberNames.stringValue)
     public static let threadIsNoteToSelfKey: SQL = SQL(stringLiteral: CodingKeys.threadIsNoteToSelf.stringValue)
+    public static let contactIsUsingOutdatedClientKey: SQL = SQL(stringLiteral: CodingKeys.contactIsUsingOutdatedClient.stringValue)
     public static let threadIsMessageRequestKey: SQL = SQL(stringLiteral: CodingKeys.threadIsMessageRequest.stringValue)
     public static let threadRequiresApprovalKey: SQL = SQL(stringLiteral: CodingKeys.threadRequiresApproval.stringValue)
     public static let threadShouldBeVisibleKey: SQL = SQL(stringLiteral: CodingKeys.threadShouldBeVisible.stringValue)
@@ -84,6 +85,11 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public let threadMemberNames: String?
     
     public let threadIsNoteToSelf: Bool
+    
+    /// This flag indicated whether the contact in this thread is using an outdated client regarding
+    /// disappearing messages configuration. We can use this flag in the future for other features
+    /// as well.
+    public let contactIsUsingOutdatedClient: Bool
     
     /// This flag indicates whether the thread is an outgoing message request
     public let threadIsMessageRequest: Bool?
@@ -259,6 +265,7 @@ public extension SessionThreadViewModel {
         self.threadMemberNames = nil
         
         self.threadIsNoteToSelf = threadIsNoteToSelf
+        self.contactIsUsingOutdatedClient = false
         self.threadIsMessageRequest = false
         self.threadRequiresApproval = false
         self.threadShouldBeVisible = false
@@ -327,6 +334,7 @@ public extension SessionThreadViewModel {
             threadCreationDateTimestamp: self.threadCreationDateTimestamp,
             threadMemberNames: self.threadMemberNames,
             threadIsNoteToSelf: self.threadIsNoteToSelf,
+            contactIsUsingOutdatedClient: self.contactIsUsingOutdatedClient,
             threadIsMessageRequest: self.threadIsMessageRequest,
             threadRequiresApproval: self.threadRequiresApproval,
             threadShouldBeVisible: self.threadShouldBeVisible,
@@ -383,6 +391,7 @@ public extension SessionThreadViewModel {
             threadCreationDateTimestamp: self.threadCreationDateTimestamp,
             threadMemberNames: self.threadMemberNames,
             threadIsNoteToSelf: self.threadIsNoteToSelf,
+            contactIsUsingOutdatedClient: self.contactIsUsingOutdatedClient,
             threadIsMessageRequest: self.threadIsMessageRequest,
             threadRequiresApproval: self.threadRequiresApproval,
             threadShouldBeVisible: self.threadShouldBeVisible,
@@ -751,6 +760,7 @@ public extension SessionThreadViewModel {
                 \(thread[.creationDateTimestamp]) AS \(ViewModel.threadCreationDateTimestampKey),
                 
                 (\(SQL("\(thread[.id]) = \(userPublicKey)"))) AS \(ViewModel.threadIsNoteToSelfKey),
+                \(contact[.isUsingOutdatedClient]) AS \(ViewModel.contactIsUsingOutdatedClientKey),
                 (
                     \(SQL("\(thread[.variant]) = \(SessionThread.Variant.contact)")) AND
                     \(SQL("\(thread[.id]) != \(userPublicKey)")) AND

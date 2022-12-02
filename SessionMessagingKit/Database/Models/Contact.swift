@@ -16,6 +16,7 @@ public struct Contact: Codable, Identifiable, Equatable, FetchableRecord, Persis
         case isTrusted
         case isApproved
         case isBlocked
+        case isUsingOutdatedClient
         case didApproveMe
         case hasBeenBlocked
     }
@@ -31,6 +32,9 @@ public struct Contact: Codable, Identifiable, Equatable, FetchableRecord, Persis
     
     /// This flag is used to determine whether message requests from this contact are blocked
     public let isBlocked: Bool
+    
+    /// This flag is used to determine whether this contact is using an outdated client regarding disappearing messages configuration
+    public let isUsingOutdatedClient: Bool
     
     /// This flag is used to determine whether this contact has approved the current users message request
     public let didApproveMe: Bool
@@ -51,6 +55,7 @@ public struct Contact: Codable, Identifiable, Equatable, FetchableRecord, Persis
         isTrusted: Bool = false,
         isApproved: Bool = false,
         isBlocked: Bool = false,
+        isUsingOutdatedClient: Bool = false,
         didApproveMe: Bool = false,
         hasBeenBlocked: Bool = false
     ) {
@@ -61,6 +66,7 @@ public struct Contact: Codable, Identifiable, Equatable, FetchableRecord, Persis
         )
         self.isApproved = isApproved
         self.isBlocked = isBlocked
+        self.isUsingOutdatedClient = isUsingOutdatedClient
         self.didApproveMe = didApproveMe
         self.hasBeenBlocked = (isBlocked || hasBeenBlocked)
     }
@@ -73,6 +79,7 @@ public extension Contact {
         isTrusted: Updatable<Bool> = .existing,
         isApproved: Updatable<Bool> = .existing,
         isBlocked: Updatable<Bool> = .existing,
+        isUsingOutdatedClient: Updatable<Bool> = .existing,
         didApproveMe: Updatable<Bool> = .existing
     ) -> Contact {
         return Contact(
@@ -83,6 +90,7 @@ public extension Contact {
             ),
             isApproved: (isApproved ?? self.isApproved),
             isBlocked: (isBlocked ?? self.isBlocked),
+            isUsingOutdatedClient: (isUsingOutdatedClient ?? self.isUsingOutdatedClient),
             didApproveMe: (didApproveMe ?? self.didApproveMe),
             hasBeenBlocked: ((isBlocked ?? self.isBlocked) || self.hasBeenBlocked)
         )

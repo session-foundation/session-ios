@@ -4,9 +4,9 @@ import Foundation
 import GRDB
 import SessionUtilitiesKit
 
-enum _011_DisappearingMessage: Migration {
+enum _011_DisappearingMessagesConfiguration: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
-    static let identifier: String = "DisappearingMessageType"
+    static let identifier: String = "DisappearingMessagesWithTypes"
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     
@@ -15,6 +15,11 @@ enum _011_DisappearingMessage: Migration {
             t.add(.type, .integer)
             t.add(.lastChangeTimestampMs, .integer)
                 .defaults(to: 0)
+        }
+        
+        try db.alter(table: Contact.self) { t in
+            t.add(.isUsingOutdatedClient, .boolean)
+                .defaults(to: false)
         }
         
         func updateDisappearingMessageType(_ db: GRDB.Database, id: String, type: DisappearingMessagesConfiguration.DisappearingMessageType) throws {
