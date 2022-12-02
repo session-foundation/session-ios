@@ -30,12 +30,43 @@ final class InfoBanner: UIView {
             messageTintColor.hash(into: &hasher)
             height.hash(into: &hasher)
         }
+        
+        func with(
+            message: String? = nil,
+            backgroundColor: ThemeValue? = nil,
+            messageFont: UIFont? = nil,
+            messageTintColor: ThemeValue? = nil,
+            height: CGFloat? = nil
+        ) -> Info {
+            return Info(
+                message: message ?? self.message,
+                backgroundColor: backgroundColor ?? self.backgroundColor,
+                messageFont: messageFont ?? self.messageFont,
+                messageTintColor: messageTintColor ?? self.messageTintColor,
+                height: height ?? self.height
+            )
+        }
     }
+    
+    private lazy var label: UILabel = {
+        let result: UILabel = UILabel()
+        result.textAlignment = .center
+        result.lineBreakMode = .byWordWrapping
+        result.numberOfLines = 0
+        
+        return result
+    }()
+    
+    public var info: Info?
+    
+    // MARK: - Initialization
     
     init(info: Info) {
         super.init(frame: CGRect.zero)
-        
-        setUpViewHierarchy(info)
+        addSubview(label)
+        label.pin(to: self)
+        self.set(.height, to: info.height)
+        self.update(info)
     }
     
     override init(frame: CGRect) {
@@ -46,19 +77,33 @@ final class InfoBanner: UIView {
         preconditionFailure("Use init(coder:) instead.")
     }
     
-    private func setUpViewHierarchy(_ info: InfoBanner.Info) {
+    // MARK: Update
+    
+    private func update(_ info: InfoBanner.Info) {
+        self.info = info
+        
         themeBackgroundColor = info.backgroundColor
         
-        let label: UILabel = UILabel()
         label.font = info.messageFont
         label.text = info.message
         label.themeTextColor = info.messageTintColor
-        label.textAlignment = .center
-        label.lineBreakMode = .byWordWrapping
-        label.numberOfLines = 0
-        addSubview(label)
-        
-        label.center(in: self)
-        self.set(.height, to: info.height)
+    }
+    
+    public func update(
+        message: String? = nil,
+        backgroundColor: ThemeValue? = nil,
+        messageFont: UIFont? = nil,
+        messageTintColor: ThemeValue? = nil,
+        height: CGFloat? = nil
+    ) {
+        if let updatedInfo = self.info?.with(
+            message: message,
+            backgroundColor: backgroundColor,
+            messageFont: messageFont,
+            messageTintColor: messageTintColor,
+            height: height
+        ) {
+            self.update(updatedInfo)
+        }
     }
 }

@@ -195,11 +195,11 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     
     lazy var outdatedClientBanner: InfoBanner = {
         let info: InfoBanner.Info = InfoBanner.Info(
-            message: "DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER".localized(),
+            message: String(format: "DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER".localized(), self.viewModel.threadData.displayName),
             backgroundColor: .primary,
             messageFont: .systemFont(ofSize: Values.miniFontSize),
-            messageTintColor: .text,
-            height: 20
+            messageTintColor: .messageBubble_outgoingText,
+            height: 40
         )
         let result: InfoBanner = InfoBanner(info: info)
         return result
@@ -621,6 +621,8 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                 userCount: updatedThreadData.userCount,
                 disappearingMessagesConfig: updatedThreadData.disappearingMessagesConfiguration
             )
+            
+            outdatedClientBanner.update(message: String(format: "DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER".localized(), updatedThreadData.displayName))
         }
         
         if
@@ -683,6 +685,10 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                     )
                 }
             }
+        }
+        
+        if initialLoad {
+            addOrRemoveOutdatedClientBanner(contactIsUsingOutdatedClient: true)
         }
         
         if initialLoad || viewModel.threadData.threadIsBlocked != updatedThreadData.threadIsBlocked {
@@ -1247,6 +1253,25 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     }
 
     // MARK: - General
+    
+    func addOrRemoveOutdatedClientBanner(contactIsUsingOutdatedClient: Bool) {
+        guard contactIsUsingOutdatedClient else {
+            UIView.animate(
+                withDuration: 0.25,
+                animations: { [weak self] in
+                    self?.outdatedClientBanner.alpha = 0
+                },
+                completion: { [weak self] _ in
+                    self?.outdatedClientBanner.alpha = 1
+                    self?.outdatedClientBanner.removeFromSuperview()
+                }
+            )
+            return
+        }
+
+        self.view.addSubview(self.outdatedClientBanner)
+        self.outdatedClientBanner.pin([ UIView.HorizontalEdge.left, UIView.VerticalEdge.top, UIView.HorizontalEdge.right ], to: self.view)
+    }
 
     func addOrRemoveBlockedBanner(threadIsBlocked: Bool) {
         guard threadIsBlocked else {
