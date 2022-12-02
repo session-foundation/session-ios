@@ -1,6 +1,7 @@
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 
-import Foundation
+import UIKit
+import Combine
 import MediaPlayer
 import YYImage
 import NVActivityIndicatorView
@@ -21,6 +22,7 @@ public class MediaMessageView: UIView, OWSAudioPlayerDelegate {
 
     // MARK: Properties
 
+    private var disposables: Set<AnyCancellable> = Set()
     public let mode: Mode
     public let attachment: SignalAttachment
 
@@ -565,44 +567,51 @@ public class MediaMessageView: UIView, OWSAudioPlayerDelegate {
         loadingView.startAnimating()
         
         LinkPreview.tryToBuildPreviewInfo(previewUrl: linkPreviewURL)
-            .done { [weak self] draft in
-                // TODO: Look at refactoring this behaviour to consolidate attachment mutations
-                self?.attachment.linkPreviewDraft = draft
-                self?.linkPreviewInfo = (url: linkPreviewURL, draft: draft)
-                
-                // Update the UI
-                self?.titleLabel.text = (draft.title ?? self?.titleLabel.text)
-                self?.loadingView.alpha = 0
-                self?.loadingView.stopAnimating()
-                self?.imageView.alpha = 1
-                
-                if let jpegImageData: Data = draft.jpegImageData, let loadedImage: UIImage = UIImage(data: jpegImageData) {
-                    self?.imageView.image = loadedImage
-                    self?.imageView.contentMode = .scaleAspectFill
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { [weak self] result in
+                    switch result {
+                        case .finished: break
+                        case .failure:
+                            self?.loadingView.alpha = 0
+                            self?.loadingView.stopAnimating()
+                            self?.imageView.alpha = 1
+                            self?.titleLabel.numberOfLines = 1  // Truncates the URL at 1 line so the error is more readable
+                            self?.subtitleLabel.isHidden = false
+                            
+                            // Set the error text appropriately
+                            if let targetUrl: URL = URL(string: linkPreviewURL), targetUrl.scheme?.lowercased() != "https" {
+                                // This error case is handled already in the 'subtitleLabel' creation
+                            }
+                            else {
+                                self?.subtitleLabel.font = UIFont.ows_regularFont(withSize: Values.verySmallFontSize)
+                                self?.subtitleLabel.text = "vc_share_link_previews_error".localized()
+                                self?.subtitleLabel.themeTextColor = (self?.mode == .attachmentApproval ?
+                                    .textSecondary :
+                                    .primary
+                                )
+                                self?.subtitleLabel.textAlignment = .left
+                            }
+                    }
+                },
+                receiveValue: { [weak self] draft in
+                    // TODO: Look at refactoring this behaviour to consolidate attachment mutations
+                    self?.attachment.linkPreviewDraft = draft
+                    self?.linkPreviewInfo = (url: linkPreviewURL, draft: draft)
+                    
+                    // Update the UI
+                    self?.titleLabel.text = (draft.title ?? self?.titleLabel.text)
+                    self?.loadingView.alpha = 0
+                    self?.loadingView.stopAnimating()
+                    self?.imageView.alpha = 1
+                    
+                    if let jpegImageData: Data = draft.jpegImageData, let loadedImage: UIImage = UIImage(data: jpegImageData) {
+                        self?.imageView.image = loadedImage
+                        self?.imageView.contentMode = .scaleAspectFill
+                    }
                 }
-            }
-            .catch { [weak self] _ in
-                self?.loadingView.alpha = 0
-                self?.loadingView.stopAnimating()
-                self?.imageView.alpha = 1
-                self?.titleLabel.numberOfLines = 1  // Truncates the URL at 1 line so the error is more readable
-                self?.subtitleLabel.isHidden = false
-                
-                // Set the error text appropriately
-                if let targetUrl: URL = URL(string: linkPreviewURL), targetUrl.scheme?.lowercased() != "https" {
-                    // This error case is handled already in the 'subtitleLabel' creation
-                }
-                else {
-                    self?.subtitleLabel.font = UIFont.ows_regularFont(withSize: Values.verySmallFontSize)
-                    self?.subtitleLabel.text = "vc_share_link_previews_error".localized()
-                    self?.subtitleLabel.themeTextColor = (self?.mode == .attachmentApproval ?
-                        .textSecondary :
-                        .primary
-                    )
-                    self?.subtitleLabel.textAlignment = .left
-                }
-            }
-            .retainUntilComplete()
+            )
+            .store(in: &disposables)
     }
     
     // MARK: - Functions

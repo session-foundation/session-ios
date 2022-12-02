@@ -4,7 +4,6 @@ import Foundation
 import CallKit
 import GRDB
 import WebRTC
-import PromiseKit
 import SignalUtilitiesKit
 import SessionMessagingKit
 

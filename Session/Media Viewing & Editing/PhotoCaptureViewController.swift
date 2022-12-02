@@ -1,8 +1,8 @@
-//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
+// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Combine
 import AVFoundation
-import PromiseKit
 import SessionUIKit
 import SignalUtilitiesKit
 import SignalCoreKit
@@ -40,9 +40,15 @@ class PhotoCaptureViewController: OWSViewController {
     deinit {
         UIDevice.current.endGeneratingDeviceOrientationNotifications()
         if let photoCapture = photoCapture {
-            photoCapture.stopCapture().done {
-                Logger.debug("stopCapture completed")
-            }.retainUntilComplete()
+            photoCapture.stopCapture()
+                .sinkUntilComplete(
+                    receiveCompletion: { result in
+                        switch result {
+                            case .failure: break
+                            case .finished: Logger.debug("stopCapture completed")
+                        }
+                    }
+                )
         }
     }
 
@@ -187,17 +193,29 @@ class PhotoCaptureViewController: OWSViewController {
             let epsilonToForceCounterClockwiseRotation: CGFloat = 0.00001
             self.switchCameraControl.button.transform = self.switchCameraControl.button.transform.rotate(.pi + epsilonToForceCounterClockwiseRotation)
         }
-        photoCapture.switchCamera().catch { error in
-            self.showFailureUI(error: error)
-        }.retainUntilComplete()
+        
+        photoCapture.switchCamera()
+            .receiveOnMain()
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self] result in
+                    switch result {
+                        case .finished: break
+                        case .failure(let error): self?.showFailureUI(error: error)
+                    }
+                }
+            )
     }
 
     @objc
     func didTapFlashMode() {
         Logger.debug("")
-        photoCapture.switchFlashMode().done {
-            self.updateFlashModeControl()
-        }.retainUntilComplete()
+        photoCapture.switchFlashMode()
+            .receiveOnMain()
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self] _ in
+                    self?.updateFlashModeControl()
+                }
+            )
     }
 
     @objc
@@ -288,13 +306,15 @@ class PhotoCaptureViewController: OWSViewController {
         previewView = CapturePreviewView(session: photoCapture.session)
 
         photoCapture.startCapture()
-            .done { [weak self] in
-                self?.showCaptureUI()
-            }
-            .catch { [weak self] error in
-                self?.showFailureUI(error: error)
-            }
-            .retainUntilComplete()
+            .receiveOnMain()
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self] result in
+                    switch result {
+                        case .finished: self?.showCaptureUI()
+                        case .failure(let error): self?.showFailureUI(error: error)
+                    }
+                }
+            )
     }
 
     private func showCaptureUI() {

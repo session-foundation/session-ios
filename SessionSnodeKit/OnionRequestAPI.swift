@@ -8,9 +8,6 @@ import PromiseKit
 import SessionUtilitiesKit
 
 public protocol OnionRequestAPIType {
-//    static func sendOnionRequest(_ payload: Data, to snode: Snode) -> Promise<(ResponseInfoType, Data?)>
-//    static func sendOnionRequest(_ request: URLRequest, to server: String, with x25519PublicKey: String) -> Promise<(ResponseInfoType, Data?)>
-    
     static func sendOnionRequest(_ payload: Data, to snode: Snode) -> AnyPublisher<(ResponseInfoType, Data?), Error>
     static func sendOnionRequest(_ request: URLRequest, to server: String, with x25519PublicKey: String) -> AnyPublisher<(ResponseInfoType, Data?), Error>
 }

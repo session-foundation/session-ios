@@ -19,7 +19,6 @@ abstract_target 'GlobalDependencies' do
   pod 'SocketRocket', '~> 0.5.1'
   
   target 'Session' do
-    pod 'AFNetworking'
     pod 'Reachability'
     pod 'PureLayout', '~> 3.1.8'
     pod 'NVActivityIndicatorView'
@@ -45,7 +44,6 @@ abstract_target 'GlobalDependencies' do
     
     # Dependencies that are shared across a number of extensions/frameworks but not all
     abstract_target 'ExtendedDependencies' do
-      pod 'AFNetworking'
       pod 'PureLayout', '~> 3.1.8'
       
       target 'SessionShareExtension' do

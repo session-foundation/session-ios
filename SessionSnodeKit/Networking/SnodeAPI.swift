@@ -259,7 +259,6 @@ public final class SnodeAPI {
             )
             .subscribe(on: Threading.workQueue)
             .collect()
-            .mapError { _ in SnodeAPIError.validationFailed }
             .flatMap { results -> AnyPublisher<String, Error> in
                 guard results.count == validationCount, Set(results).count == 1 else {
                     return Fail(error: SnodeAPIError.validationFailed)

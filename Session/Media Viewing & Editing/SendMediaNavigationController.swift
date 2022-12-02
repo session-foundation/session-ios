@@ -1,8 +1,8 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Combine
 import Photos
-import PromiseKit
 import SignalUtilitiesKit
 import SignalCoreKit
 
@@ -16,6 +16,7 @@ class SendMediaNavigationController: UINavigationController {
     static let bottomButtonsCenterOffset: CGFloat = -50
     
     private let threadId: String
+    private var disposables: Set<AnyCancellable> = Set()
     
     // MARK: - Initialization
     
@@ -325,32 +326,40 @@ extension SendMediaNavigationController: ImagePickerGridControllerDelegate {
     func showApprovalAfterProcessingAnyMediaLibrarySelections() {
         let mediaLibrarySelections: [MediaLibrarySelection] = self.mediaLibrarySelections.orderedValues
 
-        let backgroundBlock: (ModalActivityIndicatorViewController) -> Void = { modal in
-            let attachmentPromises: [Promise<MediaLibraryAttachment>] = mediaLibrarySelections.map { $0.promise }
-
-            when(fulfilled: attachmentPromises)
-                .map { attachments in
-                    Logger.debug("built all attachments")
-                    modal.dismiss {
-                        self.attachmentDraftCollection.selectedFromPicker(attachments: attachments)
-                        self.pushApprovalViewController()
+        let backgroundBlock: (ModalActivityIndicatorViewController) -> Void = { [weak self] modal in
+            guard let strongSelf = self else { return }
+            
+            Publishers
+                .MergeMany(mediaLibrarySelections.map { $0.publisher })
+                .collect()
+                .sink(
+                    receiveCompletion: { result in
+                        switch result {
+                            case .finished: break
+                            case .failure(let error):
+                                Logger.error("failed to prepare attachments. error: \(error)")
+                                modal.dismiss { [weak self] in
+                                    let modal: ConfirmationModal = ConfirmationModal(
+                                        targetView: self?.view,
+                                        info: ConfirmationModal.Info(
+                                            title: "IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS".localized(),
+                                            cancelTitle: "BUTTON_OK".localized(),
+                                            cancelStyle: .alert_text
+                                        )
+                                    )
+                                    self?.present(modal, animated: true)
+                                }
+                        }
+                    },
+                    receiveValue: { attachments in
+                        Logger.debug("built all attachments")
+                        modal.dismiss {
+                            self?.attachmentDraftCollection.selectedFromPicker(attachments: attachments)
+                            self?.pushApprovalViewController()
+                        }
                     }
-                }
-                .catch { error in
-                    Logger.error("failed to prepare attachments. error: \(error)")
-                    modal.dismiss { [weak self] in
-                        let modal: ConfirmationModal = ConfirmationModal(
-                            targetView: self?.view,
-                            info: ConfirmationModal.Info(
-                                title: "IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS".localized(),
-                                cancelTitle: "BUTTON_OK".localized(),
-                                cancelStyle: .alert_text
-                            )
-                        )
-                        self?.present(modal, animated: true)
-                    }
-                }
-                .retainUntilComplete()
+                )
+                .store(in: &strongSelf.disposables)
         }
 
         ModalActivityIndicatorViewController.present(
@@ -364,10 +373,13 @@ extension SendMediaNavigationController: ImagePickerGridControllerDelegate {
         return mediaLibrarySelections.hasValue(forKey: asset)
     }
 
-    func imagePicker(_ imagePicker: ImagePickerGridController, didSelectAsset asset: PHAsset, attachmentPromise: Promise<SignalAttachment>) {
+    func imagePicker(_ imagePicker: ImagePickerGridController, didSelectAsset asset: PHAsset, attachmentPublisher: AnyPublisher<SignalAttachment, Error>) {
         guard !mediaLibrarySelections.hasValue(forKey: asset) else { return }
 
-        let libraryMedia = MediaLibrarySelection(asset: asset, signalAttachmentPromise: attachmentPromise)
+        let libraryMedia = MediaLibrarySelection(
+            asset: asset,
+            signalAttachmentPublisher: attachmentPublisher
+        )
         mediaLibrarySelections.append(key: asset, value: libraryMedia)
         updateButtons(topViewController: imagePicker)
     }
@@ -512,17 +524,17 @@ private final class AttachmentDraftCollection {
 
 private struct MediaLibrarySelection: Hashable, Equatable {
     let asset: PHAsset
-    let signalAttachmentPromise: Promise<SignalAttachment>
+    let signalAttachmentPublisher: AnyPublisher<SignalAttachment, Error>
 
     var hashValue: Int {
         return asset.hashValue
     }
 
-    var promise: Promise<MediaLibraryAttachment> {
+    var publisher: AnyPublisher<MediaLibraryAttachment, Error> {
         let asset = self.asset
-        return signalAttachmentPromise.map { signalAttachment in
-            return MediaLibraryAttachment(asset: asset, signalAttachment: signalAttachment)
-        }
+        return signalAttachmentPublisher
+            .map { MediaLibraryAttachment(asset: asset, signalAttachment: $0) }
+            .eraseToAnyPublisher()
     }
 
     static func ==(lhs: MediaLibrarySelection, rhs: MediaLibrarySelection) -> Bool {

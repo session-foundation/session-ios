@@ -2,7 +2,6 @@
 
 import UIKit
 import GRDB
-import PromiseKit
 import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
@@ -922,24 +921,17 @@ extension MediaGalleryViewModel.Item: GalleryRailItem {
         let imageView: UIImageView = UIImageView()
         imageView.contentMode = .scaleAspectFill
         
-        getRailImage()
-            .map { [weak imageView] image in
-                guard let imageView = imageView else { return }
-                imageView.image = image
-            }
-            .retainUntilComplete()
+        self.thumbnailImage { [weak imageView] image in
+            imageView?.image = image
+        }
 
         return imageView
     }
-
-    public func getRailImage() -> Guarantee<UIImage> {
-        return Guarantee<UIImage> { fulfill in
-            self.thumbnailImage(async: { image in fulfill(image) })
-        }
-    }
     
     public func isEqual(to other: GalleryRailItem?) -> Bool {
-        guard let otherItem: MediaGalleryViewModel.Item = other as? MediaGalleryViewModel.Item else { return false }
+        guard let otherItem: MediaGalleryViewModel.Item = other as? MediaGalleryViewModel.Item else {
+            return false
+        }
         
         return (self == otherItem)
     }

@@ -1,10 +1,8 @@
-//
-//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
-//
+// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import Photos
-import PromiseKit
 import CoreServices
 import SignalUtilitiesKit
 import SignalCoreKit
@@ -138,44 +136,45 @@ class PhotoCollectionContents {
         _ = imageManager.requestImage(for: asset, targetSize: thumbnailSize, contentMode: .aspectFill, options: nil, resultHandler: resultHandler)
     }
 
-    private func requestImageDataSource(for asset: PHAsset) -> Promise<(dataSource: DataSource, dataUTI: String)> {
-        return Promise { resolver in
+    private func requestImageDataSource(for asset: PHAsset) -> AnyPublisher<(dataSource: DataSource, dataUTI: String), Error> {
+        return Future { [weak self] resolver in
 
             let options: PHImageRequestOptions = PHImageRequestOptions()
             options.isNetworkAccessAllowed = true
 
-            _ = imageManager.requestImageData(for: asset, options: options) { imageData, dataUTI, orientation, info in
+            _ = self?.imageManager.requestImageData(for: asset, options: options) { imageData, dataUTI, orientation, info in
 
                 guard let imageData = imageData else {
-                    resolver.reject(PhotoLibraryError.assertionError(description: "imageData was unexpectedly nil"))
+                    resolver(Result.failure(PhotoLibraryError.assertionError(description: "imageData was unexpectedly nil")))
                     return
                 }
 
                 guard let dataUTI = dataUTI else {
-                    resolver.reject(PhotoLibraryError.assertionError(description: "dataUTI was unexpectedly nil"))
+                    resolver(Result.failure(PhotoLibraryError.assertionError(description: "dataUTI was unexpectedly nil")))
                     return
                 }
 
                 guard let dataSource = DataSourceValue.dataSource(with: imageData, utiType: dataUTI) else {
-                    resolver.reject(PhotoLibraryError.assertionError(description: "dataSource was unexpectedly nil"))
+                    resolver(Result.failure(PhotoLibraryError.assertionError(description: "dataSource was unexpectedly nil")))
                     return
                 }
 
-                resolver.fulfill((dataSource: dataSource, dataUTI: dataUTI))
+                resolver(Result.success((dataSource: dataSource, dataUTI: dataUTI)))
             }
         }
+        .eraseToAnyPublisher()
     }
 
-    private func requestVideoDataSource(for asset: PHAsset) -> Promise<(dataSource: DataSource, dataUTI: String)> {
-        return Promise { resolver in
+    private func requestVideoDataSource(for asset: PHAsset) -> AnyPublisher<(dataSource: DataSource, dataUTI: String), Error> {
+        return Future { [weak self] resolver in
 
             let options: PHVideoRequestOptions = PHVideoRequestOptions()
             options.isNetworkAccessAllowed = true
 
-            _ = imageManager.requestExportSession(forVideo: asset, options: options, exportPreset: AVAssetExportPresetMediumQuality) { exportSession, foo in
+            _ = self?.imageManager.requestExportSession(forVideo: asset, options: options, exportPreset: AVAssetExportPresetMediumQuality) { exportSession, foo in
 
                 guard let exportSession = exportSession else {
-                    resolver.reject(PhotoLibraryError.assertionError(description: "exportSession was unexpectedly nil"))
+                    resolver(Result.failure(PhotoLibraryError.assertionError(description: "exportSession was unexpectedly nil")))
                     return
                 }
 
@@ -191,28 +190,38 @@ class PhotoCollectionContents {
                     Logger.debug("Completed video export")
 
                     guard let dataSource = DataSourcePath.dataSource(with: exportURL, shouldDeleteOnDeallocation: true) else {
-                        resolver.reject(PhotoLibraryError.assertionError(description: "Failed to build data source for exported video URL"))
+                        resolver(Result.failure(PhotoLibraryError.assertionError(description: "Failed to build data source for exported video URL")))
                         return
                     }
 
-                    resolver.fulfill((dataSource: dataSource, dataUTI: kUTTypeMPEG4 as String))
+                    resolver(Result.success((dataSource: dataSource, dataUTI: kUTTypeMPEG4 as String)))
                 }
             }
         }
+        .eraseToAnyPublisher()
     }
 
-    func outgoingAttachment(for asset: PHAsset) -> Promise<SignalAttachment> {
+    func outgoingAttachment(for asset: PHAsset) -> AnyPublisher<SignalAttachment, Error> {
         switch asset.mediaType {
-        case .image:
-            return requestImageDataSource(for: asset).map { (dataSource: DataSource, dataUTI: String) in
-                return SignalAttachment.attachment(dataSource: dataSource, dataUTI: dataUTI, imageQuality: .medium)
-            }
-        case .video:
-            return requestVideoDataSource(for: asset).map { (dataSource: DataSource, dataUTI: String) in
-                return SignalAttachment.attachment(dataSource: dataSource, dataUTI: dataUTI)
-            }
-        default:
-            return Promise(error: PhotoLibraryError.unsupportedMediaType)
+            case .image:
+                return requestImageDataSource(for: asset)
+                    .map { (dataSource: DataSource, dataUTI: String) in
+                        SignalAttachment
+                            .attachment(dataSource: dataSource, dataUTI: dataUTI, imageQuality: .medium)
+                    }
+                    .eraseToAnyPublisher()
+                
+            case .video:
+                return requestVideoDataSource(for: asset)
+                    .map { (dataSource: DataSource, dataUTI: String) in
+                        SignalAttachment
+                            .attachment(dataSource: dataSource, dataUTI: dataUTI)
+                    }
+                    .eraseToAnyPublisher()
+                
+            default:
+                return Fail(error: PhotoLibraryError.unsupportedMediaType)
+                    .eraseToAnyPublisher()
         }
     }
 }

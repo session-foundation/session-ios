@@ -27,7 +27,7 @@ public enum AppSetup {
             // initializers injected.
             OWSBackgroundTaskManager.shared().observeNotifications()
             
-            // AFNetworking (via CFNetworking) spools it's attachments to NSTemporaryDirectory().
+            // Attachments can be stored to NSTemporaryDirectory()
             // If you receive a media message while the device is locked, the download will fail if
             // the temporary directory is NSFileProtectionComplete
             let success: Bool = OWSFileSystem.protectFileOrFolder(

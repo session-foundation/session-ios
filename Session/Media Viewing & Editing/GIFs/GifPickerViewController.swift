@@ -1,11 +1,9 @@
-//
-//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
-//
+// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import Reachability
 import SignalUtilitiesKit
-import PromiseKit
 import SessionUIKit
 import SignalCoreKit
 
@@ -43,6 +41,8 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
     private let kCellReuseIdentifier = "kCellReuseIdentifier"
 
     var progressiveSearchTimer: Timer?
+    
+    private var disposables: Set<AnyCancellable> = Set()
 
     // MARK: - Initialization
 
@@ -360,47 +360,52 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
 
     public func getFileForCell(_ cell: GifPickerCell) {
         GiphyDownloader.giphyDownloader.cancelAllRequests()
-
-        firstly {
-            cell.requestRenditionForSending()
-        }.done { [weak self] (asset: ProxiedContentAsset) in
-            guard let strongSelf = self else {
-                Logger.info("ignoring send, since VC was dismissed before fetching finished.")
-                return
-            }
-            guard let rendition = asset.assetDescription as? GiphyRendition else {
-                owsFailDebug("Invalid asset description.")
-                return
-            }
-
-            let filePath = asset.filePath
-            guard let dataSource = DataSourcePath.dataSource(withFilePath: filePath,
-                shouldDeleteOnDeallocation: false) else {
-                owsFailDebug("couldn't load asset.")
-                return
-            }
-            let attachment = SignalAttachment.attachment(dataSource: dataSource, dataUTI: rendition.utiType, imageQuality: .medium)
-
-            strongSelf.dismiss(animated: true) {
-                // Delegate presents view controllers, so it's important that *this* controller be dismissed before that occurs.
-                strongSelf.delegate?.gifPickerDidSelect(attachment: attachment)
-            }
-        }.catch { [weak self] error in
-            let modal: ConfirmationModal = ConfirmationModal(
-                targetView: self?.view,
-                info: ConfirmationModal.Info(
-                    title: "GIF_PICKER_FAILURE_ALERT_TITLE".localized(),
-                    explanation: error.localizedDescription,
-                    confirmTitle: CommonStrings.retryButton,
-                    cancelTitle: CommonStrings.dismissButton,
-                    cancelStyle: .alert_text,
-                    onConfirm: { _ in
-                        self?.getFileForCell(cell)
+        
+        cell
+            .requestRenditionForSending()
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { [weak self] result in
+                    switch result {
+                        case .finished: break
+                        case .failure(let error):
+                            let modal: ConfirmationModal = ConfirmationModal(
+                                targetView: self?.view,
+                                info: ConfirmationModal.Info(
+                                    title: "GIF_PICKER_FAILURE_ALERT_TITLE".localized(),
+                                    explanation: error.localizedDescription,
+                                    confirmTitle: CommonStrings.retryButton,
+                                    cancelTitle: CommonStrings.dismissButton,
+                                    cancelStyle: .alert_text,
+                                    onConfirm: { _ in
+                                        self?.getFileForCell(cell)
+                                    }
+                                )
+                            )
+                            self?.present(modal, animated: true)
                     }
-                )
+                },
+                receiveValue: { [weak self] asset in
+                    guard let rendition = asset.assetDescription as? GiphyRendition else {
+                        owsFailDebug("Invalid asset description.")
+                        return
+                    }
+
+                    let filePath = asset.filePath
+                    guard let dataSource = DataSourcePath.dataSource(withFilePath: filePath,
+                        shouldDeleteOnDeallocation: false) else {
+                        owsFailDebug("couldn't load asset.")
+                        return
+                    }
+                    let attachment = SignalAttachment.attachment(dataSource: dataSource, dataUTI: rendition.utiType, imageQuality: .medium)
+
+                    self?.dismiss(animated: true) {
+                        // Delegate presents view controllers, so it's important that *this* controller be dismissed before that occurs.
+                        self?.delegate?.gifPickerDidSelect(attachment: attachment)
+                    }
+                }
             )
-            self?.present(modal, animated: true)
-        }.retainUntilComplete()
+            .store(in: &disposables)
     }
 
     public func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
@@ -487,22 +492,30 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
         assert(progressiveSearchTimer == nil)
         assert(searchBar.text == nil || searchBar.text?.count == 0)
 
-        GiphyAPI.sharedInstance.trending()
-            .done { [weak self] imageInfos in
-                Logger.info("showing trending")
-                
-                if imageInfos.count > 0 {
-                    self?.imageInfos = imageInfos
-                    self?.viewMode = .results
+        GiphyAPI.trending()
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { result in
+                    switch result {
+                        case .finished: break
+                        case .failure(let error):
+                            // Don't both showing error UI feedback for default "trending" results.
+                            Logger.error("error: \(error)")
+                    }
+                },
+                receiveValue: { [weak self] imageInfos in
+                    Logger.info("showing trending")
+                    
+                    if imageInfos.count > 0 {
+                        self?.imageInfos = imageInfos
+                        self?.viewMode = .results
+                    }
+                    else {
+                        owsFailDebug("trending results was unexpectedly empty")
+                    }
                 }
-                else {
-                    owsFailDebug("trending results was unexpectedly empty")
-                }
-            }
-            .catch { error in
-                // Don't both showing error UI feedback for default "trending" results.
-                Logger.error("error: \(error)")
-            }
+            )
+            .store(in: &disposables)
     }
 
     private func search(query: String) {
@@ -515,10 +528,20 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
         lastQuery = query
         self.collectionView.contentOffset = CGPoint.zero
 
-        GiphyAPI.sharedInstance
-            .search(
-                query: query,
-                success: { [weak self] imageInfos in
+        GiphyAPI
+            .search(query: query)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { [weak self] result in
+                    switch result {
+                        case .finished: break
+                        case .failure:
+                            Logger.info("search failed.")
+                            // TODO: Present this error to the user.
+                            self?.viewMode = .error
+                    }
+                },
+                receiveValue: { [weak self] imageInfos in
                     Logger.info("search complete")
                     self?.imageInfos = imageInfos
                     
@@ -528,13 +551,9 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
                     else {
                         self?.viewMode = .noResults
                     }
-                },
-                failure: { [weak self] _ in
-                    Logger.info("search failed.")
-                    // TODO: Present this error to the user.
-                    self?.viewMode = .error
                 }
             )
+            .store(in: &disposables)
     }
 
     // MARK: - GifPickerLayoutDelegate

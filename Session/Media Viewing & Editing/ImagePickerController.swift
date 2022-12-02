@@ -1,10 +1,8 @@
-//
-//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
-//
+// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import Photos
-import PromiseKit
 import SessionUIKit
 import SignalUtilitiesKit
 import SignalCoreKit
@@ -14,7 +12,7 @@ protocol ImagePickerGridControllerDelegate: AnyObject {
     func imagePickerDidCancel(_ imagePicker: ImagePickerGridController)
 
     func imagePicker(_ imagePicker: ImagePickerGridController, isAssetSelected asset: PHAsset) -> Bool
-    func imagePicker(_ imagePicker: ImagePickerGridController, didSelectAsset asset: PHAsset, attachmentPromise: Promise<SignalAttachment>)
+    func imagePicker(_ imagePicker: ImagePickerGridController, didSelectAsset asset: PHAsset, attachmentPublisher: AnyPublisher<SignalAttachment, Error>)
     func imagePicker(_ imagePicker: ImagePickerGridController, didDeselectAsset asset: PHAsset)
 
     var isInBatchSelectMode: Bool { get }
@@ -181,8 +179,11 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
                 return
             }
 
-            let attachmentPromise: Promise<SignalAttachment> = photoCollectionContents.outgoingAttachment(for: asset)
-            delegate.imagePicker(self, didSelectAsset: asset, attachmentPromise: attachmentPromise)
+            delegate.imagePicker(
+                self,
+                didSelectAsset: asset,
+                attachmentPublisher: photoCollectionContents.outgoingAttachment(for: asset)
+            )
             collectionView.selectItem(at: indexPath, animated: true, scrollPosition: [])
         case .deselect:
             delegate.imagePicker(self, didDeselectAsset: asset)
@@ -492,8 +493,11 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         }
 
         let asset: PHAsset = photoCollectionContents.asset(at: indexPath.item)
-        let attachmentPromise: Promise<SignalAttachment> = photoCollectionContents.outgoingAttachment(for: asset)
-        delegate.imagePicker(self, didSelectAsset: asset, attachmentPromise: attachmentPromise)
+        delegate.imagePicker(
+            self,
+            didSelectAsset: asset,
+            attachmentPublisher: photoCollectionContents.outgoingAttachment(for: asset)
+        )
 
         if !delegate.isInBatchSelectMode {
             // Don't show "selected" badge unless we're in batch mode

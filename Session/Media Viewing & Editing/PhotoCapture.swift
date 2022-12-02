@@ -1,8 +1,8 @@
-//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
+// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import AVFoundation
-import PromiseKit
 import CoreServices
 import SignalCoreKit
 
@@ -81,77 +81,113 @@ class PhotoCapture: NSObject {
         Environment.shared?.audioSession.endAudioActivity(recordingAudioActivity)
     }
 
-    func startCapture() -> Promise<Void> {
-        return sessionQueue.async(.promise) { [weak self] in
-            guard let self = self else { return }
+    func startCapture() -> AnyPublisher<Void, Error> {
+        return Just(())
+            .subscribe(on: sessionQueue)
+            .setFailureType(to: Error.self)
+            .flatMap { [weak self] _ -> AnyPublisher<Void, Error> in
+                self?.session.beginConfiguration()
+                defer { self?.session.commitConfiguration() }
 
-            self.session.beginConfiguration()
-            defer { self.session.commitConfiguration() }
-
-            try self.updateCurrentInput(position: .back)
-
-            guard let photoOutput = self.captureOutput.photoOutput else {
-                throw PhotoCaptureError.initializationFailed
-            }
-
-            guard self.session.canAddOutput(photoOutput) else {
-                throw PhotoCaptureError.initializationFailed
-            }
-
-            if let connection = photoOutput.connection(with: .video) {
-                if connection.isVideoStabilizationSupported {
-                    connection.preferredVideoStabilizationMode = .auto
+                do {
+                    try self?.updateCurrentInput(position: .back)
                 }
-            }
+                catch {
+                    return Fail(error: error)
+                        .eraseToAnyPublisher()
+                }
 
-            self.session.addOutput(photoOutput)
+                guard let photoOutput = self?.captureOutput.photoOutput else {
+                    return Fail(error: PhotoCaptureError.initializationFailed)
+                        .eraseToAnyPublisher()
+                }
 
-            let movieOutput = self.captureOutput.movieOutput
+                guard self?.session.canAddOutput(photoOutput) == true else {
+                    return Fail(error: PhotoCaptureError.initializationFailed)
+                        .eraseToAnyPublisher()
+                }
 
-            if self.session.canAddOutput(movieOutput) {
-                self.session.addOutput(movieOutput)
-                self.session.sessionPreset = .high
-                if let connection = movieOutput.connection(with: .video) {
+                if let connection = photoOutput.connection(with: .video) {
                     if connection.isVideoStabilizationSupported {
                         connection.preferredVideoStabilizationMode = .auto
                     }
                 }
+
+                self?.session.addOutput(photoOutput)
+                
+                if
+                    let movieOutput = self?.captureOutput.movieOutput,
+                    self?.session.canAddOutput(movieOutput) == true
+                {
+                    self?.session.addOutput(movieOutput)
+                    self?.session.sessionPreset = .high
+                    
+                    if let connection = movieOutput.connection(with: .video) {
+                        if connection.isVideoStabilizationSupported {
+                            connection.preferredVideoStabilizationMode = .auto
+                        }
+                    }
+                }
+                
+                return Just(())
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
             }
-        }.done(on: sessionQueue) {
-            self.session.startRunning()
-        }
+            .handleEvents(
+                receiveCompletion: { [weak self] result in
+                    switch result {
+                        case .failure: break
+                        case .finished: self?.session.startRunning()
+                    }
+                }
+            )
+            .eraseToAnyPublisher()
     }
 
-    func stopCapture() -> Guarantee<Void> {
-        return sessionQueue.async(.promise) {
-            self.session.stopRunning()
-        }
+    func stopCapture() -> AnyPublisher<Void, Never> {
+        return Just(())
+            .subscribe(on: sessionQueue)
+            .handleEvents(
+                receiveOutput: { [weak self] in self?.session.stopRunning() }
+            )
+            .eraseToAnyPublisher()
     }
 
     func assertIsOnSessionQueue() {
         assertOnQueue(sessionQueue)
     }
 
-    func switchCamera() -> Promise<Void> {
+    func switchCamera() -> AnyPublisher<Void, Error> {
         AssertIsOnMainThread()
-        let newPosition: AVCaptureDevice.Position
-        switch desiredPosition {
-        case .front:
-            newPosition = .back
-        case .back:
-            newPosition = .front
-        case .unspecified:
-            newPosition = .front
-        }
-        desiredPosition = newPosition
 
-        return sessionQueue.async(.promise) { [weak self] in
-            guard let self = self else { return }
-
-            self.session.beginConfiguration()
-            defer { self.session.commitConfiguration() }
-            try self.updateCurrentInput(position: newPosition)
-        }
+        desiredPosition = {
+            switch desiredPosition {
+                case .front: return .back
+                case .back: return .front
+                case .unspecified: return .front
+            }
+        }()
+        
+        return Just(())
+            .setFailureType(to: Error.self)
+            .subscribe(on: sessionQueue)
+            .flatMap { [weak self, newPosition = self.desiredPosition] _ -> AnyPublisher<Void, Error> in
+                self?.session.beginConfiguration()
+                defer { self?.session.commitConfiguration() }
+                
+                do {
+                    try self?.updateCurrentInput(position: newPosition)
+                }
+                catch {
+                    return Fail(error: error)
+                        .eraseToAnyPublisher()
+                }
+            
+                return Just(())
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
+            }
+            .eraseToAnyPublisher()
     }
 
     // This method should be called on the serial queue,
@@ -177,20 +213,29 @@ class PhotoCapture: NSObject {
         resetFocusAndExposure()
     }
 
-    func switchFlashMode() -> Guarantee<Void> {
-        return sessionQueue.async(.promise) {
-            switch self.captureOutput.flashMode {
-            case .auto:
-                Logger.debug("new flashMode: on")
-                self.captureOutput.flashMode = .on
-            case .on:
-                Logger.debug("new flashMode: off")
-                self.captureOutput.flashMode = .off
-            case .off:
-                Logger.debug("new flashMode: auto")
-                self.captureOutput.flashMode = .auto
-            }
-        }
+    func switchFlashMode() -> AnyPublisher<Void, Never> {
+        return Just(())
+            .subscribe(on: sessionQueue)
+            .handleEvents(
+                receiveOutput: { [weak self] _ in
+                    switch self?.captureOutput.flashMode {
+                        case .auto:
+                            Logger.debug("new flashMode: on")
+                            self?.captureOutput.flashMode = .on
+                            
+                        case .on:
+                            Logger.debug("new flashMode: off")
+                            self?.captureOutput.flashMode = .off
+                            
+                        case .off:
+                            Logger.debug("new flashMode: auto")
+                            self?.captureOutput.flashMode = .auto
+                            
+                        default: break
+                    }
+                }
+            )
+            .eraseToAnyPublisher()
     }
 
     func focus(with focusMode: AVCaptureDevice.FocusMode,

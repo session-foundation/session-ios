@@ -2,7 +2,6 @@
 
 import UIKit
 import GRDB
-import PromiseKit
 import SessionUIKit
 import SessionMessagingKit
 
