@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import PromiseKit
 import SessionUtilitiesKit
 
 public enum MessageReceiveJob: JobExecutor {

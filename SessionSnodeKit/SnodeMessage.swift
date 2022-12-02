@@ -1,6 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
-import PromiseKit
+import Foundation
 import SessionUtilitiesKit
 
 public final class SnodeMessage: Codable {

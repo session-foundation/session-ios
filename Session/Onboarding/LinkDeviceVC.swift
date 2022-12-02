@@ -2,7 +2,6 @@
 
 import UIKit
 import AVFoundation
-import PromiseKit
 import SessionUIKit
 import SessionUtilitiesKit
 import SessionSnodeKit
