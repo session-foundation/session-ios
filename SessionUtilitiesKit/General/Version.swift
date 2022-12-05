@@ -5,7 +5,7 @@ import DifferenceKit
 
 public class SessionVersion {
     public enum FeatureVersion: Int, Codable, Equatable, Hashable  {
-        case preDisappearingMessagesRedesign
-        case disappearingMessageRedesign
+        case legacyDisappearingMessages
+        case newDisappearingMessages
     }
 }

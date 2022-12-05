@@ -688,7 +688,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         }
         
         if initialLoad || viewModel.threadData.contactLastKnownClientVersion != updatedThreadData.contactLastKnownClientVersion {
-            addOrRemoveOutdatedClientBanner(contactIsUsingOutdatedClient: updatedThreadData.contactLastKnownClientVersion == .preDisappearingMessagesRedesign)
+            addOrRemoveOutdatedClientBanner(contactIsUsingOutdatedClient: updatedThreadData.contactLastKnownClientVersion == .legacyDisappearingMessages)
         }
         
         if initialLoad || viewModel.threadData.threadIsBlocked != updatedThreadData.threadIsBlocked {

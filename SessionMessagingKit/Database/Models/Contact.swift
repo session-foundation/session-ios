@@ -79,7 +79,7 @@ public extension Contact {
         isTrusted: Updatable<Bool> = .existing,
         isApproved: Updatable<Bool> = .existing,
         isBlocked: Updatable<Bool> = .existing,
-        lastKnownClientVersion: Updatable<SessionVersion.FeatureVersion?> = .existing,
+        lastKnownClientVersion: SessionVersion.FeatureVersion? = nil,
         didApproveMe: Updatable<Bool> = .existing
     ) -> Contact {
         return Contact(

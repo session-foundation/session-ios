@@ -65,7 +65,6 @@ public class Message: Codable {
     
     public func setDisappearingMessagesConfigurationIfNeeded(_ db: Database, on proto: SNProtoContent.SNProtoContentBuilder) throws {
         guard
-            DisappearingMessagesConfiguration.isNewConfigurationEnabled,
             let threadId: String = threadId,
             let disappearingMessagesConfiguration = try? DisappearingMessagesConfiguration.fetchOne(db, id: threadId)
         else { return }

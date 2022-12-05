@@ -20,7 +20,7 @@ public final class ExpirationTimerUpdate: ControlMessage {
 
     // MARK: - Initialization
     
-    public init(syncTarget: String?, duration: UInt32) {
+    public init(syncTarget: String?, duration: UInt32?) {
         super.init()
         
         self.syncTarget = syncTarget
@@ -64,7 +64,7 @@ public final class ExpirationTimerUpdate: ControlMessage {
         
         return ExpirationTimerUpdate(
             syncTarget: dataMessageProto.syncTarget,
-            duration: proto.hasExpirationTimer ? proto.expirationTimer : 0
+            duration: proto.hasExpirationTimer ? proto.expirationTimer : dataMessageProto.expireTimer
         )
     }
 

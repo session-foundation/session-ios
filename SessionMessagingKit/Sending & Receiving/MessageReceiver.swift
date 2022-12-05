@@ -332,9 +332,22 @@ public enum MessageReceiver {
         openGroupId: String?,
         proto: SNProtoContent
     ) throws {
+        guard let sender: String = message.sender else { return }
+        
+        // Check the contact's client version based on this received message
+        let contact: Contact = Contact.fetchOrCreate(db, id: sender)
+        let lastKnowClientVersion: SessionVersion.FeatureVersion = (
+            !proto.hasExpirationType &&
+            !proto.hasExpirationTimer &&
+            !proto.hasLastDisappearingMessageChangeTimestamp
+        ) ? .legacyDisappearingMessages : .newDisappearingMessages
+        _ = try? contact
+            .with(lastKnownClientVersion: lastKnowClientVersion)
+            .saved(db)
+        
         guard
+            DisappearingMessagesConfiguration.isNewConfigurationEnabled,
             let (threadId, _) = MessageReceiver.threadInfo(db, message: message, openGroupId: openGroupId),
-            let sender = message.sender,
             proto.hasLastDisappearingMessageChangeTimestamp
         else { return }
         
