@@ -18,8 +18,7 @@ enum _011_DisappearingMessagesConfiguration: Migration {
         }
         
         try db.alter(table: Contact.self) { t in
-            t.add(.isUsingOutdatedClient, .boolean)
-                .defaults(to: false)
+            t.add(.lastKnownClientVersion, .integer)
         }
         
         func updateDisappearingMessageType(_ db: GRDB.Database, id: String, type: DisappearingMessagesConfiguration.DisappearingMessageType) throws {
