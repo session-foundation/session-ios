@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
-import PromiseKit
+import Foundation
+import Combine
 import GRDB
 import Sodium
 import SessionSnodeKit
@@ -181,7 +182,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     it("generates the correct request") {
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -190,9 +191,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .get { result in pollResponse = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(pollResponse)
                             .toEventuallyNot(
@@ -217,7 +220,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     it("retrieves recent messages if there was no last message") {
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -226,9 +229,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .get { result in pollResponse = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(pollResponse)
                             .toEventuallyNot(
@@ -246,7 +251,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -255,9 +260,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .get { result in pollResponse = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(pollResponse)
                             .toEventuallyNot(
@@ -275,7 +282,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -284,9 +291,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .get { result in pollResponse = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(pollResponse)
                             .toEventuallyNot(
@@ -304,7 +313,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
 
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -313,9 +322,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .get { result in pollResponse = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(pollResponse)
                             .toEventuallyNot(
@@ -336,7 +347,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                         it("does not call the inbox and outbox endpoints") {
                             mockStorage
-                                .read { db in
+                                .readPublisherFlatMap { db in
                                     OpenGroupAPI.poll(
                                         db,
                                         server: "testserver",
@@ -345,9 +356,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                                 }
-                                .get { result in pollResponse = result }
-                                .catch { requestError in error = requestError }
-                                .retainUntilComplete()
+                                .subscribe(on: DispatchQueue.main)
+                                .receiveOnMain(immediately: true)
+                                .handleEvents(receiveOutput: { result in pollResponse = result })
+                                .mapError { error.setting(to: $0) }
+                                .sinkUntilComplete()
                             
                             expect(pollResponse)
                                 .toEventuallyNot(
@@ -435,7 +448,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                         it("includes the inbox and outbox endpoints") {
                             mockStorage
-                                .read { db in
+                                .readPublisherFlatMap { db in
                                     OpenGroupAPI.poll(
                                         db,
                                         server: "testserver",
@@ -444,9 +457,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                                 }
-                                .get { result in pollResponse = result }
-                                .catch { requestError in error = requestError }
-                                .retainUntilComplete()
+                                .subscribe(on: DispatchQueue.main)
+                                .receiveOnMain(immediately: true)
+                                .handleEvents(receiveOutput: { result in pollResponse = result })
+                                .mapError { error.setting(to: $0) }
+                                .sinkUntilComplete()
                             
                             expect(pollResponse)
                                 .toEventuallyNot(
@@ -462,7 +477,7 @@ class OpenGroupAPISpec: QuickSpec {
                         
                         it("retrieves recent inbox messages if there was no last message") {
                             mockStorage
-                                .read { db in
+                                .readPublisherFlatMap { db in
                                     OpenGroupAPI.poll(
                                         db,
                                         server: "testserver",
@@ -471,9 +486,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                                 }
-                                .get { result in pollResponse = result }
-                                .catch { requestError in error = requestError }
-                                .retainUntilComplete()
+                                .subscribe(on: DispatchQueue.main)
+                                .receiveOnMain(immediately: true)
+                                .handleEvents(receiveOutput: { result in pollResponse = result })
+                                .mapError { error.setting(to: $0) }
+                                .sinkUntilComplete()
                             
                             expect(pollResponse)
                                 .toEventuallyNot(
@@ -491,7 +508,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             
                             mockStorage
-                                .read { db in
+                                .readPublisherFlatMap { db in
                                     OpenGroupAPI.poll(
                                         db,
                                         server: "testserver",
@@ -500,9 +517,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                                 }
-                                .get { result in pollResponse = result }
-                                .catch { requestError in error = requestError }
-                                .retainUntilComplete()
+                                .subscribe(on: DispatchQueue.main)
+                                .receiveOnMain(immediately: true)
+                                .handleEvents(receiveOutput: { result in pollResponse = result })
+                                .mapError { error.setting(to: $0) }
+                                .sinkUntilComplete()
                             
                             expect(pollResponse)
                                 .toEventuallyNot(
@@ -515,7 +534,7 @@ class OpenGroupAPISpec: QuickSpec {
                         
                         it("retrieves recent outbox messages if there was no last message") {
                             mockStorage
-                                .read { db in
+                                .readPublisherFlatMap { db in
                                     OpenGroupAPI.poll(
                                         db,
                                         server: "testserver",
@@ -524,9 +543,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                                 }
-                                .get { result in pollResponse = result }
-                                .catch { requestError in error = requestError }
-                                .retainUntilComplete()
+                                .subscribe(on: DispatchQueue.main)
+                                .receiveOnMain(immediately: true)
+                                .handleEvents(receiveOutput: { result in pollResponse = result })
+                                .mapError { error.setting(to: $0) }
+                                .sinkUntilComplete()
                             
                             expect(pollResponse)
                                 .toEventuallyNot(
@@ -544,7 +565,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             
                             mockStorage
-                                .read { db in
+                                .readPublisherFlatMap { db in
                                     OpenGroupAPI.poll(
                                         db,
                                         server: "testserver",
@@ -553,9 +574,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                                 }
-                                .get { result in pollResponse = result }
-                                .catch { requestError in error = requestError }
-                                .retainUntilComplete()
+                                .subscribe(on: DispatchQueue.main)
+                                .receiveOnMain(immediately: true)
+                                .handleEvents(receiveOutput: { result in pollResponse = result })
+                                .mapError { error.setting(to: $0) }
+                                .sinkUntilComplete()
                             
                             expect(pollResponse)
                                 .toEventuallyNot(
@@ -605,7 +628,7 @@ class OpenGroupAPISpec: QuickSpec {
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -614,9 +637,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .get { result in pollResponse = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(pollResponse)
                             .toEventuallyNot(
@@ -635,7 +660,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     it("errors when no data is returned") {
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -644,9 +669,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .get { result in pollResponse = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -664,7 +691,7 @@ class OpenGroupAPISpec: QuickSpec {
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -673,9 +700,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .get { result in pollResponse = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -693,7 +722,7 @@ class OpenGroupAPISpec: QuickSpec {
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -702,9 +731,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .get { result in pollResponse = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -722,7 +753,7 @@ class OpenGroupAPISpec: QuickSpec {
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -731,9 +762,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .get { result in pollResponse = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -783,7 +816,7 @@ class OpenGroupAPISpec: QuickSpec {
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -792,9 +825,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .get { result in pollResponse = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -821,16 +856,18 @@ class OpenGroupAPISpec: QuickSpec {
                     var response: (info: ResponseInfoType, data: OpenGroupAPI.Capabilities)?
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI.capabilities(
                                 db,
                                 server: "testserver",
                                 using: dependencies
                             )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(response)
                         .toEventuallyNot(
@@ -891,16 +928,18 @@ class OpenGroupAPISpec: QuickSpec {
                     var response: (info: ResponseInfoType, data: [OpenGroupAPI.Room])?
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI.rooms(
                                 db,
                                 server: "testserver",
                                 using: dependencies
                             )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(response)
                         .toEventuallyNot(
@@ -982,7 +1021,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (capabilities: (info: ResponseInfoType, data: OpenGroupAPI.Capabilities?), room: (info: ResponseInfoType, data: OpenGroupAPI.Room?))?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.capabilitiesAndRoom(
                                     db,
                                     for: "testRoom",
@@ -990,9 +1029,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(response)
                             .toEventuallyNot(
@@ -1037,7 +1078,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (capabilities: (info: ResponseInfoType, data: OpenGroupAPI.Capabilities?), room: (info: ResponseInfoType, data: OpenGroupAPI.Room?))?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .capabilitiesAndRoom(
                                         db,
@@ -1046,9 +1087,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1109,7 +1152,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (capabilities: (info: ResponseInfoType, data: OpenGroupAPI.Capabilities?), room: (info: ResponseInfoType, data: OpenGroupAPI.Room?))?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .capabilitiesAndRoom(
                                         db,
@@ -1118,9 +1161,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1198,7 +1243,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (capabilities: (info: ResponseInfoType, data: OpenGroupAPI.Capabilities?), room: (info: ResponseInfoType, data: OpenGroupAPI.Room?))?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.capabilitiesAndRoom(
                                     db,
                                     for: "testRoom",
@@ -1206,9 +1251,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1257,7 +1304,7 @@ class OpenGroupAPISpec: QuickSpec {
                     var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .send(
                                     db,
@@ -1270,9 +1317,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(response)
                         .toEventuallyNot(
@@ -1302,7 +1351,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .send(
                                         db,
@@ -1315,9 +1364,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(response)
                             .toEventuallyNot(
@@ -1342,7 +1393,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .send(
                                         db,
@@ -1355,9 +1406,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1377,7 +1430,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .send(
                                         db,
@@ -1390,9 +1443,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1410,7 +1465,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .send(
                                         db,
@@ -1423,9 +1478,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1450,7 +1507,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .send(
                                         db,
@@ -1463,9 +1520,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(response)
                             .toEventuallyNot(
@@ -1490,7 +1549,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .send(
                                         db,
@@ -1503,9 +1562,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1525,7 +1586,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .send(
                                         db,
@@ -1538,9 +1599,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1566,7 +1629,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .send(
                                         db,
@@ -1579,9 +1642,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1619,7 +1684,7 @@ class OpenGroupAPISpec: QuickSpec {
                     var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .message(
                                     db,
@@ -1629,9 +1694,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(response)
                         .toEventuallyNot(
@@ -1671,7 +1738,7 @@ class OpenGroupAPISpec: QuickSpec {
                     var response: (info: ResponseInfoType, data: Data?)?
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .messageUpdate(
                                     db,
@@ -1683,9 +1750,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(response)
                         .toEventuallyNot(
@@ -1712,7 +1781,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .messageUpdate(
                                         db,
@@ -1724,9 +1793,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(response)
                             .toEventuallyNot(
@@ -1751,7 +1822,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .messageUpdate(
                                         db,
@@ -1763,9 +1834,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1785,7 +1858,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .messageUpdate(
                                         db,
@@ -1797,9 +1870,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1817,7 +1892,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .messageUpdate(
                                         db,
@@ -1829,9 +1904,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1856,7 +1933,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .messageUpdate(
                                         db,
@@ -1868,9 +1945,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(response)
                             .toEventuallyNot(
@@ -1895,7 +1974,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .messageUpdate(
                                         db,
@@ -1907,9 +1986,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1929,7 +2010,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .messageUpdate(
                                         db,
@@ -1941,9 +2022,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1969,7 +2052,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .messageUpdate(
                                         db,
@@ -1981,9 +2064,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -2006,7 +2091,7 @@ class OpenGroupAPISpec: QuickSpec {
                     var response: (info: ResponseInfoType, data: Data?)?
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .messageDelete(
                                     db,
@@ -2016,9 +2101,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2050,7 +2137,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("generates the request and handles the response correctly") {
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .messagesDeleteAll(
                                     db,
@@ -2060,9 +2147,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2090,7 +2179,7 @@ class OpenGroupAPISpec: QuickSpec {
                     var response: ResponseInfoType?
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .pinMessage(
                                     db,
@@ -2100,9 +2189,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2128,7 +2219,7 @@ class OpenGroupAPISpec: QuickSpec {
                     var response: ResponseInfoType?
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .unpinMessage(
                                     db,
@@ -2138,9 +2229,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2166,7 +2259,7 @@ class OpenGroupAPISpec: QuickSpec {
                     var response: ResponseInfoType?
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .unpinAll(
                                     db,
@@ -2175,9 +2268,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2205,7 +2300,7 @@ class OpenGroupAPISpec: QuickSpec {
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .uploadFile(
                                     db,
@@ -2215,9 +2310,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2241,7 +2338,7 @@ class OpenGroupAPISpec: QuickSpec {
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .uploadFile(
                                     db,
@@ -2251,9 +2348,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2277,7 +2376,7 @@ class OpenGroupAPISpec: QuickSpec {
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .uploadFile(
                                     db,
@@ -2288,9 +2387,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2315,7 +2416,7 @@ class OpenGroupAPISpec: QuickSpec {
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .downloadFile(
                                     db,
@@ -2325,9 +2426,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2372,7 +2475,7 @@ class OpenGroupAPISpec: QuickSpec {
                     var response: (info: ResponseInfoType, data: OpenGroupAPI.SendDirectMessageResponse)?
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .send(
                                     db,
@@ -2382,9 +2485,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2421,7 +2526,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("generates the request and handles the response correctly") {
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userBan(
                                     db,
@@ -2432,9 +2537,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2451,7 +2558,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("does a global ban if no room tokens are provided") {
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userBan(
                                     db,
@@ -2462,9 +2569,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2483,7 +2592,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("does room specific bans if room tokens are provided") {
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userBan(
                                     db,
@@ -2494,9 +2603,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2530,7 +2641,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("generates the request and handles the response correctly") {
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userUnban(
                                     db,
@@ -2540,9 +2651,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2559,7 +2672,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("does a global ban if no room tokens are provided") {
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userUnban(
                                     db,
@@ -2569,9 +2682,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2590,7 +2705,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("does room specific bans if room tokens are provided") {
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userUnban(
                                     db,
@@ -2600,9 +2715,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2636,7 +2753,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("generates the request and handles the response correctly") {
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userModeratorUpdate(
                                     db,
@@ -2649,9 +2766,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2668,7 +2787,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("does a global update if no room tokens are provided") {
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userModeratorUpdate(
                                     db,
@@ -2681,9 +2800,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2702,7 +2823,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("does room specific updates if room tokens are provided") {
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userModeratorUpdate(
                                     db,
@@ -2715,9 +2836,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2736,7 +2859,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("fails if neither moderator or admin are set") {
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userModeratorUpdate(
                                     db,
@@ -2749,9 +2872,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(error?.localizedDescription)
                         .toEventually(
@@ -2800,7 +2925,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("generates the request and handles the response correctly") {
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userBanAndDeleteAllMessages(
                                     db,
@@ -2810,9 +2935,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2829,7 +2956,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("bans the user from the specified room rather than globally") {
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userBanAndDeleteAllMessages(
                                     db,
@@ -2839,9 +2966,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2886,7 +3015,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .rooms(
                                     db,
@@ -2894,9 +3023,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(error?.localizedDescription)
                         .toEventually(
@@ -2913,7 +3044,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .rooms(
                                     db,
@@ -2921,9 +3052,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(error?.localizedDescription)
                         .toEventually(
@@ -2940,7 +3073,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .rooms(
                                     db,
@@ -2948,9 +3081,11 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkUntilComplete()
                     
                     expect(error?.localizedDescription)
                         .toEventually(
@@ -2971,7 +3106,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     it("signs correctly") {
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .rooms(
                                         db,
@@ -2979,9 +3114,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(response)
                             .toEventuallyNot(
@@ -3007,7 +3144,7 @@ class OpenGroupAPISpec: QuickSpec {
                         mockSign.when { $0.signature(message: anyArray(), secretKey: anyArray()) }.thenReturn(nil)
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .rooms(
                                         db,
@@ -3015,9 +3152,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -3040,7 +3179,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     it("signs correctly") {
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .rooms(
                                         db,
@@ -3048,9 +3187,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(response)
                             .toEventuallyNot(
@@ -3077,7 +3218,7 @@ class OpenGroupAPISpec: QuickSpec {
                             .thenReturn(nil)
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .rooms(
                                         db,
@@ -3085,9 +3226,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -3104,7 +3247,7 @@ class OpenGroupAPISpec: QuickSpec {
                             .thenReturn(nil)
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .rooms(
                                         db,
@@ -3112,9 +3255,11 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(error?.localizedDescription)
                             .toEventually(

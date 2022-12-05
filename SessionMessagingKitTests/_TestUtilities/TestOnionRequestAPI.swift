@@ -1,7 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import PromiseKit
+import Combine
 import SessionSnodeKit
 import SessionUtilitiesKit
 
@@ -23,7 +23,7 @@ class TestOnionRequestAPI: OnionRequestAPIType {
             }
         }
     }
-    
+
     class ResponseInfo: ResponseInfoType {
         let requestData: RequestData
         let code: Int
@@ -38,41 +38,45 @@ class TestOnionRequestAPI: OnionRequestAPIType {
     
     class var mockResponse: Data? { return nil }
     
-    static func sendOnionRequest(_ request: URLRequest, to server: String, with x25519PublicKey: String) -> Promise<(ResponseInfoType, Data?)> {
+    static func sendOnionRequest(_ request: URLRequest, to server: String, with x25519PublicKey: String) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         let responseInfo: ResponseInfo = ResponseInfo(
             requestData: RequestData(
                 urlString: request.url?.absoluteString,
                 httpMethod: (request.httpMethod ?? "GET"),
                 headers: (request.allHTTPHeaderFields ?? [:]),
                 body: request.httpBody,
-                destination: OnionRequestAPIDestination.server(
-                    host: request.url!.host!,
-                    target: OnionRequestAPIVersion.v4.rawValue,
-                    x25519PublicKey: x25519PublicKey,
-                    scheme: request.url!.scheme,
-                    port: request.url!.port.map { UInt16($0) }
-                )
+                server: server,
+                version: .v4,
+                publicKey: x25519PublicKey
             ),
             code: 200,
             headers: [:]
         )
         
-        return Promise.value((responseInfo, mockResponse))
+        return Just((responseInfo, mockResponse))
+            .setFailureType(to: Error.self)
+            .eraseToAnyPublisher()
     }
     
-    static func sendOnionRequest(_ payload: Data, to snode: Snode) -> Promise<(ResponseInfoType, Data?)> {
+    static func sendOnionRequest(_ payload: Data, to snode: Snode) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         let responseInfo: ResponseInfo = ResponseInfo(
             requestData: RequestData(
-                urlString: "\(snode.address):\(snode.port)/onion_req/v2",
+                urlString: nil,
                 httpMethod: "POST",
                 headers: [:],
+                snodeMethod: nil,
                 body: payload,
-                destination: OnionRequestAPIDestination.snode(snode)
+                
+                server: "",
+                version: .v3,
+                publicKey: snode.x25519PublicKey
             ),
             code: 200,
             headers: [:]
         )
         
-        return Promise.value((responseInfo, mockResponse))
+        return Just((responseInfo, mockResponse))
+            .setFailureType(to: Error.self)
+            .eraseToAnyPublisher()
     }
 }

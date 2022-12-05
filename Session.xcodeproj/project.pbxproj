@@ -809,6 +809,7 @@
 		FD9004142818AD0B00ABAAF6 /* _002_SetupStandardJobs.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9004132818AD0B00ABAAF6 /* _002_SetupStandardJobs.swift */; };
 		FD9004152818B46300ABAAF6 /* JobRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B7432804EF1B004C14C5 /* JobRunner.swift */; };
 		FD9004162818B46700ABAAF6 /* JobRunnerError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE77F68280F9EDA002CFC5D /* JobRunnerError.swift */; };
+		FD9B30F3293EA0BF008DEE3E /* BatchResponseSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9B30F2293EA0BF008DEE3E /* BatchResponseSpec.swift */; };
 		FDA8EAFE280E8B78002B68E5 /* FailedMessageSendsJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA8EAFD280E8B78002B68E5 /* FailedMessageSendsJob.swift */; };
 		FDA8EB00280E8D58002B68E5 /* FailedAttachmentDownloadsJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA8EAFF280E8D58002B68E5 /* FailedAttachmentDownloadsJob.swift */; };
 		FDA8EB10280F8238002B68E5 /* Codable+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA8EB0F280F8238002B68E5 /* Codable+Utilities.swift */; };
@@ -1919,6 +1920,7 @@
 		FD8ECFA0293D8FDD00C0D1BB /* URLResponse+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "URLResponse+Utilities.swift"; sourceTree = "<group>"; };
 		FD90040E2818AB6D00ABAAF6 /* GetSnodePoolJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetSnodePoolJob.swift; sourceTree = "<group>"; };
 		FD9004132818AD0B00ABAAF6 /* _002_SetupStandardJobs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _002_SetupStandardJobs.swift; sourceTree = "<group>"; };
+		FD9B30F2293EA0BF008DEE3E /* BatchResponseSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchResponseSpec.swift; sourceTree = "<group>"; };
 		FDA8EAFD280E8B78002B68E5 /* FailedMessageSendsJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FailedMessageSendsJob.swift; sourceTree = "<group>"; };
 		FDA8EAFF280E8D58002B68E5 /* FailedAttachmentDownloadsJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FailedAttachmentDownloadsJob.swift; sourceTree = "<group>"; };
 		FDA8EB0F280F8238002B68E5 /* Codable+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Codable+Utilities.swift"; sourceTree = "<group>"; };
@@ -3968,7 +3970,7 @@
 			children = (
 				FD37EA1228AB3F60003AE748 /* Database */,
 				FD83B9B927CF20A5005E1583 /* General */,
-				FD8ECF832934507500C0D1BB /* Networking */,
+				FD9B30F1293EA0AF008DEE3E /* Networking */,
 			);
 			path = SessionUtilitiesKitTests;
 			sourceTree = "<group>";
@@ -4063,6 +4065,14 @@
 				FDE77F68280F9EDA002CFC5D /* JobRunnerError.swift */,
 			);
 			path = JobRunner;
+			sourceTree = "<group>";
+		};
+		FD9B30F1293EA0AF008DEE3E /* Networking */ = {
+			isa = PBXGroup;
+			children = (
+				FD9B30F2293EA0BF008DEE3E /* BatchResponseSpec.swift */,
+			);
+			path = Networking;
 			sourceTree = "<group>";
 		};
 		FDC2909227D710A9005DAE71 /* Types */ = {
@@ -5916,6 +5926,7 @@
 				FD23EA6328ED0B260058676E /* CombineExtensions.swift in Sources */,
 				FD8ECF852934508B00C0D1BB /* BatchResponseSpec.swift in Sources */,
 				FD2AAAEE28ED3E1100A49611 /* MockGeneralCache.swift in Sources */,
+				FD9B30F3293EA0BF008DEE3E /* BatchResponseSpec.swift in Sources */,
 				FD37EA1528AB42CB003AE748 /* IdentitySpec.swift in Sources */,
 				FD1A94FE2900D2EA000D73D3 /* PersistableRecordUtilitiesSpec.swift in Sources */,
 				FDC290AA27D9B6FD005DAE71 /* Mock.swift in Sources */,

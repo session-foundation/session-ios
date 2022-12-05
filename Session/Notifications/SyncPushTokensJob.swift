@@ -188,7 +188,6 @@ extension SyncPushTokensJob {
             }
             .sinkUntilComplete(
                 receiveCompletion: { result in
-                    // TODO: Test these are called correctly
                     switch result {
                         case .finished: break
                         case .failure(let error): failure(error)

@@ -1,7 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import PromiseKit
+import Combine
 import SessionSnodeKit
 import SessionUtilitiesKit
 
@@ -19,97 +19,117 @@ class BatchRequestInfoSpec: QuickSpec {
     // MARK: - Spec
 
     override func spec() {
-        // MARK: - BatchSubRequest
+        // MARK: - BatchRequest.Child
         
         describe("a BatchRequest.Child") {
-            var subRequest: OpenGroupAPI.BatchRequest.Child!
+            var request: OpenGroupAPI.BatchRequest!
             
             context("when initializing") {
                 it("sets the headers to nil if there aren't any") {
-                    subRequest = OpenGroupAPI.BatchRequest.Child(
-                        request: Request<NoBody, OpenGroupAPI.Endpoint>(
-                            server: "testServer",
-                            endpoint: .batch
-                        )
+                    request = OpenGroupAPI.BatchRequest(
+                        requests: [
+                            OpenGroupAPI.BatchRequest.Info(
+                                request: Request<NoBody, OpenGroupAPI.Endpoint>(
+                                    server: "testServer",
+                                    endpoint: .batch
+                                )
+                            )
+                        ]
                     )
                     
-                    expect(subRequest.headers).to(beNil())
+                    expect(request.requests.first?.headers).to(beNil())
                 }
                 
                 it("converts the headers to HTTP headers") {
-                    subRequest = OpenGroupAPI.BatchRequest.Child(
-                        request: Request<NoBody, OpenGroupAPI.Endpoint>(
-                            method: .get,
-                            server: "testServer",
-                            endpoint: .batch,
-                            queryParameters: [:],
-                            headers: [.authorization: "testAuth"],
-                            body: nil
-                        )
+                    request = OpenGroupAPI.BatchRequest(
+                        requests: [
+                            OpenGroupAPI.BatchRequest.Info(
+                                request: Request<NoBody, OpenGroupAPI.Endpoint>(
+                                    method: .get,
+                                    server: "testServer",
+                                    endpoint: .batch,
+                                    queryParameters: [:],
+                                    headers: [.authorization: "testAuth"],
+                                    body: nil
+                                )
+                            )
+                        ]
                     )
                     
-                    expect(subRequest.headers).to(equal(["Authorization": "testAuth"]))
+                    expect(request.requests.first?.headers).to(equal(["Authorization": "testAuth"]))
                 }
             }
             
             context("when encoding") {
                 it("successfully encodes a string body") {
-                    subRequest = OpenGroupAPI.BatchRequest.Child(
-                        request: Request<String, OpenGroupAPI.Endpoint>(
-                            method: .get,
-                            server: "testServer",
-                            endpoint: .batch,
-                            queryParameters: [:],
-                            headers: [:],
-                            body: "testBody"
-                        )
+                    request = OpenGroupAPI.BatchRequest(
+                        requests: [
+                            OpenGroupAPI.BatchRequest.Info(
+                                request: Request<String, OpenGroupAPI.Endpoint>(
+                                    method: .get,
+                                    server: "testServer",
+                                    endpoint: .batch,
+                                    queryParameters: [:],
+                                    headers: [:],
+                                    body: "testBody"
+                                )
+                            )
+                        ]
                     )
-                    let subRequestData: Data = try! JSONEncoder().encode(subRequest)
-                    let subRequestString: String? = String(data: subRequestData, encoding: .utf8)
+                    let childRequestData: Data = try! JSONEncoder().encode(request.requests[0])
+                    let childRequestString: String? = String(data: childRequestData, encoding: .utf8)
                     
-                    expect(subRequestString)
+                    expect(childRequestString)
                         .to(equal("{\"path\":\"\\/batch\",\"method\":\"GET\",\"b64\":\"testBody\"}"))
                 }
                 
                 it("successfully encodes a byte body") {
-                    subRequest = OpenGroupAPI.BatchRequest.Child(
-                        request: Request<[UInt8], OpenGroupAPI.Endpoint>(
-                            method: .get,
-                            server: "testServer",
-                            endpoint: .batch,
-                            queryParameters: [:],
-                            headers: [:],
-                            body: [1, 2, 3]
-                        )
+                    request = OpenGroupAPI.BatchRequest(
+                        requests: [
+                            OpenGroupAPI.BatchRequest.Info(
+                                request: Request<[UInt8], OpenGroupAPI.Endpoint>(
+                                    method: .get,
+                                    server: "testServer",
+                                    endpoint: .batch,
+                                    queryParameters: [:],
+                                    headers: [:],
+                                    body: [1, 2, 3]
+                                )
+                            )
+                        ]
                     )
-                    let subRequestData: Data = try! JSONEncoder().encode(subRequest)
-                    let subRequestString: String? = String(data: subRequestData, encoding: .utf8)
+                    let childRequestData: Data = try! JSONEncoder().encode(request.requests[0])
+                    let childRequestString: String? = String(data: childRequestData, encoding: .utf8)
                     
-                    expect(subRequestString)
+                    expect(childRequestString)
                         .to(equal("{\"path\":\"\\/batch\",\"method\":\"GET\",\"bytes\":[1,2,3]}"))
                 }
                 
                 it("successfully encodes a JSON body") {
-                    subRequest = OpenGroupAPI.BatchRequest.Child(
-                        request: Request<TestType, OpenGroupAPI.Endpoint>(
-                            method: .get,
-                            server: "testServer",
-                            endpoint: .batch,
-                            queryParameters: [:],
-                            headers: [:],
-                            body: TestType(stringValue: "testValue")
-                        )
+                    request = OpenGroupAPI.BatchRequest(
+                        requests: [
+                            OpenGroupAPI.BatchRequest.Info(
+                                request: Request<TestType, OpenGroupAPI.Endpoint>(
+                                    method: .get,
+                                    server: "testServer",
+                                    endpoint: .batch,
+                                    queryParameters: [:],
+                                    headers: [:],
+                                    body: TestType(stringValue: "testValue")
+                                )
+                            )
+                        ]
                     )
-                    let subRequestData: Data = try! JSONEncoder().encode(subRequest)
-                    let subRequestString: String? = String(data: subRequestData, encoding: .utf8)
+                    let childRequestData: Data = try! JSONEncoder().encode(request.requests[0])
+                    let childRequestString: String? = String(data: childRequestData, encoding: .utf8)
                     
-                    expect(subRequestString)
+                    expect(childRequestString)
                         .to(equal("{\"path\":\"\\/batch\",\"method\":\"GET\",\"json\":{\"stringValue\":\"testValue\"}}"))
                 }
             }
         }
         
-        // MARK: - BatchRequestInfo<T, R>
+        // MARK: - BatchRequest.Info
         
         describe("a BatchRequest.Info") {
             var request: Request<TestType, OpenGroupAPI.Endpoint>!
@@ -143,27 +163,17 @@ class BatchRequestInfoSpec: QuickSpec {
                 expect(requestInfo.endpoint.path).to(equal(request.endpoint.path))
                 expect(requestInfo.responseType == HTTP.BatchSubResponse<TestType>.self).to(beTrue())
             }
-            
-            it("exposes the endpoint correctly") {
-                let requestInfo: OpenGroupAPI.BatchRequest.Info = OpenGroupAPI.BatchRequest.Info(
-                    request: request
-                )
+        }
+        
+        // MARK: - Convenience
+        // MARK: --Decodable
+        
+        describe("a Decodable") {
+            it("decodes correctly") {
+                let jsonData: Data = "{\"stringValue\":\"testValue\"}".data(using: .utf8)!
+                let result: TestType? = try? TestType.decoded(from: jsonData)
                 
-                expect(requestInfo.endpoint.path).to(equal(request.endpoint.path))
-            }
-            
-            it("generates a sub request correctly") {
-                let batchRequest: OpenGroupAPI.BatchRequest = OpenGroupAPI.BatchRequest(
-                    requests: [
-                        OpenGroupAPI.BatchRequest.Info(
-                            request: request
-                        )
-                    ]
-                )
-                
-                expect(batchRequest.requests[0].method).to(equal(request.method))
-                expect(batchRequest.requests[0].path).to(equal(request.urlPathAndParamsString))
-                expect(batchRequest.requests[0].headers).to(beNil())
+                expect(result).to(equal(TestType(stringValue: "testValue")))
             }
         }
     }

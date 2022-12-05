@@ -48,7 +48,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         AppReadiness.runNowOrWhenAppDidBecomeReady {
             let openGroupPollingPublishers: [AnyPublisher<Void, Error>] = self.pollForOpenGroups()
             defer {
-                // TODO: Test this
                 Publishers
                     .MergeMany(openGroupPollingPublishers)
                     .sinkUntilComplete(

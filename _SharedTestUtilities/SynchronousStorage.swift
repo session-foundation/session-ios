@@ -1,28 +1,19 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
-import PromiseKit
 import SessionUtilitiesKit
 
 class SynchronousStorage: Storage {
-    override func writeAsync<T>(updates: @escaping (Database) throws -> T) {
-        super.write(updates: updates)
-    }
-    
-    override func writeAsync<T>(updates: @escaping (Database) throws -> T, completion: @escaping (Database, Swift.Result<T, Error>) throws -> Void) {
-        super.write { db in
-            do {
-                var result: T?
-                try db.inTransaction {
-                    result = try updates(db)
-                    return .commit
-                }
-                try? completion(db, .success(result!))
-            }
-            catch {
-                try? completion(db, .failure(error))
-            }
+    override func writePublisher<T>(updates: @escaping (Database) throws -> T) -> AnyPublisher<T, Error> {
+        guard let result: T = super.write(updates: updates) else {
+            return Fail(error: StorageError.generic)
+                .eraseToAnyPublisher()
         }
+        
+        return Just(result)
+            .setFailureType(to: Error.self)
+            .eraseToAnyPublisher()
     }
 }

@@ -26,8 +26,7 @@ public protocol OGMCacheType {
 
 // MARK: - OpenGroupManager
 
-@objc(SNOpenGroupManager)
-public final class OpenGroupManager: NSObject {
+public final class OpenGroupManager {
     // MARK: - Cache
     
     public class Cache: OGMCacheType {
@@ -61,7 +60,7 @@ public final class OpenGroupManager: NSObject {
     
     // MARK: - Variables
     
-    @objc public static let shared: OpenGroupManager = OpenGroupManager()
+    public static let shared: OpenGroupManager = OpenGroupManager()
     
     /// Note: This should not be accessed directly but rather via the 'OGMDependencies' type
     fileprivate let mutableCache: Atomic<OGMCacheType> = Atomic(Cache())

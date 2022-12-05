@@ -209,10 +209,6 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     beforeEach {
                         viewModel.rightNavItems.firstValue()??.first?.action?()
                         viewModel.textChanged("TestNew", for: .nickname)
-                        // TODO: Enter edit mode by pressing on the first item
-//                        viewModel.tableData.first?
-//                            .elements.first?
-//                            .onTap?()
                     }
                     
                     it("enters the editing state") {
@@ -337,12 +333,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 context("when entering edit mode") {
                     beforeEach {
                         viewModel.rightNavItems.firstValue()??.first?.action?()
-                        viewModel.textChanged("TestUserNew", for: .nickname)
-                        
-                        // TODO: Enter edit mode by pressing on the first item
-//                       viewModel.tableData.first?
-//                           .elements.first?
-//                           .onTap?()
+                        viewModel.textChanged("TestNew", for: .nickname)
                     }
                     
                     it("enters the editing state") {

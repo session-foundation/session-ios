@@ -14,30 +14,24 @@ public protocol OnionRequestAPIType {
 /// See the "Onion Requests" section of [The Session Whitepaper](https://arxiv.org/pdf/2002.04609.pdf) for more information.
 public enum OnionRequestAPI: OnionRequestAPIType {
     private static var buildPathsPublisher: Atomic<AnyPublisher<[[Snode]], Error>?> = Atomic(nil)
-    
-    /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
-    private static var pathFailureCount: [[Snode]: UInt] = [:]
-    
-    /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
-    private static var snodeFailureCount: [Snode: UInt] = [:]
-    
-    /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
-    public static var guardSnodes: Set<Snode> = []
+    private static var pathFailureCount: Atomic<[[Snode]: UInt]> = Atomic([:])
+    private static var snodeFailureCount: Atomic<[Snode: UInt]> = Atomic([:])
+    public static var guardSnodes: Atomic<Set<Snode>> = Atomic([])
     
     // Not a set to ensure we consistently show the same path to the user
-    private static var _paths: [[Snode]]?
+    private static var _paths: Atomic<[[Snode]]?> = Atomic(nil)
     public static var paths: [[Snode]] {
         get {
-            if let paths: [[Snode]] = _paths { return paths }
+            if let paths: [[Snode]] = _paths.wrappedValue { return paths }
             
             let results: [[Snode]]? = Storage.shared.read { db in
                 try? Snode.fetchAllOnionRequestPaths(db)
             }
             
-            if results?.isEmpty == false { _paths = results }
+            if results?.isEmpty == false { _paths.mutate { $0 = results } }
             return (results ?? [])
         }
-        set { _paths = newValue }
+        set { _paths.mutate { $0 = newValue } }
     }
 
     // MARK: - Settings
@@ -94,8 +88,8 @@ public enum OnionRequestAPI: OnionRequestAPIType {
     /// Finds `targetGuardSnodeCount` guard snodes to use for path building. The returned promise errors out with
     /// `Error.insufficientSnodes` if not enough (reliable) snodes are available.
     private static func getGuardSnodes(reusing reusableGuardSnodes: [Snode]) -> AnyPublisher<Set<Snode>, Error> {
-        guard guardSnodes.count < targetGuardSnodeCount else {
-            return Just(guardSnodes)
+        guard guardSnodes.wrappedValue.count < targetGuardSnodeCount else {
+            return Just(guardSnodes.wrappedValue)
                 .setFailureType(to: Error.self)
                 .eraseToAnyPublisher()
         }
@@ -141,7 +135,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
             .map { output in Set(output) }
             .handleEvents(
                 receiveOutput: { output in
-                    OnionRequestAPI.guardSnodes = output
+                    OnionRequestAPI.guardSnodes.mutate { $0 = output }
                 }
             )
             .eraseToAnyPublisher()
@@ -222,10 +216,12 @@ public enum OnionRequestAPI: OnionRequestAPIType {
         var cancellable: [AnyCancellable] = []
         
         if !paths.isEmpty {
-            guardSnodes.formUnion([ paths[0][0] ])
-            
-            if paths.count >= 2 {
-                guardSnodes.formUnion([ paths[1][0] ])
+            guardSnodes.mutate {
+                $0.formUnion([ paths[0][0] ])
+                
+                if paths.count >= 2 {
+                    $0.formUnion([ paths[1][0] ])
+                }
             }
         }
         
@@ -309,20 +305,14 @@ public enum OnionRequestAPI: OnionRequestAPIType {
     }
 
     private static func dropGuardSnode(_ snode: Snode) {
-        #if DEBUG
-        dispatchPrecondition(condition: .onQueue(Threading.workQueue))
-        #endif
-        guardSnodes = guardSnodes.filter { $0 != snode }
+        guardSnodes.mutate { snodes in snodes = snodes.filter { $0 != snode } }
     }
 
     private static func drop(_ snode: Snode) throws {
-        #if DEBUG
-        dispatchPrecondition(condition: .onQueue(Threading.workQueue))
-        #endif
         // We repair the path here because we can do it sync. In the case where we drop a whole
         // path we leave the re-building up to getPath(excluding:) because re-building the path
         // in that case is async.
-        OnionRequestAPI.snodeFailureCount[snode] = 0
+        OnionRequestAPI.snodeFailureCount.mutate { $0[snode] = 0 }
         var oldPaths = paths
         guard let pathIndex = oldPaths.firstIndex(where: { $0.contains(snode) }) else { return }
         var path = oldPaths[pathIndex]
@@ -344,10 +334,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
     }
 
     private static func drop(_ path: [Snode]) {
-        #if DEBUG
-        dispatchPrecondition(condition: .onQueue(Threading.workQueue))
-        #endif
-        OnionRequestAPI.pathFailureCount[path] = 0
+        OnionRequestAPI.pathFailureCount.mutate { $0[path] = 0 }
         var paths = OnionRequestAPI.paths
         guard let pathIndex = paths.firstIndex(of: path) else { return }
         paths.remove(at: pathIndex)
@@ -533,7 +520,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
                             func handleUnspecificError() {
                                 guard let path = path else { return }
                                 
-                                var pathFailureCount = OnionRequestAPI.pathFailureCount[path] ?? 0
+                                var pathFailureCount: UInt = (OnionRequestAPI.pathFailureCount.wrappedValue[path] ?? 0)
                                 pathFailureCount += 1
                                 
                                 if pathFailureCount >= pathFailureThreshold {
@@ -545,7 +532,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
                                     drop(path)
                                 }
                                 else {
-                                    OnionRequestAPI.pathFailureCount[path] = pathFailureCount
+                                    OnionRequestAPI.pathFailureCount.mutate { $0[path] = pathFailureCount }
                                 }
                             }
                             
@@ -566,7 +553,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
                                 let ed25519PublicKey = message[message.index(message.startIndex, offsetBy: prefix.count)..<message.endIndex]
                                 
                                 if let path = path, let snode = path.first(where: { $0.ed25519PublicKey == ed25519PublicKey }) {
-                                    var snodeFailureCount = OnionRequestAPI.snodeFailureCount[snode] ?? 0
+                                    var snodeFailureCount: UInt = (OnionRequestAPI.snodeFailureCount.wrappedValue[snode] ?? 0)
                                     snodeFailureCount += 1
                                     
                                     if snodeFailureCount >= snodeFailureThreshold {
@@ -579,7 +566,8 @@ public enum OnionRequestAPI: OnionRequestAPIType {
                                         }
                                     }
                                     else {
-                                        OnionRequestAPI.snodeFailureCount[snode] = snodeFailureCount
+                                        OnionRequestAPI.snodeFailureCount
+                                            .mutate { $0[snode] = snodeFailureCount }
                                     }
                                 } else {
                                     // Do nothing

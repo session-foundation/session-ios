@@ -1,18 +1,17 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import PromiseKit
+import Combine
 
 import Quick
 import Nimble
 
 @testable import SessionUtilitiesKit
 
-class BatchRequestInfoSpec: QuickSpec {
+class BatchResponseSpec: QuickSpec {
     struct TestType: Codable, Equatable {
         let stringValue: String
     }
-    
     struct TestType2: Codable, Equatable {
         let intValue: Int
         let stringValue2: String
@@ -136,9 +135,9 @@ class BatchRequestInfoSpec: QuickSpec {
             }
         }
         
-        // MARK: - --Promise
+        // MARK: - --Combine
         
-        describe("a (ResponseInfoType, Data?) Promise") {
+        describe("a (ResponseInfoType, Data?) Publisher") {
             var responseInfo: ResponseInfoType!
             var testType: TestType!
             var testType2: TestType2!
@@ -146,8 +145,8 @@ class BatchRequestInfoSpec: QuickSpec {
             
             beforeEach {
                 responseInfo = HTTP.ResponseInfo(code: 200, headers: [:])
-                testType = TestType(stringValue: "Test")
-                testType2 = TestType2(intValue: 1, stringValue2: "Test2")
+                testType = TestType(stringValue: "test1")
+                testType2 = TestType2(intValue: 123, stringValue2: "test2")
                 data = """
                 [\([
                     try! JSONEncoder().encode(
@@ -173,46 +172,79 @@ class BatchRequestInfoSpec: QuickSpec {
             }
             
             it("decodes valid data correctly") {
-                let result = Promise.value((responseInfo, data))
+                var result: HTTP.BatchResponse?
+                Just((responseInfo, data))
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
                     .decoded(as: [
                         HTTP.BatchSubResponse<TestType>.self,
                         HTTP.BatchSubResponse<TestType2>.self
                     ])
+                    .sinkUntilComplete(
+                        receiveValue: { result = $0 }
+                    )
                 
-                expect(result.value).toNot(beNil())
-                expect((result.value?[0].1 as? HTTP.BatchSubResponse<TestType>)?.body)
+                expect(result).toNot(beNil())
+                expect((result?[0].1 as? HTTP.BatchSubResponse<TestType>)?.body)
                     .to(equal(testType))
-                expect((result.value?[1].1 as? HTTP.BatchSubResponse<TestType2>)?.body)
+                expect((result?[1].1 as? HTTP.BatchSubResponse<TestType2>)?.body)
                     .to(equal(testType2))
             }
             
             it("fails if there is no data") {
-                let result = Promise.value((responseInfo, nil)).decoded(as: [])
+                var error: Error?
+                Just((responseInfo, nil))
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
+                    .decoded(as: [])
+                    .mapError { error.setting(to: $0) }
+                    .sinkUntilComplete()
                 
-                expect(result.error?.localizedDescription).to(equal(HTTPError.parsingFailed.localizedDescription))
+                expect(error?.localizedDescription)
+                    .to(equal(HTTPError.parsingFailed.localizedDescription))
             }
             
             it("fails if the data is not JSON") {
-                let result = Promise.value((responseInfo, Data([1, 2, 3]))).decoded(as: [])
+                var error: Error?
+                Just((responseInfo, Data([1, 2, 3])))
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
+                    .decoded(as: [])
+                    .mapError { error.setting(to: $0) }
+                    .sinkUntilComplete()
                 
-                expect(result.error?.localizedDescription).to(equal(HTTPError.parsingFailed.localizedDescription))
+                expect(error?.localizedDescription)
+                    .to(equal(HTTPError.parsingFailed.localizedDescription))
             }
             
             it("fails if the data is not a JSON array") {
-                let result = Promise.value((responseInfo, "{}".data(using: .utf8))).decoded(as: [])
+                var error: Error?
+                Just((responseInfo, "{}".data(using: .utf8)))
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
+                    .decoded(as: [])
+                    .mapError { error.setting(to: $0) }
+                    .sinkUntilComplete()
                 
-                expect(result.error?.localizedDescription).to(equal(HTTPError.parsingFailed.localizedDescription))
+                expect(error?.localizedDescription)
+                    .to(equal(HTTPError.parsingFailed.localizedDescription))
             }
             
             it("fails if the JSON array does not have the same number of items as the expected types") {
-                let result = Promise.value((responseInfo, data))
+                var error: Error?
+                Just((responseInfo, data))
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
                     .decoded(as: [
                         HTTP.BatchSubResponse<TestType>.self,
                         HTTP.BatchSubResponse<TestType2>.self,
                         HTTP.BatchSubResponse<TestType2>.self
                     ])
+                    .mapError { error.setting(to: $0) }
+                    .sinkUntilComplete()
                 
-                expect(result.error?.localizedDescription).to(equal(HTTPError.parsingFailed.localizedDescription))
+                expect(error?.localizedDescription)
+                    .to(equal(HTTPError.parsingFailed.localizedDescription))
             }
             
             it("fails if one of the JSON array values fails to decode") {
@@ -230,13 +262,20 @@ class BatchRequestInfoSpec: QuickSpec {
                 .map { String(data: $0, encoding: .utf8)! }
                 .joined(separator: ",")),{"test": "test"}]
                 """.data(using: .utf8)!
-                let result = Promise.value((responseInfo, data))
+                
+                var error: Error?
+                Just((responseInfo, data))
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
                     .decoded(as: [
                         HTTP.BatchSubResponse<TestType>.self,
                         HTTP.BatchSubResponse<TestType2>.self
                     ])
+                    .mapError { error.setting(to: $0) }
+                    .sinkUntilComplete()
                 
-                expect(result.error?.localizedDescription).to(equal(HTTPError.parsingFailed.localizedDescription))
+                expect(error?.localizedDescription)
+                    .to(equal(HTTPError.parsingFailed.localizedDescription))
             }
         }
     }

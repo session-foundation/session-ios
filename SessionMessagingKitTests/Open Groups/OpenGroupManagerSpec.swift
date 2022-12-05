@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
-import PromiseKit
+import Foundation
+import Combine
 import GRDB
 import Sodium
 import SessionSnodeKit
@@ -779,7 +780,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     var didComplete: Bool = false   // Prevent multi-threading test bugs
                     
                     mockStorage
-                        .writeAsync { db in
+                        .writePublisherFlatMap { db in
                             openGroupManager
                                 .add(
                                     db,
@@ -790,8 +791,9 @@ class OpenGroupManagerSpec: QuickSpec {
                                     dependencies: dependencies
                                 )
                         }
-                        .map { _ -> Void in didComplete = true }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .sinkUntilComplete(receiveCompletion: { _ in didComplete = true })
                     
                     expect(didComplete).toEventually(beTrue(), timeout: .milliseconds(50))
                     expect(
@@ -810,7 +812,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     var didComplete: Bool = false   // Prevent multi-threading test bugs
                     
                     mockStorage
-                        .writeAsync { db in
+                        .writePublisherFlatMap { db in
                             openGroupManager
                                 .add(
                                     db,
@@ -821,8 +823,9 @@ class OpenGroupManagerSpec: QuickSpec {
                                     dependencies: dependencies
                                 )
                         }
-                        .map { _ -> Void in didComplete = true }
-                        .retainUntilComplete()
+                        .subscribe(on: DispatchQueue.main)
+                        .receiveOnMain(immediately: true)
+                        .sinkUntilComplete(receiveCompletion: { _ in didComplete = true })
                     
                     expect(didComplete).toEventually(beTrue(), timeout: .milliseconds(50))
                     expect(mockOGMCache)
@@ -847,7 +850,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         var didComplete: Bool = false   // Prevent multi-threading test bugs
                         
                         mockStorage
-                            .writeAsync { db in
+                            .writePublisherFlatMap { db in
                                 openGroupManager
                                     .add(
                                         db,
@@ -860,8 +863,9 @@ class OpenGroupManagerSpec: QuickSpec {
                                         dependencies: dependencies
                                     )
                             }
-                            .map { _ -> Void in didComplete = true }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .sinkUntilComplete(receiveCompletion: { _ in didComplete = true })
                         
                         expect(didComplete).toEventually(beTrue(), timeout: .milliseconds(50))
                         expect(
@@ -901,7 +905,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         var error: Error?
                         
                         mockStorage
-                            .writeAsync { db in
+                            .writePublisherFlatMap { db in
                                 openGroupManager
                                     .add(
                                         db,
@@ -912,8 +916,10 @@ class OpenGroupManagerSpec: QuickSpec {
                                         dependencies: dependencies
                                     )
                             }
-                            .catch { error = $0 }
-                            .retainUntilComplete()
+                            .subscribe(on: DispatchQueue.main)
+                            .receiveOnMain(immediately: true)
+                            .mapError { error.setting(to: $0) }
+                            .sinkUntilComplete()
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1242,8 +1248,10 @@ class OpenGroupManagerSpec: QuickSpec {
                         ).insert(db)
                     }
                     
-                    mockOGMCache.when { $0.groupImagePromises }
-                        .thenReturn([OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): Promise.value(Data())])
+                    mockOGMCache.when { $0.groupImagePublishers }
+                        .thenReturn([
+                            OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): Just(Data()).setFailureType(to: Error.self).eraseToAnyPublisher()
+                        ])
                     
                     mockStorage.write { db in
                         try OpenGroupManager.handlePollInfo(
@@ -1679,8 +1687,10 @@ class OpenGroupManagerSpec: QuickSpec {
                                 .updateAll(db, OpenGroup.Columns.imageData.set(to: nil))
                         }
                         
-                        mockOGMCache.when { $0.groupImagePromises }
-                            .thenReturn([OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): Promise.value(imageData)])
+                        mockOGMCache.when { $0.groupImagePublishers }
+                            .thenReturn([
+                                OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): Just(imageData).setFailureType(to: Error.self).eraseToAnyPublisher()
+                            ])
                     }
                     
                     it("uses the provided room image id if available") {
@@ -1952,8 +1962,10 @@ class OpenGroupManagerSpec: QuickSpec {
                     it("does nothing if it fails to retrieve the room image") {
                         var didComplete: Bool = false   // Prevent multi-threading test bugs
                         
-                        mockOGMCache.when { $0.groupImagePromises }
-                            .thenReturn([OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): Promise(error: HTTPError.generic)])
+                        mockOGMCache.when { $0.groupImagePublishers }
+                            .thenReturn([
+                                OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): Fail(error: HTTPError.generic).eraseToAnyPublisher()
+                            ])
                         
                         testPollInfo = OpenGroupAPI.RoomPollInfo(
                             token: "testRoom",
@@ -3248,11 +3260,11 @@ class OpenGroupManagerSpec: QuickSpec {
                 }
                 
                 it("returns the cached promise if there is one") {
-                    let (promise, _) = Promise<[OpenGroupAPI.Room]>.pending()
-                    mockOGMCache.when { $0.defaultRoomsPromise }.thenReturn(promise)
+                    let publisher = Future { _ in }.eraseToAnyPublisher()
+                    mockOGMCache.when { $0.defaultRoomsPublisher }.thenReturn(publisher)
                     
                     expect(OpenGroupManager.getDefaultRoomsIfNeeded(using: dependencies))
-                        .to(equal(promise))
+                        .to(equal(publisher))
                 }
                 
                 it("stores the open group information") {
@@ -3494,12 +3506,12 @@ class OpenGroupManagerSpec: QuickSpec {
                 }
                 
                 it("retrieves the image retrieval promise from the cache if it exists") {
-                    let (promise, _) = Promise<Data>.pending()
+                    let publisher = Future<Data, Error> { _ in }.eraseToAnyPublisher()
                     mockOGMCache
-                        .when { $0.groupImagePromises }
-                        .thenReturn([OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): promise])
+                        .when { $0.groupImagePublishers }
+                        .thenReturn([OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): publisher])
                     
-                    let promise2 = mockStorage.read { db in
+                    let publisher2 = mockStorage.read { db in
                         OpenGroupManager
                             .roomImage(
                                 db,
@@ -3509,7 +3521,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 using: dependencies
                             )
                     }
-                    expect(promise2).to(equal(promise))
+                    expect(publisher2).to(equal(publisher))
                 }
                 
                 it("does not save the fetched image to storage") {
