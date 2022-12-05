@@ -1,5 +1,7 @@
+// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+
 import Foundation
-import PromiseKit
+import Combine
 
 public enum HTTP {
     private static let seedNodeURLSession = URLSession(configuration: .ephemeral, delegate: seedNodeURLSessionDelegate, delegateQueue: nil)
@@ -67,75 +69,6 @@ public enum HTTP {
         }
     }
     
-    // MARK: - Main
-    
-    public static func executeLegacy(
-        _ method: HTTPMethod,
-        _ url: String,
-        timeout: TimeInterval = HTTP.defaultTimeout,
-        useSeedNodeURLSession: Bool = false
-    ) -> Promise<Data> {
-        return executeLegacy(method, url, body: nil, timeout: timeout, useSeedNodeURLSession: useSeedNodeURLSession)
-    }
-    
-    public static func executeLegacy(
-        _ method: HTTPMethod,
-        _ url: String,
-        body: Data?,
-        timeout: TimeInterval = HTTP.defaultTimeout,
-        useSeedNodeURLSession: Bool = false
-    ) -> Promise<Data> {
-        var request = URLRequest(url: URL(string: url)!)
-        request.httpMethod = verb.rawValue
-        request.httpBody = body
-        request.timeoutInterval = timeout
-        request.allHTTPHeaderFields?.removeValue(forKey: "User-Agent")
-        request.setValue("WhatsApp", forHTTPHeaderField: "User-Agent") // Set a fake value
-        request.setValue("en-us", forHTTPHeaderField: "Accept-Language") // Set a fake value
-        let (promise, seal) = Promise<Data>.pending()
-        let urlSession = useSeedNodeURLSession ? seedNodeURLSession : snodeURLSession
-        let task = urlSession.dataTask(with: request) { data, response, error in
-            guard let data = data, let response = response as? HTTPURLResponse else {
-                if let error = error {
-                    SNLog("\(verb.rawValue) request to \(url) failed due to error: \(error).")
-                } else {
-                    SNLog("\(verb.rawValue) request to \(url) failed.")
-                }
-                
-                // Override the actual error so that we can correctly catch failed requests in sendOnionRequest(invoking:on:with:)
-                switch (error as? NSError)?.code {
-                    case NSURLErrorTimedOut: return seal.reject(Error.timeout)
-                    default: return seal.reject(Error.httpRequestFailed(statusCode: 0, data: nil))
-                }
-                
-            }
-            if let error = error {
-                SNLog("\(verb.rawValue) request to \(url) failed due to error: \(error).")
-                // Override the actual error so that we can correctly catch failed requests in sendOnionRequest(invoking:on:with:)
-                return seal.reject(Error.httpRequestFailed(statusCode: 0, data: data))
-            }
-            let statusCode = UInt(response.statusCode)
-
-            guard 200...299 ~= statusCode else {
-                var json: JSON? = nil
-                if let processedJson: JSON = try? JSONSerialization.jsonObject(with: data, options: [ .fragmentsAllowed ]) as? JSON {
-                    json = processedJson
-                }
-                else if let result: String = String(data: data, encoding: .utf8) {
-                    json = [ "result": result ]
-                }
-                
-                let jsonDescription: String = (json?.prettifiedDescription ?? "no debugging info provided")
-                SNLog("\(verb.rawValue) request to \(url) failed with status code: \(statusCode) (\(jsonDescription)).")
-                return seal.reject(Error.httpRequestFailed(statusCode: statusCode, data: data))
-            }
-            
-            seal.fulfill(data)
-        }
-        task.resume()
-        return promise
-    }
-    
     // MARK: - Execution
         
     public static func execute(
@@ -193,7 +126,7 @@ public enum HTTP {
                         .eraseToAnyPublisher()
                 }
                 let statusCode = UInt(response.statusCode)
-// TODO: Remove all the JSON handling?
+                // TODO: Remove all the JSON handling?
                 guard 200...299 ~= statusCode else {
                     var json: JSON? = nil
                     if let processedJson: JSON = try? JSONSerialization.jsonObject(with: data, options: [ .fragmentsAllowed ]) as? JSON {

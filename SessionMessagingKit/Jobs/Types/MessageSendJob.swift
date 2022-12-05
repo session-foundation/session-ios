@@ -160,22 +160,22 @@ public enum MessageSendJob: JobExecutor {
         // Add the threadId to the message if there isn't one set
         details.message.threadId = (details.message.threadId ?? job.threadId)
         
-        // Perform the actual message sending
+        /// Perform the actual message sending
+        ///
+        /// **Note:** No need to upload attachments as part of this process as the above logic splits that out into it's own job
+        /// so we shouldn't get here until attachments have already been uploaded
         Storage.shared
             .writePublisher { db in
-                // TODO: Will need to split the attachment upload from the message preparation logic
                 try MessageSender.preparedSendData(
                     db,
                     message: details.message,
                     to: details.destination
-                        .with(fileIds: messageFileIds), // TODO: This???
+                        .with(fileIds: messageFileIds),
                     interactionId: job.interactionId
                 )
             }
             .subscribe(on: queue)
-        // TODO: Is this needed? (should be caught before this??)
-//            .flatMap { MessageSender.performUploadsIfNeeded(preparedSendData: $0) }
-            .flatMap { MessageSender.sendImmediate(data: $0) }
+            .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {

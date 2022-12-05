@@ -972,6 +972,34 @@ extension Attachment {
 // MARK: - Upload
 
 extension Attachment {
+    public static func prepare(_ db: Database, attachments: [SignalAttachment], for interactionId: Int64) throws {
+        // Prepare any attachments
+        try attachments.enumerated()
+            .forEach { index, signalAttachment in
+                let maybeAttachment: Attachment? = Attachment(
+                    variant: (signalAttachment.isVoiceMessage ?
+                        .voiceMessage :
+                            .standard
+                    ),
+                    contentType: signalAttachment.mimeType,
+                    dataSource: signalAttachment.dataSource,
+                    sourceFilename: signalAttachment.sourceFilename,
+                    caption: signalAttachment.captionText
+                )
+                
+                guard let attachment: Attachment = maybeAttachment else { return }
+                
+                let interactionAttachment: InteractionAttachment = InteractionAttachment(
+                    albumIndex: index,
+                    interactionId: interactionId,
+                    attachmentId: attachment.id
+                )
+                
+                try attachment.insert(db)
+                try interactionAttachment.insert(db)
+            }
+    }
+    
     internal func upload(
         _ db: Database? = nil,
         queue: DispatchQueue,

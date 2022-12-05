@@ -449,11 +449,11 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         
         // Initially position offscreen, we'll animate it in.
         collectionPickerView.frame = collectionPickerView.frame.offsetBy(dx: 0, dy: collectionPickerView.frame.height)
-
-        UIView.animate(.promise, duration: 0.25, delay: 0, options: .curveEaseInOut) {
+        
+        UIView.animate(withDuration: 0.25) {
             collectionPickerView.superview?.layoutIfNeeded()
             self.titleView.rotateIcon(.up)
-        }.retainUntilComplete()
+        }
     }
 
     func hideCollectionPicker() {
@@ -461,14 +461,18 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
 
         assert(isShowingCollectionPickerController)
         isShowingCollectionPickerController = false
-
-        UIView.animate(.promise, duration: 0.25, delay: 0, options: .curveEaseInOut) {
-            self.collectionPickerController.view.frame = self.view.frame.offsetBy(dx: 0, dy: self.view.frame.height)
-            self.titleView.rotateIcon(.down)
-        }.done { _ in
-            self.collectionPickerController.view.removeFromSuperview()
-            self.collectionPickerController.removeFromParent()
-        }.retainUntilComplete()
+        
+        UIView.animate(
+            withDuration: 0.25,
+            animations: {
+                self.collectionPickerController.view.frame = self.view.frame.offsetBy(dx: 0, dy: self.view.frame.height)
+                self.titleView.rotateIcon(.down)
+            },
+            completion: { [weak self] _ in
+                self?.collectionPickerController.view.removeFromSuperview()
+                self?.collectionPickerController.removeFromParent()
+            }
+        )
     }
     
     // MARK: - UICollectionView

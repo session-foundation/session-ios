@@ -47,8 +47,8 @@ public enum SendReadReceiptsJob: JobExecutor {
                 )
             }
             .subscribe(on: queue)
+            .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
             .receive(on: queue)
-            .flatMap { MessageSender.sendImmediate(data: $0) }
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {

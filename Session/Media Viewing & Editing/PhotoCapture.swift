@@ -4,7 +4,7 @@ import Foundation
 import Combine
 import AVFoundation
 import CoreServices
-import SignalCoreKit
+import SessionUtilitiesKit
 
 protocol PhotoCaptureDelegate: AnyObject {
     func photoCapture(_ photoCapture: PhotoCapture, didFinishProcessingAttachment attachment: SignalAttachment)
@@ -368,14 +368,23 @@ extension PhotoCapture: CaptureButtonDelegate {
         AssertIsOnMainThread()
 
         Logger.verbose("")
-        sessionQueue.async(.promise) {
-            try self.startAudioCapture()
-            self.captureOutput.beginVideo(delegate: self)
-        }.done {
-            self.delegate?.photoCaptureDidBeginVideo(self)
-        }.catch { error in
-            self.delegate?.photoCapture(self, processingDidError: error)
-        }.retainUntilComplete()
+        
+        Just(())
+            .subscribe(on: sessionQueue)
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self] _ in
+                    guard let strongSelf = self else { return }
+                    
+                    do {
+                        try strongSelf.startAudioCapture()
+                        strongSelf.captureOutput.beginVideo(delegate: strongSelf)
+                        strongSelf.delegate?.photoCaptureDidBeginVideo(strongSelf)
+                    }
+                    catch {
+                        strongSelf.delegate?.photoCapture(strongSelf, processingDidError: error)
+                    }
+                }
+            )
     }
 
     func didCompleteLongPressCaptureButton(_ captureButton: CaptureButton) {

@@ -3,7 +3,7 @@
 import Foundation
 import Combine
 import GRDB
-import PromiseKit
+import SignalCoreKit
 
 open class Storage {
     private static let dbFileName: String = "Session.sqlite"
@@ -411,50 +411,6 @@ open class Storage {
         DispatchQueue.global(qos: .default).async {
             dbWriter.remove(transactionObserver: observer)
         }
-    }
-}
-
-// MARK: - Promise Extensions
-
-public extension Storage {
-    // FIXME: Would be good to replace these with Swift Combine
-    @discardableResult func read<T>(_ value: (Database) throws -> Promise<T>) -> Promise<T> {
-        guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
-            return Promise(error: StorageError.databaseInvalid)
-        }
-        
-        do {
-            return try dbWriter.read(value)
-        }
-        catch {
-            return Promise(error: error)
-        }
-    }
-    
-    // FIXME: Can't overrwrite this in `SynchronousStorage` since it's in an extension
-    @discardableResult func writeAsync<T>(updates: @escaping (Database) throws -> Promise<T>) -> Promise<T> {
-        guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
-            return Promise(error: StorageError.databaseInvalid)
-        }
-        
-        let (promise, seal) = Promise<T>.pending()
-        
-        dbWriter.asyncWrite(
-            { db in
-                try updates(db)
-                    .done { result in seal.fulfill(result) }
-                    .catch { error in seal.reject(error) }
-                    .retainUntilComplete()
-            },
-            completion: { _, result in
-                switch result {
-                    case .failure(let error): seal.reject(error)
-                    default: break
-                }
-            }
-        )
-        
-        return promise
     }
 }
 

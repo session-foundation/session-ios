@@ -2,7 +2,7 @@
 
 import Foundation
 import GRDB
-import PromiseKit
+import SignalCoreKit
 import SessionUtilitiesKit
 import SessionSnodeKit
 

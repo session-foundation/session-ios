@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import CallKit
 import GRDB
 import WebRTC
@@ -223,6 +224,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         .inserted(db)
         
         self.callInteractionId = interaction?.id
+        
         try? self.webRTCSession
             .sendPreOffer(
                 db,
@@ -230,14 +232,19 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
                 interactionId: interaction?.id,
                 in: thread
             )
-            .done { [weak self] _ in
-                Storage.shared.writeAsync { db in
-                    self?.webRTCSession.sendOffer(db, to: sessionId)
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self] result in
+                    switch result {
+                        case .failure: break
+                        case .finished:
+                            Storage.shared.writeAsync { db in
+                                self?.webRTCSession.sendOffer(db, to: sessionId)
+                            }
+                            
+                            self?.setupTimeoutTimer()
+                    }
                 }
-                
-                self?.setupTimeoutTimer()
-            }
-            .retainUntilComplete()
+            )
     }
     
     func answerSessionCall() {
@@ -406,8 +413,8 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         let webRTCSession: WebRTCSession = self.webRTCSession
         
         Storage.shared
-            .read { db in webRTCSession.sendOffer(db, to: sessionId, isRestartingICEConnection: true) }
-            .retainUntilComplete()
+            .readPublisherFlatMap { db in webRTCSession.sendOffer(db, to: sessionId, isRestartingICEConnection: true) }
+            .sinkUntilComplete()
     }
     
     // MARK: - Timeout

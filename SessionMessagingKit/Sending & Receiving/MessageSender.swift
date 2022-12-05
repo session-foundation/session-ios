@@ -8,52 +8,6 @@ import SessionUtilitiesKit
 import Sodium
 
 public final class MessageSender {
-    // MARK: - Preparation
-    
-    public static func prep(
-        _ db: Database,
-        signalAttachments: [SignalAttachment],
-        for interactionId: Int64
-    ) throws {
-        try signalAttachments.enumerated().forEach { index, signalAttachment in
-            let maybeAttachment: Attachment? = Attachment(
-                variant: (signalAttachment.isVoiceMessage ?
-                    .voiceMessage :
-                    .standard
-                ),
-                contentType: signalAttachment.mimeType,
-                dataSource: signalAttachment.dataSource,
-                sourceFilename: signalAttachment.sourceFilename,
-                caption: signalAttachment.captionText
-            )
-            
-            guard let attachment: Attachment = maybeAttachment else { return }
-            
-            let interactionAttachment: InteractionAttachment = InteractionAttachment(
-                albumIndex: index,
-                interactionId: interactionId,
-                attachmentId: attachment.id
-            )
-            
-            try attachment.insert(db)
-            try interactionAttachment.insert(db)
-        }
-    }
-
-    // MARK: - Convenience
-    
-//    public static func sendImmediate(_ db: Database, message: Message, to destination: Message.Destination, interactionId: Int64?) throws -> Promise<Void> {
-//        switch destination {
-//            case .contact, .closedGroup:
-//                return try sendToSnodeDestination(db, message: message, to: destination, interactionId: interactionId)
-//
-//            case .openGroup:
-//                return sendToOpenGroupDestination(db, message: message, to: destination, interactionId: interactionId)
-//
-//            case .openGroupInbox:
-//                return sendToOpenGroupInboxDestination(db, message: message, to: destination, interactionId: interactionId)
-//        }
-//    }
     // MARK: - Message Preparation
     
     public struct PreparedSendData {
@@ -644,19 +598,19 @@ public final class MessageSender {
     // MARK: - Sending
     
     public static func sendImmediate(
-        data: PreparedSendData,
+        preparedSendData: PreparedSendData,
         using dependencies: SMKDependencies = SMKDependencies()
     ) -> AnyPublisher<Void, Error> {
-        guard data.shouldSend else {
+        guard preparedSendData.shouldSend else {
             return Just(())
                 .setFailureType(to: Error.self)
                 .eraseToAnyPublisher()
         }
         
-        switch data.destination {
-            case .contact, .closedGroup: return sendToSnodeDestination(data: data, using: dependencies)
-            case .openGroup: return sendToOpenGroupDestination(data: data, using: dependencies)
-            case .openGroupInbox: return sendToOpenGroupInbox(data: data, using: dependencies)
+        switch preparedSendData.destination {
+            case .contact, .closedGroup: return sendToSnodeDestination(data: preparedSendData, using: dependencies)
+            case .openGroup: return sendToOpenGroupDestination(data: preparedSendData, using: dependencies)
+            case .openGroupInbox: return sendToOpenGroupInbox(data: preparedSendData, using: dependencies)
             case .none:
                 return Fail(error: MessageSenderError.invalidMessage)
                     .eraseToAnyPublisher()

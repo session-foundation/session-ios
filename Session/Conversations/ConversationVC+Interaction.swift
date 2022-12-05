@@ -345,23 +345,24 @@ extension ConversationVC:
                     dataSource: dataSource,
                     dataUTI: kUTTypeMPEG4 as String
                 )
-                .attachmentPromise
-                .done { attachment in
-                    guard
-                        !modalActivityIndicator.wasCancelled,
-                        let attachment = attachment as? SignalAttachment
-                    else { return }
-                    
-                    modalActivityIndicator.dismiss {
-                        guard !attachment.hasError else {
-                            self?.showErrorAlert(for: attachment, onDismiss: nil)
-                            return
-                        }
+                .attachmentPublisher
+                .sinkUntilComplete(
+                    receiveValue: { [weak self] attachment in
+                        guard
+                            !modalActivityIndicator.wasCancelled,
+                            let attachment = attachment as? SignalAttachment
+                        else { return }
                         
-                        self?.showAttachmentApprovalDialog(for: [ attachment ])
+                        modalActivityIndicator.dismiss {
+                            guard !attachment.hasError else {
+                                self?.showErrorAlert(for: attachment, onDismiss: nil)
+                                return
+                            }
+                            
+                            self?.showAttachmentApprovalDialog(for: [ attachment ])
+                        }
                     }
-                }
-                .retainUntilComplete()
+                )
         }
     }
     
@@ -422,8 +423,8 @@ extension ConversationVC:
         )
         
         // Send the message
-        Storage.shared.writeAsync(
-            updates: { [weak self] db in
+        Storage.shared
+            .writePublisher { [weak self] db in
                 guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
                     return
                 }
@@ -485,11 +486,12 @@ extension ConversationVC:
                     interaction: interaction,
                     in: thread
                 )
-            },
-            completion: { [weak self] _, _ in
-                self?.handleMessageSent()
             }
-        )
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self] _ in
+                    self?.handleMessageSent()
+                }
+            )
     }
 
     func sendAttachments(_ attachments: [SignalAttachment], with text: String, hasPermissionToSendSeed: Bool = false, onComplete: (() -> ())? = nil) {
@@ -545,8 +547,8 @@ extension ConversationVC:
         )
         
         // Send the message
-        Storage.shared.writeAsync(
-            updates: { [weak self] db in
+        Storage.shared
+            .writePublisher { [weak self] db in
                 guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
                     return
                 }
@@ -574,23 +576,36 @@ extension ConversationVC:
                         .asRequest(of: TimeInterval.self)
                         .fetchOne(db)
                 ).inserted(db)
-
-                try MessageSender.send(
-                    db,
-                    interaction: interaction,
-                    with: attachments,
-                    in: thread
-                )
-            },
-            completion: { [weak self] _, _ in
-                self?.handleMessageSent()
                 
-                // Attachment successfully sent - dismiss the screen
-                DispatchQueue.main.async {
-                    onComplete?()
+                guard let interactionId: Int64 = interaction.id else {
+                    return
                 }
+                
+                // Prepare any attachments
+                try Attachment.prepare(
+                    db,
+                    attachments: attachments,
+                    for: interactionId
+                )
+                
+                // Prepare the message send data
+                try MessageSender
+                    .send(
+                        db,
+                        interaction: interaction,
+                        in: thread
+                    )
             }
-        )
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self] _ in
+                    self?.handleMessageSent()
+                    
+                    // Attachment successfully sent - dismiss the screen
+                    DispatchQueue.main.async {
+                        onComplete?()
+                    }
+                }
+            )
     }
 
     func handleMessageSent() {
@@ -1419,7 +1434,7 @@ extension ConversationVC:
                         .eraseToAnyPublisher()
                 }
                 
-                return MessageSender.sendImmediate(data: sendData)
+                return MessageSender.sendImmediate(preparedSendData: sendData)
             }
             .sinkUntilComplete()
     }

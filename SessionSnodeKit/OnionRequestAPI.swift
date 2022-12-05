@@ -4,7 +4,6 @@ import Foundation
 import Combine
 import CryptoSwift
 import GRDB
-import PromiseKit
 import SessionUtilitiesKit
 
 public protocol OnionRequestAPIType {
@@ -14,7 +13,6 @@ public protocol OnionRequestAPIType {
 
 /// See the "Onion Requests" section of [The Session Whitepaper](https://arxiv.org/pdf/2002.04609.pdf) for more information.
 public enum OnionRequestAPI: OnionRequestAPIType {
-    private static var buildPathsPromise: Promise<[[Snode]]>? = nil
     private static var buildPathsPublisher: Atomic<AnyPublisher<[[Snode]], Error>?> = Atomic(nil)
     
     /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
@@ -64,40 +62,6 @@ public enum OnionRequestAPI: OnionRequestAPIType {
     // MARK: - Private API
     
     /// Tests the given snode. The returned promise errors out if the snode is faulty; the promise is fulfilled otherwise.
-    private static func testSnode(_ snode: Snode) -> Promise<Void> {
-        let (promise, seal) = Promise<Void>.pending()
-        
-        DispatchQueue.global(qos: .userInitiated).async {
-            let url = "\(snode.address):\(snode.port)/get_stats/v1"
-            let timeout: TimeInterval = 3 // Use a shorter timeout for testing
-            
-            HTTP.executeLegacy(.get, url, timeout: timeout)
-                .done2 { responseData in
-                    // TODO: Remove JSON usage
-                    guard let responseJson: JSON = try? JSONSerialization.jsonObject(with: responseData, options: [ .fragmentsAllowed ]) as? JSON else {
-                        throw HTTP.Error.invalidJSON
-                    }
-                    guard let version = responseJson["version"] as? String else {
-                        return seal.reject(OnionRequestAPIError.missingSnodeVersion)
-                    }
-                    
-                    if version >= "2.0.7" {
-                        seal.fulfill(())
-                    }
-                    else {
-                        SNLog("Unsupported snode version: \(version).")
-                        seal.reject(OnionRequestAPIError.unsupportedSnodeVersion(version))
-                    }
-                }
-                .catch2 { error in
-                    seal.reject(error)
-                }
-        }
-        
-        return promise
-    }
-    
-    /// Tests the given snode. The returned promise errors out if the snode is faulty; the promise is fulfilled otherwise.
     private static func testSnode(_ snode: Snode) -> AnyPublisher<Void, Error> {
         let url = "\(snode.address):\(snode.port)/get_stats/v1"
         let timeout: TimeInterval = 3 // Use a shorter timeout for testing
@@ -125,51 +89,6 @@ public enum OnionRequestAPI: OnionRequestAPIType {
                     .eraseToAnyPublisher()
             }
             .eraseToAnyPublisher()
-    }
-
-    /// Finds `targetGuardSnodeCount` guard snodes to use for path building. The returned promise errors out with
-    /// `Error.insufficientSnodes` if not enough (reliable) snodes are available.
-    private static func getGuardSnodes(reusing reusableGuardSnodes: [Snode]) -> Promise<Set<Snode>> {
-        if guardSnodes.count >= targetGuardSnodeCount {
-            return Promise<Set<Snode>> { $0.fulfill(guardSnodes) }
-        }
-        else {
-            SNLog("Populating guard snode cache.")
-            // Sync on LokiAPI.workQueue
-            var unusedSnodes = SnodeAPI.snodePool.wrappedValue.subtracting(reusableGuardSnodes)
-            let reusableGuardSnodeCount = UInt(reusableGuardSnodes.count)
-            
-            guard unusedSnodes.count >= (targetGuardSnodeCount - reusableGuardSnodeCount) else {
-                return Promise(error: OnionRequestAPIError.insufficientSnodes)
-            }
-            
-            func getGuardSnode() -> Promise<Snode> {
-                // randomElement() uses the system's default random generator, which
-                // is cryptographically secure
-                guard let candidate = unusedSnodes.randomElement() else {
-                    return Promise<Snode> { $0.reject(OnionRequestAPIError.insufficientSnodes) }
-                }
-                
-                unusedSnodes.remove(candidate) // All used snodes should be unique
-                SNLog("Testing guard snode: \(candidate).")
-                
-                // Loop until a reliable guard snode is found
-                return testSnode(candidate).map2 { candidate }.recover(on: DispatchQueue.main) { _ in
-                    withDelay(0.1, completionQueue: Threading.workQueue) { getGuardSnode() }
-                }
-            }
-            
-            let promises = (0..<(targetGuardSnodeCount - reusableGuardSnodeCount)).map { _ in
-                getGuardSnode()
-            }
-            
-            return when(fulfilled: promises).map2 { guardSnodes in
-                let guardSnodesAsSet = Set(guardSnodes + reusableGuardSnodes)
-                OnionRequestAPI.guardSnodes = guardSnodesAsSet
-                
-                return guardSnodesAsSet
-            }
-        }
     }
     
     /// Finds `targetGuardSnodeCount` guard snodes to use for path building. The returned promise errors out with
@@ -226,59 +145,6 @@ public enum OnionRequestAPI: OnionRequestAPIType {
                 }
             )
             .eraseToAnyPublisher()
-    }
-
-    /// Builds and returns `targetPathCount` paths. The returned promise errors out with `Error.insufficientSnodes`
-    /// if not enough (reliable) snodes are available.
-    @discardableResult
-    private static func buildPaths(reusing reusablePaths: [[Snode]]) -> Promise<[[Snode]]> {
-        if let existingBuildPathsPromise = buildPathsPromise { return existingBuildPathsPromise }
-        SNLog("Building onion request paths.")
-        DispatchQueue.main.async {
-            NotificationCenter.default.post(name: .buildingPaths, object: nil)
-        }
-        let reusableGuardSnodes = reusablePaths.map { $0[0] }
-        let promise: Promise<[[Snode]]> = getGuardSnodes(reusing: reusableGuardSnodes)
-            .map2 { guardSnodes -> [[Snode]] in
-                var unusedSnodes = SnodeAPI.snodePool.wrappedValue
-                    .subtracting(guardSnodes)
-                    .subtracting(reusablePaths.flatMap { $0 })
-                let reusableGuardSnodeCount = UInt(reusableGuardSnodes.count)
-                let pathSnodeCount = (targetGuardSnodeCount - reusableGuardSnodeCount) * pathSize - (targetGuardSnodeCount - reusableGuardSnodeCount)
-                
-                guard unusedSnodes.count >= pathSnodeCount else { throw OnionRequestAPIError.insufficientSnodes }
-                
-                // Don't test path snodes as this would reveal the user's IP to them
-                return guardSnodes.subtracting(reusableGuardSnodes).map { guardSnode in
-                    let result = [ guardSnode ] + (0..<(pathSize - 1)).map { _ in
-                        // randomElement() uses the system's default random generator, which is cryptographically secure
-                        let pathSnode = unusedSnodes.randomElement()! // Safe because of the pathSnodeCount check above
-                        unusedSnodes.remove(pathSnode) // All used snodes should be unique
-                        return pathSnode
-                    }
-                    
-                    SNLog("Built new onion request path: \(result.prettifiedDescription).")
-                    return result
-                }
-            }
-            .map2 { paths in
-                OnionRequestAPI.paths = paths + reusablePaths
-                
-                Storage.shared.write { db in
-                    SNLog("Persisting onion request paths to database.")
-                    try? paths.save(db)
-                }
-                
-                DispatchQueue.main.async {
-                    NotificationCenter.default.post(name: .pathsBuilt, object: nil)
-                }
-                return paths
-            }
-        
-        promise.done2 { _ in buildPathsPromise = nil }
-        promise.catch2 { _ in buildPathsPromise = nil }
-        buildPathsPromise = promise
-        return promise
     }
     
     /// Builds and returns `targetPathCount` paths. The returned promise errors out with `Error.insufficientSnodes`
@@ -346,74 +212,6 @@ public enum OnionRequestAPI: OnionRequestAPIType {
         buildPathsPublisher.mutate { $0 = publisher }
         
         return publisher
-    }
-
-    /// Returns a `Path` to be used for building an onion request. Builds new paths as needed.
-    private static func getPath(excluding snode: Snode?) -> Promise<[Snode]> {
-        guard pathSize >= 1 else { preconditionFailure("Can't build path of size zero.") }
-        
-        let paths: [[Snode]] = OnionRequestAPI.paths
-        
-        if !paths.isEmpty {
-            guardSnodes.formUnion([ paths[0][0] ])
-            
-            if paths.count >= 2 {
-                guardSnodes.formUnion([ paths[1][0] ])
-            }
-        }
-        
-        // randomElement() uses the system's default random generator, which is cryptographically secure
-        if
-            paths.count >= targetPathCount,
-            let targetPath: [Snode] = paths
-                .filter({ snode == nil || !$0.contains(snode!) })
-                .randomElement()
-        {
-            return Promise { $0.fulfill(targetPath) }
-        }
-        else if !paths.isEmpty {
-            if let snode = snode {
-                if let path = paths.first(where: { !$0.contains(snode) }) {
-                    let tmp: Promise<[[Snode]]> = buildPaths(reusing: paths) // Re-build paths in the background
-                    return Promise { $0.fulfill(path) }
-                }
-                else {
-                    return buildPaths(reusing: paths).map2 { paths in
-                        guard let path: [Snode] = paths.filter({ !$0.contains(snode) }).randomElement() else {
-                            throw OnionRequestAPIError.insufficientSnodes
-                        }
-                        
-                        return path
-                    }
-                }
-            }
-            else {
-                let tmp: Promise<[[Snode]]> = buildPaths(reusing: paths) // Re-build paths in the background
-                
-                guard let path: [Snode] = paths.randomElement() else {
-                    return Promise(error: OnionRequestAPIError.insufficientSnodes)
-                }
-                
-                return Promise { $0.fulfill(path) }
-            }
-        }
-        else {
-            return buildPaths(reusing: []).map2 { paths in
-                if let snode = snode {
-                    if let path = paths.filter({ !$0.contains(snode) }).randomElement() {
-                        return path
-                    }
-                    
-                    throw OnionRequestAPIError.insufficientSnodes
-                }
-                
-                guard let path: [Snode] = paths.randomElement() else {
-                    throw OnionRequestAPIError.insufficientSnodes
-                }
-                
-                return path
-            }
-        }
     }
     
     /// Returns a `Path` to be used for building an onion request. Builds new paths as needed.
@@ -565,50 +363,6 @@ public enum OnionRequestAPI: OnionRequestAPIType {
             SNLog("Persisting onion request paths to database.")
             try? paths.save(db)
         }
-    }
-
-    /// Builds an onion around `payload` and returns the result.
-    private static func buildOnion(around payload: Data, targetedAt destination: OnionRequestAPIDestination) -> Promise<OnionBuildingResult> {
-        var guardSnode: Snode!
-        var targetSnodeSymmetricKey: Data! // Needed by invoke(_:on:with:) to decrypt the response sent back by the destination
-        var encryptionResult: AESGCM.EncryptionResult!
-        var snodeToExclude: Snode?
-        
-        if case .snode(let snode) = destination { snodeToExclude = snode }
-        
-        return getPath(excluding: snodeToExclude)
-            .then2 { path -> Promise<AESGCM.EncryptionResult> in
-                guardSnode = path.first!
-                
-                // Encrypt in reverse order, i.e. the destination first
-                return encrypt(payload, for: destination)
-                    .then2 { r -> Promise<AESGCM.EncryptionResult> in
-                        targetSnodeSymmetricKey = r.symmetricKey
-                        
-                        // Recursively encrypt the layers of the onion (again in reverse order)
-                        encryptionResult = r
-                        var path = path
-                        var rhs = destination
-                        
-                        func addLayer() -> Promise<AESGCM.EncryptionResult> {
-                            guard !path.isEmpty else {
-                                return Promise<AESGCM.EncryptionResult> { $0.fulfill(encryptionResult) }
-                            }
-                            
-                            let lhs = OnionRequestAPIDestination.snode(path.removeLast())
-                            return OnionRequestAPI
-                                .encryptHop(from: lhs, to: rhs, using: encryptionResult)
-                                .then2 { r -> Promise<AESGCM.EncryptionResult> in
-                                    encryptionResult = r
-                                    rhs = lhs
-                                    return addLayer()
-                                }
-                        }
-                        
-                        return addLayer()
-                    }
-            }
-            .map2 { _ in (guardSnode, encryptionResult, targetSnodeSymmetricKey) }
     }
     
     /// Builds an onion around `payload` and returns the result.
@@ -923,123 +677,6 @@ public enum OnionRequestAPI: OnionRequestAPIType {
                 }
                 
                 return (prefixData + requestInfoData + suffixData)
-        }
-    }
-    
-    private static func handleResponse(
-        responseData: Data,
-        destinationSymmetricKey: Data,
-        version: OnionRequestAPIVersion,
-        destination: OnionRequestAPIDestination,
-        seal: Resolver<(OnionRequestResponseInfoType, Data?)>
-    ) {
-        switch version {
-            // V2 and V3 Onion Requests have the same structure for responses
-            case .v2, .v3:
-                let json: JSON
-                
-                if let processedJson = try? JSONSerialization.jsonObject(with: responseData, options: [ .fragmentsAllowed ]) as? JSON {
-                    json = processedJson
-                }
-                else if let result: String = String(data: responseData, encoding: .utf8) {
-                    json = [ "result": result ]
-                }
-                else {
-                    return seal.reject(HTTP.Error.invalidJSON)
-                }
-                
-                guard let base64EncodedIVAndCiphertext = json["result"] as? String, let ivAndCiphertext = Data(base64Encoded: base64EncodedIVAndCiphertext), ivAndCiphertext.count >= AESGCM.ivSize else {
-                    return seal.reject(HTTP.Error.invalidJSON)
-                }
-                
-                do {
-                    let data = try AESGCM.decrypt(ivAndCiphertext, with: destinationSymmetricKey)
-                    
-                    guard let json = try JSONSerialization.jsonObject(with: data, options: [ .fragmentsAllowed ]) as? JSON, let statusCode = json["status_code"] as? Int ?? json["status"] as? Int else {
-                        return seal.reject(HTTP.Error.invalidJSON)
-                    }
-                    
-                    if statusCode == 406 { // Clock out of sync
-                        SNLog("The user's clock is out of sync with the service node network.")
-                        return seal.reject(SnodeAPIError.clockOutOfSync)
-                    }
-                    
-                    if statusCode == 401 { // Signature verification failed
-                        SNLog("Failed to verify the signature.")
-                        return seal.reject(SnodeAPIError.signatureVerificationFailed)
-                    }
-                    
-                    if let bodyAsString = json["body"] as? String {
-                        guard let bodyAsData = bodyAsString.data(using: .utf8) else {
-                            return seal.reject(HTTP.Error.invalidResponse)
-                        }
-                        guard let body = try? JSONSerialization.jsonObject(with: bodyAsData, options: [ .fragmentsAllowed ]) as? JSON else {
-                            return seal.reject(OnionRequestAPIError.httpRequestFailedAtDestination(statusCode: UInt(statusCode), data: bodyAsData, destination: destination))
-                        }
-                        
-                        if let timestamp = body["t"] as? Int64 {
-                            let offset = timestamp - Int64(floor(Date().timeIntervalSince1970 * 1000))
-                            SnodeAPI.clockOffset.mutate { $0 = offset }
-                        }
-                        
-                        guard 200...299 ~= statusCode else {
-                            return seal.reject(OnionRequestAPIError.httpRequestFailedAtDestination(statusCode: UInt(statusCode), data: bodyAsData, destination: destination))
-                        }
-                        
-                        return seal.fulfill((OnionRequestAPI.ResponseInfo(code: statusCode, headers: [:]), bodyAsData))
-                    }
-                    
-                    guard 200...299 ~= statusCode else {
-                        return seal.reject(OnionRequestAPIError.httpRequestFailedAtDestination(statusCode: UInt(statusCode), data: data, destination: destination))
-                    }
-                    
-                    return seal.fulfill((OnionRequestAPI.ResponseInfo(code: statusCode, headers: [:]), data))
-                    
-                }
-                catch {
-                    return seal.reject(error)
-                }
-            
-            // V4 Onion Requests have a very different structure for responses
-            case .v4:
-                guard responseData.count >= AESGCM.ivSize else { return seal.reject(HTTP.Error.invalidResponse) }
-                
-                do {
-                    let data: Data = try AESGCM.decrypt(responseData, with: destinationSymmetricKey)
-                    
-                    // Process the bencoded response
-                    guard let processedResponse: (info: ResponseInfo, body: Data?) = process(bencodedData: data) else {
-                        return seal.reject(HTTP.Error.invalidResponse)
-                    }
-
-                    // Custom handle a clock out of sync error (v4 returns '425' but included the '406'
-                    // just in case)
-                    guard processedResponse.info.code != 406 && processedResponse.info.code != 425 else {
-                        SNLog("The user's clock is out of sync with the service node network.")
-                        return seal.reject(SnodeAPIError.clockOutOfSync)
-                    }
-                    
-                    guard processedResponse.info.code != 401 else { // Signature verification failed
-                        SNLog("Failed to verify the signature.")
-                        return seal.reject(SnodeAPIError.signatureVerificationFailed)
-                    }
-                    
-                    // Handle error status codes
-                    guard 200...299 ~= processedResponse.info.code else {
-                        return seal.reject(
-                            OnionRequestAPIError.httpRequestFailedAtDestination(
-                                statusCode: UInt(processedResponse.info.code),
-                                data: data,
-                                destination: destination
-                            )
-                        )
-                    }
-                    
-                    return seal.fulfill(processedResponse)
-                }
-                catch {
-                    return seal.reject(error)
-                }
         }
     }
     

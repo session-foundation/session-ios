@@ -1,16 +1,13 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
-import Foundation
+import UIKit
+import Combine
+import UserNotifications
 import GRDB
-import PromiseKit
 import WebRTC
 import SessionUIKit
-import UIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
-import SessionUIKit
-import UserNotifications
-import UIKit
 import SignalUtilitiesKit
 import SignalCoreKit
 

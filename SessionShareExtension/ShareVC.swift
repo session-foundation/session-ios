@@ -1,15 +1,15 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Combine
 import CoreServices
-import PromiseKit
 import SignalUtilitiesKit
 import SessionUIKit
 import SignalCoreKit
 
 final class ShareVC: UINavigationController, ShareViewDelegate {
     private var areVersionMigrationsComplete = false
-    public static var attachmentPrepPromise: Promise<[SignalAttachment]>?
+    public static var attachmentPrepPublisher: AnyPublisher<[SignalAttachment], Error>?
     
     // MARK: - Error
     
@@ -187,20 +187,19 @@ final class ShareVC: UINavigationController, ShareViewDelegate {
         
         setViewControllers([ threadPickerVC ], animated: false)
         
-        let promise = buildAttachments()
-        ModalActivityIndicatorViewController.present(
-            fromViewController: self,
-            canCancel: false,
-            message: "vc_share_loading_message".localized()) { activityIndicator in
-            promise
-                .done { _ in
-                    activityIndicator.dismiss { }
-                }
-                .catch { _ in
-                    activityIndicator.dismiss { }
-                }
-        }
-        ShareVC.attachmentPrepPromise = promise
+        let publisher = buildAttachments()
+        ModalActivityIndicatorViewController
+            .present(
+                fromViewController: self,
+                canCancel: false,
+                message: "vc_share_loading_message".localized()
+            ) { activityIndicator in
+                publisher
+                    .sinkUntilComplete(
+                        receiveCompletion: { _ in activityIndicator.dismiss { } }
+                    )
+            }
+        ShareNavController.attachmentPrepPublisher = publisher
     }
     
     func shareViewWasUnlocked() {
@@ -365,10 +364,11 @@ final class ShareVC: UINavigationController, ShareViewDelegate {
         return []
     }
 
-    private func selectItemProviders() -> Promise<[NSItemProvider]> {
+    private func selectItemProviders() -> AnyPublisher<[NSItemProvider], Error> {
         guard let inputItems = self.extensionContext?.inputItems else {
             let error = ShareViewControllerError.assertionError(description: "no input item")
-            return Promise(error: error)
+            return Fail(error: error)
+                .eraseToAnyPublisher()
         }
 
         for inputItemRaw in inputItems {
@@ -377,12 +377,15 @@ final class ShareVC: UINavigationController, ShareViewDelegate {
                 continue
             }
             
-            if let itemProviders = ShareVC.preferredItemProviders(inputItem: inputItem) {
-                return Promise.value(itemProviders)
+            if let itemProviders = ShareNavController.preferredItemProviders(inputItem: inputItem) {
+                return Just(itemProviders)
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
             }
         }
         let error = ShareViewControllerError.assertionError(description: "no input item")
-        return Promise(error: error)
+        return Fail(error: error)
+            .eraseToAnyPublisher()
     }
     
     // MARK: - LoadedItem
@@ -412,7 +415,7 @@ final class ShareVC: UINavigationController, ShareViewDelegate {
         }
     }
     
-    private func loadItemProvider(itemProvider: NSItemProvider) -> Promise<LoadedItem> {
+    private func loadItemProvider(itemProvider: NSItemProvider) -> AnyPublisher<LoadedItem, Error> {
         Logger.info("attachment: \(itemProvider)")
 
         // We need to be very careful about which UTI type we use.
@@ -426,115 +429,173 @@ final class ShareVC: UINavigationController, ShareViewDelegate {
         //   using the file extension.
         guard let srcUtiType = ShareVC.utiType(itemProvider: itemProvider) else {
             let error = ShareViewControllerError.unsupportedMedia
-            return Promise(error: error)
+            return Fail(error: error)
+                .eraseToAnyPublisher()
         }
         Logger.debug("matched utiType: \(srcUtiType)")
 
-        let (promise, resolver) = Promise<LoadedItem>.pending()
-
-        let loadCompletion: NSItemProvider.CompletionHandler = { [weak self]
-            (value, error) in
-
-            guard let _ = self else { return }
-            guard error == nil else {
-                resolver.reject(error!)
-                return
-            }
-
-            guard let value = value else {
-                let missingProviderError = ShareViewControllerError.assertionError(description: "missing item provider")
-                resolver.reject(missingProviderError)
-                return
-            }
-
-            Logger.info("value type: \(type(of: value))")
-
-            if let data = value as? Data {
-                let customFileName = "Contact.vcf"
-
-                let customFileExtension = MIMETypeUtil.fileExtension(forUTIType: srcUtiType)
-                guard let tempFilePath = OWSFileSystem.writeData(toTemporaryFile: data, fileExtension: customFileExtension) else {
-                    let writeError = ShareViewControllerError.assertionError(description: "Error writing item data: \(String(describing: error))")
-                    resolver.reject(writeError)
-                    return
-                }
-                let fileUrl = URL(fileURLWithPath: tempFilePath)
-                resolver.fulfill(LoadedItem(itemProvider: itemProvider,
-                                            itemUrl: fileUrl,
-                                            utiType: srcUtiType,
-                                            customFileName: customFileName,
-                                            isConvertibleToContactShare: false))
-            } else if let string = value as? String {
-                Logger.debug("string provider: \(string)")
-                guard let data = string.filterStringForDisplay().data(using: String.Encoding.utf8) else {
-                    let writeError = ShareViewControllerError.assertionError(description: "Error writing item data: \(String(describing: error))")
-                    resolver.reject(writeError)
-                    return
-                }
-                guard let tempFilePath = OWSFileSystem.writeData(toTemporaryFile: data, fileExtension: "txt") else {
-                    let writeError = ShareViewControllerError.assertionError(description: "Error writing item data: \(String(describing: error))")
-                    resolver.reject(writeError)
+        return Future<LoadedItem, Error> { resolver in
+            let loadCompletion: NSItemProvider.CompletionHandler = { [weak self] value, error in
+                guard self != nil else { return }
+                if let error: Error = error {
+                    resolver(Result.failure(error))
                     return
                 }
 
-                let fileUrl = URL(fileURLWithPath: tempFilePath)
+                guard let value = value else {
+                    resolver(
+                        Result.failure(ShareViewControllerError.assertionError(description: "missing item provider"))
+                    )
+                    return
+                }
 
-                let isConvertibleToTextMessage = !itemProvider.registeredTypeIdentifiers.contains(kUTTypeFileURL as String)
+                Logger.info("value type: \(type(of: value))")
+                
+                switch value {
+                    case let data as Data:
+                        let customFileName = "Contact.vcf"
 
-                if UTTypeConformsTo(srcUtiType as CFString, kUTTypeText) {
-                    resolver.fulfill(LoadedItem(itemProvider: itemProvider,
-                                                itemUrl: fileUrl,
-                                                utiType: srcUtiType,
-                                                isConvertibleToTextMessage: isConvertibleToTextMessage))
-                } else {
-                    resolver.fulfill(LoadedItem(itemProvider: itemProvider,
-                                                itemUrl: fileUrl,
-                                                utiType: kUTTypeText as String,
-                                                isConvertibleToTextMessage: isConvertibleToTextMessage))
+                        let customFileExtension = MIMETypeUtil.fileExtension(forUTIType: srcUtiType)
+                        guard let tempFilePath = OWSFileSystem.writeData(toTemporaryFile: data, fileExtension: customFileExtension) else {
+                            resolver(
+                                Result.failure(ShareViewControllerError.assertionError(description: "Error writing item data: \(String(describing: error))"))
+                            )
+                            return
+                        }
+                        let fileUrl = URL(fileURLWithPath: tempFilePath)
+                        
+                        resolver(
+                            Result.success(
+                                LoadedItem(
+                                    itemProvider: itemProvider,
+                                    itemUrl: fileUrl,
+                                    utiType: srcUtiType,
+                                    customFileName: customFileName,
+                                    isConvertibleToContactShare: false
+                                )
+                            )
+                        )
+                        
+                    case let string as String:
+                        Logger.debug("string provider: \(string)")
+                        guard let data = string.filterStringForDisplay().data(using: String.Encoding.utf8) else {
+                            resolver(
+                                Result.failure(ShareViewControllerError.assertionError(description: "Error writing item data: \(String(describing: error))"))
+                            )
+                            return
+                        }
+                        guard let tempFilePath = OWSFileSystem.writeData(toTemporaryFile: data, fileExtension: "txt") else {
+                            resolver(
+                                Result.failure(ShareViewControllerError.assertionError(description: "Error writing item data: \(String(describing: error))"))
+                            )
+                            return
+                        }
+
+                        let fileUrl = URL(fileURLWithPath: tempFilePath)
+
+                        let isConvertibleToTextMessage = !itemProvider.registeredTypeIdentifiers.contains(kUTTypeFileURL as String)
+
+                        if UTTypeConformsTo(srcUtiType as CFString, kUTTypeText) {
+                            resolver(
+                                Result.success(
+                                    LoadedItem(
+                                        itemProvider: itemProvider,
+                                        itemUrl: fileUrl,
+                                        utiType: srcUtiType,
+                                        isConvertibleToTextMessage: isConvertibleToTextMessage
+                                    )
+                                )
+                            )
+                        }
+                        else {
+                            resolver(
+                                Result.success(
+                                    LoadedItem(
+                                        itemProvider: itemProvider,
+                                        itemUrl: fileUrl,
+                                        utiType: kUTTypeText as String,
+                                        isConvertibleToTextMessage: isConvertibleToTextMessage
+                                    )
+                                )
+                            )
+                        }
+                        
+                    case let url as URL:
+                        // If the share itself is a URL (e.g. a link from Safari), try to send this as a text message.
+                        let isConvertibleToTextMessage = (
+                            itemProvider.registeredTypeIdentifiers.contains(kUTTypeURL as String) &&
+                            !itemProvider.registeredTypeIdentifiers.contains(kUTTypeFileURL as String)
+                        )
+                        
+                        if isConvertibleToTextMessage {
+                            resolver(
+                                Result.success(
+                                    LoadedItem(
+                                        itemProvider: itemProvider,
+                                        itemUrl: url,
+                                        utiType: kUTTypeURL as String,
+                                        isConvertibleToTextMessage: isConvertibleToTextMessage
+                                    )
+                                )
+                            )
+                        }
+                        else {
+                            resolver(
+                                Result.success(
+                                    LoadedItem(
+                                        itemProvider: itemProvider,
+                                        itemUrl: url,
+                                        utiType: srcUtiType,
+                                        isConvertibleToTextMessage: isConvertibleToTextMessage
+                                    )
+                                )
+                            )
+                        }
+                        
+                    case let image as UIImage:
+                        if let data = image.pngData() {
+                            let tempFilePath = OWSFileSystem.temporaryFilePath(withFileExtension: "png")
+                            do {
+                                let url = NSURL.fileURL(withPath: tempFilePath)
+                                try data.write(to: url)
+                                
+                                resolver(
+                                    Result.success(
+                                        LoadedItem(
+                                            itemProvider: itemProvider,
+                                            itemUrl: url,
+                                            utiType: srcUtiType
+                                        )
+                                    )
+                                )
+                            }
+                            catch {
+                                resolver(
+                                    Result.failure(ShareViewControllerError.assertionError(description: "couldn't write UIImage: \(String(describing: error))"))
+                                )
+                            }
+                        }
+                        else {
+                            resolver(
+                                Result.failure(ShareViewControllerError.assertionError(description: "couldn't convert UIImage to PNG: \(String(describing: error))"))
+                            )
+                        }
+                        
+                    default:
+                        // It's unavoidable that we may sometimes receives data types that we
+                        // don't know how to handle.
+                        resolver(
+                            Result.failure(ShareViewControllerError.assertionError(description: "unexpected value: \(String(describing: value))"))
+                        )
                 }
-            } else if let url = value as? URL {
-                // If the share itself is a URL (e.g. a link from Safari), try to send this as a text message.
-                let isConvertibleToTextMessage = (itemProvider.registeredTypeIdentifiers.contains(kUTTypeURL as String) &&
-                    !itemProvider.registeredTypeIdentifiers.contains(kUTTypeFileURL as String))
-                if isConvertibleToTextMessage {
-                    resolver.fulfill(LoadedItem(itemProvider: itemProvider,
-                                                itemUrl: url,
-                                                utiType: kUTTypeURL as String,
-                                                isConvertibleToTextMessage: isConvertibleToTextMessage))
-                } else {
-                    resolver.fulfill(LoadedItem(itemProvider: itemProvider,
-                                                itemUrl: url,
-                                                utiType: srcUtiType,
-                                                isConvertibleToTextMessage: isConvertibleToTextMessage))
-                }
-            } else if let image = value as? UIImage {
-                if let data = image.pngData() {
-                    let tempFilePath = OWSFileSystem.temporaryFilePath(withFileExtension: "png")
-                    do {
-                        let url = NSURL.fileURL(withPath: tempFilePath)
-                        try data.write(to: url)
-                        resolver.fulfill(LoadedItem(itemProvider: itemProvider, itemUrl: url,
-                                                    utiType: srcUtiType))
-                    } catch {
-                        resolver.reject(ShareViewControllerError.assertionError(description: "couldn't write UIImage: \(String(describing: error))"))
-                    }
-                } else {
-                    resolver.reject(ShareViewControllerError.assertionError(description: "couldn't convert UIImage to PNG: \(String(describing: error))"))
-                }
-            } else {
-                // It's unavoidable that we may sometimes receives data types that we
-                // don't know how to handle.
-                let unexpectedTypeError = ShareViewControllerError.assertionError(description: "unexpected value: \(String(describing: value))")
-                resolver.reject(unexpectedTypeError)
             }
+            
+            itemProvider.loadItem(forTypeIdentifier: srcUtiType, options: nil, completionHandler: loadCompletion)
         }
-
-        itemProvider.loadItem(forTypeIdentifier: srcUtiType, options: nil, completionHandler: loadCompletion)
-
-        return promise
+        .eraseToAnyPublisher()
     }
     
-    private func buildAttachment(forLoadedItem loadedItem: LoadedItem) -> Promise<SignalAttachment> {
+    private func buildAttachment(forLoadedItem loadedItem: LoadedItem) -> AnyPublisher<SignalAttachment, Error> {
         let itemProvider = loadedItem.itemProvider
         let itemUrl = loadedItem.itemUrl
         let utiType = loadedItem.utiType
@@ -546,14 +607,16 @@ final class ShareVC: UINavigationController, ShareViewDelegate {
             }
         } catch {
             let error = ShareViewControllerError.assertionError(description: "Could not copy video")
-            return Promise(error: error)
+            return Fail(error: error)
+                .eraseToAnyPublisher()
         }
 
         Logger.debug("building DataSource with url: \(url), utiType: \(utiType)")
 
         guard let dataSource = ShareVC.createDataSource(utiType: utiType, url: url, customFileName: loadedItem.customFileName) else {
             let error = ShareViewControllerError.assertionError(description: "Unable to read attachment data")
-            return Promise(error: error)
+            return Fail(error: error)
+                .eraseToAnyPublisher()
         }
 
         // start with base utiType, but it might be something generic like "image"
@@ -572,8 +635,8 @@ final class ShareVC: UINavigationController, ShareViewDelegate {
 
         guard !SignalAttachment.isInvalidVideo(dataSource: dataSource, dataUTI: specificUTIType) else {
             // This can happen, e.g. when sharing a quicktime-video from iCloud drive.
-            let (promise, _) = SignalAttachment.compressVideoAsMp4(dataSource: dataSource, dataUTI: specificUTIType)
-            return promise
+            let (publisher, _) = SignalAttachment.compressVideoAsMp4(dataSource: dataSource, dataUTI: specificUTIType)
+            return publisher
         }
 
         let attachment = SignalAttachment.attachment(dataSource: dataSource, dataUTI: specificUTIType, imageQuality: .medium)
@@ -584,34 +647,49 @@ final class ShareVC: UINavigationController, ShareViewDelegate {
             Logger.info("isConvertibleToTextMessage")
             attachment.isConvertibleToTextMessage = true
         }
-        return Promise.value(attachment)
+        return Just(attachment)
+            .setFailureType(to: Error.self)
+            .eraseToAnyPublisher()
     }
 
-    private func buildAttachments() -> Promise<[SignalAttachment]> {
-        return selectItemProviders().then {  [weak self] (itemProviders) -> Promise<[SignalAttachment]> in
-            guard let strongSelf = self else {
-                let error = ShareViewControllerError.assertionError(description: "expired")
-                return Promise(error: error)
-            }
+    private func buildAttachments() -> AnyPublisher<[SignalAttachment], Error> {
+        return selectItemProviders()
+            .flatMap { [weak self] itemProviders -> AnyPublisher<[SignalAttachment], Error> in
+                guard let strongSelf = self else {
+                    let error = ShareViewControllerError.assertionError(description: "expired")
+                    return Fail(error: error)
+                        .eraseToAnyPublisher()
+                }
 
-            var loadPromises = [Promise<SignalAttachment>]()
+                var loadPublishers = [AnyPublisher<SignalAttachment, Error>]()
 
-            for itemProvider in itemProviders.prefix(SignalAttachment.maxAttachmentsAllowed) {
-                let loadPromise = strongSelf.loadItemProvider(itemProvider: itemProvider)
-                    .then({ (loadedItem) -> Promise<SignalAttachment> in
-                        return strongSelf.buildAttachment(forLoadedItem: loadedItem)
-                    })
+                for itemProvider in itemProviders.prefix(SignalAttachment.maxAttachmentsAllowed) {
+                    let loadPublisher = strongSelf.loadItemProvider(itemProvider: itemProvider)
+                        .flatMap { loadedItem -> AnyPublisher<SignalAttachment, Error> in
+                            return strongSelf.buildAttachment(forLoadedItem: loadedItem)
+                        }
+                        .eraseToAnyPublisher()
 
-                loadPromises.append(loadPromise)
+                    loadPublishers.append(loadPublisher)
+                }
+                
+                return Publishers
+                    .MergeMany(loadPublishers)
+                    .collect()
+                    .eraseToAnyPublisher()
             }
-            return when(fulfilled: loadPromises)
-        }.map { (signalAttachments) -> [SignalAttachment] in
-            guard signalAttachments.count > 0 else {
-                let error = ShareViewControllerError.assertionError(description: "no valid attachments")
-                throw error
+            .flatMap { signalAttachments -> AnyPublisher<[SignalAttachment], Error> in
+                guard signalAttachments.count > 0 else {
+                    return Fail(error: ShareViewControllerError.assertionError(description: "no valid attachments"))
+                        .eraseToAnyPublisher()
+                }
+                
+                return Just(signalAttachments)
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
             }
-            return signalAttachments
-        }
+            .shareReplay(1)
+            .eraseToAnyPublisher()
     }
 
     // Some host apps (e.g. iOS Photos.app) sometimes auto-converts some video formats (e.g. com.apple.quicktime-movie)

@@ -446,7 +446,7 @@ public extension LinkPreview {
     }
     
     private static func parse(linkData: Data, response: URLResponse) throws -> Contents {
-        guard let linkText = String(data: linkData, urlResponse: response) else {
+        guard let linkText = String(bytes: linkData, encoding: response.stringEncoding ?? .utf8) else {
             print("Could not parse link text.")
             throw LinkPreviewError.invalidInput
         }

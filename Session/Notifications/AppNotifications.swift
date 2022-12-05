@@ -559,15 +559,14 @@ class NotificationActionHandler {
                     includingOlder: true,
                     trySendReadReceipt: true
                 )
-                // TODO: Will need to split the attachment upload from the message preparation logic
+                
                 return try MessageSender.preparedSendData(
                     db,
                     interaction: interaction,
                     in: thread
                 )
             }
-            .flatMap { MessageSender.performUploadsIfNeeded(preparedSendData: $0) }
-            .flatMap { MessageSender.sendImmediate(data: $0) }
+            .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
             .handleEvents(
                 receiveCompletion: { result in
                     switch result {

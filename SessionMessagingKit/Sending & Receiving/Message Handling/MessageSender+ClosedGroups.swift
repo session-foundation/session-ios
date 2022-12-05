@@ -113,7 +113,7 @@ extension MessageSender {
             .MergeMany(
                 // Send a closed group update message to all members individually
                 memberSendData
-                    .map { MessageSender.sendImmediate(data: $0) }
+                    .map { MessageSender.sendImmediate(preparedSendData: $0) }
                     .appending(
                         // Notify the PN server
                         PushNotificationAPI.performOperation(
@@ -209,7 +209,7 @@ extension MessageSender {
                 .eraseToAnyPublisher()
         }
         
-        return MessageSender.sendImmediate(data: sendData)
+        return MessageSender.sendImmediate(preparedSendData: sendData)
             .map { _ in newKeyPair }
             .eraseToAnyPublisher()
             .handleEvents(
@@ -490,7 +490,7 @@ extension MessageSender {
         // Send the update to the group and generate + distribute a new encryption key pair
         return MessageSender
             .sendImmediate(
-                data: try MessageSender
+                preparedSendData: try MessageSender
                     .preparedSendData(
                         db,
                         message: LegacyClosedGroupControlMessage(
@@ -593,7 +593,7 @@ extension MessageSender {
         }
         
         return MessageSender
-            .sendImmediate(data: sendData)
+            .sendImmediate(preparedSendData: sendData)
             .handleEvents(
                 receiveCompletion: { result in
                     switch result {

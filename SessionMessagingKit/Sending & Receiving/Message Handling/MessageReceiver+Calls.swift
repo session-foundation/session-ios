@@ -194,19 +194,21 @@ extension MessageReceiver {
         )
         .inserted(db)
         
-        try MessageSender
-            .sendNonDurably(
-                db,
-                message: CallMessage(
-                    uuid: message.uuid,
-                    kind: .endCall,
-                    sdps: [],
-                    sentTimestampMs: nil // Explicitly nil as it's a separate message from above
-                ),
-                interactionId: nil,      // Explicitly nil as it's a separate message from above
-                in: thread
-            )
-            .retainUntilComplete()
+        MessageSender.sendImmediate(
+            preparedSendData: try MessageSender
+                .preparedSendData(
+                    db,
+                    message: CallMessage(
+                        uuid: message.uuid,
+                        kind: .endCall,
+                        sdps: [],
+                        sentTimestampMs: nil // Explicitly nil as it's a separate message from above
+                    ),
+                    to: try Message.Destination.from(db, thread: thread),
+                    interactionId: nil      // Explicitly nil as it's a separate message from above
+                )
+        )
+        .sinkUntilComplete()
     }
     
     @discardableResult public static func insertCallInfoMessage(

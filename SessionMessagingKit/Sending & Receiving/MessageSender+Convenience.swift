@@ -3,25 +3,11 @@
 import Foundation
 import Combine
 import GRDB
-import PromiseKit
 import SessionUtilitiesKit
 
 extension MessageSender {
     
     // MARK: - Durable
-    
-    public static func send(_ db: Database, interaction: Interaction, with attachments: [SignalAttachment], in thread: SessionThread) throws {
-        guard let interactionId: Int64 = interaction.id else { throw StorageError.objectNotSaved }
-        
-        try prep(db, signalAttachments: attachments, for: interactionId)
-        send(
-            db,
-            message: VisibleMessage.from(db, interaction: interaction),
-            threadId: thread.id,
-            interactionId: interactionId,
-            to: try Message.Destination.from(db, thread: thread)
-        )
-    }
     
     public static func send(_ db: Database, interaction: Interaction, in thread: SessionThread) throws {
         // Only 'VisibleMessage' types can be sent via this method
@@ -64,33 +50,6 @@ extension MessageSender {
 
     // MARK: - Non-Durable
     
-    public static func sendNonDurably(_ db: Database, interaction: Interaction, with attachments: [SignalAttachment], in thread: SessionThread) throws -> Promise<Void> {
-        guard let interactionId: Int64 = interaction.id else { return Promise(error: StorageError.objectNotSaved) }
-        
-        try prep(db, signalAttachments: attachments, for: interactionId)
-        
-        return sendNonDurably(
-            db,
-            message: VisibleMessage.from(db, interaction: interaction),
-            interactionId: interactionId,
-            to: try Message.Destination.from(db, thread: thread)
-        )
-    }
-    
-    
-    public static func sendNonDurably(_ db: Database, interaction: Interaction, in thread: SessionThread) throws -> Promise<Void> {
-        // Only 'VisibleMessage' types can be sent via this method
-        guard interaction.variant == .standardOutgoing else { throw MessageSenderError.invalidMessage }
-        guard let interactionId: Int64 = interaction.id else { throw StorageError.objectNotSaved }
-        
-        return sendNonDurably(
-            db,
-            message: VisibleMessage.from(db, interaction: interaction),
-            interactionId: interactionId,
-            to: try Message.Destination.from(db, thread: thread)
-        )
-    }
-    
     public static func preparedSendData(
         _ db: Database,
         interaction: Interaction,
@@ -106,105 +65,6 @@ extension MessageSender {
             to: try Message.Destination.from(db, thread: thread),
             interactionId: interactionId
         )
-    }
-    
-    public static func sendNonDurably(_ db: Database, message: Message, interactionId: Int64?, in thread: SessionThread) throws -> Promise<Void> {
-        return sendNonDurably(
-            db,
-            message: message,
-            interactionId: interactionId,
-            to: try Message.Destination.from(db, thread: thread)
-        )
-    }
-    
-    public static func sendNonDurably(_ db: Database, message: Message, interactionId: Int64?, to destination: Message.Destination) -> Promise<Void> {
-        var attachmentUploadPromises: [Promise<String?>] = [Promise.value(nil)]
-        
-        // If we have an interactionId then check if it has any attachments and process them first
-        if let interactionId: Int64 = interactionId {
-            let threadId: String = {
-                switch destination {
-                    case .contact(let publicKey, _): return publicKey
-                    case .closedGroup(let groupPublicKey, _): return groupPublicKey
-                    case .openGroup(let roomToken, let server, _, _, _):
-                        return OpenGroup.idFor(roomToken: roomToken, server: server)
-                        
-                    case .openGroupInbox(_, _, let blindedPublicKey): return blindedPublicKey
-                }
-            }()
-            let openGroup: OpenGroup? = try? OpenGroup.fetchOne(db, id: threadId)
-            let attachmentStateInfo: [Attachment.StateInfo] = (try? Attachment
-                .stateInfo(interactionId: interactionId, state: .uploading)
-                .fetchAll(db))
-                .defaulting(to: [])
-            
-            attachmentUploadPromises = (try? Attachment
-                .filter(ids: attachmentStateInfo.map { $0.attachmentId })
-                .fetchAll(db))
-                .defaulting(to: [])
-                .map { attachment -> Promise<String?> in
-                    let (promise, seal) = Promise<String?>.pending()
-    
-                    attachment.upload(
-                        db,
-                        queue: DispatchQueue.global(qos: .userInitiated),
-                        using: { db, data in
-                            if let openGroup: OpenGroup = openGroup {
-                                return OpenGroupAPI
-                                    .uploadFile(
-                                        db,
-                                        bytes: data.bytes,
-                                        to: openGroup.roomToken,
-                                        on: openGroup.server
-                                    )
-                                    .map { _, response -> String in response.id }
-                                    .eraseToAnyPublisher()
-                            }
-    
-                            return FileServerAPI.upload(data)
-                                .map { response -> String in response.id }
-                                .eraseToAnyPublisher()
-                        },
-                        encrypt: (openGroup == nil),
-                        success: { fileId in seal.fulfill(fileId) },
-                        failure: { seal.reject($0) }
-                    )
-    
-                    return promise
-                }
-        }
-
-        // Once the attachments are processed then send the message
-        // TODO: Need to update all usages of this method
-        preconditionFailure()
-//        return when(resolved: attachmentUploadPromises)
-//            .then { results -> Promise<Void> in
-//                let errors: [Error] = results
-//                    .compactMap { result -> Error? in
-//                        if case .rejected(let error) = result { return error }
-//
-//                        return nil
-//                    }
-//
-//                if let error: Error = errors.first { return Promise(error: error) }
-//
-//                return Storage.shared.writeAsync { db in
-//                    let fileIds: [String] = results
-//                        .compactMap { result -> String? in
-//                            if case .fulfilled(let value) = result { return value }
-//
-//                            return nil
-//                        }
-//
-//                    return try MessageSender.sendImmediate(
-//                        db,
-//                        message: message,
-//                        to: destination
-//                            .with(fileIds: fileIds),
-//                        interactionId: interactionId
-//                    )
-//                }
-//            }
     }
     
     public static func performUploadsIfNeeded(
@@ -242,7 +102,7 @@ extension MessageSender {
                 
                 // If there is no attachment data then just return early
                 guard !attachmentStateInfo.isEmpty else { return nil }
-                
+                // TODO: Just run an AttachmentUploadJob directly???
                 // Otherwise we need to generate the upload requests
                 let openGroup: OpenGroup? = try? OpenGroup.fetchOne(db, id: threadId)
                 
@@ -385,23 +245,14 @@ extension MessageSender {
         .retainUntilComplete()
         
         // TODO: Test this (does it break anything? want to stop the db write asap)
+        /// We don't want to block the db write thread so we trigger the actual message sending after the query has
+        /// finished
         return Future<Void, Error> { resolver in
             db.afterNextTransaction { _ in
-                // TODO: Remove the 'Swift.'
-                resolver(Swift.Result.success(()))
+                resolver(Result.success(()))
             }
         }
-        .flatMap { _ in MessageSender.sendImmediate(data: sendData) }
+        .flatMap { _ in MessageSender.sendImmediate(preparedSendData: sendData) }
         .eraseToAnyPublisher()
-        
-//        return MessageSender
-//            .sendImmediate(
-//                data: try MessageSender.preparedSendData(
-//                    db,
-//                    message: configurationMessage,
-//                    to: destination,
-//                    interactionId: nil
-//                )
-//            )
     }
 }
