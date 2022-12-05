@@ -194,7 +194,7 @@ final class ConversationTitleView: UIView {
                 labelTypes.append(.userCount)
             }
             
-            if let config = disappearingMessagesConfig, config.isEnabled == true, DisappearingMessagesConfiguration.isNewConfigurationEnabled {
+            if let config = disappearingMessagesConfig, config.isEnabled == true {
                 let imageAttachment = NSTextAttachment()
                 imageAttachment.image = UIImage(systemName: "timer")?.withTint(textPrimary)
                 imageAttachment.bounds = CGRect(
