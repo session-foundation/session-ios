@@ -52,29 +52,16 @@ public enum AttachmentUploadJob: JobExecutor {
         // reentrancy issues when the success/failure closures get called before the upload as the JobRunner
         // will attempt to update the state of the job immediately
         attachment.upload(
-            queue: queue,
-            using: { db, data in
-                SNLog("[AttachmentUpload] Started for message \(interactionId) (\(attachment.byteCount) bytes)")
-                
-                if let openGroup: OpenGroup = openGroup {
-                    return OpenGroupAPI
-                        .uploadFile(
-                            db,
-                            bytes: data.bytes,
-                            to: openGroup.roomToken,
-                            on: openGroup.server
-                        )
-                        .map { _, response -> String in response.id }
-                        .eraseToAnyPublisher()
+            to: (openGroup.map { .openGroup($0) } ?? .fileServer),
+            queue: queue
+        )
+        .sinkUntilComplete(
+            receiveCompletion: { result in
+                switch result {
+                    case .failure(let error): failure(job, error, false)
+                    case .finished: success(job, false)
                 }
-                
-                return FileServerAPI.upload(data)
-                    .map { response -> String in response.id }
-                    .eraseToAnyPublisher()
-            },
-            encrypt: (openGroup == nil),
-            success: { _ in success(job, false) },
-            failure: { error in failure(job, error, false) }
+            }
         )
     }
 }

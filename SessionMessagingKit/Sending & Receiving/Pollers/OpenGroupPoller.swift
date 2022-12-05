@@ -28,7 +28,6 @@ extension OpenGroupAPI {
         }
         
         public func startIfNeeded(using dependencies: OpenGroupManager.OGMDependencies = OpenGroupManager.OGMDependencies()) {
-            return// TODO: Remove this (reentrancy issues - looks like it could be resolved by splitting out the OpenGroupAPI request signing into it's own step)
             guard !hasStarted else { return }
             
             hasStarted = true
@@ -113,14 +112,7 @@ extension OpenGroupAPI {
                         .map { response in (failureCount, response) }
                         .eraseToAnyPublisher()
                 }
-                .subscribe(
-                    // If this was run via the background poller then don't run on the pollerQueue
-                    // TODO: Need to test if this dispatches to the next run loop or blocks (want it to block)
-                    on: (calledFromBackgroundPoller ?
-                         DispatchQueue.main :
-                        Threading.pollerQueue
-                    )
-                )
+                .subscribe(on: Threading.pollerQueue)
                 .handleEvents(
                     receiveOutput: { [weak self] failureCount, response in
                         guard !calledFromBackgroundPoller || isBackgroundPollerValid() else {

@@ -246,11 +246,13 @@ public final class OpenGroupManager: NSObject {
                 OpenGroup.Columns.sequenceNumber.set(to: 0)
             )
         
+        // We was to avoid blocking the db write thread so we dispatch the API call to a different thread
+        //
         // Note: We don't do this after the db commit as it can fail (resulting in endless loading)
-        return Future<Void, Error> { resolver in
-                OpenGroupAPI.workQueue.async { resolver(Result.success(())) }
-            }
+        return Just(())
+            .setFailureType(to: Error.self)
             .subscribe(on: OpenGroupAPI.workQueue)
+            .receive(on: OpenGroupAPI.workQueue)
             .flatMap { _ in
                 dependencies.storage
                     .readPublisherFlatMap { db in
@@ -286,8 +288,7 @@ public final class OpenGroupManager: NSObject {
                             on: targetServer,
                             dependencies: dependencies
                         ) {
-                            // TODO: Remove the 'Swift.'
-                            resolver(Swift.Result.success(()))
+                            resolver(Result.success(()))
                         }
                     }
                 }
@@ -943,10 +944,6 @@ public final class OpenGroupManager: NSObject {
     @discardableResult public static func getDefaultRoomsIfNeeded(
         using dependencies: OGMDependencies = OGMDependencies()
     ) -> AnyPublisher<[OpenGroupAPI.Room], Error> {
-        return Just([]) // TODO: Remove this
-            .setFailureType(to: Error.self)
-            .eraseToAnyPublisher()
-        
         // Note: If we already have a 'defaultRoomsPromise' then there is no need to get it again
         if let existingPublisher: AnyPublisher<[OpenGroupAPI.Room], Error> = dependencies.cache.defaultRoomsPublisher {
             return existingPublisher

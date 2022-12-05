@@ -99,7 +99,7 @@ extension MessageSender {
                             // the 'ClosedGroup' object we created
                             sentTimestampMs: UInt64(floor(formationTimestamp * 1000))
                         ),
-                        to: try Message.Destination.from(db, thread: thread),
+                        to: .contact(publicKey: memberId),
                         interactionId: nil
                     )
                 }

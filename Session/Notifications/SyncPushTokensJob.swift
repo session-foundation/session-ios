@@ -78,10 +78,8 @@ public enum SyncPushTokensJob: JobExecutor {
                         pushToken: pushToken,
                         voipToken: voipToken,
                         isForcedUpdate: shouldUploadTokens,
-                        // TODO: Remove the 'Swift.'
-                        success: { resolver(Swift.Result.success(())) },
-                        // TODO: Remove the 'Swift.'
-                        failure: { resolver(Swift.Result.failure($0)) }
+                        success: { resolver(Result.success(())) },
+                        failure: { resolver(Result.failure($0)) }
                     )
                 }
                 .handleEvents(

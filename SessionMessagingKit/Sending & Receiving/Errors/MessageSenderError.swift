@@ -10,6 +10,7 @@ public enum MessageSenderError: LocalizedError {
     case signingFailed
     case encryptionFailed
     case noUsername
+    case attachmentsNotUploaded
     
     // Closed groups
     case noThread
@@ -34,6 +35,7 @@ public enum MessageSenderError: LocalizedError {
             case .signingFailed: return "Couldn't sign message."
             case .encryptionFailed: return "Couldn't encrypt message."
             case .noUsername: return "Missing username."
+            case .attachmentsNotUploaded: return "Attachments for this message have not been uploaded."
             
             // Closed groups
             case .noThread: return "Couldn't find a thread associated with the given group public key."

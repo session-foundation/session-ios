@@ -184,6 +184,7 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
             .present(fromViewController: navigationController!, canCancel: false) { [weak self] modalActivityIndicator in
             SnodeAPI
                 .getSessionID(for: onsNameOrPublicKey)
+                .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveCompletion: { result in
                         switch result {

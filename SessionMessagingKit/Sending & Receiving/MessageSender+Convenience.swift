@@ -93,66 +93,57 @@ extension MessageSender {
                 case .openGroupInbox(_, _, let blindedPublicKey): return blindedPublicKey
             }
         }()
-        let fileIdPublisher: AnyPublisher<[String?], Error> = Storage.shared
-            .write { db -> AnyPublisher<[String?], Error>? in
+        
+        return Storage.shared
+            .readPublisherFlatMap { db -> AnyPublisher<(attachments: [Attachment], openGroup: OpenGroup?), Error> in
                 let attachmentStateInfo: [Attachment.StateInfo] = (try? Attachment
                     .stateInfo(interactionId: interactionId, state: .uploading)
                     .fetchAll(db))
                     .defaulting(to: [])
                 
                 // If there is no attachment data then just return early
-                guard !attachmentStateInfo.isEmpty else { return nil }
-                // TODO: Just run an AttachmentUploadJob directly???
-                // Otherwise we need to generate the upload requests
-                let openGroup: OpenGroup? = try? OpenGroup.fetchOne(db, id: threadId)
+                guard !attachmentStateInfo.isEmpty else {
+                    return Just(([], nil))
+                        .setFailureType(to: Error.self)
+                        .eraseToAnyPublisher()
+                }
+                
+                // Otherwise fetch the open group (if there is one)
+                return Just((
+                    (try? Attachment
+                        .filter(ids: attachmentStateInfo.map { $0.attachmentId })
+                        .fetchAll(db))
+                        .defaulting(to: []),
+                    try? OpenGroup.fetchOne(db, id: threadId)
+                ))
+                .setFailureType(to: Error.self)
+                .eraseToAnyPublisher()
+            }
+            .flatMap { attachments, openGroup -> AnyPublisher<[String?], Error> in
+                guard !attachments.isEmpty else {
+                    return Just<[String?]>([])
+                        .setFailureType(to: Error.self)
+                        .eraseToAnyPublisher()
+                }
                 
                 return Publishers
                     .MergeMany(
-                        (try? Attachment
-                            .filter(ids: attachmentStateInfo.map { $0.attachmentId })
-                            .fetchAll(db))
-                            .defaulting(to: [])
+                        attachments
                             .map { attachment -> AnyPublisher<String?, Error> in
-                                Future { resolver in
-                                    attachment.upload(
-                                        db,
-                                        queue: DispatchQueue.global(qos: .userInitiated),
-                                        using: { db, data in
-                                            if let openGroup: OpenGroup = openGroup {
-                                                return OpenGroupAPI
-                                                    .uploadFile(
-                                                        db,
-                                                        bytes: data.bytes,
-                                                        to: openGroup.roomToken,
-                                                        on: openGroup.server
-                                                    )
-                                                    .map { _, response -> String in response.id }
-                                                    .eraseToAnyPublisher()
-                                            }
-                                            
-                                            return FileServerAPI.upload(data)
-                                                .map { response -> String in response.id }
-                                                .eraseToAnyPublisher()
-                                        },
-                                        encrypt: (openGroup == nil),
-                                        success: { fileId in resolver(Swift.Result.success(fileId)) },
-                                        failure: { resolver(Swift.Result.failure($0)) }
+                                attachment
+                                    .upload(
+                                        to: (
+                                            openGroup.map { Attachment.Destination.openGroup($0) } ??
+                                            .fileServer
+                                        ),
+                                        queue: DispatchQueue.global(qos: .userInitiated)
                                     )
-                                }
-                                .eraseToAnyPublisher()
                             }
                     )
                     .collect()
                     .eraseToAnyPublisher()
             }
-            .defaulting(
-                to: Just<[String?]>([])
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
-            )
-        
-        return fileIdPublisher
-            .map { results in
+            .map { results -> PreparedSendData in
                 // Once the attachments are processed then update the PreparedSendData with
                 // the fileIds associated to the message
                 let fileIds: [String] = results.compactMap { result -> String? in result }
@@ -244,15 +235,11 @@ extension MessageSender {
         .catch { _ in seal.reject(StorageError.generic) }
         .retainUntilComplete()
         
-        // TODO: Test this (does it break anything? want to stop the db write asap)
-        /// We don't want to block the db write thread so we trigger the actual message sending after the query has
-        /// finished
-        return Future<Void, Error> { resolver in
-            db.afterNextTransaction { _ in
-                resolver(Result.success(()))
-            }
-        }
-        .flatMap { _ in MessageSender.sendImmediate(preparedSendData: sendData) }
-        .eraseToAnyPublisher()
+        /// We want to avoid blocking the db write thread so we dispatch the API call to a different thread
+        return Just(())
+            .setFailureType(to: Error.self)
+            .receive(on: DispatchQueue.global(qos: .userInitiated))
+            .flatMap { _ in MessageSender.sendImmediate(preparedSendData: sendData) }
+            .eraseToAnyPublisher()
     }
 }

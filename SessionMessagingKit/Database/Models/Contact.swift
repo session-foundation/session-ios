@@ -100,22 +100,3 @@ public extension Contact {
         return ((try? fetchOne(db, id: id)) ?? Contact(id: id))
     }
 }
-
-// MARK: - Objective-C Support
-
-// TODO: Remove this when possible
-@objc(SMKContact)
-public class SMKContact: NSObject {
-    @objc(isBlockedFor:)
-    public static func isBlocked(id: String) -> Bool {
-        return Storage.shared
-            .read { db in
-                try Contact
-                    .filter(id: id)
-                    .select(.isBlocked)
-                    .asRequest(of: Bool.self)
-                    .fetchOne(db)
-            }
-            .defaulting(to: false)
-    }
-}

@@ -348,10 +348,7 @@ extension ConversationVC:
                 .attachmentPublisher
                 .sinkUntilComplete(
                     receiveValue: { [weak self] attachment in
-                        guard
-                            !modalActivityIndicator.wasCancelled,
-                            let attachment = attachment as? SignalAttachment
-                        else { return }
+                        guard !modalActivityIndicator.wasCancelled else { return }
                         
                         modalActivityIndicator.dismiss {
                             guard !attachment.hasError else {
@@ -1680,12 +1677,10 @@ extension ConversationVC:
         
         // Remote deletion logic
         func deleteRemotely(from viewController: UIViewController?, request: AnyPublisher<Void, Error>, onComplete: (() -> ())?) {
-            // TODO: Test that this works
             // Show a loading indicator
             Future<Void, Error> { resolver in
                 ModalActivityIndicatorViewController.present(fromViewController: viewController, canCancel: false) { _ in
-                    // TODO: Remove the 'Swift.'
-                    resolver(Swift.Result.success(()))
+                    resolver(Result.success(()))
                 }
             }
             .flatMap { _ in request }

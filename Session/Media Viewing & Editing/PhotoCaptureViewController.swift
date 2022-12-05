@@ -195,7 +195,7 @@ class PhotoCaptureViewController: OWSViewController {
         }
         
         photoCapture.switchCamera()
-            .receiveOnMain()
+            .receive(on: DispatchQueue.main)
             .sinkUntilComplete(
                 receiveCompletion: { [weak self] result in
                     switch result {
@@ -210,7 +210,7 @@ class PhotoCaptureViewController: OWSViewController {
     func didTapFlashMode() {
         Logger.debug("")
         photoCapture.switchFlashMode()
-            .receiveOnMain()
+            .receive(on: DispatchQueue.main)
             .sinkUntilComplete(
                 receiveCompletion: { [weak self] _ in
                     self?.updateFlashModeControl()
@@ -306,7 +306,7 @@ class PhotoCaptureViewController: OWSViewController {
         previewView = CapturePreviewView(session: photoCapture.session)
 
         photoCapture.startCapture()
-            .receiveOnMain()
+            .receive(on: DispatchQueue.main)
             .sinkUntilComplete(
                 receiveCompletion: { [weak self] result in
                     switch result {

@@ -169,12 +169,12 @@ public enum MessageSendJob: JobExecutor {
                 try MessageSender.preparedSendData(
                     db,
                     message: details.message,
-                    to: details.destination
-                        .with(fileIds: messageFileIds),
+                    to: details.destination,
                     interactionId: job.interactionId
                 )
             }
             .subscribe(on: queue)
+            .map { sendData in sendData.with(fileIds: messageFileIds) }
             .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
             .sinkUntilComplete(
                 receiveCompletion: { result in

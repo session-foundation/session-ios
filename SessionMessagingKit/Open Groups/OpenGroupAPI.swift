@@ -1434,9 +1434,12 @@ public enum OpenGroupAPI {
                 .eraseToAnyPublisher()
         }
         
-        return dependencies.onionApi
-            .sendOnionRequest(signedRequest, to: request.server, with: publicKey)
+        // We was to avoid blocking the db write thread so we dispatch the API call to a different thread
+        return Just(())
+            .setFailureType(to: Error.self)
             .subscribe(on: OpenGroupAPI.workQueue)
+            .receive(on: OpenGroupAPI.workQueue)
+            .flatMap { dependencies.onionApi.sendOnionRequest(signedRequest, to: request.server, with: publicKey) }
             .eraseToAnyPublisher()
     }
 }

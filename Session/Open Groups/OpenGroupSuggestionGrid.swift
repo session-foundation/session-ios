@@ -143,6 +143,7 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
         widthAnchor.constraint(greaterThanOrEqualToConstant: OpenGroupSuggestionGrid.cellHeight).isActive = true
         
         OpenGroupManager.getDefaultRoomsIfNeeded()
+            .receive(on: DispatchQueue.main)
             .sinkUntilComplete(
                 receiveCompletion: { [weak self] _ in self?.update() },
                 receiveValue: { [weak self] rooms in self?.rooms = rooms }
@@ -316,7 +317,7 @@ extension OpenGroupSuggestionGrid {
                 return
             }
             
-            imageView.image = nil   // TODO: Test this
+            imageView.image = nil
             
             Publishers
                 .MergeMany(
@@ -331,15 +332,19 @@ extension OpenGroupSuggestionGrid {
                     // we can ignore this 'Just' call which is used to hide the image while loading
                     Just((Data(), false))
                         .setFailureType(to: Error.self)
-//                        .delay(for: .milliseconds(10), scheduler: DispatchQueue.main)
+                        .delay(for: .milliseconds(10), scheduler: DispatchQueue.main)
                         .eraseToAnyPublisher()
                 )
                 .receiveOnMain(immediately: true)
                 .sinkUntilComplete(
                     receiveValue: { [weak self] imageData, hasData in
-                        // TODO: Test this behaviour
                         guard hasData else {
-                            self?.imageView.isHidden = true
+                            // This will emit twice (once with the data and once without it), if we
+                            // have actually received the images then we don't want the second emission
+                            // to hide the imageView anymore
+                            if self?.imageView.image == nil {
+                                self?.imageView.isHidden = true
+                            }
                             return
                         }
                         
@@ -347,24 +352,6 @@ extension OpenGroupSuggestionGrid {
                         self?.imageView.isHidden = (self?.imageView.image == nil)
                     }
                 )
-            
-//            OpenGroupManager.roomImage(db, fileId: imageId, for: room.token, on: OpenGroupAPI.defaultServer)
-//                .values
-//
-//            if let imageData: Data = promise.value {
-//                imageView.image = UIImage(data: imageData)
-//                imageView.isHidden = (imageView.image == nil)
-//            }
-//            else {
-//                imageView.isHidden = true
-//
-//                _ = promise.done { [weak self] imageData in
-//                    DispatchQueue.main.async {
-//                        self?.imageView.image = UIImage(data: imageData)
-//                        self?.imageView.isHidden = (self?.imageView.image == nil)
-//                    }
-//                }
-//            }
         }
     }
 }

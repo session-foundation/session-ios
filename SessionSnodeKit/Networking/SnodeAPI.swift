@@ -88,9 +88,6 @@ public final class SnodeAPI {
     }
     
     private static func dropSnodeFromSnodePool(_ snode: Snode) {
-        #if DEBUG
-        dispatchPrecondition(condition: .onQueue(Threading.workQueue))
-        #endif
         var snodePool = SnodeAPI.snodePool.wrappedValue
         snodePool.remove(snode)
         setSnodePool(to: snodePool)

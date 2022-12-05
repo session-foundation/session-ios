@@ -17,6 +17,7 @@ public final class MessageSender {
         let destination: Message.Destination?
         let interactionId: Int64?
         let isSyncMessage: Bool?
+        let totalAttachmentsUploaded: Int
         
         let snodeMessage: SnodeMessage?
         let plaintext: Data?
@@ -32,6 +33,7 @@ public final class MessageSender {
             destination: Message.Destination?,
             interactionId: Int64?,
             isSyncMessage: Bool?,
+            totalAttachmentsUploaded: Int = 0,
             snodeMessage: SnodeMessage?,
             plaintext: Data?,
             ciphertext: Data?,
@@ -44,6 +46,7 @@ public final class MessageSender {
             self.destination = destination
             self.interactionId = interactionId
             self.isSyncMessage = isSyncMessage
+            self.totalAttachmentsUploaded = totalAttachmentsUploaded
             
             self.snodeMessage = snodeMessage
             self.plaintext = plaintext
@@ -60,6 +63,7 @@ public final class MessageSender {
             self.destination = nil
             self.interactionId = nil
             self.isSyncMessage = nil
+            self.totalAttachmentsUploaded = 0
             
             self.snodeMessage = nil
             self.plaintext = nil
@@ -84,6 +88,7 @@ public final class MessageSender {
             self.destination = destination
             self.interactionId = interactionId
             self.isSyncMessage = isSyncMessage
+            self.totalAttachmentsUploaded = 0
             
             self.snodeMessage = snodeMessage
             self.plaintext = nil
@@ -105,6 +110,7 @@ public final class MessageSender {
             self.destination = destination
             self.interactionId = interactionId
             self.isSyncMessage = false
+            self.totalAttachmentsUploaded = 0
             
             self.snodeMessage = nil
             self.plaintext = plaintext
@@ -126,6 +132,7 @@ public final class MessageSender {
             self.destination = destination
             self.interactionId = interactionId
             self.isSyncMessage = false
+            self.totalAttachmentsUploaded = 0
             
             self.snodeMessage = nil
             self.plaintext = nil
@@ -143,6 +150,7 @@ public final class MessageSender {
                 destination: destination?.with(fileIds: fileIds),
                 interactionId: interactionId,
                 isSyncMessage: isSyncMessage,
+                totalAttachmentsUploaded: fileIds.count,
                 snodeMessage: snodeMessage,
                 plaintext: plaintext,
                 ciphertext: ciphertext,
@@ -605,6 +613,24 @@ public final class MessageSender {
             return Just(())
                 .setFailureType(to: Error.self)
                 .eraseToAnyPublisher()
+        }
+        
+        // We now allow the creation of message data without validating it's attachments have finished
+        // uploading first, this is here to ensure we don't send a message which should have uploaded
+        // files
+        //
+        // If you see this error then you need to call `MessageSender.performUploadsIfNeeded(preparedSendData:)`
+        // before calling this function
+        switch preparedSendData.message {
+            case let visibleMessage as VisibleMessage:
+                guard visibleMessage.attachmentIds.count == preparedSendData.totalAttachmentsUploaded else {
+                    return Fail(error: MessageSenderError.attachmentsNotUploaded)
+                        .eraseToAnyPublisher()
+                }
+                
+                break
+                
+            default: break
         }
         
         switch preparedSendData.destination {

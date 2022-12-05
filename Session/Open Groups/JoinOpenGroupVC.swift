@@ -168,7 +168,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         
         ModalActivityIndicatorViewController.present(fromViewController: navigationController, canCancel: false) { [weak self] _ in
             Storage.shared
-                .writePublisher { db in
+                .writePublisherFlatMap { db in
                     OpenGroupManager.shared.add(
                         db,
                         roomToken: roomToken,

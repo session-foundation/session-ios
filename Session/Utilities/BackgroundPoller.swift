@@ -12,7 +12,6 @@ public final class BackgroundPoller {
     public static var isValid: Bool = false
 
     public static func poll(completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-        // TODO: Test this works
         Publishers
             .MergeMany(
                 [pollForMessages()]

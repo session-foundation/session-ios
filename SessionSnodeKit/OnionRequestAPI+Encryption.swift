@@ -29,7 +29,6 @@ internal extension OnionRequestAPI {
         _ payload: Data,
         for destination: OnionRequestAPIDestination
     ) -> AnyPublisher<AESGCM.EncryptionResult, Error> {
-        // TODO: Test performance
         switch destination {
             case .snode(let snode):
                 // Need to wrap the payload for snode requests
@@ -66,7 +65,6 @@ internal extension OnionRequestAPI {
         to rhs: OnionRequestAPIDestination,
         using previousEncryptionResult: AESGCM.EncryptionResult
     ) -> AnyPublisher<AESGCM.EncryptionResult, Error> {
-        // TODO: Test performance
         var parameters: JSON
         
         switch rhs {

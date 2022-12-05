@@ -472,7 +472,7 @@ public struct ProfileManager {
                         }
                     },
                     receiveValue: { fileUploadResponse in
-                        let downloadUrl: String = "\(FileServerAPI.server)/files/\(fileUploadResponse.id)"
+                        let downloadUrl: String = "\(FileServerAPI.server)/file/\(fileUploadResponse.id)"
                         
                         // Update the cached avatar image value
                         profileAvatarCache.mutate { $0[fileName] = data }

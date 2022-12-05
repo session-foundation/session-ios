@@ -319,6 +319,8 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                 .writePublisherFlatMap { db in
                     MessageSender.createClosedGroup(db, name: name, members: selectedContacts)
                 }
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+                .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveCompletion: { result in
                         switch result {

@@ -158,13 +158,7 @@ public final class VisibleMessage: Message {
         
         // Attachments
         
-        let attachments: [Attachment]? = try? Attachment.fetchAll(db, ids: self.attachmentIds)
-        
-        if !(attachments ?? []).allSatisfy({ $0.state == .uploaded }) {
-            #if DEBUG
-            preconditionFailure("Sending a message before all associated attachments have been uploaded.")
-            #endif
-        }
+        let attachments: [Attachment]? = try? Attachment.fetchAll(db, ids: self.attachmentIds)        
         let attachmentProtos = (attachments ?? []).compactMap { $0.buildProto() }
         dataMessage.setAttachments(attachmentProtos)
         

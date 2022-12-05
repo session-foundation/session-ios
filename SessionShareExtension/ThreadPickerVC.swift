@@ -155,7 +155,6 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 receiveValue: { [weak self] attachments in
                     guard let strongSelf = self else { return }
                     
-                    // TODO: Test this
                     let approvalVC: UINavigationController = AttachmentApprovalViewController.wrappedInNavController(
                         threadId: strongSelf.viewModel.viewData[indexPath.row].threadId,
                         attachments: attachments,
@@ -190,7 +189,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             NotificationCenter.default.post(name: Database.resumeNotification, object: self)
             
             Storage.shared
-                .writePublisher { [weak self] db -> MessageSender.PreparedSendData in
+                .writePublisher { db -> MessageSender.PreparedSendData in
                     guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
                         throw MessageSenderError.noThread
                     }
@@ -251,6 +250,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 }
                 .flatMap { MessageSender.performUploadsIfNeeded(preparedSendData: $0) }
                 .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
+                .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveCompletion: { [weak self] result in
                         // Suspend the database
