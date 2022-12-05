@@ -1255,6 +1255,9 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     // MARK: - General
     
     func addOrRemoveOutdatedClientBanner(contactIsUsingOutdatedClient: Bool) {
+        // Do not show the banner until the new disappearing messages is enabled
+        guard DisappearingMessagesConfiguration.isNewConfigurationEnabled else { return }
+        
         guard contactIsUsingOutdatedClient else {
             UIView.animate(
                 withDuration: 0.25,

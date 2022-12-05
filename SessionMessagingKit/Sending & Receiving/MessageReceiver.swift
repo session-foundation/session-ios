@@ -336,11 +336,7 @@ public enum MessageReceiver {
         
         // Check the contact's client version based on this received message
         let contact: Contact = Contact.fetchOrCreate(db, id: sender)
-        let lastKnowClientVersion: SessionVersion.FeatureVersion = (
-            !proto.hasExpirationType &&
-            !proto.hasExpirationTimer &&
-            !proto.hasLastDisappearingMessageChangeTimestamp
-        ) ? .legacyDisappearingMessages : .newDisappearingMessages
+        let lastKnowClientVersion: SessionVersion.FeatureVersion = !proto.hasExpirationTimer ? .legacyDisappearingMessages : .newDisappearingMessages
         _ = try? contact
             .with(lastKnownClientVersion: lastKnowClientVersion)
             .saved(db)
