@@ -67,7 +67,10 @@ public class Message: Codable {
         guard
             let threadId: String = threadId,
             let disappearingMessagesConfiguration = try? DisappearingMessagesConfiguration.fetchOne(db, id: threadId)
-        else { return }
+        else {
+            proto.setExpirationTimer(0)
+            return
+        }
         
         proto.setExpirationTimer(UInt32(disappearingMessagesConfiguration.durationSeconds))
         proto.setLastDisappearingMessageChangeTimestamp(UInt64(disappearingMessagesConfiguration.lastChangeTimestampMs))
