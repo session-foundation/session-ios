@@ -22,6 +22,7 @@ public class ConfirmationModal: Modal {
         let explanation: String?
         let attributedExplanation: NSAttributedString?
         let accessibilityLabel: String?
+        let accessibilityId: String?
         public let stateToShow: State
         let confirmTitle: String?
         let confirmAccessibilityLabel: String?
@@ -40,6 +41,7 @@ public class ConfirmationModal: Modal {
             explanation: String? = nil,
             attributedExplanation: NSAttributedString? = nil,
             accessibilityLabel: String? = nil,
+            accessibilityId: String? = nil,
             stateToShow: State = .always,
             confirmTitle: String? = nil,
             confirmAccessibilityLabel: String? = nil,
@@ -55,6 +57,7 @@ public class ConfirmationModal: Modal {
             self.explanation = explanation
             self.attributedExplanation = attributedExplanation
             self.accessibilityLabel = accessibilityLabel
+            self.accessibilityId = accessibilityId
             self.stateToShow = stateToShow
             self.confirmTitle = confirmTitle
             self.confirmAccessibilityLabel = confirmAccessibilityLabel
@@ -227,14 +230,19 @@ public class ConfirmationModal: Modal {
             info.attributedExplanation == nil
         )
         confirmButton.accessibilityLabel = info.confirmAccessibilityLabel
+        confirmButton.accessibilityIdentifier = info.confirmAccessibilityLabel
+        confirmButton.isAccessibilityElement = true
         confirmButton.setTitle(info.confirmTitle, for: .normal)
         confirmButton.setThemeTitleColor(info.confirmStyle, for: .normal)
         confirmButton.isHidden = (info.confirmTitle == nil)
         cancelButton.accessibilityLabel = info.cancelAccessibilityLabel
+        cancelButton.accessibilityIdentifier = info.cancelAccessibilityLabel
+        cancelButton.isAccessibilityElement = true
         cancelButton.setTitle(info.cancelTitle, for: .normal)
         cancelButton.setThemeTitleColor(info.cancelStyle, for: .normal)
         
         self.accessibilityLabel = info.accessibilityLabel
+        self.contentView.accessibilityIdentifier = info.accessibilityId
     }
     
     required init?(coder: NSCoder) {

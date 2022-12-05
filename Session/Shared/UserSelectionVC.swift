@@ -72,7 +72,8 @@ final class UserSelectionVC: BaseVC, UITableViewDataSource, UITableViewDelegate 
                 title: profile.displayName(),
                 rightAccessory: .radio(isSelected: { [weak self] in
                     self?.selectedUsers.contains(profile.id) == true
-                })
+                }),
+                accessibilityIdentifier: "Contact"
             ),
             style: .edgeToEdge,
             position: Position.with(indexPath.row, count: users.count)

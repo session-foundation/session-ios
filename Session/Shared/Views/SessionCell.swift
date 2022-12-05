@@ -309,6 +309,7 @@ public class SessionCell: UITableViewCell {
         self.onExtraActionTap = info.extraAction?.onTap
         self.accessibilityIdentifier = info.accessibilityIdentifier
         self.accessibilityLabel = info.accessibilityLabel
+        self.isAccessibilityElement = true
         
         let leftFitToEdge: Bool = (info.leftAccessory?.shouldFitToEdge == true)
         let rightFitToEdge: Bool = (!leftFitToEdge && info.rightAccessory?.shouldFitToEdge == true)

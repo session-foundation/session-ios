@@ -120,7 +120,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                            NavItem(
                                id: .done,
                                systemItem: .done,
-                               accessibilityIdentifier: "Done button"
+                               accessibilityIdentifier: "Done"
                            ) { [weak self] in
                                self?.setIsEditing(false)
                                
@@ -128,6 +128,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                    self?.threadVariant == .contact,
                                    let threadId: String = self?.threadId,
                                    let editedDisplayName: String = self?.editedDisplayName
+                                    
                                else { return }
                                
                                let updatedNickname: String = editedDisplayName
@@ -182,7 +183,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
     /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
     private lazy var _observableSettingsData: ObservableData = ValueObservation
-        .trackingConstantRegion { [weak self, dependencies, threadId = self.threadId, threadVariant = self.threadVariant] db -> [SectionModel] in
+.trackingConstantRegion { [weak self, dependencies, threadId = self.threadId, threadVariant = self.threadVariant] db -> [SectionModel] in
             let userPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
             let maybeThreadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
                 .conversationSettingsQuery(threadId: threadId, userPublicKey: userPublicKey)
@@ -351,7 +352,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
                                 title: "EDIT_GROUP_ACTION".localized(),
-                                accessibilityIdentifier: "\(ThreadSettingsViewModel.self).edit_group",
+                                accessibilityIdentifier: "Edit group",
                                 accessibilityLabel: "Edit group",
                                 onTap: { [weak self] in
                                     self?.transitionToScreen(EditClosedGroupVC(threadId: threadId))
@@ -367,7 +368,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
                                 title: "LEAVE_GROUP_ACTION".localized(),
-                                accessibilityIdentifier: "\(ThreadSettingsViewModel.self).leave_group",
+                                accessibilityIdentifier: "Leave group",
                                 accessibilityLabel: "Leave group",
                                 confirmationInfo: ConfirmationModal.Info(
                                     title: "CONFIRM_LEAVE_GROUP_TITLE".localized(),
@@ -424,7 +425,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     threadViewModel.threadVariant != .closedGroup ||
                                     currentUserIsClosedGroupMember
                                 ),
-                                accessibilityIdentifier: "\(ThreadSettingsViewModel.self).notify_for_mentions_only",
+                                accessibilityIdentifier: "Mentions only notification setting",
                                 accessibilityLabel: "Mentions only",
                                 onTap: {
                                     let newValue: Bool = !(threadViewModel.threadOnlyNotifyForMentions == true)
@@ -514,12 +515,11 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                         nil :
                                         "BLOCK_USER_BEHAVIOR_EXPLANATION".localized()
                                     ),
-                                    accessibilityLabel: "Confirm block",
                                     confirmTitle: (threadViewModel.threadIsBlocked == true ?
                                         "BLOCK_LIST_UNBLOCK_BUTTON".localized() :
                                         "BLOCK_LIST_BLOCK_BUTTON".localized()
                                     ),
-                                    confirmAccessibilityLabel: "Confirm blocked user",
+                                    confirmAccessibilityLabel: "Confirm block",
                                     confirmStyle: .danger,
                                     cancelStyle: .alert_text
                                 ),
@@ -652,7 +652,9 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 nil
                             ),
                             accessibilityLabel: oldBlockedState == false ? "User blocked" : "Confirm unblock",
+                            accessibilityId: "OK",
                             cancelTitle: "BUTTON_OK".localized(),
+                            cancelAccessibilityLabel: "OK",
                             cancelStyle: .alert_text
                         )
                     )

@@ -13,6 +13,8 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         let profileId: String
         let role: GroupMember.Role
         let profile: Profile?
+        let accessibilityLabel: String?
+        let accessibilityId: String?
     }
     
     private let threadId: String
@@ -31,6 +33,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
     private lazy var groupNameLabel: UILabel = {
         let result: UILabel = UILabel()
         result.accessibilityLabel = "Group name"
+        result.isAccessibilityElement = true
         result.font = .boldSystemFont(ofSize: Values.veryLargeFontSize)
         result.themeTextColor = .textPrimary
         result.lineBreakMode = .byTruncatingTail
@@ -45,6 +48,8 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
             usesDefaultHeight: false
         )
         result.textAlignment = .center
+        result.isAccessibilityElement = true
+        result.accessibilityIdentifier = "Group name text field"
         
         return result
     }()
@@ -52,6 +57,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
     private lazy var addMembersButton: SessionButton = {
         let result: SessionButton = SessionButton(style: .bordered, size: .medium)
         result.accessibilityLabel = "Add members"
+        result.isAccessibilityElement = true
         result.setTitle("vc_conversation_settings_invite_button_title".localized(), for: .normal)
         result.addTarget(self, action: #selector(addMembers), for: UIControl.Event.touchUpInside)
         result.contentEdgeInsets = UIEdgeInsets(top: 0, leading: Values.mediumSpacing, bottom: 0, trailing: Values.mediumSpacing)
@@ -62,6 +68,8 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
     @objc private lazy var tableView: UITableView = {
         let result: UITableView = UITableView()
         result.accessibilityLabel = "Contact"
+        result.accessibilityIdentifier = "Contact"
+        result.isAccessibilityElement = true
         result.dataSource = self
         result.delegate = self
         result.separatorStyle = .none
@@ -352,7 +360,9 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
                         GroupMemberDisplayInfo(
                             profileId: profile.id,
                             role: .standard,
-                            profile: profile
+                            profile: profile,
+                            accessibilityLabel: "Contact",
+                            accessibilityId: "Contact"
                         )
                     }
                 self?.membersAndZombies = (self?.membersAndZombies ?? [])

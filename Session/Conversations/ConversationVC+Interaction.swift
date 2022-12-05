@@ -137,6 +137,8 @@ extension ConversationVC:
                         range: (message as NSString).range(of: self.viewModel.threadData.displayName)
                     ),
                 confirmTitle: "modal_blocked_button_title".localized(),
+                confirmAccessibilityLabel: "Confirm block",
+                cancelAccessibilityLabel: "Cancel block",
                 dismissOnConfirm: false // Custom dismissal logic
             ) { [weak self] _ in
                 self?.viewModel.unblockContact()

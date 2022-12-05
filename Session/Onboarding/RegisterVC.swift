@@ -173,6 +173,7 @@ final class RegisterVC : BaseVC {
         let hexEncodedPublicKey = x25519KeyPair.hexEncodedPublicKey
         publicKeyLabel.accessibilityLabel = hexEncodedPublicKey
         publicKeyLabel.accessibilityIdentifier = "Session ID generated"
+        publicKeyLabel.isAccessibilityElement = true
         let characterCount = hexEncodedPublicKey.count
         var count = 0
         let limit = 32

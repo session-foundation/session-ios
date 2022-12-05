@@ -228,7 +228,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                                 ParentType.NavItem(
                                     id: .cancel,
                                     systemItem: .cancel,
-                                    accessibilityIdentifier: "Cancel button"
+                                    accessibilityIdentifier: "Cancel"
                                 )
                             ]))
                         expect(viewModel.rightNavItems.firstValue())
@@ -236,7 +236,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                                 ParentType.NavItem(
                                     id: .done,
                                     systemItem: .done,
-                                    accessibilityIdentifier: "Done button"
+                                    accessibilityIdentifier: "Done"
                                 )
                             ]))
                     }
@@ -369,7 +369,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                                 ParentType.NavItem(
                                     id: .done,
                                     systemItem: .done,
-                                    accessibilityIdentifier: "Done button"
+                                    accessibilityIdentifier: "Done"
                                 )
                             ]))
                     }

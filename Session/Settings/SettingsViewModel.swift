@@ -124,7 +124,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                             NavItem(
                                 id: .done,
                                 systemItem: .done,
-                                accessibilityIdentifier: "Done button"
+                                accessibilityIdentifier: "Done"
                             ) { [weak self] in
                                 let updatedNickname: String = (self?.editedDisplayName ?? "")
                                     .trimmingCharacters(in: .whitespacesAndNewlines)

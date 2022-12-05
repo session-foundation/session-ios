@@ -466,6 +466,7 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
         // Profile picture view
         let profilePictureSize = Values.verySmallProfilePictureSize
         let profilePictureView = ProfilePictureView()
+        profilePictureView.accessibilityIdentifier = "User settings"
         profilePictureView.accessibilityLabel = "User settings"
         profilePictureView.isAccessibilityElement = true
         profilePictureView.size = profilePictureSize
@@ -532,6 +533,8 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                 let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
                 let cell: FullConversationCell = tableView.dequeue(type: FullConversationCell.self, for: indexPath)
                 cell.update(with: threadViewModel)
+                cell.accessibilityIdentifier = "Conversation list item"
+                cell.accessibilityLabel = threadViewModel.displayName
                 return cell
                 
             default: preconditionFailure("Other sections should have no content")

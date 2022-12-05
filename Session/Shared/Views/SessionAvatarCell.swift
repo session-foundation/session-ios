@@ -63,7 +63,7 @@ class SessionAvatarCell: UITableViewCell {
     fileprivate let displayNameContainer: UIView = {
         let view: UIView = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.accessibilityLabel = "Edit name text field"
+        view.accessibilityLabel = "Username"
         view.isAccessibilityElement = true
         
         return view
@@ -71,7 +71,6 @@ class SessionAvatarCell: UITableViewCell {
     
     private lazy var displayNameLabel: UILabel = {
         let label: UILabel = UILabel()
-        label.accessibilityLabel = "Username"
         label.isAccessibilityElement = true
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = .ows_mediumFont(withSize: Values.veryLargeFontSize)
@@ -87,7 +86,9 @@ class SessionAvatarCell: UITableViewCell {
         let textField: TextField = TextField(placeholder: "Enter a name", usesDefaultHeight: false)
         textField.translatesAutoresizingMaskIntoConstraints = false
         textField.textAlignment = .center
-        textField.accessibilityLabel = "Edit name text field"
+        textField.accessibilityIdentifier = "Nickname"
+        textField.accessibilityLabel = "Nickname"
+        textField.isAccessibilityElement = true
         textField.alpha = 0
         
         return textField
