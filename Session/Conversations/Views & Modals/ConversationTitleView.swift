@@ -204,11 +204,22 @@ final class ConversationTitleView: UIView {
                     height: Values.miniFontSize
                 )
                 
-                let disappearingMessageSettingLabelString = NSAttributedString(attachment: imageAttachment)
-                    .appending(string: " ")
-                    .appending(string: config.type == .disappearAfterRead ? "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE".localized() : "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized())
-                    .appending(string: " - ")
-                    .appending(string: floor(config.durationSeconds).formatted(format: .short))
+                let disappearingMessageSettingLabelString: NSAttributedString = {
+                    guard DisappearingMessagesConfiguration.isNewConfigurationEnabled else {
+                        return NSAttributedString(attachment: imageAttachment)
+                            .appending(string: " ")
+                            .appending(string: String(
+                                format: "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER".localized(),
+                                floor(config.durationSeconds).formatted(format: .short)
+                            ))
+                    }
+                    
+                    return NSAttributedString(attachment: imageAttachment)
+                        .appending(string: " ")
+                        .appending(string: config.type == .disappearAfterRead ? "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE".localized() : "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized())
+                        .appending(string: " - ")
+                        .appending(string: floor(config.durationSeconds).formatted(format: .short))
+                }()
                 
                 labelStrings.append(disappearingMessageSettingLabelString)
                 labelTypes.append(.disappearingMessageSetting)
