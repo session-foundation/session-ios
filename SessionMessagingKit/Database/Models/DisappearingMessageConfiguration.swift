@@ -100,6 +100,8 @@ public extension DisappearingMessagesConfiguration {
         public let isPreviousOff: Bool?
         
         var previewText: String {
+            guard DisappearingMessagesConfiguration.isNewConfigurationEnabled else { return legacyPreviewText }
+            
             guard let senderName: String = senderName else {
                 // Changed by this device or via synced transcript
                 guard isEnabled, durationSeconds > 0 else {
@@ -139,6 +141,28 @@ public extension DisappearingMessagesConfiguration {
                 senderName,
                 floor(durationSeconds).formatted(format: .long),
                 (type == .disappearAfterRead ? "MESSAGE_STATE_READ".localized() : "MESSAGE_STATE_SENT".localized())
+            )
+        }
+        
+        private var legacyPreviewText: String {
+            guard let senderName: String = senderName else {
+                // Changed by this device or via synced transcript
+                guard isEnabled, durationSeconds > 0 else { return "YOU_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION".localized() }
+                
+                return String(
+                    format: "YOU_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION".localized(),
+                    floor(durationSeconds).formatted(format: .long)
+                )
+            }
+            
+            guard isEnabled, durationSeconds > 0 else {
+                return String(format: "OTHER_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION".localized(), senderName)
+            }
+            
+            return String(
+                format: "OTHER_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION".localized(),
+                senderName,
+                floor(durationSeconds).formatted(format: .long)
             )
         }
     }
