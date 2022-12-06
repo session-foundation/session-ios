@@ -16,6 +16,7 @@ public enum GarbageCollectionJob: JobExecutor {
     public static var requiresThreadId: Bool = false
     public static let requiresInteractionId: Bool = false
     public static let approxSixMonthsInSeconds: TimeInterval = (6 * 30 * 24 * 60 * 60)
+    public static let fourteenDaysInSeconds: TimeInterval = (14 * 24 * 60 * 60)
     private static let minInteractionsToTrim: Int = 2000
     
     public static func run(
@@ -96,7 +97,7 @@ public enum GarbageCollectionJob: JobExecutor {
                                 GROUP BY \(interaction[.threadId])
                             ) AS interactionInfo ON interactionInfo.\(threadIdLiteral) = \(interaction[.threadId])
                             WHERE (
-                                \(interaction[.timestampMs]) < \(timestampNow - approxSixMonthsInSeconds) AND
+                                \(interaction[.timestampMs]) < \((timestampNow - approxSixMonthsInSeconds) * 1000) AND
                                 interactionInfo.interactionCount >= \(minInteractionsToTrimSql)
                             )
                         )
@@ -289,6 +290,15 @@ public enum GarbageCollectionJob: JobExecutor {
                         )
                     """)
                 }
+                
+                /// Remove interactions which should be disappearing after read but never be read within 14 days
+                if finalTypesToCollection.contains(.expiredUnreadDisappearingMessages) {
+                    _ = try Interaction
+                        .filter(Interaction.Columns.expiresInSeconds != nil)
+                        .filter(Interaction.Columns.expiresStartedAtMs == nil)
+                        .filter(Interaction.Columns.timestampMs < (timestampNow - fourteenDaysInSeconds) * 1000)
+                        .deleteAll(db)
+                }
             },
             completion: { _, _ in
                 // Dispatch async so we can swap from the write queue to a read one (we are done writing)
@@ -442,6 +452,7 @@ extension GarbageCollectionJob {
         case orphanedAttachments
         case orphanedAttachmentFiles
         case orphanedProfileAvatars
+        case expiredUnreadDisappearingMessages // unread disappearing messages after 14 days
     }
     
     public struct Details: Codable {
