@@ -84,6 +84,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
             .map { isEditing in (isEditing ? .editing : .standard) }
             .removeDuplicates()
             .prepend(.standard)     // Initial value
+            .shareReplay(1)
             .eraseToAnyPublisher()
     }()
 

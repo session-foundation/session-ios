@@ -67,6 +67,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                         equal([
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameAndPreview,
+                                position: .top,
                                 title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_AND_CONTENT".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { true }
@@ -74,6 +75,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                             ),
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameNoPreview,
+                                position: .middle,
                                 title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_ONLY".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { false }
@@ -81,6 +83,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                             ),
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.noNameNoPreview,
+                                position: .bottom,
                                 title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NO_NAME_OR_CONTENT".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { false }
@@ -107,6 +110,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                         equal([
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameAndPreview,
+                                position: .top,
                                 title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_AND_CONTENT".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { false }
@@ -114,6 +118,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                             ),
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameNoPreview,
+                                position: .middle,
                                 title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_ONLY".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { true }
@@ -121,6 +126,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                             ),
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.noNameNoPreview,
+                                position: .bottom,
                                 title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NO_NAME_OR_CONTENT".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { false }

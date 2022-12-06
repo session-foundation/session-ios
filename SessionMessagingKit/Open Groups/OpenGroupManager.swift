@@ -509,6 +509,10 @@ public final class OpenGroupManager {
                         on: server,
                         using: dependencies
                     )
+                    // Note: We need to subscribe and receive on different threads to ensure the
+                    // logic in 'receiveValue' doesn't result in a reentrancy database issue
+                    .subscribe(on: OpenGroupAPI.workQueue)
+                    .receive(on: DispatchQueue.global(qos: .default))
                     .sinkUntilComplete(
                         receiveCompletion: { _ in
                             if waitForImageToComplete {

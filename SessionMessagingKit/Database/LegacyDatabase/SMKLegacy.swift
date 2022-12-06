@@ -496,7 +496,7 @@ public enum SMKLegacy {
                                     let members: [Data] = self.members,
                                     let admins: [Data] = self.admins
                                 else {
-                                    SNLog("[Migration Error] Unable to decode Legacy ClosedGroupControlMessage")
+                                    SNLogNotTests("[Migration Error] Unable to decode Legacy ClosedGroupControlMessage")
                                     throw StorageError.migrationFailed
                                 }
                                 
@@ -514,7 +514,7 @@ public enum SMKLegacy {
                                 
                             case "encryptionKeyPair":
                                 guard let wrappers: [_KeyPairWrapper] = self.wrappers else {
-                                    SNLog("[Migration Error] Unable to decode Legacy ClosedGroupControlMessage")
+                                    SNLogNotTests("[Migration Error] Unable to decode Legacy ClosedGroupControlMessage")
                                     throw StorageError.migrationFailed
                                 }
                                 
@@ -525,7 +525,7 @@ public enum SMKLegacy {
                                             let publicKey: String = wrapper.publicKey,
                                             let encryptedKeyPair: Data = wrapper.encryptedKeyPair
                                         else {
-                                            SNLog("[Migration Error] Unable to decode Legacy ClosedGroupControlMessage")
+                                            SNLogNotTests("[Migration Error] Unable to decode Legacy ClosedGroupControlMessage")
                                             throw StorageError.migrationFailed
                                         }
 
@@ -538,7 +538,7 @@ public enum SMKLegacy {
                                 
                             case "nameChange":
                                 guard let name: String = self.name else {
-                                    SNLog("[Migration Error] Unable to decode Legacy ClosedGroupControlMessage")
+                                    SNLogNotTests("[Migration Error] Unable to decode Legacy ClosedGroupControlMessage")
                                     throw StorageError.migrationFailed
                                 }
                                 
@@ -548,7 +548,7 @@ public enum SMKLegacy {
                                 
                             case "membersAdded":
                                 guard let members: [Data] = self.members else {
-                                    SNLog("[Migration Error] Unable to decode Legacy ClosedGroupControlMessage")
+                                    SNLogNotTests("[Migration Error] Unable to decode Legacy ClosedGroupControlMessage")
                                     throw StorageError.migrationFailed
                                 }
                                 
@@ -556,7 +556,7 @@ public enum SMKLegacy {
                                 
                             case "membersRemoved":
                                 guard let members: [Data] = self.members else {
-                                    SNLog("[Migration Error] Unable to decode Legacy ClosedGroupControlMessage")
+                                    SNLogNotTests("[Migration Error] Unable to decode Legacy ClosedGroupControlMessage")
                                     throw StorageError.migrationFailed
                                 }
                                 
@@ -602,7 +602,7 @@ public enum SMKLegacy {
                             case "screenshot": return .screenshot
                             case "mediaSaved":
                                 guard let timestamp: UInt64 = self.timestamp else {
-                                    SNLog("[Migration Error] Unable to decode Legacy DataExtractionNotification")
+                                    SNLogNotTests("[Migration Error] Unable to decode Legacy DataExtractionNotification")
                                     throw StorageError.migrationFailed
                                 }
                                 
@@ -1646,7 +1646,7 @@ public enum SMKLegacy {
             }
             else if _MessageSendJob.process(rawDestination, type: "openGroup") != nil {
                 // We can no longer support sending messages to legacy open groups
-                SNLog("[Migration Warning] Ignoring pending messageSend job for V1 OpenGroup")
+                SNLogNotTests("[Migration Warning] Ignoring pending messageSend job for V1 OpenGroup")
                 return nil
             }
             else if let destString: String = _MessageSendJob.process(rawDestination, type: "openGroupV2") {

@@ -15,7 +15,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
     override func spec() {
         var mockStorage: Storage!
         var mockGeneralCache: MockGeneralCache!
-        var cancellables: [AnyCancellable] = []
+        var disposables: [AnyCancellable] = []
         var dependencies: Dependencies!
         var viewModel: ThreadSettingsViewModel!
         var didTriggerSearchCallbackTriggered: Bool = false
@@ -69,21 +69,33 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         didTriggerSearchCallbackTriggered = true
                     }
                 )
-                cancellables.append(
-                    viewModel.observableSettingsData
+                setupStandardBinding()
+            }
+            
+            func setupStandardBinding() {
+                disposables.append(
+                    viewModel.observableTableData
                         .receiveOnMain(immediately: true)
                         .sink(
                             receiveCompletion: { _ in },
-                            receiveValue: { viewModel.updateSettings($0) }
+                            receiveValue: { viewModel.updateTableData($0.0) }
+                        )
+                )
+                disposables.append(
+                    viewModel.transitionToScreen
+                        .receiveOnMain(immediately: true)
+                        .sink(
+                            receiveCompletion: { _ in },
+                            receiveValue: { transitionInfo = $0 }
                         )
                 )
             }
             
             afterEach {
-                cancellables.forEach { $0.cancel() }
+                disposables.forEach { $0.cancel() }
                 
                 mockStorage = nil
-                cancellables = []
+                disposables = []
                 dependencies = nil
                 viewModel = nil
                 didTriggerSearchCallbackTriggered = false
@@ -207,6 +219,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 
                 context("when entering edit mode") {
                     beforeEach {
+                        viewModel.navState.sinkAndStore(in: &disposables)
                         viewModel.rightNavItems.firstValue()??.first?.action?()
                         viewModel.textChanged("TestNew", for: .nickname)
                     }
@@ -332,8 +345,9 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 
                 context("when entering edit mode") {
                     beforeEach {
+                        viewModel.navState.sinkAndStore(in: &disposables)
                         viewModel.rightNavItems.firstValue()??.first?.action?()
-                        viewModel.textChanged("TestNew", for: .nickname)
+                        viewModel.textChanged("TestUserNew", for: .nickname)
                     }
                     
                     it("enters the editing state") {

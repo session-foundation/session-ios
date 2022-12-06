@@ -14,7 +14,6 @@ class SessionTableViewModel<NavItemId: Equatable, Section: SessionTableSection, 
     
     // MARK: - Input
     
-    let navItemTapped: PassthroughSubject<NavItemId, Never> = PassthroughSubject()
     private let _isEditing: CurrentValueSubject<Bool, Never> = CurrentValueSubject(false)
     lazy var isEditing: AnyPublisher<Bool, Never> = _isEditing
         .removeDuplicates()

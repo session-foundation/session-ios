@@ -215,8 +215,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
 
                             buttonItem.tapPublisher
                                 .map { _ in item.id }
-                                .handleEvents(receiveOutput: { _ in item.action?() })
-                                .sink(into: self?.viewModel.navItemTapped)
+                                .sink(receiveValue: { _ in item.action?() })
                                 .store(in: &buttonItem.disposables)
 
                             return buttonItem
@@ -238,8 +237,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
 
                             buttonItem.tapPublisher
                                 .map { _ in item.id }
-                                .handleEvents(receiveOutput: { _ in item.action?() })
-                                .sink(into: self?.viewModel.navItemTapped)
+                                .sink(receiveValue: { _ in item.action?() })
                                 .store(in: &buttonItem.disposables)
 
                             return buttonItem

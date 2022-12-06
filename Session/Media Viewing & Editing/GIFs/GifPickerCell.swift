@@ -218,7 +218,7 @@ class GifPickerCell: UICollectionViewCell {
         self.themeBackgroundColor = nil
 
         if self.isCellSelected {
-            let activityIndicator = UIActivityIndicatorView(style: .gray)
+            let activityIndicator = UIActivityIndicatorView(style: .medium)
             self.activityIndicator = activityIndicator
             addSubview(activityIndicator)
             activityIndicator.autoCenterInSuperview()

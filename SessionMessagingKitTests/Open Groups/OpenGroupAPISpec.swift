@@ -865,7 +865,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -937,7 +937,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -1031,7 +1031,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .subscribe(on: DispatchQueue.main)
                             .receiveOnMain(immediately: true)
-                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkUntilComplete()
                         
@@ -1089,7 +1089,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .subscribe(on: DispatchQueue.main)
                             .receiveOnMain(immediately: true)
-                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkUntilComplete()
                         
@@ -1163,7 +1163,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .subscribe(on: DispatchQueue.main)
                             .receiveOnMain(immediately: true)
-                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkUntilComplete()
                         
@@ -1253,7 +1253,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .subscribe(on: DispatchQueue.main)
                             .receiveOnMain(immediately: true)
-                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkUntilComplete()
                         
@@ -1319,7 +1319,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -1366,7 +1366,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .subscribe(on: DispatchQueue.main)
                             .receiveOnMain(immediately: true)
-                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkUntilComplete()
                         
@@ -1408,7 +1408,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .subscribe(on: DispatchQueue.main)
                             .receiveOnMain(immediately: true)
-                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkUntilComplete()
                         
@@ -1445,7 +1445,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .subscribe(on: DispatchQueue.main)
                             .receiveOnMain(immediately: true)
-                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkUntilComplete()
                         
@@ -1480,7 +1480,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .subscribe(on: DispatchQueue.main)
                             .receiveOnMain(immediately: true)
-                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkUntilComplete()
                         
@@ -1522,7 +1522,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .subscribe(on: DispatchQueue.main)
                             .receiveOnMain(immediately: true)
-                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkUntilComplete()
                         
@@ -1564,7 +1564,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .subscribe(on: DispatchQueue.main)
                             .receiveOnMain(immediately: true)
-                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkUntilComplete()
                         
@@ -1601,7 +1601,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .subscribe(on: DispatchQueue.main)
                             .receiveOnMain(immediately: true)
-                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkUntilComplete()
                         
@@ -1644,7 +1644,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .subscribe(on: DispatchQueue.main)
                             .receiveOnMain(immediately: true)
-                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkUntilComplete()
                         
@@ -1696,7 +1696,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -1752,7 +1752,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -1795,7 +1795,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .subscribe(on: DispatchQueue.main)
                             .receiveOnMain(immediately: true)
-                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkUntilComplete()
                         
@@ -1836,7 +1836,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .subscribe(on: DispatchQueue.main)
                             .receiveOnMain(immediately: true)
-                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkUntilComplete()
                         
@@ -1872,7 +1872,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .subscribe(on: DispatchQueue.main)
                             .receiveOnMain(immediately: true)
-                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkUntilComplete()
                         
@@ -1906,7 +1906,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .subscribe(on: DispatchQueue.main)
                             .receiveOnMain(immediately: true)
-                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkUntilComplete()
                         
@@ -1947,7 +1947,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .subscribe(on: DispatchQueue.main)
                             .receiveOnMain(immediately: true)
-                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkUntilComplete()
                         
@@ -1988,7 +1988,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .subscribe(on: DispatchQueue.main)
                             .receiveOnMain(immediately: true)
-                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkUntilComplete()
                         
@@ -2024,7 +2024,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .subscribe(on: DispatchQueue.main)
                             .receiveOnMain(immediately: true)
-                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkUntilComplete()
                         
@@ -2066,7 +2066,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .subscribe(on: DispatchQueue.main)
                             .receiveOnMain(immediately: true)
-                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkUntilComplete()
                         
@@ -2103,7 +2103,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -2149,7 +2149,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -2191,7 +2191,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -2231,7 +2231,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -2270,7 +2270,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -2312,7 +2312,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -2350,7 +2350,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -2389,7 +2389,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -2428,7 +2428,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -2487,7 +2487,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -2539,7 +2539,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -2571,7 +2571,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -2605,7 +2605,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -2653,7 +2653,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -2684,7 +2684,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -2717,7 +2717,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -2768,7 +2768,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -2802,7 +2802,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -2838,7 +2838,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -2874,7 +2874,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -2937,7 +2937,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -2968,7 +2968,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -3025,7 +3025,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -3054,7 +3054,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -3083,7 +3083,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         .subscribe(on: DispatchQueue.main)
                         .receiveOnMain(immediately: true)
-                        .handleEvents(receiveOutput: { result in pollResponse = result })
+                        .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkUntilComplete()
                     
@@ -3116,7 +3116,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .subscribe(on: DispatchQueue.main)
                             .receiveOnMain(immediately: true)
-                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkUntilComplete()
                         
@@ -3154,7 +3154,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .subscribe(on: DispatchQueue.main)
                             .receiveOnMain(immediately: true)
-                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkUntilComplete()
                         
@@ -3189,7 +3189,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .subscribe(on: DispatchQueue.main)
                             .receiveOnMain(immediately: true)
-                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkUntilComplete()
                         
@@ -3228,7 +3228,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .subscribe(on: DispatchQueue.main)
                             .receiveOnMain(immediately: true)
-                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkUntilComplete()
                         
@@ -3257,7 +3257,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .subscribe(on: DispatchQueue.main)
                             .receiveOnMain(immediately: true)
-                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkUntilComplete()
                         

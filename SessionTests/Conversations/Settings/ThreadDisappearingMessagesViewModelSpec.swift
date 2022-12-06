@@ -86,6 +86,7 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
                                 id: ThreadDisappearingMessagesViewModel.Item(
                                     title: "DISAPPEARING_MESSAGES_OFF".localized()
                                 ),
+                                position: .top,
                                 title: "DISAPPEARING_MESSAGES_OFF".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { true }
@@ -101,7 +102,8 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
                     .to(
                         equal(
                             SessionCell.Info(
-                                id: ThreadDisappearingMessagesViewModel.Item(title: title),
+                                id: ThreadDisappearingMessagesSettingsViewModel.Item(title: title),
+                                position: .bottom,
                                 title: title,
                                 rightAccessory: .radio(
                                     isSelected: { false }
@@ -142,6 +144,7 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
                                 id: ThreadDisappearingMessagesViewModel.Item(
                                     title: "DISAPPEARING_MESSAGES_OFF".localized()
                                 ),
+                                position: .top,
                                 title: "DISAPPEARING_MESSAGES_OFF".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { false }
@@ -157,7 +160,8 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
                     .to(
                         equal(
                             SessionCell.Info(
-                                id: ThreadDisappearingMessagesViewModel.Item(title: title),
+                                id: ThreadDisappearingMessagesSettingsViewModel.Item(title: title),
+                                position: .bottom,
                                 title: title,
                                 rightAccessory: .radio(
                                     isSelected: { true }
