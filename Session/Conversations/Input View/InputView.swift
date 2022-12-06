@@ -50,12 +50,18 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     // MARK: - UI
 
     private var bottomStackView: UIStackView?
-    private lazy var attachmentsButton = ExpandingAttachmentsButton(delegate: delegate)
+    private lazy var attachmentsButton: ExpandingAttachmentsButton = {
+        let result = ExpandingAttachmentsButton(delegate: delegate)
+        result.accessibilityLabel = "Attachments button"
+        result.isAccessibilityElement = true
+        
+        return result
+    }()
 
     private lazy var voiceMessageButton: InputViewButton = {
         let result = InputViewButton(icon: #imageLiteral(resourceName: "Microphone"), delegate: self)
-        result.accessibilityLabel = "VOICE_MESSAGE_TOO_SHORT_ALERT_TITLE".localized()
-        result.accessibilityHint = "VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE".localized()
+        result.accessibilityLabel = "New voice message"
+        result.isAccessibilityElement = true
         
         return result
     }()
@@ -63,7 +69,8 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     private lazy var sendButton: InputViewButton = {
         let result = InputViewButton(icon: #imageLiteral(resourceName: "ArrowUp"), isSendButton: true, delegate: self)
         result.isHidden = true
-        result.accessibilityLabel = "ATTACHMENT_APPROVAL_SEND_BUTTON".localized()
+        result.accessibilityLabel = "Send message button"
+        result.isAccessibilityElement = true
         
         return result
     }()
@@ -78,6 +85,8 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
 
     private lazy var mentionsViewContainer: UIView = {
         let result: UIView = UIView()
+        result.accessibilityLabel = "Mentions list"
+        result.isAccessibilityElement = true
         result.alpha = 0
         
         let backgroundView = UIView()
@@ -107,7 +116,11 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         // setUpViewHierarchy() for why these values are the way they are.
         let adjustment = (InputViewButton.expandedSize - InputViewButton.size) / 2
         let maxWidth = UIScreen.main.bounds.width - 2 * InputViewButton.expandedSize - 2 * Values.smallSpacing - 2 * (Values.mediumSpacing - adjustment)
-        return InputTextView(delegate: self, maxWidth: maxWidth)
+        let result = InputTextView(delegate: self, maxWidth: maxWidth)
+        result.accessibilityLabel = "Message input box"
+        result.isAccessibilityElement = true
+        
+        return result
     }()
 
     private lazy var disabledInputLabel: UILabel = {

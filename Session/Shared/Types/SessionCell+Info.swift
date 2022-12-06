@@ -17,6 +17,9 @@ extension SessionCell {
         let isEnabled: Bool
         let shouldHaveBackground: Bool
         let accessibilityIdentifier: String?
+        let accessibilityLabel: String?
+        let leftAccessoryAccessibilityLabel: String?
+        let rightAccessoryAccessibilityLabel: String?
         let confirmationInfo: ConfirmationModal.Info?
         let onTap: ((UIView?) -> Void)?
         
@@ -41,6 +44,9 @@ extension SessionCell {
             isEnabled: Bool = true,
             shouldHaveBackground: Bool = true,
             accessibilityIdentifier: String? = nil,
+            accessibilityLabel: String? = nil,
+            leftAccessoryAccessibilityLabel: String? = nil,
+            rightAccessoryAccessibilityLabel: String? = nil,
             confirmationInfo: ConfirmationModal.Info? = nil,
             onTap: ((UIView?) -> Void)?
         ) {
@@ -55,6 +61,9 @@ extension SessionCell {
             self.isEnabled = isEnabled
             self.shouldHaveBackground = shouldHaveBackground
             self.accessibilityIdentifier = accessibilityIdentifier
+            self.accessibilityLabel = accessibilityLabel
+            self.leftAccessoryAccessibilityLabel = leftAccessoryAccessibilityLabel
+            self.rightAccessoryAccessibilityLabel = rightAccessoryAccessibilityLabel
             self.confirmationInfo = confirmationInfo
             self.onTap = onTap
         }
@@ -71,6 +80,9 @@ extension SessionCell {
             isEnabled: Bool = true,
             shouldHaveBackground: Bool = true,
             accessibilityIdentifier: String? = nil,
+            accessibilityLabel: String? = nil,
+            leftAccessoryAccessibilityLabel: String? = nil,
+            rightAccessoryAccessibilityLabel: String? = nil,
             confirmationInfo: ConfirmationModal.Info? = nil,
             onTap: (() -> Void)? = nil
         ) {
@@ -85,6 +97,9 @@ extension SessionCell {
             self.isEnabled = isEnabled
             self.shouldHaveBackground = shouldHaveBackground
             self.accessibilityIdentifier = accessibilityIdentifier
+            self.accessibilityLabel = accessibilityLabel
+            self.leftAccessoryAccessibilityLabel = leftAccessoryAccessibilityLabel
+            self.rightAccessoryAccessibilityLabel = rightAccessoryAccessibilityLabel
             self.confirmationInfo = confirmationInfo
             self.onTap = (onTap != nil ? { _ in onTap?() } : nil)
         }
@@ -104,6 +119,9 @@ extension SessionCell {
             isEnabled.hash(into: &hasher)
             shouldHaveBackground.hash(into: &hasher)
             accessibilityIdentifier.hash(into: &hasher)
+            accessibilityLabel.hash(into: &hasher)
+            leftAccessoryAccessibilityLabel.hash(into: &hasher)
+            rightAccessoryAccessibilityLabel.hash(into: &hasher)
             confirmationInfo.hash(into: &hasher)
         }
         
@@ -118,7 +136,10 @@ extension SessionCell {
                 lhs.extraAction == rhs.extraAction &&
                 lhs.isEnabled == rhs.isEnabled &&
                 lhs.shouldHaveBackground == rhs.shouldHaveBackground &&
-                lhs.accessibilityIdentifier == rhs.accessibilityIdentifier
+                lhs.accessibilityIdentifier == rhs.accessibilityIdentifier &&
+                lhs.accessibilityLabel == rhs.accessibilityLabel &&
+                lhs.leftAccessoryAccessibilityLabel == rhs.leftAccessoryAccessibilityLabel &&
+                lhs.rightAccessoryAccessibilityLabel == rhs.rightAccessoryAccessibilityLabel
             )
         }
     }

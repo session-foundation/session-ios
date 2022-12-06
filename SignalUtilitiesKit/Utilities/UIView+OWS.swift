@@ -291,43 +291,43 @@ public extension UIBezierPath {
 
 @objc
 public extension UIBarButtonItem {
-    convenience init(image: UIImage?, style: UIBarButtonItem.Style, target: Any?, action: Selector?, accessibilityIdentifier: String) {
+    convenience init(image: UIImage?, style: UIBarButtonItem.Style, target: Any?, action: Selector?, accessibilityIdentifier: String, accessibilityLabel: String? = nil) {
         self.init(image: image, style: style, target: target, action: action)
 
         self.accessibilityIdentifier = accessibilityIdentifier
-        self.accessibilityLabel = accessibilityIdentifier
+        self.accessibilityLabel = accessibilityLabel == nil ? accessibilityIdentifier : accessibilityLabel
         self.isAccessibilityElement = true
     }
 
-    convenience init(image: UIImage?, landscapeImagePhone: UIImage?, style: UIBarButtonItem.Style, target: Any?, action: Selector?, accessibilityIdentifier: String) {
+    convenience init(image: UIImage?, landscapeImagePhone: UIImage?, style: UIBarButtonItem.Style, target: Any?, action: Selector?, accessibilityIdentifier: String, accessibilityLabel: String? = nil) {
         self.init(image: image, landscapeImagePhone: landscapeImagePhone, style: style, target: target, action: action)
 
         self.accessibilityIdentifier = accessibilityIdentifier
-        self.accessibilityLabel = accessibilityIdentifier
+        self.accessibilityLabel = accessibilityLabel == nil ? accessibilityIdentifier : accessibilityLabel
         self.isAccessibilityElement = true
     }
 
-    convenience init(title: String?, style: UIBarButtonItem.Style, target: Any?, action: Selector?, accessibilityIdentifier: String) {
+    convenience init(title: String?, style: UIBarButtonItem.Style, target: Any?, action: Selector?, accessibilityIdentifier: String, accessibilityLabel: String? = nil) {
         self.init(title: title, style: style, target: target, action: action)
 
         self.accessibilityIdentifier = accessibilityIdentifier
-        self.accessibilityLabel = accessibilityIdentifier
+        self.accessibilityLabel = accessibilityLabel == nil ? accessibilityIdentifier : accessibilityLabel
         self.isAccessibilityElement = true
     }
 
-    convenience init(barButtonSystemItem systemItem: UIBarButtonItem.SystemItem, target: Any?, action: Selector?, accessibilityIdentifier: String) {
+    convenience init(barButtonSystemItem systemItem: UIBarButtonItem.SystemItem, target: Any?, action: Selector?, accessibilityIdentifier: String, accessibilityLabel: String? = nil) {
         self.init(barButtonSystemItem: systemItem, target: target, action: action)
 
         self.accessibilityIdentifier = accessibilityIdentifier
-        self.accessibilityLabel = accessibilityIdentifier
+        self.accessibilityLabel = accessibilityLabel == nil ? accessibilityIdentifier : accessibilityLabel
         self.isAccessibilityElement = true
     }
 
-    convenience init(customView: UIView, accessibilityIdentifier: String) {
+    convenience init(customView: UIView, accessibilityIdentifier: String, accessibilityLabel: String? = nil) {
         self.init(customView: customView)
 
         self.accessibilityIdentifier = accessibilityIdentifier
-        self.accessibilityLabel = accessibilityIdentifier
+        self.accessibilityLabel = accessibilityLabel == nil ? accessibilityIdentifier : accessibilityLabel
         self.isAccessibilityElement = true
     }
 }

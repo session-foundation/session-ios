@@ -17,7 +17,8 @@ final class RegisterVC : BaseVC {
         let result = UILabel()
         result.font = Fonts.spaceMono(ofSize: isIPhone5OrSmaller ? Values.mediumFontSize : 20)
         result.themeTextColor = .textPrimary
-        result.accessibilityLabel = "Session ID label"
+        result.accessibilityLabel = "Session ID"
+        result.isAccessibilityElement = true
         result.lineBreakMode = .byCharWrapping
         result.numberOfLines = 0
         
@@ -26,6 +27,8 @@ final class RegisterVC : BaseVC {
     
     private lazy var copyPublicKeyButton: SessionButton = {
         let result = SessionButton(style: .bordered, size: .large)
+        result.accessibilityLabel = "Copy"
+        result.isAccessibilityElement = true
         result.setTitle("copy".localized(), for: .normal)
         result.addTarget(self, action: #selector(copyPublicKey), for: .touchUpInside)
         
@@ -86,6 +89,7 @@ final class RegisterVC : BaseVC {
         
         // Set up register button
         let registerButton = SessionButton(style: .filled, size: .large)
+        registerButton.accessibilityLabel = "Continue"
         registerButton.setTitle("continue_2".localized(), for: .normal)
         registerButton.addTarget(self, action: #selector(register), for: UIControl.Event.touchUpInside)
         
@@ -167,6 +171,9 @@ final class RegisterVC : BaseVC {
     
     private func updatePublicKeyLabel() {
         let hexEncodedPublicKey = x25519KeyPair.hexEncodedPublicKey
+        publicKeyLabel.accessibilityLabel = hexEncodedPublicKey
+        publicKeyLabel.accessibilityIdentifier = "Session ID generated"
+        publicKeyLabel.isAccessibilityElement = true
         let characterCount = hexEncodedPublicKey.count
         var count = 0
         let limit = 32
@@ -202,6 +209,8 @@ final class RegisterVC : BaseVC {
     @objc private func copyPublicKey() {
         UIPasteboard.general.string = x25519KeyPair.hexEncodedPublicKey
         copyPublicKeyButton.isUserInteractionEnabled = false
+        copyPublicKeyButton.accessibilityLabel = "Copy session id"
+        copyPublicKeyButton.isAccessibilityElement = true
         UIView.transition(with: copyPublicKeyButton, duration: 0.25, options: .transitionCrossDissolve, animations: {
             self.copyPublicKeyButton.setTitle("copied".localized(), for: .normal)
         }, completion: nil)

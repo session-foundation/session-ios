@@ -16,6 +16,7 @@ final class LandingVC: BaseVC {
     
     private lazy var registerButton: SessionButton = {
         let result = SessionButton(style: .filled, size: .large)
+        result.accessibilityLabel = "Create session ID"
         result.setTitle("vc_landing_register_button_title".localized(), for: .normal)
         result.addTarget(self, action: #selector(register), for: .touchUpInside)
         
@@ -63,6 +64,7 @@ final class LandingVC: BaseVC {
         
         // Link button
         let linkButton = UIButton()
+        linkButton.accessibilityLabel = "Link a device"
         linkButton.titleLabel?.font = .boldSystemFont(ofSize: Values.smallFontSize)
         linkButton.setTitle("vc_landing_link_button_title".localized(), for: .normal)
         linkButton.setThemeTitleColor(.textPrimary, for: .normal)

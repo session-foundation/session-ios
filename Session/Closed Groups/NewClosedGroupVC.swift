@@ -48,6 +48,8 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         result.themeBorderColor = .borderSeparator
         result.layer.cornerRadius = 13
         result.delegate = self
+        result.accessibilityIdentifier = "Group name input"
+        result.isAccessibilityElement = true
         
         return result
     }()
@@ -133,6 +135,8 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         result.translatesAutoresizingMaskIntoConstraints = false
         result.setTitle("CREATE_GROUP_BUTTON_TITLE".localized(), for: .normal)
         result.addTarget(self, action: #selector(createClosedGroup), for: .touchUpInside)
+        result.accessibilityIdentifier = "Create group"
+        result.isAccessibilityElement = true
         result.set(.width, to: 160)
         
         return result
@@ -151,6 +155,8 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         let closeButton = UIBarButtonItem(image: #imageLiteral(resourceName: "X"), style: .plain, target: self, action: #selector(close))
         closeButton.themeTintColor = .textPrimary
         navigationItem.rightBarButtonItem = closeButton
+        navigationItem.leftBarButtonItem?.accessibilityIdentifier = "Cancel"
+        navigationItem.leftBarButtonItem?.isAccessibilityElement = true
         
         // Set up content
         setUpViewHierarchy()
@@ -204,8 +210,9 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                 title: profile.displayName(),
                 rightAccessory: .radio(isSelected: { [weak self] in
                     self?.selectedContacts.contains(profile.id) == true
-                })
-            ),
+                }),
+                accessibilityIdentifier: "Contact"
+        ),
             style: .edgeToEdge,
             position: Position.with(indexPath.row, count: data[indexPath.section].elements.count)
         )
@@ -286,6 +293,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                     explanation: message,
                     cancelTitle: "BUTTON_OK".localized(),
                     cancelStyle: .alert_text
+                    
                 )
             )
             present(modal, animated: true)

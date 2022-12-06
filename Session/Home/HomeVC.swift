@@ -42,6 +42,7 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
     
     private lazy var seedReminderView: SeedReminderView = {
         let result = SeedReminderView(hasContinueButton: true)
+        result.accessibilityLabel = "Recovery phrase reminder"
         let title = "You're almost finished! 80%"
         result.subtitle = "view_seed_reminder_subtitle_1".localized()
         result.setProgress(0.8, animated: false)
@@ -107,6 +108,8 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
         result.set(.height, to: HomeVC.newConversationButtonSize)
         
         let button = UIButton()
+        button.accessibilityLabel = "New conversation button"
+        button.isAccessibilityElement = true
         button.clipsToBounds = true
         button.setImage(
             UIImage(named: "Plus")?
@@ -463,7 +466,9 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
         // Profile picture view
         let profilePictureSize = Values.verySmallProfilePictureSize
         let profilePictureView = ProfilePictureView()
-        profilePictureView.accessibilityLabel = "Settings button"
+        profilePictureView.accessibilityIdentifier = "User settings"
+        profilePictureView.accessibilityLabel = "User settings"
+        profilePictureView.isAccessibilityElement = true
         profilePictureView.size = profilePictureSize
         profilePictureView.update(
             publicKey: getUserHexEncodedPublicKey(),
@@ -482,7 +487,6 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
         
         // Container view
         let profilePictureViewContainer = UIView()
-        profilePictureViewContainer.accessibilityLabel = "Settings button"
         profilePictureViewContainer.addSubview(profilePictureView)
         profilePictureView.autoPinEdgesToSuperviewEdges()
         profilePictureViewContainer.addSubview(pathStatusView)
@@ -491,7 +495,6 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
         
         // Left bar button item
         let leftBarButtonItem = UIBarButtonItem(customView: profilePictureViewContainer)
-        leftBarButtonItem.accessibilityLabel = "Settings button"
         leftBarButtonItem.isAccessibilityElement = true
         navigationItem.leftBarButtonItem = leftBarButtonItem
         
@@ -521,6 +524,8 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
             case .messageRequests:
                 let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
                 let cell: MessageRequestsCell = tableView.dequeue(type: MessageRequestsCell.self, for: indexPath)
+                cell.accessibilityIdentifier = "Message requests banner"
+                cell.isAccessibilityElement = true
                 cell.update(with: Int(threadViewModel.threadUnreadCount ?? 0))
                 return cell
                 
@@ -528,6 +533,8 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                 let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
                 let cell: FullConversationCell = tableView.dequeue(type: FullConversationCell.self, for: indexPath)
                 cell.update(with: threadViewModel)
+                cell.accessibilityIdentifier = "Conversation list item"
+                cell.accessibilityLabel = threadViewModel.displayName
                 return cell
                 
             default: preconditionFailure("Other sections should have no content")

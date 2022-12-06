@@ -144,6 +144,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     
     internal lazy var messageStatusImageView: UIImageView = {
         let result = UIImageView()
+        result.accessibilityLabel = "Message sent status tick"
         result.contentMode = .scaleAspectFit
         result.layer.cornerRadius = VisibleMessageCell.messageStatusImageViewSize / 2
         result.layer.masksToBounds = true
@@ -268,7 +269,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         lastSearchText: String?
     ) {
         self.viewModel = cellViewModel
-        
+        self.bubbleView.accessibilityIdentifier = "Message Body"
+        self.bubbleView.isAccessibilityElement = true
+        self.bubbleView.accessibilityLabel = cellViewModel.body
         // We want to add spacing between "clusters" of messages to indicate that time has
         // passed (even if there wasn't enough time to warrant showing a date header)
         let shouldAddTopInset: Bool = (

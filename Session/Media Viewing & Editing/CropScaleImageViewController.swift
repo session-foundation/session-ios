@@ -455,6 +455,7 @@ import SignalUtilitiesKit
         result.addArrangedSubview(cancelButton)
 
         let doneButton = createButton(title: CommonStrings.doneButton, action: #selector(donePressed))
+        doneButton.accessibilityLabel = "Done"
         result.addArrangedSubview(doneButton)
         
         return result
