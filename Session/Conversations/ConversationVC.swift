@@ -199,9 +199,13 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             backgroundColor: .primary,
             messageFont: .systemFont(ofSize: Values.miniFontSize),
             messageTintColor: .messageBubble_outgoingText,
+            messageLabelAccessibilityLabel: "Outdated client banner text",
             height: 40
         )
         let result: InfoBanner = InfoBanner(info: info)
+        result.accessibilityLabel = "Outdated client banner"
+        result.isAccessibilityElement = true
+        
         return result
     }()
 
@@ -211,9 +215,12 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             backgroundColor: .danger,
             messageFont: .boldSystemFont(ofSize: Values.smallFontSize),
             messageTintColor: .textPrimary,
+            messageLabelAccessibilityLabel: "Blocked banner text",
             height: 54
         )
         let result: InfoBanner = InfoBanner(info: info)
+        result.accessibilityLabel = "Blocked banner"
+        result.isAccessibilityElement = true
         let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(unblock))
         result.addGestureRecognizer(tapGestureRecognizer)
         
@@ -261,6 +268,8 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
 
     private lazy var messageRequestAcceptButton: UIButton = {
         let result: SessionButton = SessionButton(style: .bordered, size: .medium)
+        result.accessibilityLabel = "Accept message request"
+        result.isAccessibilityElement = true
         result.translatesAutoresizingMaskIntoConstraints = false
         result.setTitle("TXT_DELETE_ACCEPT".localized(), for: .normal)
         result.addTarget(self, action: #selector(acceptMessageRequest), for: .touchUpInside)
@@ -270,6 +279,8 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
 
     private lazy var messageRequestDeleteButton: UIButton = {
         let result: SessionButton = SessionButton(style: .destructive, size: .medium)
+        result.accessibilityLabel = "Decline message request"
+        result.isAccessibilityElement = true
         result.translatesAutoresizingMaskIntoConstraints = false
         result.setTitle("TXT_DECLINE_TITLE".localized(), for: .normal)
         result.addTarget(self, action: #selector(deleteMessageRequest), for: .touchUpInside)
@@ -279,6 +290,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     
     private lazy var messageRequestBlockButton: UIButton = {
         let result: UIButton = UIButton()
+        result.accessibilityLabel = "Block message request"
         result.translatesAutoresizingMaskIntoConstraints = false
         result.clipsToBounds = true
         result.titleLabel?.font = UIFont.boldSystemFont(ofSize: 16)
@@ -1126,7 +1138,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                     profilePictureView.addGestureRecognizer(tapGestureRecognizer)
 
                     let settingsButtonItem: UIBarButtonItem = UIBarButtonItem(customView: profilePictureView)
-                    settingsButtonItem.accessibilityLabel = "Settings button"
+                    settingsButtonItem.accessibilityLabel = "More options"
                     settingsButtonItem.isAccessibilityElement = true
                     
                     if SessionCall.isEnabled && !isNoteToSelf {
@@ -1136,6 +1148,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                             target: self,
                             action: #selector(startCall)
                         )
+                        callButton.accessibilityLabel = "Call button"
                         
                         navigationItem.rightBarButtonItems = [settingsButtonItem, callButton]
                     }
@@ -1145,7 +1158,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                     
                 default:
                     let rightBarButtonItem: UIBarButtonItem = UIBarButtonItem(image: UIImage(named: "Gear"), style: .plain, target: self, action: #selector(openSettings))
-                    rightBarButtonItem.accessibilityLabel = "Settings button"
+                    rightBarButtonItem.accessibilityLabel = "More options"
                     rightBarButtonItem.isAccessibilityElement = true
 
                     navigationItem.rightBarButtonItems = [rightBarButtonItem]

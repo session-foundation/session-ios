@@ -9,6 +9,7 @@ final class InfoBanner: UIView {
         let backgroundColor: ThemeValue
         let messageFont: UIFont
         let messageTintColor: ThemeValue
+        let messageLabelAccessibilityLabel: String?
         let height: CGFloat
         
         // MARK: - Confirmance
@@ -19,6 +20,7 @@ final class InfoBanner: UIView {
                 lhs.backgroundColor == rhs.backgroundColor &&
                 lhs.messageFont == rhs.messageFont &&
                 lhs.messageTintColor == rhs.messageTintColor &&
+                lhs.messageLabelAccessibilityLabel == rhs.messageLabelAccessibilityLabel &&
                 lhs.height == rhs.height
             )
         }
@@ -28,6 +30,7 @@ final class InfoBanner: UIView {
             backgroundColor.hash(into: &hasher)
             messageFont.hash(into: &hasher)
             messageTintColor.hash(into: &hasher)
+            messageLabelAccessibilityLabel.hash(into: &hasher)
             height.hash(into: &hasher)
         }
         
@@ -36,6 +39,7 @@ final class InfoBanner: UIView {
             backgroundColor: ThemeValue? = nil,
             messageFont: UIFont? = nil,
             messageTintColor: ThemeValue? = nil,
+            messageLabelAccessibilityLabel: String? = nil,
             height: CGFloat? = nil
         ) -> Info {
             return Info(
@@ -43,6 +47,7 @@ final class InfoBanner: UIView {
                 backgroundColor: backgroundColor ?? self.backgroundColor,
                 messageFont: messageFont ?? self.messageFont,
                 messageTintColor: messageTintColor ?? self.messageTintColor,
+                messageLabelAccessibilityLabel: messageLabelAccessibilityLabel ?? self.messageLabelAccessibilityLabel,
                 height: height ?? self.height
             )
         }
@@ -53,6 +58,7 @@ final class InfoBanner: UIView {
         result.textAlignment = .center
         result.lineBreakMode = .byWordWrapping
         result.numberOfLines = 0
+        result.isAccessibilityElement = true
         
         return result
     }()
@@ -87,6 +93,7 @@ final class InfoBanner: UIView {
         label.font = info.messageFont
         label.text = info.message
         label.themeTextColor = info.messageTintColor
+        label.accessibilityLabel = info.messageLabelAccessibilityLabel
     }
     
     public func update(
@@ -94,6 +101,7 @@ final class InfoBanner: UIView {
         backgroundColor: ThemeValue? = nil,
         messageFont: UIFont? = nil,
         messageTintColor: ThemeValue? = nil,
+        messageLabelAccessibilityLabel: String? = nil,
         height: CGFloat? = nil
     ) {
         if let updatedInfo = self.info?.with(
@@ -101,6 +109,7 @@ final class InfoBanner: UIView {
             backgroundColor: backgroundColor,
             messageFont: messageFont,
             messageTintColor: messageTintColor,
+            messageLabelAccessibilityLabel: messageLabelAccessibilityLabel,
             height: height
         ) {
             self.update(updatedInfo)

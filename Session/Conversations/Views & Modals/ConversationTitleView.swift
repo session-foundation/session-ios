@@ -28,6 +28,8 @@ final class ConversationTitleView: UIView {
     
     private lazy var titleLabel: UILabel = {
         let result: UILabel = UILabel()
+        result.accessibilityIdentifier = "Username"
+        result.isAccessibilityElement = true
         result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
         result.themeTextColor = .textPrimary
         result.lineBreakMode = .byTruncatingTail
@@ -130,6 +132,7 @@ final class ConversationTitleView: UIView {
         )
         
         self.titleLabel.text = name
+        self.titleLabel.accessibilityLabel = name
         self.titleLabel.font = .boldSystemFont(
             ofSize: (shouldHaveSubtitle ?
                 Values.largeFontSize :

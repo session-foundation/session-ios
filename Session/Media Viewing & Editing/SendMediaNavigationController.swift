@@ -215,6 +215,7 @@ class SendMediaNavigationController: UINavigationController {
     private lazy var mediaLibraryViewController: ImagePickerGridController = {
         let vc = ImagePickerGridController()
         vc.delegate = self
+        vc.collectionView.accessibilityLabel = "Images"
 
         return vc
     }()

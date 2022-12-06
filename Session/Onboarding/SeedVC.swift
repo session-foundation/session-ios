@@ -46,6 +46,9 @@ final class SeedVC: BaseVC {
     
     private lazy var mnemonicLabel: UILabel = {
         let result = UILabel()
+        result.accessibilityIdentifier = "Recovery Phrase"
+        result.accessibilityLabel = mnemonic
+        result.isAccessibilityElement = true
         result.font = Fonts.spaceMono(ofSize: Values.mediumFontSize)
         result.themeTextColor = .primary
         result.textAlignment = .center
@@ -72,6 +75,8 @@ final class SeedVC: BaseVC {
         
         // Set up navigation bar buttons
         let closeButton = UIBarButtonItem(image: #imageLiteral(resourceName: "X"), style: .plain, target: self, action: #selector(close))
+        closeButton.accessibilityLabel = "Navigate up"
+        closeButton.isAccessibilityElement = true
         closeButton.themeTintColor = .textPrimary
         navigationItem.leftBarButtonItem = closeButton
         

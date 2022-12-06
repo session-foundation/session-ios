@@ -308,6 +308,8 @@ public class SessionCell: UITableViewCell {
         self.subtitleExtraView = info.subtitleExtraViewGenerator?()
         self.onExtraActionTap = info.extraAction?.onTap
         self.accessibilityIdentifier = info.accessibilityIdentifier
+        self.accessibilityLabel = info.accessibilityLabel
+        self.isAccessibilityElement = true
         
         let leftFitToEdge: Bool = (info.leftAccessory?.shouldFitToEdge == true)
         let rightFitToEdge: Bool = (!leftFitToEdge && info.rightAccessory?.shouldFitToEdge == true)
@@ -315,12 +317,14 @@ public class SessionCell: UITableViewCell {
         leftAccessoryView.update(
             with: info.leftAccessory,
             tintColor: info.tintColor,
-            isEnabled: info.isEnabled
+            isEnabled: info.isEnabled,
+            accessibilityLabel: info.leftAccessoryAccessibilityLabel
         )
         rightAccessoryView.update(
             with: info.rightAccessory,
             tintColor: info.tintColor,
-            isEnabled: info.isEnabled
+            isEnabled: info.isEnabled,
+            accessibilityLabel: info.rightAccessoryAccessibilityLabel
         )
         rightAccessoryFillConstraint.isActive = rightFitToEdge
         contentStackView.layoutMargins = UIEdgeInsets(

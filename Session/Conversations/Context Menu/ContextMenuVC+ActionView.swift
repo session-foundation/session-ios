@@ -40,7 +40,7 @@ extension ContextMenuVC {
             self.dismiss = dismiss
             
             super.init(frame: CGRect.zero)
-            
+            self.accessibilityLabel = action.accessibilityLabel
             setUpViewHierarchy()
         }
 

@@ -48,7 +48,10 @@ final class UserSelectionVC: BaseVC, UITableViewDataSource, UITableViewDelegate 
         
         setNavBarTitle(navBarTitle)
         
-        navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(handleDoneButtonTapped))
+        let doneButton = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(handleDoneButtonTapped))
+        doneButton.accessibilityLabel = "Done"
+        navigationItem.rightBarButtonItem = doneButton
+        
         view.addSubview(tableView)
         tableView.pin(to: view)
     }
@@ -69,7 +72,8 @@ final class UserSelectionVC: BaseVC, UITableViewDataSource, UITableViewDelegate 
                 title: profile.displayName(),
                 rightAccessory: .radio(isSelected: { [weak self] in
                     self?.selectedUsers.contains(profile.id) == true
-                })
+                }),
+                accessibilityIdentifier: "Contact"
             ),
             style: .edgeToEdge,
             position: Position.with(indexPath.row, count: users.count)

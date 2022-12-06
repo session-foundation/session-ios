@@ -194,7 +194,7 @@ private final class RecoveryPhraseVC: UIViewController {
     private lazy var mnemonicTextView: TextView = {
         let result = TextView(placeholder: "vc_restore_seed_text_field_hint".localized())
         result.themeBorderColor = .textPrimary
-        result.accessibilityLabel = "Recovery phrase text view"
+        result.accessibilityLabel = "Enter your recovery phrase"
         
         return result
     }()
@@ -232,6 +232,7 @@ private final class RecoveryPhraseVC: UIViewController {
         
         // Continue button
         let continueButton = SessionButton(style: .filled, size: .large)
+        continueButton.accessibilityLabel = "Link device"
         continueButton.setTitle("continue_2".localized(), for: UIControl.State.normal)
         continueButton.addTarget(self, action: #selector(handleContinueButtonTapped), for: UIControl.Event.touchUpInside)
         
