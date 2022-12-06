@@ -45,6 +45,8 @@ extension MessageReceiver {
                 type: defaultType
             )
         
+        try config.save(db)
+        
         // Add an info message for the user
         _ = try Interaction(
             serverHash: nil, // Intentionally null so sync messages are seen as duplicates
@@ -60,9 +62,5 @@ extension MessageReceiver {
             ),
             timestampMs: Int64(message.sentTimestamp ?? 0)   // Default to `0` if not set
         ).inserted(db)
-        
-        // Finally save the changes to the DisappearingMessagesConfiguration (If it's a duplicate
-        // then the interaction unique constraint will prevent the code from getting here)
-        try config.save(db)
     }
 }
