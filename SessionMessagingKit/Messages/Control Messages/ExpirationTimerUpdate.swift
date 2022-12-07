@@ -31,7 +31,7 @@ public final class ExpirationTimerUpdate: ControlMessage {
     
     public override var isValid: Bool {
         guard super.isValid else { return false }
-        return duration != nil
+        return duration != nil || DisappearingMessagesConfiguration.isNewConfigurationEnabled
     }
     
     // MARK: - Codable
@@ -69,13 +69,9 @@ public final class ExpirationTimerUpdate: ControlMessage {
     }
 
     public override func toProto(_ db: Database) -> SNProtoContent? {
-        guard let duration = duration else {
-            SNLog("Couldn't construct expiration timer update proto from: \(self).")
-            return nil
-        }
         let dataMessageProto = SNProtoDataMessage.builder()
         dataMessageProto.setFlags(UInt32(SNProtoDataMessage.SNProtoDataMessageFlags.expirationTimerUpdate.rawValue))
-        dataMessageProto.setExpireTimer(duration)
+        if let duration = duration { dataMessageProto.setExpireTimer(duration) }
         if let syncTarget = syncTarget { dataMessageProto.setSyncTarget(syncTarget) }
         // Group context
         do {

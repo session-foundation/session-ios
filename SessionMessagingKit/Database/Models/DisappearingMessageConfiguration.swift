@@ -5,7 +5,8 @@ import GRDB
 import SessionUtilitiesKit
 
 public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
-    public static let isNewConfigurationEnabled: Bool = Date().timeIntervalSince1970 > 1671062400 // 15/12/2022
+//    public static let isNewConfigurationEnabled: Bool = Date().timeIntervalSince1970 > 1671062400 // 15/12/2022
+    public static let isNewConfigurationEnabled: Bool = true
     
     public static var databaseTableName: String { "disappearingMessagesConfiguration" }
     internal static let threadForeignKey = ForeignKey([Columns.threadId], to: [SessionThread.Columns.id])

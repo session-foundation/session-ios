@@ -449,12 +449,17 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                 timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
             )
             .inserted(db)
+            
+            let duration: UInt32? = {
+                guard !DisappearingMessagesConfiguration.isNewConfigurationEnabled else { return nil }
+                return UInt32(floor(updatedConfig.isEnabled ? updatedConfig.durationSeconds : 0))
+            }()
 
             try MessageSender.send(
                 db,
                 message: ExpirationTimerUpdate(
                     syncTarget: nil,
-                    duration: UInt32(floor(updatedConfig.isEnabled ? updatedConfig.durationSeconds : 0))
+                    duration: duration
                 ),
                 interactionId: interaction.id,
                 in: thread
