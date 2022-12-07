@@ -191,7 +191,10 @@ extension MessageSender {
         // If we don't have a userKeyPair yet then there is no need to sync the configuration
         // as the user doesn't exist yet (this will get triggered on the first launch of a
         // fresh install due to the migrations getting run)
-        guard Identity.userExists(db) else { return Promise(error: StorageError.generic) }
+        guard
+            Identity.userExists(db),
+            let ed25519SecretKey: [UInt8] = Identity.fetchUserEd25519KeyPair(db)?.secretKey
+        else { return Promise(error: StorageError.generic) }
         
         let publicKey: String = getUserHexEncodedPublicKey(db)
         let legacyDestination: Message.Destination = Message.Destination.contact(
@@ -201,7 +204,9 @@ extension MessageSender {
         let legacyConfigurationMessage = try ConfigurationMessage.getCurrent(db)
         let (promise, seal) = Promise<Void>.pending()
         
-        let userConfigMessageChanges: [SharedConfigMessage] = SessionUtil.getChanges()
+        let userConfigMessageChanges: [SharedConfigMessage] = SessionUtil.getChanges(
+            ed25519SecretKey: ed25519SecretKey
+        )
         let destination: Message.Destination = Message.Destination.contact(
             publicKey: publicKey,
             namespace: .userProfileConfig

@@ -1,9 +1,11 @@
 #pragma once
 
+#include <cassert>
 #include <memory>
 #include <session/config.hpp>
 #include <type_traits>
 #include <variant>
+#include <vector>
 
 #include "base.h"
 #include "namespaces.hpp"
@@ -23,7 +25,7 @@ static constexpr bool is_dict_value =
         is_dict_subtype<T> || is_one_of<T, dict_value, int64_t, std::string>;
 
 // Levels for the logging callback
-enum class LogLevel { debug, info, warning, error };
+enum class LogLevel { debug = 0, info, warning, error };
 
 /// Our current config state
 enum class ConfigState : int {
@@ -52,12 +54,21 @@ class ConfigBase {
     // Tracks our current state
     ConfigState _state = ConfigState::Clean;
 
-  protected:
-    // Constructs an empty base config with no config settings and seqno set to 0.
-    ConfigBase();
+    static constexpr size_t KEY_SIZE = 32;
 
-    // Constructs a base config by loading the data from a dump as produced by `dump()`.
-    explicit ConfigBase(std::string_view dump);
+    // Contains the base key(s) we use to encrypt/decrypt messages.  If non-empty, the .front()
+    // element will be used when encrypting a new message to push.  When decrypting, we attempt each
+    // of them, starting with .front(), until decryption succeeds.
+    using Key = std::array<unsigned char, KEY_SIZE>;
+    Key* _keys = nullptr;
+    size_t _keys_size = 0;
+    size_t _keys_capacity = 0;
+
+  protected:
+    // Constructs a base config by loading the data from a dump as produced by `dump()`.  If the
+    // dump is nullopt then an empty base config is constructed with no config settings and seqno
+    // set to 0.
+    explicit ConfigBase(std::optional<ustring_view> dump = std::nullopt);
 
     // Tracks whether we need to dump again; most mutating methods should set this to true (unless
     // calling set_state, which sets to to true implicitly).
@@ -69,10 +80,7 @@ class ConfigBase {
         _needs_dump = true;
     }
 
-    // If set then we log things by calling this callback
-    std::function<void(LogLevel lvl, std::string msg)> logger;
-
-    // Invokes the above if set, does nothing if there is no logger.
+    // Invokes the `logger` callback if set, does nothing if there is no logger.
     void log(LogLevel lvl, std::string msg) {
         if (logger)
             logger(lvl, std::move(msg));
@@ -371,14 +379,23 @@ class ConfigBase {
     virtual void load_extra_data(oxenc::bt_dict extra) {}
 
   public:
-    virtual ~ConfigBase() = default;
+    virtual ~ConfigBase();
 
     // Proxy class providing read and write access to the contained config data.
     const DictFieldRoot data{*this};
 
+    // If set then we log things by calling this callback
+    std::function<void(LogLevel lvl, std::string msg)> logger;
+
     // Accesses the storage namespace where this config type is to be stored/loaded from.  See
     // namespaces.hpp for the underlying integer values.
     virtual Namespace storage_namespace() const = 0;
+
+    /// Subclasses must override this to return a constant string that is unique per config type;
+    /// this value is used for domain separation in encryption.  The string length must be between 1
+    /// and 24 characters; use the class name (e.g. "UserProfile") unless you have something better
+    /// to use.  This is rarely needed externally; it is public merely for testing purposes.
+    virtual const char* encryption_domain() const = 0;
 
     // How many config lags should be used for this object; default to 5.  Implementing subclasses
     // can override to return a different constant if desired.  More lags require more "diff"
@@ -392,9 +409,15 @@ class ConfigBase {
     // After this call the caller should check `needs_push()` to see if the data on hand was updated
     // and needs to be pushed to the server again.
     //
+    // Returns the number of the given config messages that were successfully parsed.
+    //
     // Will throw on serious error (i.e. if neither the current nor any of the given configs are
-    // parseable).
-    virtual void merge(const std::vector<std::string_view>& configs);
+    // parseable).  This should not happen (the current config, at least, should always be
+    // re-parseable).
+    virtual int merge(const std::vector<ustring_view>& configs);
+
+    // Same as above but takes a vector of ustring's as sometimes that is more convenient.
+    int merge(const std::vector<ustring>& configs);
 
     // Returns true if we are currently dirty (i.e. have made changes that haven't been serialized
     // yet).
@@ -408,13 +431,13 @@ class ConfigBase {
     // the server.  This will be true whenever `is_clean()` is false: that is, if we are currently
     // "dirty" (i.e.  have changes that haven't been pushed) or are still awaiting confirmation of
     // storage of the most recent serialized push data.
-    virtual bool needs_push() const;
+    bool needs_push() const;
 
-    // Returns the data to push to the server along with the seqno value of the data.  If the config
-    // is currently dirty (i.e. has previously unsent modifications) then this marks it as
-    // awaiting-confirmation instead of dirty so that any future change immediately increments the
-    // seqno.
-    virtual std::pair<std::string, seqno_t> push();
+    // Returns the data messages to push to the server along with the seqno value of the data.  If
+    // the config is currently dirty (i.e. has previously unsent modifications) then this marks it
+    // as awaiting-confirmation instead of dirty so that any future change immediately increments
+    // the seqno.
+    std::pair<ustring, seqno_t> push();
 
     // Should be called after the push is confirmed stored on the storage server swarm to let the
     // object know the data is stored.  (Once this is called `needs_push` will start returning false
@@ -431,11 +454,61 @@ class ConfigBase {
     // into the constructor to reconstitute the object (including the push/not pushed status).  This
     // method is *not* virtual: if subclasses need to store extra data they should set it in the
     // `subclass_data` field.
-    std::string dump();
+    ustring dump();
 
     // Returns true if something has changed since the last call to `dump()` that requires calling
     // and saving the `dump()` data again.
     virtual bool needs_dump() const { return _needs_dump; }
+
+    // Encryption key methods.  For classes that have a single, static key (such as user profile
+    // storage types) these methods typically don't need to be used: the subclass calls them
+    // automatically.
+
+    // Adds an encryption/decryption key, without removing existing keys.  They key must be exactly
+    // 32 bytes long.  The newly added key becomes the highest priority key (unless the
+    // `high_priority` argument is set to false' see below): it will be used for encryption of
+    // config pushes after the call, and will be tried first when decrypting, followed by keys
+    // present (if any) before this call.  If the given key is already present in the key list then
+    // this call moves it to the front of the list (if not already at the front).
+    //
+    // If the `high_priority` argument is specified and false, then the key is added to the *end* of
+    // the key list instead of the beginning: that is, it will not replace the current
+    // highest-priority key used for encryption, but will still be usable for decryption of new
+    // incoming messages (after trying keys present before the call).  If the key already exists
+    // then nothing happens with `high_priority=false` (in particular, it is *not* repositioned, in
+    // contrast to high_priority=true behaviour).
+    //
+    // Will throw a std::invalid_argument if the key is not 32 bytes.
+    void add_key(ustring_view key, bool high_priority = true);
+
+    // Clears all stored encryption/decryption keys.  This is typically immediately followed with
+    // one or more `add_key` call to replace existing keys.  Returns the number of keys removed.
+    int clear_keys();
+
+    // Removes the given encryption/decryption key, if present.  Returns true if it was found and
+    // removed, false if it was not in the key list.
+    //
+    // The optional second argument removes the key only from position `from` or higher.  It is
+    // mainly for internal use and is usually omitted.
+    bool remove_key(ustring_view key, size_t from = 0);
+
+    // Returns a vector of encryption keys, in priority order (i.e. element 0 is the encryption key,
+    // and the first decryption key).
+    std::vector<ustring_view> get_keys() const;
+
+    // Returns the number of encryption keys.
+    int key_count() const;
+
+    // Returns true if the given key is already in the keys list.
+    bool has_key(ustring_view key) const;
+
+    // Accesses the key at position i (0 if omitted).  There must be at least one key, and i must be
+    // less than key_count().  The key at position 0 is used for encryption; for decryption all keys
+    // are tried in order, starting from position 0.
+    ustring_view key(size_t i = 0) const {
+        assert(i < _keys_size);
+        return {_keys[i].data(), _keys[i].size()};
+    }
 };
 
 // The C++ struct we hold opaquely inside the C internals struct.  This is designed so that any
@@ -498,6 +571,6 @@ inline int set_error(config_object* conf, int errcode, const std::exception& e) 
 
 // Copies a value contained in a string into a new malloced char buffer, returning the buffer and
 // size via the two pointer arguments.
-void copy_out(const std::string& data, char** out, size_t* outlen);
+void copy_out(ustring_view data, unsigned char** out, size_t* outlen);
 
 }  // namespace session::config

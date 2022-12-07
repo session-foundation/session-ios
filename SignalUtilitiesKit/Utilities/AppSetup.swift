@@ -77,7 +77,9 @@ public enum AppSetup {
                 // After the migrations have run but before the migration completion we load the
                 // SessionUtil state and update the 'needsConfigSync' flag based on whether the
                 // configs also need to be sync'ed
-                SessionUtil.loadState()
+                SessionUtil.loadState(
+                    ed25519SecretKey: Identity.fetchUserEd25519KeyPair()?.secretKey
+                )
                 
                 DispatchQueue.main.async {
                     migrationsCompletion(result, (needsConfigSync || SessionUtil.needsSync))

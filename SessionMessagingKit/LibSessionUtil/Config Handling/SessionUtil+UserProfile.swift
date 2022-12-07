@@ -36,7 +36,7 @@ internal extension SessionUtil {
             if
                 profilePic.keylen > 0,
                 let profilePictureUrlPtr: UnsafePointer<CChar> = profilePic.url,
-                let profilePictureKeyPtr: UnsafePointer<CChar> = profilePic.key
+                let profilePictureKeyPtr: UnsafePointer<UInt8> = profilePic.key
             {
                 profilePictureUrl = String(cString: profilePictureUrlPtr)
                 profilePictureKey = Data(bytes: profilePictureKeyPtr, count: profilePic.keylen)
@@ -86,9 +86,7 @@ internal extension SessionUtil {
                 .bytes
                 .map { CChar(bitPattern: $0) }
                 .withUnsafeBufferPointer { profileUrlPtr in
-                    let profileKey: [CChar]? = profile.profileEncryptionKey?
-                        .bytes
-                        .map { CChar(bitPattern: $0) }
+                    let profileKey: [UInt8]? = profile.profileEncryptionKey?.bytes
                     
                     return profileKey?.withUnsafeBufferPointer { profileKeyPtr in
                         user_profile_pic(

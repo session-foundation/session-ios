@@ -1,7 +1,10 @@
 module SessionUtil {
   module capi {
+    header "session/export.h"
+    header "session/config.h"
     header "session/config/error.h"
     header "session/config/user_profile.h"
+    header "session/config/encrypt.h"
     header "session/config/base.h"
     header "session/xed25519.h"
     export *

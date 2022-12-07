@@ -6,7 +6,7 @@ extension SnodeAPI {
     public class SendMessageRequest: SnodeAuthenticatedRequestBody {
         enum CodingKeys: String, CodingKey {
             case namespace
-            case signatureTimestamp = "sig_timestamp"
+            case signatureTimestamp = "timestamp"//"sig_timestamp"  // TODO: Add this back once the snodes are fixed
         }
         
         let message: SnodeMessage

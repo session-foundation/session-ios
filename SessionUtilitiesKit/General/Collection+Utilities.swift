@@ -31,3 +31,16 @@ public extension Collection where Element == [CChar] {
         }
     }
 }
+
+public extension Collection where Element == [UInt8] {
+    /// This creates an array of UnsafePointer types to access data of the C strings in memory. This array provides no automated
+    /// memory management of it's children so after use you are responsible for handling the life cycle of the child elements and
+    /// need to call `deallocate()` on each child.
+    func unsafeCopy() -> [UnsafePointer<UInt8>?] {
+        return self.map { value in
+            let copy = UnsafeMutableBufferPointer<UInt8>.allocate(capacity: value.count)
+            _ = copy.initialize(from: value)
+            return UnsafePointer(copy.baseAddress)
+        }
+    }
+}

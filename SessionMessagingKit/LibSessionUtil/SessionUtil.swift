@@ -45,22 +45,30 @@ import SessionUtilitiesKit
     
     // MARK: - Loading
     
-    /*internal*/public static func loadState() {
-        SessionUtil.userProfileConfig.mutate { $0 = loadState(for: .userProfile) }
+    /*internal*/public static func loadState(ed25519SecretKey: [UInt8]?) {
+        guard let secretKey: [UInt8] = ed25519SecretKey else { return }
+        
+        SessionUtil.userProfileConfig.mutate { $0 = loadState(for: .userProfile, secretKey: secretKey) }
     }
     
-    private static func loadState(for variant: ConfigDump.Variant) -> UnsafeMutablePointer<config_object>? {
+    private static func loadState(
+        for variant: ConfigDump.Variant,
+        secretKey ed25519SecretKey: [UInt8]?
+    ) -> UnsafeMutablePointer<config_object>? {
+        guard let secretKey: [UInt8] = ed25519SecretKey else { return nil }
+        
         // Load any
         let storedDump: Data? = Storage.shared
             .read { db in try ConfigDump.fetchOne(db, id: variant) }?
             .data
         
-        return try? loadState(for: variant, cachedData: storedDump)
+        return try? loadState(for: variant, secretKey: secretKey, cachedData: storedDump)
     }
     
     internal static func loadState(
         for variant: ConfigDump.Variant,
-        cachedData: Data? = nil
+        secretKey ed25519SecretKey: [UInt8],
+        cachedData: Data?
     ) throws -> UnsafeMutablePointer<config_object>? {
         // Setup initial variables (including getting the memory address for any cached data)
         var conf: UnsafeMutablePointer<config_object>? = nil
@@ -81,10 +89,11 @@ import SessionUtilitiesKit
         }
         
         // Try to create the object
+        var secretKey: [UInt8] = ed25519SecretKey
         let result: Int32 = {
             switch variant {
                 case .userProfile:
-                    return user_profile_init(&conf, cachedDump?.data, (cachedDump?.length ?? 0), error)
+                    return user_profile_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), error)
             }
         }()
         
@@ -107,11 +116,11 @@ import SessionUtilitiesKit
         // If it doesn't need a dump then do nothing
         guard config_needs_dump(conf) else { return }
         
-        var dumpResult: UnsafeMutablePointer<CChar>? = nil
+        var dumpResult: UnsafeMutablePointer<UInt8>? = nil
         var dumpResultLen: Int = 0
         config_dump(conf, &dumpResult, &dumpResultLen)
         
-        guard let dumpResult: UnsafeMutablePointer<CChar> = dumpResult else { return }
+        guard let dumpResult: UnsafeMutablePointer<UInt8> = dumpResult else { return }
         
         let dumpData: Data = Data(bytes: dumpResult, count: dumpResultLen)
         dumpResult.deallocate()
@@ -126,7 +135,8 @@ import SessionUtilitiesKit
     // MARK: - Pushes
     
     public static func getChanges(
-        for variants: [ConfigDump.Variant] = ConfigDump.Variant.allCases
+        for variants: [ConfigDump.Variant] = ConfigDump.Variant.allCases,
+        ed25519SecretKey: [UInt8]
     ) -> [SharedConfigMessage] {
         return variants
             .compactMap { variant -> SharedConfigMessage? in
@@ -135,11 +145,11 @@ import SessionUtilitiesKit
                 // Check if the config needs to be pushed
                 guard config_needs_push(conf.wrappedValue) else { return nil }
                 
-                var toPush: UnsafeMutablePointer<CChar>? = nil
+                var toPush: UnsafeMutablePointer<UInt8>? = nil
                 var toPushLen: Int = 0
                 let seqNo: Int64 = conf.mutate { config_push($0, &toPush, &toPushLen) }
                 
-                guard let toPush: UnsafeMutablePointer<CChar> = toPush else { return nil }
+                guard let toPush: UnsafeMutablePointer<UInt8> = toPush else { return nil }
                 
                 let pushData: Data = Data(bytes: toPush, count: toPushLen)
                 toPush.deallocate()
@@ -185,12 +195,8 @@ import SessionUtilitiesKit
                 
                 // Block the config while we are merging
                 atomicConf.mutate { conf in
-                    var mergeData: [UnsafePointer<CChar>?] = next.value
-                        .map { message -> [CChar] in
-                            message.data
-                                .bytes
-                                .map { CChar(bitPattern: $0) }
-                        }
+                    var mergeData: [UnsafePointer<UInt8>?] = next.value
+                        .map { message -> [UInt8] in message.data.bytes }
                         .unsafeCopy()
                     var mergeSize: [Int] = messages.map { $0.data.count }
                     config_merge(conf, &mergeData, &mergeSize, messages.count)
