@@ -368,7 +368,7 @@ public enum MessageReceiver {
         _ = try remoteConfig.save(db)
 
         _ = try Interaction(
-            serverHash: nil, // Intentionally null so sync messages are seen as duplicates
+            serverHash: message.serverHash,
             threadId: threadId,
             authorId: sender,
             variant: .infoDisappearingMessagesUpdate,
