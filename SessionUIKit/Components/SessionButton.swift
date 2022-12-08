@@ -21,6 +21,8 @@ public final class SessionButton: UIButton {
         public let style: Style
         public let title: String
         public let isEnabled: Bool
+        public let accessibilityIdentifier: String?
+        public let accessibilityLabel: String?
         public let minWidth: CGFloat
         public let onTap: () -> ()
         
@@ -28,12 +30,16 @@ public final class SessionButton: UIButton {
             style: Style,
             title: String,
             isEnabled: Bool,
+            accessibilityIdentifier: String? = nil,
+            accessibilityLabel: String? = nil,
             minWidth: CGFloat = 0,
             onTap: @escaping () -> ()
         ) {
             self.style = style
             self.title = title
             self.isEnabled = isEnabled
+            self.accessibilityIdentifier = accessibilityIdentifier
+            self.accessibilityLabel = accessibilityLabel
             self.onTap = onTap
             self.minWidth = minWidth
         }

@@ -104,6 +104,7 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                     style: .bordered,
                     title: "DISAPPERING_MESSAGES_SAVE_TITLE".localized(),
                     isEnabled: true,
+                    accessibilityIdentifier: "Set button",
                     minWidth: 110,
                     onTap: {
                         self?.saveChanges()
@@ -193,6 +194,8 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                                 }
                                             ),
                                             isEnabled: DisappearingMessagesConfiguration.isNewConfigurationEnabled,
+                                            accessibilityIdentifier: "Disappear after read option",
+                                            accessibilityLabel: "Disappear after read option",
                                             onTap: {
                                                 let updatedConfig: DisappearingMessagesConfiguration = currentSelection
                                                     .with(
@@ -218,6 +221,8 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                                 }
                                             ),
                                             isEnabled: DisappearingMessagesConfiguration.isNewConfigurationEnabled,
+                                            accessibilityIdentifier: "Disappear after send option",
+                                            accessibilityLabel: "Disappear after send option",
                                             onTap: {
                                                 let updatedConfig: DisappearingMessagesConfiguration = currentSelection
                                                     .with(

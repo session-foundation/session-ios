@@ -28,7 +28,7 @@ final class ConversationTitleView: UIView {
     
     private lazy var titleLabel: UILabel = {
         let result: UILabel = UILabel()
-        result.accessibilityIdentifier = "Username"
+        result.accessibilityIdentifier = "Conversation header name"
         result.isAccessibilityElement = true
         result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
         result.themeTextColor = .textPrimary
@@ -158,7 +158,7 @@ final class ConversationTitleView: UIView {
                 labelInfos.append(
                     SessionLabelCarouselView.LabelInfo(
                         attributedText: notificationSettingsLabelString,
-                        accessibilityId: nil,
+                        accessibilityIdentifier: nil,
                         type: .notificationSettings
                     )
                 )
@@ -179,7 +179,7 @@ final class ConversationTitleView: UIView {
                 labelInfos.append(
                     SessionLabelCarouselView.LabelInfo(
                         attributedText: notificationSettingsLabelString,
-                        accessibilityId: nil,
+                        accessibilityIdentifier: nil,
                         type: .notificationSettings
                     )
                 )
@@ -205,7 +205,7 @@ final class ConversationTitleView: UIView {
                 labelInfos.append(
                     SessionLabelCarouselView.LabelInfo(
                         attributedText: userCountLabelString,
-                        accessibilityId: nil,
+                        accessibilityIdentifier: nil,
                         type: .userCount
                     )
                 )
@@ -241,7 +241,7 @@ final class ConversationTitleView: UIView {
                 labelInfos.append(
                     SessionLabelCarouselView.LabelInfo(
                         attributedText: disappearingMessageSettingLabelString,
-                        accessibilityId: "Disappearing messages type and time",
+                        accessibilityIdentifier: "Disappearing messages type and time",
                         type: .disappearingMessageSetting
                     )
                 )

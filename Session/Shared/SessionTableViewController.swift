@@ -299,6 +299,8 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
                     self?.footerButton.setStyle(buttonInfo.style)
                     self?.footerButton.isEnabled = buttonInfo.isEnabled
                     self?.footerButton.set(.width, greaterThanOrEqualTo: buttonInfo.minWidth)
+                    self?.footerButton.accessibilityIdentifier = buttonInfo.accessibilityIdentifier
+                    self?.footerButton.accessibilityLabel = buttonInfo.accessibilityLabel
                 }
                 
                 self?.onFooterTap = buttonInfo?.onTap
