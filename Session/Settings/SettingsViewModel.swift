@@ -97,8 +97,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     lazy var navState: AnyPublisher<NavState, Never> = {
         Publishers
             .CombineLatest(
-                isEditing
-                    .map { isEditing in isEditing },
+                isEditing,
                 textChanged
                     .handleEvents(
                         receiveOutput: { [weak self] value, _ in
@@ -111,6 +110,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
             .map { isEditing, _ -> NavState in (isEditing ? .editing : .standard) }
             .removeDuplicates()
             .prepend(.standard)     // Initial value
+            .shareReplay(1)
             .eraseToAnyPublisher()
     }()
 

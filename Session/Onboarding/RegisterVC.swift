@@ -2,14 +2,13 @@
 
 import UIKit
 import Sodium
-import Curve25519Kit
 import SessionUIKit
 import SignalUtilitiesKit
 
 final class RegisterVC : BaseVC {
     private var seed: Data! { didSet { updateKeyPair() } }
-    private var ed25519KeyPair: Sign.KeyPair!
-    private var x25519KeyPair: ECKeyPair! { didSet { updatePublicKeyLabel() } }
+    private var ed25519KeyPair: KeyPair!
+    private var x25519KeyPair: KeyPair! { didSet { updatePublicKeyLabel() } }
     
     // MARK: - Components
     

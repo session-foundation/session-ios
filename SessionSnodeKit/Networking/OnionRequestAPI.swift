@@ -2,7 +2,7 @@
 
 import Foundation
 import Combine
-import CryptoSwift
+import CryptoKit
 import GRDB
 import SessionUtilitiesKit
 
@@ -51,7 +51,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
     
     // MARK: - Onion Building Result
     
-    private typealias OnionBuildingResult = (guardSnode: Snode, finalEncryptionResult: AESGCM.EncryptionResult, destinationSymmetricKey: Data)
+    private typealias OnionBuildingResult = (guardSnode: Snode, finalEncryptionResult: AES.GCM.EncryptionResult, destinationSymmetricKey: Data)
 
     // MARK: - Private API
     
@@ -359,18 +359,18 @@ public enum OnionRequestAPI: OnionRequestAPIType {
     ) -> AnyPublisher<OnionBuildingResult, Error> {
         var guardSnode: Snode!
         var targetSnodeSymmetricKey: Data! // Needed by invoke(_:on:with:) to decrypt the response sent back by the destination
-        var encryptionResult: AESGCM.EncryptionResult!
+        var encryptionResult: AES.GCM.EncryptionResult!
         var snodeToExclude: Snode?
         
         if case .snode(let snode) = destination { snodeToExclude = snode }
         
         return getPath(excluding: snodeToExclude)
-            .flatMap { path -> AnyPublisher<AESGCM.EncryptionResult, Error> in
+            .flatMap { path -> AnyPublisher<AES.GCM.EncryptionResult, Error> in
                 guardSnode = path.first!
                 
                 // Encrypt in reverse order, i.e. the destination first
                 return encrypt(payload, for: destination)
-                    .flatMap { r -> AnyPublisher<AESGCM.EncryptionResult, Error> in
+                    .flatMap { r -> AnyPublisher<AES.GCM.EncryptionResult, Error> in
                         targetSnodeSymmetricKey = r.symmetricKey
                         
                         // Recursively encrypt the layers of the onion (again in reverse order)
@@ -378,7 +378,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
                         var path = path
                         var rhs = destination
                         
-                        func addLayer() -> AnyPublisher<AESGCM.EncryptionResult, Error> {
+                        func addLayer() -> AnyPublisher<AES.GCM.EncryptionResult, Error> {
                             guard !path.isEmpty else {
                                 return Just(encryptionResult)
                                     .setFailureType(to: Error.self)
@@ -388,7 +388,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
                             let lhs = OnionRequestAPIDestination.snode(path.removeLast())
                             return OnionRequestAPI
                                 .encryptHop(from: lhs, to: rhs, using: encryptionResult)
-                                .flatMap { r -> AnyPublisher<AESGCM.EncryptionResult, Error> in
+                                .flatMap { r -> AnyPublisher<AES.GCM.EncryptionResult, Error> in
                                     encryptionResult = r
                                     rhs = lhs
                                     return addLayer()
@@ -644,13 +644,13 @@ public enum OnionRequestAPI: OnionRequestAPIType {
                         .eraseToAnyPublisher()
                 }
                 
-                guard let base64EncodedIVAndCiphertext = json["result"] as? String, let ivAndCiphertext = Data(base64Encoded: base64EncodedIVAndCiphertext), ivAndCiphertext.count >= AESGCM.ivSize else {
+                guard let base64EncodedIVAndCiphertext = json["result"] as? String, let ivAndCiphertext = Data(base64Encoded: base64EncodedIVAndCiphertext), ivAndCiphertext.count >= AES.GCM.ivSize else {
                     return Fail(error: HTTPError.invalidJSON)
                         .eraseToAnyPublisher()
                 }
                 
                 do {
-                    let data = try AESGCM.decrypt(ivAndCiphertext, with: destinationSymmetricKey)
+                    let data = try AES.GCM.decrypt(ivAndCiphertext, with: destinationSymmetricKey)
                     
                     guard let json = try JSONSerialization.jsonObject(with: data, options: [ .fragmentsAllowed ]) as? JSON, let statusCode = json["status_code"] as? Int ?? json["status"] as? Int else {
                         return Fail(error: HTTPError.invalidJSON)
@@ -725,13 +725,13 @@ public enum OnionRequestAPI: OnionRequestAPIType {
                 
             // V4 Onion Requests have a very different structure for responses
             case .v4:
-                guard responseData.count >= AESGCM.ivSize else {
+                guard responseData.count >= AES.GCM.ivSize else {
                     return Fail(error: HTTPError.invalidResponse)
                         .eraseToAnyPublisher()
                 }
                 
                 do {
-                    let data: Data = try AESGCM.decrypt(responseData, with: destinationSymmetricKey)
+                    let data: Data = try AES.GCM.decrypt(responseData, with: destinationSymmetricKey)
                     
                     // Process the bencoded response
                     guard let processedResponse: (info: ResponseInfoType, body: Data?) = process(bencodedData: data) else {

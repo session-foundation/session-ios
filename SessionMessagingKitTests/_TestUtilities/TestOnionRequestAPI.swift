@@ -45,9 +45,13 @@ class TestOnionRequestAPI: OnionRequestAPIType {
                 httpMethod: (request.httpMethod ?? "GET"),
                 headers: (request.allHTTPHeaderFields ?? [:]),
                 body: request.httpBody,
-                server: server,
-                version: .v4,
-                publicKey: x25519PublicKey
+                destination: OnionRequestAPIDestination.server(
+                    host: (request.url?.host ?? ""),
+                    target: OnionRequestAPIVersion.v4.rawValue,
+                    x25519PublicKey: x25519PublicKey,
+                    scheme: request.url!.scheme,
+                    port: request.url!.port.map { UInt16($0) }
+                )
             ),
             code: 200,
             headers: [:]
@@ -61,15 +65,11 @@ class TestOnionRequestAPI: OnionRequestAPIType {
     static func sendOnionRequest(_ payload: Data, to snode: Snode) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         let responseInfo: ResponseInfo = ResponseInfo(
             requestData: RequestData(
-                urlString: nil,
+                urlString: "\(snode.address):\(snode.port)/onion_req/v2",
                 httpMethod: "POST",
                 headers: [:],
-                snodeMethod: nil,
                 body: payload,
-                
-                server: "",
-                version: .v3,
-                publicKey: snode.x25519PublicKey
+                destination: OnionRequestAPIDestination.snode(snode)
             ),
             code: 200,
             headers: [:]

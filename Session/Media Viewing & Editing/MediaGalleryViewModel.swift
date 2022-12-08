@@ -623,27 +623,3 @@ public class MediaGalleryViewModel {
         )
     }
 }
-
-// MARK: - Objective-C Support
-
-// FIXME: Remove when we can
-
-@objc(SNMediaGallery)
-public class SNMediaGallery: NSObject {
-    @objc(pushTileViewWithSliderEnabledForThreadId:isClosedGroup:isOpenGroup:fromNavController:)
-    static func pushTileView(threadId: String, isClosedGroup: Bool, isOpenGroup: Bool, fromNavController: UINavigationController) {
-        fromNavController.pushViewController(
-            MediaGalleryViewModel.createAllMediaViewController(
-                threadId: threadId,
-                threadVariant: {
-                    if isClosedGroup { return .closedGroup }
-                    if isOpenGroup { return .openGroup }
-
-                    return .contact
-                }(),
-                focusedAttachmentId: nil
-            ),
-            animated: true
-        )
-    }
-}

@@ -351,33 +351,3 @@ public extension Profile {
         }
     }
 }
-
-// MARK: - Objective-C Support
-
-// FIXME: Remove when possible
-
-@objc(SMKProfile)
-public class SMKProfile: NSObject {
-    @objc public static func displayName(id: String) -> String {
-        return Profile.displayName(id: id)
-    }
-    
-    @objc public static func displayName(id: String, customFallback: String) -> String {
-        return Profile.displayName(id: id, customFallback: customFallback)
-    }
-    
-    @objc(displayNameAfterSavingNickname:forProfileId:)
-    public static func displayNameAfterSaving(nickname: String?, for profileId: String) -> String {
-        return Storage.shared.write { db in
-            let profile: Profile = Profile.fetchOrCreate(id: profileId)
-            let targetNickname: String? = ((nickname ?? "").count > 0 ? nickname : nil)
-            
-            try Profile
-                .filter(id: profile.id)
-                .updateAll(db, Profile.Columns.nickname.set(to: targetNickname))
-            
-            return (targetNickname ?? profile.name)
-        }
-        .defaulting(to: "")
-    }
-}

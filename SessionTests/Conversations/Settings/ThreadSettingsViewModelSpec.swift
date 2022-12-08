@@ -69,24 +69,12 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         didTriggerSearchCallbackTriggered = true
                     }
                 )
-                setupStandardBinding()
-            }
-            
-            func setupStandardBinding() {
                 disposables.append(
                     viewModel.observableTableData
                         .receiveOnMain(immediately: true)
                         .sink(
                             receiveCompletion: { _ in },
                             receiveValue: { viewModel.updateTableData($0.0) }
-                        )
-                )
-                disposables.append(
-                    viewModel.transitionToScreen
-                        .receiveOnMain(immediately: true)
-                        .sink(
-                            receiveCompletion: { _ in },
-                            receiveValue: { transitionInfo = $0 }
                         )
                 )
             }
@@ -105,7 +93,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
             
             context("with any conversation type") {
                 it("triggers the search callback when tapping search") {
-                    viewModel.settingsData
+                    viewModel.tableData
                         .first(where: { $0.model == .content })?
                         .elements
                         .first(where: { $0.id == .searchConversation })?
@@ -115,10 +103,10 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 }
                 
                 it("mutes a conversation") {
-                    viewModel.settingsData
+                    viewModel.tableData
                         .first(where: { $0.model == .content })?
                         .elements
-                        .first(where: { $0.id == .notifications })?
+                        .first(where: { $0.id == .notificationMute })?
                         .onTap?()
                     
                     expect(
@@ -145,11 +133,11 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     )
                     .toNot(beNil())
                     
-                    viewModel.settingsData
+                    viewModel.tableData
                         .first(where: { $0.model == .content })?
                         .elements
                         .first(where: { $0.id == .notificationMute })?
-                        .onTap?(nil)
+                        .onTap?()
                 
                     expect(
                         mockStorage
@@ -179,12 +167,12 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                             didTriggerSearchCallbackTriggered = true
                         }
                     )
-                    cancellables.append(
-                        viewModel.observableSettingsData
+                    disposables.append(
+                        viewModel.observableTableData
                             .receiveOnMain(immediately: true)
                             .sink(
                                 receiveCompletion: { _ in },
-                                receiveValue: { viewModel.updateSettings($0) }
+                                receiveValue: { viewModel.updateTableData($0.0) }
                             )
                     )
                 }
@@ -210,7 +198,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 
                 it("has no mute button") {
                     expect(
-                        viewModel.settingsData
+                        viewModel.tableData
                             .first(where: { $0.model == .content })?
                             .elements
                             .first(where: { $0.id == .notificationMute })
@@ -233,7 +221,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                                 ParentType.NavItem(
                                     id: .cancel,
                                     systemItem: .cancel,
-                                    accessibilityIdentifier: "Cancel"
+                                    accessibilityIdentifier: "Cancel button"
                                 )
                             ]))
                         expect(viewModel.rightNavItems.firstValue())
@@ -453,12 +441,12 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                             didTriggerSearchCallbackTriggered = true
                         }
                     )
-                    cancellables.append(
-                        viewModel.observableSettingsData
+                    disposables.append(
+                        viewModel.observableTableData
                             .receiveOnMain(immediately: true)
                             .sink(
                                 receiveCompletion: { _ in },
-                                receiveValue: { viewModel.updateSettings($0) }
+                                receiveValue: { viewModel.updateTableData($0.0) }
                             )
                     )
                 }
@@ -495,12 +483,12 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                             didTriggerSearchCallbackTriggered = true
                         }
                     )
-                    cancellables.append(
-                        viewModel.observableSettingsData
+                    disposables.append(
+                        viewModel.observableTableData
                             .receiveOnMain(immediately: true)
                             .sink(
                                 receiveCompletion: { _ in },
-                                receiveValue: { viewModel.updateSettings($0) }
+                                receiveValue: { viewModel.updateTableData($0.0) }
                             )
                     )
                 }

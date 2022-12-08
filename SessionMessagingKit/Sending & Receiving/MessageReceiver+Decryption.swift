@@ -3,8 +3,6 @@
 import Foundation
 import GRDB
 import Sodium
-import CryptoSwift
-import Curve25519Kit
 import SessionUtilitiesKit
 
 extension MessageReceiver {

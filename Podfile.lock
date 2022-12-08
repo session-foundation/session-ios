@@ -28,15 +28,6 @@ PODS:
     - NVActivityIndicatorView/Base (= 5.1.1)
   - NVActivityIndicatorView/Base (5.1.1)
   - OpenSSL-Universal (1.1.1300)
-  - PromiseKit (6.18.1):
-    - PromiseKit/CorePromise (= 6.18.1)
-    - PromiseKit/Foundation (= 6.18.1)
-    - PromiseKit/UIKit (= 6.18.1)
-  - PromiseKit/CorePromise (6.18.1)
-  - PromiseKit/Foundation (6.18.1):
-    - PromiseKit/CorePromise
-  - PromiseKit/UIKit (6.18.1):
-    - PromiseKit/CorePromise
   - PureLayout (3.1.9)
   - Quick (5.0.1)
   - Reachability (3.2)
@@ -130,7 +121,6 @@ DEPENDENCIES:
   - GRDB.swift/SQLCipher
   - Nimble
   - NVActivityIndicatorView
-  - PromiseKit
   - PureLayout (~> 3.1.8)
   - Quick
   - Reachability
@@ -155,7 +145,6 @@ SPEC REPOS:
     - Nimble
     - NVActivityIndicatorView
     - OpenSSL-Universal
-    - PromiseKit
     - PureLayout
     - Quick
     - Reachability
@@ -209,7 +198,6 @@ SPEC CHECKSUMS:
   Nimble: 5316ef81a170ce87baf72dd961f22f89a602ff84
   NVActivityIndicatorView: 1f6c5687f1171810aa27a3296814dc2d7dec3667
   OpenSSL-Universal: e7311447fd2419f57420c79524b641537387eff2
-  PromiseKit: 49d70c53d5d20e346beaea4b276b5dd2ab446bb4
   PureLayout: 5fb5e5429519627d60d079ccb1eaa7265ce7cf88
   Quick: 749aa754fd1e7d984f2000fe051e18a3a9809179
   Reachability: 33e18b67625424e47b6cde6d202dce689ad7af96
@@ -224,6 +212,6 @@ SPEC CHECKSUMS:
   YYImage: f1ddd15ac032a58b78bbed1e012b50302d318331
   ZXingObjC: fdbb269f25dd2032da343e06f10224d62f537bdb
 
-PODFILE CHECKSUM: ce9209e5c7ea252b767ee08075d4e4f8b49e487b
+PODFILE CHECKSUM: 6ee08fc446436a2534ec34c041c3b9bc39801870
 
 COCOAPODS: 1.11.3

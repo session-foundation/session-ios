@@ -19,9 +19,13 @@ extension MessageSender {
         var members: Set<String> = members
         
         // Generate the group's public key
-        let groupPublicKey = Curve25519.generateKeyPair().hexEncodedPublicKey // Includes the 'SessionId.Prefix.standard' prefix
+        let groupKeyPair: ECKeyPair = Curve25519.generateKeyPair()
+        let groupPublicKey: String = KeyPair(
+            publicKey: groupKeyPair.publicKey.bytes,
+            secretKey: groupKeyPair.privateKey.bytes
+        ).hexEncodedPublicKey // Includes the 'SessionId.Prefix.standard' prefix
         // Generate the key pair that'll be used for encryption and decryption
-        let encryptionKeyPair = Curve25519.generateKeyPair()
+        let encryptionKeyPair: ECKeyPair = Curve25519.generateKeyPair()
         
         // Create the group
         members.insert(userPublicKey) // Ensure the current user is included in the member list

@@ -4,7 +4,6 @@ import Foundation
 import Combine
 import GRDB
 import Sodium
-import Curve25519Kit
 import SessionSnodeKit
 import SessionUtilitiesKit
 
@@ -1300,24 +1299,24 @@ public enum OpenGroupAPI {
             guard let blindedKeyPair: Box.KeyPair = dependencies.sodium.blindedKeyPair(serverPublicKey: serverPublicKey, edKeyPair: userEdKeyPair, genericHash: dependencies.genericHash) else {
                 return nil
             }
-            
+
             guard let signatureResult: Bytes = dependencies.sodium.sogsSignature(message: messageBytes, secretKey: userEdKeyPair.secretKey, blindedSecretKey: blindedKeyPair.secretKey, blindedPublicKey: blindedKeyPair.publicKey) else {
                 return nil
             }
-            
+
             return (
                 publicKey: SessionId(.blinded, publicKey: blindedKeyPair.publicKey).hexString,
                 signature: signatureResult
             )
         }
-        
+
         // Otherwise sign using the fallback type
         switch signingType {
             case .unblinded:
                 guard let signatureResult: Bytes = dependencies.sign.signature(message: messageBytes, secretKey: userEdKeyPair.secretKey) else {
                     return nil
                 }
-                
+
                 return (
                     publicKey: SessionId(.unblinded, publicKey: userEdKeyPair.publicKey).hexString,
                     signature: signatureResult

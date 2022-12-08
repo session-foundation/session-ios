@@ -3,7 +3,6 @@
 import Foundation
 import Sodium
 import GRDB
-import Curve25519Kit
 import SessionUtilitiesKit
 import SessionMessagingKit
 
@@ -12,7 +11,7 @@ enum Onboarding {
     enum Flow {
         case register, recover, link
         
-        func preregister(with seed: Data, ed25519KeyPair: Sign.KeyPair, x25519KeyPair: ECKeyPair) {
+        func preregister(with seed: Data, ed25519KeyPair: KeyPair, x25519KeyPair: KeyPair) {
             let userDefaults = UserDefaults.standard
             Identity.store(seed: seed, ed25519KeyPair: ed25519KeyPair, x25519KeyPair: x25519KeyPair)
             let x25519PublicKey = x25519KeyPair.hexEncodedPublicKey

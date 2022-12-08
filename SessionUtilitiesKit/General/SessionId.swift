@@ -2,7 +2,6 @@
 
 import Foundation
 import Sodium
-import Curve25519Kit
 
 public struct SessionId {
     public static let byteCount: Int = 33
@@ -21,7 +20,7 @@ public struct SessionId {
                 return
             }
             
-            guard ECKeyPair.isValidHexEncodedPublicKey(candidate: stringValue) else { return nil }
+            guard KeyPair.isValidHexEncodedPublicKey(candidate: stringValue) else { return nil }
             guard let targetPrefix: Prefix = Prefix(rawValue: String(stringValue.prefix(2))) else { return nil }
             
             self = targetPrefix

@@ -4,7 +4,6 @@ import Foundation
 import GRDB
 import Sodium
 import Curve25519Kit
-import CryptoSwift
 
 public struct Identity: Codable, Identifiable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "identity" }
@@ -39,20 +38,10 @@ public struct Identity: Codable, Identifiable, FetchableRecord, PersistableRecor
     }
 }
 
-// MARK: - Convenience
-
-extension ECKeyPair {
-    func toData() -> Data {
-        var targetValue: ECKeyPair = self
-
-        return Data(bytes: &targetValue, count: MemoryLayout.size(ofValue: targetValue))
-    }
-}
-
 // MARK: - GRDB Interactions
 
 public extension Identity {
-    static func generate(from seed: Data) throws -> (ed25519KeyPair: Sign.KeyPair, x25519KeyPair: ECKeyPair) {
+    static func generate(from seed: Data) throws -> (ed25519KeyPair: KeyPair, x25519KeyPair: KeyPair) {
         assert(seed.count == 16)
         let padding = Data(repeating: 0, count: 16)
         
@@ -64,18 +53,25 @@ public extension Identity {
             throw GeneralError.keyGenerationFailed
         }
         
-        let x25519KeyPair = try ECKeyPair(publicKeyData: Data(x25519PublicKey), privateKeyData: Data(x25519SecretKey))
-        
-        return (ed25519KeyPair: ed25519KeyPair, x25519KeyPair: x25519KeyPair)
+        return (
+            ed25519KeyPair: KeyPair(
+                publicKey: ed25519KeyPair.publicKey,
+                secretKey: ed25519KeyPair.secretKey
+            ),
+            x25519KeyPair: KeyPair(
+                publicKey: x25519PublicKey,
+                secretKey: x25519SecretKey
+            )
+        )
     }
 
-    static func store(seed: Data, ed25519KeyPair: Sign.KeyPair, x25519KeyPair: ECKeyPair) {
+    static func store(seed: Data, ed25519KeyPair: KeyPair, x25519KeyPair: KeyPair) {
         Storage.shared.write { db in
             try Identity(variant: .seed, data: seed).save(db)
             try Identity(variant: .ed25519SecretKey, data: Data(ed25519KeyPair.secretKey)).save(db)
             try Identity(variant: .ed25519PublicKey, data: Data(ed25519KeyPair.publicKey)).save(db)
-            try Identity(variant: .x25519PrivateKey, data: x25519KeyPair.privateKey).save(db)
-            try Identity(variant: .x25519PublicKey, data: x25519KeyPair.publicKey).save(db)
+            try Identity(variant: .x25519PrivateKey, data: Data(x25519KeyPair.secretKey)).save(db)
+            try Identity(variant: .x25519PublicKey, data: Data(x25519KeyPair.publicKey)).save(db)
         }
     }
     
@@ -151,18 +147,5 @@ public extension Notification.Name {
 public extension Identity {
     static func didRegister() {
         NotificationCenter.default.post(name: .registrationStateDidChange, object: nil, userInfo: nil)
-    }
-}
-
-// MARK: - Objective-C Support
-
-// TODO: Remove this when possible
-@objc(SUKIdentity)
-public class SUKIdentity: NSObject {
-    @objc(userExists)
-    public static func userExists() -> Bool {
-        return Storage.shared
-            .read { db in Identity.userExists(db) }
-            .defaulting(to: false)
     }
 }

@@ -3,7 +3,6 @@
 import UIKit
 import AVFoundation
 import GRDB
-import Curve25519Kit
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -174,7 +173,7 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
     fileprivate func startNewDMIfPossible(with onsNameOrPublicKey: String) {
         let maybeSessionId: SessionId? = SessionId(from: onsNameOrPublicKey)
         
-        if ECKeyPair.isValidHexEncodedPublicKey(candidate: onsNameOrPublicKey) && maybeSessionId?.prefix == .standard {
+        if KeyPair.isValidHexEncodedPublicKey(candidate: onsNameOrPublicKey) && maybeSessionId?.prefix == .standard {
             startNewDM(with: onsNameOrPublicKey)
             return
         }

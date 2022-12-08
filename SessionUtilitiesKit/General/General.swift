@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import Curve25519Kit
 
 public protocol GeneralCacheType {
     var encodedPublicKey: String? { get set }

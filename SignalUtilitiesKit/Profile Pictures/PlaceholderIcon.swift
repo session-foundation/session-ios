@@ -1,9 +1,10 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import CryptoSwift
+import CryptoKit
 import SessionUIKit
 import SignalCoreKit
+import SessionUtilitiesKit
 
 public class PlaceholderIcon {
     private let seed: Int
@@ -19,7 +20,10 @@ public class PlaceholderIcon {
     convenience init(seed: String, colors: [UIColor]? = nil) {
         // Ensure we have a correct hash
         var hash = seed
-        if (hash.matches("^[0-9A-Fa-f]+$") && hash.count >= 12) { hash = seed.sha512() }
+        
+        if (hash.matches("^[0-9A-Fa-f]+$") && hash.count >= 12) {
+            hash = SHA512.hash(data: Data(seed.bytes)).hexString
+        }
         
         guard let number = Int(hash.substring(to: 12), radix: 16) else {
             owsFailDebug("Failed to generate number from seed string: \(seed).")

@@ -83,8 +83,19 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
     // MARK: - Navigation
     
     lazy var navState: AnyPublisher<NavState, Never> = {
-        isEditing
-            .map { isEditing in (isEditing ? .editing : .standard) }
+        Publishers
+            .CombineLatest(
+                isEditing,
+                textChanged
+                    .handleEvents(
+                        receiveOutput: { [weak self] value, _ in
+                            self?.editedDisplayName = value
+                        }
+                    )
+                    .filter { _ in false }
+                    .prepend((nil, .nickname))
+            )
+            .map { isEditing, _ -> NavState in (isEditing ? .editing : .standard) }
             .removeDuplicates()
             .prepend(.standard)     // Initial value
             .shareReplay(1)
@@ -429,7 +440,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 onTap: { [weak self] in
                                     self?.transitionToScreen(
                                         SessionTableViewController(
-                                            viewModel: ThreadDisappearingMessagesViewModel(
+                                            viewModel: ThreadDisappearingMessagesSettingsViewModel(
                                                 threadId: threadId,
                                                 config: disappearingMessagesConfig
                                             )

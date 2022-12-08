@@ -4,7 +4,6 @@ import Foundation
 import AVKit
 import GRDB
 import YapDatabase
-import Curve25519Kit
 import SessionUtilitiesKit
 import SessionSnodeKit
 

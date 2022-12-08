@@ -2,7 +2,7 @@
 
 import Foundation
 import Combine
-import CryptoSwift
+import CryptoKit
 import SessionUtilitiesKit
 
 internal extension OnionRequestAPI {
@@ -28,14 +28,14 @@ internal extension OnionRequestAPI {
     static func encrypt(
         _ payload: Data,
         for destination: OnionRequestAPIDestination
-    ) -> AnyPublisher<AESGCM.EncryptionResult, Error> {
+    ) -> AnyPublisher<AES.GCM.EncryptionResult, Error> {
         switch destination {
             case .snode(let snode):
                 // Need to wrap the payload for snode requests
                 return encode(ciphertext: payload, json: [ "headers" : "" ])
-                    .flatMap { data -> AnyPublisher<AESGCM.EncryptionResult, Error> in
+                    .flatMap { data -> AnyPublisher<AES.GCM.EncryptionResult, Error> in
                         do {
-                            return Just(try AESGCM.encrypt(data, for: snode.x25519PublicKey))
+                            return Just(try AES.GCM.encrypt(data, for: snode.x25519PublicKey))
                                 .setFailureType(to: Error.self)
                                 .eraseToAnyPublisher()
                         }
@@ -48,7 +48,7 @@ internal extension OnionRequestAPI {
                 
             case .server(_, _, let serverX25519PublicKey, _, _):
                 do {
-                    return Just(try AESGCM.encrypt(payload, for: serverX25519PublicKey))
+                    return Just(try AES.GCM.encrypt(payload, for: serverX25519PublicKey))
                         .setFailureType(to: Error.self)
                         .eraseToAnyPublisher()
                 }
@@ -63,8 +63,8 @@ internal extension OnionRequestAPI {
     static func encryptHop(
         from lhs: OnionRequestAPIDestination,
         to rhs: OnionRequestAPIDestination,
-        using previousEncryptionResult: AESGCM.EncryptionResult
-    ) -> AnyPublisher<AESGCM.EncryptionResult, Error> {
+        using previousEncryptionResult: AES.GCM.EncryptionResult
+    ) -> AnyPublisher<AES.GCM.EncryptionResult, Error> {
         var parameters: JSON
         
         switch rhs {
@@ -89,9 +89,9 @@ internal extension OnionRequestAPI {
         }()
         
         return encode(ciphertext: previousEncryptionResult.ciphertext, json: parameters)
-            .flatMap { data -> AnyPublisher<AESGCM.EncryptionResult, Error> in
+            .flatMap { data -> AnyPublisher<AES.GCM.EncryptionResult, Error> in
                 do {
-                    return Just(try AESGCM.encrypt(data, for: x25519PublicKey))
+                    return Just(try AES.GCM.encrypt(data, for: x25519PublicKey))
                         .setFailureType(to: Error.self)
                         .eraseToAnyPublisher()
                 }

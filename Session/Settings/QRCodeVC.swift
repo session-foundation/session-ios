@@ -2,7 +2,6 @@
 
 import UIKit
 import AVFoundation
-import Curve25519Kit
 import SessionUIKit
 import SessionUtilitiesKit
 
@@ -125,7 +124,7 @@ final class QRCodeVC : BaseVC, UIPageViewControllerDataSource, UIPageViewControl
     }
     
     fileprivate func startNewPrivateChatIfPossible(with hexEncodedPublicKey: String) {
-        if !ECKeyPair.isValidHexEncodedPublicKey(candidate: hexEncodedPublicKey) {
+        if !KeyPair.isValidHexEncodedPublicKey(candidate: hexEncodedPublicKey) {
             let modal: ConfirmationModal = ConfirmationModal(
                 targetView: self.view,
                 info: ConfirmationModal.Info(
