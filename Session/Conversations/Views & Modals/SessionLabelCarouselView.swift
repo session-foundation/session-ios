@@ -5,8 +5,7 @@ import SessionUIKit
 
 final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
     private static let autoScrollingTimeInterval: TimeInterval = 10
-    private var labelStrings: [NSAttributedString] = []
-    private var labelTypes: [LabelType] = [.empty]
+    private var labelInfos: [LabelInfo] = []
     private var labelSize: CGSize = .zero
     private var shouldAutoScroll: Bool = false
     private var timer: Timer?
@@ -22,17 +21,23 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
         }
     }
     
+    public struct LabelInfo {
+        let attributedText: NSAttributedString
+        let accessibilityId: String?
+        let type: LabelType
+    }
+    
     // MARK: - Types
     
     public enum LabelType {
         case notificationSettings
         case userCount
         case disappearingMessageSetting
-        case empty
     }
     
-    public var currentLabelType: LabelType {
-        return self.labelTypes[pageControl.currentPage]
+    public var currentLabelType: LabelType? {
+        let index = pageControl.currentPage + (shouldScroll ? 1 : 0)
+        return self.labelInfos[safe: index]?.type
     }
     
     // MARK: - UI Components
@@ -83,10 +88,10 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
     
     // MARK: - Initialization
     
-    init(labelStrings: [NSAttributedString] = [], labelTypes: [LabelType] = [.empty], labelSize: CGSize = .zero, shouldAutoScroll: Bool = false) {
+    init(labelInfos: [LabelInfo] = [], labelSize: CGSize = .zero, shouldAutoScroll: Bool = false) {
         super.init(frame: .zero)
         setUpViewHierarchy()
-        self.update(with: labelStrings, labelTypes: labelTypes, labelSize: labelSize, shouldAutoScroll: shouldAutoScroll)
+        self.update(with: labelInfos, labelSize: labelSize, shouldAutoScroll: shouldAutoScroll)
     }
     
     required init?(coder: NSCoder) {
@@ -95,24 +100,23 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
     
     // MARK: - Content
     
-    public func update(with labelStrings: [NSAttributedString], labelTypes: [LabelType], labelSize: CGSize = .zero, shouldAutoScroll: Bool = false) {
-        self.labelStrings = labelStrings
-        self.labelTypes = labelTypes.isEmpty ? [.empty] : labelTypes
+    public func update(with labelInfos: [LabelInfo], labelSize: CGSize = .zero, shouldAutoScroll: Bool = false) {
+        self.labelInfos = labelInfos
         self.labelSize = labelSize
         self.shouldAutoScroll = shouldAutoScroll
-        self.shouldScroll = labelStrings.count > 1
+        self.shouldScroll = labelInfos.count > 1
         
         if self.shouldScroll {
-            let first: NSAttributedString = labelStrings.first!
-            let last: NSAttributedString = labelStrings.last!
-            self.labelStrings.append(first)
-            self.labelStrings.insert(last, at: 0)
+            let first: LabelInfo = labelInfos.first!
+            let last: LabelInfo = labelInfos.last!
+            self.labelInfos.append(first)
+            self.labelInfos.insert(last, at: 0)
         }
         
-        pageControl.numberOfPages = labelStrings.count
+        pageControl.numberOfPages = labelInfos.count
         pageControl.currentPage = 0
         
-        let contentSize = CGSize(width: labelSize.width * CGFloat(self.labelStrings.count), height: labelSize.height)
+        let contentSize = CGSize(width: labelSize.width * CGFloat(self.labelInfos.count), height: labelSize.height)
         scrollView.contentSize = contentSize
         contentWidth.constant = contentSize.width
         contentHeight.constant = contentSize.height
@@ -126,7 +130,7 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
         
         stackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
         
-        self.labelStrings.forEach {
+        self.labelInfos.forEach {
             let wrapper: UIView = UIView()
             wrapper.set(.width, to: labelSize.width)
             wrapper.set(.height, to: labelSize.height)
@@ -134,7 +138,9 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
             label.font = .systemFont(ofSize: Values.miniFontSize)
             label.themeTextColor = .textPrimary
             label.lineBreakMode = .byTruncatingTail
-            label.attributedText = $0
+            label.attributedText = $0.attributedText
+            label.accessibilityIdentifier = $0.accessibilityId
+            label.isAccessibilityElement = true
             wrapper.addSubview(label)
             label.center(in: wrapper)
             stackView.addArrangedSubview(wrapper)
@@ -169,8 +175,8 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
     private func startScrolling() {
         timer?.invalidate()
         timer = Timer.scheduledTimerOnMainThread(withTimeInterval: Self.autoScrollingTimeInterval, repeats: true) { _ in
-            guard self.labelStrings.count != 0 else { return }
-            let targetPage = (self.pageControl.currentPage + 1) % self.labelStrings.count
+            guard self.labelInfos.count != 0 else { return }
+            let targetPage = (self.pageControl.currentPage + 1) % self.labelInfos.count
             self.scrollView.scrollRectToVisible(
                 CGRect(
                     origin: CGPoint(
@@ -196,7 +202,7 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
                 if maybeCurrentPageIndex == 0 {
                     return pageControl.numberOfPages - 1
                 }
-                if maybeCurrentPageIndex == self.labelStrings.count - 1 {
+                if maybeCurrentPageIndex == self.labelInfos.count - 1 {
                     return 0
                 }
                 return maybeCurrentPageIndex - 1
@@ -219,7 +225,7 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
         }
         
         if pageControl.currentPage == pageControl.numberOfPages - 1 {
-            let realLastIndex: Int = self.labelStrings.count - 2
+            let realLastIndex: Int = self.labelInfos.count - 2
             scrollView.setContentOffset(
                 CGPoint(
                     x: Int(self.labelSize.width) * realLastIndex,

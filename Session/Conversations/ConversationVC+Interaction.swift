@@ -66,7 +66,7 @@ extension ConversationVC:
     
     @objc func  openSettingsFromTitleView() {
         switch self.titleView.currentLabelType {
-            case.empty, .notificationSettings, .userCount:
+            case .none, .notificationSettings, .userCount:
                 openSettings()
                 break
             case .disappearingMessageSetting:

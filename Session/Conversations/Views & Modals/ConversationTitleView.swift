@@ -17,7 +17,7 @@ final class ConversationTitleView: UIView {
     
     private lazy var labelCarouselViewWidth = labelCarouselView.set(.width, to: 185)
     
-    public var currentLabelType: SessionLabelCarouselView.LabelType {
+    public var currentLabelType: SessionLabelCarouselView.LabelType? {
         return self.labelCarouselView.currentLabelType
     }
 
@@ -143,8 +143,7 @@ final class ConversationTitleView: UIView {
         ThemeManager.onThemeChange(observer: self.labelCarouselView) { [weak self] theme, _ in
             guard let textPrimary: UIColor = theme.color(for: .textPrimary) else { return }
             
-            var labelStrings: [NSAttributedString] = []
-            var labelTypes: [SessionLabelCarouselView.LabelType] = []
+            var labelInfos: [SessionLabelCarouselView.LabelInfo] = []
             
             if Date().timeIntervalSince1970 <= (mutedUntilTimestamp ?? 0) {
                 let notificationSettingsLabelString = NSAttributedString(
@@ -156,8 +155,13 @@ final class ConversationTitleView: UIView {
                 )
                 .appending(string: "Muted")
                 
-                labelStrings.append(notificationSettingsLabelString)
-                labelTypes.append(.notificationSettings)
+                labelInfos.append(
+                    SessionLabelCarouselView.LabelInfo(
+                        attributedText: notificationSettingsLabelString,
+                        accessibilityId: nil,
+                        type: .notificationSettings
+                    )
+                )
             } else if onlyNotifyForMentions{
                 let imageAttachment = NSTextAttachment()
                 imageAttachment.image = UIImage(named: "NotifyMentions.png")?.withTint(textPrimary)
@@ -172,8 +176,13 @@ final class ConversationTitleView: UIView {
                     .appending(string: "  ")
                     .appending(string: "view_conversation_title_notify_for_mentions_only".localized())
                 
-                labelStrings.append(notificationSettingsLabelString)
-                labelTypes.append(.notificationSettings)
+                labelInfos.append(
+                    SessionLabelCarouselView.LabelInfo(
+                        attributedText: notificationSettingsLabelString,
+                        accessibilityId: nil,
+                        type: .notificationSettings
+                    )
+                )
             }
             
             if let userCount: Int = userCount {
@@ -193,8 +202,13 @@ final class ConversationTitleView: UIView {
                     }
                 }()
                 
-                labelStrings.append(userCountLabelString)
-                labelTypes.append(.userCount)
+                labelInfos.append(
+                    SessionLabelCarouselView.LabelInfo(
+                        attributedText: userCountLabelString,
+                        accessibilityId: nil,
+                        type: .userCount
+                    )
+                )
             }
             
             if let config = disappearingMessagesConfig, config.isEnabled == true {
@@ -224,13 +238,17 @@ final class ConversationTitleView: UIView {
                         .appending(string: floor(config.durationSeconds).formatted(format: .short))
                 }()
                 
-                labelStrings.append(disappearingMessageSettingLabelString)
-                labelTypes.append(.disappearingMessageSetting)
+                labelInfos.append(
+                    SessionLabelCarouselView.LabelInfo(
+                        attributedText: disappearingMessageSettingLabelString,
+                        accessibilityId: "Disappearing messages type and time",
+                        type: .disappearingMessageSetting
+                    )
+                )
             }
             
             self?.labelCarouselView.update(
-                with: labelStrings,
-                labelTypes: labelTypes,
+                with: labelInfos,
                 labelSize: CGSize(
                     width: self?.labelCarouselViewWidth.constant ?? 0,
                     height: 14
@@ -238,7 +256,7 @@ final class ConversationTitleView: UIView {
                 shouldAutoScroll: false
             )
             
-            self?.labelCarouselView.isHidden = (labelStrings.count == 0)
+            self?.labelCarouselView.isHidden = (labelInfos.count == 0)
         }
         
         // Contact threads also have the call button to compensate for
