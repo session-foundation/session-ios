@@ -15,16 +15,19 @@ extension MessageReceiver {
         guard userPublicKey == message.sender else { return }
         
         message.conversationExpiries.forEach { (syncTarget, expiries) in
-            guard let disappearingMessageConfiguration = try? DisappearingMessagesConfiguration.fetchOne(db, id: syncTarget) else { return }
             expiries.forEach { syncExpiry in
-                let startedAtMs: Double = Double(syncExpiry.expirationTimestamp) - disappearingMessageConfiguration.durationSeconds * 1000
-                
-                _ = try? Interaction
-                    .filter(
+                guard
+                    let interaction = try? Interaction.filter(
                         Interaction.Columns.threadId == syncTarget &&
                         Interaction.Columns.serverHash == syncExpiry.serverHash
-                    )
-                    .updateAll(db, Interaction.Columns.expiresStartedAtMs.set(to: startedAtMs))
+                    ).fetchOne(db),
+                    let durationSeconds = interaction.expiresInSeconds
+                else { return }
+                
+                try? interaction.with(
+                    wasRead: true,
+                    expiresStartedAtMs: Double(syncExpiry.expirationTimestamp) - durationSeconds * 1000
+                ).update(db)
             }
         }
     }
