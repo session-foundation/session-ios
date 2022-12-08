@@ -55,7 +55,7 @@ extension SnodeAPI {
             /// encoded for json requests; binary for OMQ requests.
             let verificationBytes: [UInt8] = SnodeAPI.Endpoint.getMessages.rawValue.bytes
                 .appending(contentsOf: namespace?.verificationString.bytes)
-                .appending(contentsOf: timestampMs.map { "\($0)" }?.data(using: .utf8)?.bytes)
+                .appending(contentsOf: timestampMs.map { "\($0)" }?.data(using: .ascii)?.bytes)
             
             guard
                 let signatureBytes: [UInt8] = sodium.wrappedValue.sign.signature(

@@ -9,7 +9,8 @@ public enum HTTP {
     private static let snodeURLSession = URLSession(configuration: .ephemeral, delegate: snodeURLSessionDelegate, delegateQueue: nil)
     private static let snodeURLSessionDelegate = SnodeURLSessionDelegateImplementation()
 
-    // MARK: Certificates
+    // MARK: - Certificates
+    
     private static let storageSeed1Cert: SecCertificate = {
         let path = Bundle.main.path(forResource: "storage-seed-1", ofType: "der")!
         let data = try! Data(contentsOf: URL(fileURLWithPath: path))
@@ -28,10 +29,12 @@ public enum HTTP {
         return SecCertificateCreateWithData(nil, data as CFData)!
     }()
     
-    // MARK: Settings
-    public static let timeout: TimeInterval = 10
+    // MARK: - Settings
+    
+    public static let defaultTimeout: TimeInterval = 10
 
-    // MARK: Seed Node URL Session Delegate Implementation
+    // MARK: - Seed Node URL Session Delegate Implementation
+    
     private final class SeedNodeURLSessionDelegateImplementation : NSObject, URLSessionDelegate {
 
         func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
@@ -60,7 +63,8 @@ public enum HTTP {
         }
     }
     
-    // MARK: Snode URL Session Delegate Implementation
+    // MARK: - Snode URL Session Delegate Implementation
+    
     private final class SnodeURLSessionDelegateImplementation : NSObject, URLSessionDelegate {
 
         func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {

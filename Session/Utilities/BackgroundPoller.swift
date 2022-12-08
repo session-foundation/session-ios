@@ -110,22 +110,14 @@ public final class BackgroundPoller {
                                 .eraseToAnyPublisher()
                         }
                         
-                        let promises: [Promise<Void>] = jobsToRun.map { job -> Promise<Void> in
-                            let (promise, seal) = Promise<Void>.pending()
-                            
-                            // Note: In the background we just want jobs to fail silently
-                            MessageReceiveJob.run(
-                                job,
-                                queue: DispatchQueue.main,
-                                success: { _, _ in seal.fulfill(()) },
-                                failure: { _, _, _ in seal.fulfill(()) },
-                                deferred: { _ in seal.fulfill(()) }
-                            )
-
-                            return promise
-                        }
-
-                        return when(fulfilled: promises)
+                        return ClosedGroupPoller.poll(
+                            namespaces: ClosedGroupPoller.namespaces,
+                            from: snode,
+                            for: groupPublicKey,
+                            on: DispatchQueue.main,
+                            calledFromBackgroundPoller: true,
+                            isBackgroundPollValid: { BackgroundPoller.isValid }
+                        )
                     }
                     .eraseToAnyPublisher()
             }

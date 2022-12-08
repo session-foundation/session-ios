@@ -158,7 +158,7 @@ public final class VisibleMessage: Message {
         
         // Attachments
         
-        let attachments: [Attachment]? = try? Attachment.fetchAll(db, ids: self.attachmentIds)        
+        let attachments: [Attachment]? = try? Attachment.fetchAll(db, ids: self.attachmentIds)
         let attachmentProtos = (attachments ?? []).compactMap { $0.buildProto() }
         dataMessage.setAttachments(attachmentProtos)
         
@@ -173,14 +173,6 @@ public final class VisibleMessage: Message {
         // Emoji react
         if let reaction = reaction, let reactionProto = reaction.toProto() {
             dataMessage.setReaction(reactionProto)
-        }
-        
-        // Group context
-        do {
-            try setGroupContextIfNeeded(db, on: dataMessage)
-        } catch {
-            SNLog("Couldn't construct visible message proto from: \(self).")
-            return nil
         }
         
         // Sync target

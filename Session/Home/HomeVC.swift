@@ -472,8 +472,10 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
         profilePictureView.size = profilePictureSize
         profilePictureView.update(
             publicKey: getUserHexEncodedPublicKey(),
+            threadVariant: .contact,
+            customImageData: nil,
             profile: Profile.fetchOrCreateCurrentUser(),
-            threadVariant: .contact
+            additionalProfile: nil
         )
         profilePictureView.set(.width, to: profilePictureSize)
         profilePictureView.set(.height, to: profilePictureSize)

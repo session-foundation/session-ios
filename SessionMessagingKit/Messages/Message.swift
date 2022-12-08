@@ -63,18 +63,6 @@ public class Message: Codable {
     public func toProto(_ db: Database) -> SNProtoContent? {
         preconditionFailure("toProto(_:) is abstract and must be overridden.")
     }
-
-    public func setGroupContextIfNeeded(_ db: Database, on dataMessage: SNProtoDataMessage.SNProtoDataMessageBuilder) throws {
-        guard
-            let threadId: String = threadId,
-            (try? ClosedGroup.exists(db, id: threadId)) == true,
-            let legacyGroupId: Data = "\(SMKLegacy.closedGroupIdPrefix)\(threadId)".data(using: .utf8)
-        else { return }
-        
-        // Android needs a group context or it'll interpret the message as a one-to-one message
-        let groupProto = SNProtoGroupContext.builder(id: legacyGroupId, type: .deliver)
-        dataMessage.setGroup(try groupProto.build())
-    }
 }
 
 // MARK: - Message Parsing/Processing

@@ -8,7 +8,7 @@ import SessionUtilitiesKit
 
 extension OpenGroupAPI {
     public final class Poller {
-        typealias PollResponse = [OpenGroupAPI.Endpoint: (info: OnionRequestResponseInfoType, data: Codable?)]
+        typealias PollResponse = [OpenGroupAPI.Endpoint: (info: ResponseInfoType, data: Codable?)]
         
         private let server: String
         private var timer: Timer? = nil
@@ -283,7 +283,7 @@ extension OpenGroupAPI {
                 .filter { endpoint, endpointResponse in
                     switch endpoint {
                         case .capabilities:
-                            guard (endpointResponse.data as? BatchSubResponse<Capabilities>)?.body != nil else {
+                            guard (endpointResponse.data as? HTTP.BatchSubResponse<Capabilities>)?.body != nil else {
                                 SNLog("Open group polling failed due to invalid capability data.")
                                 return false
                             }
@@ -291,8 +291,8 @@ extension OpenGroupAPI {
                             return true
                             
                         case .roomPollInfo(let roomToken, _):
-                            guard (endpointResponse.data as? BatchSubResponse<RoomPollInfo>)?.body != nil else {
-                                switch (endpointResponse.data as? BatchSubResponse<RoomPollInfo>)?.code {
+                            guard (endpointResponse.data as? HTTP.BatchSubResponse<RoomPollInfo>)?.body != nil else {
+                                switch (endpointResponse.data as? HTTP.BatchSubResponse<RoomPollInfo>)?.code {
                                     case 404: SNLog("Open group polling failed to retrieve info for unknown room '\(roomToken)'.")
                                     default: SNLog("Open group polling failed due to invalid room info data.")
                                 }
@@ -303,10 +303,10 @@ extension OpenGroupAPI {
                             
                         case .roomMessagesRecent(let roomToken), .roomMessagesBefore(let roomToken, _), .roomMessagesSince(let roomToken, _):
                             guard
-                                let responseData: BatchSubResponse<[Failable<Message>]> = endpointResponse.data as? BatchSubResponse<[Failable<Message>]>,
+                                let responseData: HTTP.BatchSubResponse<[Failable<Message>]> = endpointResponse.data as? HTTP.BatchSubResponse<[Failable<Message>]>,
                                 let responseBody: [Failable<Message>] = responseData.body
                             else {
-                                switch (endpointResponse.data as? BatchSubResponse<[Failable<Message>]>)?.code {
+                                switch (endpointResponse.data as? HTTP.BatchSubResponse<[Failable<Message>]>)?.code {
                                     case 404: SNLog("Open group polling failed to retrieve messages for unknown room '\(roomToken)'.")
                                     default: SNLog("Open group polling failed due to invalid messages data.")
                                 }
@@ -325,7 +325,7 @@ extension OpenGroupAPI {
                             
                         case .inbox, .inboxSince, .outbox, .outboxSince:
                             guard
-                                let responseData: BatchSubResponse<[DirectMessage]?> = endpointResponse.data as? BatchSubResponse<[DirectMessage]?>,
+                                let responseData: HTTP.BatchSubResponse<[DirectMessage]?> = endpointResponse.data as? HTTP.BatchSubResponse<[DirectMessage]?>,
                                 !responseData.failedToParseBody
                             else {
                                 SNLog("Open group polling failed due to invalid inbox/outbox data.")
@@ -383,7 +383,7 @@ extension OpenGroupAPI {
                     switch endpoint {
                         case .capabilities:
                             guard
-                                let responseData: BatchSubResponse<Capabilities> = endpointResponse.data as? BatchSubResponse<Capabilities>,
+                                let responseData: HTTP.BatchSubResponse<Capabilities> = endpointResponse.data as? HTTP.BatchSubResponse<Capabilities>,
                                 let responseBody: Capabilities = responseData.body
                             else { return false }
                             
@@ -391,7 +391,7 @@ extension OpenGroupAPI {
                             
                         case .roomPollInfo(let roomToken, _):
                             guard
-                                let responseData: BatchSubResponse<RoomPollInfo> = endpointResponse.data as? BatchSubResponse<RoomPollInfo>,
+                                let responseData: HTTP.BatchSubResponse<RoomPollInfo> = endpointResponse.data as? HTTP.BatchSubResponse<RoomPollInfo>,
                                 let responseBody: RoomPollInfo = responseData.body
                             else { return false }
                             guard let existingOpenGroup: OpenGroup = currentInfo?.groups.first(where: { $0.roomToken == roomToken }) else {
@@ -428,7 +428,7 @@ extension OpenGroupAPI {
                     switch endpoint {
                         case .capabilities:
                             guard
-                                let responseData: BatchSubResponse<Capabilities> = endpointResponse.data as? BatchSubResponse<Capabilities>,
+                                let responseData: HTTP.BatchSubResponse<Capabilities> = endpointResponse.data as? HTTP.BatchSubResponse<Capabilities>,
                                 let responseBody: Capabilities = responseData.body
                             else { return }
                             
@@ -440,7 +440,7 @@ extension OpenGroupAPI {
                             
                         case .roomPollInfo(let roomToken, _):
                             guard
-                                let responseData: BatchSubResponse<RoomPollInfo> = endpointResponse.data as? BatchSubResponse<RoomPollInfo>,
+                                let responseData: HTTP.BatchSubResponse<RoomPollInfo> = endpointResponse.data as? HTTP.BatchSubResponse<RoomPollInfo>,
                                 let responseBody: RoomPollInfo = responseData.body
                             else { return }
                             
@@ -455,7 +455,7 @@ extension OpenGroupAPI {
                             
                         case .roomMessagesRecent(let roomToken), .roomMessagesBefore(let roomToken, _), .roomMessagesSince(let roomToken, _):
                             guard
-                                let responseData: BatchSubResponse<[Failable<Message>]> = endpointResponse.data as? BatchSubResponse<[Failable<Message>]>,
+                                let responseData: HTTP.BatchSubResponse<[Failable<Message>]> = endpointResponse.data as? HTTP.BatchSubResponse<[Failable<Message>]>,
                                 let responseBody: [Failable<Message>] = responseData.body
                             else { return }
                             
@@ -469,7 +469,7 @@ extension OpenGroupAPI {
                             
                         case .inbox, .inboxSince, .outbox, .outboxSince:
                             guard
-                                let responseData: BatchSubResponse<[DirectMessage]?> = endpointResponse.data as? BatchSubResponse<[DirectMessage]?>,
+                                let responseData: HTTP.BatchSubResponse<[DirectMessage]?> = endpointResponse.data as? HTTP.BatchSubResponse<[DirectMessage]?>,
                                 !responseData.failedToParseBody
                             else { return }
                             

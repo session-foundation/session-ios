@@ -85,8 +85,8 @@ extension MessageSender {
         
         let threadId: String = {
             switch destination {
-                case .contact(let publicKey): return publicKey
-                case .closedGroup(let groupPublicKey): return groupPublicKey
+                case .contact(let publicKey, _): return publicKey
+                case .closedGroup(let groupPublicKey, _): return groupPublicKey
                 case .openGroup(let roomToken, let server, _, _, _):
                     return OpenGroup.idFor(roomToken: roomToken, server: server)
                     
@@ -162,7 +162,10 @@ extension MessageSender {
         // If we don't have a userKeyPair yet then there is no need to sync the configuration
         // as the user doesn't exist yet (this will get triggered on the first launch of a
         // fresh install due to the migrations getting run)
-        guard Identity.userExists(db) else {
+        guard
+            Identity.userExists(db),
+            let ed25519SecretKey: [UInt8] = Identity.fetchUserEd25519KeyPair(db)?.secretKey
+        else {
             return Fail(error: StorageError.generic)
                 .eraseToAnyPublisher()
         }
@@ -205,41 +208,31 @@ extension MessageSender {
             to: legacyDestination,
             interactionId: nil
         )
-
-        when(
-            resolved: try userConfigMessageChanges.map { message in
-                try MessageSender
-                    .sendImmediate(
-                        db,
-                        message: message,
-                        to: destination,
-                        interactionId: nil
-                    )
+        
+        let userConfigSendData: [PreparedSendData] = try userConfigMessageChanges
+            .map { message in
+                try MessageSender.preparedSendData(
+                    db,
+                    message: message,
+                    to: destination,
+                    interactionId: nil
+                )
             }
-        )
-        .done { results in
-            let hadError: Bool = results.contains { result in
-                switch result {
-                    case .fulfilled: return false
-                    case .rejected: return true
-                }
-            }
-            
-            guard !hadError else {
-                seal.reject(StorageError.generic)
-                return
-            }
-            
-            seal.fulfill(())
-        }
-        .catch { _ in seal.reject(StorageError.generic) }
-        .retainUntilComplete()
         
         /// We want to avoid blocking the db write thread so we dispatch the API call to a different thread
         return Just(())
             .setFailureType(to: Error.self)
             .receive(on: DispatchQueue.global(qos: .userInitiated))
-            .flatMap { _ in MessageSender.sendImmediate(preparedSendData: sendData) }
+            .flatMap { _ -> AnyPublisher<Void, Error> in
+                Publishers
+                    .MergeMany(
+                        ([sendData] + userConfigSendData)
+                            .map { MessageSender.sendImmediate(preparedSendData: $0) }
+                    )
+                    .collect()
+                    .map { _ in () }
+                    .eraseToAnyPublisher()
+            }
             .eraseToAnyPublisher()
     }
 }

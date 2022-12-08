@@ -205,15 +205,17 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         cell.update(
             with: SessionCell.Info(
                 id: profile,
-                leftAccessory: .profile(profile.id, profile),
+                position: Position.with(indexPath.row, count: data[indexPath.section].elements.count),
+                leftAccessory: .profile(id: profile.id, profile: profile),
                 title: profile.displayName(),
                 rightAccessory: .radio(isSelected: { [weak self] in
                     self?.selectedContacts.contains(profile.id) == true
                 }),
-                accessibilityIdentifier: "Contact"
-        ),
-            style: .edgeToEdge,
-            position: Position.with(indexPath.row, count: data[indexPath.section].elements.count)
+                styling: SessionCell.StyleInfo(backgroundStyle: .edgeToEdge),
+                accessibility: SessionCell.Accessibility(
+                    identifier: "Contact"
+                )
+            )
         )
         
         return cell

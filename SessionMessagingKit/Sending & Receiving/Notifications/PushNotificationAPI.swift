@@ -90,7 +90,7 @@ public enum PushNotificationAPI {
         let url = URL(string: "\(server)/unregister")!
         var request: URLRequest = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.allHTTPHeaderFields = [ Header.contentType.rawValue: "application/json" ]
+        request.allHTTPHeaderFields = [ HTTPHeader.contentType: "application/json" ]
         request.httpBody = body
         
         return OnionRequestAPI
@@ -144,7 +144,7 @@ public enum PushNotificationAPI {
         let url = URL(string: "\(server)/register")!
         var request: URLRequest = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.allHTTPHeaderFields = [ Header.contentType.rawValue: "application/json" ]
+        request.allHTTPHeaderFields = [ HTTPHeader.contentType: "application/json" ]
         request.httpBody = body
         
         return Publishers
@@ -227,7 +227,7 @@ public enum PushNotificationAPI {
         let url = URL(string: "\(server)/\(operation.endpoint)")!
         var request: URLRequest = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.allHTTPHeaderFields = [ Header.contentType.rawValue: "application/json" ]
+        request.allHTTPHeaderFields = [ HTTPHeader.contentType: "application/json" ]
         request.httpBody = body
         
         return OnionRequestAPI
@@ -272,7 +272,7 @@ public enum PushNotificationAPI {
         let url = URL(string: "\(server)/notify")!
         var request: URLRequest = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.allHTTPHeaderFields = [ Header.contentType.rawValue: "application/json" ]
+        request.allHTTPHeaderFields = [ HTTPHeader.contentType: "application/json" ]
         request.httpBody = body
         
         return OnionRequestAPI

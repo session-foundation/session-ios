@@ -26,12 +26,33 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     
     public enum Section: SessionTableSection {
         case profileInfo
+        case sessionId
         case menus
         case footer
+        
+        var title: String? {
+            switch self {
+                case .sessionId: return "your_session_id".localized()
+                default: return nil
+            }
+        }
+        
+        var style: SessionTableSectionStyle {
+            switch self {
+                case .sessionId: return .titleSeparator
+                case .menus: return .padding
+                default: return .none
+            }
+        }
     }
     
     public enum Item: Differentiable {
-        case profileInfo
+        case avatar
+        case profileName
+        
+        case sessionId
+        case idActions
+        
         case path
         case privacy
         case notifications
@@ -47,7 +68,18 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     // MARK: - Variables
     
     private let userSessionId: String
-    private lazy var imagePickerHandler: ImagePickerHandler = ImagePickerHandler(viewModel: self)
+    private lazy var imagePickerHandler: ImagePickerHandler = ImagePickerHandler(
+        onTransition: { [weak self] in self?.transitionToScreen($0, transitionType: $1) },
+        onImagePicked: { [weak self] resultImage, resultImagePath in
+            self?.updateProfile(
+                name: (self?.oldDisplayName ?? ""),
+                profilePicture: resultImage,
+                profilePictureFilePath: resultImagePath,
+                isUpdatingDisplayName: false,
+                isUpdatingProfilePicture: true
+            )
+        }
+    )
     fileprivate var oldDisplayName: String
     private var editedDisplayName: String?
     
@@ -63,8 +95,20 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     // MARK: - Navigation
     
     lazy var navState: AnyPublisher<NavState, Never> = {
-        isEditing
-            .map { isEditing in (isEditing ? .editing : .standard) }
+        Publishers
+            .CombineLatest(
+                isEditing
+                    .map { isEditing in isEditing },
+                textChanged
+                    .handleEvents(
+                        receiveOutput: { [weak self] value, _ in
+                            self?.editedDisplayName = value
+                        }
+                    )
+                    .filter { _ in false }
+                    .prepend((nil, .profileName))
+            )
+            .map { isEditing, _ -> NavState in (isEditing ? .editing : .standard) }
             .removeDuplicates()
             .prepend(.standard)     // Initial value
             .eraseToAnyPublisher()
@@ -176,10 +220,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     
     override var title: String { "vc_settings_title".localized() }
     
-    private var _settingsData: [SectionModel] = []
-    public override var settingsData: [SectionModel] { _settingsData }
-    
-    public override var observableSettingsData: ObservableData { _observableSettingsData }
+    public override var observableTableData: ObservableData { _observableTableData }
     
     /// This is all the data the screen needs to populate itself, please see the following link for tips to help optimise
     /// performance https://github.com/groue/GRDB.swift#valueobservation-performance
@@ -188,8 +229,8 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     /// this is due to the behaviour of `ValueConcurrentObserver.asyncStartObservation` which triggers it's own
     /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
-    private lazy var _observableSettingsData: ObservableData = ValueObservation
-        .trackingConstantRegion { db -> [SectionModel] in
+    private lazy var _observableTableData: ObservableData = ValueObservation
+        .trackingConstantRegion { [weak self] db -> [SectionModel] in
             let userPublicKey: String = getUserHexEncodedPublicKey(db)
             let profile: Profile = Profile.fetchOrCreateCurrentUser(db)
             
@@ -198,38 +239,82 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                     model: .profileInfo,
                     elements: [
                         SessionCell.Info(
-                            id: .profileInfo,
-                            leftAccessory: .threadInfo(
-                                threadViewModel: SessionThreadViewModel(
-                                    threadId: profile.id,
-                                    threadIsNoteToSelf: true,
-                                    contactProfile: profile
-                                ),
-                                style: SessionCell.Accessory.ThreadInfoStyle(
-                                    separatorTitle: "your_session_id".localized(),
-                                    descriptionStyle: .monoLarge,
-                                    descriptionActions: [
-                                        SessionCell.Accessory.ThreadInfoStyle.Action(
-                                            title: "copy".localized(),
-                                            run: { [weak self] button in
-                                                self?.copySessionId(profile.id, button: button)
-                                            }
-                                        
-                                        ),
-                                        SessionCell.Accessory.ThreadInfoStyle.Action(
-                                            title: "share".localized(),
-                                            run: { [weak self] _ in
-                                                self?.shareSessionId(profile.id)
-                                            }
-                                        )
-                                    ]
-                                ),
-                                avatarTapped: { [weak self] in self?.updateProfilePicture() },
-                                titleTapped: { [weak self] in self?.setIsEditing(true) },
-                                titleChanged: { [weak self] text in self?.editedDisplayName = text }
+                            id: .avatar,
+                            accessory: .profile(
+                                id: profile.id,
+                                size: .extraLarge,
+                                profile: profile
                             ),
-                            title: profile.displayName(),
-                            shouldHaveBackground: false
+                            styling: SessionCell.StyleInfo(
+                                alignment: .centerHugging,
+                                customPadding: SessionCell.Padding(bottom: Values.smallSpacing),
+                                backgroundStyle: .noBackground
+                            ),
+                            onTap: {
+                                self?.updateProfilePicture(
+                                    hasCustomImage: ProfileManager.hasProfileImageData(
+                                        with: profile.profilePictureFileName
+                                    )
+                                )
+                            }
+                        ),
+                        SessionCell.Info(
+                            id: .profileName,
+                            title: SessionCell.TextInfo(
+                                profile.displayName(),
+                                font: .titleLarge,
+                                alignment: .center,
+                                interaction: .editable
+                            ),
+                            styling: SessionCell.StyleInfo(
+                                alignment: .centerHugging,
+                                customPadding: SessionCell.Padding(top: Values.smallSpacing),
+                                backgroundStyle: .noBackground
+                            ),
+                            onTap: { self?.setIsEditing(true) }
+                        )
+                    ]
+                ),
+                SectionModel(
+                    model: .sessionId,
+                    elements: [
+                        SessionCell.Info(
+                            id: .sessionId,
+                            title: SessionCell.TextInfo(
+                                profile.id,
+                                font: .monoLarge,
+                                alignment: .center,
+                                interaction: .copy
+                            ),
+                            styling: SessionCell.StyleInfo(
+                                customPadding: SessionCell.Padding(bottom: Values.smallSpacing),
+                                backgroundStyle: .noBackground
+                            )
+                        ),
+                        SessionCell.Info(
+                            id: .idActions,
+                            leftAccessory: .button(
+                                style: .bordered,
+                                title: "copy".localized(),
+                                run: { button in
+                                    self?.copySessionId(profile.id, button: button)
+                                }
+                            ),
+                            rightAccessory: .button(
+                                style: .bordered,
+                                title: "share".localized(),
+                                run: { _ in
+                                    self?.shareSessionId(profile.id)
+                                }
+                            ),
+                            styling: SessionCell.StyleInfo(
+                                customPadding: SessionCell.Padding(
+                                    top: Values.smallSpacing,
+                                    leading: 0,
+                                    trailing: 0
+                                ),
+                                backgroundStyle: .noBackground
+                            )
                         )
                     ]
                 ),
@@ -238,7 +323,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                     elements: [
                         SessionCell.Info(
                             id: .path,
-                            leftAccessory: .customView {
+                            leftAccessory: .customView(hashValue: "PathStatusView") {
                                 // Need to ensure this view is the same size as the icons so
                                 // wrap it in a larger view
                                 let result: UIView = UIView()
@@ -252,7 +337,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                                 return result
                             },
                             title: "vc_path_title".localized(),
-                            onTap: { [weak self] in self?.transitionToScreen(PathVC()) }
+                            onTap: { self?.transitionToScreen(PathVC()) }
                         ),
                         SessionCell.Info(
                             id: .privacy,
@@ -261,7 +346,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                                     .withRenderingMode(.alwaysTemplate)
                             ),
                             title: "vc_settings_privacy_button_title".localized(),
-                            onTap: { [weak self] in
+                            onTap: {
                                 self?.transitionToScreen(
                                     SessionTableViewController(viewModel: PrivacySettingsViewModel())
                                 )
@@ -274,7 +359,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                                     .withRenderingMode(.alwaysTemplate)
                             ),
                             title: "vc_settings_notifications_button_title".localized(),
-                            onTap: { [weak self] in
+                            onTap: {
                                 self?.transitionToScreen(
                                     SessionTableViewController(viewModel: NotificationSettingsViewModel())
                                 )
@@ -287,7 +372,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                                     .withRenderingMode(.alwaysTemplate)
                             ),
                             title: "CONVERSATION_SETTINGS_TITLE".localized(),
-                            onTap: { [weak self] in
+                            onTap: {
                                 self?.transitionToScreen(
                                     SessionTableViewController(viewModel: ConversationSettingsViewModel())
                                 )
@@ -300,7 +385,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                                     .withRenderingMode(.alwaysTemplate)
                             ),
                             title: "MESSAGE_REQUESTS_TITLE".localized(),
-                            onTap: { [weak self] in
+                            onTap: {
                                 self?.transitionToScreen(MessageRequestsViewController())
                             }
                         ),
@@ -311,7 +396,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                                     .withRenderingMode(.alwaysTemplate)
                             ),
                             title: "APPEARANCE_TITLE".localized(),
-                            onTap: { [weak self] in
+                            onTap: {
                                 self?.transitionToScreen(AppearanceViewController())
                             }
                         ),
@@ -322,7 +407,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                                     .withRenderingMode(.alwaysTemplate)
                             ),
                             title: "vc_settings_invite_a_friend_button_title".localized(),
-                            onTap: { [weak self] in
+                            onTap: {
                                 let invitation: String = "Hey, I've been using Session to chat with complete privacy and security. Come join me! Download it at https://getsession.org/. My Session ID is \(profile.id) !"
                                 
                                 self?.transitionToScreen(
@@ -341,7 +426,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                                     .withRenderingMode(.alwaysTemplate)
                             ),
                             title: "vc_settings_recovery_phrase_button_title".localized(),
-                            onTap: { [weak self] in
+                            onTap: {
                                 self?.transitionToScreen(SeedModal(), transitionType: .present)
                             }
                         ),
@@ -352,7 +437,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                                     .withRenderingMode(.alwaysTemplate)
                             ),
                             title: "HELP_TITLE".localized(),
-                            onTap: { [weak self] in
+                            onTap: {
                                 self?.transitionToScreen(
                                     SessionTableViewController(viewModel: HelpViewModel())
                                 )
@@ -365,8 +450,8 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                                     .withRenderingMode(.alwaysTemplate)
                             ),
                             title: "vc_settings_clear_all_data_button_title".localized(),
-                            tintColor: .danger,
-                            onTap: { [weak self] in
+                            styling: SessionCell.StyleInfo(tintColor: .danger),
+                            onTap: {
                                 self?.transitionToScreen(NukeDataModal(), transitionType: .present)
                             }
                         )
@@ -376,6 +461,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
         }
         .removeDuplicates()
         .publisher(in: Storage.shared)
+        .mapToSessionTableViewData(for: self)
     
     public override var footerView: AnyPublisher<UIView?, Never> {
         Just(VersionFooterView())
@@ -383,26 +469,30 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     }
     
     // MARK: - Functions
-
-    public override func updateSettings(_ updatedSettings: [SectionModel]) {
-        self._settingsData = updatedSettings
-    }
     
-    private func updateProfilePicture() {
+    private func updateProfilePicture(hasCustomImage: Bool) {
         let actionSheet: UIAlertController = UIAlertController(
             title: "Update Profile Picture",
             message: nil,
             preferredStyle: .actionSheet
         )
-        let action = UIAlertAction(
+        actionSheet.addAction(UIAlertAction(
             title: "MEDIA_FROM_LIBRARY_BUTTON".localized(),
             style: .default,
             handler: { [weak self] _ in
                 self?.showPhotoLibraryForAvatar()
             }
-        )
-        action.accessibilityLabel = "Photo library"
-        actionSheet.addAction(action)
+        ))
+        
+        // Only have the 'remove' button if there is a custom avatar set
+        if hasCustomImage {
+            actionSheet.addAction(UIAlertAction(
+                title: "REMOVE_AVATAR".localized(),
+                style: .destructive,
+                handler: { [weak self] _ in self?.removeProfileImage() }
+            ))
+        }
+        
         actionSheet.addAction(UIAlertAction(title: "cancel".localized(), style: .cancel, handler: nil))
         
         self.transitionToScreen(actionSheet, transitionType: .present)

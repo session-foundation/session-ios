@@ -54,8 +54,8 @@ public enum OpenGroupAPI {
             .defaulting(to: [])
 
         // Generate the requests
-        let requestResponseType: [BatchRequestInfoType] = [
-            BatchRequestInfo(
+        let requestResponseType: [BatchRequest.Info] = [
+            BatchRequest.Info(
                 request: Request<NoBody, Endpoint>(
                     server: server,
                     endpoint: .capabilities
@@ -71,7 +71,7 @@ public enum OpenGroupAPI {
                 .filter(OpenGroup.Columns.roomToken != "")
                 .fetchAll(db))
                 .defaulting(to: [])
-                .flatMap { openGroup -> [BatchRequestInfoType] in
+                .flatMap { openGroup -> [BatchRequest.Info] in
                     let shouldRetrieveRecentMessages: Bool = (
                         openGroup.sequenceNumber == 0 || (
                             // If it's the first poll for this launch and it's been longer than
@@ -83,14 +83,14 @@ public enum OpenGroupAPI {
                     )
                     
                     return [
-                        BatchRequestInfo(
+                        BatchRequest.Info(
                             request: Request<NoBody, Endpoint>(
                                 server: server,
                                 endpoint: .roomPollInfo(openGroup.roomToken, openGroup.infoUpdates)
                             ),
                             responseType: RoomPollInfo.self
                         ),
-                        BatchRequestInfo(
+                        BatchRequest.Info(
                             request: Request<NoBody, Endpoint>(
                                 server: server,
                                 endpoint: (shouldRetrieveRecentMessages ?
@@ -113,7 +113,7 @@ public enum OpenGroupAPI {
                 !capabilities.contains(.blind) ? [] :
                 [
                     // Inbox
-                    BatchRequestInfo(
+                    BatchRequest.Info(
                         request: Request<NoBody, Endpoint>(
                             server: server,
                             endpoint: (lastInboxMessageId == 0 ?
@@ -125,7 +125,7 @@ public enum OpenGroupAPI {
                     ),
                     
                     // Outbox
-                    BatchRequestInfo(
+                    BatchRequest.Info(
                         request: Request<NoBody, Endpoint>(
                             server: server,
                             endpoint: (lastOutboxMessageId == 0 ?
@@ -151,7 +151,7 @@ public enum OpenGroupAPI {
     private static func batch(
         _ db: Database,
         server: String,
-        requests: [BatchRequestInfoType],
+        requests: [BatchRequest.Info],
         using dependencies: SMKDependencies = SMKDependencies()
     ) -> AnyPublisher<[Endpoint: (ResponseInfoType, Codable?)], Error> {
         let responseTypes = requests.map { $0.responseType }
@@ -163,7 +163,7 @@ public enum OpenGroupAPI {
                     method: .post,
                     server: server,
                     endpoint: Endpoint.batch,
-                    body: requestBody
+                    body: BatchRequest(requests: requests)
                 ),
                 using: dependencies
             )
@@ -183,7 +183,7 @@ public enum OpenGroupAPI {
     private static func sequence(
         _ db: Database,
         server: String,
-        requests: [BatchRequestInfoType],
+        requests: [BatchRequest.Info],
         using dependencies: SMKDependencies = SMKDependencies()
     ) -> AnyPublisher<[Endpoint: (ResponseInfoType, Codable?)], Error> {
         let responseTypes = requests.map { $0.responseType }
@@ -195,7 +195,7 @@ public enum OpenGroupAPI {
                     method: .post,
                     server: server,
                     endpoint: Endpoint.sequence,
-                    body: requestBody
+                    body: BatchRequest(requests: requests)
                 ),
                 using: dependencies
             )
@@ -315,7 +315,7 @@ public enum OpenGroupAPI {
     ) -> AnyPublisher<(capabilities: (info: ResponseInfoType, data: Capabilities), room: (info: ResponseInfoType, data: Room)), Error> {
         let requestResponseType: [BatchRequest.Info] = [
             // Get the latest capabilities for the server (in case it's a new server or the cached ones are stale)
-            BatchRequestInfo(
+            BatchRequest.Info(
                 request: Request<NoBody, Endpoint>(
                     server: server,
                     endpoint: .capabilities
@@ -324,7 +324,7 @@ public enum OpenGroupAPI {
             ),
             
             // And the room info
-            BatchRequestInfo(
+            BatchRequest.Info(
                 request: Request<NoBody, Endpoint>(
                     server: server,
                     endpoint: .room(roomToken)
@@ -351,13 +351,13 @@ public enum OpenGroupAPI {
                         }
                     })
                     .map { _, value in value }
-                let maybeRoom: (info: OnionRequestResponseInfoType, data: Room?)? = maybeRoomResponse
-                    .map { info, data in (info, (data as? BatchSubResponse<Room>)?.body) }
+                let maybeRoom: (info: ResponseInfoType, data: Room?)? = maybeRoomResponse
+                    .map { info, data in (info, (data as? HTTP.BatchSubResponse<Room>)?.body) }
                 
                 guard
-                    let capabilitiesInfo: OnionRequestResponseInfoType = maybeCapabilities?.info,
+                    let capabilitiesInfo: ResponseInfoType = maybeCapabilities?.info,
                     let capabilities: Capabilities = maybeCapabilities?.data,
-                    let roomInfo: OnionRequestResponseInfoType = maybeRoom?.info,
+                    let roomInfo: ResponseInfoType = maybeRoom?.info,
                     let room: Room = maybeRoom?.data
                 else {
                     return Fail(error: HTTPError.parsingFailed)
@@ -383,7 +383,7 @@ public enum OpenGroupAPI {
     ) -> AnyPublisher<(capabilities: (info: ResponseInfoType, data: Capabilities), rooms: (info: ResponseInfoType, data: [Room])), Error> {
         let requestResponseType: [BatchRequest.Info] = [
             // Get the latest capabilities for the server (in case it's a new server or the cached ones are stale)
-            BatchRequestInfo(
+            BatchRequest.Info(
                 request: Request<NoBody, Endpoint>(
                     server: server,
                     endpoint: .capabilities
@@ -392,7 +392,7 @@ public enum OpenGroupAPI {
             ),
             
             // And the room info
-            BatchRequestInfo(
+            BatchRequest.Info(
                 request: Request<NoBody, Endpoint>(
                     server: server,
                     endpoint: .rooms
@@ -419,13 +419,13 @@ public enum OpenGroupAPI {
                         }
                     })
                     .map { _, value in value }
-                let maybeRooms: (info: OnionRequestResponseInfoType, data: [Room]?)? = maybeRoomResponse
-                    .map { info, data in (info, (data as? BatchSubResponse<[Room]>)?.body) }
+                let maybeRooms: (info: ResponseInfoType, data: [Room]?)? = maybeRoomResponse
+                    .map { info, data in (info, (data as? HTTP.BatchSubResponse<[Room]>)?.body) }
                 
                 guard
-                    let capabilitiesInfo: OnionRequestResponseInfoType = maybeCapabilities?.info,
+                    let capabilitiesInfo: ResponseInfoType = maybeCapabilities?.info,
                     let capabilities: Capabilities = maybeCapabilities?.data,
-                    let roomsInfo: OnionRequestResponseInfoType = maybeRooms?.info,
+                    let roomsInfo: ResponseInfoType = maybeRooms?.info,
                     let rooms: [Room] = maybeRooms?.data
                 else {
                     return Fail(error: HTTPError.parsingFailed)
@@ -1239,16 +1239,16 @@ public enum OpenGroupAPI {
         )
         
         // Generate the requests
-        let requestResponseType: [BatchRequestInfoType] = [
-            BatchRequestInfo(
-                request: Request(
+        let requestResponseType: [BatchRequest.Info] = [
+            BatchRequest.Info(
+                request: Request<UserBanRequest, Endpoint>(
                     method: .post,
                     server: server,
                     endpoint: .userBan(sessionId),
                     body: banRequestBody
                 )
             ),
-            BatchRequestInfo(
+            BatchRequest.Info(
                 request: Request<NoBody, Endpoint>(
                     method: .delete,
                     server: server,
@@ -1390,10 +1390,10 @@ public enum OpenGroupAPI {
         
         updatedRequest.allHTTPHeaderFields = (request.allHTTPHeaderFields ?? [:])
             .updated(with: [
-                Header.sogsPubKey.rawValue: signResult.publicKey,
-                Header.sogsTimestamp.rawValue: "\(timestamp)",
-                Header.sogsNonce.rawValue: nonce.base64EncodedString(),
-                Header.sogsSignature.rawValue: signResult.signature.toBase64()
+                HTTPHeader.sogsPubKey: signResult.publicKey,
+                HTTPHeader.sogsTimestamp: "\(timestamp)",
+                HTTPHeader.sogsNonce: nonce.base64EncodedString(),
+                HTTPHeader.sogsSignature: signResult.signature.toBase64()
             ])
         
         return updatedRequest

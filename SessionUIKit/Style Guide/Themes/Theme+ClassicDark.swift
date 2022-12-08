@@ -64,6 +64,7 @@ internal enum Theme_ClassicDark: ThemeColors {
         .solidButton_background: .classicDark3,
         
         // Settings
+        .settings_tertiaryAction: .primary,
         .settings_tabBackground: .classicDark1,
         
         // Appearance

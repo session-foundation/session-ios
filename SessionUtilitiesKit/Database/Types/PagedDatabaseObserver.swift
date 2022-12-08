@@ -26,7 +26,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
     private let filterSQL: SQL
     private let groupSQL: SQL?
     private let orderSQL: SQL
-    private let dataQuery: ([Int64]) -> AdaptedFetchRequest<SQLRequest<T>>
+    private let dataQuery: ([Int64]) -> any FetchRequest<T>
     private let associatedRecords: [ErasedAssociatedRecord]
     
     private var dataCache: Atomic<DataCache<T>> = Atomic(DataCache())
@@ -45,7 +45,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
         filterSQL: SQL,
         groupSQL: SQL? = nil,
         orderSQL: SQL,
-        dataQuery: @escaping ([Int64]) -> AdaptedFetchRequest<SQLRequest<T>>,
+        dataQuery: @escaping ([Int64]) -> any FetchRequest<T>,
         associatedRecords: [ErasedAssociatedRecord] = [],
         onChangeUnsorted: @escaping ([T], PagedData.PageInfo) -> ()
     ) {
@@ -463,7 +463,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
         let filterSQL: SQL = self.filterSQL
         let groupSQL: SQL? = self.groupSQL
         let orderSQL: SQL = self.orderSQL
-        let dataQuery: ([Int64]) -> AdaptedFetchRequest<SQLRequest<T>> = self.dataQuery
+        let dataQuery: ([Int64]) -> any FetchRequest<T> = self.dataQuery
         
         let loadedPage: (data: [T]?, pageInfo: PagedData.PageInfo, failureCallback: (() -> ())?)? = Storage.shared.read { [weak self] db in
             typealias QueryInfo = (limit: Int, offset: Int, updatedCacheOffset: Int)
@@ -759,34 +759,6 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
 // MARK: - Convenience
 
 public extension PagedDatabaseObserver {
-    convenience init(
-        pagedTable: ObservedTable.Type,
-        pageSize: Int,
-        idColumn: ObservedTable.Columns,
-        observedChanges: [PagedData.ObservedChanges],
-        joinSQL: SQL? = nil,
-        filterSQL: SQL,
-        groupSQL: SQL? = nil,
-        orderSQL: SQL,
-        dataQuery: @escaping ([Int64]) -> SQLRequest<T>,
-        associatedRecords: [ErasedAssociatedRecord] = [],
-        onChangeUnsorted: @escaping ([T], PagedData.PageInfo) -> ()
-    ) {
-        self.init(
-            pagedTable: pagedTable,
-            pageSize: pageSize,
-            idColumn: idColumn,
-            observedChanges: observedChanges,
-            joinSQL: joinSQL,
-            filterSQL: filterSQL,
-            groupSQL: groupSQL,
-            orderSQL: orderSQL,
-            dataQuery: { rowIds in dataQuery(rowIds).adapted { _ in ScopeAdapter([:]) } },
-            associatedRecords: associatedRecords,
-            onChangeUnsorted: onChangeUnsorted
-        )
-    }
-    
     func load(_ target: PagedData.PageInfo.Target<ObservedTable.ID>) where ObservedTable.ID: SQLExpressible {
         self.load(target.internalTarget)
     }
@@ -1235,7 +1207,7 @@ public class AssociatedRecord<T, PagedType>: ErasedAssociatedRecord where T: Fet
     public let joinToPagedType: SQL
     
     fileprivate let dataCache: Atomic<DataCache<T>> = Atomic(DataCache())
-    fileprivate let dataQuery: (SQL?) -> AdaptedFetchRequest<SQLRequest<T>>
+    fileprivate let dataQuery: (SQL?) -> any FetchRequest<T>
     fileprivate let associateData: (DataCache<T>, DataCache<PagedType>) -> DataCache<PagedType>
     
     // MARK: - Initialization
@@ -1243,7 +1215,7 @@ public class AssociatedRecord<T, PagedType>: ErasedAssociatedRecord where T: Fet
     public init<Table: TableRecord>(
         trackedAgainst: Table.Type,
         observedChanges: [PagedData.ObservedChanges],
-        dataQuery: @escaping (SQL?) -> AdaptedFetchRequest<SQLRequest<T>>,
+        dataQuery: @escaping (SQL?) -> any FetchRequest<T>,
         joinToPagedType: SQL,
         associateData: @escaping (DataCache<T>, DataCache<PagedType>) -> DataCache<PagedType>
     ) {
@@ -1252,24 +1224,6 @@ public class AssociatedRecord<T, PagedType>: ErasedAssociatedRecord where T: Fet
         self.dataQuery = dataQuery
         self.joinToPagedType = joinToPagedType
         self.associateData = associateData
-    }
-    
-    public convenience init<Table: TableRecord>(
-        trackedAgainst: Table.Type,
-        observedChanges: [PagedData.ObservedChanges],
-        dataQuery: @escaping (SQL?) -> SQLRequest<T>,
-        joinToPagedType: SQL,
-        associateData: @escaping (DataCache<T>, DataCache<PagedType>) -> DataCache<PagedType>
-    ) {
-        self.init(
-            trackedAgainst: trackedAgainst,
-            observedChanges: observedChanges,
-            dataQuery: { additionalFilters in
-                dataQuery(additionalFilters).adapted { _ in ScopeAdapter([:]) }
-            },
-            joinToPagedType: joinToPagedType,
-            associateData: associateData
-        )
     }
     
     // MARK: - AssociatedRecord

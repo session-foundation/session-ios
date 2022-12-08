@@ -24,6 +24,13 @@ public extension Message {
         )
         case openGroupInbox(server: String, openGroupPublicKey: String, blindedPublicKey: String)
 
+        var namespace: SnodeAPI.Namespace {
+            switch self {
+                case .contact(_, let namespace), .closedGroup(_, let namespace): return namespace
+                default: preconditionFailure("Attepted to retrieve namespace for invalid destination")
+            }
+        }
+        
         public static func from(
             _ db: Database,
             thread: SessionThread,

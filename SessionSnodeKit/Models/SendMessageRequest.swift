@@ -6,7 +6,7 @@ extension SnodeAPI {
     public class SendMessageRequest: SnodeAuthenticatedRequestBody {
         enum CodingKeys: String, CodingKey {
             case namespace
-            case signatureTimestamp = "timestamp"//"sig_timestamp"  // TODO: Add this back once the snodes are fixed
+            case signatureTimestamp = "sig_timestamp"
         }
         
         let message: SnodeMessage
@@ -60,7 +60,7 @@ extension SnodeAPI {
             /// option.
             let verificationBytes: [UInt8] = SnodeAPI.Endpoint.sendMessage.rawValue.bytes
                 .appending(contentsOf: namespace.verificationString.bytes)
-                .appending(contentsOf: timestampMs.map { "\($0)" }?.data(using: .utf8)?.bytes)
+                .appending(contentsOf: timestampMs.map { "\($0)" }?.data(using: .ascii)?.bytes)
             
             guard
                 let signatureBytes: [UInt8] = sodium.wrappedValue.sign.signature(

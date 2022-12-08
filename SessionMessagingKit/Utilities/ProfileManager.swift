@@ -78,6 +78,13 @@ public struct ProfileManager {
         return data
     }
     
+    public static func hasProfileImageData(with fileName: String?) -> Bool {
+        guard let fileName: String = fileName, !fileName.isEmpty else { return false }
+        
+        return FileManager.default
+            .fileExists(atPath: ProfileManager.profileAvatarFilepath(filename: fileName))
+    }
+    
     private static func loadProfileData(with fileName: String) -> Data? {
         let filePath: String = ProfileManager.profileAvatarFilepath(filename: fileName)
         
@@ -228,7 +235,7 @@ public struct ProfileManager {
                         return
                     }
                     
-                    guard let decryptedData: Data = decryptProfileData(data: data, key: profileKeyAtStart) else {
+                    guard let decryptedData: Data = decryptData(data: data, key: profileKeyAtStart) else {
                         OWSLogger.warn("Avatar data for \(profile.id) could not be decrypted.")
                         return
                     }
@@ -388,38 +395,22 @@ public struct ProfileManager {
                 return
             } 
             
+            // If we have no image then we should succeed (database changes happen in the callback)
             guard let data: Data = avatarImageData else {
-                // If we have no image then we need to make sure to remove it from the profile
-                Storage.shared.writeAsync { db in
-                    let existingProfile: Profile = Profile.fetchOrCreateCurrentUser(db)
-                    
-                    OWSLogger.verbose(existingProfile.profilePictureUrl != nil ?
-                        "Updating local profile on service with cleared avatar." :
-                        "Updating local profile on service with no avatar."
-                    )
-                    
-                    let updatedProfile: Profile = try existingProfile
-                        .with(
-                            name: profileName,
-                            profilePictureUrl: nil,
-                            profilePictureFileName: nil,
-                            profileEncryptionKey: (existingProfile.profilePictureUrl != nil ?
-                                .update(newProfileKey) :
-                                .existing
-                            )
-                        )
-                        .saved(db)
-                    
-                    // Remove any cached avatar image value
-                    if let fileName: String = existingProfile.profilePictureFileName {
-                        profileAvatarCache.mutate { $0[fileName] = nil }
+                // Remove any cached avatar image value
+                let maybeExistingFileName: String? = Storage.shared
+                    .read { db in
+                        try Profile
+                            .select(.profilePictureFileName)
+                            .asRequest(of: String.self)
+                            .fetchOne(db)
                     }
-                    
-                    SNLog("Successfully updated service with profile.")
-                    
-                    try success?(db, updatedProfile)
+                
+                if let fileName: String = maybeExistingFileName {
+                    profileAvatarCache.mutate { $0[fileName] = nil }
                 }
-                return
+                
+                return success(nil, newProfileKey)
             }
 
             // If we have a new avatar image, we must first:
@@ -447,7 +438,7 @@ public struct ProfileManager {
             }
             
             // Encrypt the avatar for upload
-            guard let encryptedAvatarData: Data = encryptProfileData(data: data, key: newProfileKey) else {
+            guard let encryptedAvatarData: Data = encryptData(data: data, key: newProfileKey) else {
                 SNLog("Updating service with profile failed.")
                 failure?(.avatarEncryptionFailed)
                 return

@@ -1,39 +1,38 @@
 import Foundation
-import SessionUtilitiesKit
 
 // MARK: - Convenience Types
 
-struct Empty: Codable {}
+public struct Empty: Codable {}
 
-typealias NoBody = Empty
-typealias NoResponse = Empty
+public typealias NoBody = Empty
+public typealias NoResponse = Empty
 
-protocol EndpointType: Hashable {
+public protocol EndpointType: Hashable {
     var path: String { get }
 }
 
 // MARK: - Request
 
-struct Request<T: Encodable, Endpoint: EndpointType> {
-    let method: HTTP.Verb
-    let server: String
-    let endpoint: Endpoint
-    let queryParameters: [QueryParam: String]
-    let headers: [Header: String]
+public struct Request<T: Encodable, Endpoint: EndpointType> {
+    public let method: HTTPMethod
+    public let server: String
+    public let endpoint: Endpoint
+    public let queryParameters: [HTTPQueryParam: String]
+    public let headers: [HTTPHeader: String]
     /// This is the body value sent during the request
     ///
     /// **Warning:** The `bodyData` value should be used to when making the actual request instead of this as there
     /// is custom handling for certain data types
-    let body: T?
+    public let body: T?
     
     // MARK: - Initialization
 
-    init(
-        method: HTTP.Verb = .get,
+    public init(
+        method: HTTPMethod = .get,
         server: String,
         endpoint: Endpoint,
-        queryParameters: [QueryParam: String] = [:],
-        headers: [Header: String] = [:],
+        queryParameters: [HTTPQueryParam: String] = [:],
+        headers: [HTTPHeader: String] = [:],
         body: T? = nil
     ) {
         self.method = method
@@ -56,7 +55,9 @@ struct Request<T: Encodable, Endpoint: EndpointType> {
         switch body {
             case let bodyString as String:
                 // The only acceptable string body is a base64 encoded one
-                guard let encodedData: Data = Data(base64Encoded: bodyString) else { throw HTTP.Error.parsingFailed }
+                guard let encodedData: Data = Data(base64Encoded: bodyString) else {
+                    throw HTTPError.parsingFailed
+                }
                 
                 return encodedData
                 
@@ -73,11 +74,11 @@ struct Request<T: Encodable, Endpoint: EndpointType> {
     
     // MARK: - Request Generation
     
-    var urlPathAndParamsString: String {
+    public var urlPathAndParamsString: String {
         return [
             "/\(endpoint.path)",
             queryParameters
-                .map { key, value in "\(key.rawValue)=\(value)" }
+                .map { key, value in "\(key)=\(value)" }
                 .joined(separator: "&")
         ]
         .compactMap { $0 }
@@ -85,8 +86,8 @@ struct Request<T: Encodable, Endpoint: EndpointType> {
         .joined(separator: "?")
     }
     
-    func generateUrlRequest() throws -> URLRequest {
-        guard let url: URL = url else { throw HTTP.Error.invalidURL }
+    public func generateUrlRequest() throws -> URLRequest {
+        guard let url: URL = url else { throw HTTPError.invalidURL }
         
         var urlRequest: URLRequest = URLRequest(url: url)
         urlRequest.httpMethod = method.rawValue

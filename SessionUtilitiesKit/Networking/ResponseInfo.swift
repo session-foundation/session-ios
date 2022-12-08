@@ -2,13 +2,13 @@
 
 import Foundation
 
-public protocol OnionRequestResponseInfoType: Codable {
+public protocol ResponseInfoType: Codable {
     var code: Int { get }
     var headers: [String: String] { get }
 }
 
-extension OnionRequestAPI {
-    public struct ResponseInfo: OnionRequestResponseInfoType {
+public extension HTTP {
+    struct ResponseInfo: ResponseInfoType {
         public let code: Int
         public let headers: [String: String]
         
@@ -18,3 +18,4 @@ extension OnionRequestAPI {
         }
     }
 }
+

@@ -83,7 +83,7 @@ extension MessageSender {
                 .map { memberId -> MessageSender.PreparedSendData in
                     try MessageSender.preparedSendData(
                         db,
-                        message: LegacyClosedGroupControlMessage(
+                        message: ClosedGroupControlMessage(
                             kind: .new(
                                 publicKey: Data(hex: groupPublicKey),
                                 name: name,
@@ -99,7 +99,7 @@ extension MessageSender {
                             // the 'ClosedGroup' object we created
                             sentTimestampMs: UInt64(floor(formationTimestamp * 1000))
                         ),
-                        to: .contact(publicKey: memberId),
+                        to: .contact(publicKey: memberId, namespace: .default),
                         interactionId: nil
                     )
                 }
@@ -263,7 +263,7 @@ extension MessageSender {
                     threadId: thread.id,
                     authorId: userPublicKey,
                     variant: .infoClosedGroupUpdated,
-                    body: LegacyClosedGroupControlMessage.Kind
+                    body: ClosedGroupControlMessage.Kind
                         .nameChange(name: name)
                         .infoMessage(db, sender: userPublicKey),
                     timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
@@ -274,7 +274,7 @@ extension MessageSender {
                 // Send the update to the group
                 try MessageSender.send(
                     db,
-                    message: LegacyClosedGroupControlMessage(kind: .nameChange(name: name)),
+                    message: ClosedGroupControlMessage(kind: .nameChange(name: name)),
                     interactionId: interactionId,
                     in: thread
                 )
@@ -493,7 +493,7 @@ extension MessageSender {
                 preparedSendData: try MessageSender
                     .preparedSendData(
                         db,
-                        message: LegacyClosedGroupControlMessage(
+                        message: ClosedGroupControlMessage(
                             kind: .membersRemoved(
                                 members: removedMembers.map { Data(hex: $0) }
                             )
@@ -546,7 +546,7 @@ extension MessageSender {
                 threadId: thread.id,
                 authorId: userPublicKey,
                 variant: .infoClosedGroupCurrentUserLeft,
-                body: LegacyClosedGroupControlMessage.Kind
+                body: ClosedGroupControlMessage.Kind
                     .memberLeft
                     .infoMessage(db, sender: userPublicKey),
                 timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
@@ -561,7 +561,7 @@ extension MessageSender {
             sendData = try MessageSender
                 .preparedSendData(
                     db,
-                    message: LegacyClosedGroupControlMessage(
+                    message: ClosedGroupControlMessage(
                         kind: .memberLeft
                     ),
                     to: try Message.Destination.from(db, thread: thread),

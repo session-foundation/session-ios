@@ -10,6 +10,9 @@ public enum DismissType {
     /// This will only trigger a `popViewController` call (if the screen was presented it'll do nothing)
     case pop
     
+    /// This will only trigger a `popToRootViewController` call (if the screen was presented it'll do nothing)
+    case popToRoot
+    
     /// This will only trigger a `dismiss` call (if the screen was pushed to a presented navigation controller it'll dismiss
     /// the navigation controller, otherwise this will do nothing)
     case dismiss

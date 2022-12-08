@@ -64,6 +64,7 @@ internal enum Theme_OceanDark: ThemeColors {
         .solidButton_background: .oceanDark2,
         
         // Settings
+        .settings_tertiaryAction: .primary,
         .settings_tabBackground: .oceanDark1,
         
         // Appearance

@@ -31,10 +31,7 @@ class NotificationContentViewModel: SessionTableViewModel<NoNav, NotificationSet
     
     override var title: String { "NOTIFICATIONS_STYLE_CONTENT_TITLE".localized() }
     
-    private var _settingsData: [SectionModel] = []
-    public override var settingsData: [SectionModel] { _settingsData }
-    
-    public override var observableSettingsData: ObservableData { _observableSettingsData }
+    public override var observableTableData: ObservableData { _observableTableData }
     
     /// This is all the data the screen needs to populate itself, please see the following link for tips to help optimise
     /// performance https://github.com/groue/GRDB.swift#valueobservation-performance
@@ -43,7 +40,7 @@ class NotificationContentViewModel: SessionTableViewModel<NoNav, NotificationSet
     /// this is due to the behaviour of `ValueConcurrentObserver.asyncStartObservation` which triggers it's own
     /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
-    private lazy var _observableSettingsData: ObservableData = ValueObservation
+    private lazy var _observableTableData: ObservableData = ValueObservation
         .trackingConstantRegion { [storage] db -> [SectionModel] in
             let currentSelection: Preferences.NotificationPreviewType? = db[.preferencesNotificationPreviewType]
                 .defaulting(to: .defaultPreviewType)
@@ -73,10 +70,5 @@ class NotificationContentViewModel: SessionTableViewModel<NoNav, NotificationSet
         }
         .removeDuplicates()
         .publisher(in: storage, scheduling: scheduler)
-    
-    // MARK: - Functions
-
-    public override func updateSettings(_ updatedSettings: [SectionModel]) {
-        self._settingsData = updatedSettings
-    }
+        .mapToSessionTableViewData(for: self)
 }

@@ -431,7 +431,8 @@ extension ReactionListSheet: UITableViewDelegate, UITableViewDataSource {
         cell.update(
             with: SessionCell.Info(
                 id: cellViewModel,
-                leftAccessory: .profile(authorId, cellViewModel.profile),
+                position: Position.with(indexPath.row, count: self.selectedReactionUserList.count),
+                leftAccessory: .profile(id: authorId, profile: cellViewModel.profile),
                 title: (
                     cellViewModel.profile?.displayName() ??
                     Profile.truncated(
@@ -446,10 +447,9 @@ extension ReactionListSheet: UITableViewDelegate, UITableViewDataSource {
                         size: .fit
                     )
                 ),
+                styling: SessionCell.StyleInfo(backgroundStyle: .edgeToEdge),
                 isEnabled: (authorId == self.messageViewModel.currentUserPublicKey)
-            ),
-            style: .edgeToEdge,
-            position: Position.with(indexPath.row, count: self.selectedReactionUserList.count)
+            )
         )
         
         return cell

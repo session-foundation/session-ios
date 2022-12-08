@@ -92,16 +92,6 @@ public extension ClosedGroup {
 // MARK: - Convenience
 
 public extension ClosedGroup {
-    func asProfile() -> Profile {
-        return Profile(
-            id: threadId,
-            name: name,
-            profilePictureUrl: groupImageUrl,
-            profilePictureFileName: groupImageFileName,
-            profileEncryptionKey: groupImageEncryptionKey
-        )
-    }
-    
     static func removeKeysAndUnsubscribe(
         _ db: Database? = nil,
         threadId: String,

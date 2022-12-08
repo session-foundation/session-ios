@@ -23,10 +23,6 @@ public final class MessageSender {
         let plaintext: Data?
         let ciphertext: Data?
         
-        // TODO: Replace these with the target namespaces
-        let isClosedGroupMessage: Bool
-        let isConfigMessage: Bool
-        
         private init(
             shouldSend: Bool,
             message: Message?,
@@ -36,9 +32,7 @@ public final class MessageSender {
             totalAttachmentsUploaded: Int = 0,
             snodeMessage: SnodeMessage?,
             plaintext: Data?,
-            ciphertext: Data?,
-            isClosedGroupMessage: Bool,
-            isConfigMessage: Bool
+            ciphertext: Data?
         ) {
             self.shouldSend = shouldSend
             
@@ -51,8 +45,6 @@ public final class MessageSender {
             self.snodeMessage = snodeMessage
             self.plaintext = plaintext
             self.ciphertext = ciphertext
-            self.isClosedGroupMessage = isClosedGroupMessage
-            self.isConfigMessage = isConfigMessage
         }
         
         // The default constructor creats an instance that doesn't actually send a message
@@ -68,8 +60,6 @@ public final class MessageSender {
             self.snodeMessage = nil
             self.plaintext = nil
             self.ciphertext = nil
-            self.isClosedGroupMessage = false
-            self.isConfigMessage = false
         }
         
         /// This should be used to send a message to one-to-one or closed group conversations
@@ -78,9 +68,7 @@ public final class MessageSender {
             destination: Message.Destination,
             interactionId: Int64?,
             isSyncMessage: Bool?,
-            snodeMessage: SnodeMessage,
-            isClosedGroupMessage: Bool,
-            isConfigMessage: Bool
+            snodeMessage: SnodeMessage
         ) {
             self.shouldSend = true
             
@@ -93,8 +81,6 @@ public final class MessageSender {
             self.snodeMessage = snodeMessage
             self.plaintext = nil
             self.ciphertext = nil
-            self.isClosedGroupMessage = isClosedGroupMessage
-            self.isConfigMessage = isConfigMessage
         }
         
         /// This should be used to send a message to open group conversations
@@ -115,8 +101,6 @@ public final class MessageSender {
             self.snodeMessage = nil
             self.plaintext = plaintext
             self.ciphertext = nil
-            self.isClosedGroupMessage = false
-            self.isConfigMessage = false
         }
         
         /// This should be used to send a message to an open group inbox
@@ -137,8 +121,6 @@ public final class MessageSender {
             self.snodeMessage = nil
             self.plaintext = nil
             self.ciphertext = ciphertext
-            self.isClosedGroupMessage = false
-            self.isConfigMessage = false
         }
         
         // MARK: - Mutation
@@ -153,9 +135,7 @@ public final class MessageSender {
                 totalAttachmentsUploaded: fileIds.count,
                 snodeMessage: snodeMessage,
                 plaintext: plaintext,
-                ciphertext: ciphertext,
-                isClosedGroupMessage: isClosedGroupMessage,
-                isConfigMessage: isConfigMessage
+                ciphertext: ciphertext
             )
         }
     }
@@ -333,18 +313,15 @@ public final class MessageSender {
         // Wrap the result
         let kind: SNProtoEnvelope.SNProtoEnvelopeType
         let senderPublicKey: String
-        let namespace: SnodeAPI.Namespace
         
         switch destination {
-            case .contact(_, let targetNamespace):
+            case .contact:
                 kind = .sessionMessage
                 senderPublicKey = ""
-                namespace = targetNamespace
                 
-            case .closedGroup(let groupPublicKey, let targetNamespace):
+            case .closedGroup(let groupPublicKey, _):
                 kind = .closedGroupMessage
                 senderPublicKey = groupPublicKey
-                namespace = targetNamespace
             
             case .openGroup, .openGroupInbox: preconditionFailure()
         }
@@ -384,9 +361,7 @@ public final class MessageSender {
             destination: destination,
             interactionId: interactionId,
             isSyncMessage: isSyncMessage,
-            snodeMessage: snodeMessage,
-            isClosedGroupMessage: (kind == .closedGroupMessage),
-            isConfigMessage: (message is ConfigurationMessage)
+            snodeMessage: snodeMessage
         )
     }
     
@@ -667,10 +642,7 @@ public final class MessageSender {
         return SnodeAPI
             .sendMessage(
                 snodeMessage,
-                in: (data.isClosedGroupMessage ?
-                    .legacyClosedGroup :
-                    .default
-                )
+                in: destination.namespace
             )
             .subscribe(on: DispatchQueue.global(qos: .default))
             .flatMap { result, totalCount -> AnyPublisher<Bool, Error> in
@@ -1014,7 +986,7 @@ public final class MessageSender {
                     data: try prepareSendToSnodeDestination(
                         db,
                         message: message,
-                        to: .contact(publicKey: userPublicKey),
+                        to: .contact(publicKey: userPublicKey, namespace: namespace),
                         interactionId: interactionId,
                         userPublicKey: userPublicKey,
                         messageSendTimestamp: Int64(floor(Date().timeIntervalSince1970 * 1000)),

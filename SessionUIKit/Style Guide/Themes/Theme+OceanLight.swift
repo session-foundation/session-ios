@@ -64,6 +64,7 @@ internal enum Theme_OceanLight: ThemeColors {
         .solidButton_background: .oceanLight5,
         
         // Settings
+        .settings_tertiaryAction: .oceanLight1,
         .settings_tabBackground: .oceanLight6,
         
         // Appearance

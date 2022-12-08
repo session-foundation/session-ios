@@ -52,18 +52,18 @@ public struct SnodeReceivedMessageInfo: Codable, FetchableRecord, MutablePersist
 // MARK: - Convenience
 
 public extension SnodeReceivedMessageInfo {
-    private static func key(for snode: Snode, publicKey: String, namespace: Int) -> String {
-        guard namespace != SnodeAPI.defaultNamespace else {
+    private static func key(for snode: Snode, publicKey: String, namespace: SnodeAPI.Namespace) -> String {
+        guard namespace != .default else {
             return "\(snode.address):\(snode.port).\(publicKey)"
         }
         
-        return "\(snode.address):\(snode.port).\(publicKey).\(namespace)"
+        return "\(snode.address):\(snode.port).\(publicKey).\(namespace.rawValue)"
     }
     
     init(
         snode: Snode,
         publicKey: String,
-        namespace: Int,
+        namespace: SnodeAPI.Namespace,
         hash: String,
         expirationDateMs: Int64?
     ) {
@@ -76,15 +76,15 @@ public extension SnodeReceivedMessageInfo {
 // MARK: - GRDB Interactions
 
 public extension SnodeReceivedMessageInfo {
-    static func pruneExpiredMessageHashInfo(for snode: Snode, namespace: Int, associatedWith publicKey: String) {
-        // Delete any expired SnodeReceivedMessageInfo values associated to a specific node (even though
-        // this runs very quickly we fetch the rowIds we want to delete from a 'read' call to avoid
-        // blocking the write queue since this method is called very frequently)
+    static func pruneExpiredMessageHashInfo(for snode: Snode, namespace: SnodeAPI.Namespace, associatedWith publicKey: String) {
+        // Delete any expired SnodeReceivedMessageInfo values associated to a specific node (even
+        // though this runs very quickly we fetch the rowIds we want to delete from a 'read' call
+        // to avoid blocking the write queue since this method is called very frequently)
         let rowIds: [Int64] = Storage.shared
             .read { db in
-                // Only prune the hashes if new hashes exist for this Snode (if they don't then we don't want
-                // to clear out the legacy hashes)
-                let hasNonLegacyHash: Bool = try SnodeReceivedMessageInfo
+                // Only prune the hashes if new hashes exist for this Snode (if they don't then
+                // we don't want to clear out the legacy hashes)
+                let hasNonLegacyHash: Bool = SnodeReceivedMessageInfo
                     .filter(SnodeReceivedMessageInfo.Columns.key == key(for: snode, publicKey: publicKey, namespace: namespace))
                     .isNotEmpty(db)
                 
@@ -111,10 +111,10 @@ public extension SnodeReceivedMessageInfo {
     
     /// This method fetches the last non-expired hash from the database for message retrieval
     ///
-    /// **Note:** This method uses a `write` instead of a read because there is a single write queue for the database and it's very common for
-    /// this method to be called after the hash value has been updated but before the various `read` threads have been updated, resulting in a
-    /// pointless fetch for data the app has already received
-    static func fetchLastNotExpired(for snode: Snode, namespace: Int, associatedWith publicKey: String) -> SnodeReceivedMessageInfo? {
+    /// **Note:** This method uses a `write` instead of a read because there is a single write queue for the database and it's
+    /// very common for this method to be called after the hash value has been updated but before the various `read` threads
+    /// have been updated, resulting in a pointless fetch for data the app has already received
+    static func fetchLastNotExpired(for snode: Snode, namespace: SnodeAPI.Namespace, associatedWith publicKey: String) -> SnodeReceivedMessageInfo? {
         return Storage.shared.read { db in
             let nonLegacyHash: SnodeReceivedMessageInfo? = try SnodeReceivedMessageInfo
                 .filter(

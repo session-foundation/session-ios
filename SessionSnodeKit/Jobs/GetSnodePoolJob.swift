@@ -3,6 +3,7 @@
 import Foundation
 import Combine
 import GRDB
+import SignalCoreKit
 import SessionUtilitiesKit
 
 public enum GetSnodePoolJob: JobExecutor {

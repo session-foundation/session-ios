@@ -25,10 +25,7 @@ class HelpViewModel: SessionTableViewModel<NoNav, HelpViewModel.Section, HelpVie
     
     override var title: String { "HELP_TITLE".localized() }
     
-    private var _settingsData: [SectionModel] = []
-    public override var settingsData: [SectionModel] { _settingsData }
-    
-    public override var observableSettingsData: ObservableData { _observableSettingsData }
+    public override var observableTableData: ObservableData { _observableTableData }
     
     /// This is all the data the screen needs to populate itself, please see the following link for tips to help optimise
     /// performance https://github.com/groue/GRDB.swift#valueobservation-performance
@@ -37,7 +34,7 @@ class HelpViewModel: SessionTableViewModel<NoNav, HelpViewModel.Section, HelpVie
     /// this is due to the behaviour of `ValueConcurrentObserver.asyncStartObservation` which triggers it's own
     /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
-    private lazy var _observableSettingsData: ObservableData = ValueObservation
+    private lazy var _observableTableData: ObservableData = ValueObservation
         .trackingConstantRegion { db -> [SectionModel] in
             return [
                 SectionModel(
@@ -50,7 +47,7 @@ class HelpViewModel: SessionTableViewModel<NoNav, HelpViewModel.Section, HelpVie
                             rightAccessory: .highlightingBackgroundLabel(
                                 title: "HELP_REPORT_BUG_ACTION_TITLE".localized()
                             ),
-                            onTap: { HelpViewModel.shareLogs(targetView: $0) }
+                            onTapView: { HelpViewModel.shareLogs(targetView: $0) }
                         )
                     ]
                 ),
@@ -142,12 +139,9 @@ class HelpViewModel: SessionTableViewModel<NoNav, HelpViewModel.Section, HelpVie
         }
         .removeDuplicates()
         .publisher(in: Storage.shared)
+        .mapToSessionTableViewData(for: self)
     
     // MARK: - Functions
-
-    public override func updateSettings(_ updatedSettings: [SectionModel]) {
-        self._settingsData = updatedSettings
-    }
     
     public static func shareLogs(
         viewControllerToDismiss: UIViewController? = nil,

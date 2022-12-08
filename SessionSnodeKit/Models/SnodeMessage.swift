@@ -5,7 +5,7 @@ import SessionUtilitiesKit
 
 public final class SnodeMessage: Codable {
     private enum CodingKeys: String, CodingKey {
-        case recipient = "pubKey"
+        case recipient = "pubkey"
         case data
         case ttl
         case timestampMs = "timestamp"

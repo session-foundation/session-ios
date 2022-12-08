@@ -289,8 +289,10 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         profilePictureView.isHidden = (!cellViewModel.shouldShowProfile || cellViewModel.profile == nil)
         profilePictureView.update(
             publicKey: cellViewModel.authorId,
+            threadVariant: cellViewModel.threadVariant,
+            customImageData: nil,
             profile: cellViewModel.profile,
-            threadVariant: cellViewModel.threadVariant
+            additionalProfile: nil
         )
         moderatorIconImageView.isHidden = (!cellViewModel.isSenderOpenGroupModerator || !cellViewModel.shouldShowProfile)
        

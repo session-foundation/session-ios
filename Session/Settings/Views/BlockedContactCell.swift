@@ -81,8 +81,10 @@ class BlockedContactCell: UITableViewCell {
     public func update(with cellViewModel: BlockedContactsViewModel.DataModel, isSelected: Bool) {
         profilePictureView.update(
             publicKey: cellViewModel.profile.id,
+            threadVariant: .contact,
+            customImageData: nil,
             profile: cellViewModel.profile,
-            threadVariant: .contact
+            additionalProfile: nil
         )
         selectionView.text = cellViewModel.profile.displayName()
         selectionView.update(isSelected: isSelected)

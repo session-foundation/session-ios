@@ -1,9 +1,9 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Combine
 import GRDB
 import DifferenceKit
-import PromiseKit
 import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
@@ -220,7 +220,8 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         cell.update(
             with: SessionCell.Info(
                 id: displayInfo,
-                leftAccessory: .profile(displayInfo.profileId, displayInfo.profile),
+                position: Position.with(indexPath.row, count: membersAndZombies.count),
+                leftAccessory: .profile(id: displayInfo.profileId, profile: displayInfo.profile),
                 title: (
                     displayInfo.profile?.displayName() ??
                     Profile.truncated(id: displayInfo.profileId, threadVariant: .contact)
@@ -231,10 +232,9 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
                             .withRenderingMode(.alwaysTemplate),
                         customTint: .textSecondary
                     )
-                 )
-            ),
-            style: .edgeToEdge,
-            position: Position.with(indexPath.row, count: membersAndZombies.count)
+                ),
+                styling: SessionCell.StyleInfo(backgroundStyle: .edgeToEdge)
+            )
         )
         
         return cell
@@ -449,7 +449,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         
         ModalActivityIndicatorViewController.present(fromViewController: navigationController) { _ in
             Storage.shared
-                .writeAsync { db in
+                .writePublisherFlatMap { db -> AnyPublisher<Void, Error> in
                     if !updatedMemberIds.contains(userPublicKey) {
                         return try MessageSender.leave(db, groupPublicKey: threadId)
                     }
@@ -461,15 +461,20 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
                         name: updatedName
                     )
                 }
-                .done(on: DispatchQueue.main) { [weak self] in
-                    self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-                    popToConversationVC(self)
-                }
-                .catch(on: DispatchQueue.main) { [weak self] error in
-                    self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-                    self?.showError(title: "GROUP_UPDATE_ERROR_TITLE".localized(), message: error.localizedDescription)
-                }
-                .retainUntilComplete()
+                .sinkUntilComplete(
+                    receiveCompletion: { [weak self] result in
+                        self?.dismiss(animated: true, completion: nil) // Dismiss the loader
+                        
+                        switch result {
+                            case .finished: popToConversationVC(self)
+                            case .failure(let error):
+                                self?.showError(
+                                    title: "GROUP_UPDATE_ERROR_TITLE".localized(),
+                                    message: error.localizedDescription
+                                )
+                        }
+                    }
+                )
         }
     }
 

@@ -152,6 +152,7 @@ public indirect enum ThemeValue: Hashable {
     case solidButton_background
     
     // Settings
+    case settings_tertiaryAction
     case settings_tabBackground
     
     // Appearance

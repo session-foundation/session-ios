@@ -353,7 +353,7 @@ public class MediaMessageView: UIView, OWSAudioPlayerDelegate {
             // Format string for file size label in call interstitial view.
             // Embeds: {{file size as 'N mb' or 'N kb'}}.
             let fileSize: UInt = attachment.dataLength
-            label.text = String(format: "ATTACHMENT_APPROVAL_FILE_SIZE_FORMAT".localized(), OWSFormat.formatFileSize(UInt(fileSize)))
+            label.text = String(format: "ATTACHMENT_APPROVAL_FILE_SIZE_FORMAT".localized(), Format.fileSize(fileSize))
             label.textAlignment = .center
         }
         

@@ -13,7 +13,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     private var dataChangeObservable: DatabaseCancellable?
     private var hasLoadedInitialData: Bool = false
     
-    var shareVC: ShareVC?
+    var shareNavController: ShareNavController?
     
     // MARK: - Intialization
     
@@ -182,9 +182,9 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             messageText
         )
         
-        shareVC?.dismiss(animated: true, completion: nil)
+        shareNavController?.dismiss(animated: true, completion: nil)
         
-        ModalActivityIndicatorViewController.present(fromViewController: shareVC!, canCancel: false, message: "vc_share_sending_message".localized()) { activityIndicator in
+        ModalActivityIndicatorViewController.present(fromViewController: shareNavController!, canCancel: false, message: "vc_share_sending_message".localized()) { activityIndicator in
             // Resume database
             NotificationCenter.default.post(name: Database.resumeNotification, object: self)
             

@@ -140,7 +140,7 @@ extension MessageReceiver {
         ).insert(db)
         
         // Start polling
-        ClosedGroupPoller.shared.startPolling(for: groupPublicKey)
+        ClosedGroupPoller.shared.startIfNeeded(for: groupPublicKey)
         
         // Notify the PN server
         let _ = PushNotificationAPI.performOperation(.subscribe, for: groupPublicKey, publicKey: getUserHexEncodedPublicKey(db))

@@ -29,7 +29,10 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
     }
     
     public enum Setting: Differentiable {
-        case threadInfo
+        case avatar
+        case nickname
+        case sessionId
+        
         case copyThreadId
         case allMedia
         case searchConversation
@@ -170,10 +173,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
         }
     }
     
-    private var _settingsData: [SectionModel] = []
-    public override var settingsData: [SectionModel] { _settingsData }
-    
-    public override var observableSettingsData: ObservableData { _observableSettingsData }
+    public override var observableTableData: ObservableData { _observableTableData }
     
     /// This is all the data the screen needs to populate itself, please see the following link for tips to help optimise
     /// performance https://github.com/groue/GRDB.swift#valueobservation-performance
@@ -182,7 +182,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
     /// this is due to the behaviour of `ValueConcurrentObserver.asyncStartObservation` which triggers it's own
     /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
-    private lazy var _observableSettingsData: ObservableData = ValueObservation
+    private lazy var _observableTableData: ObservableData = ValueObservation
         .trackingConstantRegion { [weak self, dependencies, threadId = self.threadId, threadVariant = self.threadVariant] db -> [SectionModel] in
             let userPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
             let maybeThreadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
@@ -207,25 +207,88 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                 threadVariant == .closedGroup &&
                 threadViewModel.currentUserIsClosedGroupMember == true
             )
+            let editIcon: UIImage? = UIImage(named: "icon_edit")
             
             return [
                 SectionModel(
                     model: .conversationInfo,
                     elements: [
                         SessionCell.Info(
-                            id: .threadInfo,
-                            leftAccessory: .threadInfo(
-                                threadViewModel: threadViewModel,
-                                avatarTapped: { [weak self] in
-                                    self?.updateProfilePicture(threadViewModel: threadViewModel)
-                                },
-                                titleTapped: { [weak self] in self?.setIsEditing(true) },
-                                titleChanged: { [weak self] text in self?.editedDisplayName = text }
+                            id: .avatar,
+                            accessory: .profile(
+                                id: threadViewModel.id,
+                                size: .extraLarge,
+                                threadVariant: threadVariant,
+                                customImageData: threadViewModel.openGroupProfilePictureData,
+                                profile: threadViewModel.profile,
+                                additionalProfile: threadViewModel.additionalProfile,
+                                cornerIcon: nil,
+                                accessibility: nil
                             ),
-                            title: threadViewModel.displayName,
-                            shouldHaveBackground: false
+                            styling: SessionCell.StyleInfo(
+                                alignment: .centerHugging,
+                                customPadding: SessionCell.Padding(bottom: Values.smallSpacing),
+                                backgroundStyle: .noBackground
+                            ),
+                            onTap: { self?.viewProfilePicture(threadViewModel: threadViewModel) }
+                        ),
+                        SessionCell.Info(
+                            id: .nickname,
+                            leftAccessory: (threadVariant != .contact ? nil :
+                                .icon(
+                                    editIcon?.withRenderingMode(.alwaysTemplate),
+                                    size: .fit,
+                                    customTint: .textSecondary
+                                )
+                            ),
+                            title: SessionCell.TextInfo(
+                                threadViewModel.displayName,
+                                font: .titleLarge,
+                                alignment: .center,
+                                editingPlaceholder: "CONTACT_NICKNAME_PLACEHOLDER".localized(),
+                                interaction: (threadVariant == .contact ? .editable : .none)
+                            ),
+                            styling: SessionCell.StyleInfo(
+                                alignment: .centerHugging,
+                                customPadding: SessionCell.Padding(
+                                    top: Values.smallSpacing,
+                                    trailing: (threadVariant != .contact ?
+                                        nil :
+                                        -(((editIcon?.size.width ?? 0) + (Values.smallSpacing * 2)) / 2)
+                                    ),
+                                    bottom: (threadVariant != .contact ?
+                                        nil :
+                                        Values.smallSpacing
+                                    ),
+                                    interItem: 0
+                                ),
+                                backgroundStyle: .noBackground
+                            ),
+                            onTap: {
+                                self?.textChanged(self?.oldDisplayName, for: .nickname)
+                                self?.setIsEditing(true)
+                            }
+                        ),
+
+                        (threadVariant != .contact ? nil :
+                            SessionCell.Info(
+                                id: .sessionId,
+                                subtitle: SessionCell.TextInfo(
+                                    threadViewModel.id,
+                                    font: .monoSmall,
+                                    alignment: .center,
+                                    interaction: .copy
+                                ),
+                                styling: SessionCell.StyleInfo(
+                                    customPadding: SessionCell.Padding(
+                                        top: Values.smallSpacing,
+                                        bottom: Values.largeSpacing
+                                    ),
+                                    backgroundStyle: .noBackground
+                                )
+                            )
                         )
-                    ]
+                    ].compactMap { $0 }
                 ),
                 SectionModel(
                     model: .content,
@@ -241,27 +304,29 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     "COPY_GROUP_URL".localized() :
                                     "vc_conversation_settings_copy_session_id_button_title".localized()
                                 ),
-                                accessibilityIdentifier: "\(ThreadSettingsViewModel.self).copy_thread_id",
-                                accessibilityLabel: "Copy Session ID",
+                                accessibility: SessionCell.Accessibility(
+                                    identifier: "\(ThreadSettingsViewModel.self).copy_thread_id",
+                                    label: "Copy Session ID"
+                                ),
                                 onTap: {
                                     switch threadVariant {
                                         case .contact, .closedGroup:
                                             UIPasteboard.general.string = threadId
-                                            
+
                                         case .openGroup:
                                             guard
                                                 let server: String = threadViewModel.openGroupServer,
                                                 let roomToken: String = threadViewModel.openGroupRoomToken,
                                                 let publicKey: String = threadViewModel.openGroupPublicKey
                                             else { return }
-                                            
+
                                             UIPasteboard.general.string = OpenGroup.urlFor(
                                                 server: server,
                                                 roomToken: roomToken,
                                                 publicKey: publicKey
                                             )
                                     }
-                                    
+
                                     self?.showToast(
                                         text: "copied".localized(),
                                         backgroundColor: .backgroundSecondary
@@ -269,7 +334,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 }
                             )
                         ),
-                        
+
                         SessionCell.Info(
                             id: .allMedia,
                             leftAccessory: .icon(
@@ -277,8 +342,10 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     .withRenderingMode(.alwaysTemplate)
                             ),
                             title: MediaStrings.allMedia,
-                            accessibilityIdentifier: "\(ThreadSettingsViewModel.self).all_media",
-                            accessibilityLabel: "All media",
+                            accessibility: SessionCell.Accessibility(
+                                identifier: "\(ThreadSettingsViewModel.self).all_media",
+                                label: "All media"
+                            ),
                             onTap: { [weak self] in
                                 self?.transitionToScreen(
                                     MediaGalleryViewModel.createAllMediaViewController(
@@ -289,7 +356,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 )
                             }
                         ),
-                        
+
                         SessionCell.Info(
                             id: .searchConversation,
                             leftAccessory: .icon(
@@ -297,13 +364,15 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     .withRenderingMode(.alwaysTemplate)
                             ),
                             title: "CONVERSATION_SETTINGS_SEARCH".localized(),
-                            accessibilityIdentifier: "\(ThreadSettingsViewModel.self).search",
-                            accessibilityLabel: "Search",
+                            accessibility: SessionCell.Accessibility(
+                                identifier: "\(ThreadSettingsViewModel.self).search",
+                                label: "Search"
+                            ),
                             onTap: { [weak self] in
                                 self?.didTriggerSearch()
                             }
                         ),
-                        
+
                         (threadVariant != .openGroup ? nil :
                             SessionCell.Info(
                                 id: .addToOpenGroup,
@@ -312,7 +381,9 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
                                 title: "vc_conversation_settings_invite_button_title".localized(),
-                                accessibilityIdentifier: "\(ThreadSettingsViewModel.self).add_to_open_group",
+                                accessibility: SessionCell.Accessibility(
+                                    identifier: "\(ThreadSettingsViewModel.self).add_to_open_group"
+                                ),
                                 onTap: { [weak self] in
                                     self?.transitionToScreen(
                                         UserSelectionVC(
@@ -328,7 +399,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 }
                             )
                         ),
-                        
+
                         (threadVariant == .openGroup || threadViewModel.threadIsBlocked == true ? nil :
                             SessionCell.Info(
                                 id: .disappearingMessages,
@@ -338,7 +409,10 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                             "ic_timer" :
                                             "ic_timer_disabled"
                                         )
-                                    )?.withRenderingMode(.alwaysTemplate)
+                                    )?.withRenderingMode(.alwaysTemplate),
+                                    accessibility: SessionCell.Accessibility(
+                                        label: "Timer icon"
+                                    )
                                 ),
                                 title: "DISAPPEARING_MESSAGES".localized(),
                                 subtitle: (disappearingMessagesConfig.isEnabled ?
@@ -348,9 +422,10 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     ) :
                                     "DISAPPEARING_MESSAGES_SUBTITLE_OFF".localized()
                                 ),
-                                accessibilityIdentifier: "\(ThreadSettingsViewModel.self).disappearing_messages",
-                                accessibilityLabel: "Disappearing messages",
-                                leftAccessoryAccessibilityLabel: "Timer icon",
+                                accessibility: SessionCell.Accessibility(
+                                    identifier: "\(ThreadSettingsViewModel.self).disappearing_messages",
+                                    label: "Disappearing messages"
+                                ),
                                 onTap: { [weak self] in
                                     self?.transitionToScreen(
                                         SessionTableViewController(
@@ -363,7 +438,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 }
                             )
                         ),
-                        
+
                         (!currentUserIsClosedGroupMember ? nil :
                             SessionCell.Info(
                                 id: .editGroup,
@@ -372,8 +447,10 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
                                 title: "EDIT_GROUP_ACTION".localized(),
-                                accessibilityIdentifier: "Edit group",
-                                accessibilityLabel: "Edit group",
+                                accessibility: SessionCell.Accessibility(
+                                    identifier: "Edit group",
+                                    label: "Edit group"
+                                ),
                                 onTap: { [weak self] in
                                     self?.transitionToScreen(EditClosedGroupVC(threadId: threadId))
                                 }
@@ -388,8 +465,10 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
                                 title: "LEAVE_GROUP_ACTION".localized(),
-                                accessibilityIdentifier: "Leave group",
-                                accessibilityLabel: "Leave group",
+                                accessibility: SessionCell.Accessibility(
+                                    identifier: "Leave group",
+                                    label: "Leave group"
+                                ),
                                 confirmationInfo: ConfirmationModal.Info(
                                     title: "CONFIRM_LEAVE_GROUP_TITLE".localized(),
                                     explanation: (currentUserIsClosedGroupMember ?
@@ -401,9 +480,11 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     cancelStyle: .alert_text
                                 ),
                                 onTap: { [weak self] in
-                                    dependencies.storage.writeAsync { db in
-                                        try MessageSender.leave(db, groupPublicKey: threadId)
-                                    }
+                                    dependencies.storage
+                                        .writePublisherFlatMap { db in
+                                            MessageSender.leave(db, groupPublicKey: threadId)
+                                        }
+                                        .sinkUntilComplete()
                                 }
                             )
                         ),
@@ -445,8 +526,10 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     threadViewModel.threadVariant != .closedGroup ||
                                     currentUserIsClosedGroupMember
                                 ),
-                                accessibilityIdentifier: "Mentions only notification setting",
-                                accessibilityLabel: "Mentions only",
+                                accessibility: SessionCell.Accessibility(
+                                    identifier: "Mentions only notification setting",
+                                    label: "Mentions only"
+                                ),
                                 onTap: {
                                     let newValue: Bool = !(threadViewModel.threadOnlyNotifyForMentions == true)
                                     
@@ -478,8 +561,10 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     threadViewModel.threadVariant != .closedGroup ||
                                     currentUserIsClosedGroupMember
                                 ),
-                                accessibilityIdentifier: "\(ThreadSettingsViewModel.self).mute",
-                                accessibilityLabel: "Mute notifications",
+                                accessibility: SessionCell.Accessibility(
+                                    identifier: "\(ThreadSettingsViewModel.self).mute",
+                                    label: "Mute notifications"
+                                ),
                                 onTap: {
                                     dependencies.storage.writeAsync { db in
                                         let currentValue: TimeInterval? = try SessionThread
@@ -515,8 +600,10 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 rightAccessory: .toggle(
                                     .boolValue(threadViewModel.threadIsBlocked == true)
                                 ),
-                                accessibilityIdentifier: "\(ThreadSettingsViewModel.self).block",
-                                accessibilityLabel: "Block",
+                                accessibility: SessionCell.Accessibility(
+                                    identifier: "\(ThreadSettingsViewModel.self).block",
+                                    label: "Block"
+                                ),
                                 confirmationInfo: ConfirmationModal.Info(
                                     title: {
                                         guard threadViewModel.threadIsBlocked == true else {
@@ -561,14 +648,11 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
         }
         .removeDuplicates()
         .publisher(in: dependencies.storage, scheduling: dependencies.scheduler)
+        .mapToSessionTableViewData(for: self)
     
     // MARK: - Functions
-
-    public override func updateSettings(_ updatedSettings: [SectionModel]) {
-        self._settingsData = updatedSettings
-    }
     
-    private func updateProfilePicture(threadViewModel: SessionThreadViewModel) {
+    private func viewProfilePicture(threadViewModel: SessionThreadViewModel) {
         guard
             threadViewModel.threadVariant == .contact,
             let profile: Profile = threadViewModel.profile,
