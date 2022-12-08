@@ -143,6 +143,8 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                         rightAccessory: .radio(
                                             isSelected: { (self?.currentSelection.value.isEnabled == false) }
                                         ),
+                                        accessibilityIdentifier: "Off option",
+                                        accessibilityLabel: "Off option",
                                         onTap: {
                                             let updatedConfig: DisappearingMessagesConfiguration = currentSelection
                                                 .with(
@@ -253,6 +255,8 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                                 rightAccessory: .radio(
                                                     isSelected: { (self?.currentSelection.value.isEnabled == true) && (self?.currentSelection.value.durationSeconds == duration) }
                                                 ),
+                                                accessibilityIdentifier: "Time option",
+                                                accessibilityLabel: "Time option",
                                                 onTap: {
                                                     let updatedConfig: DisappearingMessagesConfiguration = currentSelection
                                                         .with(
@@ -278,6 +282,8 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                             rightAccessory: .radio(
                                                 isSelected: { (self?.currentSelection.value.isEnabled == false) }
                                             ),
+                                            accessibilityIdentifier: "Off option",
+                                            accessibilityLabel: "Off option",
                                             onTap: {
                                                 let updatedConfig: DisappearingMessagesConfiguration = currentSelection
                                                     .with(
@@ -354,6 +360,8 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                                     rightAccessory: .radio(
                                                         isSelected: { (self?.currentSelection.value.isEnabled == true) && (self?.currentSelection.value.durationSeconds == duration) }
                                                     ),
+                                                    accessibilityIdentifier: "Time option",
+                                                    accessibilityLabel: "Time option",
                                                     onTap: {
                                                         let updatedConfig: DisappearingMessagesConfiguration = currentSelection
                                                             .with(
@@ -379,6 +387,8 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                             isSelected: { (self?.currentSelection.value.isEnabled == false) }
                                         ),
                                         isEnabled: isNoteToSelf || (self?.currentUserIsClosedGroupAdmin == true),
+                                        accessibilityIdentifier: "Off option",
+                                        accessibilityLabel: "Off option",
                                         onTap: {
                                             let updatedConfig: DisappearingMessagesConfiguration = currentSelection
                                                 .with(
@@ -404,6 +414,8 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                                     isSelected: { (self?.currentSelection.value.isEnabled == true) && (self?.currentSelection.value.durationSeconds == duration) }
                                                 ),
                                                 isEnabled: isNoteToSelf || (self?.currentUserIsClosedGroupAdmin == true),
+                                                accessibilityIdentifier: "Time option",
+                                                accessibilityLabel: "Time option",
                                                 onTap: {
                                                     let updatedConfig: DisappearingMessagesConfiguration = currentSelection
                                                         .with(
