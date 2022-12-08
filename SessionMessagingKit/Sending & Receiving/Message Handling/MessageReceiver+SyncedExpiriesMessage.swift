@@ -19,7 +19,7 @@ extension MessageReceiver {
             expiries.forEach { syncExpiry in
                 let startedAtMs: Double = Double(syncExpiry.expirationTimestamp) - disappearingMessageConfiguration.durationSeconds * 1000
                 
-                let changeCount: Int? = try? Interaction
+                _ = try? Interaction
                     .filter(
                         Interaction.Columns.threadId == syncTarget &&
                         Interaction.Columns.serverHash == syncExpiry.serverHash
