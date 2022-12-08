@@ -397,7 +397,7 @@ public enum MessageReceiver {
         var updatedProfile: Profile = profile
         
         // Name
-        if let name = name, name != profile.name {
+        if let name = name, !name.isEmpty, name != profile.name {
             let shouldUpdate: Bool
             if isCurrentUser {
                 shouldUpdate = given(UserDefaults.standard[.lastDisplayNameUpdate]) {
