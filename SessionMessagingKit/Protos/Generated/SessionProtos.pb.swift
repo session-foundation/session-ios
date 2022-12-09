@@ -1621,6 +1621,7 @@ struct SessionProtos_SharedConfigMessage {
   enum Kind: SwiftProtobuf.Enum {
     typealias RawValue = Int
     case userProfile // = 1
+    case contacts // = 2
 
     init() {
       self = .userProfile
@@ -1629,6 +1630,7 @@ struct SessionProtos_SharedConfigMessage {
     init?(rawValue: Int) {
       switch rawValue {
       case 1: self = .userProfile
+      case 2: self = .contacts
       default: return nil
       }
     }
@@ -1636,6 +1638,7 @@ struct SessionProtos_SharedConfigMessage {
     var rawValue: Int {
       switch self {
       case .userProfile: return 1
+      case .contacts: return 2
       }
     }
 
@@ -3332,5 +3335,6 @@ extension SessionProtos_SharedConfigMessage: SwiftProtobuf.Message, SwiftProtobu
 extension SessionProtos_SharedConfigMessage.Kind: SwiftProtobuf._ProtoNameProviding {
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "USER_PROFILE"),
+    2: .same(proto: "CONTACTS"),
   ]
 }

@@ -24,6 +24,7 @@ import SessionUtilitiesKit
     // MARK: - Configs
     
     private static var userProfileConfig: Atomic<UnsafeMutablePointer<config_object>?> = Atomic(nil)
+    private static var contactsConfig: Atomic<UnsafeMutablePointer<config_object>?> = Atomic(nil)
     
     // MARK: - Variables
     
@@ -32,6 +33,9 @@ import SessionUtilitiesKit
             switch variant {
                 case .userProfile:
                     return (userProfileConfig.wrappedValue.map { config_needs_push($0) } ?? false)
+                    
+                case .contacts:
+                    return (contactsConfig.wrappedValue.map { config_needs_push($0) } ?? false)
             }
         }
     }
@@ -40,6 +44,7 @@ import SessionUtilitiesKit
     private static func config(for variant: ConfigDump.Variant) -> Atomic<UnsafeMutablePointer<config_object>?> {
         switch variant {
             case .userProfile: return SessionUtil.userProfileConfig
+            case .contacts: return SessionUtil.contactsConfig
         }
     }
     
@@ -49,6 +54,7 @@ import SessionUtilitiesKit
         guard let secretKey: [UInt8] = ed25519SecretKey else { return }
         
         SessionUtil.userProfileConfig.mutate { $0 = loadState(for: .userProfile, secretKey: secretKey) }
+        SessionUtil.contactsConfig.mutate { $0 = loadState(for: .contacts, secretKey: secretKey) }
     }
     
     private static func loadState(
@@ -73,17 +79,17 @@ import SessionUtilitiesKit
         // Setup initial variables (including getting the memory address for any cached data)
         var conf: UnsafeMutablePointer<config_object>? = nil
         let error: UnsafeMutablePointer<CChar>? = nil
-        let cachedDump: (data: UnsafePointer<CChar>, length: Int)? = cachedData?.withUnsafeBytes { unsafeBytes in
+        let cachedDump: (data: UnsafePointer<UInt8>, length: Int)? = cachedData?.withUnsafeBytes { unsafeBytes in
             return unsafeBytes.baseAddress.map {
                 (
-                    $0.assumingMemoryBound(to: CChar.self),
+                    $0.assumingMemoryBound(to: UInt8.self),
                     unsafeBytes.count
                 )
             }
         }
         
         // No need to deallocate the `cachedDump.data` as it'll automatically be cleaned up by
-        // the `cachedData` lifecycle, but need to deallocate the `error` if it gets set
+        // the `cachedDump` lifecycle, but need to deallocate the `error` if it gets set
         defer {
             error?.deallocate()
         }
@@ -94,6 +100,9 @@ import SessionUtilitiesKit
             switch variant {
                 case .userProfile:
                     return user_profile_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), error)
+                    
+                case .contacts:
+                    return contacts_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), error)
             }
         }()
         

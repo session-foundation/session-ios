@@ -21,10 +21,12 @@ public final class SharedConfigMessage: ControlMessage {
     
     public enum Kind: CustomStringConvertible, Codable {
         case userProfile
+        case contacts
 
         public var description: String {
             switch self {
                 case .userProfile: return "userProfile"
+                case .contacts: return "contacts"
             }
         }
     }
@@ -74,6 +76,7 @@ public final class SharedConfigMessage: ControlMessage {
             kind: {
                 switch sharedConfigMessage.kind {
                     case .userProfile: return .userProfile
+                    case .contacts: return .contacts
                 }
             }(),
             seqNo: sharedConfigMessage.seqno,
@@ -87,6 +90,7 @@ public final class SharedConfigMessage: ControlMessage {
                 kind: {
                     switch self.kind {
                         case .userProfile: return .userProfile
+                        case .contacts: return .contacts
                     }
                 }(),
                 seqno: self.seqNo,
@@ -121,6 +125,7 @@ public extension SharedConfigMessage.Kind {
     var configDumpVariant: ConfigDump.Variant {
         switch self {
             case .userProfile: return .userProfile
+            case .contacts: return .contacts
         }
     }
 }

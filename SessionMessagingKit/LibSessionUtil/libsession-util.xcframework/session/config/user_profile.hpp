@@ -5,6 +5,7 @@
 
 #include "base.hpp"
 #include "namespaces.hpp"
+#include "profile_pic.hpp"
 
 namespace session::config {
 
@@ -13,13 +14,6 @@ namespace session::config {
 /// n - user profile name
 /// p - user profile url
 /// q - user profile decryption key (binary)
-
-// Profile pic info.  Note that `url` is null terminated (though the null lies just beyond the end
-// of the string view: that is, it views into a full std::string).
-struct profile_pic {
-    std::string_view url;
-    ustring_view key;
-};
 
 class UserProfile final : public ConfigBase {
 
@@ -31,12 +25,13 @@ class UserProfile final : public ConfigBase {
     /// key for generating the data encryption key.  To construct a blank profile (i.e. with no
     /// pre-existing dumped data to load) pass `std::nullopt` as the second argument.
     ///
-    /// \param ed25519_secretkey - contains the libsodium secret key used to encrypt/decrypt user
-    /// profile messages; these can either be the full 64-byte value (which is technically the
-    /// 32-byte seed followed by the 32-byte pubkey), or just the 32-byte seed of the secret key.
+    /// \param ed25519_secretkey - contains the libsodium secret key used to encrypt/decrypt the
+    /// data when pushing/pulling from the swarm.  This can either be the full 64-byte value (which
+    /// is technically the 32-byte seed followed by the 32-byte pubkey), or just the 32-byte seed of
+    /// the secret key.
     ///
-    /// \param dumped - either `std::nullopt` to construct a new, empty user profile; or binary
-    /// state data that was previously dumped from a UserProfile object by calling `dump()`.
+    /// \param dumped - either `std::nullopt` to construct a new, empty object; or binary state data
+    /// that was previously dumped from an instance of this class by calling `dump()`.
     UserProfile(ustring_view ed25519_secretkey, std::optional<ustring_view> dumped);
 
     Namespace storage_namespace() const override { return Namespace::UserProfile; }
@@ -44,7 +39,7 @@ class UserProfile final : public ConfigBase {
     const char* encryption_domain() const override { return "UserProfile"; }
 
     /// Returns the user profile name, or std::nullopt if there is no profile name set.
-    const std::optional<std::string_view> get_name() const;
+    std::optional<std::string_view> get_name() const;
 
     /// Sets the user profile name; if given an empty string then the name is removed.
     void set_name(std::string_view new_name);
@@ -57,9 +52,6 @@ class UserProfile final : public ConfigBase {
     /// one is empty.
     void set_profile_pic(std::string_view url, ustring_view key);
     void set_profile_pic(profile_pic pic);
-
-  private:
-    void load_key(ustring_view ed25519_secretkey);
 };
 
 }  // namespace session::config

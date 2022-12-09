@@ -275,6 +275,7 @@ message AttachmentPointer {
 message SharedConfigMessage {
     enum Kind {
         USER_PROFILE            = 1;
+        CONTACTS                = 2;
     }
 
     // @required

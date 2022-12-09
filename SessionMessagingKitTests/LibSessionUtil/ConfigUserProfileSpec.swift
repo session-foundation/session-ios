@@ -13,7 +13,7 @@ class ConfigUserProfileSpec: QuickSpec {
     // MARK: - Spec
 
     override func spec() {
-        it("generates configs correctly") {
+        it("generates UserProfile configs correctly") {
             let seed: Data = Data(hex: "0123456789abcdef0123456789abcdef")
             
             // FIXME: Would be good to move these into the libSession-util instead of using Sodium separately
@@ -309,11 +309,11 @@ class ConfigUserProfileSpec: QuickSpec {
             // down more than one).
             var mergeData2: [UnsafePointer<UInt8>?] = [UnsafePointer(toPush3)]
             var mergeSize2: [Int] = [toPush3Len]
-            config_merge(conf2, &mergeData2, &mergeSize2, 1)
+            expect(config_merge(conf2, &mergeData2, &mergeSize2, 1)).to(equal(1))
             toPush3?.deallocate()
             var mergeData3: [UnsafePointer<UInt8>?] = [UnsafePointer(toPush4)]
             var mergeSize3: [Int] = [toPush4Len]
-            config_merge(conf, &mergeData3, &mergeSize3, 1)
+            expect(config_merge(conf, &mergeData3, &mergeSize3, 1)).to(equal(1))
             toPush4?.deallocate()
             
             // Now after the merge we *will* want to push from both client, since both will have generated a

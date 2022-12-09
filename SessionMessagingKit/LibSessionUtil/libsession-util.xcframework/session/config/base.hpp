@@ -237,6 +237,13 @@ class ConfigBase {
         /// otherwise.
         const std::string* string() const { return get_clean<std::string>(); }
 
+        /// Returns the value as a ustring_view, if it exists and is a string; nullopt otherwise.
+        std::optional<ustring_view> uview() const {
+            if (auto* s = get_clean<std::string>())
+                return ustring_view{reinterpret_cast<const unsigned char*>(s->data()), s->size()};
+            return std::nullopt;
+        }
+
         /// returns the value as a string_view or a fallback if the value doesn't exist (or isn't a
         /// string).  The returned view is directly into the value (or fallback) and so mustn't be
         /// used beyond the validity of either.
@@ -278,8 +285,12 @@ class ConfigBase {
         /// intermediate dicts needed to reach the given key, including replacing non-dict values if
         /// they currently exist along the path.
         void operator=(std::string value) { assign_if_changed(std::move(value)); }
-        /// Same as above, but takes a string_view for convenience.
+        /// Same as above, but takes a string_view for convenience (this makes a copy).
         void operator=(std::string_view value) { *this = std::string{value}; }
+        /// Same as above, but takes a ustring_view
+        void operator=(ustring_view value) {
+            *this = std::string{reinterpret_cast<const char*>(value.data()), value.size()};
+        }
         /// Replace the current value with the given integer.  See above.
         void operator=(int64_t value) { assign_if_changed(value); }
         /// Replace the current value with the given set.  See above.
@@ -377,6 +388,14 @@ class ConfigBase {
     // Called when constructing from a dump that has extra data.  The base implementation does
     // nothing.
     virtual void load_extra_data(oxenc::bt_dict extra) {}
+
+    // Called to load an ed25519 key for encryption; this is meant for use by single-ownership
+    // config types, like UserProfile, but not shared config types (closed groups).
+    //
+    // Takes a binary string which is either the 32-byte seed, or 64-byte libsodium secret (which is
+    // just the seed and pubkey concatenated together), and then calls `key(...)` with the seed.
+    // Throws std::invalid_argument if given something that doesn't match the required input.
+    void load_key(ustring_view ed25519_secretkey);
 
   public:
     virtual ~ConfigBase();

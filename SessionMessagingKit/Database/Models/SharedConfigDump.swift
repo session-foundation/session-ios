@@ -15,6 +15,7 @@ public struct ConfigDump: Codable, Equatable, Hashable, Identifiable, FetchableR
     
     public enum Variant: String, Codable, DatabaseValueConvertible, CaseIterable {
         case userProfile
+        case contacts
     }
     
     public var id: Variant { variant }
@@ -32,6 +33,7 @@ public extension ConfigDump.Variant {
     var configMessageKind: SharedConfigMessage.Kind {
         switch self {
             case .userProfile: return .userProfile
+            case .contacts: return .contacts
         }
     }
 }
