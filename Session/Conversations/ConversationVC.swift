@@ -1023,7 +1023,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         // When the unread message count is more than the number of view items of a page,
         // the screen will scroll to the bottom instead of the first unread message
         if let focusedInteractionId: Int64 = self.viewModel.focusedInteractionId {
-            self.scrollToInteractionIfNeeded(with: focusedInteractionId, isAnimated: false, highlight: true)
+            self.scrollToInteractionIfNeeded(with: focusedInteractionId, isAnimated: false, highlight: true, isInitialScroll: true)
         }
         else {
             self.scrollToBottom(isAnimated: false)
@@ -1636,12 +1636,13 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         position: UITableView.ScrollPosition = .middle,
         isJumpingToLastInteraction: Bool = false,
         isAnimated: Bool = true,
-        highlight: Bool = false
+        highlight: Bool = false,
+        isInitialScroll: Bool = false
     ) {
         // Store the info incase we need to load more data (call will be re-triggered)
         self.focusedInteractionId = interactionId
         self.shouldHighlightNextScrollToInteraction = highlight
-        self.viewModel.markAsRead(beforeInclusive: interactionId)
+        if !isInitialScroll { self.viewModel.markAsRead(beforeInclusive: interactionId) }
         
         // Ensure the target interaction has been loaded
         guard
