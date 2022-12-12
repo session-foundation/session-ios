@@ -99,7 +99,7 @@ public extension DisappearingMessagesJob {
             )
             
             if !interactionIdsByExpiresInSeconds.isEmpty {
-                JobRunner.add(
+                JobRunner.upsert(
                     db,
                     job: Job(
                         variant: .syncExpires,

@@ -89,6 +89,13 @@ public final class JobRunner {
                 jobVariants.remove(.attachmentDownload)
             ].compactMap { $0 }
         )
+        let syncExpiriesQueue: JobQueue = JobQueue(
+            type: .syncExpiries,
+            qos: .default,
+            jobVariants: [
+                jobVariants.remove(.syncExpires)
+            ].compactMap { $0 }
+        )
         let generalQueue: JobQueue = JobQueue(
             type: .general(number: 0),
             qos: .utility,
@@ -99,6 +106,7 @@ public final class JobRunner {
             messageSendQueue,
             messageReceiveQueue,
             attachmentDownloadQueue,
+            syncExpiriesQueue,
             generalQueue
         ].reduce(into: [:]) { prev, next in
             next.jobVariants.forEach { variant in
@@ -397,6 +405,7 @@ private final class JobQueue {
         case messageSend
         case messageReceive
         case attachmentDownload
+        case syncExpiries
         
         var name: String {
             switch self {
@@ -405,6 +414,7 @@ private final class JobQueue {
                 case .messageSend: return "MessageSend"
                 case .messageReceive: return "MessageReceive"
                 case .attachmentDownload: return "AttachmentDownload"
+                case .syncExpiries: return "SyncExpiries"
             }
         }
     }

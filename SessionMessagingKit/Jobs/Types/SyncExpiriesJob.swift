@@ -45,47 +45,41 @@ public enum SyncExpiriesJob: JobExecutor {
             let expirationTimestamp: Int64 = Int64(ceil(details.startedAtMs + expiresInSeconds * 1000))
             let userPublicKey: String = getUserHexEncodedPublicKey()
             
+            // Send SyncExpiriesMessage
+            let syncTarget: String = interactions[0].authorId
+            let syncExpiries: [SyncedExpiriesMessage.SyncedExpiry] = serverHashes.map { serverHash in
+                return SyncedExpiriesMessage.SyncedExpiry(
+                    serverHash: serverHash,
+                    expirationTimestamp: expirationTimestamp)
+            }
+            
+            let syncExpiriesMessage = SyncedExpiriesMessage(
+                conversationExpiries: [syncTarget: syncExpiries]
+            )
+            
+            Storage.shared.writeAsync { db in
+                MessageSender
+                    .send(
+                        db,
+                        message: syncExpiriesMessage,
+                        threadId: details.threadId,
+                        interactionId: nil,
+                        to: .contact(publicKey: userPublicKey)
+                    )
+            }
+            
             // Update the ttls
             SnodeAPI.updateExpiry(
                 publicKey: userPublicKey,
                 updatedExpiryMs: expirationTimestamp,
                 serverHashes: serverHashes
-            )
-            .done(on: queue) { _ in
-                // Send SyncExpiriesMessage
-                let syncTarget: String = interactions[0].authorId
-                let syncExpiries: [SyncedExpiriesMessage.SyncedExpiry] = serverHashes.map { serverHash in
-                    return SyncedExpiriesMessage.SyncedExpiry(
-                        serverHash: serverHash,
-                        expirationTimestamp: expirationTimestamp)
-                }
-                
-                let syncExpiriesMessage = SyncedExpiriesMessage(
-                    conversationExpiries: [syncTarget: syncExpiries]
-                )
-                
-                Storage.shared.write { db in
-                    MessageSender
-                        .send(
-                            db,
-                            message: syncExpiriesMessage,
-                            threadId: details.threadId,
-                            interactionId: nil,
-                            to: .contact(publicKey: userPublicKey)
-                        )
-                }
-                success(job, false)
-            }
-            .catch(on: queue) { error in
-                failure(job, error, true)
-            }
-            .retainUntilComplete()
+            ).retainUntilComplete()
         }
         
-        guard interactionIdsWithNoServerHashByExpiresInSeconds.isEmpty else { return }
+        guard !interactionIdsWithNoServerHashByExpiresInSeconds.isEmpty else { return }
         
         Storage.shared.writeAsync { db in
-            JobRunner.add(
+            JobRunner.upsert(
                 db,
                 job: Job(
                     variant: .syncExpires,
