@@ -455,9 +455,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                         return try Interaction
                             .filter(Interaction.Columns.wasRead == false)
                             .filter(
-                                // Exclude outgoing and deleted messages from the count
-                                Interaction.Columns.variant != Interaction.Variant.standardOutgoing &&
-                                Interaction.Columns.variant != Interaction.Variant.standardIncomingDeleted
+                                Interaction.Columns.variant == Interaction.Variant.standardIncoming ||
+                                Interaction.Columns.variant == Interaction.Variant.infoCall
                             )
                             .filter(
                                 // Only count mentions if 'onlyNotifyForMentions' is set
