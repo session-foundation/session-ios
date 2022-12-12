@@ -357,8 +357,7 @@ public enum MessageReceiver {
         let durationSeconds: TimeInterval = proto.hasExpirationTimer ? TimeInterval(proto.expirationTimer) : 0
         let isEnable: Bool = (durationSeconds != 0)
         let type: DisappearingMessagesConfiguration.DisappearingMessageType? = proto.hasExpirationType ? .init(protoType: proto.expirationType) : nil
-        let remoteConfig: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
-            threadId: threadId,
+        let remoteConfig: DisappearingMessagesConfiguration = localConfig.with(
             isEnabled: isEnable,
             durationSeconds: durationSeconds,
             type: type,
@@ -379,7 +378,9 @@ public enum MessageReceiver {
                 ),
                 isPreviousOff: !localConfig.isEnabled
             ),
-            timestampMs: protoLastChangeTimestampMs
+            timestampMs: protoLastChangeTimestampMs,
+            expiresInSeconds: remoteConfig.isEnabled ? nil : localConfig.durationSeconds,
+            expiresStartedAtMs: (!remoteConfig.isEnabled && localConfig.type == .disappearAfterSend) ? Double(protoLastChangeTimestampMs) : nil
         ).inserted(db)
     }
     

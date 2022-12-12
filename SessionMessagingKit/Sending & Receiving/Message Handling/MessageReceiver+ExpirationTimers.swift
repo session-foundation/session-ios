@@ -32,20 +32,21 @@ extension MessageReceiver {
             }
         }()
         
-        let config: DisappearingMessagesConfiguration = try thread.disappearingMessagesConfiguration
+        let localConfig: DisappearingMessagesConfiguration = try thread.disappearingMessagesConfiguration
             .fetchOne(db)
             .defaulting(to: DisappearingMessagesConfiguration.defaultWith(thread.id))
-            .with(
-                // If there is no duration then we should disable the expiration timer
-                isEnabled: ((message.duration ?? 0) > 0),
-                durationSeconds: (
-                    message.duration.map { TimeInterval($0) } ??
-                    DisappearingMessagesConfiguration.defaultDuration
-                ),
-                type: defaultType
-            )
         
-        try config.save(db)
+        let remoteConfig: DisappearingMessagesConfiguration = localConfig.with(
+            // If there is no duration then we should disable the expiration timer
+            isEnabled: ((message.duration ?? 0) > 0),
+            durationSeconds: (
+                message.duration.map { TimeInterval($0) } ??
+                DisappearingMessagesConfiguration.defaultDuration
+            ),
+            type: defaultType
+        )
+        
+        try remoteConfig.save(db)
         
         // Add an info message for the user
         _ = try Interaction(
@@ -53,14 +54,15 @@ extension MessageReceiver {
             threadId: thread.id,
             authorId: sender,
             variant: .infoDisappearingMessagesUpdate,
-            body: config.messageInfoString(
+            body: remoteConfig.messageInfoString(
                 with: (sender != getUserHexEncodedPublicKey(db) ?
                     Profile.displayName(db, id: sender) :
                     nil
                 ),
                 isPreviousOff: false
             ),
-            timestampMs: Int64(message.sentTimestamp ?? 0)   // Default to `0` if not set
+            timestampMs: Int64(message.sentTimestamp ?? 0),   // Default to `0` if not set
+            expiresInSeconds: remoteConfig.isEnabled ? nil : localConfig.durationSeconds
         ).inserted(db)
     }
 }
