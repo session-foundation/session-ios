@@ -27,7 +27,10 @@ public enum SyncExpiriesJob: JobExecutor {
             return
         }
         
-        guard DisappearingMessagesConfiguration.isNewConfigurationEnabled else { return }
+        guard DisappearingMessagesConfiguration.isNewConfigurationEnabled else {
+            success(job, false)
+            return
+        }
         
         var interactionIdsWithNoServerHashByExpiresInSeconds: [TimeInterval: [Int64]] = [:]
         
@@ -76,21 +79,23 @@ public enum SyncExpiriesJob: JobExecutor {
             ).retainUntilComplete()
         }
         
-        guard !interactionIdsWithNoServerHashByExpiresInSeconds.isEmpty else { return }
-        
-        Storage.shared.writeAsync { db in
-            JobRunner.upsert(
-                db,
-                job: Job(
-                    variant: .syncExpires,
-                    details: SyncExpiriesJob.Details(
-                        interactionIdsByExpiresInSeconds: interactionIdsWithNoServerHashByExpiresInSeconds,
-                        startedAtMs: details.startedAtMs,
-                        threadId: details.threadId
+        if !interactionIdsWithNoServerHashByExpiresInSeconds.isEmpty {
+            Storage.shared.writeAsync { db in
+                JobRunner.upsert(
+                    db,
+                    job: Job(
+                        variant: .syncExpires,
+                        details: SyncExpiriesJob.Details(
+                            interactionIdsByExpiresInSeconds: interactionIdsWithNoServerHashByExpiresInSeconds,
+                            startedAtMs: details.startedAtMs,
+                            threadId: details.threadId
+                        )
                     )
                 )
-            )
+            }
         }
+        
+        success(job, false)
     }
 }
 

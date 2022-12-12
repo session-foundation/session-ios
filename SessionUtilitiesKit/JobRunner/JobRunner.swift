@@ -91,6 +91,7 @@ public final class JobRunner {
         )
         let syncExpiriesQueue: JobQueue = JobQueue(
             type: .syncExpiries,
+            executionType: .concurrent, // Allow as many jobs to run at once as supported by the device
             qos: .default,
             jobVariants: [
                 jobVariants.remove(.syncExpires)
