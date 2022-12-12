@@ -591,21 +591,21 @@ public final class MessageSender {
             
             // Get the visible message if possible
             if let interaction: Interaction = interaction {
-                // When the sync message is successfully sent, the hash value of this TSOutgoingMessage
-                // will be replaced by the hash value of the sync message. Since the hash value of the
-                // real message has no use when we delete a message. It is OK to let it be.
-                try interaction.with(
-                    serverHash: message.serverHash,
-                    
-                    // Track the open group server message ID and update server timestamp (use server
-                    // timestamp for open group messages otherwise the quote messages may not be able
-                    // to be found by the timestamp on other devices
-                    timestampMs: (message.openGroupServerMessageId == nil ?
-                        nil :
-                        serverTimestampMs.map { Int64($0) }
-                    ),
-                    openGroupServerMessageId: message.openGroupServerMessageId.map { Int64($0) }
-                ).update(db)
+                // Only store the server hash of a sync message if the message is self send valid
+                if (message.isSelfSendValid && isSyncMessage || !message.isSelfSendValid) {
+                    try interaction.with(
+                        serverHash: message.serverHash,
+                        
+                        // Track the open group server message ID and update server timestamp (use server
+                        // timestamp for open group messages otherwise the quote messages may not be able
+                        // to be found by the timestamp on other devices
+                        timestampMs: (message.openGroupServerMessageId == nil ?
+                            nil :
+                            serverTimestampMs.map { Int64($0) }
+                        ),
+                        openGroupServerMessageId: message.openGroupServerMessageId.map { Int64($0) }
+                    ).update(db)
+                }
                 
                 // Mark the message as sent
                 try interaction.recipientStates

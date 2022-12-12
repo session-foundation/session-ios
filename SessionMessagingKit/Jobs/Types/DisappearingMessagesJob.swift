@@ -67,7 +67,7 @@ public extension DisappearingMessagesJob {
             .saved(db)
     }
     
-    @discardableResult static func updateNextRunIfNeeded(_ db: Database, interactionIds: [Int64], startedAtMs: Double) -> Job? {
+    @discardableResult static func updateNextRunIfNeeded(_ db: Database, interactionIds: [Int64], startedAtMs: Double, threadId: String) -> Job? {
         let interactionsByExpiresInSeconds: [TimeInterval?: [Interaction]]? = try? Interaction
             .filter(interactionIds.contains(Interaction.Columns.id))
             .filter(
@@ -91,42 +91,25 @@ public extension DisappearingMessagesJob {
         guard (changeCount ?? 0) > 0 else { return nil }
         
         if DisappearingMessagesConfiguration.isNewConfigurationEnabled {
-            interactionsByExpiresInSeconds?.forEach { expiresInSeconds, interactions in
-                let serverHashes = interactions.compactMap { $0.serverHash }
-                guard let expiresInSeconds = expiresInSeconds, !serverHashes.isEmpty else { return }
-                
-                let expirationTimestamp: Int64 = Int64(ceil(startedAtMs + expiresInSeconds * 1000))
-                let userPublicKey: String = getUserHexEncodedPublicKey(db)
-                let threadId: String = interactions[0].threadId
-                
-                // Send SyncExpiriesMessage
-                let syncTarget: String = interactions[0].authorId
-                let syncExpiries: [SyncedExpiriesMessage.SyncedExpiry] = serverHashes.map { serverHash in
-                    return SyncedExpiriesMessage.SyncedExpiry(
-                        serverHash: serverHash,
-                        expirationTimestamp: expirationTimestamp)
-                }
-                
-                let syncExpiriesMessage = SyncedExpiriesMessage(
-                    conversationExpiries: [syncTarget: syncExpiries]
-                )
-                
-                MessageSender
-                    .send(
-                        db,
-                        message: syncExpiriesMessage,
-                        threadId: threadId,
-                        interactionId: nil,
-                        to: .contact(publicKey: userPublicKey)
+            let interactionIdsByExpiresInSeconds: [TimeInterval: [Int64]] = Dictionary(
+                uniqueKeysWithValues: interactionsByExpiresInSeconds?.compactMap { expireInSeconds, interactions in
+                    guard let expireInSeconds = expireInSeconds else { return nil }
+                    return (expireInSeconds, interactions.compactMap { $0.id })
+                } ?? []
+            )
+            
+            if !interactionIdsByExpiresInSeconds.isEmpty {
+                JobRunner.add(
+                    db,
+                    job: Job(
+                        variant: .syncExpires,
+                        details: SyncExpiriesJob.Details(
+                            interactionIdsByExpiresInSeconds: interactionIdsByExpiresInSeconds,
+                            startedAtMs: startedAtMs,
+                            threadId: threadId
+                        )
                     )
-                
-                // Update the ttls
-                SnodeAPI.updateExpiry(
-                    publicKey: userPublicKey,
-                    updatedExpiryMs: expirationTimestamp,
-                    serverHashes: serverHashes
                 )
-                .retainUntilComplete()
             }
         }
         
@@ -146,7 +129,7 @@ public extension DisappearingMessagesJob {
                 throw StorageError.objectNotFound
             }
             
-            return updateNextRunIfNeeded(db, interactionIds: [interactionId], startedAtMs: startedAtMs)
+            return updateNextRunIfNeeded(db, interactionIds: [interactionId], startedAtMs: startedAtMs, threadId: interaction.threadId)
         }
         catch {
             SNLog("Failed to update the expiring messages timer on an interaction")

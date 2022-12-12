@@ -489,7 +489,8 @@ public extension Interaction {
                 job: DisappearingMessagesJob.updateNextRunIfNeeded(
                     db,
                     interactionIds: interactionIds,
-                    startedAtMs: (Date().timeIntervalSince1970 * 1000)
+                    startedAtMs: (Date().timeIntervalSince1970 * 1000),
+                    threadId: threadId
                 )
             )
             

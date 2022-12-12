@@ -143,6 +143,7 @@
 		7BA68909272A27BE00EFC32F /* SessionCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BA68908272A27BE00EFC32F /* SessionCall.swift */; };
 		7BA6890D27325CCC00EFC32F /* SessionCallManager+CXCallController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BA6890C27325CCC00EFC32F /* SessionCallManager+CXCallController.swift */; };
 		7BA6890F27325CE300EFC32F /* SessionCallManager+CXProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BA6890E27325CE300EFC32F /* SessionCallManager+CXProvider.swift */; };
+		7BA7F0EF2942C33600CF6B05 /* SyncExpiriesJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BA7F0EE2942C33600CF6B05 /* SyncExpiriesJob.swift */; };
 		7BAA7B6628D2DE4700AE1489 /* _009_OpenGroupPermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BAA7B6528D2DE4700AE1489 /* _009_OpenGroupPermission.swift */; };
 		7BAADFCC27B0EF23007BCF92 /* CallVideoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BAADFCB27B0EF23007BCF92 /* CallVideoView.swift */; };
 		7BAADFCE27B215FE007BCF92 /* UIView+Draggable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BAADFCD27B215FE007BCF92 /* UIView+Draggable.swift */; };
@@ -1217,6 +1218,7 @@
 		7BA68908272A27BE00EFC32F /* SessionCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionCall.swift; sourceTree = "<group>"; };
 		7BA6890C27325CCC00EFC32F /* SessionCallManager+CXCallController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionCallManager+CXCallController.swift"; sourceTree = "<group>"; };
 		7BA6890E27325CE300EFC32F /* SessionCallManager+CXProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionCallManager+CXProvider.swift"; sourceTree = "<group>"; };
+		7BA7F0EE2942C33600CF6B05 /* SyncExpiriesJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncExpiriesJob.swift; sourceTree = "<group>"; };
 		7BAA7B6528D2DE4700AE1489 /* _009_OpenGroupPermission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _009_OpenGroupPermission.swift; sourceTree = "<group>"; };
 		7BAADFCB27B0EF23007BCF92 /* CallVideoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallVideoView.swift; sourceTree = "<group>"; };
 		7BAADFCD27B215FE007BCF92 /* UIView+Draggable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIView+Draggable.swift"; sourceTree = "<group>"; };
@@ -4151,6 +4153,7 @@
 				FDF0B74E28079E5E004C14C5 /* SendReadReceiptsJob.swift */,
 				C352A348255781F400338F3E /* AttachmentDownloadJob.swift */,
 				C352A35A2557824E00338F3E /* AttachmentUploadJob.swift */,
+				7BA7F0EE2942C33600CF6B05 /* SyncExpiriesJob.swift */,
 			);
 			path = Types;
 			sourceTree = "<group>";
@@ -5475,6 +5478,7 @@
 				FD09797F27FCFBFF00936362 /* OWSAES256Key+Utilities.swift in Sources */,
 				FDB4BBC72838B91E00B7C95D /* LinkPreviewError.swift in Sources */,
 				FD09798327FD1A1500936362 /* ClosedGroup.swift in Sources */,
+				7BA7F0EF2942C33600CF6B05 /* SyncExpiriesJob.swift in Sources */,
 				B8B320B7258C30D70020074B /* HTMLMetadata.swift in Sources */,
 				FD09798727FD1B7800936362 /* GroupMember.swift in Sources */,
 				FDB4BBC92839BEF000B7C95D /* ProfileManagerError.swift in Sources */,

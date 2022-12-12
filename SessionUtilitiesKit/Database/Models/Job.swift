@@ -102,6 +102,10 @@ public struct Job: Codable, Equatable, Identifiable, FetchableRecord, MutablePer
         /// This is a job that runs once whenever an attachment is downloaded to attempt to decode and properly
         /// download the attachment
         case attachmentDownload
+        
+        /// This is a job that runs once whenever some disappearing messages is read and started the timer to inform
+        /// linked devices and the network for the change of the messages's ttl
+        case syncExpires
     }
     
     public enum Behaviour: Int, Codable, DatabaseValueConvertible, CaseIterable {
