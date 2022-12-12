@@ -335,6 +335,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         
         // Automatically add disapeparing messages configuration
         if self.variant.shouldFollowDisappearingMessagesConfiguration,
+           self.expiresInSeconds == nil, self.expiresStartedAtMs == nil,
            let disappearingMessagesConfiguration = try? DisappearingMessagesConfiguration.fetchOne(db, id: self.threadId),
            disappearingMessagesConfiguration.isEnabled
         {

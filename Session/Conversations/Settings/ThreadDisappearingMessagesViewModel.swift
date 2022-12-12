@@ -457,13 +457,16 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
             }
 
             _ = try updatedConfig.saved(db)
-
+            
+            let nowInMs: Double = floor(Date().timeIntervalSince1970 * 1000)
             let interaction: Interaction = try Interaction(
                 threadId: threadId,
                 authorId: getUserHexEncodedPublicKey(db),
                 variant: .infoDisappearingMessagesUpdate,
                 body: updatedConfig.messageInfoString(with: nil, isPreviousOff: !self.config.isEnabled),
-                timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
+                timestampMs: Int64(nowInMs),
+                expiresInSeconds: updatedConfig.isEnabled ? nil : self.config.durationSeconds,
+                expiresStartedAtMs: (!updatedConfig.isEnabled && self.config.type == .disappearAfterSend) ? nowInMs : nil
             )
             .inserted(db)
             
