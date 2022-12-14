@@ -5,6 +5,7 @@ import SessionUIKit
 import SessionSnodeKit
 import SessionMessagingKit
 import SignalUtilitiesKit
+import PromiseKit
 
 final class NukeDataModal: Modal {
     // MARK: - Initialization
@@ -162,49 +163,74 @@ final class NukeDataModal: Modal {
     private func clearEntireAccount(presentedViewController: UIViewController) {
         ModalActivityIndicatorViewController
             .present(fromViewController: presentedViewController, canCancel: false) { [weak self] _ in
-                SnodeAPI.clearAllData()
-                    .done(on: DispatchQueue.main) { confirmations in
-                        self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-                        
-                        let potentiallyMaliciousSnodes = confirmations.compactMap { $0.value == false ? $0.key : nil }
-                        
-                        if potentiallyMaliciousSnodes.isEmpty {
-                            self?.deleteAllLocalData()
-                        }
-                        else {
-                            let message: String
-                            if potentiallyMaliciousSnodes.count == 1 {
-                                message = String(format: "dialog_clear_all_data_deletion_failed_1".localized(), potentiallyMaliciousSnodes[0])
+                let servers: Set<String> = Storage.shared.read { db in
+                    try OpenGroup
+                        .select(.server)
+                        .distinct()
+                        .asRequest(of: String.self)
+                        .fetchSet(db)
+                    
+                }.defaulting(to: [])
+                
+                var promises: [Promise<[String: Bool]>] = Storage.shared.read { db in
+                    servers.map { server in
+                        OpenGroupAPI
+                            .clearInbox(
+                                db,
+                                on: server
+                            ).map { _, response in
+                                [server: true]
                             }
-                            else {
-                                message = String(format: "dialog_clear_all_data_deletion_failed_2".localized(), String(potentiallyMaliciousSnodes.count), potentiallyMaliciousSnodes.joined(separator: ", "))
-                            }
-                            
-                            let modal: ConfirmationModal = ConfirmationModal(
-                                targetView: self?.view,
-                                info: ConfirmationModal.Info(
-                                    title: "ALERT_ERROR_TITLE".localized(),
-                                    explanation: message,
-                                    cancelTitle: "BUTTON_OK".localized(),
-                                    cancelStyle: .alert_text
-                                )
-                            )
-                            self?.present(modal, animated: true)
-                        }
                     }
-                    .catch(on: DispatchQueue.main) { error in
-                        self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-                        
-                        let modal: ConfirmationModal = ConfirmationModal(
-                            targetView: self?.view,
-                            info: ConfirmationModal.Info(
-                                title: "ALERT_ERROR_TITLE".localized(),
-                                explanation: error.localizedDescription,
-                                cancelTitle: "BUTTON_OK".localized(),
-                                cancelStyle: .alert_text
-                            )
-                        )
-                        self?.present(modal, animated: true)
+                }.defaulting(to: [])
+                
+                when(resolved: promises)
+                    .done(on: DispatchQueue.main) { results in
+                        SnodeAPI.clearAllData()
+                            .done(on: DispatchQueue.main) { confirmations in
+                                self?.dismiss(animated: true, completion: nil) // Dismiss the loader
+                                
+                                let potentiallyMaliciousSnodes: [String] = confirmations.compactMap { $0.value == false ? $0.key : nil }
+                                
+                                
+                                if potentiallyMaliciousSnodes.isEmpty {
+                                    self?.deleteAllLocalData()
+                                }
+                                else {
+                                    let message: String
+                                    if potentiallyMaliciousSnodes.count == 1 {
+                                        message = String(format: "dialog_clear_all_data_deletion_failed_1".localized(), potentiallyMaliciousSnodes[0])
+                                    }
+                                    else {
+                                        message = String(format: "dialog_clear_all_data_deletion_failed_2".localized(), String(potentiallyMaliciousSnodes.count), potentiallyMaliciousSnodes.joined(separator: ", "))
+                                    }
+                                    
+                                    let modal: ConfirmationModal = ConfirmationModal(
+                                        targetView: self?.view,
+                                        info: ConfirmationModal.Info(
+                                            title: "ALERT_ERROR_TITLE".localized(),
+                                            explanation: message,
+                                            cancelTitle: "BUTTON_OK".localized(),
+                                            cancelStyle: .alert_text
+                                        )
+                                    )
+                                    self?.present(modal, animated: true)
+                                }
+                            }
+                            .catch(on: DispatchQueue.main) { error in
+                                self?.dismiss(animated: true, completion: nil) // Dismiss the loader
+                                
+                                let modal: ConfirmationModal = ConfirmationModal(
+                                    targetView: self?.view,
+                                    info: ConfirmationModal.Info(
+                                        title: "ALERT_ERROR_TITLE".localized(),
+                                        explanation: error.localizedDescription,
+                                        cancelTitle: "BUTTON_OK".localized(),
+                                        cancelStyle: .alert_text
+                                    )
+                                )
+                                self?.present(modal, animated: true)
+                            }
                     }
             }
     }

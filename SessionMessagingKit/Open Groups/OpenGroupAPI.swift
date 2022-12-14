@@ -948,6 +948,25 @@ public enum OpenGroupAPI {
             .decoded(as: [DirectMessage]?.self, on: OpenGroupAPI.workQueue, using: dependencies)
     }
     
+    /// Remove all message requests from inbox, this methrod will return the number of messages deleted
+    public static func clearInbox(
+        _ db: Database,
+        on server: String,
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) -> Promise<(OnionRequestResponseInfoType, [String: Int])> {
+        return OpenGroupAPI
+            .send(
+                db,
+                request: Request<NoBody, Endpoint>(
+                    method: .delete,
+                    server: server,
+                    endpoint: .inbox
+                ),
+                using: dependencies
+            )
+            .decoded(as: [String: Int].self, on: OpenGroupAPI.workQueue, using: dependencies)
+    }
+    
     /// Delivers a direct message to a user via their blinded Session ID
     ///
     /// The body of this request is a JSON object containing a message key with a value of the encrypted-then-base64-encoded message to deliver
