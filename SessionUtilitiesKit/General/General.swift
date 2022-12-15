@@ -19,6 +19,7 @@ public enum General {
 }
 
 public enum GeneralError: Error {
+    case invalidSeed
     case keyGenerationFailed
 }
 
