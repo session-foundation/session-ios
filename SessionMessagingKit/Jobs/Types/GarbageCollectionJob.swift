@@ -96,7 +96,7 @@ public enum GarbageCollectionJob: JobExecutor {
                                 GROUP BY \(interaction[.threadId])
                             ) AS interactionInfo ON interactionInfo.\(threadIdLiteral) = \(interaction[.threadId])
                             WHERE (
-                                \(interaction[.timestampMs]) < \(timestampNow - approxSixMonthsInSeconds) AND
+                                \(interaction[.timestampMs]) < \((timestampNow - approxSixMonthsInSeconds) * 1000) AND
                                 interactionInfo.interactionCount >= \(minInteractionsToTrimSql)
                             )
                         )
