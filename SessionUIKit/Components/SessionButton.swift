@@ -17,7 +17,7 @@ public final class SessionButton: UIButton {
         case large
     }
     
-    public struct Info {
+    public struct Info: Equatable {
         public let style: Style
         public let title: String
         public let isEnabled: Bool
@@ -42,6 +42,17 @@ public final class SessionButton: UIButton {
             self.accessibilityLabel = accessibilityLabel
             self.onTap = onTap
             self.minWidth = minWidth
+        }
+        
+        public static func == (lhs: SessionButton.Info, rhs: SessionButton.Info) -> Bool {
+            return (
+                lhs.style == rhs.style &&
+                lhs.title == rhs.title &&
+                lhs.isEnabled == rhs.isEnabled &&
+                lhs.accessibilityIdentifier == rhs.accessibilityIdentifier &&
+                lhs.accessibilityLabel == rhs.accessibilityLabel &&
+                lhs.minWidth == rhs.minWidth
+            )
         }
     }
     

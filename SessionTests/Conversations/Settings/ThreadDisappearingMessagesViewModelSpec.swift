@@ -77,7 +77,7 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
                 expect(viewModel.settingsData.count)
                     .to(equal(1))
                 expect(viewModel.settingsData.first?.elements.count)
-                    .to(equal(12))
+                    .to(equal(3))
             }
             
             it("has the correct default state") {
@@ -95,22 +95,8 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
                             )
                         )
                     )
-                
-                let title: String = (DisappearingMessagesConfiguration.validDurationsSeconds.last?
-                    .formatted(format: .long))
-                    .defaulting(to: "")
-                expect(viewModel.settingsData.first?.elements.last)
-                    .to(
-                        equal(
-                            SessionCell.Info(
-                                id: ThreadDisappearingMessagesViewModel.Item(title: title),
-                                title: title,
-                                rightAccessory: .radio(
-                                    isSelected: { false }
-                                )
-                            )
-                        )
-                    )
+                expect(viewModel.settingsData.count)
+                    .to(equal(1))
             }
             
             it("starts with the correct item active if not default") {
@@ -118,7 +104,8 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
                     .defaultWith("TestId")
                     .with(
                         isEnabled: true,
-                        durationSeconds: DisappearingMessagesConfiguration.validDurationsSeconds.last
+                        durationSeconds: DisappearingMessagesConfiguration.validDurationsSeconds(.disappearAfterSend).last,
+                        type: .disappearAfterSend
                     )
                 mockStorage.write { db in
                     _ = try config.saved(db)
@@ -154,10 +141,29 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
                         )
                     )
                 
-                let title: String = (DisappearingMessagesConfiguration.validDurationsSeconds.last?
+                expect(viewModel.settingsData.first?.elements.last)
+                    .to(
+                        equal(
+                            SessionCell.Info(
+                                id: ThreadDisappearingMessagesViewModel.Item(
+                                    title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized()
+                                ),
+                                title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
+                                subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
+                                rightAccessory: .radio(
+                                    isSelected: { true }
+                                )
+                            )
+                        )
+                    )
+                
+                expect(viewModel.settingsData.count)
+                    .to(equal(2))
+                
+                let title: String = (DisappearingMessagesConfiguration.validDurationsSeconds(.disappearAfterSend).last?
                     .formatted(format: .long))
                     .defaulting(to: "")
-                expect(viewModel.settingsData.first?.elements.last)
+                expect(viewModel.settingsData.last?.elements.last)
                     .to(
                         equal(
                             SessionCell.Info(
@@ -169,48 +175,54 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
                             )
                         )
                     )
+                
             }
             
-            it("has no right bar button") {
-                var items: [ParentType.NavItem]?
+            it("has no footer button") {
+                var footerButtonInfo: SessionButton.Info?
                 
                 cancellables.append(
-                    viewModel.rightNavItems
+                    viewModel.footerButtonInfo
                         .receiveOnMain(immediately: true)
                         .sink(
                             receiveCompletion: { _ in },
-                            receiveValue: { navItems in items = navItems }
+                            receiveValue: { info in footerButtonInfo = info }
                         )
                 )
                 
-                expect(items).to(equal([]))
+                expect(footerButtonInfo).to(equal(nil))
             }
             
             context("when changed from the previous setting") {
-                var items: [ParentType.NavItem]?
+                var footerButtonInfo: SessionButton.Info?
                 
                 beforeEach {
                     cancellables.append(
-                        viewModel.rightNavItems
+                        viewModel.footerButtonInfo
                             .receiveOnMain(immediately: true)
                             .sink(
                                 receiveCompletion: { _ in },
-                                receiveValue: { navItems in items = navItems }
+                                receiveValue: { info in footerButtonInfo = info }
                             )
                     )
                     
                     viewModel.settingsData.first?.elements.last?.onTap?(nil)
                 }
                 
-                it("shows the save button") {
-                    expect(items)
-                        .to(equal([
-                            ParentType.NavItem(
-                                id: .save,
-                                systemItem: .save,
-                                accessibilityIdentifier: "Save button"
+                it("shows the set button") {
+                    expect(footerButtonInfo)
+                        .to(
+                            equal(
+                                SessionButton.Info(
+                                    style: .bordered,
+                                    title: "DISAPPERING_MESSAGES_SAVE_TITLE".localized(),
+                                    isEnabled: true,
+                                    accessibilityIdentifier: "Set button",
+                                    minWidth: 110,
+                                    onTap: {}
+                                )
                             )
-                        ]))
+                        )
                 }
                 
                 context("and saving") {
@@ -226,7 +238,7 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
                                 )
                         )
                         
-                        items?.first?.action?()
+                        footerButtonInfo?.onTap()
                         
                         expect(didDismissScreen)
                             .toEventually(
@@ -236,7 +248,7 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
                     }
                     
                     it("saves the updated config") {
-                        items?.first?.action?()
+                        footerButtonInfo?.onTap()
                         
                         let updatedConfig: DisappearingMessagesConfiguration? = mockStorage.read { db in
                             try DisappearingMessagesConfiguration.fetchOne(db, id: "TestId")
@@ -249,7 +261,12 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
                             )
                         expect(updatedConfig?.durationSeconds)
                             .toEventually(
-                                equal(DisappearingMessagesConfiguration.validDurationsSeconds.last ?? -1),
+                                equal(DisappearingMessagesConfiguration.validDurationsSeconds(.disappearAfterSend).last ?? -1),
+                                timeout: .milliseconds(100)
+                            )
+                        expect(updatedConfig?.type)
+                            .toEventually(
+                                equal(.disappearAfterSend),
                                 timeout: .milliseconds(100)
                             )
                     }
