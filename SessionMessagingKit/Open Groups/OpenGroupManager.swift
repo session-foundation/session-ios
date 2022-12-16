@@ -275,6 +275,9 @@ public final class OpenGroupManager {
             .flatMap { response -> Future<Void, Error> in
                 Future<Void, Error> { resolver in
                     dependencies.storage.write { db in
+                        // Enqueue a config sync job (have a newly added open group to sync)
+                        ConfigurationSyncJob.enqueue(db)
+                        
                         // Store the capabilities first
                         OpenGroupManager.handleCapabilities(
                             db,

@@ -1562,13 +1562,7 @@ extension ConversationVC:
                         .sinkUntilComplete(
                             receiveCompletion: { result in
                                 switch result {
-                                    case .finished:
-                                        Storage.shared.writeAsync { db in
-                                            try MessageSender
-                                                .syncConfiguration(db, forceSyncNow: true)
-                                                .sinkUntilComplete() // FIXME: It's probably cleaner to do this inside addOpenGroup(...)
-                                        }
-                                        
+                                    case .finished: break
                                     case .failure(let error):
                                         let errorModal: ConfirmationModal = ConfirmationModal(
                                             info: ConfirmationModal.Info(

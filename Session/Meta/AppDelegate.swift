@@ -295,9 +295,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                         appVersion.lastAppVersion != appVersion.currentAppVersion
                     )
                 {
-                    try MessageSender
-                        .syncConfiguration(db, forceSyncNow: true)
-                        .sinkUntilComplete()
+                    ConfigurationSyncJob.enqueue(db)
                 }
             }
         }

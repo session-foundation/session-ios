@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Combine
 import AVFoundation
 import GRDB
 import SessionUIKit
@@ -189,12 +190,6 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                                 self?.showError(title: title, message: message)
                                 
                             case .finished:
-                                Storage.shared.writeAsync { db in
-                                    try MessageSender
-                                        .syncConfiguration(db, forceSyncNow: true)
-                                        .sinkUntilComplete() // FIXME: It's probably cleaner to do this inside addOpenGroup(...)
-                                }
-                                
                                 self?.presentingViewController?.dismiss(animated: true, completion: nil)
                                 
                                 if shouldOpenCommunity {

@@ -343,12 +343,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                         }
                     },
                     receiveValue: { thread in
-                        Storage.shared.writeAsync { db in
-                            try? MessageSender
-                                .syncConfiguration(db, forceSyncNow: true)
-                                .sinkUntilComplete()
-                        }
-                        
+                        ConfigurationSyncJob.enqueue()
                         self?.presentingViewController?.dismiss(animated: true, completion: nil)
                         SessionApp.presentConversation(for: thread.id, action: .compose, animated: false)
                     }
