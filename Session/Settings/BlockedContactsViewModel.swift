@@ -246,10 +246,7 @@ class BlockedContactsViewModel: SessionTableViewModel<NoNav, BlockedContactsView
                 Storage.shared.write { db in
                     _ = try Contact
                         .filter(ids: contactIds)
-                        .updateAll(db, Contact.Columns.isBlocked.set(to: false))
-                    
-                    // Force a config sync
-                    try MessageSender.syncConfiguration(db, forceSyncNow: true).sinkUntilComplete()
+                        .updateAllAndConfig(db, Contact.Columns.isBlocked.set(to: false))
                 }
                 
                 self?.selectedContactIdsSubject.send([])

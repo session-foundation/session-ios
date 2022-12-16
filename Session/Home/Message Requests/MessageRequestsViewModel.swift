@@ -195,10 +195,8 @@ public class MessageRequestsViewModel {
                                 removeGroupData: true
                             )
                             
-                            // Force a config sync
-                            try MessageSender
-                                .syncConfiguration(db, forceSyncNow: true)
-                                .sinkUntilComplete()
+                            // Trigger a config sync
+                            ConfigurationSyncJob.enqueue(db)
                     }
                 }
                 
@@ -227,28 +225,26 @@ public class MessageRequestsViewModel {
                 Storage.shared.writeAsync(
                     updates: { db in
                         // Update the contact
-                        _ = try Contact
+                        try Contact
                             .fetchOrCreate(db, id: threadId)
-                            .with(
-                                isApproved: false,
-                                isBlocked: true,
+                            .save(db)
+                        try Contact
+                            .filter(id: threadId)
+                            .updateAllAndConfig(
+                                db,
+                                Contact.Columns.isApproved.set(to: false),
+                                Contact.Columns.isBlocked.set(to: true),
                                 
                                 // Note: We set this to true so the current user will be able to send a
                                 // message to the person who originally sent them the message request in
                                 // the future if they unblock them
-                                didApproveMe: true
+                                Contact.Columns.didApproveMe.set(to: true)
                             )
-                            .saved(db)
                         
                         // Remove the thread
                         _ = try SessionThread
                             .filter(id: threadId)
                             .deleteAll(db)
-                        
-                        // Force a config sync
-                        try MessageSender
-                            .syncConfiguration(db, forceSyncNow: true)
-                            .sinkUntilComplete()
                     },
                     completion: { _, _ in completion?() }
                 )

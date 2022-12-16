@@ -8,6 +8,28 @@ import SignalCoreKit
 import SessionUtilitiesKit
 
 public struct ProfileManager {
+    public enum AvatarUpdate {
+        case none
+        case remove
+        case uploadImage(UIImage)
+        case uploadFilePath(String)
+        case updateTo(url: String, key: Data, fileName: String?)
+        
+        var image: UIImage? {
+            switch self {
+                case .uploadImage(let image): return image
+                default: return nil
+            }
+        }
+        
+        var filePath: String? {
+            switch self {
+                case .uploadFilePath(let filePath): return filePath
+                default: return nil
+            }
+        }
+    }
+    
     // The max bytes for a user's profile name, encoded in UTF8.
     // Before encrypting and submitting we NULL pad the name data to this length.
     private static let nameDataLength: UInt = 64
@@ -263,77 +285,85 @@ public struct ProfileManager {
     public static func updateLocal(
         queue: DispatchQueue,
         profileName: String,
-        image: UIImage?,
-        imageFilePath: String?,
-        success: ((Database, Profile) throws -> ())? = nil,
+        avatarUpdate: AvatarUpdate = .none,
+        success: ((Database) throws -> ())? = nil,
         failure: ((ProfileManagerError) -> ())? = nil
     ) {
-        prepareAndUploadAvatarImage(
-            queue: queue,
-            image: image,
-            imageFilePath: imageFilePath,
-            success: { fileInfo, newProfileKey in
-                // If we have no download url the we are removing the profile image
-                guard let (downloadUrl, fileName): (String, String) = fileInfo else {
-                    Storage.shared.writeAsync { db in
-                        let existingProfile: Profile = Profile.fetchOrCreateCurrentUser(db)
+        let userPublicKey: String = getUserHexEncodedPublicKey()
+        let isRemovingAvatar: Bool = {
+            switch avatarUpdate {
+                case .remove: return true
+                default: return false
+            }
+        }()
+        
+        switch avatarUpdate {
+            case .none, .remove, .updateTo:
+                Storage.shared.writeAsync { db in
+                    if isRemovingAvatar {
+                        let existingProfileUrl: String? = try Profile
+                            .filter(id: userPublicKey)
+                            .select(.profilePictureUrl)
+                            .asRequest(of: String.self)
+                            .fetchOne(db)
+                        let existingProfileFileName: String? = try Profile
+                            .filter(id: userPublicKey)
+                            .select(.profilePictureFileName)
+                            .asRequest(of: String.self)
+                            .fetchOne(db)
                         
-                        OWSLogger.verbose(existingProfile.profilePictureUrl != nil ?
+                        // Remove any cached avatar image value
+                        if let fileName: String = existingProfileFileName {
+                            profileAvatarCache.mutate { $0[fileName] = nil }
+                        }
+                        
+                        OWSLogger.verbose(existingProfileUrl != nil ?
                             "Updating local profile on service with cleared avatar." :
                             "Updating local profile on service with no avatar."
                         )
-                        
-                        let updatedProfile: Profile = try existingProfile
-                            .with(
-                                name: profileName,
-                                profilePictureUrl: nil,
-                                profilePictureFileName: nil,
-                                profileEncryptionKey: (existingProfile.profilePictureUrl != nil ?
-                                    .update(newProfileKey) :
-                                    .existing
-                                )
-                            )
-                            .saved(db)
-                        
-                        try SessionUtil.update(
-                            profile: updatedProfile,
-                            in: .global(variant: .userProfile)
-                        )
-                        
-                        SNLog("Successfully updated service with profile.")
-                        try success?(db, updatedProfile)
                     }
-                    return
-                }
-                
-                // Update user defaults
-                UserDefaults.standard[.lastProfilePictureUpload] = Date()
-                
-                // Update the profile
-                Storage.shared.writeAsync { db in
-                    let profile: Profile = try Profile
-                        .fetchOrCreateCurrentUser(db)
-                        .with(
-                            name: profileName,
-                            profilePictureUrl: .update(downloadUrl),
-                            profilePictureFileName: .update(fileName),
-                            profileEncryptionKey: .update(newProfileKey)
-                        )
-                        .saved(db)
+                    
+                    try ProfileManager.updateProfileIfNeeded(
+                        db,
+                        publicKey: userPublicKey,
+                        name: profileName,
+                        avatarUpdate: avatarUpdate,
+                        sentTimestamp: Date().timeIntervalSince1970
+                    )
                     
                     SNLog("Successfully updated service with profile.")
-                    try success?(db, profile)
+                    try success?(db)
                 }
-            },
-            failure: failure
-        )
+                
+            case .uploadFilePath, .uploadImage:
+                prepareAndUploadAvatarImage(
+                    queue: queue,
+                    image: avatarUpdate.image,
+                    imageFilePath: avatarUpdate.filePath,
+                    success: { downloadUrl, fileName, newProfileKey in
+                        Storage.shared.writeAsync { db in
+                            try ProfileManager.updateProfileIfNeeded(
+                                db,
+                                publicKey: userPublicKey,
+                                name: profileName,
+                                avatarUpdate: .updateTo(url: downloadUrl, key: newProfileKey, fileName: fileName),
+                                sentTimestamp: Date().timeIntervalSince1970
+                            )
+                                
+                            SNLog("Successfully updated service with profile.")
+                            try success?(db)
+                        }
+                    },
+                    failure: failure
+                )
+        }
     }
     
-    public static func prepareAndUploadAvatarImage(
+    private static func prepareAndUploadAvatarImage(
         queue: DispatchQueue,
         image: UIImage?,
         imageFilePath: String?,
-        success: @escaping ((downloadUrl: String, fileName: String)?, Data) -> (),
+        success: @escaping ((downloadUrl: String, fileName: String, profileKey: Data)) -> (),
         failure: ((ProfileManagerError) -> ())? = nil
     ) {
         queue.async {
@@ -348,7 +378,9 @@ public struct ProfileManager {
                 
                 avatarImageData = try {
                     guard var image: UIImage = image else {
-                        guard let imageFilePath: String = imageFilePath else { return nil }
+                        guard let imageFilePath: String = imageFilePath else {
+                            throw ProfileManagerError.invalidCall
+                        }
                         
                         let data: Data = try Data(contentsOf: URL(fileURLWithPath: imageFilePath))
                         
@@ -397,20 +429,8 @@ public struct ProfileManager {
             
             // If we have no image then we should succeed (database changes happen in the callback)
             guard let data: Data = avatarImageData else {
-                // Remove any cached avatar image value
-                let maybeExistingFileName: String? = Storage.shared
-                    .read { db in
-                        try Profile
-                            .select(.profilePictureFileName)
-                            .asRequest(of: String.self)
-                            .fetchOne(db)
-                    }
-                
-                if let fileName: String = maybeExistingFileName {
-                    profileAvatarCache.mutate { $0[fileName] = nil }
-                }
-                
-                return success(nil, newProfileKey)
+                failure?(ProfileManagerError.invalidCall)
+                return
             }
 
             // If we have a new avatar image, we must first:
@@ -469,9 +489,124 @@ public struct ProfileManager {
                         profileAvatarCache.mutate { $0[fileName] = data }
                         
                         SNLog("Successfully uploaded avatar image.")
-                        success((downloadUrl, fileName), newProfileKey)
+                        success((downloadUrl, fileName, newProfileKey))
                     }
                 )
+        }
+    }
+    
+    public static func updateProfileIfNeeded(
+        _ db: Database,
+        publicKey: String,
+        name: String?,
+        avatarUpdate: AvatarUpdate,
+        sentTimestamp: TimeInterval,
+        calledFromConfigHandling: Bool = false,
+        dependencies: Dependencies = Dependencies()
+    ) throws {
+        let isCurrentUser = (publicKey == getUserHexEncodedPublicKey(db, dependencies: dependencies))
+        let profile: Profile = Profile.fetchOrCreate(id: publicKey)
+        var profileChanges: [ColumnAssignment] = []
+        
+        // Name
+        if let name: String = name, !name.isEmpty, name != profile.name {
+            let shouldUpdate: Bool
+            if isCurrentUser {
+                shouldUpdate = given(UserDefaults.standard[.lastDisplayNameUpdate]) {
+                    sentTimestamp > $0.timeIntervalSince1970
+                }
+                .defaulting(to: true)
+            }
+            else {
+                shouldUpdate = true
+            }
+            
+            if shouldUpdate {
+                if isCurrentUser {
+                    UserDefaults.standard[.lastDisplayNameUpdate] = Date(timeIntervalSince1970: sentTimestamp)
+                }
+                
+                profileChanges.append(Profile.Columns.name.set(to: name))
+            }
+        }
+        
+        // Profile picture & profile key
+        var avatarNeedsDownload: Bool = false
+        let shouldUpdateAvatar: Bool = {
+            guard isCurrentUser else { return true }
+            
+            return given(UserDefaults.standard[.lastProfilePictureUpdate]) {
+                sentTimestamp > $0.timeIntervalSince1970
+            }
+            .defaulting(to: true)
+        }()
+        
+        if shouldUpdateAvatar {
+            switch avatarUpdate {
+                case .none: break
+                case .uploadImage, .uploadFilePath: preconditionFailure("Invalid options for this function")
+                    
+                case .remove:
+                    if isCurrentUser {
+                        UserDefaults.standard[.lastProfilePictureUpdate] = Date(timeIntervalSince1970: sentTimestamp)
+                    }
+                    
+                    profileChanges.append(Profile.Columns.profilePictureUrl.set(to: nil))
+                    profileChanges.append(Profile.Columns.profileEncryptionKey.set(to: nil))
+                    
+                    // Profile filename (this isn't synchronized between devices so can be immediately saved)
+                    _ = try? Profile
+                        .filter(id: publicKey)
+                        .updateAll(db, Profile.Columns.profilePictureFileName.set(to: nil))
+                    
+                case .updateTo(let url, let key, let fileName):
+                    if
+                        (
+                            url != profile.profilePictureUrl ||
+                            key != profile.profileEncryptionKey
+                        ) &&
+                        key.count == ProfileManager.avatarAES256KeyByteLength &&
+                        key != profile.profileEncryptionKey
+                    {
+                        profileChanges.append(Profile.Columns.profilePictureUrl.set(to: url))
+                        profileChanges.append(Profile.Columns.profileEncryptionKey.set(to: key))
+                        avatarNeedsDownload = true
+                    }
+                    
+                    // Profile filename (this isn't synchronized between devices so can be immediately saved)
+                    if let fileName: String = fileName {
+                        _ = try? Profile
+                            .filter(id: publicKey)
+                            .updateAll(db, Profile.Columns.profilePictureFileName.set(to: fileName))
+                    }
+            }
+        }
+        
+        // Persist any changes
+        if !profileChanges.isEmpty {
+            try profile.save(db)
+            
+            if calledFromConfigHandling {
+                try Profile
+                    .filter(id: publicKey)
+                    .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                        db,
+                        profileChanges
+                    )
+            }
+            else {
+                try Profile
+                    .filter(id: publicKey)
+                    .updateAllAndConfig(db, profileChanges)
+            }
+        }
+        
+        // Download the profile picture if needed
+        guard avatarNeedsDownload else { return }
+        
+        db.afterNextTransaction { db in
+            // Need to refetch to ensure the db changes have occurred
+            ProfileManager.downloadAvatar(for: Profile.fetchOrCreate(id: publicKey))
         }
     }
 }

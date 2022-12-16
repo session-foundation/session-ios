@@ -183,7 +183,7 @@ public extension Message {
                     default: return false
                 }
                 
-            case is ConfigurationMessage: return true
+            case is ConfigurationMessage, is SharedConfigMessage: return true
             case is UnsendRequest: return true
             default: return false
         }

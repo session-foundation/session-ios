@@ -9,7 +9,7 @@ public enum SendReadReceiptsJob: JobExecutor {
     public static let maxFailureCount: Int = -1
     public static let requiresThreadId: Bool = false
     public static let requiresInteractionId: Bool = false
-    private static let minRunFrequency: TimeInterval = 3
+    private static let maxRunFrequency: TimeInterval = 3
     
     public static func run(
         _ job: Job,
@@ -56,9 +56,9 @@ public enum SendReadReceiptsJob: JobExecutor {
                         case .finished:
                             // When we complete the 'SendReadReceiptsJob' we want to immediately schedule
                             // another one for the same thread but with a 'nextRunTimestamp' set to the
-                            // 'minRunFrequency' value to throttle the read receipt requests
+                            // 'maxRunFrequency' value to throttle the read receipt requests
                             var shouldFinishCurrentJob: Bool = false
-                            let nextRunTimestamp: TimeInterval = (Date().timeIntervalSince1970 + minRunFrequency)
+                            let nextRunTimestamp: TimeInterval = (Date().timeIntervalSince1970 + maxRunFrequency)
                             
                             let updatedJob: Job? = Storage.shared.write { db in
                                 // If another 'sendReadReceipts' job was scheduled then update that one
@@ -163,7 +163,7 @@ public extension SendReadReceiptsJob {
             behaviour: .recurring,
             threadId: threadId,
             details: Details(
-                destination: .contact(publicKey: threadId, namespace: .default),
+                destination: .contact(publicKey: threadId),
                 timestampMsValues: timestampMsValues.asSet()
             )
         )

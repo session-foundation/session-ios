@@ -1837,7 +1837,7 @@ extension ConversationVC:
                                 message: unsendRequest,
                                 threadId: threadId,
                                 interactionId: nil,
-                                to: .contact(publicKey: userPublicKey, namespace: .default)
+                                to: .contact(publicKey: userPublicKey)
                             )
                     }
                     return
@@ -1856,7 +1856,7 @@ extension ConversationVC:
                                 message: unsendRequest,
                                 threadId: threadId,
                                 interactionId: nil,
-                                to: .contact(publicKey: userPublicKey, namespace: .default)
+                                to: .contact(publicKey: userPublicKey)
                             )
                     }
                     self?.showInputAccessoryView()
@@ -2303,8 +2303,8 @@ extension ConversationVC {
             return
         }
         
-        Storage.shared.writeAsync(
-            updates: { db in
+        Storage.shared
+            .writePublisher { db in
                 // If we aren't creating a new thread (ie. sending a message request) then send a
                 // messageRequestResponse back to the sender (this allows the sender to know that
                 // they have been approved and can now use this contact in closed groups)
@@ -2321,21 +2321,22 @@ extension ConversationVC {
                 }
                 
                 // Default 'didApproveMe' to true for the person approving the message request
-                try approvalData.contact
-                    .with(
-                        isApproved: true,
-                        didApproveMe: .update(approvalData.contact.didApproveMe || !isNewThread)
+                try approvalData.contact.save(db)
+                try Contact
+                    .filter(id: approvalData.contact.id)
+                    .updateAllAndConfig(
+                        db,
+                        Contact.Columns.isApproved.set(to: true),
+                        Contact.Columns.didApproveMe
+                            .set(to: approvalData.contact.didApproveMe || !isNewThread)
                     )
-                    .save(db)
-                
-                
-                // Update the config with the approved contact
-                try MessageSender
-                    .syncConfiguration(db, forceSyncNow: true)
-                    .sinkUntilComplete()
-            },
-            completion: { _, _ in updateNavigationBackStack() }
-        )
+            }
+            .sinkUntilComplete(
+                receiveCompletion: { _ in
+                    // Update the UI
+                    updateNavigationBackStack()
+                }
+            )
     }
 
     @objc func acceptMessageRequest() {

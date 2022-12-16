@@ -7,6 +7,11 @@ import SessionUtilitiesKit
 
 extension MessageReceiver {
     internal static func handleConfigurationMessage(_ db: Database, message: ConfigurationMessage) throws {
+        guard !Features.useSharedUtilForUserConfig else {
+            // TODO: Show warning prompt for X days
+            return
+        }
+        
         let userPublicKey = getUserHexEncodedPublicKey(db)
         
         guard message.sender == userPublicKey else { return }
@@ -21,22 +26,41 @@ extension MessageReceiver {
             .defaulting(to: Date(timeIntervalSince1970: 0))
             .timeIntervalSince1970
         
-        // Profile (also force-approve the current user in case the account got into a weird state or
-        // restored directly from a migration)
-        try MessageReceiver.updateProfileIfNeeded(
+        // Handle user profile changes
+        try ProfileManager.updateProfileIfNeeded(
             db,
             publicKey: userPublicKey,
             name: message.displayName,
-            profilePictureUrl: message.profilePictureUrl,
-            profileKey: message.profileKey,
+            avatarUpdate: {
+                guard
+                    let profilePictureUrl: String = message.profilePictureUrl,
+                    let profileKey: Data = message.profileKey
+                else { return .none }
+                
+                return .updateTo(
+                    url: profilePictureUrl,
+                    key: profileKey,
+                    fileName: nil
+                )
+            }(),
             sentTimestamp: messageSentTimestamp
         )
-        try Contact(id: userPublicKey)
-            .with(
-                isApproved: true,
-                didApproveMe: true
-            )
-            .save(db)
+        
+        // Create a contact for the current user if needed (also force-approve the current user
+        // in case the account got into a weird state or restored directly from a migration)
+        let userContact: Contact = Contact.fetchOrCreate(db, id: userPublicKey)
+        
+        if !userContact.isTrusted || !userContact.isApproved || !userContact.didApproveMe {
+            try userContact.save(db)
+            try Contact
+                .filter(id: userPublicKey)
+                .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                    db,
+                    Contact.Columns.isTrusted.set(to: true),
+                    Contact.Columns.isApproved.set(to: true),
+                    Contact.Columns.didApproveMe.set(to: true)
+                )
+        }
         
         if isInitialSync || messageSentTimestamp > lastConfigTimestamp {
             if isInitialSync {
@@ -53,11 +77,10 @@ extension MessageReceiver {
                 // If the contact is a blinded contact then only add them if they haven't already been
                 // unblinded
                 if SessionId.Prefix(from: sessionId) == .blinded {
-                    let hasUnblindedContact: Bool = (try? BlindedIdLookup
+                    let hasUnblindedContact: Bool = BlindedIdLookup
                         .filter(BlindedIdLookup.Columns.blindedId == sessionId)
                         .filter(BlindedIdLookup.Columns.sessionId != nil)
-                        .isNotEmpty(db))
-                        .defaulting(to: false)
+                        .isNotEmpty(db)
                     
                     if hasUnblindedContact {
                         return
@@ -74,13 +97,21 @@ extension MessageReceiver {
                     profile.profilePictureUrl != contactInfo.profilePictureUrl ||
                     profile.profileEncryptionKey != contactInfo.profileKey
                 {
-                    try profile
-                        .with(
-                            name: contactInfo.displayName,
-                            profilePictureUrl: .updateIf(contactInfo.profilePictureUrl),
-                            profileEncryptionKey: .updateIf(contactInfo.profileKey)
+                    try profile.save(db)
+                    try Profile
+                        .filter(id: sessionId)
+                        .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                            db,
+                            [
+                                Profile.Columns.name.set(to: contactInfo.displayName),
+                                (contactInfo.profilePictureUrl == nil ? nil :
+                                    Profile.Columns.profilePictureUrl.set(to: contactInfo.profilePictureUrl)
+                                ),
+                                (contactInfo.profileKey == nil ? nil :
+                                    Profile.Columns.profileEncryptionKey.set(to: contactInfo.profileKey)
+                                )
+                            ].compactMap { $0 }
                         )
-                        .save(db)
                 }
                 
                 /// We only update these values if the proto actually has values for them (this is to prevent an
@@ -94,22 +125,23 @@ extension MessageReceiver {
                     (contactInfo.hasIsBlocked && (contact.isBlocked != contactInfo.isBlocked)) ||
                     (contactInfo.hasDidApproveMe && (contact.didApproveMe != contactInfo.didApproveMe))
                 {
-                    try contact
-                        .with(
-                            isApproved: (contactInfo.hasIsApproved && contactInfo.isApproved ?
-                                true :
-                                .existing
-                            ),
-                            isBlocked: (contactInfo.hasIsBlocked ?
-                                .update(contactInfo.isBlocked) :
-                                .existing
-                            ),
-                            didApproveMe: (contactInfo.hasDidApproveMe && contactInfo.didApproveMe ?
-                                true :
-                                .existing
-                            )
+                    try contact.save(db)
+                    try Contact
+                        .filter(id: sessionId)
+                        .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                            db,
+                            [
+                                (!contactInfo.hasIsApproved || !contactInfo.isApproved ? nil :
+                                    Contact.Columns.isApproved.set(to: true)
+                                ),
+                                (!contactInfo.hasIsBlocked ? nil :
+                                    Contact.Columns.isBlocked.set(to: contactInfo.isBlocked)
+                                ),
+                                (!contactInfo.hasDidApproveMe || !contactInfo.didApproveMe ? nil :
+                                    Contact.Columns.didApproveMe.set(to: contactInfo.didApproveMe)
+                                )
+                            ].compactMap { $0 }
                         )
-                        .save(db)
                 }
                 
                 // If the contact is blocked

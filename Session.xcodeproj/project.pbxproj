@@ -502,7 +502,6 @@
 		FD09797527FAB64300936362 /* ProfileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD09797327FAB3E200936362 /* ProfileManager.swift */; };
 		FD09797727FAB7A600936362 /* Data+Image.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD09797627FAB7A600936362 /* Data+Image.swift */; };
 		FD09797927FAB7E800936362 /* ImageFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD09797827FAB7E800936362 /* ImageFormat.swift */; };
-		FD09797B27FBB25900936362 /* Updatable.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD09797A27FBB25900936362 /* Updatable.swift */; };
 		FD09797D27FBDB2000936362 /* Notification+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD09797C27FBDB2000936362 /* Notification+Utilities.swift */; };
 		FD09798127FCFEE800936362 /* SessionThread.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD09798027FCFEE800936362 /* SessionThread.swift */; };
 		FD09798327FD1A1500936362 /* ClosedGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD09798227FD1A1500936362 /* ClosedGroup.swift */; };
@@ -591,6 +590,9 @@
 		FD2AAAF128ED57B500A49611 /* SynchronousStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */; };
 		FD2AAAF228ED57B500A49611 /* SynchronousStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */; };
 		FD2B4AFB29429D1000AB4848 /* ConfigContactsSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2B4AFA29429D1000AB4848 /* ConfigContactsSpec.swift */; };
+		FD2B4AFD294688D000AB4848 /* SessionUtil+Contacts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2B4AFC294688D000AB4848 /* SessionUtil+Contacts.swift */; };
+		FD2B4AFF2946C93200AB4848 /* ConfigurationSyncJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2B4AFE2946C93200AB4848 /* ConfigurationSyncJob.swift */; };
+		FD2B4B042949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2B4B032949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift */; };
 		FD37E9C328A1C6F3003AE748 /* ThemeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD37E9C228A1C6F3003AE748 /* ThemeManager.swift */; };
 		FD37E9C628A1D4EC003AE748 /* Theme+ClassicDark.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD37E9C528A1D4EC003AE748 /* Theme+ClassicDark.swift */; };
 		FD37E9C828A1D73F003AE748 /* Theme+Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD37E9C728A1D73F003AE748 /* Theme+Colors.swift */; };
@@ -1656,7 +1658,6 @@
 		FD09797327FAB3E200936362 /* ProfileManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileManager.swift; sourceTree = "<group>"; };
 		FD09797627FAB7A600936362 /* Data+Image.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Data+Image.swift"; sourceTree = "<group>"; };
 		FD09797827FAB7E800936362 /* ImageFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageFormat.swift; sourceTree = "<group>"; };
-		FD09797A27FBB25900936362 /* Updatable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Updatable.swift; sourceTree = "<group>"; };
 		FD09797C27FBDB2000936362 /* Notification+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Notification+Utilities.swift"; sourceTree = "<group>"; };
 		FD09798027FCFEE800936362 /* SessionThread.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionThread.swift; sourceTree = "<group>"; };
 		FD09798227FD1A1500936362 /* ClosedGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClosedGroup.swift; sourceTree = "<group>"; };
@@ -1707,6 +1708,9 @@
 		FD28A4F527EAD44C00FF65E7 /* Storage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Storage.swift; sourceTree = "<group>"; };
 		FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SynchronousStorage.swift; sourceTree = "<group>"; };
 		FD2B4AFA29429D1000AB4848 /* ConfigContactsSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ConfigContactsSpec.swift; sourceTree = "<group>"; };
+		FD2B4AFC294688D000AB4848 /* SessionUtil+Contacts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionUtil+Contacts.swift"; sourceTree = "<group>"; };
+		FD2B4AFE2946C93200AB4848 /* ConfigurationSyncJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationSyncJob.swift; sourceTree = "<group>"; };
+		FD2B4B032949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "QueryInterfaceRequest+Utilities.swift"; sourceTree = "<group>"; };
 		FD37E9C228A1C6F3003AE748 /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeManager.swift; sourceTree = "<group>"; };
 		FD37E9C528A1D4EC003AE748 /* Theme+ClassicDark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Theme+ClassicDark.swift"; sourceTree = "<group>"; };
 		FD37E9C728A1D73F003AE748 /* Theme+Colors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Theme+Colors.swift"; sourceTree = "<group>"; };
@@ -2550,7 +2554,6 @@
 				C33FDB22255A580900E217F9 /* OWSMediaUtils.swift */,
 				C33FDB1C255A580900E217F9 /* UIImage+OWS.h */,
 				C33FDB81255A581100E217F9 /* UIImage+OWS.m */,
-				FD09797A27FBB25900936362 /* Updatable.swift */,
 			);
 			path = Media;
 			sourceTree = "<group>";
@@ -3719,6 +3722,14 @@
 			path = Utilities;
 			sourceTree = "<group>";
 		};
+		FD2B4B022949886900AB4848 /* Database */ = {
+			isa = PBXGroup;
+			children = (
+				FD2B4B032949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift */,
+			);
+			path = Database;
+			sourceTree = "<group>";
+		};
 		FD37E9C428A1C701003AE748 /* Themes */ = {
 			isa = PBXGroup;
 			children = (
@@ -4005,6 +4016,7 @@
 		FD8ECF7529340F4800C0D1BB /* LibSessionUtil */ = {
 			isa = PBXGroup;
 			children = (
+				FD2B4B022949886900AB4848 /* Database */,
 				FD8ECF8E29381FB200C0D1BB /* Config Handling */,
 				FD8ECF7829340F7100C0D1BB /* libsession-util.xcframework */,
 				FD8ECF882935AB7200C0D1BB /* SessionUtilError.swift */,
@@ -4026,6 +4038,7 @@
 			isa = PBXGroup;
 			children = (
 				FD8ECF8F29381FC200C0D1BB /* SessionUtil+UserProfile.swift */,
+				FD2B4AFC294688D000AB4848 /* SessionUtil+Contacts.swift */,
 			);
 			path = "Config Handling";
 			sourceTree = "<group>";
@@ -4199,6 +4212,7 @@
 				FDF0B74E28079E5E004C14C5 /* SendReadReceiptsJob.swift */,
 				C352A348255781F400338F3E /* AttachmentDownloadJob.swift */,
 				C352A35A2557824E00338F3E /* AttachmentUploadJob.swift */,
+				FD2B4AFE2946C93200AB4848 /* ConfigurationSyncJob.swift */,
 			);
 			path = Types;
 			sourceTree = "<group>";
@@ -5468,7 +5482,6 @@
 				FD17D7EA27F6A1C600122BE0 /* SUKLegacy.swift in Sources */,
 				FDA8EB10280F8238002B68E5 /* Codable+Utilities.swift in Sources */,
 				C352A36D2557858E00338F3E /* NSTimer+Proxying.m in Sources */,
-				FD09797B27FBB25900936362 /* Updatable.swift in Sources */,
 				7B7CB192271508AD0079FF93 /* CallRingTonePlayer.swift in Sources */,
 				C3C2ABD22553C6C900C340D1 /* Data+SecureRandom.swift in Sources */,
 				FD848B8B283DC509000E298B /* PagedDatabaseObserver.swift in Sources */,
@@ -5623,7 +5636,9 @@
 				FDC4386527B4DE7600C60D73 /* RoomPollInfo.swift in Sources */,
 				FD245C6B2850667400B966DD /* VisibleMessage+Profile.swift in Sources */,
 				FD37EA0F28AB3330003AE748 /* _006_FixHiddenModAdminSupport.swift in Sources */,
+				FD2B4AFD294688D000AB4848 /* SessionUtil+Contacts.swift in Sources */,
 				7B81682328A4C1210069F315 /* UpdateTypes.swift in Sources */,
+				FD2B4AFF2946C93200AB4848 /* ConfigurationSyncJob.swift in Sources */,
 				FDC438A627BB113A00C60D73 /* UserUnbanRequest.swift in Sources */,
 				FD5C72FB284F0EA10029977D /* MessageReceiver+DataExtractionNotification.swift in Sources */,
 				FDC4386727B4E10E00C60D73 /* Capabilities.swift in Sources */,
@@ -5728,6 +5743,7 @@
 				C32C5DBF256DD743003C73A2 /* ClosedGroupPoller.swift in Sources */,
 				C352A35B2557824E00338F3E /* AttachmentUploadJob.swift in Sources */,
 				FD5C7305284F0FF30029977D /* MessageReceiver+VisibleMessages.swift in Sources */,
+				FD2B4B042949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift in Sources */,
 				FD09797027FA6FF300936362 /* Profile.swift in Sources */,
 				FD245C56285065EA00B966DD /* SNProto.swift in Sources */,
 				FD09798B27FD1CFE00936362 /* Capability.swift in Sources */,

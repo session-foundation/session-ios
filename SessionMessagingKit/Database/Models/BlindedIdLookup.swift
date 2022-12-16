@@ -130,7 +130,7 @@ public extension BlindedIdLookup {
             if isCheckingForOutbox && !contact.isApproved {
                 try Contact
                     .filter(id: contact.id)
-                    .updateAll(db, Contact.Columns.isApproved.set(to: true))
+                    .updateAllAndConfig(db, Contact.Columns.isApproved.set(to: true))
             }
             
             break

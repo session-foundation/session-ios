@@ -143,7 +143,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             self.handleSuccessForIncomingCall(db, for: callMessage)
                             
                         case let sharedConfigMessage as SharedConfigMessage:
-                            try SessionUtil.handleConfigMessages(db, messages: [sharedConfigMessage])
+                            try SessionUtil.handleConfigMessages(
+                                db,
+                                messages: [sharedConfigMessage],
+                                publicKey: (processedMessage.threadId ?? "")
+                            )
                             
                         default: break
                     }
@@ -214,9 +218,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         
         // If we need a config sync then trigger it now
         if needsConfigSync {
-            Storage.shared.write { db in
-                try MessageSender.syncConfiguration(db, forceSyncNow: true).sinkUntilComplete()
-            }
+            ConfigurationSyncJob.enqueue()
         }
 
         checkIsAppReady()

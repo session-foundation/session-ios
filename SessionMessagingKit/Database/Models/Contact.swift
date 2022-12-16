@@ -4,6 +4,8 @@ import Foundation
 import GRDB
 import SessionUtilitiesKit
 
+/// This type is duplicate in both the database and within the SessionUtil config so should only ever have it's data changes via the
+/// `updateAllAndConfig` function. Updating it elsewhere could result in issues with syncing data between devices
 public struct Contact: Codable, Identifiable, Equatable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "contact" }
     internal static let threadForeignKey = ForeignKey([Columns.id], to: [SessionThread.Columns.id])
@@ -63,29 +65,6 @@ public struct Contact: Codable, Identifiable, Equatable, FetchableRecord, Persis
         self.isBlocked = isBlocked
         self.didApproveMe = didApproveMe
         self.hasBeenBlocked = (isBlocked || hasBeenBlocked)
-    }
-}
-
-// MARK: - Convenience
-
-public extension Contact {
-    func with(
-        isTrusted: Updatable<Bool> = .existing,
-        isApproved: Updatable<Bool> = .existing,
-        isBlocked: Updatable<Bool> = .existing,
-        didApproveMe: Updatable<Bool> = .existing
-    ) -> Contact {
-        return Contact(
-            id: id,
-            isTrusted: (
-                (isTrusted ?? self.isTrusted) ||
-                self.id == getUserHexEncodedPublicKey() // Always trust ourselves
-            ),
-            isApproved: (isApproved ?? self.isApproved),
-            isBlocked: (isBlocked ?? self.isBlocked),
-            didApproveMe: (didApproveMe ?? self.didApproveMe),
-            hasBeenBlocked: ((isBlocked ?? self.isBlocked) || self.hasBeenBlocked)
-        )
     }
 }
 

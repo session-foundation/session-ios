@@ -103,7 +103,7 @@ extension MessageSender {
                             // the 'ClosedGroup' object we created
                             sentTimestampMs: UInt64(floor(formationTimestamp * 1000))
                         ),
-                        to: .contact(publicKey: memberId, namespace: .default),
+                        to: .contact(publicKey: memberId),
                         interactionId: nil
                     )
                 }
@@ -197,7 +197,8 @@ extension MessageSender {
                                 ClosedGroupControlMessage.KeyPairWrapper(
                                     publicKey: memberPublicKey,
                                     encryptedKeyPair: try MessageSender.encryptWithSessionProtocol(
-                                        plaintext,
+                                        db,
+                                        plaintext: plaintext,
                                         for: memberPublicKey
                                     )
                                 )
@@ -645,7 +646,11 @@ extension MessageSender {
             let plaintext = try proto.serializedData()
             let thread: SessionThread = try SessionThread
                 .fetchOrCreate(db, id: publicKey, variant: .contact)
-            let ciphertext = try MessageSender.encryptWithSessionProtocol(plaintext, for: publicKey)
+            let ciphertext = try MessageSender.encryptWithSessionProtocol(
+                db,
+                plaintext: plaintext,
+                for: publicKey
+            )
             
             SNLog("Sending latest encryption key pair to: \(publicKey).")
             try MessageSender.send(

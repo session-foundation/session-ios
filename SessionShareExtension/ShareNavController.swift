@@ -92,9 +92,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         
         // If we need a config sync then trigger it now
         if needsConfigSync {
-            Storage.shared.write { db in
-                try? MessageSender.syncConfiguration(db, forceSyncNow: true).sinkUntilComplete()
-            }
+            ConfigurationSyncJob.enqueue()
         }
 
         checkIsAppReady()

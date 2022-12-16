@@ -652,17 +652,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     // MARK: - Config Sync
     
     func syncConfigurationIfNeeded() {
+        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
+        guard !Features.useSharedUtilForUserConfig else { return }
+        
         let lastSync: Date = (UserDefaults.standard[.lastConfigurationSync] ?? .distantPast)
         
         guard Date().timeIntervalSince(lastSync) > (7 * 24 * 60 * 60) else { return } // Sync every 2 days
         
         Storage.shared
-            .writePublisherFlatMap { db in try MessageSender.syncConfiguration(db, forceSyncNow: false) }
-            .sinkUntilComplete(
-                receiveCompletion: { result in
+            .writeAsync(
+                updates: { db in ConfigurationSyncJob.enqueue(db) },
+                completion: { _, result in
                     switch result {
                         case .failure: break
-                        case .finished:
+                        case .success:
                             // Only update the 'lastConfigurationSync' timestamp if we have done the
                             // first sync (Don't want a new device config sync to override config
                             // syncs from other devices)

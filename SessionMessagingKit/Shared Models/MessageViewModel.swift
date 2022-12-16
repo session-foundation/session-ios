@@ -146,8 +146,8 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     // MARK: - Mutation
     
     public func with(
-        attachments: Updatable<[Attachment]> = .existing,
-        reactionInfo: Updatable<[ReactionInfo]> = .existing
+        attachments: [Attachment]? = nil,
+        reactionInfo: [ReactionInfo]? = nil
     ) -> MessageViewModel {
         return MessageViewModel(
             threadId: self.threadId,
@@ -845,11 +845,9 @@ public extension MessageViewModel.AttachmentInteractionInfo {
                     
                     updatedPagedDataCache = updatedPagedDataCache.upserting(
                         dataToUpdate.with(
-                            attachments: .update(
-                                attachments
-                                    .sorted()
-                                    .map { $0.attachment }
-                            )
+                            attachments: attachments
+                                .sorted()
+                                .map { $0.attachment }
                         )
                     )
                 }
@@ -927,7 +925,7 @@ public extension MessageViewModel.ReactionInfo {
                     else { return }
                     
                     updatedPagedDataCache = updatedPagedDataCache.upserting(
-                        dataToUpdate.with(reactionInfo: .update(reactionInfo.sorted()))
+                        dataToUpdate.with(reactionInfo: reactionInfo.sorted())
                     )
                     pagedRowIdsWithNoReactions.remove(interactionRowId)
                 }

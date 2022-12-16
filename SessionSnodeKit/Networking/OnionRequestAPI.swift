@@ -209,7 +209,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
     }
     
     /// Returns a `Path` to be used for building an onion request. Builds new paths as needed.
-    private static func getPath(excluding snode: Snode?) -> AnyPublisher<[Snode], Error> {
+    internal static func getPath(excluding snode: Snode?) -> AnyPublisher<[Snode], Error> {
         guard pathSize >= 1 else { preconditionFailure("Can't build path of size zero.") }
         
         let paths: [[Snode]] = OnionRequestAPI.paths

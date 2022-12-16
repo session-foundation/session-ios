@@ -49,11 +49,8 @@ public enum UpdateProfilePictureJob: JobExecutor {
         ProfileManager.updateLocal(
             queue: queue,
             profileName: profile.name,
-            image: nil,
-            imageFilePath: profileFilePath,
-            success: { db, _ in
-                try MessageSender.syncConfiguration(db, forceSyncNow: true).sinkUntilComplete()
-                
+            avatarUpdate: (profileFilePath.map { .uploadFilePath($0) } ?? .none),
+            success: { db in
                 // Need to call the 'success' closure asynchronously on the queue to prevent a reentrancy
                 // issue as it will write to the database and this closure is already called within
                 // another database write

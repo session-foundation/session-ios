@@ -481,11 +481,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         Storage.shared.writeAsync { db in
             try Contact
                 .filter(id: threadId)
-                .updateAll(db, Contact.Columns.isBlocked.set(to: false))
-        
-            try MessageSender
-                .syncConfiguration(db, forceSyncNow: true)
-                .sinkUntilComplete()
+                .updateAllAndConfig(db, Contact.Columns.isBlocked.set(to: false))
         }
     }
     

@@ -149,8 +149,7 @@ final class NukeDataModal: Modal {
     
     private func clearDeviceOnly() {
         ModalActivityIndicatorViewController.present(fromViewController: self, canCancel: false) { [weak self] _ in
-            Storage.shared
-                .writePublisherFlatMap { db in try MessageSender.syncConfiguration(db, forceSyncNow: true) }
+            ConfigurationSyncJob.run()
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveCompletion: { _ in

@@ -66,13 +66,17 @@ public class Poller {
     // MARK: - Private API
     
     internal func startIfNeeded(for publicKey: String) {
-        guard isPolling.wrappedValue[publicKey] != true else { return }
-        
-        // Might be a race condition that the setUpPolling finishes too soon,
-        // and the timer is not created, if we mark the group as is polling
-        // after setUpPolling. So the poller may not work, thus misses messages
-        isPolling.mutate { $0[publicKey] = true }
-        setUpPolling(for: publicKey)
+        // Run on the 'pollerQueue' to ensure any 'Atomic' access doesn't block the main thread
+        // on startup
+        Threading.pollerQueue.async { [weak self] in
+            guard self?.isPolling.wrappedValue[publicKey] != true else { return }
+            
+            // Might be a race condition that the setUpPolling finishes too soon,
+            // and the timer is not created, if we mark the group as is polling
+            // after setUpPolling. So the poller may not work, thus misses messages
+            self?.isPolling.mutate { $0[publicKey] = true }
+            self?.setUpPolling(for: publicKey)
+        }
     }
     
     /// We want to initially trigger a poll against the target service node and then run the recursive polling,

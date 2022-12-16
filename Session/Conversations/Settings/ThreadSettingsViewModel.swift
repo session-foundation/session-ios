@@ -152,7 +152,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                dependencies.storage.writeAsync { db in
                                    try Profile
                                        .filter(id: threadId)
-                                       .updateAll(
+                                       .updateAllAndConfig(
                                            db,
                                            Profile.Columns.nickname
                                                .set(to: (updatedNickname.isEmpty ? nil : editedDisplayName))
@@ -749,15 +749,13 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
         dependencies.storage.writeAsync(
             updates: { db in
                 try Contact
-                    .fetchOrCreate(db, id: threadId)
-                    .with(isBlocked: .updateTo(isBlocked))
-                    .save(db)
+                    .filter(id: threadId)
+                    .updateAllAndConfig(
+                        db,
+                        Contact.Columns.isBlocked.set(to: isBlocked)
+                    )
             },
             completion: { [weak self] db, _ in
-                try MessageSender
-                    .syncConfiguration(db, forceSyncNow: true)
-                    .sinkUntilComplete()
-                
                 DispatchQueue.main.async {
                     let modal: ConfirmationModal = ConfirmationModal(
                         info: ConfirmationModal.Info(

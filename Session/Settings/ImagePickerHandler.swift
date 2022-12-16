@@ -4,16 +4,19 @@ import Foundation
 
 class ImagePickerHandler: NSObject, UIImagePickerControllerDelegate & UINavigationControllerDelegate {
     private let onTransition: (UIViewController, TransitionType) -> Void
-    private let onImagePicked: (UIImage?, String?) -> Void
+    private let onImagePicked: (UIImage) -> Void
+    private let onImageFilePicked: (String) -> Void
     
     // MARK: - Initialization
     
     init(
         onTransition: @escaping (UIViewController, TransitionType) -> Void,
-        onImagePicked: @escaping (UIImage?, String?) -> Void
+        onImagePicked: @escaping (UIImage) -> Void,
+        onImageFilePicked: @escaping (String) -> Void
     ) {
         self.onTransition = onTransition
         self.onImagePicked = onImagePicked
+        self.onImageFilePicked = onImageFilePicked
     }
     
     // MARK: - UIImagePickerControllerDelegate
@@ -44,14 +47,14 @@ class ImagePickerHandler: NSObject, UIImagePickerControllerDelegate & UINavigati
                 let viewController: CropScaleImageViewController = CropScaleImageViewController(
                     srcImage: rawAvatar,
                     successCompletion: { resultImage in
-                        self?.onImagePicked(resultImage, nil)
+                        self?.onImagePicked(resultImage)
                     }
                 )
                 self?.onTransition(viewController, .present)
                 return
             }
             
-            self?.onImagePicked(nil, imageUrl.path)
+            self?.onImageFilePicked(imageUrl.path)
         }
     }
 }

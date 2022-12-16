@@ -68,36 +68,40 @@ public final class OpenGroupManager {
     // MARK: - Polling
 
     public func startPolling(using dependencies: OGMDependencies = OGMDependencies()) {
-        guard !dependencies.cache.isPolling else { return }
+        // Run on the 'workQueue' to ensure any 'Atomic' access doesn't block the main thread
+        // on startup
+        OpenGroupAPI.workQueue.async {
+            guard !dependencies.cache.isPolling else { return }
         
-        let servers: Set<String> = dependencies.storage
-            .read { db in
-                // The default room promise creates an OpenGroup with an empty `roomToken` value,
-                // we don't want to start a poller for this as the user hasn't actually joined a room
-                try OpenGroup
-                    .select(.server)
-                    .filter(OpenGroup.Columns.isActive == true)
-                    .filter(OpenGroup.Columns.roomToken != "")
-                    .distinct()
-                    .asRequest(of: String.self)
-                    .fetchSet(db)
-            }
-            .defaulting(to: [])
-        
-        dependencies.mutableCache.mutate { cache in
-            cache.isPolling = true
-            cache.pollers = servers
-                .reduce(into: [:]) { result, server in
-                    result[server.lowercased()]?.stop() // Should never occur
-                    result[server.lowercased()] = OpenGroupAPI.Poller(for: server.lowercased())
+            let servers: Set<String> = dependencies.storage
+                .read { db in
+                    // The default room promise creates an OpenGroup with an empty `roomToken` value,
+                    // we don't want to start a poller for this as the user hasn't actually joined a room
+                    try OpenGroup
+                        .select(.server)
+                        .filter(OpenGroup.Columns.isActive == true)
+                        .filter(OpenGroup.Columns.roomToken != "")
+                        .distinct()
+                        .asRequest(of: String.self)
+                        .fetchSet(db)
                 }
+                .defaulting(to: [])
             
-            // Note: We loop separately here because when the cache is mocked-out for tests it
-            // doesn't actually store the value (meaning the pollers won't be started), but if
-            // we do it in the 'reduce' function, the 'reduce' result will actually store the
-            // poller value resulting in a bunch of OpenGroup pollers running in a way that can't
-            // be stopped during unit tests
-            cache.pollers.forEach { _, poller in poller.startIfNeeded(using: dependencies) }
+            dependencies.mutableCache.mutate { cache in
+                cache.isPolling = true
+                cache.pollers = servers
+                    .reduce(into: [:]) { result, server in
+                        result[server.lowercased()]?.stop() // Should never occur
+                        result[server.lowercased()] = OpenGroupAPI.Poller(for: server.lowercased())
+                    }
+                
+                // Note: We loop separately here because when the cache is mocked-out for tests it
+                // doesn't actually store the value (meaning the pollers won't be started), but if
+                // we do it in the 'reduce' function, the 'reduce' result will actually store the
+                // poller value resulting in a bunch of OpenGroup pollers running in a way that can't
+                // be stopped during unit tests
+                cache.pollers.forEach { _, poller in poller.startIfNeeded(using: dependencies) }
+            }
         }
     }
 

@@ -33,7 +33,11 @@ public enum MessageReceiveJob: JobExecutor {
         
         Storage.shared.write { db in
             // Send any SharedConfigMessages to the SessionUtil to handle it
-            try SessionUtil.handleConfigMessages(db, messages: sharedConfigMessages)
+            try SessionUtil.handleConfigMessages(
+                db,
+                messages: sharedConfigMessages,
+                publicKey: (job.threadId ?? "")
+            )
             
             // Handle the remaining messages
             var remainingMessagesToProcess: [Details.MessageInfo] = []

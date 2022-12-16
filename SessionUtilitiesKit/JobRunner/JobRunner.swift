@@ -65,7 +65,8 @@ public final class JobRunner {
                 jobVariants.remove(.attachmentUpload),
                 jobVariants.remove(.messageSend),
                 jobVariants.remove(.notifyPushServer),
-                jobVariants.remove(.sendReadReceipts)
+                jobVariants.remove(.sendReadReceipts),
+                jobVariants.remove(.configurationSync)
             ].compactMap { $0 }
         )
         let messageReceiveQueue: JobQueue = JobQueue(

@@ -206,8 +206,8 @@ public final class MessageSender {
         message.sender = userPublicKey
         message.recipient = {
             switch destination {
-                case .contact(let publicKey, _): return publicKey
-                case .closedGroup(let groupPublicKey, _): return groupPublicKey
+                case .contact(let publicKey): return publicKey
+                case .closedGroup(let groupPublicKey): return groupPublicKey
                 case .openGroup, .openGroupInbox: preconditionFailure()
             }
         }()
@@ -283,16 +283,17 @@ public final class MessageSender {
         let ciphertext: Data
         do {
             switch destination {
-                case .contact(let publicKey, _):
-                    ciphertext = try encryptWithSessionProtocol(plaintext, for: publicKey)
+                case .contact(let publicKey):
+                    ciphertext = try encryptWithSessionProtocol(db, plaintext: plaintext, for: publicKey)
                     
-                case .closedGroup(let groupPublicKey, _):
+                case .closedGroup(let groupPublicKey):
                     guard let encryptionKeyPair: ClosedGroupKeyPair = try? ClosedGroupKeyPair.fetchLatestKeyPair(db, threadId: groupPublicKey) else {
                         throw MessageSenderError.noKeyPair
                     }
                     
                     ciphertext = try encryptWithSessionProtocol(
-                        plaintext,
+                        db,
+                        plaintext: plaintext,
                         for: SessionId(.standard, publicKey: encryptionKeyPair.publicKey.bytes).hexString
                     )
                     
@@ -319,7 +320,7 @@ public final class MessageSender {
                 kind = .sessionMessage
                 senderPublicKey = ""
                 
-            case .closedGroup(let groupPublicKey, _):
+            case .closedGroup(let groupPublicKey):
                 kind = .closedGroupMessage
                 senderPublicKey = groupPublicKey
             
@@ -553,7 +554,8 @@ public final class MessageSender {
         
         do {
             ciphertext = try encryptWithSessionBlindingProtocol(
-                plaintext,
+                db,
+                plaintext: plaintext,
                 for: recipientBlindedPublicKey,
                 openGroupPublicKey: openGroupPublicKey,
                 using: dependencies
@@ -636,107 +638,86 @@ public final class MessageSender {
         
         let isMainAppActive: Bool = (UserDefaults.sharedLokiProject?[.isMainAppActive])
             .defaulting(to: false)
-        var isSuccess = false
-        var errorCount = 0
         
         return SnodeAPI
             .sendMessage(
                 snodeMessage,
-                in: destination.namespace
+                in: {
+                    switch destination {
+                        case .closedGroup: return .legacyClosedGroup
+                        default: return .`default`
+                    }
+                }()
             )
             .subscribe(on: DispatchQueue.global(qos: .default))
-            .flatMap { result, totalCount -> AnyPublisher<Bool, Error> in
-                switch result {
-                    case .success(let response):
-                        // Don't emit if we've already succeeded
-                        guard !isSuccess else {
-                            return Just(false)
-                                .setFailureType(to: Error.self)
-                                .eraseToAnyPublisher()
-                        }
-                        isSuccess = true
+            .flatMap { response -> AnyPublisher<Bool, Error> in
+                let updatedMessage: Message = message
+                updatedMessage.serverHash = response.1.hash
 
-                        let updatedMessage: Message = message
-                        updatedMessage.serverHash = response.1.hash
-
-                        let job: Job? = Job(
-                            variant: .notifyPushServer,
-                            behaviour: .runOnce,
-                            details: NotifyPushServerJob.Details(message: snodeMessage)
-                        )
-                        let shouldNotify: Bool = {
-                            switch updatedMessage {
-                                case is VisibleMessage, is UnsendRequest: return !isSyncMessage
-                                case let callMessage as CallMessage:
-                                    switch callMessage.kind {
-                                        case .preOffer: return true
-                                        default: return false
-                                    }
-
+                let job: Job? = Job(
+                    variant: .notifyPushServer,
+                    behaviour: .runOnce,
+                    details: NotifyPushServerJob.Details(message: snodeMessage)
+                )
+                let shouldNotify: Bool = {
+                    switch updatedMessage {
+                        case is VisibleMessage, is UnsendRequest: return !isSyncMessage
+                        case let callMessage as CallMessage:
+                            switch callMessage.kind {
+                                case .preOffer: return true
                                 default: return false
                             }
-                        }()
 
-                        return dependencies.storage
-                            .writePublisher { db -> Void in
-                                try MessageSender.handleSuccessfulMessageSend(
-                                    db,
-                                    message: updatedMessage,
-                                    to: destination,
-                                    interactionId: data.interactionId,
-                                    isSyncMessage: isSyncMessage,
-                                    using: dependencies
-                                )
+                        default: return false
+                    }
+                }()
 
-                                guard shouldNotify && isMainAppActive else { return () }
+                return dependencies.storage
+                    .writePublisher { db -> Void in
+                        try MessageSender.handleSuccessfulMessageSend(
+                            db,
+                            message: updatedMessage,
+                            to: destination,
+                            interactionId: data.interactionId,
+                            isSyncMessage: isSyncMessage,
+                            using: dependencies
+                        )
 
-                                JobRunner.add(db, job: job)
-                                return ()
-                            }
-                            .flatMap { _ -> AnyPublisher<Bool, Error> in
-                                guard shouldNotify && !isMainAppActive else {
-                                    return Just(true)
-                                        .setFailureType(to: Error.self)
-                                        .eraseToAnyPublisher()
-                                }
-                                guard let job: Job = job else {
-                                    return Just(true)
-                                        .setFailureType(to: Error.self)
-                                        .eraseToAnyPublisher()
-                                }
+                        guard shouldNotify else { return () }
 
-                                return Future<Bool, Error> { resolver in
-                                    NotifyPushServerJob.run(
-                                        job,
-                                        queue: DispatchQueue.global(qos: .default),
-                                        success: { _, _ in resolver(Result.success(true)) },
-                                        failure: { _, _, _ in
-                                            // Always fulfill because the notify PN server job isn't critical.
-                                            resolver(Result.success(true))
-                                        },
-                                        deferred: { _ in
-                                            // Always fulfill because the notify PN server job isn't critical.
-                                            resolver(Result.success(true))
-                                        }
-                                    )
-                                }
+                        JobRunner.add(db, job: job)
+                        return ()
+                    }
+                    .flatMap { _ -> AnyPublisher<Bool, Error> in
+                        guard shouldNotify && !isMainAppActive else {
+                            return Just(true)
+                                .setFailureType(to: Error.self)
                                 .eraseToAnyPublisher()
-                            }
-                            .eraseToAnyPublisher()
-
-                    case .failure(let error):
-                        errorCount += 1
-
-                        // Only process the error if all promises failed
-                        guard errorCount == totalCount else {
-                            return Just(false)
+                        }
+                        guard let job: Job = job else {
+                            return Just(true)
                                 .setFailureType(to: Error.self)
                                 .eraseToAnyPublisher()
                         }
 
-                        return Fail(error: error)
-                            .eraseToAnyPublisher()
-                }
+                        return Future<Bool, Error> { resolver in
+                            NotifyPushServerJob.run(
+                                job,
+                                queue: DispatchQueue.global(qos: .default),
+                                success: { _, _ in resolver(Result.success(true)) },
+                                failure: { _, _, _ in
+                                    // Always fulfill because the notify PN server job isn't critical.
+                                    resolver(Result.success(true))
+                                },
+                                deferred: { _ in
+                                    // Always fulfill because the notify PN server job isn't critical.
+                                    resolver(Result.success(true))
+                                }
+                            )
+                        }
+                        .eraseToAnyPublisher()
+                    }
+                    .eraseToAnyPublisher()
             }
             .filter { $0 }
             .handleEvents(
@@ -960,8 +941,8 @@ public final class MessageSender {
         try? ControlMessageProcessRecord(
             threadId: {
                 switch destination {
-                    case .contact(let publicKey, _): return publicKey
-                    case .closedGroup(let groupPublicKey, _): return groupPublicKey
+                    case .contact(let publicKey): return publicKey
+                    case .closedGroup(let groupPublicKey): return groupPublicKey
                     case .openGroup(let roomToken, let server, _, _, _):
                         return OpenGroup.idFor(roomToken: roomToken, server: server)
                     
@@ -977,7 +958,7 @@ public final class MessageSender {
         // • the destination was a contact
         // • we didn't sync it already
         let userPublicKey = getUserHexEncodedPublicKey(db)
-        if case .contact(let publicKey, let namespace) = destination, !isSyncMessage {
+        if case .contact(let publicKey) = destination, !isSyncMessage {
             if let message = message as? VisibleMessage { message.syncTarget = publicKey }
             if let message = message as? ExpirationTimerUpdate { message.syncTarget = publicKey }
             
@@ -986,7 +967,7 @@ public final class MessageSender {
                     data: try prepareSendToSnodeDestination(
                         db,
                         message: message,
-                        to: .contact(publicKey: userPublicKey, namespace: namespace),
+                        to: .contact(publicKey: userPublicKey),
                         interactionId: interactionId,
                         userPublicKey: userPublicKey,
                         messageSendTimestamp: Int64(floor(Date().timeIntervalSince1970 * 1000)),

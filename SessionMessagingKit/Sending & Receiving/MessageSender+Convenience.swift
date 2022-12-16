@@ -85,8 +85,8 @@ extension MessageSender {
         
         let threadId: String = {
             switch destination {
-                case .contact(let publicKey, _): return publicKey
-                case .closedGroup(let groupPublicKey, _): return groupPublicKey
+                case .contact(let publicKey): return publicKey
+                case .closedGroup(let groupPublicKey): return groupPublicKey
                 case .openGroup(let roomToken, let server, _, _, _):
                     return OpenGroup.idFor(roomToken: roomToken, server: server)
                     
@@ -149,89 +149,6 @@ extension MessageSender {
                 let fileIds: [String] = results.compactMap { result -> String? in result }
                 
                 return preparedSendData.with(fileIds: fileIds)
-            }
-            .eraseToAnyPublisher()
-    }
-    
-    /// This method requires the `db` value to be passed in because if it's called within a `writeAsync` completion block
-    /// it will throw a "re-entrant" fatal error when attempting to write again
-    public static func syncConfiguration(
-        _ db: Database,
-        forceSyncNow: Bool = true
-    ) throws -> AnyPublisher<Void, Error> {
-        // If we don't have a userKeyPair yet then there is no need to sync the configuration
-        // as the user doesn't exist yet (this will get triggered on the first launch of a
-        // fresh install due to the migrations getting run)
-        guard
-            Identity.userExists(db),
-            let ed25519SecretKey: [UInt8] = Identity.fetchUserEd25519KeyPair(db)?.secretKey
-        else {
-            return Fail(error: StorageError.generic)
-                .eraseToAnyPublisher()
-        }
-        
-        let publicKey: String = getUserHexEncodedPublicKey(db)
-        let legacyDestination: Message.Destination = Message.Destination.contact(
-            publicKey: publicKey,
-            namespace: .default
-        )
-        let legacyConfigurationMessage = try ConfigurationMessage.getCurrent(db)
-        let userConfigMessageChanges: [SharedConfigMessage] = SessionUtil.getChanges(
-            ed25519SecretKey: ed25519SecretKey
-        )
-        let destination: Message.Destination = Message.Destination.contact(
-            publicKey: publicKey,
-            namespace: .userProfileConfig
-        )
-        
-        guard forceSyncNow else {
-            JobRunner.add(
-                db,
-                job: Job(
-                    variant: .messageSend,
-                    threadId: publicKey,
-                    details: MessageSendJob.Details(
-                        destination: legacyDestination,
-                        message: legacyConfigurationMessage
-                    )
-                )
-            )
-            
-            return Just(())
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
-        }
-        
-        let sendData: PreparedSendData = try MessageSender.preparedSendData(
-            db,
-            message: legacyConfigurationMessage,
-            to: legacyDestination,
-            interactionId: nil
-        )
-        
-        let userConfigSendData: [PreparedSendData] = try userConfigMessageChanges
-            .map { message in
-                try MessageSender.preparedSendData(
-                    db,
-                    message: message,
-                    to: destination,
-                    interactionId: nil
-                )
-            }
-        
-        /// We want to avoid blocking the db write thread so we dispatch the API call to a different thread
-        return Just(())
-            .setFailureType(to: Error.self)
-            .receive(on: DispatchQueue.global(qos: .userInitiated))
-            .flatMap { _ -> AnyPublisher<Void, Error> in
-                Publishers
-                    .MergeMany(
-                        ([sendData] + userConfigSendData)
-                            .map { MessageSender.sendImmediate(preparedSendData: $0) }
-                    )
-                    .collect()
-                    .map { _ in () }
-                    .eraseToAnyPublisher()
             }
             .eraseToAnyPublisher()
     }

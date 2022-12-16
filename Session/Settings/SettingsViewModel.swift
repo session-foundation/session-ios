@@ -70,13 +70,20 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     private let userSessionId: String
     private lazy var imagePickerHandler: ImagePickerHandler = ImagePickerHandler(
         onTransition: { [weak self] in self?.transitionToScreen($0, transitionType: $1) },
-        onImagePicked: { [weak self] resultImage, resultImagePath in
+        onImagePicked: { [weak self] resultImage in
+            guard let oldDisplayName: String = self?.oldDisplayName else { return }
+            
             self?.updateProfile(
-                name: (self?.oldDisplayName ?? ""),
-                profilePicture: resultImage,
-                profilePictureFilePath: resultImagePath,
-                isUpdatingDisplayName: false,
-                isUpdatingProfilePicture: true
+                name: oldDisplayName,
+                avatarUpdate: .uploadImage(resultImage)
+            )
+        },
+        onImageFilePicked: { [weak self] resultImagePath in
+            guard let oldDisplayName: String = self?.oldDisplayName else { return }
+            
+            self?.updateProfile(
+                name: oldDisplayName,
+                avatarUpdate: .uploadFilePath(resultImagePath)
             )
         }
     )
@@ -204,10 +211,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                                 self?.oldDisplayName = updatedNickname
                                 self?.updateProfile(
                                     name: updatedNickname,
-                                    profilePicture: nil,
-                                    profilePictureFilePath: nil,
-                                    isUpdatingDisplayName: true,
-                                    isUpdatingProfilePicture: false
+                                    avatarUpdate: .none
                                 )
                             }
                        ]
@@ -512,17 +516,14 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     }
     
     private func removeProfileImage() {
+        let oldDisplayName: String = self.oldDisplayName
+        
         let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self] modalActivityIndicator in
             ProfileManager.updateLocal(
                 queue: DispatchQueue.global(qos: .default),
-                profileName: (self?.oldDisplayName ?? ""),
-                image: nil,
-                imageFilePath: nil,
-                success: { db, updatedProfile in
-                    UserDefaults.standard[.lastProfilePictureUpdate] = Date()
-                    
-                    try MessageSender.syncConfiguration(db, forceSyncNow: true).sinkUntilComplete()
-
+                profileName: oldDisplayName,
+                avatarUpdate: .remove,
+                success: { db in
                     // Wait for the database transaction to complete before updating the UI
                     db.afterNextTransaction { _ in
                         DispatchQueue.main.async {
@@ -554,33 +555,14 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     
     fileprivate func updateProfile(
         name: String,
-        profilePicture: UIImage?,
-        profilePictureFilePath: String?,
-        isUpdatingDisplayName: Bool,
-        isUpdatingProfilePicture: Bool
+        avatarUpdate: ProfileManager.AvatarUpdate
     ) {
-        let imageFilePath: String? = (
-            profilePictureFilePath ??
-            ProfileManager.profileAvatarFilepath(id: self.userSessionId)
-        )
-        
         let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self] modalActivityIndicator in
             ProfileManager.updateLocal(
                 queue: DispatchQueue.global(qos: .default),
                 profileName: name,
-                image: profilePicture,
-                imageFilePath: imageFilePath,
-                success: { db, updatedProfile in
-                    if isUpdatingDisplayName {
-                        UserDefaults.standard[.lastDisplayNameUpdate] = Date()
-                    }
-
-                    if isUpdatingProfilePicture {
-                        UserDefaults.standard[.lastProfilePictureUpdate] = Date()
-                    }
-
-                    try MessageSender.syncConfiguration(db, forceSyncNow: true).sinkUntilComplete()
-                    
+                avatarUpdate: avatarUpdate,
+                success: { db in
                     // Wait for the database transaction to complete before updating the UI
                     db.afterNextTransaction { _ in
                         DispatchQueue.main.async {

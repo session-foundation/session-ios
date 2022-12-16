@@ -108,15 +108,18 @@ internal extension AnyPublisher where Output == HTTP.BatchResponse, Failure == E
     func map<E: EndpointType>(
         requests: [OpenGroupAPI.BatchRequest.Info],
         toHashMapFor endpointType: E.Type
-    ) -> AnyPublisher<[E: (ResponseInfoType, Codable?)], Error> {
+    ) -> AnyPublisher<(info: ResponseInfoType, data: [E: Codable]), Error> {
         return self
-            .map { result in
-                result.enumerated()
-                    .reduce(into: [:]) { prev, next in
-                        guard let endpoint: E = requests[next.offset].endpoint as? E else { return }
-                        
-                        prev[endpoint] = next.element
-                    }
+            .map { result -> (info: ResponseInfoType, data: [E: Codable]) in
+                (
+                    info: result.info,
+                    data: result.responses.enumerated()
+                        .reduce(into: [:]) { prev, next in
+                            guard let endpoint: E = requests[next.offset].endpoint as? E else { return }
+                            
+                            prev[endpoint] = next.element
+                        }
+                )
             }
             .eraseToAnyPublisher()
     }

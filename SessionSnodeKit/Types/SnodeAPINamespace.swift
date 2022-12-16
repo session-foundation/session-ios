@@ -3,10 +3,12 @@
 import Foundation
 
 public extension SnodeAPI {
-    enum Namespace: Int, Codable {
+    enum Namespace: Int, Codable, Hashable {
         case `default` = 0
         
-        case userProfileConfig = 2
+        case configUserProfile = 2
+        case configContacts = 3
+        case configClosedGroupInfo = 11
         
         case legacyClosedGroup = -10
         

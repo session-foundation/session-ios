@@ -4,16 +4,20 @@ import Foundation
 import Combine
 
 public extension HTTP {
-    // MARK: - Convenience Aliases
-    
-    typealias BatchResponse = [(ResponseInfoType, Codable?)]
     typealias BatchResponseTypes = [Codable.Type]
+    
+    // MARK: - BatchResponse
+    
+    struct BatchResponse {
+        public let info: ResponseInfoType
+        public let responses: [Codable]
+    }
     
     // MARK: - BatchSubResponse<T>
     
-    struct BatchSubResponse<T: Codable>: Codable {
+    struct BatchSubResponse<T: Codable>: BatchSubResponseType {
         /// The numeric http response code (e.g. 200 for success)
-        public let code: Int32
+        public let code: Int
         
         /// Any headers returned by the request
         public let headers: [String: String]
@@ -25,7 +29,7 @@ public extension HTTP {
         public let failedToParseBody: Bool
         
         public init(
-            code: Int32,
+            code: Int,
             headers: [String: String] = [:],
             body: T? = nil,
             failedToParseBody: Bool = false
@@ -38,13 +42,23 @@ public extension HTTP {
     }
 }
 
+public protocol BatchSubResponseType: Codable {
+    var code: Int { get }
+    var headers: [String: String] { get }
+    var failedToParseBody: Bool { get }
+}
+
+extension BatchSubResponseType {
+    public var responseInfo: ResponseInfoType { HTTP.ResponseInfo(code: code, headers: headers) }
+}
+
 public extension HTTP.BatchSubResponse {
     init(from decoder: Decoder) throws {
         let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
         let body: T? = try? container.decode(T.self, forKey: .body)
         
         self = HTTP.BatchSubResponse(
-            code: try container.decode(Int32.self, forKey: .code),
+            code: try container.decode(Int.self, forKey: .code),
             headers: ((try? container.decode([String: String].self, forKey: .headers)) ?? [:]),
             body: body,
             failedToParseBody: (
@@ -111,13 +125,15 @@ public extension AnyPublisher where Output == (ResponseInfoType, Data?), Failure
                 
                 do {
                     // TODO: Remove the 'Swift.'
-                    let result: HTTP.BatchResponse = try Swift.zip(dataArray, types)
-                        .map { data, type in try type.decoded(from: data, using: dependencies) }
-                        .map { data in (responseInfo, data) }
-
-                    return Just(result)
-                        .setFailureType(to: Error.self)
-                        .eraseToAnyPublisher()
+                    return Just(
+                        HTTP.BatchResponse(
+                            info: responseInfo,
+                            responses: try Swift.zip(dataArray, types)
+                                .map { data, type in try type.decoded(from: data, using: dependencies) }
+                        )
+                    )
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
                 }
                 catch {
                     return Fail(error: HTTPError.parsingFailed)

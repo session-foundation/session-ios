@@ -8,7 +8,7 @@ import SessionSnodeKit
 import SessionUtilitiesKit
 
 public final class CurrentUserPoller: Poller {
-    public static var namespaces: [SnodeAPI.Namespace] = [.default, .userProfileConfig]
+    public static var namespaces: [SnodeAPI.Namespace] = [.default, .configUserProfile, .configContacts]
     
     private var targetSnode: Atomic<Snode?> = Atomic(nil)
     private var usedSnodes: Atomic<Set<Snode>> = Atomic([])

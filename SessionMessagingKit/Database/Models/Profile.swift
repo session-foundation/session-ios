@@ -5,6 +5,8 @@ import GRDB
 import DifferenceKit
 import SessionUtilitiesKit
 
+/// This type is duplicate in both the database and within the SessionUtil config so should only ever have it's data changes via the
+/// `updateAllAndConfig` function. Updating it elsewhere could result in issues with syncing data between devices
 public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible, CustomStringConvertible, Differentiable {
     public static var databaseTableName: String { "profile" }
     internal static let interactionForeignKey = ForeignKey([Columns.id], to: [Interaction.Columns.authorId])
@@ -157,26 +159,6 @@ public extension Profile {
             SNLog("Couldn't construct profile proto from: \(self).")
             return nil
         }
-    }
-}
-
-// MARK: - Mutation
-
-public extension Profile {
-    func with(
-        name: String? = nil,
-        profilePictureUrl: Updatable<String?> = .existing,
-        profilePictureFileName: Updatable<String?> = .existing,
-        profileEncryptionKey: Updatable<Data?> = .existing
-    ) -> Profile {
-        return Profile(
-            id: id,
-            name: (name ?? self.name),
-            nickname: self.nickname,
-            profilePictureUrl: (profilePictureUrl ?? self.profilePictureUrl),
-            profilePictureFileName: (profilePictureFileName ?? self.profilePictureFileName),
-            profileEncryptionKey: (profileEncryptionKey ?? self.profileEncryptionKey)
-        )
     }
 }
 

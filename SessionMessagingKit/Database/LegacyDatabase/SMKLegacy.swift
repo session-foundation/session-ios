@@ -1639,10 +1639,10 @@ public enum SMKLegacy {
             self.message = message
             
             if let destString: String = _MessageSendJob.process(rawDestination, type: "contact") {
-                destination = .contact(publicKey: destString, namespace: .default)
+                destination = .contact(publicKey: destString)
             }
             else if let destString: String = _MessageSendJob.process(rawDestination, type: "closedGroup") {
-                destination = .closedGroup(groupPublicKey: destString, namespace: .legacyClosedGroup)
+                destination = .closedGroup(groupPublicKey: destString)
             }
             else if _MessageSendJob.process(rawDestination, type: "openGroup") != nil {
                 // We can no longer support sending messages to legacy open groups

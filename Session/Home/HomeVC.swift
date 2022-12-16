@@ -278,9 +278,11 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
         if Identity.userExists(), let appDelegate: AppDelegate = UIApplication.shared.delegate as? AppDelegate {
             appDelegate.startPollersIfNeeded()
             
-            // Do this only if we created a new Session ID, or if we already received the initial configuration message
-            if UserDefaults.standard[.hasSyncedInitialConfiguration] {
-                appDelegate.syncConfigurationIfNeeded()
+            if !Features.useSharedUtilForUserConfig {
+                // Do this only if we created a new Session ID, or if we already received the initial configuration message
+                if UserDefaults.standard[.hasSyncedInitialConfiguration] {
+                    appDelegate.syncConfigurationIfNeeded()
+                }
             }
         }
         
@@ -709,22 +711,21 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                     
                     // Delay the change to give the cell "unswipe" animation some time to complete
                     DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
-                        Storage.shared.writeAsync { db in
-                            try Contact
-                                .filter(id: threadViewModel.threadId)
-                                .updateAll(
-                                    db,
-                                    Contact.Columns.isBlocked.set(
-                                        to: (threadViewModel.threadIsBlocked == false ?
-                                            true:
-                                            false
+                        Storage.shared
+                            .writePublisher { db in
+                                try Contact
+                                    .filter(id: threadViewModel.threadId)
+                                    .updateAllAndConfig(
+                                        db,
+                                        Contact.Columns.isBlocked.set(
+                                            to: (threadViewModel.threadIsBlocked == false ?
+                                                true:
+                                                false
+                                            )
                                         )
                                     )
-                                )
-                            
-                            try MessageSender.syncConfiguration(db, forceSyncNow: true)
-                                .sinkUntilComplete()
-                        }
+                            }
+                            .sinkUntilComplete()
                     }
                 }
                 block.themeBackgroundColor = .conversationButton_swipeSecondary

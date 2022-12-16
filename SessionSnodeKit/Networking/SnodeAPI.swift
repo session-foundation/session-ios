@@ -7,6 +7,8 @@ import GRDB
 import SessionUtilitiesKit
 
 public final class SnodeAPI {
+    public typealias TargetedMessage = (message: SnodeMessage, namespace: Namespace)
+    
     internal static let sodium: Atomic<Sodium> = Atomic(Sodium())
     
     private static var hasLoadedSnodePool: Atomic<Bool> = Atomic(false)
@@ -47,7 +49,6 @@ public final class SnodeAPI {
         ]
     }()
     private static let snodeFailureThreshold: Int = 3
-    private static let targetSwarmSnodeCount: Int = 2
     private static let minSnodePoolCount: Int = 12
     
     private static func offsetTimestampMsNow() -> UInt64 {
@@ -269,13 +270,6 @@ public final class SnodeAPI {
             .eraseToAnyPublisher()
     }
     
-    public static func getTargetSnodes(for publicKey: String) -> AnyPublisher<[Snode], Error> {
-        // shuffled() uses the system's default random generator, which is cryptographically secure
-        return getSwarm(for: publicKey)
-            .map { Array($0.shuffled().prefix(targetSwarmSnodeCount)) }
-            .eraseToAnyPublisher()
-    }
-    
     public static func getSwarm(
         for publicKey: String,
         using dependencies: SSKDependencies = SSKDependencies()
@@ -422,19 +416,21 @@ public final class SnodeAPI {
                     )
                     .decoded(as: responseTypes, using: dependencies)
                     .map { batchResponse -> [SnodeAPI.Namespace: (info: ResponseInfoType, data: (messages: [SnodeReceivedMessage], lastHash: String?)?)] in
-                        zip(namespaces, batchResponse)
+                        zip(namespaces, batchResponse.responses)
                             .reduce(into: [:]) { result, next in
-                                guard let messageResponse: GetMessagesResponse = (next.1.1 as? HTTP.BatchSubResponse<GetMessagesResponse>)?.body else {
+                                guard
+                                    let subResponse: HTTP.BatchSubResponse<GetMessagesResponse> = (next.1 as?  HTTP.BatchSubResponse<GetMessagesResponse>),
+                                    let messageResponse: GetMessagesResponse = subResponse.body
+                                else {
                                     return
                                 }
 
                                 let namespace: SnodeAPI.Namespace = next.0
-                                let requestInfo: ResponseInfoType = next.1.0
-
+                                
                                 result[namespace] = (
-                                    requestInfo,
-                                    (
-                                        messageResponse.messages
+                                    info: subResponse.responseInfo,
+                                    data: (
+                                        messages: messageResponse.messages
                                             .compactMap { rawMessage -> SnodeReceivedMessage? in
                                                 SnodeReceivedMessage(
                                                     snode: snode,
@@ -443,7 +439,7 @@ public final class SnodeAPI {
                                                     rawMessage: rawMessage
                                                 )
                                             },
-                                        namespaceLastHash[namespace]
+                                        lastHash: namespaceLastHash[namespace]
                                     )
                                 )
                             }
@@ -453,13 +449,13 @@ public final class SnodeAPI {
             .eraseToAnyPublisher()
     }
     
-    // MARK: Store
+    // MARK: - Store
     
     public static func sendMessage(
         _ message: SnodeMessage,
         in namespace: Namespace,
         using dependencies: SSKDependencies = SSKDependencies()
-    ) -> AnyPublisher<(Result<(ResponseInfoType, SendMessagesResponse), Error>, Int), Error> {
+    ) -> AnyPublisher<(ResponseInfoType, SendMessagesResponse), Error> {
         let publicKey: String = (Features.useTestnet ?
             message.recipient.removingIdPrefixIfNeeded() :
             message.recipient
@@ -511,27 +507,125 @@ public final class SnodeAPI {
                 .eraseToAnyPublisher()
         }
         
-        return getTargetSnodes(for: publicKey)
+        return getSwarm(for: publicKey)
             .subscribe(on: Threading.workQueue)
-            .flatMap { targetSnodes -> AnyPublisher<(Result<(ResponseInfoType, SendMessagesResponse), Error>, Int), Error> in
-                Publishers
-                    .MergeMany(
-                        targetSnodes
-                            .map { targetSnode -> AnyPublisher<Result<(ResponseInfoType, SendMessagesResponse), Error>, Never> in
-                                return sendMessage(to: targetSnode)
-                                    .retry(maxRetryCount)
-                                    .eraseToAnyPublisher()
-                                    .asResult()
-                            }
-                    )
-                    .map { result in (result, targetSnodes.count) }
-                    .setFailureType(to: Error.self)
+            .flatMap { swarm -> AnyPublisher<(ResponseInfoType, SendMessagesResponse), Error> in
+                guard let snode: Snode = swarm.randomElement() else {
+                    return Fail(error: SnodeAPIError.generic)
+                        .eraseToAnyPublisher()
+                }
+                
+                return sendMessage(to: snode)
+                    .retry(maxRetryCount)
                     .eraseToAnyPublisher()
             }
+            .retry(maxRetryCount)
             .eraseToAnyPublisher()
     }
     
-    // MARK: Edit
+    public static func sendConfigMessages(
+        _ targetedMessages: [TargetedMessage],
+        oldHashes: [String],
+        using dependencies: SSKDependencies = SSKDependencies()
+    ) -> AnyPublisher<HTTP.BatchResponse, Error> {
+        guard
+            !targetedMessages.isEmpty,
+            let recipient: String = targetedMessages.first?.message.recipient
+        else {
+            return Fail(error: SnodeAPIError.generic)
+                .eraseToAnyPublisher()
+        }
+        // TODO: Need to get either the closed group subKey or the userEd25519 key for auth
+        guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair() else {
+            return Fail(error: SnodeAPIError.noKeyPair)
+                .eraseToAnyPublisher()
+        }
+        
+        let userX25519PublicKey: String = getUserHexEncodedPublicKey()
+        let publicKey: String = (Features.useTestnet ?
+            recipient.removingIdPrefixIfNeeded() :
+            recipient
+        )
+        var requests: [SnodeAPI.BatchRequest.Info] = targetedMessages
+            .map { message, namespace in
+                // Check if this namespace requires authentication
+                guard namespace.requiresReadAuthentication else {
+                    return BatchRequest.Info(
+                        request: SnodeRequest(
+                            endpoint: .sendMessage,
+                            body: LegacySendMessagesRequest(
+                                message: message,
+                                namespace: namespace
+                            )
+                        ),
+                        responseType: SendMessagesResponse.self
+                    )
+                }
+                
+                return BatchRequest.Info(
+                    request: SnodeRequest(
+                        endpoint: .sendMessage,
+                        body: SendMessageRequest(
+                            message: message,
+                            namespace: namespace,
+                            subkey: nil,    // TODO: Need to get this
+                            timestampMs: SnodeAPI.offsetTimestampMsNow(),
+                            ed25519PublicKey: userED25519KeyPair.publicKey,
+                            ed25519SecretKey: userED25519KeyPair.secretKey
+                        )
+                    ),
+                    responseType: SendMessagesResponse.self
+                )
+            }
+        
+        // If we had any previous config messages then we should delete them
+        if !oldHashes.isEmpty {
+            requests.append(
+                BatchRequest.Info(
+                    request: SnodeRequest(
+                        endpoint: .deleteMessages,
+                        body: DeleteMessagesRequest(
+                            messageHashes: oldHashes,
+                            requireSuccessfulDeletion: false,
+                            pubkey: userX25519PublicKey,
+                            ed25519PublicKey: userED25519KeyPair.publicKey,
+                            ed25519SecretKey: userED25519KeyPair.secretKey
+                        )
+                    ),
+                    responseType: DeleteMessagesResponse.self
+                )
+            )
+        }
+        
+        let responseTypes = requests.map { $0.responseType }
+        
+        return getSwarm(for: publicKey)
+            .subscribe(on: Threading.workQueue)
+            .flatMap { swarm -> AnyPublisher<HTTP.BatchResponse, Error> in
+                guard let snode: Snode = swarm.randomElement() else {
+                    return Fail(error: SnodeAPIError.generic)
+                        .eraseToAnyPublisher()
+                }
+                
+                return SnodeAPI
+                    .send(
+                        request: SnodeRequest(
+                            endpoint: .sequence,
+                            body: BatchRequest(requests: requests)
+                        ),
+                        to: snode,
+                        associatedWith: publicKey,
+                        using: dependencies
+                    )
+                    .eraseToAnyPublisher()
+                    .decoded(as: responseTypes, using: dependencies)
+                    .eraseToAnyPublisher()
+            }
+            .retry(maxRetryCount)
+            .eraseToAnyPublisher()
+    }
+    
+    // MARK: - Edit
     
     public static func updateExpiry(
         publicKey: String,

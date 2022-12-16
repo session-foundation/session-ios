@@ -43,7 +43,8 @@ public enum SNMessagingKit { // Just to make the external API nice
         JobRunner.add(executor: MessageReceiveJob.self, for: .messageReceive)
         JobRunner.add(executor: NotifyPushServerJob.self, for: .notifyPushServer)
         JobRunner.add(executor: SendReadReceiptsJob.self, for: .sendReadReceipts)
-        JobRunner.add(executor: AttachmentDownloadJob.self, for: .attachmentDownload)
         JobRunner.add(executor: AttachmentUploadJob.self, for: .attachmentUpload)
+        JobRunner.add(executor: AttachmentDownloadJob.self, for: .attachmentDownload)
+        JobRunner.add(executor: ConfigurationSyncJob.self, for: .configurationSync)
     }
 }

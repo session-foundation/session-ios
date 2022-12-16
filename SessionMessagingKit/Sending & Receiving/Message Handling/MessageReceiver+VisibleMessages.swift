@@ -25,12 +25,22 @@ extension MessageReceiver {
         // Update profile if needed (want to do this regardless of whether the message exists or
         // not to ensure the profile info gets sync between a users devices at every chance)
         if let profile = message.profile {
-            try MessageReceiver.updateProfileIfNeeded(
+            try ProfileManager.updateProfileIfNeeded(
                 db,
                 publicKey: sender,
                 name: profile.displayName,
-                profilePictureUrl: profile.profilePictureUrl,
-                profileKey: profile.profileKey,
+                avatarUpdate: {
+                    guard
+                        let profilePictureUrl: String = profile.profilePictureUrl,
+                        let profileKey: Data = profile.profileKey
+                    else { return .none }
+                    
+                    return .updateTo(
+                        url: profilePictureUrl,
+                        key: profileKey,
+                        fileName: nil
+                    )
+                }(),
                 sentTimestamp: messageSentTimestamp
             )
         }
@@ -272,8 +282,7 @@ extension MessageReceiver {
             try MessageReceiver.updateContactApprovalStatusIfNeeded(
                 db,
                 senderSessionId: sender,
-                threadId: thread.id,
-                forceConfigSync: false
+                threadId: thread.id
             )
         }
         

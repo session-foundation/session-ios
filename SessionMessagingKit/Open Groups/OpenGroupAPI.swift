@@ -32,7 +32,7 @@ public enum OpenGroupAPI {
         hasPerformedInitialPoll: Bool,
         timeSinceLastPoll: TimeInterval,
         using dependencies: SMKDependencies = SMKDependencies()
-    ) -> AnyPublisher<[Endpoint: (ResponseInfoType, Codable?)], Error> {
+    ) -> AnyPublisher<(info: ResponseInfoType, data: [Endpoint: Codable]), Error> {
         let lastInboxMessageId: Int64 = (try? OpenGroup
             .select(.inboxLatestMessageId)
             .filter(OpenGroup.Columns.server == server)
@@ -152,7 +152,7 @@ public enum OpenGroupAPI {
         server: String,
         requests: [BatchRequest.Info],
         using dependencies: SMKDependencies = SMKDependencies()
-    ) -> AnyPublisher<[Endpoint: (ResponseInfoType, Codable?)], Error> {
+    ) -> AnyPublisher<(info: ResponseInfoType, data: [Endpoint: Codable]), Error> {
         let responseTypes = requests.map { $0.responseType }
         
         return OpenGroupAPI
@@ -184,7 +184,7 @@ public enum OpenGroupAPI {
         server: String,
         requests: [BatchRequest.Info],
         using dependencies: SMKDependencies = SMKDependencies()
-    ) -> AnyPublisher<[Endpoint: (ResponseInfoType, Codable?)], Error> {
+    ) -> AnyPublisher<(info: ResponseInfoType, data: [Endpoint: Codable]), Error> {
         let responseTypes = requests.map { $0.responseType }
         
         return OpenGroupAPI
@@ -339,10 +339,9 @@ public enum OpenGroupAPI {
                 requests: requestResponseType,
                 using: dependencies
             )
-            .flatMap { (response: [Endpoint: (ResponseInfoType, Codable?)]) -> AnyPublisher<(capabilities: (info: ResponseInfoType, data: Capabilities), room: (info: ResponseInfoType, data: Room)), Error> in
-                let maybeCapabilities: (info: ResponseInfoType, data: Capabilities?)? = response[.capabilities]
-                    .map { info, data in (info, (data as? HTTP.BatchSubResponse<Capabilities>)?.body) }
-                let maybeRoomResponse: (ResponseInfoType, Codable?)? = response
+            .flatMap { (info: ResponseInfoType, data: [Endpoint: Codable]) -> AnyPublisher<(capabilities: (info: ResponseInfoType, data: Capabilities), room: (info: ResponseInfoType, data: Room)), Error> in
+                let maybeCapabilities: HTTP.BatchSubResponse<Capabilities>? = (data[.capabilities] as? HTTP.BatchSubResponse<Capabilities>)
+                let maybeRoomResponse: Codable? = data
                     .first(where: { key, _ in
                         switch key {
                             case .room: return true
@@ -350,14 +349,13 @@ public enum OpenGroupAPI {
                         }
                     })
                     .map { _, value in value }
-                let maybeRoom: (info: ResponseInfoType, data: Room?)? = maybeRoomResponse
-                    .map { info, data in (info, (data as? HTTP.BatchSubResponse<Room>)?.body) }
+                let maybeRoom: HTTP.BatchSubResponse<Room>? = (maybeRoomResponse as? HTTP.BatchSubResponse<Room>)
                 
                 guard
-                    let capabilitiesInfo: ResponseInfoType = maybeCapabilities?.info,
-                    let capabilities: Capabilities = maybeCapabilities?.data,
-                    let roomInfo: ResponseInfoType = maybeRoom?.info,
-                    let room: Room = maybeRoom?.data
+                    let capabilitiesInfo: ResponseInfoType = maybeCapabilities?.responseInfo,
+                    let capabilities: Capabilities = maybeCapabilities?.body,
+                    let roomInfo: ResponseInfoType = maybeRoom?.responseInfo,
+                    let room: Room = maybeRoom?.body
                 else {
                     return Fail(error: HTTPError.parsingFailed)
                         .eraseToAnyPublisher()
@@ -407,25 +405,22 @@ public enum OpenGroupAPI {
                 requests: requestResponseType,
                 using: dependencies
             )
-            .flatMap { (response: [Endpoint: (ResponseInfoType, Codable?)]) -> AnyPublisher<(capabilities: (info: ResponseInfoType, data: Capabilities), rooms: (info: ResponseInfoType, data: [Room])), Error> in
-                let maybeCapabilities: (info: ResponseInfoType, data: Capabilities?)? = response[.capabilities]
-                    .map { info, data in (info, (data as? HTTP.BatchSubResponse<Capabilities>)?.body) }
-                let maybeRoomResponse: (ResponseInfoType, Codable?)? = response
+            .flatMap { (info: ResponseInfoType, data: [Endpoint: Codable]) -> AnyPublisher<(capabilities: (info: ResponseInfoType, data: Capabilities), rooms: (info: ResponseInfoType, data: [Room])), Error> in
+                let maybeCapabilities: HTTP.BatchSubResponse<Capabilities>? = (data[.capabilities] as? HTTP.BatchSubResponse<Capabilities>)
+                let maybeRooms: HTTP.BatchSubResponse<[Room]>? = data
                     .first(where: { key, _ in
                         switch key {
                             case .rooms: return true
                             default: return false
                         }
                     })
-                    .map { _, value in value }
-                let maybeRooms: (info: ResponseInfoType, data: [Room]?)? = maybeRoomResponse
-                    .map { info, data in (info, (data as? HTTP.BatchSubResponse<[Room]>)?.body) }
+                    .map { _, value in value as? HTTP.BatchSubResponse<[Room]> }
                 
                 guard
-                    let capabilitiesInfo: ResponseInfoType = maybeCapabilities?.info,
-                    let capabilities: Capabilities = maybeCapabilities?.data,
-                    let roomsInfo: ResponseInfoType = maybeRooms?.info,
-                    let rooms: [Room] = maybeRooms?.data
+                    let capabilitiesInfo: ResponseInfoType = maybeCapabilities?.responseInfo,
+                    let capabilities: Capabilities = maybeCapabilities?.body,
+                    let roomsInfo: ResponseInfoType = maybeRooms?.responseInfo,
+                    let rooms: [Room] = maybeRooms?.body
                 else {
                     return Fail(error: HTTPError.parsingFailed)
                         .eraseToAnyPublisher()
@@ -1263,7 +1258,9 @@ public enum OpenGroupAPI {
                 requests: requestResponseType,
                 using: dependencies
             )
-            .map { $0.values.map { responseInfo, _ in responseInfo } }
+            .map { _, data -> [ResponseInfoType] in
+                data.values.compactMap { ($0 as? BatchSubResponseType)?.responseInfo }
+            }
             .eraseToAnyPublisher()
     }
     

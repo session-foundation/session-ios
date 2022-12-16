@@ -198,11 +198,18 @@ final class RegisterVC : BaseVC {
         animate()
     }
     
-    // MARK: Interaction
+    // MARK: - Interaction
+    
     @objc private func register() {
-        Onboarding.Flow.register.preregister(with: seed, ed25519KeyPair: ed25519KeyPair, x25519KeyPair: x25519KeyPair)
-        let displayNameVC = DisplayNameVC()
-        navigationController!.pushViewController(displayNameVC, animated: true)
+        Onboarding.Flow.register
+            .preregister(
+                with: seed,
+                ed25519KeyPair: ed25519KeyPair,
+                x25519KeyPair: x25519KeyPair
+            )
+            
+        let displayNameVC: DisplayNameVC = DisplayNameVC(flow: .register)
+        self.navigationController?.pushViewController(displayNameVC, animated: true)
     }
     
     @objc private func copyPublicKey() {

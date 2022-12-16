@@ -525,7 +525,7 @@ enum _003_YDBToGRDBMigration: Migration {
             let recipientString: String = {
                 if let destination: Message.Destination = destination {
                     switch destination {
-                        case .contact(let publicKey, _): return publicKey
+                        case .contact(let publicKey): return publicKey
                         default: break
                     }
                 }
@@ -974,7 +974,7 @@ enum _003_YDBToGRDBMigration: Migration {
                                 .map { $0 })
                                 .defaulting(to: []),
                             destination: (threadVariant == .contact ?
-                                .contact(publicKey: threadId, namespace: .default) :
+                                .contact(publicKey: threadId) :
                                 nil
                             ),
                             variant: variant,
@@ -989,7 +989,7 @@ enum _003_YDBToGRDBMigration: Migration {
                                 .map { $0 })
                                 .defaulting(to: []),
                             destination: (threadVariant == .contact ?
-                                .contact(publicKey: threadId, namespace: .default) :
+                                .contact(publicKey: threadId) :
                                 nil
                             ),
                             variant: variant,
@@ -1278,8 +1278,8 @@ enum _003_YDBToGRDBMigration: Migration {
                 // Fetch the threadId and interactionId this job should be associated with
                 let threadId: String = {
                     switch legacyJob.destination {
-                        case .contact(let publicKey, _): return publicKey
-                        case .closedGroup(let groupPublicKey, _): return groupPublicKey
+                        case .contact(let publicKey): return publicKey
+                        case .closedGroup(let groupPublicKey): return groupPublicKey
                         case .openGroup(let roomToken, let server, _, _, _):
                             return OpenGroup.idFor(roomToken: roomToken, server: server)
                         
@@ -1435,7 +1435,7 @@ enum _003_YDBToGRDBMigration: Migration {
                     behaviour: .recurring,
                     threadId: threadId,
                     details: SendReadReceiptsJob.Details(
-                        destination: .contact(publicKey: threadId, namespace: .default),
+                        destination: .contact(publicKey: threadId),
                         timestampMsValues: timestampsMs
                     )
                 )?.migrationSafeInserted(db)

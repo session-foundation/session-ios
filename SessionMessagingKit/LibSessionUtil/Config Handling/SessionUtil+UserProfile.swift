@@ -6,22 +6,24 @@ import SessionUtil
 import SessionUtilitiesKit
 
 internal extension SessionUtil {
+    // MARK: - Incoming Changes
+    
     static func handleUserProfileUpdate(
         _ db: Database,
-        in target: Target,
+        in atomicConf: Atomic<UnsafeMutablePointer<config_object>?>,
         needsDump: Bool,
         latestConfigUpdateSentTimestamp: TimeInterval
     ) throws {
         typealias ProfileData = (profileName: String, profilePictureUrl: String?, profilePictureKey: Data?)
         
         guard needsDump else { return }
-        guard target.conf.wrappedValue != nil else { throw SessionUtilError.nilConfigObject }
+        guard atomicConf.wrappedValue != nil else { throw SessionUtilError.nilConfigObject }
         
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         
         // Since we are doing direct memory manipulation we are using an `Atomic` type which has
         // blocking access in it's `mutate` closure
-        let maybeProfileData: ProfileData? = target.conf.mutate { conf -> ProfileData? in
+        let maybeProfileData: ProfileData? = atomicConf.mutate { conf -> ProfileData? in
             // A profile must have a name so if this is null then it's invalid and can be ignored
             guard let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf) else {
                 return nil
@@ -52,33 +54,55 @@ internal extension SessionUtil {
         // Only save the data in the database if it's valid
         guard let profileData: ProfileData = maybeProfileData else { return }
         
-        // Profile (also force-approve the current user in case the account got into a weird state or
-        // restored directly from a migration)
-        try MessageReceiver.updateProfileIfNeeded(
+        // Handle user profile changes
+        try ProfileManager.updateProfileIfNeeded(
             db,
             publicKey: userPublicKey,
             name: profileData.profileName,
-            profilePictureUrl: profileData.profilePictureUrl,
-            profileKey: profileData.profilePictureKey,
-            sentTimestamp: latestConfigUpdateSentTimestamp
+            avatarUpdate: {
+                guard
+                    let profilePictureUrl: String = profileData.profilePictureUrl,
+                    let profileKey: Data = profileData.profilePictureKey
+                else { return .none }
+                
+                return .updateTo(
+                    url: profilePictureUrl,
+                    key: profileKey,
+                    fileName: nil
+                )
+            }(),
+            sentTimestamp: latestConfigUpdateSentTimestamp,
+            calledFromConfigHandling: true
         )
-        try Contact(id: userPublicKey)
-            .with(
-                isApproved: true,
-                didApproveMe: true
-            )
-            .save(db)
+        
+        // Create a contact for the current user if needed (also force-approve the current user
+        // in case the account got into a weird state or restored directly from a migration)
+        let userContact: Contact = Contact.fetchOrCreate(db, id: userPublicKey)
+        
+        if !userContact.isTrusted || !userContact.isApproved || !userContact.didApproveMe {
+            try userContact.save(db)
+            try Contact
+                .filter(id: userPublicKey)
+                .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                    db,
+                    Contact.Columns.isTrusted.set(to: true),    // Always trust the current user
+                    Contact.Columns.isApproved.set(to: true),
+                    Contact.Columns.didApproveMe.set(to: true)
+                )
+        }
     }
     
-    @discardableResult static func update(
+    // MARK: - Outgoing Changes
+    
+    static func update(
         profile: Profile,
-        in target: Target
+        in atomicConf: Atomic<UnsafeMutablePointer<config_object>?>
     ) throws -> ConfResult {
-        guard target.conf.wrappedValue != nil else { throw SessionUtilError.nilConfigObject }
+        guard atomicConf.wrappedValue != nil else { throw SessionUtilError.nilConfigObject }
         
         // Since we are doing direct memory manipulation we are using an `Atomic` type which has
         // blocking access in it's `mutate` closure
-        return target.conf.mutate { conf in
+        return atomicConf.mutate { conf in
             // Update the name
             user_profile_set_name(conf, profile.name)
             
@@ -101,7 +125,7 @@ internal extension SessionUtil {
                 user_profile_set_pic(conf, profilePic)
             }
             
-            return (
+            return ConfResult(
                 needsPush: config_needs_push(conf),
                 needsDump: config_needs_dump(conf)
             )

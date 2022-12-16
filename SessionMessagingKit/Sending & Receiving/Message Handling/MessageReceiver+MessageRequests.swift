@@ -23,12 +23,22 @@ extension MessageReceiver {
         if let profile = message.profile {
             let messageSentTimestamp: TimeInterval = (TimeInterval(message.sentTimestamp ?? 0) / 1000)
             
-            try MessageReceiver.updateProfileIfNeeded(
+            try ProfileManager.updateProfileIfNeeded(
                 db,
                 publicKey: senderId,
                 name: profile.displayName,
-                profilePictureUrl: profile.profilePictureUrl,
-                profileKey: profile.profileKey,
+                avatarUpdate: {
+                    guard
+                        let profilePictureUrl: String = profile.profilePictureUrl,
+                        let profileKey: Data = profile.profileKey
+                    else { return .none }
+                    
+                    return .updateTo(
+                        url: profilePictureUrl,
+                        key: profileKey,
+                        fileName: nil
+                    )
+                }(),
                 sentTimestamp: messageSentTimestamp
             )
         }
@@ -88,8 +98,7 @@ extension MessageReceiver {
         try updateContactApprovalStatusIfNeeded(
             db,
             senderSessionId: senderId,
-            threadId: nil,
-            forceConfigSync: blindedContactIds.isEmpty // Sync here if there were no blinded contacts
+            threadId: nil
         )
         
         // If there were blinded contacts which have now been resolved to this contact then we should remove
@@ -103,8 +112,7 @@ extension MessageReceiver {
             try updateContactApprovalStatusIfNeeded(
                 db,
                 senderSessionId: userPublicKey,
-                threadId: unblindedThread.id,
-                forceConfigSync: true
+                threadId: unblindedThread.id
             )
         }
         
@@ -128,8 +136,7 @@ extension MessageReceiver {
     internal static func updateContactApprovalStatusIfNeeded(
         _ db: Database,
         senderSessionId: String,
-        threadId: String?,
-        forceConfigSync: Bool
+        threadId: String?
     ) throws {
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         
@@ -149,9 +156,10 @@ extension MessageReceiver {
             
             guard !contact.isApproved else { return }
             
-            _ = try? contact
-                .with(isApproved: true)
-                .saved(db)
+            try? contact.save(db)
+            _ = try? Contact
+                .filter(id: threadId)
+                .updateAllAndConfig(db, Contact.Columns.isApproved.set(to: true))
         }
         else {
             // The message was sent to the current user so flag their 'didApproveMe' as true (can't send a message to
@@ -160,14 +168,10 @@ extension MessageReceiver {
             
             guard !contact.didApproveMe else { return }
 
-            _ = try? contact
-                .with(didApproveMe: true)
-                .saved(db)
+            try? contact.save(db)
+            _ = try? Contact
+                .filter(id: senderSessionId)
+                .updateAllAndConfig(db, Contact.Columns.didApproveMe.set(to: true))
         }
-        
-        // Force a config sync to ensure all devices know the contact approval state if desired
-        guard forceConfigSync else { return }
-        
-        try MessageSender.syncConfiguration(db, forceSyncNow: true).sinkUntilComplete()
     }
 }

@@ -102,6 +102,10 @@ public struct Job: Codable, Equatable, Identifiable, FetchableRecord, MutablePer
         /// This is a job that runs once whenever an attachment is downloaded to attempt to decode and properly
         /// download the attachment
         case attachmentDownload
+        
+        /// This is a job that runs once whenever the user config or a closed group config changes, it retrieves the
+        /// state of all config objects and syncs any that are flagged as needing to be synced
+        case configurationSync
     }
     
     public enum Behaviour: Int, Codable, DatabaseValueConvertible, CaseIterable {
