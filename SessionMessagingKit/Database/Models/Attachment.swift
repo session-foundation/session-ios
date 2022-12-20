@@ -1062,7 +1062,7 @@ extension Attachment {
         
         // Check the file size
         SNLog("File size: \(data.count) bytes.")
-        if Double(data.count) > Double(FileServerAPI.maxFileSize) / FileServerAPI.fileSizeORMultiplier {
+        if data.count > FileServerAPI.maxFileSize {
             failure?(HTTP.Error.maxFileSizeExceeded)
             return
         }
