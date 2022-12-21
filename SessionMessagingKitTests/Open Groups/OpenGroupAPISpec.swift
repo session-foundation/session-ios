@@ -27,9 +27,9 @@ class OpenGroupAPISpec: QuickSpec {
         var dependencies: SMKDependencies!
         
         var response: (ResponseInfoType, Codable)? = nil
-        var pollResponse: [OpenGroupAPI.Endpoint: (ResponseInfoType, Codable?)]?
+        var pollResponse: (info: ResponseInfoType, data: [OpenGroupAPI.Endpoint: Codable])?
         var error: Error?
-
+        
         describe("an OpenGroupAPI") {
             // MARK: - Configuration
             
@@ -205,14 +205,16 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(error?.localizedDescription).to(beNil())
                         
                         // Validate the response data
-                        expect(pollResponse?.values).to(haveCount(3))
-                        expect(pollResponse?.keys).to(contain(.capabilities))
-                        expect(pollResponse?.keys).to(contain(.roomPollInfo("testRoom", 0)))
-                        expect(pollResponse?.keys).to(contain(.roomMessagesRecent("testRoom")))
-                        expect(pollResponse?[.capabilities]?.0).to(beAKindOf(TestOnionRequestAPI.ResponseInfo.self))
+                        
+                        expect(pollResponse?.data.count).to(equal(3))
+                        expect(pollResponse?.data.keys).to(contain(.capabilities))
+                        expect(pollResponse?.data.keys).to(contain(.roomPollInfo("testRoom", 0)))
+                        expect(pollResponse?.data.keys).to(contain(.roomMessagesRecent("testRoom")))
+                        expect(pollResponse?.data[.capabilities])
+                            .to(beAKindOf(TestOnionRequestAPI.ResponseInfo.self))
                         
                         // Validate request data
-                        let requestData: TestOnionRequestAPI.RequestData? = (pollResponse?[.capabilities]?.0 as? TestOnionRequestAPI.ResponseInfo)?.requestData
+                        let requestData: TestOnionRequestAPI.RequestData? = (pollResponse?.data[.capabilities] as? TestOnionRequestAPI.ResponseInfo)?.requestData
                         expect(requestData?.urlString).to(equal("testserver/batch"))
                         expect(requestData?.httpMethod).to(equal("POST"))
                         expect(requestData?.publicKey).to(equal("88672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"))
@@ -241,7 +243,7 @@ class OpenGroupAPISpec: QuickSpec {
                                 timeout: .milliseconds(100)
                             )
                         expect(error?.localizedDescription).to(beNil())
-                        expect(pollResponse?.keys).to(contain(.roomMessagesRecent("testRoom")))
+                        expect(pollResponse?.data.keys).to(contain(.roomMessagesRecent("testRoom")))
                     }
                     
                     it("retrieves recent messages if there was a last message and it has not performed the initial poll and the last message was too long ago") {
@@ -272,7 +274,7 @@ class OpenGroupAPISpec: QuickSpec {
                                 timeout: .milliseconds(100)
                             )
                         expect(error?.localizedDescription).to(beNil())
-                        expect(pollResponse?.keys).to(contain(.roomMessagesRecent("testRoom")))
+                        expect(pollResponse?.data.keys).to(contain(.roomMessagesRecent("testRoom")))
                     }
                     
                     it("retrieves recent messages if there was a last message and it has performed an initial poll but it was not too long ago") {
@@ -303,7 +305,7 @@ class OpenGroupAPISpec: QuickSpec {
                                 timeout: .milliseconds(100)
                             )
                         expect(error?.localizedDescription).to(beNil())
-                        expect(pollResponse?.keys).to(contain(.roomMessagesSince("testRoom", seqNo: 123)))
+                        expect(pollResponse?.data.keys).to(contain(.roomMessagesSince("testRoom", seqNo: 123)))
                     }
                     
                     it("retrieves recent messages if there was a last message and there has already been a poll this session") {
@@ -334,7 +336,7 @@ class OpenGroupAPISpec: QuickSpec {
                                 timeout: .milliseconds(100)
                             )
                         expect(error?.localizedDescription).to(beNil())
-                        expect(pollResponse?.keys).to(contain(.roomMessagesSince("testRoom", seqNo: 123)))
+                        expect(pollResponse?.data.keys).to(contain(.roomMessagesSince("testRoom", seqNo: 123)))
                     }
                     
                     context("when unblinded") {
@@ -370,8 +372,8 @@ class OpenGroupAPISpec: QuickSpec {
                             expect(error?.localizedDescription).to(beNil())
                             
                             // Validate the response data
-                            expect(pollResponse?.keys).toNot(contain(.inbox))
-                            expect(pollResponse?.keys).toNot(contain(.outbox))
+                            expect(pollResponse?.data.keys).toNot(contain(.inbox))
+                            expect(pollResponse?.data.keys).toNot(contain(.outbox))
                         }
                     }
                     
@@ -471,8 +473,8 @@ class OpenGroupAPISpec: QuickSpec {
                             expect(error?.localizedDescription).to(beNil())
                             
                             // Validate the response data
-                            expect(pollResponse?.keys).to(contain(.inbox))
-                            expect(pollResponse?.keys).to(contain(.outbox))
+                            expect(pollResponse?.data.keys).to(contain(.inbox))
+                            expect(pollResponse?.data.keys).to(contain(.outbox))
                         }
                         
                         it("retrieves recent inbox messages if there was no last message") {
@@ -498,7 +500,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     timeout: .milliseconds(100)
                                 )
                             expect(error?.localizedDescription).to(beNil())
-                            expect(pollResponse?.keys).to(contain(.inbox))
+                            expect(pollResponse?.data.keys).to(contain(.inbox))
                         }
                         
                         it("retrieves inbox messages since the last message if there was one") {
@@ -529,7 +531,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     timeout: .milliseconds(100)
                                 )
                             expect(error?.localizedDescription).to(beNil())
-                            expect(pollResponse?.keys).to(contain(.inboxSince(id: 124)))
+                            expect(pollResponse?.data.keys).to(contain(.inboxSince(id: 124)))
                         }
                         
                         it("retrieves recent outbox messages if there was no last message") {
@@ -555,7 +557,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     timeout: .milliseconds(100)
                                 )
                             expect(error?.localizedDescription).to(beNil())
-                            expect(pollResponse?.keys).to(contain(.outbox))
+                            expect(pollResponse?.data.keys).to(contain(.outbox))
                         }
                         
                         it("retrieves outbox messages since the last message if there was one") {
@@ -586,7 +588,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     timeout: .milliseconds(100)
                                 )
                             expect(error?.localizedDescription).to(beNil())
-                            expect(pollResponse?.keys).to(contain(.outboxSince(id: 125)))
+                            expect(pollResponse?.data.keys).to(contain(.outboxSince(id: 125)))
                         }
                     }
                 }
@@ -650,9 +652,9 @@ class OpenGroupAPISpec: QuickSpec {
                             )
                         expect(error?.localizedDescription).to(beNil())
                         
-                        let capabilitiesResponse: HTTP.BatchSubResponse<OpenGroupAPI.Capabilities>? = (pollResponse?[.capabilities]?.1 as? HTTP.BatchSubResponse<OpenGroupAPI.Capabilities>)
-                        let pollInfoResponse: HTTP.BatchSubResponse<OpenGroupAPI.RoomPollInfo>? = (pollResponse?[.roomPollInfo("testRoom", 0)]?.1 as? HTTP.BatchSubResponse<OpenGroupAPI.RoomPollInfo>)
-                        let messagesResponse: HTTP.BatchSubResponse<[Failable<OpenGroupAPI.Message>]>? = (pollResponse?[.roomMessagesRecent("testRoom")]?.1 as? HTTP.BatchSubResponse<[Failable<OpenGroupAPI.Message>]>)
+                        let capabilitiesResponse: HTTP.BatchSubResponse<OpenGroupAPI.Capabilities>? = (pollResponse?.data[.capabilities] as? HTTP.BatchSubResponse<OpenGroupAPI.Capabilities>)
+                        let pollInfoResponse: HTTP.BatchSubResponse<OpenGroupAPI.RoomPollInfo>? = (pollResponse?.data[.roomPollInfo("testRoom", 0)] as? HTTP.BatchSubResponse<OpenGroupAPI.RoomPollInfo>)
+                        let messagesResponse: HTTP.BatchSubResponse<[Failable<OpenGroupAPI.Message>]>? = (pollResponse?.data[.roomMessagesRecent("testRoom")] as? HTTP.BatchSubResponse<[Failable<OpenGroupAPI.Message>]>)
                         expect(capabilitiesResponse?.failedToParseBody).to(beFalse())
                         expect(pollInfoResponse?.failedToParseBody).to(beTrue())
                         expect(messagesResponse?.failedToParseBody).to(beTrue())

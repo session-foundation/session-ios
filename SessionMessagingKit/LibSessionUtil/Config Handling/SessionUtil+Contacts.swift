@@ -155,7 +155,7 @@ internal extension SessionUtil {
                         .bytes
                         .map { CChar(bitPattern: $0) }
                     var contact: contacts_contact = contacts_contact()
-                    guard contacts_get_or_create(conf, &contact, &sessionId) else {
+                    guard contacts_get_or_construct(conf, &contact, &sessionId) else {
                         SNLog("Unable to upsert contact from Config Message")
                         return
                     }

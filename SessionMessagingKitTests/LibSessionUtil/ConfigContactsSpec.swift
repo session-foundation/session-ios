@@ -38,8 +38,10 @@ class ConfigContactsSpec: QuickSpec {
             let contactPtr: UnsafeMutablePointer<contacts_contact>? = nil
             expect(contacts_get(conf, contactPtr, &definitelyRealId)).to(beFalse())
             
+            expect(contacts_size(conf)).to(equal(0))
+            
             var contact2: contacts_contact = contacts_contact()
-            expect(contacts_get_or_create(conf, &contact2, &definitelyRealId)).to(beTrue())
+            expect(contacts_get_or_construct(conf, &contact2, &definitelyRealId)).to(beTrue())
             expect(contact2.name).to(beNil())
             expect(contact2.nickname).to(beNil())
             expect(contact2.approved).to(beFalse())
@@ -155,7 +157,7 @@ class ConfigContactsSpec: QuickSpec {
                 .bytes
                 .map { CChar(bitPattern: $0) }
             var contact5: contacts_contact = contacts_contact()
-            expect(contacts_get_or_create(conf2, &contact5, &anotherId)).to(beTrue())
+            expect(contacts_get_or_construct(conf2, &contact5, &anotherId)).to(beTrue())
             expect(contact5.name).to(beNil())
             expect(contact5.nickname).to(beNil())
             expect(contact5.approved).to(beFalse())
@@ -193,6 +195,8 @@ class ConfigContactsSpec: QuickSpec {
             // Iterate through and make sure we got everything we expected
             var sessionIds: [String] = []
             var nicknames: [String] = []
+            expect(contacts_size(conf)).to(equal(2))
+            
             var contact6: contacts_contact = contacts_contact()
             let contactIterator: UnsafeMutablePointer<contacts_iterator> = contacts_iterator_new(conf)
             while !contacts_iterator_done(contactIterator, &contact6) {
@@ -211,6 +215,7 @@ class ConfigContactsSpec: QuickSpec {
             contacts_iterator_free(contactIterator) // Need to free the iterator
             
             expect(sessionIds.count).to(equal(2))
+            expect(sessionIds.count).to(equal(contacts_size(conf)))
             expect(sessionIds.first).to(equal(String(cString: definitelyRealId.nullTerminated())))
             expect(sessionIds.last).to(equal(String(cString: anotherId.nullTerminated())))
             expect(nicknames.first).to(equal("Joey"))
@@ -233,7 +238,7 @@ class ConfigContactsSpec: QuickSpec {
                 .map { CChar(bitPattern: $0) }
             let profileKey7: [UInt8] = "qwerty".bytes
             var contact7: contacts_contact = contacts_contact()
-            expect(contacts_get_or_create(conf2, &contact7, &thirdId)).to(beTrue())
+            expect(contacts_get_or_construct(conf2, &contact7, &thirdId)).to(beTrue())
             nickname7.withUnsafeBufferPointer { contact7.nickname = $0.baseAddress }
             contact7.approved = true
             contact7.approved_me = true
@@ -297,6 +302,8 @@ class ConfigContactsSpec: QuickSpec {
             // Validate the changes
             var sessionIds2: [String] = []
             var nicknames2: [String] = []
+            expect(contacts_size(conf)).to(equal(2))
+                                        
             var contact8: contacts_contact = contacts_contact()
             let contactIterator2: UnsafeMutablePointer<contacts_iterator> = contacts_iterator_new(conf)
             while !contacts_iterator_done(contactIterator2, &contact8) {

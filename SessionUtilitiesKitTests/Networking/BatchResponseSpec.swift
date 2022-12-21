@@ -183,11 +183,11 @@ class BatchResponseSpec: QuickSpec {
                     .sinkUntilComplete(
                         receiveValue: { result = $0 }
                     )
-                
+        
                 expect(result).toNot(beNil())
-                expect((result?[0].1 as? HTTP.BatchSubResponse<TestType>)?.body)
+                expect((result?.responses[0] as? HTTP.BatchSubResponse<TestType>)?.body)
                     .to(equal(testType))
-                expect((result?[1].1 as? HTTP.BatchSubResponse<TestType2>)?.body)
+                expect((result?.responses[1] as? HTTP.BatchSubResponse<TestType2>)?.body)
                     .to(equal(testType2))
             }
             

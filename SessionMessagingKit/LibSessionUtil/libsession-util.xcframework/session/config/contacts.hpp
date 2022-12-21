@@ -84,16 +84,17 @@ class Contacts : public ConfigBase {
 
     /// Similar to get(), but if the session ID does not exist this returns a filled-out
     /// contact_info containing the session_id (all other fields will be empty/defaulted).  This is
-    /// intended to be combined with `set` to set-or-create a record.  Note that this does not add
-    /// the session id to the contact list when called: that requires also calling `set` with this
-    /// value.
-    contact_info get_or_create(std::string_view pubkey_hex) const;
+    /// intended to be combined with `set` to set-or-create a record.
+    ///
+    /// NB: calling this does *not* add the session id to the contact list when called: that
+    /// requires also calling `set` with this value.
+    contact_info get_or_construct(std::string_view pubkey_hex) const;
 
     /// Sets or updates multiple contact info values at once with the given info.  The usual use is
     /// to access the current info, change anything desired, then pass it back into set_contact,
     /// e.g.:
     ///
-    ///     auto c = contacts.get_or_create(pubkey);
+    ///     auto c = contacts.get_or_construct(pubkey);
     ///     c.name = "Session User 42";
     ///     c.nickname = "BFF";
     ///     contacts.set(c);
@@ -118,6 +119,12 @@ class Contacts : public ConfigBase {
     /// intended for use where elements are to be removed during iteration: see below for an
     /// example.
     iterator erase(iterator it);
+
+    /// Returns the number of contacts.
+    size_t size() const;
+
+    /// Returns true if the contact list is empty.
+    bool empty() const { return size() == 0; }
 
     /// Iterators for iterating through all contacts.  Typically you access this implicit via a for
     /// loop over the `Contacts` object:
