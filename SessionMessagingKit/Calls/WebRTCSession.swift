@@ -180,7 +180,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                                 uuid: uuid,
                                 kind: .offer,
                                 sdps: [ sdp.sdp ],
-                                sentTimestampMs: SnodeAPI.currentTimestampMs()
+                                sentTimestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs())
                             ),
                             interactionId: nil,
                             in: thread

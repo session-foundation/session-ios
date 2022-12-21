@@ -19,15 +19,13 @@ public final class SnodeAPI {
     internal static var snodePool: Atomic<Set<Snode>> = Atomic([])
 
     /// The offset between the user's clock and the Service Node's clock. Used in cases where the
-    /// user's clock is incorrect.
-    ///
-    /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
-    public static var clockOffset: Atomic<Int64> = Atomic(0)
+    /// user's clock is incorrect
+    public static var clockOffsetMs: Atomic<Int64> = Atomic(0)
     
     public static func currentOffsetTimestampMs() -> Int64 {
         return (
             Int64(floor(Date().timeIntervalSince1970 * 1000)) +
-            SnodeAPI.clockOffset.wrappedValue
+            SnodeAPI.clockOffsetMs.wrappedValue
         )
     }
     
@@ -1108,5 +1106,13 @@ public final class SnodeAPI {
         }
         
         return nil
+    }
+}
+
+@objc(SNSnodeAPI)
+public final class SNSnodeAPI: NSObject {
+    @objc(currentOffsetTimestampMs)
+    public static func currentOffsetTimestampMs() -> UInt64 {
+        return UInt64(SnodeAPI.currentOffsetTimestampMs())
     }
 }

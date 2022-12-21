@@ -145,7 +145,7 @@ public enum MessageReceiver {
         message.sender = sender
         message.recipient = userPublicKey
         message.sentTimestamp = envelope.timestamp
-        message.receivedTimestamp = SnodeAPI.currentTimestampMs()
+        message.receivedTimestamp = UInt64(SnodeAPI.currentOffsetTimestampMs())
         message.groupPublicKey = groupPublicKey
         message.openGroupServerMessageId = openGroupMessageServerId.map { UInt64($0) }
         

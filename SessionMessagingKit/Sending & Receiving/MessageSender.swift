@@ -202,7 +202,7 @@ public final class MessageSender {
             recipient: message.recipient!,
             data: base64EncodedData,
             ttl: message.ttl,
-            timestampMs: UInt64(messageSendTimestamp + SnodeAPI.clockOffset.wrappedValue)
+            timestampMs: UInt64(messageSendTimestamp)
         )
         
         SnodeAPI
@@ -322,7 +322,7 @@ public final class MessageSender {
         
         // Set the timestamp, sender and recipient
         if message.sentTimestamp == nil { // Visible messages will already have their sent timestamp set
-            message.sentTimestamp = SnodeAPI.currentTimestampMs()
+            message.sentTimestamp = UInt64(SnodeAPI.currentOffsetTimestampMs())
         }
         
         switch destination {
@@ -472,7 +472,7 @@ public final class MessageSender {
         
         // Set the timestamp, sender and recipient
         if message.sentTimestamp == nil { // Visible messages will already have their sent timestamp set
-            message.sentTimestamp = SnodeAPI.currentTimestampMs()
+            message.sentTimestamp = UInt64(SnodeAPI.currentOffsetTimestampMs())
         }
         
         message.sender = userPublicKey

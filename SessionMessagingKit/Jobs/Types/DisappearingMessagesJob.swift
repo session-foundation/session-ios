@@ -60,10 +60,14 @@ public extension DisappearingMessagesJob {
         
         guard let nextExpirationTimestampMs: Double = nextExpirationTimestampMs else { return nil }
         
+        /// The `expiresStartedAtMs` timestamp is now based on the `SnodeAPI.currentOffsetTimestampMs()` value
+        /// so we need to make sure offset the `nextRunTimestamp` accordingly to ensure it runs at the correct local time
+        let clockOffsetMs: Int64 = SnodeAPI.clockOffsetMs.wrappedValue
+        
         return try? Job
             .filter(Job.Columns.variant == Job.Variant.disappearingMessages)
             .fetchOne(db)?
-            .with(nextRunTimestamp: ceil(nextExpirationTimestampMs / 1000))
+            .with(nextRunTimestamp: ceil((nextExpirationTimestampMs - Double(clockOffsetMs)) / 1000))
             .saved(db)
     }
     
