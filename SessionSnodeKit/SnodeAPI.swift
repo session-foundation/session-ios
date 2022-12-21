@@ -23,6 +23,14 @@ public final class SnodeAPI {
     ///
     /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
     public static var clockOffset: Atomic<Int64> = Atomic(0)
+    
+    public static func currentOffsetTimestampMs() -> Int64 {
+        return (
+            Int64(floor(Date().timeIntervalSince1970 * 1000)) +
+            SnodeAPI.clockOffset.wrappedValue
+        )
+    }
+    
     /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
     public static var swarmCache: Atomic<[String: Set<Snode>]> = Atomic([:])
     
@@ -546,7 +554,7 @@ public final class SnodeAPI {
         let lastHash = SnodeReceivedMessageInfo.fetchLastNotExpired(for: snode, namespace: namespace, associatedWith: publicKey)?.hash ?? ""
 
         // Construct signature
-        let timestamp = UInt64(Int64(floor(Date().timeIntervalSince1970 * 1000)) + SnodeAPI.clockOffset.wrappedValue)
+        let timestamp = UInt64(SnodeAPI.currentOffsetTimestampMs())
         let ed25519PublicKey = userED25519KeyPair.publicKey.toHexString()
         let namespaceVerificationString = (namespace == defaultNamespace ? "" : String(namespace))
         
@@ -647,7 +655,7 @@ public final class SnodeAPI {
         }
         
         // Construct signature
-        let timestamp = UInt64(Int64(floor(Date().timeIntervalSince1970 * 1000)) + SnodeAPI.clockOffset.wrappedValue)
+        let timestamp = UInt64(SnodeAPI.currentOffsetTimestampMs())
         let ed25519PublicKey = userED25519KeyPair.publicKey.toHexString()
         
         guard

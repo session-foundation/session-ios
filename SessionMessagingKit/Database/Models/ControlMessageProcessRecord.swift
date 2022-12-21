@@ -3,6 +3,7 @@
 import Foundation
 import GRDB
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 /// We can rely on the unique constraints within the `Interaction` table to prevent duplicate `VisibleMessage`
 /// values from being processed, but some control messages don’t have an associated interaction - this table provides
@@ -168,7 +169,10 @@ internal extension ControlMessageProcessRecord {
         
         self.threadId = threadId
         self.timestampMs = timestampMs
-        self.serverExpirationTimestamp = (Date().timeIntervalSince1970 + ControlMessageProcessRecord.defaultExpirationSeconds)
+        self.serverExpirationTimestamp = (
+            (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000) +
+            ControlMessageProcessRecord.defaultExpirationSeconds
+        )
     }
     
     /// This method should only be used for records created during migration from the legacy
@@ -179,7 +183,8 @@ internal extension ControlMessageProcessRecord {
     /// clean out these excessive entries after `defaultExpirationSeconds`)
     static func generateLegacyProcessRecords(_ db: Database, receivedMessageTimestamps: [Int64]) throws {
         let defaultExpirationTimestamp: TimeInterval = (
-            Date().timeIntervalSince1970 + ControlMessageProcessRecord.defaultExpirationSeconds
+            (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000) +
+            ControlMessageProcessRecord.defaultExpirationSeconds
         )
         
         try receivedMessageTimestamps.forEach { timestampMs in

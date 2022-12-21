@@ -196,7 +196,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         authorId: getUserHexEncodedPublicKey(db),
                         variant: .standardOutgoing,
                         body: body,
-                        timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000)),
+                        timestampMs: SnodeAPI.currentOffsetTimestampMs(),
                         hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: body),
                         expiresInSeconds: try? DisappearingMessagesConfiguration
                             .select(.durationSeconds)

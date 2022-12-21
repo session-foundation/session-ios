@@ -3,6 +3,7 @@
 import Foundation
 import GRDB
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 public enum DisappearingMessagesJob: JobExecutor {
     public static let maxFailureCount: Int = -1
@@ -17,7 +18,7 @@ public enum DisappearingMessagesJob: JobExecutor {
         deferred: @escaping (Job) -> ()
     ) {
         // The 'backgroundTask' gets captured and cleared within the 'completion' block
-        let timestampNowMs: TimeInterval = ceil(Date().timeIntervalSince1970 * 1000)
+        let timestampNowMs: TimeInterval = TimeInterval(SnodeAPI.currentOffsetTimestampMs())
         var backgroundTask: OWSBackgroundTask? = OWSBackgroundTask(label: #function)
         
         let updatedJob: Job? = Storage.shared.write { db in

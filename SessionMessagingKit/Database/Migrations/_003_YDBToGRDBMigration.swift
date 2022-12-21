@@ -1286,7 +1286,7 @@ enum _003_YDBToGRDBMigration: Migration {
                     // so we can reverse-engineer an approximate timestamp by extracting it from
                     // the id (this value is unlikely to match exactly though)
                     let fallbackTimestamp: UInt64 = legacyJob.id
-                        .map { UInt64($0.prefix("\(Int(Date().timeIntervalSince1970 * 1000))".count)) }
+                        .map { UInt64($0.prefix("\(SnodeAPI.currentOffsetTimestampMs())".count)) }
                         .defaulting(to: 0)
                     let legacyIdentifier: String = identifier(
                         for: threadId,
@@ -1657,7 +1657,7 @@ enum _003_YDBToGRDBMigration: Migration {
             state: .invalid,
             contentType: "",
             byteCount: 0,
-            creationTimestamp: Date().timeIntervalSince1970,
+            creationTimestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000),
             sourceFilename: nil,
             downloadUrl: nil,
             localRelativeFilePath: nil,

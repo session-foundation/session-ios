@@ -5,6 +5,7 @@ import GRDB
 import Sodium
 import SignalCoreKit
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 public enum MessageReceiver {
     private static var lastEncryptionKeyPairRequest: [String: Date] = [:]
@@ -144,7 +145,7 @@ public enum MessageReceiver {
         message.sender = sender
         message.recipient = userPublicKey
         message.sentTimestamp = envelope.timestamp
-        message.receivedTimestamp = UInt64((Date().timeIntervalSince1970) * 1000)
+        message.receivedTimestamp = SnodeAPI.currentTimestampMs()
         message.groupPublicKey = groupPublicKey
         message.openGroupServerMessageId = openGroupMessageServerId.map { UInt64($0) }
         

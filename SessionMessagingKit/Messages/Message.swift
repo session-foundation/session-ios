@@ -259,7 +259,10 @@ public extension Message {
         return try processRawReceivedMessage(
             db,
             envelope: envelope,
-            serverExpirationTimestamp: (Date().timeIntervalSince1970 + ControlMessageProcessRecord.defaultExpirationSeconds),
+            serverExpirationTimestamp: (
+                (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000) +
+                ControlMessageProcessRecord.defaultExpirationSeconds
+            ),
             serverHash: serverHash,
             handleClosedGroupKeyUpdateMessages: true
         )
@@ -275,7 +278,10 @@ public extension Message {
         let processedMessage: ProcessedMessage? = try processRawReceivedMessage(
             db,
             envelope: envelope,
-            serverExpirationTimestamp: (Date().timeIntervalSince1970 + ControlMessageProcessRecord.defaultExpirationSeconds),
+            serverExpirationTimestamp: (
+                (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000) +
+                ControlMessageProcessRecord.defaultExpirationSeconds
+            ),
             serverHash: nil,
             handleClosedGroupKeyUpdateMessages: false
         )
@@ -407,7 +413,7 @@ public extension Message {
                 
                 let count: Int64 = rawReaction.you ? rawReaction.count - 1 : rawReaction.count
                 
-                let timestampMs: Int64 = Int64(floor((Date().timeIntervalSince1970 * 1000)))
+                let timestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
                 let maxLength: Int = shouldAddSelfReaction ? 4 : 5
                 let desiredReactorIds: [String] = reactors
                     .filter { $0 != blindedUserPublicKey && $0 != userPublicKey } // Remove current user for now, will add back if needed

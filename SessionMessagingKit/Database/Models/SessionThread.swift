@@ -4,6 +4,7 @@ import Foundation
 import GRDB
 import Sodium
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "thread" }
@@ -104,7 +105,7 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
     public init(
         id: String,
         variant: Variant,
-        creationDateTimestamp: TimeInterval = Date().timeIntervalSince1970,
+        creationDateTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000),
         shouldBeVisible: Bool = false,
         isPinned: Bool = false,
         messageDraft: String? = nil,
