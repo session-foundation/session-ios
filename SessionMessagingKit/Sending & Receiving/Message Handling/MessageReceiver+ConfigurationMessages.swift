@@ -43,7 +43,8 @@ extension MessageReceiver {
                     fileName: nil
                 )
             }(),
-            sentTimestamp: messageSentTimestamp
+            sentTimestamp: messageSentTimestamp,
+            calledFromConfigHandling: true
         )
         
         // Create a contact for the current user if needed (also force-approve the current user
@@ -197,7 +198,13 @@ extension MessageReceiver {
             for openGroupURL in message.openGroups {
                 if let (room, server, publicKey) = OpenGroupManager.parseOpenGroup(from: openGroupURL) {
                     OpenGroupManager.shared
-                        .add(db, roomToken: room, server: server, publicKey: publicKey, isConfigMessage: true)
+                        .add(
+                            db,
+                            roomToken: room,
+                            server: server,
+                            publicKey: publicKey,
+                            calledFromConfigHandling: true
+                        )
                         .sinkUntilComplete()
                 }
             }

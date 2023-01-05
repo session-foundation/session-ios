@@ -207,12 +207,12 @@ public final class OpenGroupManager {
         roomToken: String,
         server: String,
         publicKey: String,
-        isConfigMessage: Bool,
+        calledFromConfigHandling: Bool = false,
         dependencies: OGMDependencies = OGMDependencies()
     ) -> AnyPublisher<Void, Error> {
         // If we are currently polling for this server and already have a TSGroupThread for this room the do nothing
         if hasExistingOpenGroup(db, roomToken: roomToken, server: server, publicKey: publicKey, dependencies: dependencies) {
-            SNLog("Ignoring join open group attempt (already joined), user initiated: \(!isConfigMessage)")
+            SNLog("Ignoring join open group attempt (already joined), user initiated: \(!calledFromConfigHandling)")
             return Just(())
                 .setFailureType(to: Error.self)
                 .eraseToAnyPublisher()
@@ -276,7 +276,9 @@ public final class OpenGroupManager {
                 Future<Void, Error> { resolver in
                     dependencies.storage.write { db in
                         // Enqueue a config sync job (have a newly added open group to sync)
-                        ConfigurationSyncJob.enqueue(db)
+                        if !calledFromConfigHandling {
+                            ConfigurationSyncJob.enqueue(db)
+                        }
                         
                         // Store the capabilities first
                         OpenGroupManager.handleCapabilities(

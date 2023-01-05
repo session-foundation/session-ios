@@ -174,8 +174,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                         db,
                         roomToken: roomToken,
                         server: server,
-                        publicKey: publicKey,
-                        isConfigMessage: false
+                        publicKey: publicKey
                     )
                 }
                 .receive(on: DispatchQueue.main)

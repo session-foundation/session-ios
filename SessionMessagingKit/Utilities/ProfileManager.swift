@@ -594,6 +594,25 @@ public struct ProfileManager {
                         profileChanges
                     )
             }
+            // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
+            else if !Features.useSharedUtilForUserConfig {
+                // If we have a contact record for the profile (ie. it's a synced profile) then
+                // should should send an updated config message, otherwise we should just update
+                // the local state (the shared util has this logic build in to it's handling)
+                if (try? Contact.exists(db, id: publicKey)) == true {
+                    try Profile
+                        .filter(id: publicKey)
+                        .updateAllAndConfig(db, profileChanges)
+                }
+                else {
+                    try Profile
+                        .filter(id: publicKey)
+                        .updateAll(
+                            db,
+                            profileChanges
+                        )
+                }
+            }
             else {
                 try Profile
                     .filter(id: publicKey)
@@ -606,7 +625,7 @@ public struct ProfileManager {
         
         db.afterNextTransaction { db in
             // Need to refetch to ensure the db changes have occurred
-            ProfileManager.downloadAvatar(for: Profile.fetchOrCreate(id: publicKey))
+            ProfileManager.downloadAvatar(for: Profile.fetchOrCreate(db, id: publicKey))
         }
     }
 }

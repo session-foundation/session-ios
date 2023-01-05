@@ -265,11 +265,13 @@ public extension ConfigurationSyncJob {
         
         // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
         guard Features.useSharedUtilForUserConfig else {
-            // If we don't have a userKeyPair yet then there is no need to sync the configuration
-            // as the user doesn't exist yet (this will get triggered on the first launch of a
-            // fresh install due to the migrations getting run)
+            // If we don't have a userKeyPair (or name) yet then there is no need to sync the
+            // configuration as the user doesn't fully exist yet (this will get triggered on
+            // the first launch of a fresh install due to the migrations getting run and a few
+            // times during onboarding)
             guard
                 Identity.userExists(db),
+                !Profile.fetchOrCreateCurrentUser(db).name.isEmpty,
                 let legacyConfigMessage: Message = try? ConfigurationMessage.getCurrent(db)
             else { return }
             

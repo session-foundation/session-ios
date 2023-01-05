@@ -946,7 +946,6 @@ public enum OpenGroupAPI {
             queue: OpenGroupAPI.workQueue
         )
     ) -> AnyPublisher<(ResponseInfoType, Data), Error> {
-        print("Download File")
         return OpenGroupAPI
             .send(
                 db,
@@ -957,7 +956,6 @@ public enum OpenGroupAPI {
                 using: dependencies
             )
             .flatMap { responseInfo, maybeData -> AnyPublisher<(ResponseInfoType, Data), Error> in
-                print("Download File FlatMap")
                 guard let data: Data = maybeData else {
                     return Fail(error: HTTPError.parsingFailed)
                         .eraseToAnyPublisher()

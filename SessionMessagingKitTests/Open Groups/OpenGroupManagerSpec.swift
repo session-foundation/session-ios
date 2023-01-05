@@ -822,7 +822,6 @@ class OpenGroupManagerSpec: QuickSpec {
                                     roomToken: "testRoom",
                                     server: "testServer",
                                     publicKey: TestConstants.serverPublicKey,
-                                    isConfigMessage: false,
                                     dependencies: dependencies
                                 )
                         }
@@ -853,7 +852,6 @@ class OpenGroupManagerSpec: QuickSpec {
                                     roomToken: "testRoom",
                                     server: "testServer",
                                     publicKey: TestConstants.serverPublicKey,
-                                    isConfigMessage: false,
                                     dependencies: dependencies
                                 )
                         }
@@ -892,7 +890,6 @@ class OpenGroupManagerSpec: QuickSpec {
                                         publicKey: TestConstants.serverPublicKey
                                             .replacingOccurrences(of: "c3", with: "00")
                                             .replacingOccurrences(of: "b3", with: "00"),
-                                        isConfigMessage: false,
                                         dependencies: dependencies
                                     )
                             }
@@ -946,7 +943,6 @@ class OpenGroupManagerSpec: QuickSpec {
                                         roomToken: "testRoom",
                                         server: "testServer",
                                         publicKey: TestConstants.serverPublicKey,
-                                        isConfigMessage: false,
                                         dependencies: dependencies
                                     )
                             }

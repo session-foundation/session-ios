@@ -60,6 +60,12 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
             }
         }
         
+        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
+        guard Features.useSharedUtilForUserConfig else {
+            return try self.updateAndFetchAll(db, assignments)
+        }
+        
+        // Update the config dump state where needed
         switch self {
             case is QueryInterfaceRequest<Contact>:
                 return try SessionUtil.updatingContacts(db, try updateAndFetchAll(db, assignments))

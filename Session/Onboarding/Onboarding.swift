@@ -9,6 +9,15 @@ import SessionMessagingKit
 
 enum Onboarding {
     private static let profileNameRetrievalPublisher: Atomic<AnyPublisher<String?, Error>> = {
+        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
+        guard Features.useSharedUtilForUserConfig else {
+            return Atomic(
+                Just(nil)
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
+            )
+        }
+        
         let userPublicKey: String = getUserHexEncodedPublicKey()
         
         return Atomic(

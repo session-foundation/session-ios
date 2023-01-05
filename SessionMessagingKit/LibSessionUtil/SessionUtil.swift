@@ -280,6 +280,8 @@ public enum SessionUtil {
         messages: [SharedConfigMessage],
         publicKey: String
     ) throws {
+        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
+        guard Features.useSharedUtilForUserConfig else { return }
         guard !messages.isEmpty else { return }
         guard !publicKey.isEmpty else { throw MessageReceiverError.noThread }
         

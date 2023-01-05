@@ -1554,8 +1554,7 @@ extension ConversationVC:
                                 db,
                                 roomToken: room,
                                 server: server,
-                                publicKey: publicKey,
-                                isConfigMessage: false
+                                publicKey: publicKey
                             )
                         }
                         .receive(on: DispatchQueue.main)
