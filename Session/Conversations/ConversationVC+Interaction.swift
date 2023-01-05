@@ -1806,7 +1806,11 @@ extension ConversationVC:
                 }
                 
                 let actionSheet: UIAlertController = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
-                actionSheet.addAction(UIAlertAction(title: "delete_message_for_me".localized(), style: .destructive) { [weak self] _ in
+                actionSheet.addAction(UIAlertAction(
+                    title: "delete_message_for_me".localized(),
+                    accessibilityIdentifier: "Delete for me",
+                    style: .destructive
+                ) { [weak self] _ in
                     Storage.shared.writeAsync { db in
                         _ = try Interaction
                             .filter(id: cellViewModel.id)
@@ -1829,6 +1833,7 @@ extension ConversationVC:
                         "delete_message_for_everyone".localized() :
                         String(format: "delete_message_for_me_and_recipient".localized(), threadName)
                     ),
+                    accessibilityIdentifier: "Delete for everyone",
                     style: .destructive
                 ) { [weak self] _ in
                     deleteRemotely(

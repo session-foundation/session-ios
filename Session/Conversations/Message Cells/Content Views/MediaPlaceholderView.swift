@@ -12,7 +12,8 @@ final class MediaPlaceholderView: UIView {
     
     init(cellViewModel: MessageViewModel, textColor: ThemeValue) {
         super.init(frame: CGRect.zero)
-        self.accessibilityLabel = "Untrusted attachment message"
+        self.accessibilityIdentifier = "Untrusted attachment message"
+        self.isAccessibilityElement = true
         setUpViewHierarchy(cellViewModel: cellViewModel, textColor: textColor)
     }
     
