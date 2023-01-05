@@ -281,14 +281,14 @@ public final class OpenGroupManager {
                         // Store the capabilities first
                         OpenGroupManager.handleCapabilities(
                             db,
-                            capabilities: response.capabilities.data,
+                            capabilities: response.data.capabilities.data,
                             on: targetServer
                         )
                         
                         // Then the room
                         try OpenGroupManager.handlePollInfo(
                             db,
-                            pollInfo: OpenGroupAPI.RoomPollInfo(room: response.room.data),
+                            pollInfo: OpenGroupAPI.RoomPollInfo(room: response.data.room.data),
                             publicKey: publicKey,
                             for: roomToken,
                             on: targetServer,
@@ -1051,7 +1051,9 @@ public final class OpenGroupManager {
         fileId: String,
         for roomToken: String,
         on server: String,
-        using dependencies: OGMDependencies = OGMDependencies()
+        using dependencies: OGMDependencies = OGMDependencies(
+            queue: DispatchQueue.global(qos: .background)
+        )
     ) -> AnyPublisher<Data, Error> {
         // Normally the image for a given group is stored with the group thread, so it's only
         // fetched once. However, on the join open group screen we show images for groups the
@@ -1087,18 +1089,14 @@ public final class OpenGroupManager {
         }
         
         // Trigger the download on a background queue
-        let publisher: AnyPublisher<Data, Error> = dependencies.storage
-            .readPublisherFlatMap { db in
-                OpenGroupAPI
-                    .downloadFile(
-                        db,
-                        fileId: fileId,
-                        from: roomToken,
-                        on: server,
-                        using: dependencies
-                    )
-            }
-            .subscribe(on: DispatchQueue.global(qos: .background))
+        let publisher: AnyPublisher<Data, Error> = OpenGroupAPI
+            .downloadFile(
+                db,
+                fileId: fileId,
+                from: roomToken,
+                on: server,
+                using: dependencies
+            )
             .map { _, imageData in
                 if server.lowercased() == OpenGroupAPI.defaultServer {
                     dependencies.storage.write { db in
@@ -1167,6 +1165,7 @@ extension OpenGroupManager {
         public var cache: OGMCacheType { return mutableCache.wrappedValue }
         
         public init(
+            queue: DispatchQueue? = nil,
             cache: Atomic<OGMCacheType>? = nil,
             onionApi: OnionRequestAPIType.Type? = nil,
             generalCache: Atomic<GeneralCacheType>? = nil,
@@ -1186,6 +1185,7 @@ extension OpenGroupManager {
             _mutableCache = Atomic(cache)
             
             super.init(
+                queue: queue,
                 onionApi: onionApi,
                 generalCache: generalCache,
                 storage: storage,

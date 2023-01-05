@@ -57,6 +57,7 @@ public class SMKDependencies: SSKDependencies {
     // MARK: - Initialization
     
     public init(
+        queue: DispatchQueue? = nil,
         onionApi: OnionRequestAPIType.Type? = nil,
         generalCache: Atomic<GeneralCacheType>? = nil,
         storage: Storage? = nil,
@@ -82,6 +83,7 @@ public class SMKDependencies: SSKDependencies {
         _nonceGenerator24 = Atomic(nonceGenerator24)
         
         super.init(
+            queue: queue,
             onionApi: onionApi,
             generalCache: generalCache,
             storage: storage,

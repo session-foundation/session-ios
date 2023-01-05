@@ -631,7 +631,11 @@ private final class JobQueue {
     
     fileprivate func start(force: Bool = false) {
         // We only want the JobRunner to run in the main app
-        guard CurrentAppContext().isMainApp else { return }
+        guard
+            HasAppContext() &&
+            CurrentAppContext().isMainApp &&
+            !CurrentAppContext().isRunningTests
+        else { return }
         guard force || !isRunning.wrappedValue else { return }
         
         // The JobRunner runs synchronously we need to ensure this doesn't start

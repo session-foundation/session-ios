@@ -25,6 +25,7 @@ class OpenGroupAPISpec: QuickSpec {
         var mockNonce16Generator: MockNonce16Generator!
         var mockNonce24Generator: MockNonce24Generator!
         var dependencies: SMKDependencies!
+        var disposables: [AnyCancellable] = []
         
         var response: (ResponseInfoType, Codable)? = nil
         var pollResponse: (info: ResponseInfoType, data: [OpenGroupAPI.Endpoint: Codable])?
@@ -115,6 +116,8 @@ class OpenGroupAPISpec: QuickSpec {
             }
 
             afterEach {
+                disposables.forEach { $0.cancel() }
+                
                 mockStorage = nil
                 mockSodium = nil
                 mockAeadXChaCha20Poly1305Ietf = nil
@@ -122,6 +125,7 @@ class OpenGroupAPISpec: QuickSpec {
                 mockGenericHash = nil
                 mockEd25519 = nil
                 dependencies = nil
+                disposables = []
                 
                 response = nil
                 pollResponse = nil
@@ -191,11 +195,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in pollResponse = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(pollResponse)
                             .toEventuallyNot(
@@ -205,16 +207,13 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(error?.localizedDescription).to(beNil())
                         
                         // Validate the response data
-                        
                         expect(pollResponse?.data.count).to(equal(3))
                         expect(pollResponse?.data.keys).to(contain(.capabilities))
                         expect(pollResponse?.data.keys).to(contain(.roomPollInfo("testRoom", 0)))
                         expect(pollResponse?.data.keys).to(contain(.roomMessagesRecent("testRoom")))
-                        expect(pollResponse?.data[.capabilities])
-                            .to(beAKindOf(TestOnionRequestAPI.ResponseInfo.self))
                         
                         // Validate request data
-                        let requestData: TestOnionRequestAPI.RequestData? = (pollResponse?.data[.capabilities] as? TestOnionRequestAPI.ResponseInfo)?.requestData
+                        let requestData: TestOnionRequestAPI.RequestData? = (pollResponse?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                         expect(requestData?.urlString).to(equal("testserver/batch"))
                         expect(requestData?.httpMethod).to(equal("POST"))
                         expect(requestData?.publicKey).to(equal("88672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"))
@@ -231,11 +230,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in pollResponse = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(pollResponse)
                             .toEventuallyNot(
@@ -262,11 +259,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in pollResponse = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(pollResponse)
                             .toEventuallyNot(
@@ -293,11 +288,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in pollResponse = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(pollResponse)
                             .toEventuallyNot(
@@ -324,11 +317,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in pollResponse = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(pollResponse)
                             .toEventuallyNot(
@@ -358,11 +349,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                                 }
-                                .subscribe(on: DispatchQueue.main)
-                                .receiveOnMain(immediately: true)
                                 .handleEvents(receiveOutput: { result in pollResponse = result })
                                 .mapError { error.setting(to: $0) }
-                                .sinkUntilComplete()
+                                .sinkAndStore(in: &disposables)
                             
                             expect(pollResponse)
                                 .toEventuallyNot(
@@ -459,11 +448,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                                 }
-                                .subscribe(on: DispatchQueue.main)
-                                .receiveOnMain(immediately: true)
                                 .handleEvents(receiveOutput: { result in pollResponse = result })
                                 .mapError { error.setting(to: $0) }
-                                .sinkUntilComplete()
+                                .sinkAndStore(in: &disposables)
                             
                             expect(pollResponse)
                                 .toEventuallyNot(
@@ -488,11 +475,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                                 }
-                                .subscribe(on: DispatchQueue.main)
-                                .receiveOnMain(immediately: true)
                                 .handleEvents(receiveOutput: { result in pollResponse = result })
                                 .mapError { error.setting(to: $0) }
-                                .sinkUntilComplete()
+                                .sinkAndStore(in: &disposables)
                             
                             expect(pollResponse)
                                 .toEventuallyNot(
@@ -519,11 +504,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                                 }
-                                .subscribe(on: DispatchQueue.main)
-                                .receiveOnMain(immediately: true)
                                 .handleEvents(receiveOutput: { result in pollResponse = result })
                                 .mapError { error.setting(to: $0) }
-                                .sinkUntilComplete()
+                                .sinkAndStore(in: &disposables)
                             
                             expect(pollResponse)
                                 .toEventuallyNot(
@@ -545,11 +528,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                                 }
-                                .subscribe(on: DispatchQueue.main)
-                                .receiveOnMain(immediately: true)
                                 .handleEvents(receiveOutput: { result in pollResponse = result })
                                 .mapError { error.setting(to: $0) }
-                                .sinkUntilComplete()
+                                .sinkAndStore(in: &disposables)
                             
                             expect(pollResponse)
                                 .toEventuallyNot(
@@ -576,11 +557,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                                 }
-                                .subscribe(on: DispatchQueue.main)
-                                .receiveOnMain(immediately: true)
                                 .handleEvents(receiveOutput: { result in pollResponse = result })
                                 .mapError { error.setting(to: $0) }
-                                .sinkUntilComplete()
+                                .sinkAndStore(in: &disposables)
                             
                             expect(pollResponse)
                                 .toEventuallyNot(
@@ -639,11 +618,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in pollResponse = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(pollResponse)
                             .toEventuallyNot(
@@ -671,11 +648,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in pollResponse = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -702,11 +677,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in pollResponse = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -733,11 +706,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in pollResponse = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -764,11 +735,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in pollResponse = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -827,11 +796,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in pollResponse = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -865,11 +832,9 @@ class OpenGroupAPISpec: QuickSpec {
                                 using: dependencies
                             )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -937,11 +902,9 @@ class OpenGroupAPISpec: QuickSpec {
                                 using: dependencies
                             )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -1020,7 +983,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
-                        var response: (capabilities: (info: ResponseInfoType, data: OpenGroupAPI.Capabilities?), room: (info: ResponseInfoType, data: OpenGroupAPI.Room?))?
+                        var response: OpenGroupAPI.CapabilitiesAndRoomResponse?
                         
                         mockStorage
                             .readPublisherFlatMap { db in
@@ -1031,11 +994,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(response)
                             .toEventuallyNot(
@@ -1045,11 +1006,11 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(error?.localizedDescription).to(beNil())
                         
                         // Validate the response data
-                        expect(response?.capabilities.data).to(equal(TestApi.capabilitiesData))
-                        expect(response?.room.data).to(equal(TestApi.roomData))
+                        expect(response?.data.capabilities.data).to(equal(TestApi.capabilitiesData))
+                        expect(response?.data.room.data).to(equal(TestApi.roomData))
                         
                         // Validate request data
-                        let requestData: TestOnionRequestAPI.RequestData? = (response?.capabilities.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
+                        let requestData: TestOnionRequestAPI.RequestData? = (response?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                         expect(requestData?.httpMethod).to(equal("POST"))
                         expect(requestData?.urlString).to(equal("testserver/sequence"))
                     }
@@ -1077,7 +1038,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
-                        var response: (capabilities: (info: ResponseInfoType, data: OpenGroupAPI.Capabilities?), room: (info: ResponseInfoType, data: OpenGroupAPI.Room?))?
+                        var response: OpenGroupAPI.CapabilitiesAndRoomResponse?
                         
                         mockStorage
                             .readPublisherFlatMap { db in
@@ -1089,11 +1050,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1151,7 +1110,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
-                        var response: (capabilities: (info: ResponseInfoType, data: OpenGroupAPI.Capabilities?), room: (info: ResponseInfoType, data: OpenGroupAPI.Room?))?
+                        var response: OpenGroupAPI.CapabilitiesAndRoomResponse?
                         
                         mockStorage
                             .readPublisherFlatMap { db in
@@ -1163,11 +1122,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1242,7 +1199,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
-                        var response: (capabilities: (info: ResponseInfoType, data: OpenGroupAPI.Capabilities?), room: (info: ResponseInfoType, data: OpenGroupAPI.Room?))?
+                        var response: OpenGroupAPI.CapabilitiesAndRoomResponse?
                         
                         mockStorage
                             .readPublisherFlatMap { db in
@@ -1253,11 +1210,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1319,11 +1274,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -1366,11 +1319,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(response)
                             .toEventuallyNot(
@@ -1408,11 +1359,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1445,11 +1394,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1480,11 +1427,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1522,11 +1467,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(response)
                             .toEventuallyNot(
@@ -1564,11 +1507,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1601,11 +1542,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1644,11 +1583,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1696,11 +1633,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -1752,11 +1687,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -1795,11 +1728,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(response)
                             .toEventuallyNot(
@@ -1836,11 +1767,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1872,11 +1801,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1906,11 +1833,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1947,11 +1872,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(response)
                             .toEventuallyNot(
@@ -1988,11 +1911,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -2024,11 +1945,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -2066,11 +1985,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -2103,11 +2020,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2149,11 +2064,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2191,11 +2104,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2231,11 +2142,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2270,11 +2179,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2312,11 +2219,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2350,11 +2255,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2389,11 +2292,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2428,11 +2329,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2487,11 +2386,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2539,11 +2436,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2571,11 +2466,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2605,11 +2498,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2653,11 +2544,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2684,11 +2573,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2717,11 +2604,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2768,11 +2653,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2802,11 +2685,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2838,11 +2719,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2874,11 +2753,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(error?.localizedDescription)
                         .toEventually(
@@ -2891,7 +2768,7 @@ class OpenGroupAPISpec: QuickSpec {
             }
             
             context("when banning and deleting all messages for a user") {
-                var response: [ResponseInfoType]?
+                var response: (info: ResponseInfoType, data: [OpenGroupAPI.Endpoint: ResponseInfoType])?
                 
                 beforeEach {
                     class TestApi: TestOnionRequestAPI {
@@ -2937,11 +2814,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2951,7 +2826,7 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(error?.localizedDescription).to(beNil())
                     
                     // Validate request data
-                    let requestData: TestOnionRequestAPI.RequestData? = (response?.first as? TestOnionRequestAPI.ResponseInfo)?.requestData
+                    let requestData: TestOnionRequestAPI.RequestData? = (response?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("POST"))
                     expect(requestData?.urlString).to(equal("testserver/sequence"))
                 }
@@ -2968,11 +2843,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2982,7 +2855,7 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(error?.localizedDescription).to(beNil())
                     
                     // Validate request data
-                    let requestData: TestOnionRequestAPI.RequestData? = (response?.first as? TestOnionRequestAPI.ResponseInfo)?.requestData
+                    let requestData: TestOnionRequestAPI.RequestData? = (response?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     let jsonObject: Any = try! JSONSerialization.jsonObject(
                         with: requestData!.body!,
                         options: [.fragmentsAllowed]
@@ -3025,11 +2898,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(error?.localizedDescription)
                         .toEventually(
@@ -3054,11 +2925,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(error?.localizedDescription)
                         .toEventually(
@@ -3083,11 +2952,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(error?.localizedDescription)
                         .toEventually(
@@ -3116,11 +2983,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(response)
                             .toEventuallyNot(
@@ -3154,11 +3019,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -3189,11 +3052,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(response)
                             .toEventuallyNot(
@@ -3228,11 +3089,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -3257,11 +3116,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(

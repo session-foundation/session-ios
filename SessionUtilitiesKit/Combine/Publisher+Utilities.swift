@@ -25,6 +25,31 @@ public extension Publisher {
         )
     }
     
+    /// The standard `.subscribe(on: DispatchQueue.main)` seems to ocassionally dispatch to the
+    /// next run loop before actually subscribing, this method checks if it's running on the main thread already and
+    /// if so just subscribes directly rather than routing via `.receive(on:)`
+    func subscribeOnMain(immediately receiveImmediately: Bool = false, options: DispatchQueue.SchedulerOptions? = nil) -> AnyPublisher<Output, Failure> {
+        guard receiveImmediately else {
+            return self.subscribe(on: DispatchQueue.main, options: options)
+                .eraseToAnyPublisher()
+        }
+        
+        return self
+            .flatMap { value -> AnyPublisher<Output, Failure> in
+                guard Thread.isMainThread else {
+                    return Just(value)
+                        .setFailureType(to: Failure.self)
+                        .subscribe(on: DispatchQueue.main, options: options)
+                        .eraseToAnyPublisher()
+                }
+                
+                return Just(value)
+                    .setFailureType(to: Failure.self)
+                    .eraseToAnyPublisher()
+            }
+            .eraseToAnyPublisher()
+    }
+    
     /// The standard `.receive(on: DispatchQueue.main)` seems to ocassionally dispatch to the
     /// next run loop before emitting data, this method checks if it's running on the main thread already and
     /// if so just emits directly rather than routing via `.receive(on:)`

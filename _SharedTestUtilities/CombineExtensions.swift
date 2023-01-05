@@ -4,9 +4,10 @@ import Foundation
 import Combine
 import SessionUtilitiesKit
 
-public extension AnyPublisher {
-    func sinkAndStore<C>(in storage: inout C) where C : RangeReplaceableCollection, C.Element == AnyCancellable {
+public extension Publisher {
+    func sinkAndStore<C>(in storage: inout C) where C: RangeReplaceableCollection, C.Element == AnyCancellable {
         self
+            .subscribeOnMain(immediately: true)
             .receiveOnMain(immediately: true)
             .sink(
                 receiveCompletion: { _ in },
@@ -14,7 +15,9 @@ public extension AnyPublisher {
             )
             .store(in: &storage)
     }
-    
+}
+
+public extension AnyPublisher {
     func firstValue() -> Output? {
         var value: Output?
         

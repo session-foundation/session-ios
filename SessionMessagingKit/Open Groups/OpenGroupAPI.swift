@@ -31,7 +31,9 @@ public enum OpenGroupAPI {
         server: String,
         hasPerformedInitialPoll: Bool,
         timeSinceLastPoll: TimeInterval,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(info: ResponseInfoType, data: [Endpoint: Codable]), Error> {
         let lastInboxMessageId: Int64 = (try? OpenGroup
             .select(.inboxLatestMessageId)
@@ -151,7 +153,9 @@ public enum OpenGroupAPI {
         _ db: Database,
         server: String,
         requests: [BatchRequest.Info],
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(info: ResponseInfoType, data: [Endpoint: Codable]), Error> {
         let responseTypes = requests.map { $0.responseType }
         
@@ -183,7 +187,9 @@ public enum OpenGroupAPI {
         _ db: Database,
         server: String,
         requests: [BatchRequest.Info],
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(info: ResponseInfoType, data: [Endpoint: Codable]), Error> {
         let responseTypes = requests.map { $0.responseType }
         
@@ -215,7 +221,9 @@ public enum OpenGroupAPI {
         _ db: Database,
         server: String,
         forceBlinded: Bool = false,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(ResponseInfoType, Capabilities), Error> {
         return OpenGroupAPI
             .send(
@@ -238,7 +246,9 @@ public enum OpenGroupAPI {
     public static func rooms(
         _ db: Database,
         server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(ResponseInfoType, [Room]), Error> {
         return OpenGroupAPI
             .send(
@@ -262,7 +272,9 @@ public enum OpenGroupAPI {
         _ db: Database,
         for roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(ResponseInfoType, Room), Error> {
         return OpenGroupAPI
             .send(
@@ -290,7 +302,9 @@ public enum OpenGroupAPI {
         lastUpdated: Int64,
         for roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(ResponseInfoType, RoomPollInfo), Error> {
         return OpenGroupAPI
             .send(
@@ -304,14 +318,24 @@ public enum OpenGroupAPI {
             .decoded(as: RoomPollInfo.self, using: dependencies)
     }
     
+    public typealias CapabilitiesAndRoomResponse = (
+        info: ResponseInfoType,
+        data: (
+            capabilities: (info: ResponseInfoType, data: Capabilities),
+            room: (info: ResponseInfoType, data: Room)
+        )
+    )
+    
     /// This is a convenience method which constructs a `/sequence` of the `capabilities` and `room`  requests, refer to those
     /// methods for the documented behaviour of each method
     public static func capabilitiesAndRoom(
         _ db: Database,
         for roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
-    ) -> AnyPublisher<(capabilities: (info: ResponseInfoType, data: Capabilities), room: (info: ResponseInfoType, data: Room)), Error> {
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
+    ) -> AnyPublisher<CapabilitiesAndRoomResponse, Error> {
         let requestResponseType: [BatchRequest.Info] = [
             // Get the latest capabilities for the server (in case it's a new server or the cached ones are stale)
             BatchRequest.Info(
@@ -339,7 +363,7 @@ public enum OpenGroupAPI {
                 requests: requestResponseType,
                 using: dependencies
             )
-            .flatMap { (info: ResponseInfoType, data: [Endpoint: Codable]) -> AnyPublisher<(capabilities: (info: ResponseInfoType, data: Capabilities), room: (info: ResponseInfoType, data: Room)), Error> in
+            .flatMap { (info: ResponseInfoType, data: [Endpoint: Codable]) -> AnyPublisher<CapabilitiesAndRoomResponse, Error> in
                 let maybeCapabilities: HTTP.BatchSubResponse<Capabilities>? = (data[.capabilities] as? HTTP.BatchSubResponse<Capabilities>)
                 let maybeRoomResponse: Codable? = data
                     .first(where: { key, _ in
@@ -362,8 +386,11 @@ public enum OpenGroupAPI {
                 }
                 
                 return Just((
-                    capabilities: (info: capabilitiesInfo, data: capabilities),
-                    room: (info: roomInfo, data: room)
+                    info: info,
+                    data: (
+                        capabilities: (info: capabilitiesInfo, data: capabilities),
+                        room: (info: roomInfo, data: room)
+                    )
                 ))
                 .setFailureType(to: Error.self)
                 .eraseToAnyPublisher()
@@ -376,7 +403,9 @@ public enum OpenGroupAPI {
     public static func capabilitiesAndRooms(
         _ db: Database,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(capabilities: (info: ResponseInfoType, data: Capabilities), rooms: (info: ResponseInfoType, data: [Room])), Error> {
         let requestResponseType: [BatchRequest.Info] = [
             // Get the latest capabilities for the server (in case it's a new server or the cached ones are stale)
@@ -447,7 +476,9 @@ public enum OpenGroupAPI {
         whisperTo: String?,
         whisperMods: Bool,
         fileIds: [String]?,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(ResponseInfoType, Message), Error> {
         guard let signResult: (publicKey: String, signature: Bytes) = sign(db, messageBytes: plaintext.bytes, for: server, fallbackSigningType: .standard, using: dependencies) else {
             return Fail(error: OpenGroupAPIError.signingFailed)
@@ -480,7 +511,9 @@ public enum OpenGroupAPI {
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(ResponseInfoType, Message), Error> {
         return OpenGroupAPI
             .send(
@@ -504,7 +537,9 @@ public enum OpenGroupAPI {
         fileIds: [Int64]?,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         guard let signResult: (publicKey: String, signature: Bytes) = sign(db, messageBytes: plaintext.bytes, for: server, fallbackSigningType: .standard, using: dependencies) else {
             return Fail(error: OpenGroupAPIError.signingFailed)
@@ -533,7 +568,9 @@ public enum OpenGroupAPI {
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         return OpenGroupAPI
             .send(
@@ -555,7 +592,9 @@ public enum OpenGroupAPI {
         _ db: Database,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(ResponseInfoType, [Message]), Error> {
         return OpenGroupAPI
             .send(
@@ -578,7 +617,9 @@ public enum OpenGroupAPI {
         messageId: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(ResponseInfoType, [Message]), Error> {
         return OpenGroupAPI
             .send(
@@ -601,7 +642,9 @@ public enum OpenGroupAPI {
         seqNo: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(ResponseInfoType, [Message]), Error> {
         return OpenGroupAPI
             .send(
@@ -637,7 +680,9 @@ public enum OpenGroupAPI {
         sessionId: String,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         return OpenGroupAPI
             .send(
@@ -659,7 +704,9 @@ public enum OpenGroupAPI {
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<ResponseInfoType, Error> {
         /// URL(String:) won't convert raw emojis, so need to do a little encoding here.
         /// The raw emoji will come back when calling url.path
@@ -688,7 +735,9 @@ public enum OpenGroupAPI {
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(ResponseInfoType, ReactionAddResponse), Error> {
         /// URL(String:) won't convert raw emojis, so need to do a little encoding here.
         /// The raw emoji will come back when calling url.path
@@ -716,7 +765,9 @@ public enum OpenGroupAPI {
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(ResponseInfoType, ReactionRemoveResponse), Error> {
         /// URL(String:) won't convert raw emojis, so need to do a little encoding here.
         /// The raw emoji will come back when calling url.path
@@ -744,7 +795,9 @@ public enum OpenGroupAPI {
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(ResponseInfoType, ReactionRemoveAllResponse), Error> {
         /// URL(String:) won't convert raw emojis, so need to do a little encoding here.
         /// The raw emoji will come back when calling url.path
@@ -783,7 +836,9 @@ public enum OpenGroupAPI {
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<ResponseInfoType, Error> {
         return OpenGroupAPI
             .send(
@@ -807,7 +862,9 @@ public enum OpenGroupAPI {
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<ResponseInfoType, Error> {
         return OpenGroupAPI
             .send(
@@ -830,7 +887,9 @@ public enum OpenGroupAPI {
         _ db: Database,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<ResponseInfoType, Error> {
         return OpenGroupAPI
             .send(
@@ -854,7 +913,9 @@ public enum OpenGroupAPI {
         fileName: String? = nil,
         to roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(ResponseInfoType, FileUploadResponse), Error> {
         return OpenGroupAPI
             .send(
@@ -881,8 +942,11 @@ public enum OpenGroupAPI {
         fileId: String,
         from roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(ResponseInfoType, Data), Error> {
+        print("Download File")
         return OpenGroupAPI
             .send(
                 db,
@@ -893,6 +957,7 @@ public enum OpenGroupAPI {
                 using: dependencies
             )
             .flatMap { responseInfo, maybeData -> AnyPublisher<(ResponseInfoType, Data), Error> in
+                print("Download File FlatMap")
                 guard let data: Data = maybeData else {
                     return Fail(error: HTTPError.parsingFailed)
                         .eraseToAnyPublisher()
@@ -916,7 +981,9 @@ public enum OpenGroupAPI {
     public static func inbox(
         _ db: Database,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(ResponseInfoType, [DirectMessage]?), Error> {
         return OpenGroupAPI
             .send(
@@ -940,7 +1007,9 @@ public enum OpenGroupAPI {
         _ db: Database,
         id: Int64,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(ResponseInfoType, [DirectMessage]?), Error> {
         return OpenGroupAPI
             .send(
@@ -962,7 +1031,9 @@ public enum OpenGroupAPI {
         ciphertext: Data,
         toInboxFor blindedSessionId: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(ResponseInfoType, SendDirectMessageResponse), Error> {
         return OpenGroupAPI
             .send(
@@ -989,7 +1060,9 @@ public enum OpenGroupAPI {
     public static func outbox(
         _ db: Database,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(ResponseInfoType, [DirectMessage]?), Error> {
         return OpenGroupAPI
             .send(
@@ -1013,7 +1086,9 @@ public enum OpenGroupAPI {
         _ db: Database,
         id: Int64,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(ResponseInfoType, [DirectMessage]?), Error> {
         return OpenGroupAPI
             .send(
@@ -1066,7 +1141,9 @@ public enum OpenGroupAPI {
         for timeout: TimeInterval? = nil,
         from roomTokens: [String]? = nil,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         return OpenGroupAPI
             .send(
@@ -1114,7 +1191,9 @@ public enum OpenGroupAPI {
         sessionId: String,
         from roomTokens: [String]?,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         return OpenGroupAPI
             .send(
@@ -1191,7 +1270,9 @@ public enum OpenGroupAPI {
         visible: Bool,
         for roomTokens: [String]?,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         guard (moderator != nil && admin == nil) || (moderator == nil && admin != nil) else {
             return Fail(error: HTTPError.generic)
@@ -1224,8 +1305,10 @@ public enum OpenGroupAPI {
         sessionId: String,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
-    ) -> AnyPublisher<[ResponseInfoType], Error> {
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
+    ) -> AnyPublisher<(info: ResponseInfoType, data: [Endpoint: ResponseInfoType]), Error> {
         let banRequestBody: UserBanRequest = UserBanRequest(
             rooms: [roomToken],
             global: nil,
@@ -1258,8 +1341,11 @@ public enum OpenGroupAPI {
                 requests: requestResponseType,
                 using: dependencies
             )
-            .map { _, data -> [ResponseInfoType] in
-                data.values.compactMap { ($0 as? BatchSubResponseType)?.responseInfo }
+            .map { info, data -> (info: ResponseInfoType, data: [Endpoint: ResponseInfoType]) in
+                (
+                    info,
+                    data.compactMapValues { ($0 as? BatchSubResponseType)?.responseInfo }
+                )
             }
             .eraseToAnyPublisher()
     }
@@ -1273,7 +1359,9 @@ public enum OpenGroupAPI {
         for serverName: String,
         fallbackSigningType signingType: SessionId.Prefix,
         forceBlinded: Bool = false,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> (publicKey: String, signature: Bytes)? {
         guard
             let userEdKeyPair: Box.KeyPair = Identity.fetchUserEd25519KeyPair(db),
@@ -1340,7 +1428,9 @@ public enum OpenGroupAPI {
         for serverName: String,
         with serverPublicKey: String,
         forceBlinded: Bool = false,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> URLRequest? {
         guard let url: URL = request.url else { return nil }
         
@@ -1401,7 +1491,9 @@ public enum OpenGroupAPI {
         _ db: Database,
         request: Request<T, Endpoint>,
         forceBlinded: Bool = false,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: SMKDependencies = SMKDependencies(
+            queue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         let urlRequest: URLRequest
         
@@ -1430,11 +1522,10 @@ public enum OpenGroupAPI {
                 .eraseToAnyPublisher()
         }
         
-        // We was to avoid blocking the db write thread so we dispatch the API call to a different thread
+        // We want to avoid blocking the db write thread so we dispatch the API call to a different thread
         return Just(())
             .setFailureType(to: Error.self)
-            .subscribe(on: OpenGroupAPI.workQueue)
-            .receive(on: OpenGroupAPI.workQueue)
+            .subscribe(on: dependencies.queue)
             .flatMap { dependencies.onionApi.sendOnionRequest(signedRequest, to: request.server, with: publicKey) }
             .eraseToAnyPublisher()
     }

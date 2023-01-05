@@ -116,6 +116,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 mockNonce24Generator = MockNonce24Generator()
                 mockUserDefaults = MockUserDefaults()
                 dependencies = OpenGroupManager.OGMDependencies(
+                    queue: DispatchQueue.main,
                     cache: Atomic(mockOGMCache),
                     onionApi: TestCapabilitiesAndRoomApi.self,
                     generalCache: Atomic(mockGeneralCache),
@@ -380,18 +381,25 @@ class OpenGroupManagerSpec: QuickSpec {
                     openGroupManager.startPolling(using: dependencies)
                     
                     expect(mockOGMCache)
-                        .to(call(matchingParameters: true) {
-                            $0.pollers = [
-                                "testserver": OpenGroupAPI.Poller(for: "testserver"),
-                                "testserver1": OpenGroupAPI.Poller(for: "testserver1")
-                            ]
-                        })
+                        .toEventually(
+                            call(matchingParameters: true) {
+                                $0.pollers = [
+                                    "testserver": OpenGroupAPI.Poller(for: "testserver"),
+                                    "testserver1": OpenGroupAPI.Poller(for: "testserver1")
+                                ]
+                            },
+                            timeout: .milliseconds(50)
+                        )
                 }
                 
                 it("updates the isPolling flag") {
                     openGroupManager.startPolling(using: dependencies)
                     
-                    expect(mockOGMCache).to(call(matchingParameters: true) { $0.isPolling = true })
+                    expect(mockOGMCache)
+                        .toEventually(
+                            call(matchingParameters: true) { $0.isPolling = true },
+                            timeout: .milliseconds(50)
+                        )
                 }
                 
                 it("does nothing if already polling") {
@@ -399,7 +407,10 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     openGroupManager.startPolling(using: dependencies)
                     
-                    expect(mockOGMCache).toNot(call { $0.pollers })
+                    expect(mockOGMCache).toEventuallyNot(
+                        call { $0.pollers },
+                        timeout: .milliseconds(50)
+                    )
                 }
             }
             
@@ -815,9 +826,8 @@ class OpenGroupManagerSpec: QuickSpec {
                                     dependencies: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
-                        .sinkUntilComplete(receiveCompletion: { _ in didComplete = true })
+                        .handleEvents(receiveCompletion: { _ in didComplete = true })
+                        .sinkAndStore(in: &disposables)
                     
                     expect(didComplete).toEventually(beTrue(), timeout: .milliseconds(50))
                     expect(
@@ -847,9 +857,8 @@ class OpenGroupManagerSpec: QuickSpec {
                                     dependencies: dependencies
                                 )
                         }
-                        .subscribe(on: DispatchQueue.main)
-                        .receiveOnMain(immediately: true)
-                        .sinkUntilComplete(receiveCompletion: { _ in didComplete = true })
+                        .handleEvents(receiveCompletion: { _ in didComplete = true })
+                        .sinkAndStore(in: &disposables)
                     
                     expect(didComplete).toEventually(beTrue(), timeout: .milliseconds(50))
                     expect(mockOGMCache)
@@ -887,9 +896,8 @@ class OpenGroupManagerSpec: QuickSpec {
                                         dependencies: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
-                            .sinkUntilComplete(receiveCompletion: { _ in didComplete = true })
+                            .handleEvents(receiveCompletion: { _ in didComplete = true })
+                            .sinkAndStore(in: &disposables)
                         
                         expect(didComplete).toEventually(beTrue(), timeout: .milliseconds(50))
                         expect(
@@ -942,10 +950,8 @@ class OpenGroupManagerSpec: QuickSpec {
                                         dependencies: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
                             .mapError { result -> Error in error.setting(to: result) }
-                            .sinkUntilComplete()
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -3365,9 +3371,8 @@ class OpenGroupManagerSpec: QuickSpec {
                     var response: [OpenGroupAPI.Room]?
                     
                     OpenGroupManager.getDefaultRoomsIfNeeded(using: dependencies)
-                        .sinkUntilComplete(receiveValue: { (data: [OpenGroupAPI.Room]) in
-                            response = data
-                        })
+                        .handleEvents(receiveOutput: { (data: [OpenGroupAPI.Room]) in response = data })
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventually(
@@ -3422,7 +3427,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     OpenGroupManager.getDefaultRoomsIfNeeded(using: dependencies)
                         .mapError { result -> Error in error.setting(to: result) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(error?.localizedDescription)
                         .toEventually(
@@ -3442,7 +3447,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     OpenGroupManager.getDefaultRoomsIfNeeded(using: dependencies)
                         .mapError { result -> Error in error.setting(to: result) }
-                        .sinkUntilComplete()
+                        .sinkAndStore(in: &disposables)
                     
                     expect(error?.localizedDescription)
                         .toEventually(
@@ -3519,8 +3524,8 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     OpenGroupManager
                         .getDefaultRoomsIfNeeded(using: dependencies)
-                        .sinkUntilComplete()
-
+                        .sinkAndStore(in: &disposables)
+                    
                     expect(mockUserDefaults)
                         .toEventually(
                             call(matchingParameters: true) {
@@ -3596,7 +3601,8 @@ class OpenGroupManagerSpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .sinkUntilComplete(receiveValue: { result = $0 })
+                        .handleEvents(receiveOutput: { result = $0 })
+                        .sinkAndStore(in: &disposables)
                     
                     expect(result).toEventually(equal(publisher.firstValue()), timeout: .milliseconds(50))
                 }
@@ -3614,7 +3620,8 @@ class OpenGroupManagerSpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .sinkUntilComplete(receiveCompletion: { _ in didComplete = true })
+                        .handleEvents(receiveCompletion: { _ in didComplete = true })
+                        .sinkAndStore(in: &disposables)
                     
                     expect(didComplete).toEventually(beTrue(), timeout: .milliseconds(50))
                     expect(
@@ -3644,7 +3651,8 @@ class OpenGroupManagerSpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .sinkUntilComplete(receiveCompletion: { _ in didComplete = true })
+                        .handleEvents(receiveCompletion: { _ in didComplete = true })
+                        .sinkAndStore(in: &disposables)
                     
                     expect(didComplete).toEventually(beTrue(), timeout: .milliseconds(50))
                     expect(mockUserDefaults)
@@ -3676,16 +3684,17 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     let publisher = mockStorage
                         .readPublisherFlatMap { (db: Database) -> AnyPublisher<Data, Error> in
-                            OpenGroupManager.roomImage(
-                                db,
-                                fileId: "1",
-                                for: "testRoom",
-                                on: "testServer",
-                                using: dependencies
-                            )
+                            OpenGroupManager
+                                .roomImage(
+                                    db,
+                                    fileId: "1",
+                                    for: "testRoom",
+                                    on: "testServer",
+                                    using: dependencies
+                                )
                         }
                     publisher.sinkAndStore(in: &disposables)
-                        
+                    
                     expect(mockOGMCache)
                         .toEventually(
                             call(matchingParameters: true) {
@@ -3710,9 +3719,8 @@ class OpenGroupManagerSpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
-                            .sinkUntilComplete(receiveValue: { (data: Data) in result = data })
+                            .handleEvents(receiveOutput: { (data: Data) in result = data })
+                            .sinkAndStore(in: &disposables)
                         
                         expect(result).toEventually(equal(Data([1, 2, 3])), timeout: .milliseconds(50))
                     }
@@ -3731,9 +3739,8 @@ class OpenGroupManagerSpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
-                            .sinkUntilComplete(receiveCompletion: { _ in didComplete = true })
+                            .handleEvents(receiveCompletion: { _ in didComplete = true })
+                            .sinkAndStore(in: &disposables)
                         
                         expect(didComplete).toEventually(beTrue(), timeout: .milliseconds(50))
                         expect(
@@ -3764,9 +3771,8 @@ class OpenGroupManagerSpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .subscribe(on: DispatchQueue.main)
-                            .receiveOnMain(immediately: true)
-                            .sinkUntilComplete(receiveCompletion: { _ in didComplete = true })
+                            .handleEvents(receiveCompletion: { _ in didComplete = true })
+                            .sinkAndStore(in: &disposables)
                         
                         expect(didComplete).toEventually(beTrue(), timeout: .milliseconds(50))
                         expect(mockUserDefaults)
@@ -3813,9 +3819,8 @@ class OpenGroupManagerSpec: QuickSpec {
                                             using: dependencies
                                         )
                                 }
-                                .subscribe(on: DispatchQueue.main)
-                                .receiveOnMain(immediately: true)
-                                .sinkUntilComplete(receiveValue: { (data: Data) in result = data })
+                                .handleEvents(receiveOutput: { (data: Data) in result = data })
+                                .sinkAndStore(in: &disposables)
                             
                             expect(result).toEventually(equal(Data([2, 3, 4])), timeout: .milliseconds(50))
                         }
@@ -3844,9 +3849,8 @@ class OpenGroupManagerSpec: QuickSpec {
                                             using: dependencies
                                         )
                                 }
-                                .subscribe(on: DispatchQueue.main)
-                                .receiveOnMain(immediately: true)
-                                .sinkUntilComplete(receiveValue: { (data: Data) in result = data })
+                                .handleEvents(receiveOutput: { (data: Data) in result = data })
+                                .sinkAndStore(in: &disposables)
                             
                             expect(result).toEventually(equal(Data([1, 2, 3])), timeout: .milliseconds(50))
                         }

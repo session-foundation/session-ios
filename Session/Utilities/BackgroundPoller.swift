@@ -43,7 +43,7 @@ public final class BackgroundPoller {
                             }
                     )
             )
-            .subscribe(on: DispatchQueue.main)
+            .subscribeOnMain(immediately: true)
             .receiveOnMain(immediately: true)
             .collect()
             .sinkUntilComplete(
@@ -65,7 +65,7 @@ public final class BackgroundPoller {
         let userPublicKey: String = getUserHexEncodedPublicKey()
 
         return SnodeAPI.getSwarm(for: userPublicKey)
-            .subscribe(on: DispatchQueue.main)
+            .subscribeOnMain(immediately: true)
             .receiveOnMain(immediately: true)
             .flatMap { swarm -> AnyPublisher<Void, Error> in
                 guard let snode = swarm.randomElement() else {
@@ -102,7 +102,7 @@ public final class BackgroundPoller {
             .defaulting(to: [])
             .map { groupPublicKey in
                 SnodeAPI.getSwarm(for: groupPublicKey)
-                    .subscribe(on: DispatchQueue.main)
+                    .subscribeOnMain(immediately: true)
                     .receiveOnMain(immediately: true)
                     .flatMap { swarm -> AnyPublisher<Void, Error> in
                         guard let snode: Snode = swarm.randomElement() else {
