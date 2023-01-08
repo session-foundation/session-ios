@@ -459,6 +459,12 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
             _ = try updatedConfig.saved(db)
             
             let nowInMs: Double = floor(Date().timeIntervalSince1970 * 1000)
+            
+            _ = try Interaction
+                .filter(Interaction.Columns.threadId == threadId)
+                .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                .deleteAll(db)
+            
             let interaction: Interaction = try Interaction(
                 threadId: threadId,
                 authorId: getUserHexEncodedPublicKey(db),

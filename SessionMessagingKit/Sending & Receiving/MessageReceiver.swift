@@ -365,6 +365,11 @@ public enum MessageReceiver {
         )
         
         _ = try remoteConfig.save(db)
+        
+        _ = try Interaction
+            .filter(Interaction.Columns.threadId == threadId)
+            .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+            .deleteAll(db)
 
         _ = try Interaction(
             serverHash: message.serverHash,

@@ -48,6 +48,12 @@ extension MessageReceiver {
         
         try remoteConfig.save(db)
         
+        // Remove previous info messages
+        _ = try Interaction
+            .filter(Interaction.Columns.threadId == thread.id)
+            .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+            .deleteAll(db)
+        
         // Add an info message for the user
         _ = try Interaction(
             serverHash: nil, // Intentionally null so sync messages are seen as duplicates
