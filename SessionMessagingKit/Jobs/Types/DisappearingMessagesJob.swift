@@ -68,14 +68,23 @@ public extension DisappearingMessagesJob {
     }
     
     @discardableResult static func updateNextRunIfNeeded(_ db: Database, interactionIds: [Int64], startedAtMs: Double, threadId: String) -> Job? {
-        let interactionsByExpiresInSeconds: [TimeInterval?: [Interaction]]? = try? Interaction
+        struct ExpirationInfo: Codable, Hashable, FetchableRecord {
+            let id: Int64
+            let expiresInSeconds: TimeInterval
+        }
+
+        let interactionIdsByExpiresInSeconds: [TimeInterval: [Int64]] = (try? Interaction
             .filter(interactionIds.contains(Interaction.Columns.id))
             .filter(
                 Interaction.Columns.expiresInSeconds != nil &&
                 Interaction.Columns.expiresStartedAtMs == nil
             )
-            .fetchAll(db)
+            .select(Interaction.Columns.id, Interaction.Columns.expiresInSeconds)
+            .asRequest(of: ExpirationInfo.self)
+            .fetchAll(db))
+            .defaulting(to: [])
             .grouped(by: \.expiresInSeconds)
+            .mapValues { $0.map { $0.id } }
             
         
         // Update the expiring messages expiresStartedAtMs value
@@ -91,13 +100,6 @@ public extension DisappearingMessagesJob {
         guard (changeCount ?? 0) > 0 else { return nil }
         
         if DisappearingMessagesConfiguration.isNewConfigurationEnabled {
-            let interactionIdsByExpiresInSeconds: [TimeInterval: [Int64]] = Dictionary(
-                uniqueKeysWithValues: interactionsByExpiresInSeconds?.compactMap { expireInSeconds, interactions in
-                    guard let expireInSeconds = expireInSeconds else { return nil }
-                    return (expireInSeconds, interactions.compactMap { $0.id })
-                } ?? []
-            )
-            
             if !interactionIdsByExpiresInSeconds.isEmpty {
                 JobRunner.upsert(
                     db,
