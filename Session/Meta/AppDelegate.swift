@@ -454,10 +454,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                         
                         return try Interaction
                             .filter(Interaction.Columns.wasRead == false)
-                            .filter(
-                                Interaction.Columns.variant == Interaction.Variant.standardIncoming ||
-                                Interaction.Columns.variant == Interaction.Variant.infoCall
-                            )
+                            .filter(Interaction.Variant.variantsToIncrementUnreadCount.contains(Interaction.Column.variant))
                             .filter(
                                 // Only count mentions if 'onlyNotifyForMentions' is set
                                 thread[.onlyNotifyForMentions] == false ||
