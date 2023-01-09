@@ -157,11 +157,11 @@ final class SessionLabelCarouselView: UIView, UIScrollViewDelegate {
         
         addSubview(arrowLeft)
         arrowLeft.pin(.left, to: .left, of: self)
-        arrowLeft.center(.vertical, in: self, withInset: -2)
+        arrowLeft.center(.vertical, in: self, withInset: -4)
         
         addSubview(arrowRight)
         arrowRight.pin(.right, to: .right, of: self)
-        arrowRight.center(.vertical, in: self, withInset: -2)
+        arrowRight.center(.vertical, in: self, withInset: -4)
         
         addSubview(pageControl)
         pageControl.center(.horizontal, in: self)

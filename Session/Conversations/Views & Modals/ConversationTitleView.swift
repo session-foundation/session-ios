@@ -149,7 +149,7 @@ final class ConversationTitleView: UIView {
                 let notificationSettingsLabelString = NSAttributedString(
                     string: "\u{e067}  ",
                     attributes: [
-                        .font: UIFont.ows_elegantIconsFont(10),
+                        .font: UIFont.ows_elegantIconsFont(8),
                         .foregroundColor: textPrimary
                     ]
                 )
@@ -251,7 +251,7 @@ final class ConversationTitleView: UIView {
                 with: labelInfos,
                 labelSize: CGSize(
                     width: self?.labelCarouselViewWidth.constant ?? 0,
-                    height: 14
+                    height: 12
                 ),
                 shouldAutoScroll: false
             )
