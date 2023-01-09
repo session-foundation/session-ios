@@ -825,7 +825,7 @@ enum _003_YDBToGRDBMigration: Migration {
                                                         senderName: updateMessage.createdByRemoteName,
                                                         isEnabled: updateMessage.configurationIsEnabled,
                                                         durationSeconds: TimeInterval(updateMessage.configurationDurationSeconds),
-                                                        type: .disappearAfterRead, // TODO: Distinguish between 1-1 and closed groups?
+                                                        type: nil,
                                                         isPreviousOff: false
                                                     )
                                                 ),
