@@ -63,7 +63,7 @@ public class Message: Codable {
         preconditionFailure("toProto(_:) is abstract and must be overridden.")
     }
     
-    public func setDisappearingMessagesConfigurationIfNeeded(_ db: Database, on proto: SNProtoContent.SNProtoContentBuilder) throws {
+    public func setDisappearingMessagesConfigurationIfNeeded(_ db: Database, on proto: SNProtoContent.SNProtoContentBuilder) {
         guard
             let threadId: String = threadId,
             let disappearingMessagesConfiguration = try? DisappearingMessagesConfiguration.fetchOne(db, id: threadId)

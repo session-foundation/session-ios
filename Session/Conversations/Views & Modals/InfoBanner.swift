@@ -12,28 +12,6 @@ final class InfoBanner: UIView {
         let messageLabelAccessibilityLabel: String?
         let height: CGFloat
         
-        // MARK: - Confirmance
-        
-        public static func == (lhs: InfoBanner.Info, rhs: InfoBanner.Info) -> Bool {
-            return (
-                lhs.message == rhs.message &&
-                lhs.backgroundColor == rhs.backgroundColor &&
-                lhs.messageFont == rhs.messageFont &&
-                lhs.messageTintColor == rhs.messageTintColor &&
-                lhs.messageLabelAccessibilityLabel == rhs.messageLabelAccessibilityLabel &&
-                lhs.height == rhs.height
-            )
-        }
-        
-        public func hash(into hasher: inout Hasher) {
-            message.hash(into: &hasher)
-            backgroundColor.hash(into: &hasher)
-            messageFont.hash(into: &hasher)
-            messageTintColor.hash(into: &hasher)
-            messageLabelAccessibilityLabel.hash(into: &hasher)
-            height.hash(into: &hasher)
-        }
-        
         func with(
             message: String? = nil,
             backgroundColor: ThemeValue? = nil,
