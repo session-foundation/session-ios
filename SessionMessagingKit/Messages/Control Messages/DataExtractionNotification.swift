@@ -93,7 +93,7 @@ public final class DataExtractionNotification: ControlMessage {
             let contentProto = SNProtoContent.builder()
             contentProto.setDataExtractionNotification(try dataExtractionNotification.build())
             // DisappearingMessagesConfiguration
-            try setDisappearingMessagesConfigurationIfNeeded(db, on: contentProto)
+            setDisappearingMessagesConfigurationIfNeeded(db, on: contentProto)
             return try contentProto.build()
         } catch {
             SNLog("Couldn't construct data extraction notification proto from: \(self).")

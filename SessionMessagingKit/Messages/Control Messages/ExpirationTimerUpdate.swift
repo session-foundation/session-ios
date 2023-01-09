@@ -83,12 +83,7 @@ public final class ExpirationTimerUpdate: ControlMessage {
         let contentProto = SNProtoContent.builder()
         
         // DisappearingMessagesConfiguration
-        do {
-            try setDisappearingMessagesConfigurationIfNeeded(db, on: contentProto)
-        } catch {
-            SNLog("Couldn't construct visible message proto from: \(self).")
-            return nil
-        }
+        setDisappearingMessagesConfigurationIfNeeded(db, on: contentProto)
         
         do {
             contentProto.setDataMessage(try dataMessageProto.build())

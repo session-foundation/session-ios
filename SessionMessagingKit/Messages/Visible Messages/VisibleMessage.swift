@@ -182,12 +182,7 @@ public final class VisibleMessage: Message {
         }
         
         // DisappearingMessagesConfiguration
-        do {
-            try setDisappearingMessagesConfigurationIfNeeded(db, on: proto)
-        } catch {
-            SNLog("Couldn't construct visible message proto from: \(self).")
-            return nil
-        }
+        setDisappearingMessagesConfigurationIfNeeded(db, on: proto)
         
         // Group context
         do {

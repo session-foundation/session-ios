@@ -71,7 +71,7 @@ public final class UnsendRequest: ControlMessage {
         do {
             contentProto.setUnsendRequest(try unsendRequestProto.build())
             // DisappearingMessagesConfiguration
-            try setDisappearingMessagesConfigurationIfNeeded(db, on: contentProto)
+            setDisappearingMessagesConfigurationIfNeeded(db, on: contentProto)
             return try contentProto.build()
         } catch {
             SNLog("Couldn't construct unsend request proto from: \(self).")

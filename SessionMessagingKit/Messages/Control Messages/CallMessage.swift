@@ -200,12 +200,7 @@ public final class CallMessage: ControlMessage {
         }
         
         // DisappearingMessagesConfiguration
-        do {
-            try setDisappearingMessagesConfigurationIfNeeded(db, on: contentProto)
-        } catch {
-            SNLog("Couldn't construct call message proto from: \(self).")
-            return nil
-        }
+        setDisappearingMessagesConfigurationIfNeeded(db, on: contentProto)
     }
     
     // MARK: - Description
