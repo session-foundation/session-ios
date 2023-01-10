@@ -17,6 +17,25 @@ public final class SessionButton: UIButton {
         case large
     }
     
+    public struct Info {
+        public let style: Style
+        public let title: String
+        public let isEnabled: Bool
+        public let onTap: () -> ()
+        
+        public init(
+            style: Style,
+            title: String,
+            isEnabled: Bool,
+            onTap: @escaping () -> ()
+        ) {
+            self.style = style
+            self.title = title
+            self.isEnabled = isEnabled
+            self.onTap = onTap
+        }
+    }
+    
     private let style: Style
     
     public override var isEnabled: Bool {
@@ -156,5 +175,11 @@ public final class SessionButton: UIButton {
                 case .filled, .borderless, .destructiveBorderless: return nil
             }
         }()
+    }
+    
+    // MARK: - Functions
+    
+    public func setStyle(_ style: Style) {
+        setup(style: style)
     }
 }
