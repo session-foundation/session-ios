@@ -53,7 +53,7 @@ extension ECKeyPair {
 
 public extension Identity {
     static func generate(from seed: Data) throws -> (ed25519KeyPair: Sign.KeyPair, x25519KeyPair: ECKeyPair) {
-        assert(seed.count == 16)
+        guard (seed.count == 16) else { throw GeneralError.invalidSeed }
         let padding = Data(repeating: 0, count: 16)
         
         guard
