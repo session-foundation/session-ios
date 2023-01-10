@@ -21,6 +21,16 @@ enum _011_DisappearingMessagesConfiguration: Migration {
             t.add(.lastKnownClientVersion, .integer)
         }
         
+        /// Add index on interaction table for wasRead and variant
+        /// 
+        /// This is due to new disappearing messages will need some info messages to be able to be unread,
+        /// but we only want to count the unread message number by incoming visible messages and call messages.
+        try db.create(
+            index: "interaction_on_wasRead_and_variant",
+            on: Interaction.databaseTableName,
+            columns: [Interaction.Columns.wasRead, Interaction.Columns.variant].map { $0.name }
+        )
+        
         func updateDisappearingMessageType(_ db: GRDB.Database, id: String, type: DisappearingMessagesConfiguration.DisappearingMessageType) throws {
             _ = try DisappearingMessagesConfiguration
                 .filter(DisappearingMessagesConfiguration.Columns.threadId == id)

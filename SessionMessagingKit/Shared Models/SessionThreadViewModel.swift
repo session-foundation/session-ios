@@ -551,7 +551,7 @@ public extension SessionThreadViewModel {
                         \(interaction[.authorId]),
                         \(interaction[.linkPreviewUrl]),
             
-                        SUM(\(interaction[.wasRead]) = false AND \(interaction[.variant]) IN (\(Interaction.Variant.standardIncoming), \(Interaction.Variant.infoCall))) AS \(ViewModel.threadUnreadCountKey),
+                        SUM(\(interaction[.wasRead]) = false AND \(interaction[.variant]) IN \(Interaction.Variant.variantsToIncrementUnreadCount)) AS \(ViewModel.threadUnreadCountKey),
                         SUM(\(interaction[.wasRead]) = false AND \(interaction[.hasMention]) = true) AS \(ViewModel.threadUnreadMentionCountKey),
                         (SUM(\(interaction[.wasRead]) = false) > 0) AS \(ViewModel.threadHasUnreadMessagesOfAnyKindKey)
                     
@@ -805,7 +805,7 @@ public extension SessionThreadViewModel {
                     \(interaction[.threadId]),
                     MAX(\(interaction[.timestampMs])),
                     
-                    SUM(\(interaction[.wasRead]) = false AND \(interaction[.variant]) IN (\(Interaction.Variant.standardIncoming), \(Interaction.Variant.infoCall))) AS \(ViewModel.threadUnreadCountKey),
+                    SUM(\(interaction[.wasRead]) = false AND \(interaction[.variant]) IN \(Interaction.Variant.variantsToIncrementUnreadCount)) AS \(ViewModel.threadUnreadCountKey),
                     (SUM(\(interaction[.wasRead]) = false) > 0) AS \(ViewModel.threadHasUnreadMessagesOfAnyKindKey)
                 
                 FROM \(Interaction.self)
