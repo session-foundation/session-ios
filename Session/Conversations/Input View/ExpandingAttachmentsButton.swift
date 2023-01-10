@@ -27,13 +27,14 @@ final class ExpandingAttachmentsButton: UIView, InputViewButtonDelegate {
     lazy var gifButton: InputViewButton = {
         let result = InputViewButton(icon: #imageLiteral(resourceName: "actionsheet_gif_black"), delegate: self, hasOpaqueBackground: true)
         result.accessibilityIdentifier = "GIF button"
-        
+        result.isAccessibilityElement = true
         return result
     }()
     lazy var gifButtonContainer = container(for: gifButton)
     lazy var documentButton: InputViewButton = {
         let result = InputViewButton(icon: #imageLiteral(resourceName: "actionsheet_document_black"), delegate: self, hasOpaqueBackground: true)
         result.accessibilityIdentifier = "Documents folder"
+        result.isAccessibilityElement = true
         
         return result
     }()
@@ -41,6 +42,7 @@ final class ExpandingAttachmentsButton: UIView, InputViewButtonDelegate {
     lazy var libraryButton: InputViewButton = {
         let result = InputViewButton(icon: #imageLiteral(resourceName: "actionsheet_camera_roll_black"), delegate: self, hasOpaqueBackground: true)
         result.accessibilityIdentifier = "Images folder"
+        result.isAccessibilityElement = true
         
         return result
     }()
@@ -48,6 +50,7 @@ final class ExpandingAttachmentsButton: UIView, InputViewButtonDelegate {
     lazy var cameraButton: InputViewButton = {
         let result = InputViewButton(icon: #imageLiteral(resourceName: "actionsheet_camera_black"), delegate: self, hasOpaqueBackground: true)
         result.accessibilityIdentifier = "Select camera button"
+        result.isAccessibilityElement = true
         
         return result
     }()
