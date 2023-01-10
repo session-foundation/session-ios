@@ -184,12 +184,12 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
     public let hasMention: Bool
     
     /// The number of seconds until this message should expire
-    public var expiresInSeconds: TimeInterval?
+    public private(set) var expiresInSeconds: TimeInterval?
     
     /// The timestamp in milliseconds since 1970 at which this messages expiration timer started counting
     /// down (this is stored in order to allow the `expiresInSeconds` value to be updated before a
     /// message has expired)
-    public var expiresStartedAtMs: Double?
+    public private(set) var expiresStartedAtMs: Double?
     
     /// This value is the url for the link preview for this interaction
     ///
