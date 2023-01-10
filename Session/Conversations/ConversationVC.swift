@@ -361,8 +361,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         // nav will be offset incorrectly during the push animation (unfortunately the profile icon still
         // doesn't appear until after the animation, I assume it's taking a snapshot or something, but
         // there isn't much we can do about that unfortunately)
-        let isNoteToSelf: Bool = self.viewModel.threadData.threadId == getUserHexEncodedPublicKey()
-        updateNavBarButtons(threadData: nil, initialVariant: self.viewModel.initialThreadVariant, isNoteToSelf: isNoteToSelf)
+        updateNavBarButtons(threadData: nil, initialVariant: self.viewModel.initialThreadVariant, isNoteToSelf: self.viewModel.threadData.threadIsNoteToSelf)
         titleView.initialSetup(with: self.viewModel.initialThreadVariant)
         
         // Constraints
