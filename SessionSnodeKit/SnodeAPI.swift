@@ -743,7 +743,7 @@ public final class SnodeAPI {
         
         let publicKey = (Features.useTestnet ? publicKey.removingIdPrefixIfNeeded() : publicKey)
         
-        let updatedExpiryMsWithNetworkOffset: UInt64 = UInt64(updatedExpiryMs + SnodeAPI.clockOffset.wrappedValue)
+        let updatedExpiryMsWithNetworkOffset: UInt64 = UInt64(updatedExpiryMs + SnodeAPI.clockOffsetMs.wrappedValue)
         
         return attempt(maxRetryCount: maxRetryCount, recoveringOn: Threading.workQueue) {
             getSwarm(for: publicKey)
