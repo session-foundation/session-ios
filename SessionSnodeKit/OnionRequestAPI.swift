@@ -676,7 +676,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
                         
                         if let timestamp = body["t"] as? Int64 {
                             let offset = timestamp - Int64(floor(Date().timeIntervalSince1970 * 1000))
-                            SnodeAPI.clockOffset.mutate { $0 = offset }
+                            SnodeAPI.clockOffsetMs.mutate { $0 = offset }
                         }
                         
                         guard 200...299 ~= statusCode else {

@@ -145,7 +145,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                     _ = try attachment
                         .with(
                             state: .downloaded,
-                            creationTimestamp: Date().timeIntervalSince1970,
+                            creationTimestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000),
                             localRelativeFilePath: (
                                 attachment.localRelativeFilePath ??
                                 Attachment.localRelativeFilePath(from: attachment.originalFilePath)

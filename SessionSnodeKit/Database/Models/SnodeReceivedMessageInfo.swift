@@ -93,7 +93,7 @@ public extension SnodeReceivedMessageInfo {
                 return try SnodeReceivedMessageInfo
                     .select(Column.rowID)
                     .filter(SnodeReceivedMessageInfo.Columns.key == key(for: snode, publicKey: publicKey, namespace: namespace))
-                    .filter(SnodeReceivedMessageInfo.Columns.expirationDateMs <= (Date().timeIntervalSince1970 * 1000))
+                    .filter(SnodeReceivedMessageInfo.Columns.expirationDateMs <= SnodeAPI.currentOffsetTimestampMs())
                     .asRequest(of: Int64.self)
                     .fetchAll(db)
             }
@@ -122,7 +122,7 @@ public extension SnodeReceivedMessageInfo {
                     SnodeReceivedMessageInfo.Columns.wasDeletedOrInvalid == false
                 )
                 .filter(SnodeReceivedMessageInfo.Columns.key == key(for: snode, publicKey: publicKey, namespace: namespace))
-                .filter(SnodeReceivedMessageInfo.Columns.expirationDateMs > (Date().timeIntervalSince1970 * 1000))
+                .filter(SnodeReceivedMessageInfo.Columns.expirationDateMs > SnodeAPI.currentOffsetTimestampMs())
                 .order(SnodeReceivedMessageInfo.Columns.id.desc)
                 .fetchOne(db)
             

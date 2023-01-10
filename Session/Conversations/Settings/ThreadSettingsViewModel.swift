@@ -622,7 +622,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                     threadId: thread.id,
                     authorId: userId,
                     variant: .standardOutgoing,
-                    timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000)),
+                    timestampMs: SnodeAPI.currentOffsetTimestampMs(),
                     expiresInSeconds: try? DisappearingMessagesConfiguration
                         .select(.durationSeconds)
                         .filter(id: userId)

@@ -5,6 +5,7 @@ import GRDB
 import PromiseKit
 import WebRTC
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 public protocol WebRTCSessionDelegate: AnyObject {
     var videoCapturer: RTCVideoCapturer { get }
@@ -179,7 +180,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                                 uuid: uuid,
                                 kind: .offer,
                                 sdps: [ sdp.sdp ],
-                                sentTimestampMs: UInt64(floor(Date().timeIntervalSince1970 * 1000))
+                                sentTimestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs())
                             ),
                             interactionId: nil,
                             in: thread

@@ -3,6 +3,7 @@
 import Foundation
 import GRDB
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "disappearingMessagesConfiguration" }
@@ -206,7 +207,7 @@ public class SMKDisappearingMessagesConfiguration: NSObject {
                 authorId: getUserHexEncodedPublicKey(db),
                 variant: .infoDisappearingMessagesUpdate,
                 body: config.messageInfoString(with: nil),
-                timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
+                timestampMs: SnodeAPI.currentOffsetTimestampMs()
             )
             .inserted(db)
             
