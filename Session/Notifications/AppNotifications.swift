@@ -532,7 +532,7 @@ class NotificationActionHandler {
                 authorId: getUserHexEncodedPublicKey(db),
                 variant: .standardOutgoing,
                 body: replyText,
-                timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000)),
+                timestampMs: SnodeAPI.currentOffsetTimestampMs(),
                 hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: replyText)
             ).inserted(db)
             

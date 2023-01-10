@@ -461,7 +461,7 @@ extension ConversationVC:
         // flags appropriately
         let threadId: String = self.viewModel.threadData.threadId
         let oldThreadShouldBeVisible: Bool = (self.viewModel.threadData.threadShouldBeVisible == true)
-        let sentTimestampMs: Int64 = Int64(floor((Date().timeIntervalSince1970 * 1000)))
+        let sentTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
         let linkPreviewDraft: LinkPreviewDraft? = snInputView.linkPreviewInfo?.draft
         let quoteModel: QuotedReplyModel? = snInputView.quoteDraftInfo?.model
         
@@ -580,7 +580,7 @@ extension ConversationVC:
         // flags appropriately
         let threadId: String = self.viewModel.threadData.threadId
         let oldThreadShouldBeVisible: Bool = (self.viewModel.threadData.threadShouldBeVisible == true)
-        let sentTimestampMs: Int64 = Int64(floor((Date().timeIntervalSince1970 * 1000)))
+        let sentTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
 
         // If this was a message request then approve it
         approveMessageRequestIfNeeded(
@@ -680,7 +680,7 @@ extension ConversationVC:
                 threadVariant: threadVariant,
                 threadIsMessageRequest: threadIsMessageRequest,
                 direction: .outgoing,
-                timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
+                timestampMs: SnodeAPI.currentOffsetTimestampMs()
             )
             
             if needsToStartTypingIndicator {
@@ -1259,7 +1259,7 @@ extension ConversationVC:
         guard !threadIsMessageRequest else { return }
         
         // Perform local rate limiting (don't allow more than 20 reactions within 60 seconds)
-        let sentTimestamp: Int64 = Int64(floor(Date().timeIntervalSince1970 * 1000))
+        let sentTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs()
         let recentReactionTimestamps: [Int64] = General.cache.wrappedValue.recentReactionTimestamps
         
         guard
@@ -2084,7 +2084,7 @@ extension ConversationVC:
         
         // Create URL
         let directory: String = OWSTemporaryDirectory()
-        let fileName: String = "\(Int64(floor(Date().timeIntervalSince1970 * 1000))).m4a"
+        let fileName: String = "\(SnodeAPI.currentOffsetTimestampMs()).m4a"
         let url: URL = URL(fileURLWithPath: directory).appendingPathComponent(fileName)
         
         // Set up audio session
@@ -2325,7 +2325,7 @@ extension ConversationVC {
             for: self.viewModel.threadData.threadId,
             threadVariant: self.viewModel.threadData.threadVariant,
             isNewThread: false,
-            timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
+            timestampMs: SnodeAPI.currentOffsetTimestampMs()
         )
     }
 

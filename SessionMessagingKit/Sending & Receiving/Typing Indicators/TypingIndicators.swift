@@ -3,6 +3,7 @@
 import Foundation
 import GRDB
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 public class TypingIndicators {
     // MARK: - Direction
@@ -41,7 +42,7 @@ public class TypingIndicators {
             
             self.threadId = threadId
             self.direction = direction
-            self.timestampMs = (timestampMs ?? Int64(floor(Date().timeIntervalSince1970 * 1000)))
+            self.timestampMs = (timestampMs ?? SnodeAPI.currentOffsetTimestampMs())
         }
         
         fileprivate func start(_ db: Database) {

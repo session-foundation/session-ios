@@ -4,6 +4,7 @@ import Foundation
 import GRDB
 import Sodium
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, MutablePersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "interaction" }
@@ -311,7 +312,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         self.timestampMs = timestampMs
         self.receivedAtTimestampMs = {
             switch variant {
-                case .standardIncoming, .standardOutgoing: return Int64(Date().timeIntervalSince1970 * 1000)
+                case .standardIncoming, .standardOutgoing: return SnodeAPI.currentOffsetTimestampMs()
 
                 /// For TSInteractions which are not `standardIncoming` and `standardOutgoing` use the `timestampMs` value
                 default: return timestampMs
@@ -491,7 +492,7 @@ public extension Interaction {
                 job: DisappearingMessagesJob.updateNextRunIfNeeded(
                     db,
                     interactionIds: interactionIds,
-                    startedAtMs: (Date().timeIntervalSince1970 * 1000),
+                    startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs()),
                     threadId: threadId
                 )
             )

@@ -458,21 +458,21 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
 
             _ = try updatedConfig.saved(db)
             
-            let nowInMs: Double = floor(Date().timeIntervalSince1970 * 1000)
-            
             _ = try Interaction
                 .filter(Interaction.Columns.threadId == threadId)
                 .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
                 .deleteAll(db)
+            
+            let currentOffsetTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
             
             let interaction: Interaction = try Interaction(
                 threadId: threadId,
                 authorId: getUserHexEncodedPublicKey(db),
                 variant: .infoDisappearingMessagesUpdate,
                 body: updatedConfig.messageInfoString(with: nil, isPreviousOff: !self.config.isEnabled),
-                timestampMs: Int64(nowInMs),
+                timestampMs: currentOffsetTimestampMs,
                 expiresInSeconds: updatedConfig.isEnabled ? nil : self.config.durationSeconds,
-                expiresStartedAtMs: (!updatedConfig.isEnabled && self.config.type == .disappearAfterSend) ? nowInMs : nil
+                expiresStartedAtMs: (!updatedConfig.isEnabled && self.config.type == .disappearAfterSend) ? Double(currentOffsetTimestampMs) : nil
             )
             .inserted(db)
             

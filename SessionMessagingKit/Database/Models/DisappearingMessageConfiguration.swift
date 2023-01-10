@@ -3,6 +3,7 @@
 import Foundation
 import GRDB
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
 //    public static let isNewConfigurationEnabled: Bool = Date().timeIntervalSince1970 > 1671062400 // 15/12/2022
