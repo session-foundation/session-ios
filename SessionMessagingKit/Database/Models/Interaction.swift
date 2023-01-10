@@ -177,6 +177,10 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
     /// A flag indicating whether the interaction has been read (this is a flag rather than a timestamp because
     /// we couldn’t know if a read timestamp is accurate)
     ///
+    /// This flag is used:
+    ///  - In conjunction with `Interaction.variantsToIncrementUnreadCount` to determine the unread count for a thread
+    ///  - In order to determine whether the "Disappear After Read" expiration type should be started
+    ///
     /// **Note:** This flag is not applicable to standardOutgoing or standardIncomingDeleted interactions
     public private(set) var wasRead: Bool
     
