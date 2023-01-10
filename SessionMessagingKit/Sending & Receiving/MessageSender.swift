@@ -610,19 +610,6 @@ public final class MessageSender {
                 // Mark the message as sent
                 try interaction.recipientStates
                     .updateAll(db, RecipientState.Columns.state.set(to: RecipientState.State.sent))
-<<<<<<< HEAD
-=======
-                
-                // Start the disappearing messages timer if needed
-                JobRunner.upsert(
-                    db,
-                    job: DisappearingMessagesJob.updateNextRunIfNeeded(
-                        db,
-                        interaction: interaction,
-                        startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs())
-                    )
-                )
->>>>>>> dev
             }
         }
         
