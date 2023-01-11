@@ -1641,7 +1641,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         // Store the info incase we need to load more data (call will be re-triggered)
         self.focusedInteractionId = interactionId
         self.shouldHighlightNextScrollToInteraction = highlight
-        if !isInitialScroll { self.viewModel.markAsRead(beforeInclusive: interactionId) }
+        self.viewModel.markAsRead(beforeInclusive: interactionId)
         
         // Ensure the target interaction has been loaded
         guard
