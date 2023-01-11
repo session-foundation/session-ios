@@ -350,7 +350,10 @@ public enum MessageReceiver {
             .fetchOne(db, id: threadId)
             .defaulting(to: DisappearingMessagesConfiguration.defaultWith(threadId))
         
-        guard protoLastChangeTimestampMs > localConfig.lastChangeTimestampMs else { return }
+        guard
+            let localLastChangeTimestampMs = localConfig.lastChangeTimestampMs,
+            protoLastChangeTimestampMs > localLastChangeTimestampMs
+        else { return }
         
         let durationSeconds: TimeInterval = proto.hasExpirationTimer ? TimeInterval(proto.expirationTimer) : 0
         let isEnable: Bool = (durationSeconds != 0)

@@ -51,7 +51,7 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatabl
     public let isEnabled: Bool
     public let durationSeconds: TimeInterval
     public var type: DisappearingMessageType?
-    public let lastChangeTimestampMs: Int64
+    public let lastChangeTimestampMs: Int64?
     
     // MARK: - Relationships
     
