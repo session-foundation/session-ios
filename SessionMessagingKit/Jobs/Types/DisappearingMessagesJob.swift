@@ -76,20 +76,6 @@ public extension DisappearingMessagesJob {
             let id: Int64
             let expiresInSeconds: TimeInterval
         }
-
-        let interactionIdsByExpiresInSeconds: [TimeInterval: [Int64]] = (try? Interaction
-            .filter(interactionIds.contains(Interaction.Columns.id))
-            .filter(
-                Interaction.Columns.expiresInSeconds != nil &&
-                Interaction.Columns.expiresStartedAtMs == nil
-            )
-            .select(Interaction.Columns.id, Interaction.Columns.expiresInSeconds)
-            .asRequest(of: ExpirationInfo.self)
-            .fetchAll(db))
-            .defaulting(to: [])
-            .grouped(by: \.expiresInSeconds)
-            .mapValues { $0.map { $0.id } }
-            
         
         // Update the expiring messages expiresStartedAtMs value
         let changeCount: Int? = try? Interaction
@@ -102,22 +88,6 @@ public extension DisappearingMessagesJob {
         
         // If there were no changes then none of the provided `interactionIds` are expiring messages
         guard (changeCount ?? 0) > 0 else { return nil }
-        
-        if DisappearingMessagesConfiguration.isNewConfigurationEnabled {
-            if !interactionIdsByExpiresInSeconds.isEmpty {
-                JobRunner.upsert(
-                    db,
-                    job: Job(
-                        variant: .syncExpires,
-                        details: SyncExpiriesJob.Details(
-                            interactionIdsByExpiresInSeconds: interactionIdsByExpiresInSeconds,
-                            startedAtMs: startedAtMs,
-                            threadId: threadId
-                        )
-                    )
-                )
-            }
-        }
         
         return updateNextRunIfNeeded(db)
     }

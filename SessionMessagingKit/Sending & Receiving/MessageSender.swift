@@ -134,7 +134,7 @@ public final class MessageSender {
         let plaintext: Data
         
         do {
-            plaintext = (message is SyncedExpiriesMessage) ? try proto.serializedData() : try proto.serializedData().paddedMessageBody()
+            plaintext = try proto.serializedData().paddedMessageBody()
         }
         catch {
             SNLog("Couldn't serialize proto due to error: \(error).")

@@ -581,330 +581,6 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
 
 #endif
 
-// MARK: - SNProtoSyncedExpiriesSyncedConversationExpiriesSyncedExpiry
-
-@objc public class SNProtoSyncedExpiriesSyncedConversationExpiriesSyncedExpiry: NSObject {
-
-    // MARK: - SNProtoSyncedExpiriesSyncedConversationExpiriesSyncedExpiryBuilder
-
-    @objc public class func builder(serverHash: String, expirationTimestamp: UInt64) -> SNProtoSyncedExpiriesSyncedConversationExpiriesSyncedExpiryBuilder {
-        return SNProtoSyncedExpiriesSyncedConversationExpiriesSyncedExpiryBuilder(serverHash: serverHash, expirationTimestamp: expirationTimestamp)
-    }
-
-    // asBuilder() constructs a builder that reflects the proto's contents.
-    @objc public func asBuilder() -> SNProtoSyncedExpiriesSyncedConversationExpiriesSyncedExpiryBuilder {
-        let builder = SNProtoSyncedExpiriesSyncedConversationExpiriesSyncedExpiryBuilder(serverHash: serverHash, expirationTimestamp: expirationTimestamp)
-        return builder
-    }
-
-    @objc public class SNProtoSyncedExpiriesSyncedConversationExpiriesSyncedExpiryBuilder: NSObject {
-
-        private var proto = SessionProtos_SyncedExpiries.SyncedConversationExpiries.SyncedExpiry()
-
-        @objc fileprivate override init() {}
-
-        @objc fileprivate init(serverHash: String, expirationTimestamp: UInt64) {
-            super.init()
-
-            setServerHash(serverHash)
-            setExpirationTimestamp(expirationTimestamp)
-        }
-
-        @objc public func setServerHash(_ valueParam: String) {
-            proto.serverHash = valueParam
-        }
-
-        @objc public func setExpirationTimestamp(_ valueParam: UInt64) {
-            proto.expirationTimestamp = valueParam
-        }
-
-        @objc public func build() throws -> SNProtoSyncedExpiriesSyncedConversationExpiriesSyncedExpiry {
-            return try SNProtoSyncedExpiriesSyncedConversationExpiriesSyncedExpiry.parseProto(proto)
-        }
-
-        @objc public func buildSerializedData() throws -> Data {
-            return try SNProtoSyncedExpiriesSyncedConversationExpiriesSyncedExpiry.parseProto(proto).serializedData()
-        }
-    }
-
-    fileprivate let proto: SessionProtos_SyncedExpiries.SyncedConversationExpiries.SyncedExpiry
-
-    @objc public let serverHash: String
-
-    @objc public let expirationTimestamp: UInt64
-
-    private init(proto: SessionProtos_SyncedExpiries.SyncedConversationExpiries.SyncedExpiry,
-                 serverHash: String,
-                 expirationTimestamp: UInt64) {
-        self.proto = proto
-        self.serverHash = serverHash
-        self.expirationTimestamp = expirationTimestamp
-    }
-
-    @objc
-    public func serializedData() throws -> Data {
-        return try self.proto.serializedData()
-    }
-
-    @objc public class func parseData(_ serializedData: Data) throws -> SNProtoSyncedExpiriesSyncedConversationExpiriesSyncedExpiry {
-        let proto = try SessionProtos_SyncedExpiries.SyncedConversationExpiries.SyncedExpiry(serializedData: serializedData)
-        return try parseProto(proto)
-    }
-
-    fileprivate class func parseProto(_ proto: SessionProtos_SyncedExpiries.SyncedConversationExpiries.SyncedExpiry) throws -> SNProtoSyncedExpiriesSyncedConversationExpiriesSyncedExpiry {
-        guard proto.hasServerHash else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: serverHash")
-        }
-        let serverHash = proto.serverHash
-
-        guard proto.hasExpirationTimestamp else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: expirationTimestamp")
-        }
-        let expirationTimestamp = proto.expirationTimestamp
-
-        // MARK: - Begin Validation Logic for SNProtoSyncedExpiriesSyncedConversationExpiriesSyncedExpiry -
-
-        // MARK: - End Validation Logic for SNProtoSyncedExpiriesSyncedConversationExpiriesSyncedExpiry -
-
-        let result = SNProtoSyncedExpiriesSyncedConversationExpiriesSyncedExpiry(proto: proto,
-                                                                                 serverHash: serverHash,
-                                                                                 expirationTimestamp: expirationTimestamp)
-        return result
-    }
-
-    @objc public override var debugDescription: String {
-        return "\(proto)"
-    }
-}
-
-#if DEBUG
-
-extension SNProtoSyncedExpiriesSyncedConversationExpiriesSyncedExpiry {
-    @objc public func serializedDataIgnoringErrors() -> Data? {
-        return try! self.serializedData()
-    }
-}
-
-extension SNProtoSyncedExpiriesSyncedConversationExpiriesSyncedExpiry.SNProtoSyncedExpiriesSyncedConversationExpiriesSyncedExpiryBuilder {
-    @objc public func buildIgnoringErrors() -> SNProtoSyncedExpiriesSyncedConversationExpiriesSyncedExpiry? {
-        return try! self.build()
-    }
-}
-
-#endif
-
-// MARK: - SNProtoSyncedExpiriesSyncedConversationExpiries
-
-@objc public class SNProtoSyncedExpiriesSyncedConversationExpiries: NSObject {
-
-    // MARK: - SNProtoSyncedExpiriesSyncedConversationExpiriesBuilder
-
-    @objc public class func builder(syncTarget: String) -> SNProtoSyncedExpiriesSyncedConversationExpiriesBuilder {
-        return SNProtoSyncedExpiriesSyncedConversationExpiriesBuilder(syncTarget: syncTarget)
-    }
-
-    // asBuilder() constructs a builder that reflects the proto's contents.
-    @objc public func asBuilder() -> SNProtoSyncedExpiriesSyncedConversationExpiriesBuilder {
-        let builder = SNProtoSyncedExpiriesSyncedConversationExpiriesBuilder(syncTarget: syncTarget)
-        builder.setExpiries(expiries)
-        return builder
-    }
-
-    @objc public class SNProtoSyncedExpiriesSyncedConversationExpiriesBuilder: NSObject {
-
-        private var proto = SessionProtos_SyncedExpiries.SyncedConversationExpiries()
-
-        @objc fileprivate override init() {}
-
-        @objc fileprivate init(syncTarget: String) {
-            super.init()
-
-            setSyncTarget(syncTarget)
-        }
-
-        @objc public func setSyncTarget(_ valueParam: String) {
-            proto.syncTarget = valueParam
-        }
-
-        @objc public func addExpiries(_ valueParam: SNProtoSyncedExpiriesSyncedConversationExpiriesSyncedExpiry) {
-            var items = proto.expiries
-            items.append(valueParam.proto)
-            proto.expiries = items
-        }
-
-        @objc public func setExpiries(_ wrappedItems: [SNProtoSyncedExpiriesSyncedConversationExpiriesSyncedExpiry]) {
-            proto.expiries = wrappedItems.map { $0.proto }
-        }
-
-        @objc public func build() throws -> SNProtoSyncedExpiriesSyncedConversationExpiries {
-            return try SNProtoSyncedExpiriesSyncedConversationExpiries.parseProto(proto)
-        }
-
-        @objc public func buildSerializedData() throws -> Data {
-            return try SNProtoSyncedExpiriesSyncedConversationExpiries.parseProto(proto).serializedData()
-        }
-    }
-
-    fileprivate let proto: SessionProtos_SyncedExpiries.SyncedConversationExpiries
-
-    @objc public let syncTarget: String
-
-    @objc public let expiries: [SNProtoSyncedExpiriesSyncedConversationExpiriesSyncedExpiry]
-
-    private init(proto: SessionProtos_SyncedExpiries.SyncedConversationExpiries,
-                 syncTarget: String,
-                 expiries: [SNProtoSyncedExpiriesSyncedConversationExpiriesSyncedExpiry]) {
-        self.proto = proto
-        self.syncTarget = syncTarget
-        self.expiries = expiries
-    }
-
-    @objc
-    public func serializedData() throws -> Data {
-        return try self.proto.serializedData()
-    }
-
-    @objc public class func parseData(_ serializedData: Data) throws -> SNProtoSyncedExpiriesSyncedConversationExpiries {
-        let proto = try SessionProtos_SyncedExpiries.SyncedConversationExpiries(serializedData: serializedData)
-        return try parseProto(proto)
-    }
-
-    fileprivate class func parseProto(_ proto: SessionProtos_SyncedExpiries.SyncedConversationExpiries) throws -> SNProtoSyncedExpiriesSyncedConversationExpiries {
-        guard proto.hasSyncTarget else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: syncTarget")
-        }
-        let syncTarget = proto.syncTarget
-
-        var expiries: [SNProtoSyncedExpiriesSyncedConversationExpiriesSyncedExpiry] = []
-        expiries = try proto.expiries.map { try SNProtoSyncedExpiriesSyncedConversationExpiriesSyncedExpiry.parseProto($0) }
-
-        // MARK: - Begin Validation Logic for SNProtoSyncedExpiriesSyncedConversationExpiries -
-
-        // MARK: - End Validation Logic for SNProtoSyncedExpiriesSyncedConversationExpiries -
-
-        let result = SNProtoSyncedExpiriesSyncedConversationExpiries(proto: proto,
-                                                                     syncTarget: syncTarget,
-                                                                     expiries: expiries)
-        return result
-    }
-
-    @objc public override var debugDescription: String {
-        return "\(proto)"
-    }
-}
-
-#if DEBUG
-
-extension SNProtoSyncedExpiriesSyncedConversationExpiries {
-    @objc public func serializedDataIgnoringErrors() -> Data? {
-        return try! self.serializedData()
-    }
-}
-
-extension SNProtoSyncedExpiriesSyncedConversationExpiries.SNProtoSyncedExpiriesSyncedConversationExpiriesBuilder {
-    @objc public func buildIgnoringErrors() -> SNProtoSyncedExpiriesSyncedConversationExpiries? {
-        return try! self.build()
-    }
-}
-
-#endif
-
-// MARK: - SNProtoSyncedExpiries
-
-@objc public class SNProtoSyncedExpiries: NSObject {
-
-    // MARK: - SNProtoSyncedExpiriesBuilder
-
-    @objc public class func builder() -> SNProtoSyncedExpiriesBuilder {
-        return SNProtoSyncedExpiriesBuilder()
-    }
-
-    // asBuilder() constructs a builder that reflects the proto's contents.
-    @objc public func asBuilder() -> SNProtoSyncedExpiriesBuilder {
-        let builder = SNProtoSyncedExpiriesBuilder()
-        builder.setConversationExpiries(conversationExpiries)
-        return builder
-    }
-
-    @objc public class SNProtoSyncedExpiriesBuilder: NSObject {
-
-        private var proto = SessionProtos_SyncedExpiries()
-
-        @objc fileprivate override init() {}
-
-        @objc public func addConversationExpiries(_ valueParam: SNProtoSyncedExpiriesSyncedConversationExpiries) {
-            var items = proto.conversationExpiries
-            items.append(valueParam.proto)
-            proto.conversationExpiries = items
-        }
-
-        @objc public func setConversationExpiries(_ wrappedItems: [SNProtoSyncedExpiriesSyncedConversationExpiries]) {
-            proto.conversationExpiries = wrappedItems.map { $0.proto }
-        }
-
-        @objc public func build() throws -> SNProtoSyncedExpiries {
-            return try SNProtoSyncedExpiries.parseProto(proto)
-        }
-
-        @objc public func buildSerializedData() throws -> Data {
-            return try SNProtoSyncedExpiries.parseProto(proto).serializedData()
-        }
-    }
-
-    fileprivate let proto: SessionProtos_SyncedExpiries
-
-    @objc public let conversationExpiries: [SNProtoSyncedExpiriesSyncedConversationExpiries]
-
-    private init(proto: SessionProtos_SyncedExpiries,
-                 conversationExpiries: [SNProtoSyncedExpiriesSyncedConversationExpiries]) {
-        self.proto = proto
-        self.conversationExpiries = conversationExpiries
-    }
-
-    @objc
-    public func serializedData() throws -> Data {
-        return try self.proto.serializedData()
-    }
-
-    @objc public class func parseData(_ serializedData: Data) throws -> SNProtoSyncedExpiries {
-        let proto = try SessionProtos_SyncedExpiries(serializedData: serializedData)
-        return try parseProto(proto)
-    }
-
-    fileprivate class func parseProto(_ proto: SessionProtos_SyncedExpiries) throws -> SNProtoSyncedExpiries {
-        var conversationExpiries: [SNProtoSyncedExpiriesSyncedConversationExpiries] = []
-        conversationExpiries = try proto.conversationExpiries.map { try SNProtoSyncedExpiriesSyncedConversationExpiries.parseProto($0) }
-
-        // MARK: - Begin Validation Logic for SNProtoSyncedExpiries -
-
-        // MARK: - End Validation Logic for SNProtoSyncedExpiries -
-
-        let result = SNProtoSyncedExpiries(proto: proto,
-                                           conversationExpiries: conversationExpiries)
-        return result
-    }
-
-    @objc public override var debugDescription: String {
-        return "\(proto)"
-    }
-}
-
-#if DEBUG
-
-extension SNProtoSyncedExpiries {
-    @objc public func serializedDataIgnoringErrors() -> Data? {
-        return try! self.serializedData()
-    }
-}
-
-extension SNProtoSyncedExpiries.SNProtoSyncedExpiriesBuilder {
-    @objc public func buildIgnoringErrors() -> SNProtoSyncedExpiries? {
-        return try! self.build()
-    }
-}
-
-#endif
-
 // MARK: - SNProtoContent
 
 @objc public class SNProtoContent: NSObject {
@@ -972,9 +648,6 @@ extension SNProtoSyncedExpiries.SNProtoSyncedExpiriesBuilder {
         if hasLastDisappearingMessageChangeTimestamp {
             builder.setLastDisappearingMessageChangeTimestamp(lastDisappearingMessageChangeTimestamp)
         }
-        if let _value = syncedExpiries {
-            builder.setSyncedExpiries(_value)
-        }
         return builder
     }
 
@@ -1028,10 +701,6 @@ extension SNProtoSyncedExpiries.SNProtoSyncedExpiriesBuilder {
             proto.lastDisappearingMessageChangeTimestamp = valueParam
         }
 
-        @objc public func setSyncedExpiries(_ valueParam: SNProtoSyncedExpiries) {
-            proto.syncedExpiries = valueParam.proto
-        }
-
         @objc public func build() throws -> SNProtoContent {
             return try SNProtoContent.parseProto(proto)
         }
@@ -1058,8 +727,6 @@ extension SNProtoSyncedExpiries.SNProtoSyncedExpiriesBuilder {
     @objc public let unsendRequest: SNProtoUnsendRequest?
 
     @objc public let messageRequestResponse: SNProtoMessageRequestResponse?
-
-    @objc public let syncedExpiries: SNProtoSyncedExpiries?
 
     @objc public var expirationType: SNProtoContentExpirationType {
         return SNProtoContent.SNProtoContentExpirationTypeWrap(proto.expirationType)
@@ -1090,8 +757,7 @@ extension SNProtoSyncedExpiries.SNProtoSyncedExpiriesBuilder {
                  configurationMessage: SNProtoConfigurationMessage?,
                  dataExtractionNotification: SNProtoDataExtractionNotification?,
                  unsendRequest: SNProtoUnsendRequest?,
-                 messageRequestResponse: SNProtoMessageRequestResponse?,
-                 syncedExpiries: SNProtoSyncedExpiries?) {
+                 messageRequestResponse: SNProtoMessageRequestResponse?) {
         self.proto = proto
         self.dataMessage = dataMessage
         self.callMessage = callMessage
@@ -1101,7 +767,6 @@ extension SNProtoSyncedExpiries.SNProtoSyncedExpiriesBuilder {
         self.dataExtractionNotification = dataExtractionNotification
         self.unsendRequest = unsendRequest
         self.messageRequestResponse = messageRequestResponse
-        self.syncedExpiries = syncedExpiries
     }
 
     @objc
@@ -1155,11 +820,6 @@ extension SNProtoSyncedExpiries.SNProtoSyncedExpiriesBuilder {
             messageRequestResponse = try SNProtoMessageRequestResponse.parseProto(proto.messageRequestResponse)
         }
 
-        var syncedExpiries: SNProtoSyncedExpiries? = nil
-        if proto.hasSyncedExpiries {
-            syncedExpiries = try SNProtoSyncedExpiries.parseProto(proto.syncedExpiries)
-        }
-
         // MARK: - Begin Validation Logic for SNProtoContent -
 
         // MARK: - End Validation Logic for SNProtoContent -
@@ -1172,8 +832,7 @@ extension SNProtoSyncedExpiries.SNProtoSyncedExpiriesBuilder {
                                     configurationMessage: configurationMessage,
                                     dataExtractionNotification: dataExtractionNotification,
                                     unsendRequest: unsendRequest,
-                                    messageRequestResponse: messageRequestResponse,
-                                    syncedExpiries: syncedExpiries)
+                                    messageRequestResponse: messageRequestResponse)
         return result
     }
 

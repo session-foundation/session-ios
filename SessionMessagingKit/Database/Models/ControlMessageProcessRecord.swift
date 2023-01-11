@@ -41,7 +41,6 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
         case unsendRequest = 7
         case messageRequestResponse = 8
         case call = 9
-        case syncedExpiries = 10
     }
     
     /// The id for the thread the control message is associated to
@@ -108,7 +107,6 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
                 case is UnsendRequest: return .unsendRequest
                 case is MessageRequestResponse: return .messageRequestResponse
                 case is CallMessage: return .call
-                case is SyncedExpiriesMessage: return .syncedExpiries
                 default: preconditionFailure("[ControlMessageProcessRecord] Unsupported message type")
             }
         }()

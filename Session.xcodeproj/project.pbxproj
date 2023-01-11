@@ -143,7 +143,6 @@
 		7BA68909272A27BE00EFC32F /* SessionCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BA68908272A27BE00EFC32F /* SessionCall.swift */; };
 		7BA6890D27325CCC00EFC32F /* SessionCallManager+CXCallController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BA6890C27325CCC00EFC32F /* SessionCallManager+CXCallController.swift */; };
 		7BA6890F27325CE300EFC32F /* SessionCallManager+CXProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BA6890E27325CE300EFC32F /* SessionCallManager+CXProvider.swift */; };
-		7BA7F0EF2942C33600CF6B05 /* SyncExpiriesJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BA7F0EE2942C33600CF6B05 /* SyncExpiriesJob.swift */; };
 		7BAA7B6628D2DE4700AE1489 /* _009_OpenGroupPermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BAA7B6528D2DE4700AE1489 /* _009_OpenGroupPermission.swift */; };
 		7BAADFCC27B0EF23007BCF92 /* CallVideoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BAADFCB27B0EF23007BCF92 /* CallVideoView.swift */; };
 		7BAADFCE27B215FE007BCF92 /* UIView+Draggable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BAADFCD27B215FE007BCF92 /* UIView+Draggable.swift */; };
@@ -159,8 +158,6 @@
 		7BC707F227290ACB002817AD /* SessionCallManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BC707F127290ACB002817AD /* SessionCallManager.swift */; };
 		7BCD116C27016062006330F1 /* WebRTCSession+DataChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BCD116B27016062006330F1 /* WebRTCSession+DataChannel.swift */; };
 		7BD01B122921BDDF00E7D9E6 /* MessageSender+TTL.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BD01B112921BDDF00E7D9E6 /* MessageSender+TTL.swift */; };
-		7BD01B142921FD9900E7D9E6 /* SyncedExpiriesMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BD01B132921FD9900E7D9E6 /* SyncedExpiriesMessage.swift */; };
-		7BD01B1629233F3B00E7D9E6 /* MessageReceiver+SyncedExpiriesMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BD01B1529233F3B00E7D9E6 /* MessageReceiver+SyncedExpiriesMessage.swift */; };
 		7BD477A827EC39F5004E2822 /* Atomic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BD477A727EC39F5004E2822 /* Atomic.swift */; };
 		7BDCFC08242186E700641C39 /* NotificationServiceExtensionContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BDCFC07242186E700641C39 /* NotificationServiceExtensionContext.swift */; };
 		7BDCFC0B2421EB7600641C39 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = B6F509951AA53F760068F56A /* Localizable.strings */; };
@@ -1218,7 +1215,6 @@
 		7BA68908272A27BE00EFC32F /* SessionCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionCall.swift; sourceTree = "<group>"; };
 		7BA6890C27325CCC00EFC32F /* SessionCallManager+CXCallController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionCallManager+CXCallController.swift"; sourceTree = "<group>"; };
 		7BA6890E27325CE300EFC32F /* SessionCallManager+CXProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionCallManager+CXProvider.swift"; sourceTree = "<group>"; };
-		7BA7F0EE2942C33600CF6B05 /* SyncExpiriesJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncExpiriesJob.swift; sourceTree = "<group>"; };
 		7BAA7B6528D2DE4700AE1489 /* _009_OpenGroupPermission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _009_OpenGroupPermission.swift; sourceTree = "<group>"; };
 		7BAADFCB27B0EF23007BCF92 /* CallVideoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallVideoView.swift; sourceTree = "<group>"; };
 		7BAADFCD27B215FE007BCF92 /* UIView+Draggable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIView+Draggable.swift"; sourceTree = "<group>"; };
@@ -1236,8 +1232,6 @@
 		7BC707F127290ACB002817AD /* SessionCallManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionCallManager.swift; sourceTree = "<group>"; };
 		7BCD116B27016062006330F1 /* WebRTCSession+DataChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WebRTCSession+DataChannel.swift"; sourceTree = "<group>"; };
 		7BD01B112921BDDF00E7D9E6 /* MessageSender+TTL.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageSender+TTL.swift"; sourceTree = "<group>"; };
-		7BD01B132921FD9900E7D9E6 /* SyncedExpiriesMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncedExpiriesMessage.swift; sourceTree = "<group>"; };
-		7BD01B1529233F3B00E7D9E6 /* MessageReceiver+SyncedExpiriesMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageReceiver+SyncedExpiriesMessage.swift"; sourceTree = "<group>"; };
 		7BD477A727EC39F5004E2822 /* Atomic.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Atomic.swift; sourceTree = "<group>"; };
 		7BD477A927F15F24004E2822 /* OpenGroupServerIdLookup.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OpenGroupServerIdLookup.swift; sourceTree = "<group>"; };
 		7BDCFC0424206E7300641C39 /* SessionNotificationServiceExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SessionNotificationServiceExtension.entitlements; sourceTree = "<group>"; };
@@ -2668,7 +2662,6 @@
 				C300A5BC2554B00D00555489 /* ReadReceipt.swift */,
 				C300A5D22554B05A00555489 /* TypingIndicator.swift */,
 				7B4C75CA26B37E0F0000AC89 /* UnsendRequest.swift */,
-				7BD01B132921FD9900E7D9E6 /* SyncedExpiriesMessage.swift */,
 			);
 			path = "Control Messages";
 			sourceTree = "<group>";
@@ -3915,7 +3908,6 @@
 				FD5C7304284F0FF30029977D /* MessageReceiver+VisibleMessages.swift */,
 				C32C5A87256DBCF9003C73A2 /* MessageReceiver+ClosedGroups.swift */,
 				FD5C7306284F103B0029977D /* MessageReceiver+MessageRequests.swift */,
-				7BD01B1529233F3B00E7D9E6 /* MessageReceiver+SyncedExpiriesMessage.swift */,
 			);
 			path = "Message Handling";
 			sourceTree = "<group>";
@@ -4153,7 +4145,6 @@
 				FDF0B74E28079E5E004C14C5 /* SendReadReceiptsJob.swift */,
 				C352A348255781F400338F3E /* AttachmentDownloadJob.swift */,
 				C352A35A2557824E00338F3E /* AttachmentUploadJob.swift */,
-				7BA7F0EE2942C33600CF6B05 /* SyncExpiriesJob.swift */,
 			);
 			path = Types;
 			sourceTree = "<group>";
@@ -5458,7 +5449,6 @@
 				FD245C6A2850666F00B966DD /* FileServerAPI.swift in Sources */,
 				FDC4386927B4E6B800C60D73 /* String+Utlities.swift in Sources */,
 				FD716E6628502EE200C96BF4 /* CurrentCallProtocol.swift in Sources */,
-				7BD01B142921FD9900E7D9E6 /* SyncedExpiriesMessage.swift in Sources */,
 				FD09B7E5288670BB00ED0B66 /* _008_EmojiReacts.swift in Sources */,
 				FDC4385F27B4C4A200C60D73 /* PinnedMessage.swift in Sources */,
 				7BFD1A8C2747150E00FB91B9 /* TurnServerInfo.swift in Sources */,
@@ -5478,7 +5468,6 @@
 				FD09797F27FCFBFF00936362 /* OWSAES256Key+Utilities.swift in Sources */,
 				FDB4BBC72838B91E00B7C95D /* LinkPreviewError.swift in Sources */,
 				FD09798327FD1A1500936362 /* ClosedGroup.swift in Sources */,
-				7BA7F0EF2942C33600CF6B05 /* SyncExpiriesJob.swift in Sources */,
 				B8B320B7258C30D70020074B /* HTMLMetadata.swift in Sources */,
 				FD09798727FD1B7800936362 /* GroupMember.swift in Sources */,
 				FDB4BBC92839BEF000B7C95D /* ProfileManagerError.swift in Sources */,
@@ -5534,7 +5523,6 @@
 				B8D0A25925E367AC00C1835E /* Notification+MessageReceiver.swift in Sources */,
 				FD245C53285065DB00B966DD /* ProximityMonitoringManager.swift in Sources */,
 				FD245C55285065E500B966DD /* OpenGroupManager.swift in Sources */,
-				7BD01B1629233F3B00E7D9E6 /* MessageReceiver+SyncedExpiriesMessage.swift in Sources */,
 				FDC4387227B5BB3B00C60D73 /* FileUploadResponse.swift in Sources */,
 				C32C599E256DB02B003C73A2 /* TypingIndicators.swift in Sources */,
 				FD716E682850318E00C96BF4 /* CallMode.swift in Sources */,
