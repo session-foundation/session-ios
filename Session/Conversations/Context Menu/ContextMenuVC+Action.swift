@@ -34,6 +34,14 @@ extension ContextMenuVC {
         }
         
         // MARK: - Actions
+        
+        static func info(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
+            return Action(
+                icon: UIImage(named: "ic_info"),
+                title: "context_menu_info".localized(),
+                accessibilityLabel: "Message info"
+            ) { delegate?.info(cellViewModel) }
+        }
 
         static func reply(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
@@ -185,6 +193,7 @@ extension ContextMenuVC {
             (canDelete ? Action.delete(cellViewModel, delegate) : nil),
             (canBan ? Action.ban(cellViewModel, delegate) : nil),
             (canBan ? Action.banAndDeleteAllMessages(cellViewModel, delegate) : nil),
+            Action.info(cellViewModel, delegate),
         ]
         .appending(contentsOf: (shouldShowEmojiActions ? recentEmojis : []).map { Action.react(cellViewModel, $0, delegate) })
         .appending(Action.emojiPlusButton(cellViewModel, delegate))
@@ -199,6 +208,7 @@ extension ContextMenuVC {
 // MARK: - Delegate
 
 protocol ContextMenuActionDelegate {
+    func info(_ cellViewModel: MessageViewModel)
     func reply(_ cellViewModel: MessageViewModel)
     func copy(_ cellViewModel: MessageViewModel)
     func copySessionID(_ cellViewModel: MessageViewModel)

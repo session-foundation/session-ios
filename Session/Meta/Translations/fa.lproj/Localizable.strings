@@ -374,6 +374,7 @@
 "delete_message_for_me" = "حذف برای من";
 "delete_message_for_everyone" = "حذف برای همه";
 "delete_message_for_me_and_recipient" = "حذف برای من و %@";
+"context_menu_info" = "Info";
 "context_menu_reply" = "پاسخ";
 "context_menu_save" = "ذخیره";
 "context_menu_ban_user" = "مسدود کردن کاربر";

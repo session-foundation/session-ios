@@ -374,6 +374,7 @@
 "delete_message_for_me" = "Izbriši samo za mene";
 "delete_message_for_everyone" = "Izbriši za sve";
 "delete_message_for_me_and_recipient" = "Izbriši za mene i %@";
+"context_menu_info" = "Info";
 "context_menu_reply" = "Odgovori";
 "context_menu_save" = "Spremi";
 "context_menu_ban_user" = "Zabrani korisnik";

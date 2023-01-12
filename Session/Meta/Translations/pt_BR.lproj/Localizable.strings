@@ -374,6 +374,7 @@
 "delete_message_for_me" = "Apagar para mim";
 "delete_message_for_everyone" = "Apagar para todos";
 "delete_message_for_me_and_recipient" = "Apagar para mim e para %@";
+"context_menu_info" = "Info";
 "context_menu_reply" = "Responder";
 "context_menu_save" = "Salvar";
 "context_menu_ban_user" = "Banir Usuário";

@@ -374,6 +374,7 @@
 "delete_message_for_me" = "Verwijder alleen voor mij";
 "delete_message_for_everyone" = "Verwijder voor iedereen";
 "delete_message_for_me_and_recipient" = "Verwijderen voor mij en %@";
+"context_menu_info" = "Info";
 "context_menu_reply" = "Antwoord";
 "context_menu_save" = "Opslaan";
 "context_menu_ban_user" = "Gebruiker verbannen";

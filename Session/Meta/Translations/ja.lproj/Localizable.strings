@@ -374,6 +374,7 @@
 "delete_message_for_me" = "自分の端末から削除";
 "delete_message_for_everyone" = "全員の端末から削除";
 "delete_message_for_me_and_recipient" = "自分と %@ の端末から削除する";
+"context_menu_info" = "Info";
 "context_menu_reply" = "返信";
 "context_menu_save" = "保存";
 "context_menu_ban_user" = "ユーザーをBAN";

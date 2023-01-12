@@ -374,11 +374,12 @@
 "delete_message_for_me" = "Usuń tylko dla mnie";
 "delete_message_for_everyone" = "Usuń dla wszystkich";
 "delete_message_for_me_and_recipient" = "Usuń dla mnie i %@";
-"context_menu_ban_user_error_alert_message" = "Unable to ban user";
+"context_menu_info" = "Info";
 "context_menu_reply" = "Odpowiedz";
 "context_menu_save" = "Zapisz";
 "context_menu_ban_user" = "Zbanuj użytkownika";
 "context_menu_ban_and_delete_all" = "Zbanuj i usuń wszystko";
+"context_menu_ban_user_error_alert_message" = "Unable to ban user";
 "accessibility_expanding_attachments_button" = "Dodaj załączniki";
 "accessibility_gif_button" = "Gif";
 "accessibility_document_button" = "Dokument";

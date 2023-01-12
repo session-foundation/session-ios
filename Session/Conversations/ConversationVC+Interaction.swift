@@ -1556,6 +1556,10 @@ extension ConversationVC:
     }
     
     // MARK: - ContextMenuActionDelegate
+    
+    func info(_ cellViewModel: MessageViewModel) {
+        
+    }
 
     func reply(_ cellViewModel: MessageViewModel) {
         let maybeQuoteDraft: QuotedReplyModel? = QuotedReplyModel.quotedReplyForSending(

@@ -374,6 +374,7 @@
 "delete_message_for_me" = "只為我自己刪除";
 "delete_message_for_everyone" = "從所有人的裝置上刪除";
 "delete_message_for_me_and_recipient" = "為我和 %@ 刪除";
+"context_menu_info" = "Info";
 "context_menu_reply" = "回覆";
 "context_menu_save" = "儲存";
 "context_menu_ban_user" = "封鎖用戶";

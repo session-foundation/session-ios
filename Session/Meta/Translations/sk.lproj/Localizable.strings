@@ -374,6 +374,7 @@
 "delete_message_for_me" = "Vymazať len u mňa";
 "delete_message_for_everyone" = "Vymazať u všetkých";
 "delete_message_for_me_and_recipient" = "Vymazať pre mňa a %@";
+"context_menu_info" = "Info";
 "context_menu_reply" = "Odpovedať";
 "context_menu_save" = "Uložiť";
 "context_menu_ban_user" = "Zablokovanie používateľa";

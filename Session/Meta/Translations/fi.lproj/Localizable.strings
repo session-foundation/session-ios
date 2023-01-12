@@ -374,6 +374,7 @@
 "delete_message_for_me" = "Poista vain minun nähtäväksi";
 "delete_message_for_everyone" = "Poista kaikkien näkyviltä";
 "delete_message_for_me_and_recipient" = "Poista minulta ja vastaanottajalta";
+"context_menu_info" = "Info";
 "context_menu_reply" = "Vastaa";
 "context_menu_save" = "Tallenna";
 "context_menu_ban_user" = "Estä Käyttäjä";

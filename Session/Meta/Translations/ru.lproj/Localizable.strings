@@ -374,6 +374,7 @@
 "delete_message_for_me" = "Удалить только для меня";
 "delete_message_for_everyone" = "Удалить для всех";
 "delete_message_for_me_and_recipient" = "Удалить для меня и %@";
+"context_menu_info" = "Info";
 "context_menu_reply" = "Ответить";
 "context_menu_save" = "Сохранить";
 "context_menu_ban_user" = "Заблокировать пользователя";
