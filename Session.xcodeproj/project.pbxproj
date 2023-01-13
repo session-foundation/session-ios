@@ -109,6 +109,7 @@
 		7B1D74AA27BCC16E0030B423 /* NSENotificationPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B1D74A927BCC16E0030B423 /* NSENotificationPresenter.swift */; };
 		7B1D74AC27BDE7510030B423 /* Promise+Timeout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B1D74AB27BDE7510030B423 /* Promise+Timeout.swift */; };
 		7B1D74B027C365960030B423 /* Timer+MainThread.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B1D74AF27C365960030B423 /* Timer+MainThread.swift */; };
+		7B3A392C2971100D002FE4AC /* ContextMenuVC+MessageInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B3A392B2971100D002FE4AC /* ContextMenuVC+MessageInfoView.swift */; };
 		7B46AAAF28766DF4001AF2DC /* AllMediaViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B46AAAE28766DF4001AF2DC /* AllMediaViewController.swift */; };
 		7B4C75CB26B37E0F0000AC89 /* UnsendRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B4C75CA26B37E0F0000AC89 /* UnsendRequest.swift */; };
 		7B4C75CD26BB92060000AC89 /* DeletedMessageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B4C75CC26BB92060000AC89 /* DeletedMessageView.swift */; };
@@ -1175,6 +1176,7 @@
 		7B1D74AB27BDE7510030B423 /* Promise+Timeout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Promise+Timeout.swift"; sourceTree = "<group>"; };
 		7B1D74AF27C365960030B423 /* Timer+MainThread.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Timer+MainThread.swift"; sourceTree = "<group>"; };
 		7B2DB2AD26F1B0FF0035B509 /* si */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = si; path = si.lproj/Localizable.strings; sourceTree = "<group>"; };
+		7B3A392B2971100D002FE4AC /* ContextMenuVC+MessageInfoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ContextMenuVC+MessageInfoView.swift"; sourceTree = "<group>"; };
 		7B46AAAE28766DF4001AF2DC /* AllMediaViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AllMediaViewController.swift; sourceTree = "<group>"; };
 		7B4C75CA26B37E0F0000AC89 /* UnsendRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsendRequest.swift; sourceTree = "<group>"; };
 		7B4C75CC26BB92060000AC89 /* DeletedMessageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeletedMessageView.swift; sourceTree = "<group>"; };
@@ -2712,6 +2714,7 @@
 				C328254825CA60E60062D0A7 /* ContextMenuVC+Action.swift */,
 				C328255125CA64470062D0A7 /* ContextMenuVC+ActionView.swift */,
 				7BFA8AE22831D0D4001876F3 /* ContextMenuVC+EmojiReactsView.swift */,
+				7B3A392B2971100D002FE4AC /* ContextMenuVC+MessageInfoView.swift */,
 			);
 			path = "Context Menu";
 			sourceTree = "<group>";
@@ -5614,6 +5617,7 @@
 				34A8B3512190A40E00218A25 /* MediaAlbumView.swift in Sources */,
 				FD09C5E828264937000CE219 /* MediaDetailViewController.swift in Sources */,
 				3496955E219B605E00DCFE74 /* PhotoLibrary.swift in Sources */,
+				7B3A392C2971100D002FE4AC /* ContextMenuVC+MessageInfoView.swift in Sources */,
 				7B8C44C528B49DDA00FBE25F /* NewConversationVC.swift in Sources */,
 				7B1B52E028580D51006069F2 /* EmojiSkinTonePicker.swift in Sources */,
 				B849789625D4A2F500D0D0B3 /* LinkPreviewView.swift in Sources */,

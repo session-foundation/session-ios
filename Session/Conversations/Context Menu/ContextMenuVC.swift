@@ -59,6 +59,17 @@ final class ContextMenuVC: UIViewController {
         return result
     }()
     
+    private lazy var messageInfoView: MessageInfoView = {
+        let result: MessageInfoView = MessageInfoView(cellViewModel: self.cellViewModel)
+        result.themeShadowColor = .black
+        result.layer.shadowOffset = CGSize.zero
+        result.layer.shadowOpacity = 0.4
+        result.layer.shadowRadius = 4
+        result.alpha = 0
+        
+        return result
+    }()
+    
     private lazy var timestampLabel: UILabel = {
         let result: UILabel = UILabel()
         result.font = .systemFont(ofSize: Values.verySmallFontSize)
@@ -170,6 +181,10 @@ final class ContextMenuVC: UIViewController {
         menuBackgroundView.addSubview(menuStackView)
         menuStackView.pin(to: menuBackgroundView)
         view.addSubview(menuView)
+        
+        // MessageInfo
+        
+        view.addSubview(messageInfoView)
         
         // Timestamp
         view.addSubview(timestampLabel)
