@@ -419,23 +419,23 @@ public final class OpenGroupManager {
                         maybePublicKey.map { OpenGroup.Columns.publicKey.set(to: $0) } :
                         nil
                     ),
-                    (openGroup.name != pollInfo.details?.name ?
+                    (pollInfo.details != nil && openGroup.name != pollInfo.details?.name ?
                         (pollInfo.details?.name).map { OpenGroup.Columns.name.set(to: $0) } :
                         nil
                     ),
-                    (openGroup.roomDescription != pollInfo.details?.roomDescription ?
+                    (pollInfo.details != nil && openGroup.roomDescription != pollInfo.details?.roomDescription ?
                         (pollInfo.details?.roomDescription).map { OpenGroup.Columns.roomDescription.set(to: $0) } :
                         nil
                     ),
-                    (openGroup.imageId != pollInfo.details?.imageId.map { "\($0)" } ?
-                        (pollInfo.details?.imageId).map { OpenGroup.Columns.imageId.set(to: "\($0)") } :
+                    (pollInfo.details != nil && openGroup.imageId != pollInfo.details?.imageId ?
+                        (pollInfo.details?.imageId).map { OpenGroup.Columns.imageId.set(to: $0) } :
                         nil
                     ),
                     (openGroup.userCount != pollInfo.activeUsers ?
                         OpenGroup.Columns.userCount.set(to: pollInfo.activeUsers) :
                         nil
                     ),
-                    (openGroup.infoUpdates != pollInfo.details?.infoUpdates ?
+                    (pollInfo.details != nil && openGroup.infoUpdates != pollInfo.details?.infoUpdates ?
                         (pollInfo.details?.infoUpdates).map { OpenGroup.Columns.infoUpdates.set(to: $0) } :
                         nil
                     ),
