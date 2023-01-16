@@ -772,9 +772,9 @@ public final class SnodeAPI {
         publicKey: String,
         updatedExpiryMs: Int64,
         serverHashes: [String],
-        shortenOnly: Bool = true,
+        shortenOnly: Bool = false,
         extendOnly: Bool = false
-    ) -> Promise<[String: (hashes: [String], expiry: UInt64, unchanged: [String: UInt64])]> {
+    ) -> Promise<[String: (hashes: [String], expiry: UInt64, unchanged: [String: UInt64]?)]> {
         guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair() else {
             return Promise(error: SnodeAPIError.noKeyPair)
         }
@@ -796,7 +796,7 @@ public final class SnodeAPI {
         
         return attempt(maxRetryCount: maxRetryCount, recoveringOn: Threading.workQueue) {
             getSwarm(for: publicKey)
-                .then2 { swarm -> Promise<[String: (hashes: [String], expiry: UInt64, unchanged: [String: UInt64])]> in
+                .then2 { swarm -> Promise<[String: (hashes: [String], expiry: UInt64, unchanged: [String: UInt64]?)]> in
                     // "expire" || ShortenOrExtend || expiry || messages[0] || ... || messages[N]
                     let verificationBytes = SnodeAPIEndpoint.expire.rawValue.bytes
                         .appending(contentsOf: shortenOrExtend?.data(using: .ascii)?.bytes)
@@ -823,13 +823,13 @@ public final class SnodeAPI {
                     
                     return attempt(maxRetryCount: maxRetryCount, recoveringOn: Threading.workQueue) {
                         invoke(.expire, on: snode, associatedWith: publicKey, parameters: parameters)
-                            .map2 { responseData -> [String: (hashes: [String], expiry: UInt64, unchanged: [String: UInt64])] in
+                            .map2 { responseData -> [String: (hashes: [String], expiry: UInt64, unchanged: [String: UInt64]?)] in
                                 guard let responseJson: JSON = try? JSONSerialization.jsonObject(with: responseData, options: [ .fragmentsAllowed ]) as? JSON else {
                                     throw HTTP.Error.invalidJSON
                                 }
                                 guard let swarm = responseJson["swarm"] as? JSON else { throw HTTP.Error.invalidJSON }
                                 
-                                var result: [String: (hashes: [String], expiry: UInt64, unchanged: [String: UInt64])] = [:]
+                                var result: [String: (hashes: [String], expiry: UInt64, unchanged: [String: UInt64]?)] = [:]
                                     
                                 for (snodePublicKey, rawJSON) in swarm {
                                     guard let json = rawJSON as? JSON else { throw HTTP.Error.invalidJSON }
@@ -846,12 +846,13 @@ public final class SnodeAPI {
                                     
                                     guard
                                         let hashes: [String] = json["updated"] as? [String],
-                                        let unchanged: [String: UInt64] = json["unchanged"] as? [String: UInt64],
                                         let expiryApplied: UInt64 = json["expiry"] as? UInt64,
                                         let signature: String = json["signature"] as? String
                                     else {
                                         throw HTTP.Error.invalidJSON
                                     }
+                                    
+                                    let maybeUnchanged: [String: UInt64]? = json["unchanged"] as? [String: UInt64]
                                     
                                     // The signature format is ( PUBKEY_HEX || EXPIRY || RMSGs... || UMSGs... || CMSG_EXPs... )
                                     // where RMSGs are the requested expiry hashes, UMSGs are the actual updated hashes, and
@@ -861,7 +862,7 @@ public final class SnodeAPI {
                                         .appending(contentsOf: "\(expiryApplied)".data(using: .ascii)?.bytes)
                                         .appending(contentsOf: serverHashes.joined().bytes)
                                         .appending(contentsOf: hashes.joined().bytes)
-                                        .appending(contentsOf: unchanged.map { "\($0)\($1)" }.sorted().joined().bytes)
+                                        .appending(contentsOf: maybeUnchanged?.map { "\($0)\($1)" }.sorted().joined().bytes)
                                     let isValid = sodium.sign.verify(
                                         message: verificationBytes,
                                         publicKey: Bytes(Data(hex: snodePublicKey)),
@@ -873,7 +874,7 @@ public final class SnodeAPI {
                                         throw SnodeAPIError.signatureVerificationFailed
                                     }
                                     
-                                    result[snodePublicKey] = (hashes, expiryApplied, unchanged)
+                                    result[snodePublicKey] = (hashes, expiryApplied, maybeUnchanged)
                                 }
                                 
                                 return result

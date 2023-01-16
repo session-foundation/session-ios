@@ -75,7 +75,24 @@ public extension DisappearingMessagesJob {
         struct ExpirationInfo: Codable, Hashable, FetchableRecord {
             let id: Int64
             let expiresInSeconds: TimeInterval
+            let serverHash: String
         }
+        
+        let interactionExpirationInfosByExpiresInSeconds: [TimeInterval: [ExpirationInfo]] = (try? Interaction
+            .filter(interactionIds.contains(Interaction.Columns.id))
+            .filter(
+                Interaction.Columns.expiresInSeconds != nil &&
+                Interaction.Columns.expiresStartedAtMs == nil
+            )
+            .select(
+                Interaction.Columns.id,
+                Interaction.Columns.expiresInSeconds,
+                Interaction.Columns.serverHash
+            )
+            .asRequest(of: ExpirationInfo.self)
+            .fetchAll(db))
+            .defaulting(to: [])
+            .grouped(by: \.expiresInSeconds)
         
         // Update the expiring messages expiresStartedAtMs value
         let changeCount: Int? = try? Interaction
@@ -88,6 +105,33 @@ public extension DisappearingMessagesJob {
         
         // If there were no changes then none of the provided `interactionIds` are expiring messages
         guard (changeCount ?? 0) > 0 else { return nil }
+        
+        interactionExpirationInfosByExpiresInSeconds.forEach { expiresInSeconds, expirationInfos in
+            let expirationTimestampMs: Int64 = Int64(ceil(startedAtMs + expiresInSeconds * 1000))
+            
+            SnodeAPI.updateExpiry(
+                publicKey: getUserHexEncodedPublicKey(db),
+                updatedExpiryMs: expirationTimestampMs,
+                serverHashes: expirationInfos.map { $0.serverHash },
+                shortenOnly: true
+            ).map2 { results in
+                var unchangedMessages: [String: UInt64] = [:]
+                results.forEach { _, result in
+                    guard let unchanged = result.unchanged else { return }
+                    unchangedMessages.merge(unchanged) { (current, _) in current }
+                }
+                
+                guard !unchangedMessages.isEmpty else { return }
+                
+                unchangedMessages.forEach { serverHash, serverExpirationTimestampMs in
+                    let expiresInSeconds: TimeInterval = (TimeInterval(serverExpirationTimestampMs) - startedAtMs) / 1000
+                    
+                    _ = try? Interaction
+                        .filter(Interaction.Columns.serverHash == serverHash)
+                        .updateAll(db, Interaction.Columns.expiresInSeconds.set(to: expiresInSeconds))
+                }
+            }.retainUntilComplete()
+        }
         
         return updateNextRunIfNeeded(db)
     }
