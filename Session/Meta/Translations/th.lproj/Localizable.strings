@@ -597,3 +597,11 @@
 "MESSAGE_STATE_READ" = "Read";
 "MESSAGE_STATE_SENT" = "Sent";
 "MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "You will be able to send voice messages and attachments once the recipient has approved this message request";
+"MESSAGE_INFO_SENT" = "Sent";
+"MESSAGE_INFO_RECEIVED" = "Received";
+"MESSAGE_INFO_FROM" = "From";
+"ATTACHMENT_INFO_FILE_ID" = "File ID";
+"ATTACHMENT_INFO_FILE_TYPE" = "File Type";
+"ATTACHMENT_INFO_FILE_SIZE" = "File Size";
+"ATTACHMENT_INFO_RESOLUTION" = "Resolution";
+"ATTACHMENT_INFO_DURATION" = "Duration";
