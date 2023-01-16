@@ -142,18 +142,33 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
 
     private lazy var reactionContainerView = ReactionContainerView()
     
+    internal lazy var messageStatusContainerView: UIView = {
+        let result = UIView()
+        
+        return result
+    }()
+    
+    internal lazy var messageStatusLabel: UILabel = {
+        let result = UILabel()
+        result.accessibilityLabel = "Message sent status"
+        result.font = .systemFont(ofSize: Values.verySmallFontSize)
+        result.themeTextColor = .messageBubble_deliveryStatus
+        
+        return result
+    }()
+    
     internal lazy var messageStatusImageView: UIImageView = {
         let result = UIImageView()
         result.accessibilityLabel = "Message sent status tick"
         result.contentMode = .scaleAspectFit
-        result.layer.cornerRadius = VisibleMessageCell.messageStatusImageViewSize / 2
-        result.layer.masksToBounds = true
+        result.themeTintColor = .messageBubble_deliveryStatus
+        
         return result
     }()
 
     // MARK: - Settings
     
-    private static let messageStatusImageViewSize: CGFloat = 16
+    private static let messageStatusImageViewSize: CGFloat = 12
     private static let authorLabelBottomSpacing: CGFloat = 4
     private static let groupThreadHSpacing: CGFloat = 12
     private static let profilePictureSize = Values.verySmallProfilePictureSize
@@ -236,13 +251,22 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         underBubbleStackView.pin(.bottom, to: .bottom, of: self)
         
         underBubbleStackView.addArrangedSubview(reactionContainerView)
-        underBubbleStackView.addArrangedSubview(messageStatusImageView)
+        underBubbleStackView.addArrangedSubview(messageStatusContainerView)
+        
+        messageStatusContainerView.addSubview(messageStatusLabel)
+        messageStatusContainerView.addSubview(messageStatusImageView)
         
         reactionContainerView.widthAnchor
             .constraint(lessThanOrEqualTo: underBubbleStackView.widthAnchor)
             .isActive = true
+        messageStatusImageView.pin(.top, to: .top, of: messageStatusContainerView)
+        messageStatusImageView.pin(.bottom, to: .bottom, of: messageStatusContainerView)
+        messageStatusImageView.pin(.trailing, to: .trailing, of: messageStatusContainerView)
         messageStatusImageView.set(.width, to: VisibleMessageCell.messageStatusImageViewSize)
         messageStatusImageView.set(.height, to: VisibleMessageCell.messageStatusImageViewSize)
+        messageStatusLabel.center(.vertical, in: messageStatusContainerView)
+        messageStatusLabel.pin(.leading, to: .leading, of: messageStatusContainerView)
+        messageStatusLabel.pin(.trailing, to: .leading, of: messageStatusImageView, withInset: -2)
     }
 
     override func setUpGestureRecognizers() {
@@ -389,13 +413,15 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         )
         
         // Message status image view
-        let (image, tintColor) = cellViewModel.state.statusIconInfo(
+        let (image, statusText, tintColor) = cellViewModel.state.statusIconInfo(
             variant: cellViewModel.variant,
             hasAtLeastOneReadReceipt: cellViewModel.hasAtLeastOneReadReceipt
         )
+        messageStatusLabel.text = statusText
+        messageStatusLabel.themeTextColor = tintColor
         messageStatusImageView.image = image
         messageStatusImageView.themeTintColor = tintColor
-        messageStatusImageView.isHidden = (
+        messageStatusContainerView.isHidden = (
             cellViewModel.variant != .standardOutgoing ||
             cellViewModel.variant == .infoCall ||
             (
