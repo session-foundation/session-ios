@@ -494,6 +494,42 @@ public final class SnodeAPI {
 
     // MARK: - Retrieve
     
+    public static func getExpiries(from snode: Snode, associatedWith publicKey: String, of serverHashes: [String]) -> Promise<[String: UInt64]> {
+        guard let userED25519KeyPair: Box.KeyPair = Storage.shared.read({ db in Identity.fetchUserEd25519KeyPair(db) }) else {
+            return Promise(error: SnodeAPIError.noKeyPair)
+        }
+        
+        // Construct signature
+        let timestamp = UInt64(SnodeAPI.currentOffsetTimestampMs())
+        let ed25519PublicKey = userED25519KeyPair.publicKey.toHexString()
+        
+        guard
+            let verificationData = (SnodeAPIEndpoint.getExpiries.rawValue + String(timestamp) + serverHashes.joined()).data(using: String.Encoding.utf8),
+            let signature = sodium.sign.signature(message: Bytes(verificationData), secretKey: userED25519KeyPair.secretKey)
+        else { return Promise(error: SnodeAPIError.signingFailed) }
+        
+        // Make the request
+        let parameters: JSON = [
+            "pubKey": Features.useTestnet ? publicKey.removingIdPrefixIfNeeded() : publicKey,
+            "messages": serverHashes,
+            "timestamp": timestamp,
+            "pubkey_ed25519": ed25519PublicKey,
+            "signature": signature.toBase64()
+        ]
+        
+        return invoke(.getExpiries, on: snode, associatedWith: publicKey, parameters: parameters)
+            .map { responseData -> [String: UInt64] in
+                guard
+                    let responseJson: JSON = try? JSONSerialization.jsonObject(with: responseData, options: [ .fragmentsAllowed ]) as? JSON,
+                    let expiries: [String: UInt64] = responseJson["expiries"] as? [String: UInt64]
+                else {
+                    return [:]
+                }
+                
+                return expiries
+            }
+    }
+    
     // Not in use until we can batch delete and store config messages
     public static func getConfigMessages(from snode: Snode, associatedWith publicKey: String) -> Promise<([SnodeReceivedMessage], String?)> {
         let (promise, seal) = Promise<([SnodeReceivedMessage], String?)>.pending()
@@ -557,7 +593,7 @@ public final class SnodeAPI {
         let namespaceVerificationString = (namespace == defaultNamespace ? "" : String(namespace))
         
         guard
-            let verificationData = ("retrieve" + namespaceVerificationString + String(timestamp)).data(using: String.Encoding.utf8),
+            let verificationData = (SnodeAPIEndpoint.getMessages.rawValue + namespaceVerificationString + String(timestamp)).data(using: String.Encoding.utf8),
             let signature = sodium.sign.signature(message: Bytes(verificationData), secretKey: userED25519KeyPair.secretKey)
         else { return Promise(error: SnodeAPIError.signingFailed) }
         
@@ -657,7 +693,7 @@ public final class SnodeAPI {
         let ed25519PublicKey = userED25519KeyPair.publicKey.toHexString()
         
         guard
-            let verificationData = ("store" + String(namespace) + String(timestamp)).data(using: String.Encoding.utf8),
+            let verificationData = (SnodeAPIEndpoint.sendMessage.rawValue + String(namespace) + String(timestamp)).data(using: String.Encoding.utf8),
             let signature = sodium.sign.signature(message: Bytes(verificationData), secretKey: userED25519KeyPair.secretKey)
         else { return Promise(error: SnodeAPIError.signingFailed) }
         
