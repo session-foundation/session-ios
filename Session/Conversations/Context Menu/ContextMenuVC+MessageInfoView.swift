@@ -38,7 +38,7 @@ extension ContextMenuVC {
         
         private lazy var displayNameLabel: UILabel = {
             let result: UILabel = UILabel()
-            result.font = .systemFont(ofSize: Values.verySmallFontSize)
+            result.font = .boldSystemFont(ofSize: Values.verySmallFontSize)
             result.themeTextColor = .textPrimary
             
             return result
@@ -83,7 +83,35 @@ extension ContextMenuVC {
             backgroundView.addSubview(stackView)
             stackView.pin(to: backgroundView)
             
+            messageSentDateLabel.text = "MESSAGE_INFO_SENT".localized() + ":\n" + cellViewModel.dateForUI.fromattedForMessageInfo
+            stackView.addArrangedSubview(messageSentDateLabel)
             
+            messageReceivedDateLabel.text = "MESSAGE_INFO_RECEIVED".localized() + ":\n" + cellViewModel.receivedDateForUI.fromattedForMessageInfo
+            stackView.addArrangedSubview(messageReceivedDateLabel)
+            
+            let senderTitleLabel: UILabel = {
+                let result: UILabel = UILabel()
+                result.font = .systemFont(ofSize: Values.mediumFontSize)
+                result.themeTextColor = .textPrimary
+                result.text = "MESSAGE_INFO_FROM".localized() + ":"
+                
+                return result
+            }()
+            stackView.addArrangedSubview(senderTitleLabel)
+            
+            let displayNameStackView: UIStackView = UIStackView(arrangedSubviews: [ displayNameLabel, sessionIDLabel ])
+            displayNameStackView.axis = .vertical
+            displayNameLabel.text = cellViewModel.authorName
+            sessionIDLabel.text = cellViewModel.authorId
+            
+            let profileStackView: UIStackView = UIStackView(arrangedSubviews: [ profilePictureView, displayNameStackView ])
+            profileStackView.axis = .horizontal
+            profilePictureView.update(
+                publicKey: cellViewModel.authorId,
+                profile: cellViewModel.profile,
+                threadVariant: cellViewModel.threadVariant
+            )
+            stackView.addArrangedSubview(profileStackView)
         }
     }
 }

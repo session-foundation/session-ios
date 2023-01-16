@@ -66,6 +66,7 @@ final class ContextMenuVC: UIViewController {
         result.layer.shadowOpacity = 0.4
         result.layer.shadowRadius = 4
         result.alpha = 0
+        result.set(.width, lessThanOrEqualTo: 280)
         
         return result
     }()
@@ -183,7 +184,6 @@ final class ContextMenuVC: UIViewController {
         view.addSubview(menuView)
         
         // MessageInfo
-        
         view.addSubview(messageInfoView)
         
         // Timestamp
@@ -230,18 +230,22 @@ final class ContextMenuVC: UIViewController {
         snapshot.frame = self.frame
         emojiBar.pin(.bottom, to: .top, of: view, withInset: targetFrame.minY - spacing)
         menuView.pin(.top, to: .top, of: view, withInset: targetFrame.maxY + spacing)
+        messageInfoView.pin(.top, to: .top, of: view, withInset: targetFrame.maxY + spacing)
         
         switch cellViewModel.variant {
             case .standardOutgoing:
                 menuView.pin(.right, to: .right, of: view, withInset: -(UIScreen.main.bounds.width - targetFrame.maxX))
+                messageInfoView.pin(.right, to: .right, of: view, withInset: -(UIScreen.main.bounds.width - targetFrame.maxX))
                 emojiBar.pin(.right, to: .right, of: view, withInset: -(UIScreen.main.bounds.width - targetFrame.maxX))
             
             case .standardIncoming, .standardIncomingDeleted:
                 menuView.pin(.left, to: .left, of: view, withInset: targetFrame.minX)
+                messageInfoView.pin(.left, to: .left, of: view, withInset: targetFrame.minX)
                 emojiBar.pin(.left, to: .left, of: view, withInset: targetFrame.minX)
                 
             default:    // Should generally only be the 'delete' action
                 menuView.pin(.left, to: .left, of: view, withInset: targetFrame.minX)
+                messageInfoView.pin(.left, to: .left, of: view, withInset: targetFrame.minX)
         }
         
         // Tap gesture
@@ -269,6 +273,7 @@ final class ContextMenuVC: UIViewController {
         UIView.animate(withDuration: 0.2) { [weak self] in
             self?.emojiBar.alpha = 1
             self?.menuView.alpha = 1
+            self?.messageInfoView.alpha = 1
             self?.timestampLabel.alpha = 1
             self?.fallbackTimestampLabel.alpha = 1
         }
