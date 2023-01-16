@@ -735,21 +735,35 @@ public final class SnodeAPI {
     public static func updateExpiry(
         publicKey: String,
         updatedExpiryMs: Int64,
-        serverHashes: [String]
-    ) -> Promise<[String: (hashes: [String], expiry: UInt64)]> {
+        serverHashes: [String],
+        shortenOnly: Bool = true,
+        extendOnly: Bool = false
+    ) -> Promise<[String: (hashes: [String], expiry: UInt64, unchanged: [String: UInt64])]> {
         guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair() else {
             return Promise(error: SnodeAPIError.noKeyPair)
+        }
+        
+        // ShortenOnly and extendOnly cannot be true at the same time
+        guard !(shortenOnly && extendOnly) else {
+            return Promise(error: SnodeAPIError.generic)
         }
         
         let publicKey = (Features.useTestnet ? publicKey.removingIdPrefixIfNeeded() : publicKey)
         
         let updatedExpiryMsWithNetworkOffset: UInt64 = UInt64(updatedExpiryMs + SnodeAPI.clockOffsetMs.wrappedValue)
         
+        let shortenOrExtend: String? = {
+            if shortenOnly { return "shorten" }
+            if extendOnly { return "extend" }
+            return nil
+        }()
+        
         return attempt(maxRetryCount: maxRetryCount, recoveringOn: Threading.workQueue) {
             getSwarm(for: publicKey)
-                .then2 { swarm -> Promise<[String: (hashes: [String], expiry: UInt64)]> in
-                    // "expire" || expiry || messages[0] || ... || messages[N]
+                .then2 { swarm -> Promise<[String: (hashes: [String], expiry: UInt64, unchanged: [String: UInt64])]> in
+                    // "expire" || ShortenOrExtend || expiry || messages[0] || ... || messages[N]
                     let verificationBytes = SnodeAPIEndpoint.expire.rawValue.bytes
+                        .appending(contentsOf: shortenOrExtend?.data(using: .ascii)?.bytes)
                         .appending(contentsOf: "\(updatedExpiryMsWithNetworkOffset)".data(using: .ascii)?.bytes)
                         .appending(contentsOf: serverHashes.joined().bytes)
                     
@@ -773,13 +787,13 @@ public final class SnodeAPI {
                     
                     return attempt(maxRetryCount: maxRetryCount, recoveringOn: Threading.workQueue) {
                         invoke(.expire, on: snode, associatedWith: publicKey, parameters: parameters)
-                            .map2 { responseData -> [String: (hashes: [String], expiry: UInt64)] in
+                            .map2 { responseData -> [String: (hashes: [String], expiry: UInt64, unchanged: [String: UInt64])] in
                                 guard let responseJson: JSON = try? JSONSerialization.jsonObject(with: responseData, options: [ .fragmentsAllowed ]) as? JSON else {
                                     throw HTTP.Error.invalidJSON
                                 }
                                 guard let swarm = responseJson["swarm"] as? JSON else { throw HTTP.Error.invalidJSON }
                                 
-                                var result: [String: (hashes: [String], expiry: UInt64)] = [:]
+                                var result: [String: (hashes: [String], expiry: UInt64, unchanged: [String: UInt64])] = [:]
                                     
                                 for (snodePublicKey, rawJSON) in swarm {
                                     guard let json = rawJSON as? JSON else { throw HTTP.Error.invalidJSON }
@@ -790,23 +804,28 @@ public final class SnodeAPI {
                                         else {
                                             SNLog("Couldn't delete data from: \(snodePublicKey).")
                                         }
-                                        result[snodePublicKey] = ([], 0)
+                                        result[snodePublicKey] = ([], 0, [:])
                                         continue
                                     }
                                     
                                     guard
                                         let hashes: [String] = json["updated"] as? [String],
+                                        let unchanged: [String: UInt64] = json["unchanged"] as? [String: UInt64],
                                         let expiryApplied: UInt64 = json["expiry"] as? UInt64,
                                         let signature: String = json["signature"] as? String
                                     else {
                                         throw HTTP.Error.invalidJSON
                                     }
                                     
-                                    // The signature format is ( PUBKEY_HEX || EXPIRY || RMSG[0] || ... || RMSG[N] || UMSG[0] || ... || UMSG[M] )
+                                    // The signature format is ( PUBKEY_HEX || EXPIRY || RMSGs... || UMSGs... || CMSG_EXPs... )
+                                    // where RMSGs are the requested expiry hashes, UMSGs are the actual updated hashes, and
+                                    // CMSG_EXPs are (HASH || EXPIRY) values, ascii-sorted by hash, for the unchanged message
+                                    // hashes included in the "unchanged" field.
                                     let verificationBytes = publicKey.bytes
                                         .appending(contentsOf: "\(expiryApplied)".data(using: .ascii)?.bytes)
                                         .appending(contentsOf: serverHashes.joined().bytes)
                                         .appending(contentsOf: hashes.joined().bytes)
+                                        .appending(contentsOf: unchanged.map { "\($0)\($1)" }.sorted().joined().bytes)
                                     let isValid = sodium.sign.verify(
                                         message: verificationBytes,
                                         publicKey: Bytes(Data(hex: snodePublicKey)),
@@ -818,7 +837,7 @@ public final class SnodeAPI {
                                         throw SnodeAPIError.signatureVerificationFailed
                                     }
                                     
-                                    result[snodePublicKey] = (hashes, expiryApplied)
+                                    result[snodePublicKey] = (hashes, expiryApplied, unchanged)
                                 }
                                 
                                 return result

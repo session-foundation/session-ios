@@ -11,6 +11,7 @@ public enum SnodeAPIEndpoint: String {
     case getInfo = "info"
     case clearAllData = "delete_all"
     case expire = "expire"
+    case getExipires = "get_expiries"
     case batch = "batch"
     case sequence = "sequence"
 }
