@@ -25,9 +25,24 @@ public enum MessageReceiveJob: JobExecutor {
         }
         
         var updatedJob: Job = job
-        var leastSevereError: Error?
-        let nonConfigMessages: [Details.MessageInfo] = details.messages
+        var lastError: Error?
+        var remainingMessagesToProcess: [Details.MessageInfo] = []
+        let nonConfigMessages: [(info: Details.MessageInfo, proto: SNProtoContent)] = details.messages
             .filter { $0.variant != .sharedConfigMessage }
+            .compactMap { messageInfo -> (info: Details.MessageInfo, proto: SNProtoContent)? in
+                do {
+                    return (messageInfo, try SNProtoContent.parseData(messageInfo.serializedProtoData))
+                }
+                catch {
+                    SNLog("Couldn't receive message due to error: \(error)")
+                    lastError = error
+                    
+                    // We failed to process this message but it is a retryable error
+                    // so add it to the list to re-process
+                    remainingMessagesToProcess.append(messageInfo)
+                    return nil
+                }
+            }
         let sharedConfigMessages: [SharedConfigMessage] = details.messages
             .compactMap { $0.message as? SharedConfigMessage }
         
@@ -40,14 +55,12 @@ public enum MessageReceiveJob: JobExecutor {
             )
             
             // Handle the remaining messages
-            var remainingMessagesToProcess: [Details.MessageInfo] = []
-            
-            for messageInfo in nonConfigMessages {
+            for (messageInfo, protoContent) in nonConfigMessages {
                 do {
                     try MessageReceiver.handle(
                         db,
                         message: messageInfo.message,
-                        associatedWithProto: try SNProtoContent.parseData(messageInfo.serializedProtoData),
+                        associatedWithProto: protoContent,
                         openGroupId: nil
                     )
                 }
@@ -71,7 +84,7 @@ public enum MessageReceiveJob: JobExecutor {
                         
                         default:
                             SNLog("Couldn't receive message due to error: \(error)")
-                            leastSevereError = error
+                            lastError = error
                             
                             // We failed to process this message but it is a retryable error
                             // so add it to the list to re-process
@@ -94,12 +107,12 @@ public enum MessageReceiveJob: JobExecutor {
         }
         
         // Handle the result
-        switch leastSevereError {
+        switch lastError {
             case let error as MessageReceiverError where !error.isRetryable:
                 failure(updatedJob, error, true)
                 
             case .some(let error):
-                failure(updatedJob, error, false) // TODO: Confirm the 'noKeyPair' errors here aren't an issue
+                failure(updatedJob, error, false)
                 
             case .none:
                 success(updatedJob, false)

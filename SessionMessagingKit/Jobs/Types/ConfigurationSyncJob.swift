@@ -110,10 +110,17 @@ public enum ConfigurationSyncJob: JobExecutor {
                     .collect()
                     .eraseToAnyPublisher()
             }
-            .map { (responses: [HTTP.BatchResponse]) -> [SuccessfulChange] in
+            .flatMap { (responses: [HTTP.BatchResponse]) -> AnyPublisher<[SuccessfulChange], Error> in
+                // We make a sequence call for this so it's possible to get fewer responses than
+                // expected so if that happens fail and re-run later
+                guard responses.count == pendingSwarmConfigChanges.count else {
+                    return Fail(error: HTTPError.invalidResponse)
+                        .eraseToAnyPublisher()
+                }
+                
                 // Process the response data into an easy to understand for (this isn't strictly
                 // needed but the code gets convoluted without this)
-                zip(responses, pendingSwarmConfigChanges)
+                let successfulChanges: [SuccessfulChange] = zip(responses, pendingSwarmConfigChanges)
                     .compactMap { (batchResponse: HTTP.BatchResponse, pendingSwarmChange: SingleDestinationChanges) -> [SuccessfulChange]? in
                         let maybePublicKey: String? = {
                             switch pendingSwarmChange.destination {
@@ -145,6 +152,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                                 guard
                                     let subResponse: HTTP.BatchSubResponse<SendMessagesResponse> = (next.response as? HTTP.BatchSubResponse<SendMessagesResponse>),
                                     200...299 ~= subResponse.code,
+                                    !subResponse.failedToParseBody,
                                     let sendMessageResponse: SendMessagesResponse = subResponse.body
                                 else { return }
                                 
@@ -162,6 +170,10 @@ public enum ConfigurationSyncJob: JobExecutor {
                             }
                     }
                     .flatMap { $0 }
+                
+                return Just(successfulChanges)
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
             }
             .map { (successfulChanges: [SuccessfulChange]) -> [ConfigDump] in
                 // Now that we have the successful changes, we need to mark them as pushed and
@@ -189,6 +201,13 @@ public enum ConfigurationSyncJob: JobExecutor {
                     }
             }
             .sinkUntilComplete(
+                receiveCompletion: { result in
+                    switch result {
+                        case .finished: break
+                        case .failure(let error):
+                            failure(job, error, false)
+                    }
+                },
                 receiveValue: { (configDumps: [ConfigDump]) in
                     // Flag to indicate whether the job should be finished or will run again
                     var shouldFinishCurrentJob: Bool = false
@@ -209,12 +228,17 @@ public enum ConfigurationSyncJob: JobExecutor {
                             let existingJob: Job = try? Job
                                 .filter(Job.Columns.id != job.id)
                                 .filter(Job.Columns.variant == Job.Variant.configurationSync)
-                                .fetchOne(db),
-                            !JobRunner.isCurrentlyRunning(existingJob)
+                                .fetchOne(db)
                         {
-                            _ = try existingJob
-                                .with(nextRunTimestamp: nextRunTimestamp)
-                                .saved(db)
+                            // If the next job isn't currently running then delay it's start time
+                            // until the 'nextRunTimestamp'
+                            if !JobRunner.isCurrentlyRunning(existingJob) {
+                                _ = try existingJob
+                                    .with(nextRunTimestamp: nextRunTimestamp)
+                                    .saved(db)
+                            }
+                            
+                            // If there is another job then we should finish this one
                             shouldFinishCurrentJob = true
                             return job
                         }
@@ -302,10 +326,10 @@ public extension ConfigurationSyncJob {
     @discardableResult static func createOrUpdateIfNeeded(_ db: Database) -> Job {
         // Try to get an existing job (if there is one that's not running)
         if
-            let existingJob: Job = try? Job
+            let existingJobs: [Job] = try? Job
                 .filter(Job.Columns.variant == Job.Variant.configurationSync)
-                .fetchOne(db),
-            !JobRunner.isCurrentlyRunning(existingJob)
+                .fetchAll(db),
+            let existingJob: Job = existingJobs.first(where: { !JobRunner.isCurrentlyRunning($0) })
         {
             return existingJob
         }

@@ -549,7 +549,7 @@ public final class SnodeAPI {
         var requests: [SnodeAPI.BatchRequest.Info] = targetedMessages
             .map { message, namespace in
                 // Check if this namespace requires authentication
-                guard namespace.requiresReadAuthentication else {
+                guard namespace.requiresWriteAuthentication else {
                     return BatchRequest.Info(
                         request: SnodeRequest(
                             endpoint: .sendMessage,
@@ -618,7 +618,7 @@ public final class SnodeAPI {
                         using: dependencies
                     )
                     .eraseToAnyPublisher()
-                    .decoded(as: responseTypes, using: dependencies)
+                    .decoded(as: responseTypes, requireAllResults: false, using: dependencies)
                     .eraseToAnyPublisher()
             }
             .retry(maxRetryCount)

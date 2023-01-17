@@ -4,12 +4,10 @@ import Foundation
 
 public class SendMessagesResponse: SnodeRecursiveResponse<SendMessagesResponse.SwarmItem> {
     private enum CodingKeys: String, CodingKey {
-        case difficulty
         case hash
         case swarm
     }
     
-    public let difficulty: Int64
     public let hash: String
     
     // MARK: - Initialization
@@ -17,7 +15,6 @@ public class SendMessagesResponse: SnodeRecursiveResponse<SendMessagesResponse.S
     required init(from decoder: Decoder) throws {
         let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
         
-        difficulty = try container.decode(Int64.self, forKey: .difficulty)
         hash = try container.decode(String.self, forKey: .hash)
         
         try super.init(from: decoder)

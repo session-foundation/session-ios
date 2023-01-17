@@ -81,6 +81,7 @@ public extension Decodable {
 public extension AnyPublisher where Output == (ResponseInfoType, Data?), Failure == Error {
     func decoded(
         as types: HTTP.BatchResponseTypes,
+        requireAllResults: Bool = true,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<HTTP.BatchResponse, Error> {
         self
@@ -101,7 +102,7 @@ public extension AnyPublisher where Output == (ResponseInfoType, Data?), Failure
                     case let anyArray as [Any]:
                         dataArray = anyArray.compactMap { try? JSONSerialization.data(withJSONObject: $0) }
                         
-                        guard dataArray.count == types.count else {
+                        guard !requireAllResults || dataArray.count == types.count else {
                             return Fail(error: HTTPError.parsingFailed)
                                 .eraseToAnyPublisher()
                         }
@@ -110,7 +111,10 @@ public extension AnyPublisher where Output == (ResponseInfoType, Data?), Failure
                         guard
                             let resultsArray: [Data] = (anyDict["results"] as? [Any])?
                                 .compactMap({ try? JSONSerialization.data(withJSONObject: $0) }),
-                            resultsArray.count == types.count
+                            (
+                                !requireAllResults ||
+                                resultsArray.count == types.count
+                            )
                         else {
                             return Fail(error: HTTPError.parsingFailed)
                                 .eraseToAnyPublisher()

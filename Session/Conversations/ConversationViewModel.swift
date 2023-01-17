@@ -104,10 +104,11 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     public private(set) lazy var threadData: SessionThreadViewModel = SessionThreadViewModel(
         threadId: self.threadId,
         threadVariant: self.initialThreadVariant,
+        threadIsNoteToSelf: (self.threadId == getUserHexEncodedPublicKey()),
         currentUserIsClosedGroupMember: (self.initialThreadVariant != .closedGroup ?
             nil :
             Storage.shared.read { db in
-                try GroupMember
+                GroupMember
                     .filter(GroupMember.Columns.groupId == self.threadId)
                     .filter(GroupMember.Columns.profileId == getUserHexEncodedPublicKey(db))
                     .filter(GroupMember.Columns.role == GroupMember.Role.standard)
