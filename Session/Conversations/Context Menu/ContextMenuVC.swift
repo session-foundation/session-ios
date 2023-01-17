@@ -66,7 +66,7 @@ final class ContextMenuVC: UIViewController {
         result.layer.shadowOpacity = 0.4
         result.layer.shadowRadius = 4
         result.alpha = 0
-        result.set(.width, lessThanOrEqualTo: 280)
+        result.set(.width, to: 320)
         
         return result
     }()

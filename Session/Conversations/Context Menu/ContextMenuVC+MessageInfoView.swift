@@ -14,31 +14,33 @@ extension ContextMenuVC {
         
         private lazy var messageSentDateLabel: UILabel = {
             let result: UILabel = UILabel()
-            result.font = .systemFont(ofSize: Values.mediumFontSize)
+            result.font = .systemFont(ofSize: Values.smallFontSize)
             result.themeTextColor = .textPrimary
+            result.numberOfLines = 0
             
             return result
         }()
         
         private lazy var messageReceivedDateLabel: UILabel = {
             let result: UILabel = UILabel()
-            result.font = .systemFont(ofSize: Values.mediumFontSize)
+            result.font = .systemFont(ofSize: Values.smallFontSize)
             result.themeTextColor = .textPrimary
+            result.numberOfLines = 0
             
             return result
         }()
         
         private lazy var profilePictureView: ProfilePictureView = {
             let result: ProfilePictureView = ProfilePictureView()
-            result.set(.height, to: Values.verySmallProfilePictureSize)
-            result.size = Values.verySmallProfilePictureSize
+            result.set(.height, to: Values.smallProfilePictureSize)
+            result.size = Values.smallProfilePictureSize
             
             return result
         }()
         
         private lazy var displayNameLabel: UILabel = {
             let result: UILabel = UILabel()
-            result.font = .boldSystemFont(ofSize: Values.verySmallFontSize)
+            result.font = .boldSystemFont(ofSize: Values.smallFontSize)
             result.themeTextColor = .textPrimary
             
             return result
@@ -48,6 +50,8 @@ extension ContextMenuVC {
             let result: UILabel = UILabel()
             result.font = .systemFont(ofSize: Values.verySmallFontSize)
             result.themeTextColor = .textPrimary
+            result.numberOfLines = 0
+            result.lineBreakMode = .byCharWrapping
             
             return result
         }()
@@ -80,8 +84,9 @@ extension ContextMenuVC {
             
             let stackView: UIStackView = UIStackView()
             stackView.axis = .vertical
+            stackView.spacing = Values.smallSpacing
             backgroundView.addSubview(stackView)
-            stackView.pin(to: backgroundView)
+            stackView.pin(to: backgroundView, withInset: Values.mediumSpacing)
             
             messageSentDateLabel.text = "MESSAGE_INFO_SENT".localized() + ":\n" + cellViewModel.dateForUI.fromattedForMessageInfo
             stackView.addArrangedSubview(messageSentDateLabel)
@@ -91,27 +96,39 @@ extension ContextMenuVC {
             
             let senderTitleLabel: UILabel = {
                 let result: UILabel = UILabel()
-                result.font = .systemFont(ofSize: Values.mediumFontSize)
+                result.font = .systemFont(ofSize: Values.smallFontSize)
                 result.themeTextColor = .textPrimary
                 result.text = "MESSAGE_INFO_FROM".localized() + ":"
                 
                 return result
             }()
-            stackView.addArrangedSubview(senderTitleLabel)
-            
-            let displayNameStackView: UIStackView = UIStackView(arrangedSubviews: [ displayNameLabel, sessionIDLabel ])
-            displayNameStackView.axis = .vertical
+
             displayNameLabel.text = cellViewModel.authorName
             sessionIDLabel.text = cellViewModel.authorId
-            
-            let profileStackView: UIStackView = UIStackView(arrangedSubviews: [ profilePictureView, displayNameStackView ])
-            profileStackView.axis = .horizontal
             profilePictureView.update(
                 publicKey: cellViewModel.authorId,
                 profile: cellViewModel.profile,
                 threadVariant: cellViewModel.threadVariant
             )
-            stackView.addArrangedSubview(profileStackView)
+            
+            let profileContainerView: UIView = UIView()
+            profileContainerView.addSubview(senderTitleLabel)
+            senderTitleLabel.pin([ UIView.HorizontalEdge.leading, UIView.HorizontalEdge.trailing, UIView.VerticalEdge.top ], to: profileContainerView)
+            profileContainerView.addSubview(profilePictureView)
+            profilePictureView.pin(.leading, to: .leading, of: profileContainerView)
+            profilePictureView.pin(.top, to: .bottom, of: senderTitleLabel, withInset: Values.mediumSpacing)
+            profilePictureView.pin(.bottom, to: .bottom, of: profileContainerView, withInset: -Values.verySmallSpacing)
+            
+            let infoContainerStackView: UIStackView = UIStackView(arrangedSubviews: [ displayNameLabel, sessionIDLabel ])
+            infoContainerStackView.axis = .vertical
+            profileContainerView.addSubview(infoContainerStackView)
+            infoContainerStackView.pin(.leading, to: .trailing, of: profilePictureView, withInset: Values.mediumSpacing)
+            infoContainerStackView.pin(.trailing, to: .trailing, of: profileContainerView)
+            infoContainerStackView.pin(.bottom, to: .bottom, of: profileContainerView)
+            infoContainerStackView.set(.width, to: 240)
+            
+            stackView.addArrangedSubview(profileContainerView)
+            
         }
     }
 }

@@ -73,7 +73,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     public let id: Int64
     public let variant: Interaction.Variant
     public let timestampMs: Int64
-    public let receivedTimestampMs: Int64
+    public let receivedAtTimestampMs: Int64
     public let authorId: String
     private let authorNameInternal: String?
     public let body: String?
@@ -124,7 +124,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     public var dateForUI: Date { Date(timeIntervalSince1970: (TimeInterval(self.timestampMs) / 1000)) }
     
     /// This value will be used to populate the Message Info (if present)
-    public var receivedDateForUI: Date { Date(timeIntervalSince1970: (TimeInterval(self.receivedTimestampMs) / 1000)) }
+    public var receivedDateForUI: Date { Date(timeIntervalSince1970: (TimeInterval(self.receivedAtTimestampMs) / 1000)) }
     
     /// This value specifies whether the body contains only emoji characters
     public let containsOnlyEmoji: Bool?
@@ -165,7 +165,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             id: self.id,
             variant: self.variant,
             timestampMs: self.timestampMs,
-            receivedTimestampMs: self.receivedTimestampMs,
+            receivedAtTimestampMs: self.receivedAtTimestampMs,
             authorId: self.authorId,
             authorNameInternal: self.authorNameInternal,
             body: self.body,
@@ -321,7 +321,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             id: self.id,
             variant: self.variant,
             timestampMs: self.timestampMs,
-            receivedTimestampMs: self.receivedTimestampMs,
+            receivedAtTimestampMs: self.receivedAtTimestampMs,
             authorId: self.authorId,
             authorNameInternal: self.authorNameInternal,
             body: (!self.variant.isInfoMessage ?
@@ -500,7 +500,7 @@ public extension MessageViewModel {
     init(
         variant: Interaction.Variant = .standardOutgoing,
         timestampMs: Int64 = Int64.max,
-        receivedTimestampMs: Int64 = Int64.max,
+        receivedAtTimestampMs: Int64 = Int64.max,
         body: String? = nil,
         quote: Quote? = nil,
         cellType: CellType = .typingIndicator,
@@ -527,7 +527,7 @@ public extension MessageViewModel {
         self.id = targetId
         self.variant = variant
         self.timestampMs = timestampMs
-        self.receivedTimestampMs = receivedTimestampMs
+        self.receivedAtTimestampMs = receivedAtTimestampMs
         self.authorId = ""
         self.authorNameInternal = nil
         self.body = body
