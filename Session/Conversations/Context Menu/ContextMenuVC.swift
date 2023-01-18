@@ -60,13 +60,13 @@ final class ContextMenuVC: UIViewController {
     }()
     
     private lazy var messageInfoView: MessageInfoView = {
-        let result: MessageInfoView = MessageInfoView(cellViewModel: self.cellViewModel)
+        let result: MessageInfoView = MessageInfoView(cellViewModel: self.cellViewModel, dismissAction: hideMessageInfo)
         result.themeShadowColor = .black
         result.layer.shadowOffset = CGSize.zero
         result.layer.shadowOpacity = 0.4
         result.layer.shadowRadius = 4
         result.alpha = 0
-        result.set(.width, to: 320)
+        result.set(.width, to: 340)
         
         return result
     }()
@@ -176,7 +176,12 @@ final class ContextMenuVC: UIViewController {
         let menuStackView = UIStackView(
             arrangedSubviews: actions
                 .filter { !$0.isEmojiAction && !$0.isEmojiPlus && !$0.isDismissAction }
-                .map { action -> ActionView in ActionView(for: action, dismiss: snDismiss) }
+                .map { action -> ActionView in
+                    ActionView(
+                        for: action,
+                        dismiss: action.shouldDismissAfterAction ? snDismiss : {}
+                    )
+                }
         )
         menuStackView.axis = .vertical
         menuBackgroundView.addSubview(menuStackView)
@@ -273,7 +278,6 @@ final class ContextMenuVC: UIViewController {
         UIView.animate(withDuration: 0.2) { [weak self] in
             self?.emojiBar.alpha = 1
             self?.menuView.alpha = 1
-            self?.messageInfoView.alpha = 1
             self?.timestampLabel.alpha = 1
             self?.fallbackTimestampLabel.alpha = 1
         }
@@ -359,6 +363,22 @@ final class ContextMenuVC: UIViewController {
     }
 
     // MARK: - Interaction
+    
+    func showMessageInfo() {
+        UIView.animate(withDuration: 0.2) { [weak self] in
+            self?.emojiBar.alpha = 0
+            self?.menuView.alpha = 0
+            self?.messageInfoView.alpha = 1
+        }
+    }
+    
+    func hideMessageInfo() {
+        UIView.animate(withDuration: 0.2) { [weak self] in
+            self?.emojiBar.alpha = 1
+            self?.menuView.alpha = 1
+            self?.messageInfoView.alpha = 0
+        }
+    }
     
     @objc private func handleTap() {
         snDismiss()

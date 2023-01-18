@@ -1558,7 +1558,8 @@ extension ConversationVC:
     // MARK: - ContextMenuActionDelegate
     
     func info(_ cellViewModel: MessageViewModel) {
-        
+        guard let contextMenuVC = self.contextMenuVC else { return }
+        contextMenuVC.showMessageInfo()
     }
 
     func reply(_ cellViewModel: MessageViewModel) {
