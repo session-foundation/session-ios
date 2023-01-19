@@ -784,8 +784,6 @@ public final class SnodeAPI {
             return Promise(error: SnodeAPIError.generic)
         }
         
-        let publicKey = (Features.useTestnet ? publicKey.removingIdPrefixIfNeeded() : publicKey)
-        
         let updatedExpiryMsWithNetworkOffset: UInt64 = UInt64(updatedExpiryMs + SnodeAPI.clockOffsetMs.wrappedValue)
         
         let shortenOrExtend: String? = {
@@ -813,13 +811,16 @@ public final class SnodeAPI {
                         throw SnodeAPIError.signingFailed
                     }
                     
-                    let parameters: JSON = [
+                    var parameters: JSON = [
                         "pubkey" : publicKey,
                         "pubkey_ed25519" : userED25519KeyPair.publicKey.toHexString(),
                         "expiry": updatedExpiryMsWithNetworkOffset,
                         "messages": serverHashes,
                         "signature": signature.toBase64()
                     ]
+                    
+                    if shortenOnly { parameters["shorten"] = true }
+                    if extendOnly { parameters["extend"] = true }
                     
                     return attempt(maxRetryCount: maxRetryCount, recoveringOn: Threading.workQueue) {
                         invoke(.expire, on: snode, associatedWith: publicKey, parameters: parameters)
@@ -891,7 +892,6 @@ public final class SnodeAPI {
             return Promise(error: SnodeAPIError.noKeyPair)
         }
         
-        let publicKey = (Features.useTestnet ? publicKey.removingIdPrefixIfNeeded() : publicKey)
         let userX25519PublicKey: String = getUserHexEncodedPublicKey()
         
         return attempt(maxRetryCount: maxRetryCount, recoveringOn: Threading.workQueue) {

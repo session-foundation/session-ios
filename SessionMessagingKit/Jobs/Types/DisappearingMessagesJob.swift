@@ -131,6 +131,10 @@ public extension DisappearingMessagesJob {
                         .updateAll(db, Interaction.Columns.expiresInSeconds.set(to: expiresInSeconds))
                 }
             }.retainUntilComplete()
+            
+            let swarm = SnodeAPI.swarmCache.wrappedValue[getUserHexEncodedPublicKey(db)] ?? []
+            let snode = swarm.randomElement()!
+            SnodeAPI.getExpiries(from: snode, associatedWith: getUserHexEncodedPublicKey(db), of: expirationInfos.map { $0.serverHash }).retainUntilComplete()
         }
         
         return updateNextRunIfNeeded(db)
