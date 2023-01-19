@@ -59,18 +59,6 @@ final class ContextMenuVC: UIViewController {
         return result
     }()
     
-    private lazy var messageInfoView: MessageInfoView = {
-        let result: MessageInfoView = MessageInfoView(cellViewModel: self.cellViewModel, dismissAction: hideMessageInfo)
-        result.themeShadowColor = .black
-        result.layer.shadowOffset = CGSize.zero
-        result.layer.shadowOpacity = 0.4
-        result.layer.shadowRadius = 4
-        result.alpha = 0
-        result.set(.width, to: 340)
-        
-        return result
-    }()
-    
     private lazy var timestampLabel: UILabel = {
         let result: UILabel = UILabel()
         result.font = .systemFont(ofSize: Values.verySmallFontSize)
@@ -177,19 +165,13 @@ final class ContextMenuVC: UIViewController {
             arrangedSubviews: actions
                 .filter { !$0.isEmojiAction && !$0.isEmojiPlus && !$0.isDismissAction }
                 .map { action -> ActionView in
-                    ActionView(
-                        for: action,
-                        dismiss: action.shouldDismissAfterAction ? snDismiss : {}
-                    )
+                    ActionView(for: action, dismiss: snDismiss)
                 }
         )
         menuStackView.axis = .vertical
         menuBackgroundView.addSubview(menuStackView)
         menuStackView.pin(to: menuBackgroundView)
         view.addSubview(menuView)
-        
-        // MessageInfo
-        view.addSubview(messageInfoView)
         
         // Timestamp
         view.addSubview(timestampLabel)
@@ -235,22 +217,18 @@ final class ContextMenuVC: UIViewController {
         snapshot.frame = self.frame
         emojiBar.pin(.bottom, to: .top, of: view, withInset: targetFrame.minY - spacing)
         menuView.pin(.top, to: .top, of: view, withInset: targetFrame.maxY + spacing)
-        messageInfoView.pin(.top, to: .top, of: view, withInset: targetFrame.maxY + spacing)
         
         switch cellViewModel.variant {
             case .standardOutgoing:
                 menuView.pin(.right, to: .right, of: view, withInset: -(UIScreen.main.bounds.width - targetFrame.maxX))
-                messageInfoView.pin(.right, to: .right, of: view, withInset: -(UIScreen.main.bounds.width - targetFrame.maxX))
                 emojiBar.pin(.right, to: .right, of: view, withInset: -(UIScreen.main.bounds.width - targetFrame.maxX))
             
             case .standardIncoming, .standardIncomingDeleted:
                 menuView.pin(.left, to: .left, of: view, withInset: targetFrame.minX)
-                messageInfoView.pin(.left, to: .left, of: view, withInset: targetFrame.minX)
                 emojiBar.pin(.left, to: .left, of: view, withInset: targetFrame.minX)
                 
             default:    // Should generally only be the 'delete' action
                 menuView.pin(.left, to: .left, of: view, withInset: targetFrame.minX)
-                messageInfoView.pin(.left, to: .left, of: view, withInset: targetFrame.minX)
         }
         
         // Tap gesture
@@ -363,22 +341,6 @@ final class ContextMenuVC: UIViewController {
     }
 
     // MARK: - Interaction
-    
-    func showMessageInfo() {
-        UIView.animate(withDuration: 0.2) { [weak self] in
-            self?.emojiBar.alpha = 0
-            self?.menuView.alpha = 0
-            self?.messageInfoView.alpha = 1
-        }
-    }
-    
-    func hideMessageInfo() {
-        UIView.animate(withDuration: 0.2) { [weak self] in
-            self?.emojiBar.alpha = 1
-            self?.menuView.alpha = 1
-            self?.messageInfoView.alpha = 0
-        }
-    }
     
     @objc private func handleTap() {
         snDismiss()

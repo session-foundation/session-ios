@@ -10,7 +10,6 @@ extension ContextMenuVC {
         let isEmojiAction: Bool
         let isEmojiPlus: Bool
         let isDismissAction: Bool
-        let shouldDismissAfterAction: Bool
         let accessibilityLabel: String?
         let work: () -> Void
         
@@ -22,7 +21,6 @@ extension ContextMenuVC {
             isEmojiAction: Bool = false,
             isEmojiPlus: Bool = false,
             isDismissAction: Bool = false,
-            shouldDismissAfterAction: Bool = true,
             accessibilityLabel: String? = nil,
             work: @escaping () -> Void
         ) {
@@ -31,7 +29,6 @@ extension ContextMenuVC {
             self.isEmojiAction = isEmojiAction
             self.isEmojiPlus = isEmojiPlus
             self.isDismissAction = isDismissAction
-            self.shouldDismissAfterAction = shouldDismissAfterAction
             self.accessibilityLabel = accessibilityLabel
             self.work = work
         }
@@ -42,7 +39,6 @@ extension ContextMenuVC {
             return Action(
                 icon: UIImage(named: "ic_info"),
                 title: "context_menu_info".localized(),
-                shouldDismissAfterAction: false,
                 accessibilityLabel: "Message info"
             ) { delegate?.info(cellViewModel) }
         }
