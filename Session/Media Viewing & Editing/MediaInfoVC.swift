@@ -38,6 +38,12 @@ final class MediaInfoVC: BaseVC {
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        self.title = "Message Info"
         
+        attachments.forEach {
+            let mediaInfoView: MediaInfoView = MediaInfoView(attachment: $0)
+            self.view.addSubview(mediaInfoView)
+            mediaInfoView.center(in: self.view)
+        }
     }
 }

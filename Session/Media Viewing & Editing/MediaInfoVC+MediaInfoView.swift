@@ -163,12 +163,14 @@ extension MediaInfoVC {
             }()
             let durationContainerStackView: UIStackView = UIStackView(arrangedSubviews: [ durationTitleLabel, durationLabel ])
             durationContainerStackView.axis = .vertical
+            container.addSubview(durationContainerStackView)
             durationContainerStackView.pin(.trailing, to: .trailing, of: container)
             durationContainerStackView.pin(.top, to: .bottom, of: fileSizeContainerStackView, withInset: Values.mediumSpacing)
             durationContainerStackView.set(.width, to: 90)
+            container.pin(.bottom, to: .bottom, of: durationContainerStackView)
             
-            addSubview(container)
-            container.pin(to: self, withInset: Values.mediumSpacing)
+            backgroundView.addSubview(container)
+            container.pin(to: backgroundView, withInset: Values.largeSpacing)
         }
     }
 }

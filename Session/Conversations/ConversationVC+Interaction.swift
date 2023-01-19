@@ -1558,8 +1558,8 @@ extension ConversationVC:
     // MARK: - ContextMenuActionDelegate
     
     func info(_ cellViewModel: MessageViewModel) {
-        guard let contextMenuVC = self.contextMenuVC else { return }
-        contextMenuVC.showMessageInfo()
+        let mediaInfoVC = MediaInfoVC(attachments: (cellViewModel.attachments ?? []))
+        navigationController?.pushViewController(mediaInfoVC, animated: true)
     }
 
     func reply(_ cellViewModel: MessageViewModel) {
