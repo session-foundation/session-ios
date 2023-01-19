@@ -114,7 +114,7 @@ public extension DisappearingMessagesJob {
                 updatedExpiryMs: expirationTimestampMs,
                 serverHashes: expirationInfos.map { $0.serverHash },
                 shortenOnly: true
-            ).map2 { results in
+            ).map { results in
                 var unchangedMessages: [String: UInt64] = [:]
                 results.forEach { _, result in
                     guard let unchanged = result.unchanged else { return }
