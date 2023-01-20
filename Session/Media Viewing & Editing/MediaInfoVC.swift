@@ -8,16 +8,6 @@ final class MediaInfoVC: BaseVC {
     
     private let attachments: [Attachment]
     
-    // MARK: - UI
-    
-    private lazy var fullScreenButton: UIButton = {
-        let result: UIButton = UIButton(type: .custom)
-        
-        return result
-    }()
-    
-    
-    
     // MARK: - Initialization
     
     init(attachments: [Attachment]) {

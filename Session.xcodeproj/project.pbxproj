@@ -111,6 +111,7 @@
 		7B1D74B027C365960030B423 /* Timer+MainThread.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B1D74AF27C365960030B423 /* Timer+MainThread.swift */; };
 		7B2561C22978B307005C086C /* MediaInfoVC+MediaInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B2561C12978B307005C086C /* MediaInfoVC+MediaInfoView.swift */; };
 		7B3A392E2977791E002FE4AC /* MediaInfoVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B3A392D2977791E002FE4AC /* MediaInfoVC.swift */; };
+		7B3A3930297A3919002FE4AC /* MediaInfoVC+MediaPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B3A392F297A3919002FE4AC /* MediaInfoVC+MediaPreviewView.swift */; };
 		7B46AAAF28766DF4001AF2DC /* AllMediaViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B46AAAE28766DF4001AF2DC /* AllMediaViewController.swift */; };
 		7B4C75CB26B37E0F0000AC89 /* UnsendRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B4C75CA26B37E0F0000AC89 /* UnsendRequest.swift */; };
 		7B4C75CD26BB92060000AC89 /* DeletedMessageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B4C75CC26BB92060000AC89 /* DeletedMessageView.swift */; };
@@ -1179,6 +1180,7 @@
 		7B2561C12978B307005C086C /* MediaInfoVC+MediaInfoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MediaInfoVC+MediaInfoView.swift"; sourceTree = "<group>"; };
 		7B2DB2AD26F1B0FF0035B509 /* si */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = si; path = si.lproj/Localizable.strings; sourceTree = "<group>"; };
 		7B3A392D2977791E002FE4AC /* MediaInfoVC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaInfoVC.swift; sourceTree = "<group>"; };
+		7B3A392F297A3919002FE4AC /* MediaInfoVC+MediaPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MediaInfoVC+MediaPreviewView.swift"; sourceTree = "<group>"; };
 		7B46AAAE28766DF4001AF2DC /* AllMediaViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AllMediaViewController.swift; sourceTree = "<group>"; };
 		7B4C75CA26B37E0F0000AC89 /* UnsendRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsendRequest.swift; sourceTree = "<group>"; };
 		7B4C75CC26BB92060000AC89 /* DeletedMessageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeletedMessageView.swift; sourceTree = "<group>"; };
@@ -2985,6 +2987,7 @@
 				4C4AE69F224AF21900D4AF6F /* SendMediaNavigationController.swift */,
 				7B46AAAE28766DF4001AF2DC /* AllMediaViewController.swift */,
 				7B3A392D2977791E002FE4AC /* MediaInfoVC.swift */,
+				7B3A392F297A3919002FE4AC /* MediaInfoVC+MediaPreviewView.swift */,
 				7B2561C12978B307005C086C /* MediaInfoVC+MediaInfoView.swift */,
 			);
 			path = "Media Viewing & Editing";
@@ -5588,6 +5591,7 @@
 				7BAF54D027ACCEEC003D12F8 /* EmptySearchResultCell.swift in Sources */,
 				B8783E9E23EB948D00404FB8 /* UILabel+Interaction.swift in Sources */,
 				FD37E9D928A230F2003AE748 /* TraitObservingWindow.swift in Sources */,
+				7B3A3930297A3919002FE4AC /* MediaInfoVC+MediaPreviewView.swift in Sources */,
 				B893063F2383961A005EAA8E /* ScanQRCodeWrapperVC.swift in Sources */,
 				FD848B8F283EF2A8000E298B /* UIScrollView+Utilities.swift in Sources */,
 				B879D449247E1BE300DB3608 /* PathVC.swift in Sources */,
