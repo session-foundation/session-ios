@@ -4,6 +4,7 @@ import Foundation
 import GRDB
 import SessionUtilitiesKit
 import SessionSnodeKit
+import PromiseKit
 
 public enum DisappearingMessagesJob: JobExecutor {
     public static let maxFailureCount: Int = -1
@@ -106,35 +107,45 @@ public extension DisappearingMessagesJob {
         // If there were no changes then none of the provided `interactionIds` are expiring messages
         guard (changeCount ?? 0) > 0 else { return nil }
         
+        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        
         interactionExpirationInfosByExpiresInSeconds.forEach { expiresInSeconds, expirationInfos in
             let expirationTimestampMs: Int64 = Int64(ceil(startedAtMs + expiresInSeconds * 1000))
             
             SnodeAPI.updateExpiry(
-                publicKey: getUserHexEncodedPublicKey(db),
+                publicKey: userPublicKey,
                 updatedExpiryMs: expirationTimestampMs,
                 serverHashes: expirationInfos.map { $0.serverHash },
                 shortenOnly: true
             ).map { results in
+                print("Ryan Test expire: \(results)")
                 var unchangedMessages: [String: UInt64] = [:]
                 results.forEach { _, result in
                     guard let unchanged = result.unchanged else { return }
                     unchangedMessages.merge(unchanged) { (current, _) in current }
                 }
-                
+
                 guard !unchangedMessages.isEmpty else { return }
-                
+
                 unchangedMessages.forEach { serverHash, serverExpirationTimestampMs in
                     let expiresInSeconds: TimeInterval = (TimeInterval(serverExpirationTimestampMs) - startedAtMs) / 1000
-                    
+
                     _ = try? Interaction
                         .filter(Interaction.Columns.serverHash == serverHash)
                         .updateAll(db, Interaction.Columns.expiresInSeconds.set(to: expiresInSeconds))
                 }
             }.retainUntilComplete()
             
-            let swarm = SnodeAPI.swarmCache.wrappedValue[getUserHexEncodedPublicKey(db)] ?? []
-            let snode = swarm.randomElement()!
-            SnodeAPI.getExpiries(from: snode, associatedWith: getUserHexEncodedPublicKey(db), of: expirationInfos.map { $0.serverHash }).retainUntilComplete()
+            SnodeAPI.getSwarm(for: userPublicKey)
+                .then2 { swarm -> Promise<Void> in
+                    guard let snode = swarm.randomElement() else { return Promise(error: StorageError.objectNotFound) }
+                    
+                    return SnodeAPI.getExpiries(from: snode, associatedWith: getUserHexEncodedPublicKey(db), of: expirationInfos.map { $0.serverHash })
+                        .map{ result in
+                            print("Ryan Test get_expiries: \(result)")
+                        }
+                }.retainUntilComplete()
+            
         }
         
         return updateNextRunIfNeeded(db)
