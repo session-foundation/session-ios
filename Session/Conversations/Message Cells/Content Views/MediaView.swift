@@ -19,7 +19,6 @@ public class MediaView: UIView {
     private let mediaCache: NSCache<NSString, AnyObject>
     public let attachment: Attachment
     private let isOutgoing: Bool
-    private let maxMessageWidth: CGFloat
     private var loadBlock: (() -> Void)?
     private var unloadBlock: (() -> Void)?
 
@@ -48,13 +47,11 @@ public class MediaView: UIView {
     public required init(
         mediaCache: NSCache<NSString, AnyObject>,
         attachment: Attachment,
-        isOutgoing: Bool,
-        maxMessageWidth: CGFloat
+        isOutgoing: Bool
     ) {
         self.mediaCache = mediaCache
         self.attachment = attachment
         self.isOutgoing = isOutgoing
-        self.maxMessageWidth = maxMessageWidth
 
         super.init(frame: .zero)
 

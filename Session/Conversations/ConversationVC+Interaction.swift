@@ -1558,7 +1558,10 @@ extension ConversationVC:
     // MARK: - ContextMenuActionDelegate
     
     func info(_ cellViewModel: MessageViewModel) {
-        let mediaInfoVC = MediaInfoVC(attachments: (cellViewModel.attachments ?? []))
+        let mediaInfoVC = MediaInfoVC(
+            attachments: (cellViewModel.attachments ?? []),
+            isOutgoing: (cellViewModel.variant == .standardOutgoing)
+        )
         navigationController?.pushViewController(mediaInfoVC, animated: true)
     }
 

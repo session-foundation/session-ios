@@ -7,10 +7,19 @@ import SessionUtilitiesKit
 final class MediaInfoVC: BaseVC {
     
     private let attachments: [Attachment]
+    private let isOutgoing: Bool
+    
+    // FIXME: Would be good to create a Swift-based cache and replace this
+    lazy var mediaCache: NSCache<NSString, AnyObject> = {
+        let result = NSCache<NSString, AnyObject>()
+        result.countLimit = 40
+        return result
+    }()
     
     // MARK: - Initialization
     
-    init(attachments: [Attachment]) {
+    init(attachments: [Attachment], isOutgoing: Bool) {
+        self.isOutgoing = isOutgoing
         self.attachments = attachments
         super.init(nibName: nil, bundle: nil)
     }
@@ -31,9 +40,18 @@ final class MediaInfoVC: BaseVC {
         self.title = "Message Info"
         
         attachments.forEach {
+            let mediaPreviewView: MediaPreviewView = MediaPreviewView(
+                mediaCache: mediaCache,
+                attachment: $0,
+                isOutgoing: isOutgoing)
             let mediaInfoView: MediaInfoView = MediaInfoView(attachment: $0)
-            self.view.addSubview(mediaInfoView)
-            mediaInfoView.center(in: self.view)
+            
+            let stackView: UIStackView = UIStackView(arrangedSubviews: [ mediaPreviewView, mediaInfoView ])
+            stackView.axis = .vertical
+            stackView.spacing = Values.largeSpacing
+            
+            self.view.addSubview(stackView)
+            stackView.center(in: self.view)
         }
     }
 }
