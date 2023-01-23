@@ -118,7 +118,6 @@ public extension DisappearingMessagesJob {
                 serverHashes: expirationInfos.map { $0.serverHash },
                 shortenOnly: true
             ).map { results in
-                print("Ryan Test expire: \(results)")
                 var unchangedMessages: [String: UInt64] = [:]
                 results.forEach { _, result in
                     guard let unchanged = result.unchanged else { return }
@@ -135,17 +134,6 @@ public extension DisappearingMessagesJob {
                         .updateAll(db, Interaction.Columns.expiresInSeconds.set(to: expiresInSeconds))
                 }
             }.retainUntilComplete()
-            
-            SnodeAPI.getSwarm(for: userPublicKey)
-                .then2 { swarm -> Promise<Void> in
-                    guard let snode = swarm.randomElement() else { return Promise(error: StorageError.objectNotFound) }
-                    
-                    return SnodeAPI.getExpiries(from: snode, associatedWith: getUserHexEncodedPublicKey(db), of: expirationInfos.map { $0.serverHash })
-                        .map{ result in
-                            print("Ryan Test get_expiries: \(result)")
-                        }
-                }.retainUntilComplete()
-            
         }
         
         return updateNextRunIfNeeded(db)

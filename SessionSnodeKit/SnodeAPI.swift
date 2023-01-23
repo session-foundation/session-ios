@@ -510,7 +510,7 @@ public final class SnodeAPI {
         
         // Make the request
         let parameters: JSON = [
-            "pubKey": publicKey,
+            "pubkey": publicKey,
             "messages": serverHashes,
             "timestamp": timestamp,
             "pubkey_ed25519": ed25519PublicKey,
@@ -599,7 +599,7 @@ public final class SnodeAPI {
         
         // Make the request
         let parameters: JSON = [
-            "pubKey": Features.useTestnet ? publicKey.removingIdPrefixIfNeeded() : publicKey,
+            "pubKey": Features.useTestnet ? publicKey.removingIdPrefixIfNeeded() : publicKey, // NOTE: Capital "K"
             "namespace": namespace,
             "lastHash": lastHash,
             "timestamp": timestamp,
@@ -640,7 +640,7 @@ public final class SnodeAPI {
         
         // Make the request
         var parameters: JSON = [
-            "pubKey": (Features.useTestnet ? publicKey.removingIdPrefixIfNeeded() : publicKey),
+            "pubKey": (Features.useTestnet ? publicKey.removingIdPrefixIfNeeded() : publicKey), // NOTE: Capital "K"
             "lastHash": lastHash
         ]
         
