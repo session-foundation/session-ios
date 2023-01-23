@@ -8,7 +8,6 @@ extension MediaInfoVC {
     final class MediaPreviewView: UIView {
         private static let cornerRadius: CGFloat = 8
         
-        private let mediaCache: NSCache<NSString, AnyObject>
         private let attachment: Attachment
         private let isOutgoing: Bool
         
@@ -16,7 +15,6 @@ extension MediaInfoVC {
         
         private lazy var mediaView: MediaView = {
             let result: MediaView = MediaView.init(
-                mediaCache: mediaCache,
                 attachment: attachment,
                 isOutgoing: isOutgoing
             )
@@ -42,12 +40,7 @@ extension MediaInfoVC {
         
         // MARK: - Lifecycle
         
-        init(
-            mediaCache: NSCache<NSString, AnyObject>,
-            attachment: Attachment,
-            isOutgoing: Bool
-        ) {
-            self.mediaCache = mediaCache
+        init(attachment: Attachment, isOutgoing: Bool) {
             self.attachment = attachment
             self.isOutgoing = isOutgoing
             

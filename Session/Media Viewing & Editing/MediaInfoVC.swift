@@ -9,13 +9,6 @@ final class MediaInfoVC: BaseVC {
     private let attachments: [Attachment]
     private let isOutgoing: Bool
     
-    // FIXME: Would be good to create a Swift-based cache and replace this
-    lazy var mediaCache: NSCache<NSString, AnyObject> = {
-        let result = NSCache<NSString, AnyObject>()
-        result.countLimit = 40
-        return result
-    }()
-    
     // MARK: - Initialization
     
     init(attachments: [Attachment], isOutgoing: Bool) {
@@ -41,7 +34,6 @@ final class MediaInfoVC: BaseVC {
         
         attachments.forEach {
             let mediaPreviewView: MediaPreviewView = MediaPreviewView(
-                mediaCache: mediaCache,
                 attachment: $0,
                 isOutgoing: isOutgoing)
             let mediaInfoView: MediaInfoView = MediaInfoView(attachment: $0)
