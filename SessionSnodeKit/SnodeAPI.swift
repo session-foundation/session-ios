@@ -1163,7 +1163,13 @@ public final class SnodeAPI {
                 
             default:
                 handleBadSnode()
-                SNLog("Unhandled response code: \(statusCode).")
+                let message: String = {
+                    if let data: Data = data, let stringFromData = String(data: data, encoding: .utf8) {
+                        return stringFromData
+                    }
+                    return "Empty data."
+                }()
+                SNLog("Unhandled response code: \(statusCode), messasge: \(message)")
         }
         
         return nil
