@@ -475,7 +475,7 @@ public final class SnodeAPI {
         
         SNLog("Getting swarm for: \((publicKey == getUserHexEncodedPublicKey()) ? "self" : publicKey).")
         let parameters: [String: Any] = [
-            "pubKey": publicKey
+            "pubkey": publicKey
         ]
         
         return getRandomSnode()
@@ -599,7 +599,7 @@ public final class SnodeAPI {
         
         // Make the request
         let parameters: JSON = [
-            "pubKey": Features.useTestnet ? publicKey.removingIdPrefixIfNeeded() : publicKey, // NOTE: Capital "K"
+            "pubkey": Features.useTestnet ? publicKey.removingIdPrefixIfNeeded() : publicKey,
             "namespace": namespace,
             "lastHash": lastHash,
             "timestamp": timestamp,
@@ -640,7 +640,7 @@ public final class SnodeAPI {
         
         // Make the request
         var parameters: JSON = [
-            "pubKey": (Features.useTestnet ? publicKey.removingIdPrefixIfNeeded() : publicKey), // NOTE: Capital "K"
+            "pubkey": (Features.useTestnet ? publicKey.removingIdPrefixIfNeeded() : publicKey),
             "lastHash": lastHash
         ]
         
