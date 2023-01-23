@@ -30,7 +30,11 @@ final class MediaInfoVC: BaseVC {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        self.title = "Message Info"
+        ViewControllerUtilities.setUpDefaultSessionStyle(
+            for: self,
+            title: "Message Info",
+            hasCustomBackButton: false
+        )
         
         attachments.forEach {
             let mediaPreviewView: MediaPreviewView = MediaPreviewView(
