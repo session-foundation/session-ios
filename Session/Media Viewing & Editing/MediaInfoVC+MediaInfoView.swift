@@ -54,7 +54,7 @@ extension MediaInfoVC {
         
         // MARK: - Lifecycle
         
-        init(attachment: Attachment?) {
+        init(attachment: Attachment? = nil) {
             self.attachment = attachment
             
             super.init(frame: CGRect.zero)

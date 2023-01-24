@@ -59,8 +59,8 @@ extension MediaInfoVC {
         }
 
         private func setUpViewHierarchy() {
-            set(.width, to: 293)
-            set(.height, to: 293)
+            set(.width, to: MediaInfoVC.mediaSize)
+            set(.height, to: MediaInfoVC.mediaSize)
             
             addSubview(mediaView)
             mediaView.pin(to: self)
