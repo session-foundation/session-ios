@@ -8,7 +8,7 @@ extension MediaInfoVC {
     final class MediaInfoView: UIView {
         private static let cornerRadius: CGFloat = 8
         
-        private let attachment: Attachment
+        private var attachment: Attachment?
         
         // MARK: - UI
         
@@ -54,12 +54,13 @@ extension MediaInfoVC {
         
         // MARK: - Lifecycle
         
-        init(attachment: Attachment) {
+        init(attachment: Attachment?) {
             self.attachment = attachment
             
             super.init(frame: CGRect.zero)
             self.accessibilityLabel = "Media info"
             setUpViewHierarchy()
+            update(attachment: attachment)
         }
 
         override init(frame: CGRect) {
@@ -90,7 +91,6 @@ extension MediaInfoVC {
                 
                 return result
             }()
-            fileIdLabel.text = attachment.serverId
             let fileIdContainerStackView: UIStackView = UIStackView(arrangedSubviews: [ fileIdTitleLabel, fileIdLabel ])
             fileIdContainerStackView.axis = .vertical
             container.addSubview(fileIdContainerStackView)
@@ -105,7 +105,6 @@ extension MediaInfoVC {
                 
                 return result
             }()
-            fileTypeLabel.text = attachment.contentType
             let fileTypeContainerStackView: UIStackView = UIStackView(arrangedSubviews: [ fileTypeTitleLabel, fileTypeLabel ])
             fileTypeContainerStackView.axis = .vertical
             container.addSubview(fileTypeContainerStackView)
@@ -121,7 +120,6 @@ extension MediaInfoVC {
                 
                 return result
             }()
-            fileSizeLabel.text = OWSFormat.formatFileSize(attachment.byteCount)
             let fileSizeContainerStackView: UIStackView = UIStackView(arrangedSubviews: [ fileSizeTitleLabel, fileSizeLabel ])
             fileSizeContainerStackView.axis = .vertical
             container.addSubview(fileSizeContainerStackView)
@@ -138,17 +136,13 @@ extension MediaInfoVC {
                 
                 return result
             }()
-            resolutionLabel.text = {
-                guard let width = attachment.width, let height = attachment.height else { return "N/A" }
-                return "\(width)×\(height)"
-            }()
             let resolutionContainerStackView: UIStackView = UIStackView(arrangedSubviews: [ resolutionTitleLabel, resolutionLabel ])
             resolutionContainerStackView.axis = .vertical
             container.addSubview(resolutionContainerStackView)
             resolutionContainerStackView.pin(.leading, to: .leading, of: container)
             resolutionContainerStackView.pin(.top, to: .bottom, of: fileTypeContainerStackView, withInset: Values.mediumSpacing)
             
-            // File Size
+            // Duration
             let durationTitleLabel: UILabel = {
                 let result = UILabel()
                 result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
@@ -156,10 +150,6 @@ extension MediaInfoVC {
                 result.themeTextColor = .textPrimary
                 
                 return result
-            }()
-            durationLabel.text = {
-                guard let duration = attachment.duration else { return "N/A" }
-                return "\(duration)"
             }()
             let durationContainerStackView: UIStackView = UIStackView(arrangedSubviews: [ durationTitleLabel, durationLabel ])
             durationContainerStackView.axis = .vertical
@@ -171,6 +161,25 @@ extension MediaInfoVC {
             
             backgroundView.addSubview(container)
             container.pin(to: backgroundView, withInset: Values.largeSpacing)
+        }
+        
+        // MARK: - Interaction
+        public func update(attachment: Attachment?) {
+            guard let attachment: Attachment = attachment else { return }
+            
+            self.attachment = attachment
+            
+            fileIdLabel.text = attachment.serverId
+            fileTypeLabel.text = attachment.contentType
+            fileSizeLabel.text = OWSFormat.formatFileSize(attachment.byteCount)
+            resolutionLabel.text = {
+                guard let width = attachment.width, let height = attachment.height else { return "N/A" }
+                return "\(width)×\(height)"
+            }()
+            durationLabel.text = {
+                guard let duration = attachment.duration else { return "N/A" }
+                return "\(duration)"
+            }()
         }
     }
 }

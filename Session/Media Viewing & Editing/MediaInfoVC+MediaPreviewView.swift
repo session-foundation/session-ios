@@ -34,6 +34,7 @@ extension MediaInfoVC {
             result.layer.cornerRadius = 14
             result.set(.width, to: 28)
             result.set(.height, to: 28)
+            result.addTarget(self, action: #selector(showMediaFullScreen), for: .touchUpInside)
             
             return result
         }()
@@ -71,5 +72,9 @@ extension MediaInfoVC {
             mediaView.loadMedia()
         }
         
+        // MARK: - Interaction
+        @objc func showMediaFullScreen() {
+            
+        }
     }
 }
