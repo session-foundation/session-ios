@@ -66,7 +66,6 @@ public final class MessageSender {
     ) throws -> Promise<Void> {
         let (promise, seal) = Promise<Void>.pending()
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
-        let isMainAppActive: Bool = (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false)
         let messageSendTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs()
         
         // Set the timestamp, sender and recipient
@@ -261,6 +260,8 @@ public final class MessageSender {
                                 behaviour: .runOnce,
                                 details: NotifyPushServerJob.Details(message: snodeMessage)
                             )
+                            let isMainAppActive: Bool = (UserDefaults.sharedLokiProject?[.isMainAppActive])
+                                .defaulting(to: false)
                             
                             if isMainAppActive {
                                 JobRunner.add(db, job: job)
