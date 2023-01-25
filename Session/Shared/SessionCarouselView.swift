@@ -2,7 +2,7 @@
 
 import Foundation
 
-final class SessionCarouselView: UIView {
+final class SessionCarouselView: UIView, UIScrollViewDelegate {
     private let slices: [UIView]
     private let sliceSize: CGSize
     
@@ -16,6 +16,7 @@ final class SessionCarouselView: UIView {
     // MARK: - UI
     private lazy var scrollView: UIScrollView = {
         let result: UIScrollView = UIScrollView()
+        result.delegate = self
         result.isPagingEnabled = true
         result.showsHorizontalScrollIndicator = false
         result.showsVerticalScrollIndicator = false
@@ -59,10 +60,17 @@ final class SessionCarouselView: UIView {
         
         addSubview(self.scrollView)
         scrollView.pin(to: self)
+        scrollView.set(.width, to: self.sliceSize.width)
+        scrollView.set(.height, to: self.sliceSize.height)
         scrollView.addSubview(stackView)
         
         addSubview(self.pageControl)
         self.pageControl.center(.horizontal, in: self)
         self.pageControl.pin(.bottom, to: .bottom, of: self)
+    }
+    
+    // MARK: - UIScrollViewDelegate
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        
     }
 }

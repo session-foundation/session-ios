@@ -12,6 +12,22 @@ final class MediaInfoVC: BaseVC {
     
     // MARK: - UI
     private lazy var mediaInfoView: MediaInfoView = MediaInfoView(attachment: nil)
+    private lazy var mediaCarouselView: SessionCarouselView = {
+        let result: SessionCarouselView = SessionCarouselView(
+            slices: self.attachments.map {
+                MediaPreviewView(
+                    attachment: $0,
+                    isOutgoing: self.isOutgoing
+                )
+            },
+            sliceSize: CGSize(
+                width: Self.mediaSize,
+                height: Self.mediaSize
+            )
+        )
+        
+        return result
+    }()
     
     // MARK: - Initialization
     
@@ -43,30 +59,9 @@ final class MediaInfoVC: BaseVC {
         let mediaStackView: UIStackView = UIStackView()
         mediaStackView.axis = .horizontal
         
-        attachments.forEach {
-            let mediaPreviewView: MediaPreviewView = MediaPreviewView(
-                attachment: $0,
-                isOutgoing: isOutgoing)
-            mediaStackView.addArrangedSubview(mediaPreviewView)
-        }
-        
-        let contentWidth: CGFloat = Self.mediaSize * CGFloat(attachments.count)
-        let contentHeight: CGFloat = Self.mediaSize
-        mediaStackView.set(.width, to: contentWidth)
-        mediaStackView.set(.height, to: contentHeight)
-        
-        let scrollView: UIScrollView = UIScrollView()
-        scrollView.isPagingEnabled = true
-        scrollView.showsVerticalScrollIndicator = false
-        scrollView.showsHorizontalScrollIndicator = false
-        scrollView.set(.width, to: Self.mediaSize)
-        scrollView.set(.height, to: Self.mediaSize)
-        scrollView.contentSize = CGSize(width: contentWidth, height: contentHeight)
-        scrollView.addSubview(mediaStackView)
-        
         mediaInfoView.update(attachment: attachments[0])
         
-        let stackView: UIStackView = UIStackView(arrangedSubviews: [ scrollView, mediaInfoView ])
+        let stackView: UIStackView = UIStackView(arrangedSubviews: [ mediaCarouselView, mediaInfoView ])
         stackView.axis = .vertical
         stackView.spacing = Values.largeSpacing
         
