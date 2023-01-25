@@ -112,6 +112,7 @@
 		7B2561C22978B307005C086C /* MediaInfoVC+MediaInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B2561C12978B307005C086C /* MediaInfoVC+MediaInfoView.swift */; };
 		7B3A392E2977791E002FE4AC /* MediaInfoVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B3A392D2977791E002FE4AC /* MediaInfoVC.swift */; };
 		7B3A3930297A3919002FE4AC /* MediaInfoVC+MediaPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B3A392F297A3919002FE4AC /* MediaInfoVC+MediaPreviewView.swift */; };
+		7B3A39322980D02B002FE4AC /* SessionCarouselView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B3A39312980D02B002FE4AC /* SessionCarouselView.swift */; };
 		7B46AAAF28766DF4001AF2DC /* AllMediaViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B46AAAE28766DF4001AF2DC /* AllMediaViewController.swift */; };
 		7B4C75CB26B37E0F0000AC89 /* UnsendRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B4C75CA26B37E0F0000AC89 /* UnsendRequest.swift */; };
 		7B4C75CD26BB92060000AC89 /* DeletedMessageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B4C75CC26BB92060000AC89 /* DeletedMessageView.swift */; };
@@ -1181,6 +1182,7 @@
 		7B2DB2AD26F1B0FF0035B509 /* si */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = si; path = si.lproj/Localizable.strings; sourceTree = "<group>"; };
 		7B3A392D2977791E002FE4AC /* MediaInfoVC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaInfoVC.swift; sourceTree = "<group>"; };
 		7B3A392F297A3919002FE4AC /* MediaInfoVC+MediaPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MediaInfoVC+MediaPreviewView.swift"; sourceTree = "<group>"; };
+		7B3A39312980D02B002FE4AC /* SessionCarouselView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionCarouselView.swift; sourceTree = "<group>"; };
 		7B46AAAE28766DF4001AF2DC /* AllMediaViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AllMediaViewController.swift; sourceTree = "<group>"; };
 		7B4C75CA26B37E0F0000AC89 /* UnsendRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsendRequest.swift; sourceTree = "<group>"; };
 		7B4C75CC26BB92060000AC89 /* DeletedMessageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeletedMessageView.swift; sourceTree = "<group>"; };
@@ -2584,6 +2586,7 @@
 				FD52090828B59411006098F6 /* ScreenLockUI.swift */,
 				FD37EA0828AA2D27003AE748 /* SessionTableViewModel.swift */,
 				FD37EA0628AA2CCA003AE748 /* SessionTableViewController.swift */,
+				7B3A39312980D02B002FE4AC /* SessionCarouselView.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -5765,6 +5768,7 @@
 				FD71163828E2C50700B47552 /* SessionTableViewModel.swift in Sources */,
 				FD71164A28E3EA5B00B47552 /* DismissType.swift in Sources */,
 				C328251F25CA3A900062D0A7 /* QuoteView.swift in Sources */,
+				7B3A39322980D02B002FE4AC /* SessionCarouselView.swift in Sources */,
 				FD37E9CC28A1E578003AE748 /* AppearanceViewController.swift in Sources */,
 				B8EB20F02640F7F000773E52 /* OpenGroupInvitationView.swift in Sources */,
 				C328254025CA55880062D0A7 /* ContextMenuVC.swift in Sources */,

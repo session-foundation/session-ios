@@ -11,7 +11,7 @@ final class MediaInfoVC: BaseVC {
     private let isOutgoing: Bool
     
     // MARK: - UI
-    private lazy var mediaInfoView: MediaInfoView = MediaInfoView()
+    private lazy var mediaInfoView: MediaInfoView = MediaInfoView(attachment: nil)
     
     // MARK: - Initialization
     
@@ -50,11 +50,18 @@ final class MediaInfoVC: BaseVC {
             mediaStackView.addArrangedSubview(mediaPreviewView)
         }
         
+        let contentWidth: CGFloat = Self.mediaSize * CGFloat(attachments.count)
+        let contentHeight: CGFloat = Self.mediaSize
+        mediaStackView.set(.width, to: contentWidth)
+        mediaStackView.set(.height, to: contentHeight)
+        
         let scrollView: UIScrollView = UIScrollView()
         scrollView.isPagingEnabled = true
+        scrollView.showsVerticalScrollIndicator = false
+        scrollView.showsHorizontalScrollIndicator = false
         scrollView.set(.width, to: Self.mediaSize)
         scrollView.set(.height, to: Self.mediaSize)
-        scrollView.contentSize = CGSize(width: Self.mediaSize * CGFloat(attachments.count), height: Self.mediaSize)
+        scrollView.contentSize = CGSize(width: contentWidth, height: contentHeight)
         scrollView.addSubview(mediaStackView)
         
         mediaInfoView.update(attachment: attachments[0])
