@@ -225,7 +225,8 @@ extension SessionCell {
         public func update(
             with accessory: Accessory?,
             tintColor: ThemeValue,
-            isEnabled: Bool
+            isEnabled: Bool,
+            accessibilityLabel: String?
         ) {
             guard let accessory: Accessory = accessory else { return }
             
@@ -234,6 +235,7 @@ extension SessionCell {
 
             switch accessory {
                 case .icon(let image, let iconSize, let customTint, let shouldFill):
+                    imageView.accessibilityLabel = accessibilityLabel
                     imageView.image = image
                     imageView.themeTintColor = (customTint ?? tintColor)
                     imageView.contentMode = (shouldFill ? .scaleAspectFill : .scaleAspectFit)
@@ -256,6 +258,7 @@ extension SessionCell {
                 
                 case .iconAsync(let iconSize, let customTint, let shouldFill, let setter):
                     setter(imageView)
+                    imageView.accessibilityLabel = accessibilityLabel
                     imageView.themeTintColor = (customTint ?? tintColor)
                     imageView.contentMode = (shouldFill ? .scaleAspectFill : .scaleAspectFit)
                     imageView.isHidden = false
@@ -276,6 +279,7 @@ extension SessionCell {
                     imageViewConstraints.forEach { $0.isActive = true }
                     
                 case .toggle(let dataSource):
+                    toggleSwitch.accessibilityLabel = accessibilityLabel
                     toggleSwitch.isHidden = false
                     toggleSwitch.isEnabled = isEnabled
                     toggleSwitchConstraints.forEach { $0.isActive = true }
@@ -287,6 +291,7 @@ extension SessionCell {
                     }
                     
                 case .dropDown(let dataSource):
+                    dropDownLabel.accessibilityLabel = accessibilityLabel
                     dropDownLabel.text = dataSource.currentStringValue
                     dropDownStackView.isHidden = false
                     dropDownStackViewConstraints.forEach { $0.isActive = true }
@@ -302,6 +307,7 @@ extension SessionCell {
                     )
                     radioBorderView.layer.cornerRadius = (size.borderSize / 2)
                     
+                    radioView.accessibilityLabel = accessibilityLabel
                     radioView.alpha = (wasOldSelection ? 0.3 : 1)
                     radioView.isHidden = (!isSelected && !storedSelection)
                     radioView.themeBackgroundColor = (isSelected || wasOldSelection ?
@@ -322,12 +328,14 @@ extension SessionCell {
                     radioBorderViewConstraints.forEach { $0.isActive = true }
                     
                 case .highlightingBackgroundLabel(let title):
+                    highlightingBackgroundLabel.accessibilityLabel = accessibilityLabel
                     highlightingBackgroundLabel.text = title
                     highlightingBackgroundLabel.themeTextColor = tintColor
                     highlightingBackgroundLabel.isHidden = false
                     highlightingBackgroundLabelConstraints.forEach { $0.isActive = true }
                     
                 case .profile(let profileId, let profile):
+                    profilePictureView.accessibilityLabel = accessibilityLabel
                     profilePictureView.update(
                         publicKey: profileId,
                         profile: profile,
@@ -338,6 +346,7 @@ extension SessionCell {
                     
                 case .customView(let viewGenerator):
                     let generatedView: UIView = viewGenerator()
+                    generatedView.accessibilityLabel = accessibilityLabel
                     addSubview(generatedView)
                     
                     generatedView.pin(.top, to: .top, of: self)

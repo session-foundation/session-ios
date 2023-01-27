@@ -66,8 +66,7 @@ public final class MessageSender {
     ) throws -> Promise<Void> {
         let (promise, seal) = Promise<Void>.pending()
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
-        let isMainAppActive: Bool = (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false)
-        let messageSendTimestamp: Int64 = Int64(floor(Date().timeIntervalSince1970 * 1000))
+        let messageSendTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs()
         
         // Set the timestamp, sender and recipient
         message.sentTimestamp = (
@@ -202,7 +201,7 @@ public final class MessageSender {
             recipient: message.recipient!,
             data: base64EncodedData,
             ttl: message.ttl,
-            timestampMs: UInt64(messageSendTimestamp + SnodeAPI.clockOffset.wrappedValue)
+            timestampMs: UInt64(messageSendTimestamp)
         )
         
         SnodeAPI
@@ -261,6 +260,8 @@ public final class MessageSender {
                                 behaviour: .runOnce,
                                 details: NotifyPushServerJob.Details(message: snodeMessage)
                             )
+                            let isMainAppActive: Bool = (UserDefaults.sharedLokiProject?[.isMainAppActive])
+                                .defaulting(to: false)
                             
                             if isMainAppActive {
                                 JobRunner.add(db, job: job)
@@ -322,7 +323,7 @@ public final class MessageSender {
         
         // Set the timestamp, sender and recipient
         if message.sentTimestamp == nil { // Visible messages will already have their sent timestamp set
-            message.sentTimestamp = UInt64(floor(Date().timeIntervalSince1970 * 1000))
+            message.sentTimestamp = UInt64(SnodeAPI.currentOffsetTimestampMs())
         }
         
         switch destination {
@@ -472,7 +473,7 @@ public final class MessageSender {
         
         // Set the timestamp, sender and recipient
         if message.sentTimestamp == nil { // Visible messages will already have their sent timestamp set
-            message.sentTimestamp = UInt64(floor(Date().timeIntervalSince1970 * 1000))
+            message.sentTimestamp = UInt64(SnodeAPI.currentOffsetTimestampMs())
         }
         
         message.sender = userPublicKey
@@ -617,7 +618,7 @@ public final class MessageSender {
                     job: DisappearingMessagesJob.updateNextRunIfNeeded(
                         db,
                         interaction: interaction,
-                        startedAtMs: (Date().timeIntervalSince1970 * 1000)
+                        startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs())
                     )
                 )
             }
@@ -636,7 +637,10 @@ public final class MessageSender {
                 }
             }(),
             message: message,
-            serverExpirationTimestamp: (Date().timeIntervalSince1970 + ControlMessageProcessRecord.defaultExpirationSeconds)
+            serverExpirationTimestamp: (
+                (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000) +
+                ControlMessageProcessRecord.defaultExpirationSeconds
+            )
         )?.insert(db)
         
         // Sync the message if:

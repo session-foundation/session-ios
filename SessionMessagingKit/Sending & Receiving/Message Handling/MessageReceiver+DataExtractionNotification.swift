@@ -2,6 +2,7 @@
 
 import Foundation
 import GRDB
+import SessionSnodeKit
 
 extension MessageReceiver {
     internal static func handleDataExtractionNotification(_ db: Database, message: DataExtractionNotification) throws {
@@ -24,7 +25,7 @@ extension MessageReceiver {
             }(),
             timestampMs: (
                 message.sentTimestamp.map { Int64($0) } ??
-                Int64(floor(Date().timeIntervalSince1970 * 1000))
+                SnodeAPI.currentOffsetTimestampMs()
             )
         ).inserted(db)
     }

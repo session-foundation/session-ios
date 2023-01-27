@@ -82,6 +82,8 @@ final class SeedReminderView: UIView {
         
         // Set up button
         let button = SessionButton(style: .bordered, size: .small)
+        button.accessibilityLabel = "Continue"
+        button.isAccessibilityElement = true
         button.setTitle("continue_2".localized(), for: UIControl.State.normal)
         button.set(.width, to: 96)
         button.addTarget(self, action: #selector(handleContinueButtonTapped), for: UIControl.Event.touchUpInside)

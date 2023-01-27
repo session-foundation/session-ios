@@ -34,6 +34,7 @@ internal enum Theme_ClassicLight: ThemeColors {
         .messageBubble_outgoingText: .classicLight0,
         .messageBubble_incomingText: .classicLight0,
         .messageBubble_overlay: .black_06,
+        .messageBubble_deliveryStatus: .classicLight1,
 
         // MenuButton
         .menuButton_background: .primary,

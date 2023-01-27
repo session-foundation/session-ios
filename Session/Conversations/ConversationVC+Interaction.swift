@@ -69,6 +69,8 @@ extension ConversationVC:
                     title: "modal_call_permission_request_title".localized(),
                     explanation: "modal_call_permission_request_explanation".localized(),
                     confirmTitle: "vc_settings_title".localized(),
+                    confirmAccessibilityLabel: "Settings",
+                    cancelAccessibilityLabel: "Cancel",
                     dismissOnConfirm: false // Custom dismissal logic
                 ) { [weak self] _ in
                     self?.dismiss(animated: true) {
@@ -135,6 +137,8 @@ extension ConversationVC:
                         range: (message as NSString).range(of: self.viewModel.threadData.displayName)
                     ),
                 confirmTitle: "modal_blocked_button_title".localized(),
+                confirmAccessibilityLabel: "Confirm block",
+                cancelAccessibilityLabel: "Cancel block",
                 dismissOnConfirm: false // Custom dismissal logic
             ) { [weak self] _ in
                 self?.viewModel.unblockContact()
@@ -405,7 +409,7 @@ extension ConversationVC:
         // flags appropriately
         let threadId: String = self.viewModel.threadData.threadId
         let oldThreadShouldBeVisible: Bool = (self.viewModel.threadData.threadShouldBeVisible == true)
-        let sentTimestampMs: Int64 = Int64(floor((Date().timeIntervalSince1970 * 1000)))
+        let sentTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
         let linkPreviewDraft: LinkPreviewDraft? = snInputView.linkPreviewInfo?.draft
         let quoteModel: QuotedReplyModel? = snInputView.quoteDraftInfo?.model
         
@@ -530,7 +534,7 @@ extension ConversationVC:
         // flags appropriately
         let threadId: String = self.viewModel.threadData.threadId
         let oldThreadShouldBeVisible: Bool = (self.viewModel.threadData.threadShouldBeVisible == true)
-        let sentTimestampMs: Int64 = Int64(floor((Date().timeIntervalSince1970 * 1000)))
+        let sentTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
 
         // If this was a message request then approve it
         approveMessageRequestIfNeeded(
@@ -636,7 +640,7 @@ extension ConversationVC:
                 threadVariant: threadVariant,
                 threadIsMessageRequest: threadIsMessageRequest,
                 direction: .outgoing,
-                timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
+                timestampMs: SnodeAPI.currentOffsetTimestampMs()
             )
             
             if needsToStartTypingIndicator {
@@ -854,6 +858,8 @@ extension ConversationVC:
                             range: (message as NSString).range(of: cellViewModel.authorName)
                         ),
                     confirmTitle: "modal_download_button_title".localized(),
+                    confirmAccessibilityLabel: "Download media",
+                    cancelAccessibilityLabel: "Don't download media",
                     dismissOnConfirm: false // Custom dismissal logic
                 ) { [weak self] _ in
                     self?.viewModel.trustContact()
@@ -1213,7 +1219,7 @@ extension ConversationVC:
         guard !threadIsMessageRequest else { return }
         
         // Perform local rate limiting (don't allow more than 20 reactions within 60 seconds)
-        let sentTimestamp: Int64 = Int64(floor(Date().timeIntervalSince1970 * 1000))
+        let sentTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs()
         let recentReactionTimestamps: [Int64] = General.cache.wrappedValue.recentReactionTimestamps
         
         guard
@@ -2038,7 +2044,7 @@ extension ConversationVC:
         
         // Create URL
         let directory: String = OWSTemporaryDirectory()
-        let fileName: String = "\(Int64(floor(Date().timeIntervalSince1970 * 1000))).m4a"
+        let fileName: String = "\(SnodeAPI.currentOffsetTimestampMs()).m4a"
         let url: URL = URL(fileURLWithPath: directory).appendingPathComponent(fileName)
         
         // Set up audio session
@@ -2279,7 +2285,7 @@ extension ConversationVC {
             for: self.viewModel.threadData.threadId,
             threadVariant: self.viewModel.threadData.threadVariant,
             isNewThread: false,
-            timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
+            timestampMs: SnodeAPI.currentOffsetTimestampMs()
         )
     }
 

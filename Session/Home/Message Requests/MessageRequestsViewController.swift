@@ -311,6 +311,8 @@ class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDat
             case .threads:
                 let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
                 let cell: FullConversationCell = tableView.dequeue(type: FullConversationCell.self, for: indexPath)
+                cell.accessibilityIdentifier = "Message request"
+                cell.isAccessibilityElement = true
                 cell.update(with: threadViewModel)
                 return cell
                 

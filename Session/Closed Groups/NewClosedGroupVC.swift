@@ -9,15 +9,17 @@ import SessionMessagingKit
 import SignalUtilitiesKit
 
 private protocol TableViewTouchDelegate {
-    func tableViewWasTouched(_ tableView: TableView)
+    func tableViewWasTouched(_ tableView: TableView, withView hitView: UIView?)
 }
 
 private final class TableView: UITableView {
     var touchDelegate: TableViewTouchDelegate?
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        touchDelegate?.tableViewWasTouched(self)
-        return super.hitTest(point, with: event)
+        let resultingView: UIView? = super.hitTest(point, with: event)
+        touchDelegate?.tableViewWasTouched(self, withView: resultingView)
+        
+        return resultingView
     }
 }
 
@@ -48,6 +50,8 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         result.themeBorderColor = .borderSeparator
         result.layer.cornerRadius = 13
         result.delegate = self
+        result.accessibilityIdentifier = "Group name input"
+        result.isAccessibilityElement = true
         
         return result
     }()
@@ -133,6 +137,8 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         result.translatesAutoresizingMaskIntoConstraints = false
         result.setTitle("CREATE_GROUP_BUTTON_TITLE".localized(), for: .normal)
         result.addTarget(self, action: #selector(createClosedGroup), for: .touchUpInside)
+        result.accessibilityIdentifier = "Create group"
+        result.isAccessibilityElement = true
         result.set(.width, to: 160)
         
         return result
@@ -151,6 +157,8 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         let closeButton = UIBarButtonItem(image: #imageLiteral(resourceName: "X"), style: .plain, target: self, action: #selector(close))
         closeButton.themeTintColor = .textPrimary
         navigationItem.rightBarButtonItem = closeButton
+        navigationItem.leftBarButtonItem?.accessibilityIdentifier = "Cancel"
+        navigationItem.leftBarButtonItem?.isAccessibilityElement = true
         
         // Set up content
         setUpViewHierarchy()
@@ -204,8 +212,9 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                 title: profile.displayName(),
                 rightAccessory: .radio(isSelected: { [weak self] in
                     self?.selectedContacts.contains(profile.id) == true
-                })
-            ),
+                }),
+                accessibilityIdentifier: "Contact"
+        ),
             style: .edgeToEdge,
             position: Position.with(indexPath.row, count: data[indexPath.section].elements.count)
         )
@@ -268,9 +277,22 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         )
     }
 
-    fileprivate func tableViewWasTouched(_ tableView: TableView) {
+    fileprivate func tableViewWasTouched(_ tableView: TableView, withView hitView: UIView?) {
         if nameTextField.isFirstResponder {
             nameTextField.resignFirstResponder()
+        }
+        else if searchBar.isFirstResponder {
+            var hitSuperview: UIView? = hitView?.superview
+            
+            while hitSuperview != nil && hitSuperview != searchBar {
+                hitSuperview = hitSuperview?.superview
+            }
+            
+            // If the user hit the cancel button then do nothing (we want to let the cancel
+            // button remove the focus or it will instantly refocus)
+            if hitSuperview == searchBar { return }
+            
+            searchBar.resignFirstResponder()
         }
     }
     
@@ -286,6 +308,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                     explanation: message,
                     cancelTitle: "BUTTON_OK".localized(),
                     cancelStyle: .alert_text
+                    
                 )
             )
             present(modal, animated: true)

@@ -20,6 +20,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
     private var dataStreamJustFailed: Bool = false
     private var dataChangeCancellable: AnyCancellable?
     private var disposables: Set<AnyCancellable> = Set()
+    private var onFooterTap: (() -> ())?
     
     public var viewModelType: AnyObject.Type { return type(of: viewModel) }
     
@@ -42,6 +43,30 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
             result.sectionHeaderTopPadding = 0
         }
         
+        return result
+    }()
+    
+    private lazy var fadeView: GradientView = {
+        let result: GradientView = GradientView()
+        result.themeBackgroundGradient = [
+            .value(.backgroundPrimary, alpha: 0), // Want this to take up 20% (~25pt)
+            .backgroundPrimary,
+            .backgroundPrimary,
+            .backgroundPrimary,
+            .backgroundPrimary
+        ]
+        result.set(.height, to: Values.footerGradientHeight(window: UIApplication.shared.keyWindow))
+        result.isHidden = true
+        
+        return result
+    }()
+    
+    private lazy var footerButton: SessionButton = {
+        let result: SessionButton = SessionButton(style: .bordered, size: .medium)
+        result.translatesAutoresizingMaskIntoConstraints = false
+        result.addTarget(self, action: #selector(footerButtonTapped), for: .touchUpInside)
+        result.isHidden = true
+
         return result
     }()
     
@@ -74,6 +99,8 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
         
         view.themeBackgroundColor = .backgroundPrimary
         view.addSubview(tableView)
+        view.addSubview(fadeView)
+        view.addSubview(footerButton)
         
         setupLayout()
         setupBinding()
@@ -114,6 +141,13 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
     
     private func setupLayout() {
         tableView.pin(to: view)
+        
+        fadeView.pin(.leading, to: .leading, of: self.view)
+        fadeView.pin(.trailing, to: .trailing, of: self.view)
+        fadeView.pin(.bottom, to: .bottom, of: self.view)
+        
+        footerButton.center(.horizontal, in: self.view)
+        footerButton.pin(.bottom, to: .bottom, of: self.view.safeAreaLayoutGuide, withInset: -Values.smallSpacing)
     }
     
     // MARK: - Updating
@@ -257,6 +291,33 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
             }
             .store(in: &disposables)
         
+        viewModel.footerButtonInfo
+            .receiveOnMain(immediately: true)
+            .sink { [weak self] buttonInfo in
+                if let buttonInfo: SessionButton.Info = buttonInfo {
+                    self?.footerButton.setTitle(buttonInfo.title, for: .normal)
+                    self?.footerButton.setStyle(buttonInfo.style)
+                    self?.footerButton.isEnabled = buttonInfo.isEnabled
+                }
+                
+                self?.onFooterTap = buttonInfo?.onTap
+                self?.fadeView.isHidden = (buttonInfo == nil)
+                self?.footerButton.isHidden = (buttonInfo == nil)
+                
+                // If we have a footerButton then we want to manually control the contentInset
+                self?.tableView.contentInsetAdjustmentBehavior = (buttonInfo == nil ? .automatic : .never)
+                self?.tableView.contentInset = UIEdgeInsets(
+                    top: 0,
+                    left: 0,
+                    bottom: (buttonInfo == nil ?
+                        0 :
+                        Values.footerGradientHeight(window: UIApplication.shared.keyWindow)
+                    ),
+                    right: 0
+                )
+            }
+            .store(in: &disposables)
+        
         viewModel.showToast
             .receive(on: DispatchQueue.main)
             .sink { [weak self] text, color in
@@ -308,6 +369,10 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
                 }
             }
             .store(in: &disposables)
+    }
+    
+    @objc private func footerButtonTapped() {
+        onFooterTap?()
     }
     
     // MARK: - UITableViewDataSource

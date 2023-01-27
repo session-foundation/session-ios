@@ -6,6 +6,7 @@ import Foundation
 import AVFoundation
 import PromiseKit
 import CoreServices
+import SessionMessagingKit
 
 protocol PhotoCaptureDelegate: AnyObject {
     func photoCapture(_ photoCapture: PhotoCapture, didFinishProcessingAttachment attachment: SignalAttachment)
@@ -463,6 +464,9 @@ class CaptureOutput {
         // leaving it enabled causes all audio to be lost on videos longer
         // than the default length (10s).
         movieOutput.movieFragmentInterval = CMTime.invalid
+        
+        // Ensure the recorded movie can't go over the maximum file server size
+        movieOutput.maxRecordedFileSize = Int64(FileServerAPI.maxFileSize)
     }
 
     var photoOutput: AVCaptureOutput? {

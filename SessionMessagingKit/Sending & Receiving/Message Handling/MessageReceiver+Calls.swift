@@ -4,6 +4,7 @@ import Foundation
 import GRDB
 import WebRTC
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 extension MessageReceiver {
     public static func handleCallMessage(_ db: Database, message: CallMessage) throws {
@@ -189,7 +190,7 @@ extension MessageReceiver {
             body: String(data: messageInfoData, encoding: .utf8),
             timestampMs: (
                 message.sentTimestamp.map { Int64($0) } ??
-                Int64(floor(Date().timeIntervalSince1970 * 1000))
+                SnodeAPI.currentOffsetTimestampMs()
             )
         )
         .inserted(db)
@@ -235,7 +236,7 @@ extension MessageReceiver {
         )
         let timestampMs: Int64 = (
             message.sentTimestamp.map { Int64($0) } ??
-            Int64(floor(Date().timeIntervalSince1970 * 1000))
+            SnodeAPI.currentOffsetTimestampMs()
         )
         
         guard let messageInfoData: Data = try? JSONEncoder().encode(messageInfo) else { return nil }

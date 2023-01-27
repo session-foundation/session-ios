@@ -12,6 +12,7 @@ extension SessionTableViewModel {
         let style: UIBarButtonItem.Style
         let systemItem: UIBarButtonItem.SystemItem?
         let accessibilityIdentifier: String
+        let accessibilityLabel: String?
         let action: (() -> Void)?
         
         // MARK: - Initialization
@@ -20,6 +21,7 @@ extension SessionTableViewModel {
             id: NavItemId,
             systemItem: UIBarButtonItem.SystemItem?,
             accessibilityIdentifier: String,
+            accessibilityLabel: String? = nil,
             action: (() -> Void)? = nil
         ) {
             self.id = id
@@ -27,6 +29,7 @@ extension SessionTableViewModel {
             self.style = .plain
             self.systemItem = systemItem
             self.accessibilityIdentifier = accessibilityIdentifier
+            self.accessibilityLabel = accessibilityLabel
             self.action = action
         }
         
@@ -35,6 +38,7 @@ extension SessionTableViewModel {
             image: UIImage?,
             style: UIBarButtonItem.Style,
             accessibilityIdentifier: String,
+            accessibilityLabel: String? = nil,
             action: (() -> Void)? = nil
         ) {
             self.id = id
@@ -42,6 +46,7 @@ extension SessionTableViewModel {
             self.style = style
             self.systemItem = nil
             self.accessibilityIdentifier = accessibilityIdentifier
+            self.accessibilityLabel = accessibilityLabel
             self.action = action
         }
         
@@ -54,7 +59,8 @@ extension SessionTableViewModel {
                     style: style,
                     target: nil,
                     action: nil,
-                    accessibilityIdentifier: accessibilityIdentifier
+                    accessibilityIdentifier: accessibilityIdentifier,
+                    accessibilityLabel: accessibilityLabel
                 )
             }
 
@@ -62,7 +68,8 @@ extension SessionTableViewModel {
                 barButtonSystemItem: systemItem,
                 target: nil,
                 action: nil,
-                accessibilityIdentifier: accessibilityIdentifier
+                accessibilityIdentifier: accessibilityIdentifier,
+                accessibilityLabel: accessibilityLabel
             )
         }
         
