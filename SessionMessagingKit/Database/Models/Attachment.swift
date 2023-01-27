@@ -7,6 +7,7 @@ import Combine
 import GRDB
 import SignalCoreKit
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 public struct Attachment: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "attachment" }
@@ -1143,7 +1144,7 @@ extension Attachment {
                                 state: .uploaded,
                                 creationTimestamp: (
                                     self.creationTimestamp ??
-                                    Date().timeIntervalSince1970
+                                    (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
                                 ),
                                 downloadUrl: fileId.map { "\(FileServerAPI.server)/file/\($0)" },
                                 encryptionKey: encryptionKey,

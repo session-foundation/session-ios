@@ -42,7 +42,8 @@ public struct Identity: Codable, Identifiable, FetchableRecord, PersistableRecor
 
 public extension Identity {
     static func generate(from seed: Data) throws -> (ed25519KeyPair: KeyPair, x25519KeyPair: KeyPair) {
-        assert(seed.count == 16)
+        guard (seed.count == 16) else { throw GeneralError.invalidSeed }
+
         let padding = Data(repeating: 0, count: 16)
         
         guard

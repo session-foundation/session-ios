@@ -6,6 +6,7 @@ import GRDB
 import Sodium
 import Curve25519Kit
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 extension MessageSender {
     public static var distributingKeyPairs: Atomic<[String: [ClosedGroupKeyPair]]> = Atomic([:])
@@ -32,7 +33,7 @@ extension MessageSender {
         let membersAsData = members.map { Data(hex: $0) }
         let admins = [ userPublicKey ]
         let adminsAsData = admins.map { Data(hex: $0) }
-        let formationTimestamp: TimeInterval = Date().timeIntervalSince1970
+        let formationTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
         let thread: SessionThread
         let memberSendData: [MessageSender.PreparedSendData]
         
@@ -51,7 +52,7 @@ extension MessageSender {
                 threadId: groupPublicKey,
                 publicKey: encryptionKeyPair.publicKey,
                 secretKey: encryptionKeyPair.privateKey,
-                receivedTimestamp: Date().timeIntervalSince1970
+                receivedTimestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
             ).insert(db)
             
             // Create the member objects
@@ -271,7 +272,7 @@ extension MessageSender {
                     body: ClosedGroupControlMessage.Kind
                         .nameChange(name: name)
                         .infoMessage(db, sender: userPublicKey),
-                    timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
+                    timestampMs: SnodeAPI.currentOffsetTimestampMs()
                 ).inserted(db)
                 
                 guard let interactionId: Int64 = interaction.id else { throw StorageError.objectNotSaved }
@@ -380,7 +381,7 @@ extension MessageSender {
             body: ClosedGroupControlMessage.Kind
                 .membersAdded(members: addedMembers.map { Data(hex: $0) })
                 .infoMessage(db, sender: userPublicKey),
-            timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
+            timestampMs: SnodeAPI.currentOffsetTimestampMs()
         ).inserted(db)
         
         guard let interactionId: Int64 = interaction.id else { throw StorageError.objectNotSaved }
@@ -481,7 +482,7 @@ extension MessageSender {
                 body: ClosedGroupControlMessage.Kind
                     .membersRemoved(members: removedMembers.map { Data(hex: $0) })
                     .infoMessage(db, sender: userPublicKey),
-                timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
+                timestampMs: SnodeAPI.currentOffsetTimestampMs()
             ).inserted(db)
             
             guard let newInteractionId: Int64 = interaction.id else { throw StorageError.objectNotSaved }
@@ -554,7 +555,7 @@ extension MessageSender {
                 body: ClosedGroupControlMessage.Kind
                     .memberLeft
                     .infoMessage(db, sender: userPublicKey),
-                timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
+                timestampMs: SnodeAPI.currentOffsetTimestampMs()
             ).inserted(db)
             
             guard let interactionId: Int64 = interaction.id else {

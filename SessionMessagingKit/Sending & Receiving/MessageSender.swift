@@ -145,11 +145,12 @@ public final class MessageSender {
         message: Message,
         to destination: Message.Destination,
         interactionId: Int64?,
+        isSyncMessage: Bool = false,
         using dependencies: SMKDependencies = SMKDependencies()
     ) throws -> PreparedSendData {
         // Common logic for all destinations
         let userPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
-        let messageSendTimestamp: Int64 = Int64(floor(Date().timeIntervalSince1970 * 1000))
+        let messageSendTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs()
         let updatedMessage: Message = message
         
         // Set the message 'sentTimestamp' (Visible messages will already have their sent timestamp set)
@@ -354,7 +355,7 @@ public final class MessageSender {
             recipient: message.recipient!,
             data: base64EncodedData,
             ttl: message.ttl,
-            timestampMs: UInt64(messageSendTimestamp + SnodeAPI.clockOffset.wrappedValue)
+            timestampMs: UInt64(messageSendTimestamp)
         )
         
         return PreparedSendData(
@@ -931,7 +932,7 @@ public final class MessageSender {
                     job: DisappearingMessagesJob.updateNextRunIfNeeded(
                         db,
                         interaction: interaction,
-                        startedAtMs: (Date().timeIntervalSince1970 * 1000)
+                        startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs())
                     )
                 )
             }
@@ -950,7 +951,10 @@ public final class MessageSender {
                 }
             }(),
             message: message,
-            serverExpirationTimestamp: (Date().timeIntervalSince1970 + ControlMessageProcessRecord.defaultExpirationSeconds)
+            serverExpirationTimestamp: (
+                (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000) +
+                ControlMessageProcessRecord.defaultExpirationSeconds
+            )
         )?.insert(db)
         
         // Sync the message if:

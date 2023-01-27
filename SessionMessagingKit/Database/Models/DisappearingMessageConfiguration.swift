@@ -3,6 +3,7 @@
 import Foundation
 import GRDB
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "disappearingMessagesConfiguration" }

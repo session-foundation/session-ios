@@ -7,8 +7,18 @@ import GRDB
 import SessionUtilitiesKit
 
 public protocol OnionRequestAPIType {
-    static func sendOnionRequest(_ payload: Data, to snode: Snode) -> AnyPublisher<(ResponseInfoType, Data?), Error>
-    static func sendOnionRequest(_ request: URLRequest, to server: String, with x25519PublicKey: String) -> AnyPublisher<(ResponseInfoType, Data?), Error>
+    static func sendOnionRequest(_ payload: Data, to snode: Snode, timeout: TimeInterval) -> AnyPublisher<(ResponseInfoType, Data?), Error>
+    static func sendOnionRequest(_ request: URLRequest, to server: String, with x25519PublicKey: String, timeout: TimeInterval) -> AnyPublisher<(ResponseInfoType, Data?), Error>
+}
+
+public extension OnionRequestAPIType {
+    static func sendOnionRequest(_ payload: Data, to snode: Snode) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
+        return sendOnionRequest(payload, to: snode, timeout: HTTP.defaultTimeout)
+    }
+    
+    static func sendOnionRequest(_ request: URLRequest, to server: String, with x25519PublicKey: String) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
+        return sendOnionRequest(request, to: server, with: x25519PublicKey, timeout: HTTP.defaultTimeout)
+    }
 }
 
 /// See the "Onion Requests" section of [The Session Whitepaper](https://arxiv.org/pdf/2002.04609.pdf) for more information.
@@ -409,13 +419,15 @@ public enum OnionRequestAPI: OnionRequestAPIType {
     /// Sends an onion request to `snode`. Builds new paths as needed.
     public static func sendOnionRequest(
         _ payload: Data,
-        to snode: Snode
+        to snode: Snode,
+        timeout: TimeInterval = HTTP.defaultTimeout
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         /// **Note:** Currently the service nodes only support V3 Onion Requests
         return sendOnionRequest(
             with: payload,
             to: OnionRequestAPIDestination.snode(snode),
-            version: .v3
+            version: .v3,
+            timeout: timeout
         )
     }
     
@@ -423,7 +435,8 @@ public enum OnionRequestAPI: OnionRequestAPIType {
     public static func sendOnionRequest(
         _ request: URLRequest,
         to server: String,
-        with x25519PublicKey: String
+        with x25519PublicKey: String,
+        timeout: TimeInterval = HTTP.defaultTimeout
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         guard let url = request.url, let host = request.url?.host else {
             return Fail(error: OnionRequestAPIError.invalidURL)
@@ -448,7 +461,8 @@ public enum OnionRequestAPI: OnionRequestAPIType {
                     scheme: scheme,
                     port: port
                 ),
-                version: .v4
+                version: .v4,
+                timeout: timeout
             )
             .handleEvents(
                 receiveCompletion: { result in
@@ -465,7 +479,8 @@ public enum OnionRequestAPI: OnionRequestAPIType {
     public static func sendOnionRequest(
         with payload: Data,
         to destination: OnionRequestAPIDestination,
-        version: OnionRequestAPIVersion
+        version: OnionRequestAPIVersion,
+        timeout: TimeInterval = HTTP.defaultTimeout
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         var guardSnode: Snode?
         
@@ -486,7 +501,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
                 
                 // TODO: Replace 'json' with a codable typed
                 return encode(ciphertext: onion, json: parameters)
-                    .flatMap { body in HTTP.execute(.post, url, body: body) }
+                    .flatMap { body in HTTP.execute(.post, url, body: body, timeout: timeout) }
                     .flatMap { responseData in
                         handleResponse(
                             responseData: responseData,
@@ -686,7 +701,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
                         
                         if let timestamp = body["t"] as? Int64 {
                             let offset = timestamp - Int64(floor(Date().timeIntervalSince1970 * 1000))
-                            SnodeAPI.clockOffset.mutate { $0 = offset }
+                            SnodeAPI.clockOffsetMs.mutate { $0 = offset }
                         }
                         
                         guard 200...299 ~= statusCode else {

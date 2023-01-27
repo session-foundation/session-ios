@@ -162,7 +162,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                 authorId: getUserHexEncodedPublicKey(db),
                 variant: .infoDisappearingMessagesUpdate,
                 body: config.messageInfoString(with: nil),
-                timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
+                timestampMs: SnodeAPI.currentOffsetTimestampMs()
             )
             .inserted(db)
             

@@ -122,6 +122,7 @@ public indirect enum ThemeValue: Hashable {
     case messageBubble_outgoingText
     case messageBubble_incomingText
     case messageBubble_overlay
+    case messageBubble_deliveryStatus
     
     // MenuButton
     case menuButton_background

@@ -5,6 +5,7 @@ import Combine
 import GRDB
 import WebRTC
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 public protocol WebRTCSessionDelegate: AnyObject {
     var videoCapturer: RTCVideoCapturer { get }
@@ -165,7 +166,6 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         return Future<Void, Error> { [weak self] resolver in
             self?.peerConnection?.offer(for: mediaConstraints) { sdp, error in
                 if let error = error {
-                    resolver(Result.failure(error))
                     return
                 }
                 
@@ -190,7 +190,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                                     uuid: uuid,
                                     kind: .offer,
                                     sdps: [ sdp.sdp ],
-                                    sentTimestampMs: UInt64(floor(Date().timeIntervalSince1970 * 1000))
+                                    sentTimestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs())
                                 ),
                                 to: try Message.Destination.from(db, thread: thread),
                                 interactionId: nil

@@ -15,15 +15,8 @@ public enum FileServerAPI {
     public static let serverPublicKey = "da21e1d886c6fbaea313f75298bd64aab03a97ce985b46bb2dad9f2089c8ee59"
     public static let maxFileSize = (10 * 1024 * 1024) // 10 MB
     
-    /// The file server has a file size limit of `maxFileSize`, which the Service Nodes try to enforce as well. However, the limit
-    /// applied by the Service Nodes is on the **HTTP request** and not the actual file size. Because the file server expects the
-    /// file data to be base 64 encoded, the size of the HTTP request for a given file will be at least `ceil(n / 3) * 4` bytes,
-    /// where n is the file size in bytes. This is the minimum size because there might also be other parameters in the request. On
-    /// average the multiplier appears to be about 1.5, so when checking whether the file will exceed the file size limit when uploading
-    /// a file we just divide the size of the file by this number. The alternative would be to actually check the size of the HTTP request
-    /// but that's only possible after proof of work has been calculated and the onion request encryption has happened, which takes
-    /// several seconds.
-    public static let fileSizeORMultiplier: Double = 2
+    /// Standard timeout is 10 seconds which is a little too short fir file upload/download with slightly larger files
+    public static let fileTimeout: TimeInterval = 30
     
     // MARK: - File Storage
     
@@ -84,7 +77,7 @@ public enum FileServerAPI {
                 .eraseToAnyPublisher()
         }
         
-        return OnionRequestAPI.sendOnionRequest(urlRequest, to: request.server, with: serverPublicKey)
+        return OnionRequestAPI.sendOnionRequest(urlRequest, to: request.server, with: serverPublicKey, timeout: FileServerAPI.fileTimeout)
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .flatMap { _, response -> AnyPublisher<Data, Error> in
                 guard let response: Data = response else {

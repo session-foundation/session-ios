@@ -9,6 +9,7 @@
 #import <SignalCoreKit/OWSAsserts.h>
 #import <SignalCoreKit/NSDate+OWS.h>
 #import <SessionUtilitiesKit/NSTimer+Proxying.h>
+#import <SessionSnodeKit/SessionSnodeKit.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -76,7 +77,7 @@ const CGFloat kDisappearingMessageIconSize = 12.f;
         return;
     }
 
-    uint64_t nowTimestamp = [NSDate ows_millisecondTimeStamp];
+    uint64_t nowTimestamp = [SNSnodeAPI currentOffsetTimestampMs];
     CGFloat secondsLeft
         = (self.expirationTimestamp > nowTimestamp ? (self.expirationTimestamp - nowTimestamp) / 1000.f : 0.f);
     CGFloat progress = 0.f;

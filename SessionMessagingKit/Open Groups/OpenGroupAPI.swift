@@ -932,6 +932,7 @@ public enum OpenGroupAPI {
                     ],
                     body: bytes
                 ),
+                timeout: FileServerAPI.fileTimeout,
                 using: dependencies
             )
             .decoded(as: FileUploadResponse.self, using: dependencies)
@@ -953,6 +954,7 @@ public enum OpenGroupAPI {
                     server: server,
                     endpoint: .roomFileIndividual(roomToken, fileId)
                 ),
+                timeout: FileServerAPI.fileTimeout,
                 using: dependencies
             )
             .flatMap { responseInfo, maybeData -> AnyPublisher<(ResponseInfoType, Data), Error> in
@@ -1489,6 +1491,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         request: Request<T, Endpoint>,
         forceBlinded: Bool = false,
+        timeout: TimeInterval = HTTP.defaultTimeout,
         using dependencies: SMKDependencies = SMKDependencies(
             queue: OpenGroupAPI.workQueue
         )
@@ -1524,7 +1527,7 @@ public enum OpenGroupAPI {
         return Just(())
             .setFailureType(to: Error.self)
             .subscribe(on: dependencies.queue)
-            .flatMap { dependencies.onionApi.sendOnionRequest(signedRequest, to: request.server, with: publicKey) }
+            .flatMap { dependencies.onionApi.sendOnionRequest(signedRequest, to: request.server, with: publicKey, timeout: timeout) }
             .eraseToAnyPublisher()
     }
 }

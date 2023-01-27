@@ -104,7 +104,6 @@ public final class FullConversationCell: UITableViewCell {
         let result: UIImageView = UIImageView()
         result.clipsToBounds = true
         result.contentMode = .scaleAspectFit
-        result.layer.cornerRadius = (FullConversationCell.statusIndicatorSize / 2)
         
         return result
     }()

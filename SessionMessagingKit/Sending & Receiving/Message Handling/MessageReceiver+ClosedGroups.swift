@@ -5,6 +5,7 @@ import Combine
 import GRDB
 import Sodium
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 extension MessageReceiver {
     public static func handleClosedGroupControlMessage(_ db: Database, _ message: ClosedGroupControlMessage) throws {
@@ -136,7 +137,7 @@ extension MessageReceiver {
             threadId: groupPublicKey,
             publicKey: Data(encryptionKeyPair.publicKey),
             secretKey: Data(encryptionKeyPair.secretKey),
-            receivedTimestamp: Date().timeIntervalSince1970
+            receivedTimestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
         ).insert(db)
         
         // Start polling
@@ -197,7 +198,7 @@ extension MessageReceiver {
                 threadId: groupPublicKey,
                 publicKey: proto.publicKey.removingIdPrefixIfNeeded(),
                 secretKey: proto.privateKey,
-                receivedTimestamp: Date().timeIntervalSince1970
+                receivedTimestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
             ).insert(db)
         }
         catch {
@@ -232,7 +233,7 @@ extension MessageReceiver {
                     .infoMessage(db, sender: sender),
                 timestampMs: (
                     message.sentTimestamp.map { Int64($0) } ??
-                    Int64(floor(Date().timeIntervalSince1970 * 1000))
+                    SnodeAPI.currentOffsetTimestampMs()
                 )
             ).inserted(db)
         }
@@ -308,7 +309,7 @@ extension MessageReceiver {
                     .infoMessage(db, sender: sender),
                 timestampMs: (
                     message.sentTimestamp.map { Int64($0) } ??
-                    Int64(floor(Date().timeIntervalSince1970 * 1000))
+                    SnodeAPI.currentOffsetTimestampMs()
                 )
             ).inserted(db)
         }
@@ -384,7 +385,7 @@ extension MessageReceiver {
                     .infoMessage(db, sender: sender),
                 timestampMs: (
                     message.sentTimestamp.map { Int64($0) } ??
-                    Int64(floor(Date().timeIntervalSince1970 * 1000))
+                    SnodeAPI.currentOffsetTimestampMs()
                 )
             ).inserted(db)
         }
@@ -462,7 +463,7 @@ extension MessageReceiver {
                     .infoMessage(db, sender: sender),
                 timestampMs: (
                     message.sentTimestamp.map { Int64($0) } ??
-                    Int64(floor(Date().timeIntervalSince1970 * 1000))
+                    SnodeAPI.currentOffsetTimestampMs()
                 )
             ).inserted(db)
         }

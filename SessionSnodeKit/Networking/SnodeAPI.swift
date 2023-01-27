@@ -24,7 +24,7 @@ public final class SnodeAPI {
     /// user's clock is incorrect.
     ///
     /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
-    public static var clockOffset: Atomic<Int64> = Atomic(0)
+    public static var clockOffsetMs: Atomic<Int64> = Atomic(0)
     /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
     public static var swarmCache: Atomic<[String: Set<Snode>]> = Atomic([:])
     
@@ -51,10 +51,10 @@ public final class SnodeAPI {
     private static let snodeFailureThreshold: Int = 3
     private static let minSnodePoolCount: Int = 12
     
-    private static func offsetTimestampMsNow() -> UInt64 {
-        return UInt64(
+    public static func currentOffsetTimestampMs() -> Int64 {
+        return Int64(
             Int64(floor(Date().timeIntervalSince1970 * 1000)) +
-            SnodeAPI.clockOffset.wrappedValue
+            SnodeAPI.clockOffsetMs.wrappedValue
         )
     }
 
@@ -388,7 +388,7 @@ public final class SnodeAPI {
                                         namespace: namespace,
                                         pubkey: targetPublicKey,
                                         subkey: nil,
-                                        timestampMs: SnodeAPI.offsetTimestampMsNow(),
+                                        timestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs()),
                                         ed25519PublicKey: keyPair.publicKey,
                                         ed25519SecretKey: keyPair.secretKey
                                     )
@@ -494,7 +494,7 @@ public final class SnodeAPI {
                             message: message,
                             namespace: namespace,
                             subkey: nil,
-                            timestampMs: SnodeAPI.offsetTimestampMsNow(),
+                            timestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs()),
                             ed25519PublicKey: userED25519KeyPair.publicKey,
                             ed25519SecretKey: userED25519KeyPair.secretKey
                         )
@@ -569,7 +569,7 @@ public final class SnodeAPI {
                             message: message,
                             namespace: namespace,
                             subkey: nil,    // TODO: Need to get this
-                            timestampMs: SnodeAPI.offsetTimestampMsNow(),
+                            timestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs()),
                             ed25519PublicKey: userED25519KeyPair.publicKey,
                             ed25519SecretKey: userED25519KeyPair.secretKey
                         )
@@ -1299,5 +1299,13 @@ public final class SnodeAPI {
         }
         
         return nil
+    }
+}
+
+@objc(SNSnodeAPI)
+public final class SNSnodeAPI: NSObject {
+    @objc(currentOffsetTimestampMs)
+    public static func currentOffsetTimestampMs() -> UInt64 {
+        return UInt64(SnodeAPI.currentOffsetTimestampMs())
     }
 }
