@@ -55,7 +55,28 @@ extension MediaInfoVC {
         }
 
         required init?(coder: NSCoder) {
-            preconditionFailure("Use init(attachment:) instead.")
+            guard let attachment = coder.decodeObject(forKey: "attachment") as? Attachment else {
+                print("No attachment")
+                return nil
+            }
+            guard let isOutgoing = coder.decodeObject(forKey: "isOutgoing") as? Bool else {
+                print("No isOutgoing")
+                return nil
+            }
+            
+            self.attachment = attachment
+            self.isOutgoing = isOutgoing
+            
+            super.init(coder: coder)
+            self.accessibilityLabel = "Media info"
+            setUpViewHierarchy()
+        }
+        
+        override func encode(with coder: NSCoder) {
+            super.encode(with: coder)
+//            coder.encode(self.attachment, forKey: "attachment")
+            coder.encode(self.isOutgoing, forKey: "isOutgoing")
+            
         }
 
         private func setUpViewHierarchy() {

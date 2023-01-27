@@ -3,8 +3,9 @@
 import Foundation
 
 final class SessionCarouselView: UIView, UIScrollViewDelegate {
-    private let slices: [UIView]
+    private let slicesForLoop: [UIView]
     private let sliceSize: CGSize
+    private let sliceCount: Int
     
     // MARK: - Settings
     public var showPageControl: Bool = true {
@@ -21,7 +22,7 @@ final class SessionCarouselView: UIView, UIScrollViewDelegate {
         result.showsHorizontalScrollIndicator = false
         result.showsVerticalScrollIndicator = false
         result.contentSize = CGSize(
-            width: self.sliceSize.width * CGFloat(self.slices.count),
+            width: self.sliceSize.width * CGFloat(self.slicesForLoop.count),
             height: self.sliceSize.height
         )
         
@@ -30,14 +31,22 @@ final class SessionCarouselView: UIView, UIScrollViewDelegate {
     
     private lazy var pageControl: UIPageControl = {
         let result: UIPageControl = UIPageControl()
-        result.numberOfPages = self.slices.count
+        result.numberOfPages = self.sliceCount
+        result.currentPage = 0
         
         return result
     }()
     
     // MARK: - Lifecycle
     init(slices: [UIView], sliceSize: CGSize) {
-        self.slices = slices
+        self.sliceCount = slices.count
+        if self.sliceCount > 1, let copyOfFirstSlice: UIView = slices.first?.copyView(), let copyOfLastSlice: UIView = slices.last?.copyView() {
+            self.slicesForLoop = [copyOfLastSlice]
+                .appending(contentsOf: slices)
+                .appending(copyOfFirstSlice)
+        } else {
+            self.slicesForLoop = slices
+        }
         self.sliceSize = sliceSize
         
         super.init(frame: CGRect.zero)
@@ -53,9 +62,9 @@ final class SessionCarouselView: UIView, UIScrollViewDelegate {
     }
 
     private func setUpViewHierarchy() {
-        let stackView: UIStackView = UIStackView(arrangedSubviews: self.slices)
+        let stackView: UIStackView = UIStackView(arrangedSubviews: self.slicesForLoop)
         stackView.axis = .horizontal
-        stackView.set(.width, to: self.sliceSize.width * CGFloat(self.slices.count))
+        stackView.set(.width, to: self.sliceSize.width * CGFloat(self.slicesForLoop.count))
         stackView.set(.height, to: self.sliceSize.height)
         
         addSubview(self.scrollView)
@@ -63,6 +72,13 @@ final class SessionCarouselView: UIView, UIScrollViewDelegate {
         scrollView.set(.width, to: self.sliceSize.width)
         scrollView.set(.height, to: self.sliceSize.height)
         scrollView.addSubview(stackView)
+        scrollView.setContentOffset(
+            CGPoint(
+                x: Int(self.sliceSize.width) * (self.sliceCount > 1 ? 1 : 0),
+                y: 0
+            ),
+            animated: false
+        )
         
         addSubview(self.pageControl)
         self.pageControl.center(.horizontal, in: self)
@@ -71,6 +87,43 @@ final class SessionCarouselView: UIView, UIScrollViewDelegate {
     
     // MARK: - UIScrollViewDelegate
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        
+        let pageIndex: Int = {
+            let maybeCurrentPageIndex: Int = Int(round(scrollView.contentOffset.x/sliceSize.width))
+            if self.sliceCount > 1 {
+                if maybeCurrentPageIndex == 0 {
+                    return pageControl.numberOfPages - 1
+                }
+                if maybeCurrentPageIndex == self.slicesForLoop.count - 1 {
+                    return 0
+                }
+                return maybeCurrentPageIndex - 1
+            }
+            return maybeCurrentPageIndex
+        }()
+
+        pageControl.currentPage = pageIndex
+    }
+
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        if pageControl.currentPage == 0 {
+            scrollView.setContentOffset(
+                CGPoint(
+                    x: Int(self.sliceSize.width) * 1,
+                    y: 0
+                ),
+                animated: false
+            )
+        }
+
+        if pageControl.currentPage == pageControl.numberOfPages - 1 {
+            let realLastIndex: Int = self.slicesForLoop.count - 2
+            scrollView.setContentOffset(
+                CGPoint(
+                    x: Int(self.sliceSize.width) * realLastIndex,
+                    y: 0
+                ),
+                animated: false
+            )
+        }
     }
 }
