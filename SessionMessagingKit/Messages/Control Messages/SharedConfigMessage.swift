@@ -22,11 +22,15 @@ public final class SharedConfigMessage: ControlMessage {
     public enum Kind: CustomStringConvertible, Codable {
         case userProfile
         case contacts
+        case convoInfoVolatile
+        case groups
 
         public var description: String {
             switch self {
                 case .userProfile: return "userProfile"
                 case .contacts: return "contacts"
+                case .convoInfoVolatile: return "convoInfoVolatile"
+                case .groups: return "groups"
             }
         }
     }
@@ -77,6 +81,8 @@ public final class SharedConfigMessage: ControlMessage {
                 switch sharedConfigMessage.kind {
                     case .userProfile: return .userProfile
                     case .contacts: return .contacts
+                    case .convoInfoVolatile: return .convoInfoVolatile
+                    case .groups: return .groups
                 }
             }(),
             seqNo: sharedConfigMessage.seqno,
@@ -91,6 +97,8 @@ public final class SharedConfigMessage: ControlMessage {
                     switch self.kind {
                         case .userProfile: return .userProfile
                         case .contacts: return .contacts
+                        case .convoInfoVolatile: return .convoInfoVolatile
+                        case .groups: return .groups
                     }
                 }(),
                 seqno: self.seqNo,
@@ -126,6 +134,8 @@ public extension SharedConfigMessage.Kind {
         switch self {
             case .userProfile: return .userProfile
             case .contacts: return .contacts
+            case .convoInfoVolatile: return .convoInfoVolatile
+            case .groups: return .groups
         }
     }
 }

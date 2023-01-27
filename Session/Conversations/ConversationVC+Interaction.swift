@@ -1108,6 +1108,7 @@ extension ConversationVC:
         guard
             cellViewModel.reactionInfo?.isEmpty == false &&
             (
+                self.viewModel.threadData.threadVariant == .legacyClosedGroup ||
                 self.viewModel.threadData.threadVariant == .closedGroup ||
                 self.viewModel.threadData.threadVariant == .openGroup
             ),
@@ -1797,7 +1798,7 @@ extension ConversationVC:
                     self?.showInputAccessoryView()
                 }
                 
-            case .contact, .closedGroup:
+            case .contact, .legacyClosedGroup, .closedGroup:
                 let serverHash: String? = Storage.shared.read { db -> String? in
                     try Interaction
                         .select(.serverHash)
@@ -1856,7 +1857,7 @@ extension ConversationVC:
                 })
                 
                 actionSheet.addAction(UIAlertAction(
-                    title: (cellViewModel.threadVariant == .closedGroup ?
+                    title: (cellViewModel.threadVariant == .legacyClosedGroup || cellViewModel.threadVariant == .closedGroup ?
                         "delete_message_for_everyone".localized() :
                         String(format: "delete_message_for_me_and_recipient".localized(), threadName)
                     ),

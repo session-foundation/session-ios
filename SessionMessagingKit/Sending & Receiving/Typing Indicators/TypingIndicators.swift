@@ -38,7 +38,11 @@ public class TypingIndicators {
             }
             
             // Don't send typing indicators in group threads
-            guard threadVariant != .closedGroup && threadVariant != .openGroup else { return nil }
+            guard
+                threadVariant != .legacyClosedGroup &&
+                threadVariant != .closedGroup &&
+                threadVariant != .openGroup
+            else { return nil }
             
             self.threadId = threadId
             self.direction = direction

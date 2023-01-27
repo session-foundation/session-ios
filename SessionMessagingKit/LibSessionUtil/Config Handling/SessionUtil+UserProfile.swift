@@ -11,12 +11,12 @@ internal extension SessionUtil {
     static func handleUserProfileUpdate(
         _ db: Database,
         in atomicConf: Atomic<UnsafeMutablePointer<config_object>?>,
-        needsDump: Bool,
+        mergeResult: ConfResult,
         latestConfigUpdateSentTimestamp: TimeInterval
-    ) throws {
+    ) throws -> ConfResult {
         typealias ProfileData = (profileName: String, profilePictureUrl: String?, profilePictureKey: Data?)
         
-        guard needsDump else { return }
+        guard mergeResult.needsDump else { return mergeResult }
         guard atomicConf.wrappedValue != nil else { throw SessionUtilError.nilConfigObject }
         
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
@@ -52,7 +52,7 @@ internal extension SessionUtil {
         }
         
         // Only save the data in the database if it's valid
-        guard let profileData: ProfileData = maybeProfileData else { return }
+        guard let profileData: ProfileData = maybeProfileData else { return mergeResult }
         
         // Handle user profile changes
         try ProfileManager.updateProfileIfNeeded(
@@ -90,6 +90,8 @@ internal extension SessionUtil {
                     Contact.Columns.didApproveMe.set(to: true)
                 )
         }
+        
+        return mergeResult
     }
     
     // MARK: - Outgoing Changes

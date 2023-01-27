@@ -168,7 +168,7 @@ extension MessageReceiver {
             // past two weeks)
             if isInitialSync {
                 let existingClosedGroupsIds: [String] = (try? SessionThread
-                    .filter(SessionThread.Columns.variant == SessionThread.Variant.closedGroup)
+                    .filter(SessionThread.Columns.variant == SessionThread.Variant.legacyClosedGroup)
                     .fetchAll(db))
                     .defaulting(to: [])
                     .map { $0.id }

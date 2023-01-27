@@ -504,7 +504,7 @@ public final class OpenGroupManager {
             
             /// Start downloading the room image (if we don't have one or it's been updated)
             if
-                let imageId: String = pollInfo.details?.imageId,
+                let imageId: String = (pollInfo.details?.imageId ?? openGroup.imageId),
                 (
                     openGroup.imageData == nil ||
                     openGroup.imageId != imageId
@@ -883,12 +883,11 @@ public final class OpenGroupManager {
         
         return dependencies.storage
             .read { db in
-                let isDirectModOrAdmin: Bool = (try? GroupMember
+                let isDirectModOrAdmin: Bool = GroupMember
                     .filter(GroupMember.Columns.groupId == groupId)
                     .filter(GroupMember.Columns.profileId == publicKey)
                     .filter(targetRoles.contains(GroupMember.Columns.role))
-                    .isNotEmpty(db))
-                    .defaulting(to: false)
+                    .isNotEmpty(db)
                 
                 // If the publicKey provided matches a mod or admin directly then just return immediately
                 if isDirectModOrAdmin { return true }
@@ -942,12 +941,11 @@ public final class OpenGroupManager {
                             SessionId(.blinded, publicKey: blindedKeyPair.publicKey).hexString
                         ])
                         
-                        return (try? GroupMember
+                        return GroupMember
                             .filter(GroupMember.Columns.groupId == groupId)
                             .filter(possibleKeys.contains(GroupMember.Columns.profileId))
                             .filter(targetRoles.contains(GroupMember.Columns.role))
-                            .isNotEmpty(db))
-                            .defaulting(to: false)
+                            .isNotEmpty(db)
                 }
             }
             .defaulting(to: false)

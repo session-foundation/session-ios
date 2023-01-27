@@ -85,6 +85,10 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         
         // MARK: - Convenience
         
+        public static let variantsToIncrementUnreadCount: [Variant] = [
+            .standardIncoming, .infoCall
+        ]
+        
         public var isInfoMessage: Bool {
             switch self {
                 case .infoClosedGroupCreated, .infoClosedGroupUpdated, .infoClosedGroupCurrentUserLeft,
@@ -349,7 +353,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
                             state: .sending
                         ).insert(db)
                         
-                    case .closedGroup:
+                    case .legacyClosedGroup, .closedGroup:
                         let closedGroupMemberIds: Set<String> = (try? GroupMember
                             .select(.profileId)
                             .filter(GroupMember.Columns.groupId == threadId)
@@ -445,13 +449,28 @@ public extension Interaction {
         _ db: Database,
         interactionId: Int64?,
         threadId: String,
+        threadVariant: SessionThread.Variant,
         includingOlder: Bool,
         trySendReadReceipt: Bool
     ) throws {
         guard let interactionId: Int64 = interactionId else { return }
 
         // Once all of the below is done schedule the jobs
-        func scheduleJobs(interactionIds: [Int64]) {
+        func scheduleJobs(
+            _ db: Database,
+            threadId: String,
+            threadVariant: SessionThread.Variant,
+            interactionIds: [Int64],
+            lastReadTimestampMs: Int64
+        ) throws {
+            // Update the last read timestamp if needed
+            try SessionUtil.syncThreadLastReadIfNeeded(
+                db,
+                threadId: threadId,
+                threadVariant: threadVariant,
+                lastReadTimestampMs: lastReadTimestampMs
+            )
+            
             // Add the 'DisappearingMessagesJob' if needed - this will update any expiring
             // messages `expiresStartedAtMs` values
             JobRunner.upsert(
@@ -510,13 +529,22 @@ public extension Interaction {
         guard includingOlder, let interactionInfo: InteractionReadInfo = maybeInteractionInfo else {
             // Only mark as read and trigger the subsequent jobs if the interaction is
             // actually not read (no point updating and triggering db changes otherwise)
-            guard maybeInteractionInfo?.wasRead == false else { return }
+            guard
+                maybeInteractionInfo?.wasRead == false,
+                let timestampMs: Int64 = maybeInteractionInfo?.timestampMs
+            else { return }
             
             _ = try Interaction
                 .filter(id: interactionId)
                 .updateAll(db, Columns.wasRead.set(to: true))
             
-            scheduleJobs(interactionIds: [interactionId])
+            try scheduleJobs(
+                db,
+                threadId: threadId,
+                threadVariant: threadVariant,
+                interactionIds: [interactionId],
+                lastReadTimestampMs: timestampMs
+            )
             return
         }
         
@@ -533,7 +561,13 @@ public extension Interaction {
         // for this interaction (need to ensure the disapeparing messages run for sync'ed
         // outgoing messages which will always have 'wasRead' as false)
         guard !interactionIdsToMarkAsRead.isEmpty else {
-            scheduleJobs(interactionIds: [interactionId])
+            try scheduleJobs(
+                db,
+                threadId: threadId,
+                threadVariant: threadVariant,
+                interactionIds: [interactionId],
+                lastReadTimestampMs: interactionInfo.timestampMs
+            )
             return
         }
         
@@ -541,13 +575,19 @@ public extension Interaction {
         try interactionQuery.updateAll(db, Columns.wasRead.set(to: true))
         
         // Retrieve the interaction ids we want to update
-        scheduleJobs(interactionIds: interactionIdsToMarkAsRead)
+        try scheduleJobs(
+            db,
+            threadId: threadId,
+            threadVariant: threadVariant,
+            interactionIds: interactionIdsToMarkAsRead,
+            lastReadTimestampMs: interactionInfo.timestampMs
+        )
     }
     
     /// This method flags sent messages as read for the specified recipients
     ///
     /// **Note:** This method won't update the 'wasRead' flag (it will be updated via the above method)
-    static func markAsRead(_ db: Database, recipientId: String, timestampMsValues: [Double], readTimestampMs: Double) throws {
+    static func markAsRecipientRead(_ db: Database, recipientId: String, timestampMsValues: [Double], readTimestampMs: Double) throws {
         guard db[.areReadReceiptsEnabled] == true else { return }
         
         try RecipientState

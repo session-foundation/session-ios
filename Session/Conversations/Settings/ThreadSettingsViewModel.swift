@@ -180,7 +180,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
     override var title: String {
         switch threadVariant {
             case .contact: return "vc_settings_title".localized()
-            case .closedGroup, .openGroup: return "vc_group_settings_title".localized()
+            case .legacyClosedGroup, .closedGroup, .openGroup: return "vc_group_settings_title".localized()
         }
     }
     
@@ -215,7 +215,10 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                 .fetchOne(db, id: threadId)
                 .defaulting(to: DisappearingMessagesConfiguration.defaultWith(threadId))
             let currentUserIsClosedGroupMember: Bool = (
-                threadVariant == .closedGroup &&
+                (
+                    threadVariant == .legacyClosedGroup ||
+                    threadVariant == .closedGroup
+                ) &&
                 threadViewModel.currentUserIsClosedGroupMember == true
             )
             let editIcon: UIImage? = UIImage(named: "icon_edit")
@@ -304,7 +307,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                 SectionModel(
                     model: .content,
                     elements: [
-                        (threadVariant == .closedGroup ? nil :
+                        (threadVariant == .legacyClosedGroup || threadVariant == .closedGroup ? nil :
                             SessionCell.Info(
                                 id: .copyThreadId,
                                 leftAccessory: .icon(
@@ -321,7 +324,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 ),
                                 onTap: {
                                     switch threadVariant {
-                                        case .contact, .closedGroup:
+                                        case .contact, .legacyClosedGroup, .closedGroup:
                                             UIPasteboard.general.string = threadId
 
                                         case .openGroup:
@@ -534,7 +537,10 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     .boolValue(threadViewModel.threadOnlyNotifyForMentions == true)
                                 ),
                                 isEnabled: (
-                                    threadViewModel.threadVariant != .closedGroup ||
+                                    (
+                                        threadViewModel.threadVariant != .legacyClosedGroup &&
+                                        threadViewModel.threadVariant != .closedGroup
+                                    ) ||
                                     currentUserIsClosedGroupMember
                                 ),
                                 accessibility: SessionCell.Accessibility(
@@ -569,7 +575,10 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     .boolValue(threadViewModel.threadMutedUntilTimestamp != nil)
                                 ),
                                 isEnabled: (
-                                    threadViewModel.threadVariant != .closedGroup ||
+                                    (
+                                        threadViewModel.threadVariant != .legacyClosedGroup &&
+                                        threadViewModel.threadVariant != .closedGroup
+                                    ) ||
                                     currentUserIsClosedGroupMember
                                 ),
                                 accessibility: SessionCell.Accessibility(

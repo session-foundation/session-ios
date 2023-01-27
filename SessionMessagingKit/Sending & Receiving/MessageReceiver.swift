@@ -289,7 +289,7 @@ public enum MessageReceiver {
             // Note: We don't want to create a thread for a closed group if it doesn't exist
             if (try? SessionThread.exists(db, id: groupPublicKey)) != true { return nil }
             
-            return (groupPublicKey, .closedGroup)
+            return (groupPublicKey, .legacyClosedGroup)
         }
         
         // Extract the 'syncTarget' value if there is one

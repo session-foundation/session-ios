@@ -305,7 +305,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 cellViewModel.isOnlyMessageInCluster
             )
         )
-        let isGroupThread: Bool = (cellViewModel.threadVariant == .openGroup || cellViewModel.threadVariant == .closedGroup)
+        let isGroupThread: Bool = (
+            cellViewModel.threadVariant == .openGroup ||
+            cellViewModel.threadVariant == .legacyClosedGroup ||
+            cellViewModel.threadVariant == .closedGroup
+        )
         
         // Profile picture view
         profilePictureViewLeadingConstraint.constant = (isGroupThread ? VisibleMessageCell.groupThreadHSpacing : 0)
@@ -706,6 +710,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             maxWidth: maxWidth,
             showingAllReactions: showExpandedReactions,
             showNumbers: (
+                cellViewModel.threadVariant == .legacyClosedGroup ||
                 cellViewModel.threadVariant == .closedGroup ||
                 cellViewModel.threadVariant == .openGroup
             )
@@ -1066,6 +1071,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             case .standardIncoming, .standardIncomingDeleted:
                 let isGroupThread = (
                     cellViewModel.threadVariant == .openGroup ||
+                    cellViewModel.threadVariant == .legacyClosedGroup ||
                     cellViewModel.threadVariant == .closedGroup
                 )
                 let leftGutterSize = (isGroupThread ? leftGutterSize : contactThreadHSpacing)

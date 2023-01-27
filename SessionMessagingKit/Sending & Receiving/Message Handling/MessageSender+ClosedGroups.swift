@@ -40,7 +40,7 @@ extension MessageSender {
         do {
             // Create the relevant objects in the database
             thread = try SessionThread
-                .fetchOrCreate(db, id: groupPublicKey, variant: .closedGroup)
+                .fetchOrCreate(db, id: groupPublicKey, variant: .legacyClosedGroup)
             try ClosedGroup(
                 threadId: groupPublicKey,
                 name: name,
@@ -81,7 +81,7 @@ extension MessageSender {
                 threadId: thread.id,
                 authorId: userPublicKey,
                 variant: .infoClosedGroupCreated,
-                timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
+                timestampMs: SnodeAPI.currentOffsetTimestampMs()
             ).inserted(db)
             
             memberSendData = try members
@@ -173,7 +173,7 @@ extension MessageSender {
                 threadId: closedGroup.threadId,
                 publicKey: legacyNewKeyPair.publicKey,
                 secretKey: legacyNewKeyPair.privateKey,
-                receivedTimestamp: Date().timeIntervalSince1970
+                receivedTimestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
             )
             
             // Distribute it

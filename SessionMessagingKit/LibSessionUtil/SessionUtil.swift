@@ -17,6 +17,8 @@ public enum SessionUtil {
         let needsDump: Bool
         let messageHashes: [String]
         let latestSentTimestamp: TimeInterval
+        
+        var result: ConfResult { ConfResult(needsPush: needsPush, needsDump: needsDump) }
     }
     
     public struct OutgoingConfResult {
@@ -46,7 +48,11 @@ public enum SessionUtil {
     public static var needsSync: Bool {
         return configStore
             .wrappedValue
-            .contains { _, atomicConf in config_needs_push(atomicConf.wrappedValue) }
+            .contains { _, atomicConf in
+                guard atomicConf.wrappedValue != nil else { return false }
+                
+                return config_needs_push(atomicConf.wrappedValue)
+            }
     }
     
     // MARK: - Loading
@@ -121,9 +127,12 @@ public enum SessionUtil {
             switch variant {
                 case .userProfile:
                     return user_profile_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), error)
-                    
+
                 case .contacts:
                     return contacts_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), error)
+
+                case .convoInfoVolatile:
+                    return convo_info_volatile_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), error)
             }
         }()
         
@@ -229,7 +238,10 @@ public enum SessionUtil {
                 )
                 
                 // Check if the config needs to be pushed
-                guard config_needs_push(atomicConf.wrappedValue) else { return nil }
+                guard
+                    atomicConf.wrappedValue != nil &&
+                    config_needs_push(atomicConf.wrappedValue)
+                else { return nil }
                 
                 var toPush: UnsafeMutablePointer<UInt8>? = nil
                 var toPushLen: Int = 0
@@ -266,6 +278,8 @@ public enum SessionUtil {
             Atomic(nil)
         )
         
+        guard atomicConf.wrappedValue != nil else { return false }
+        
         // Mark the config as pushed
         config_confirm_pushed(atomicConf.wrappedValue, message.seqNo)
         
@@ -289,7 +303,7 @@ public enum SessionUtil {
             .grouped(by: \.kind)
         
         // Merge the config messages into the current state
-        let results: [ConfigDump.Variant: IncomingConfResult] = groupedMessages
+        let mergeResults: [ConfigDump.Variant: IncomingConfResult] = groupedMessages
             .reduce(into: [:]) { result, next in
                 let key: ConfigKey = ConfigKey(variant: next.key.configDumpVariant, publicKey: publicKey)
                 let atomicConf: Atomic<UnsafeMutablePointer<config_object>?> = (
@@ -327,28 +341,43 @@ public enum SessionUtil {
             }
         
         // Process the results from the merging
-        try results.forEach { variant, result in
+        let finalResults: [ConfResult] = try mergeResults.map { variant, mergeResult in
             let key: ConfigKey = ConfigKey(variant: variant, publicKey: publicKey)
             let atomicConf: Atomic<UnsafeMutablePointer<config_object>?> = (
                 SessionUtil.configStore.wrappedValue[key] ??
                 Atomic(nil)
             )
+            var finalResult: ConfResult = mergeResult.result
             
             // Apply the updated states to the database
             switch variant {
                 case .userProfile:
-                    try SessionUtil.handleUserProfileUpdate(
+                    finalResult = try SessionUtil.handleUserProfileUpdate(
                         db,
                         in: atomicConf,
-                        needsDump: result.needsDump,
-                        latestConfigUpdateSentTimestamp: result.latestSentTimestamp
+                        mergeResult: mergeResult.result,
+                        latestConfigUpdateSentTimestamp: mergeResult.latestSentTimestamp
                     )
                     
                 case .contacts:
-                    try SessionUtil.handleContactsUpdate(
+                    finalResult = try SessionUtil.handleContactsUpdate(
                         db,
                         in: atomicConf,
-                        needsDump: result.needsDump
+                        mergeResult: mergeResult.result
+                    )
+                    
+                case .convoInfoVolatile:
+                    finalResult = try SessionUtil.handleConvoInfoVolatileUpdate(
+                        db,
+                        in: atomicConf,
+                        mergeResult: mergeResult.result
+                    )
+                    
+                case .groups:
+                    finalResult = try SessionUtil.handleGroupsUpdate(
+                        db,
+                        in: atomicConf,
+                        mergeResult: mergeResult.result
                     )
             }
             
@@ -366,11 +395,11 @@ public enum SessionUtil {
                 .defaulting(to: [])
                 .asSet()
             let allMessageHashes: [String] = Array(oldMessageHashes
-                .inserting(contentsOf: result.messageHashes.asSet()))
-            let messageHashesChanged: Bool = (oldMessageHashes != result.messageHashes.asSet())
+                .inserting(contentsOf: mergeResult.messageHashes.asSet()))
+            let messageHashesChanged: Bool = (oldMessageHashes != mergeResult.messageHashes.asSet())
             
             // Now that the changes are applied, update the cached dumps
-            switch (result.needsDump, messageHashesChanged) {
+            switch (finalResult.needsDump, messageHashesChanged) {
                 case (true, _):
                     // The config data had changes so regenerate the dump and save it
                     try atomicConf
@@ -400,13 +429,15 @@ public enum SessionUtil {
                     
                 default: break
             }
+            
+            return finalResult
+        }
         
         // Now that the local state has been updated, trigger a config sync (this will push any
         // pending updates and properly update the state)
-        if results.contains(where: { $0.value.needsPush }) {
+        if finalResults.contains(where: { $0.needsPush }) {
             ConfigurationSyncJob.enqueue(db)
         }
-        
     }
 }
 

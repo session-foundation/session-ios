@@ -188,7 +188,7 @@ public class MessageRequestsViewModel {
                                 .filter(id: threadId)
                                 .deleteAll(db)
                             
-                        case .closedGroup:
+                        case .legacyClosedGroup, .closedGroup:
                             try ClosedGroup.removeKeysAndUnsubscribe(
                                 db,
                                 threadId: threadId,

@@ -39,7 +39,7 @@ public extension Message {
                     
                     return .contact(publicKey: thread.id)
                 
-                case .closedGroup:
+                case .legacyClosedGroup, .closedGroup:
                     return .closedGroup(groupPublicKey: thread.id)
                 
                 case .openGroup:

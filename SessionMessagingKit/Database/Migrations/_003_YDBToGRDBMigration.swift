@@ -565,7 +565,7 @@ enum _003_YDBToGRDBMigration: Migration {
             
             switch legacyThread {
                 case let groupThread as SMKLegacy._GroupThread:
-                    threadVariant = (groupThread.isOpenGroup ? .openGroup : .closedGroup)
+                    threadVariant = (groupThread.isOpenGroup ? .openGroup : .legacyClosedGroup)
                     onlyNotifyForMentions = groupThread.isOnlyNotifyingForMentions
                     
                 default:

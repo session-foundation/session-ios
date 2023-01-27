@@ -70,7 +70,7 @@ extension MessageReceiver {
         // Create the group
         let groupAlreadyExisted: Bool = ((try? SessionThread.exists(db, id: groupPublicKey)) ?? false)
         let thread: SessionThread = try SessionThread
-            .fetchOrCreate(db, id: groupPublicKey, variant: .closedGroup)
+            .fetchOrCreate(db, id: groupPublicKey, variant: .legacyClosedGroup)
             .with(shouldBeVisible: true)
             .saved(db)
         let closedGroup: ClosedGroup = try ClosedGroup(

@@ -398,7 +398,8 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         view.addSubview(titleLabel)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         titleLabel.center(.vertical, in: minimizeButton)
-        titleLabel.center(.horizontal, in: view)
+        titleLabel.pin(.left, to: .left, of: view, withInset: Values.largeSpacing)
+        titleLabel.pin(.right, to: .right, of: view, withInset: Values.largeSpacing)
         
         // Response Panel
         view.addSubview(responsePanel)

@@ -6,6 +6,7 @@ extern "C" {
 
 #include "base.h"
 #include "profile_pic.h"
+#include "util.h"
 
 typedef struct contacts_contact {
     char session_id[67];  // in hex; 66 hex chars + null terminator.
@@ -47,11 +48,6 @@ int contacts_init(
         const unsigned char* dump,
         size_t dumplen,
         char* error) __attribute__((warn_unused_result));
-
-/// Returns true if session_id has the right form (66 hex digits).  This is a quick check, not a
-/// robust one: it does not check the leading byte prefix, nor the cryptographic properties of the
-/// pubkey for actual validity.
-bool session_id_is_valid(const char* session_id);
 
 /// Fills `contact` with the contact info given a session ID (specified as a null-terminated hex
 /// string), if the contact exists, and returns true.  If the contact does not exist then `contact`

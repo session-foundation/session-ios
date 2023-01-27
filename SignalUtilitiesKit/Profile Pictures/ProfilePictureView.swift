@@ -219,7 +219,7 @@ public final class ProfilePictureView: UIView {
                 imageViewHeightConstraint.constant = self.size
                 imageContainerView.layer.cornerRadius = (self.size / 2)
                 
-            case .closedGroup:
+            case .legacyClosedGroup, .closedGroup:
                 guard !publicKey.isEmpty else { return }
                 
                 // If the `publicKey` we were given matches the first profile id then we have

@@ -11,11 +11,17 @@ internal extension SessionUtil {
     static func handleContactsUpdate(
         _ db: Database,
         in atomicConf: Atomic<UnsafeMutablePointer<config_object>?>,
-        needsDump: Bool
-    ) throws {
-        typealias ContactData = [String: (contact: Contact, profile: Profile)]
+        mergeResult: ConfResult
+    ) throws -> ConfResult {
+        typealias ContactData = [
+            String: (
+                contact: Contact,
+                profile: Profile,
+                isHiddenConversation: Bool
+            )
+        ]
         
-        guard needsDump else { return }
+        guard mergeResult.needsDump else { return mergeResult }
         guard atomicConf.wrappedValue != nil else { throw SessionUtilError.nilConfigObject }
         
         // Since we are doing direct memory manipulation we are using an `Atomic` type which has
@@ -47,7 +53,11 @@ internal extension SessionUtil {
                     )
                 )
                 
-                contactData[contactId] = (contactResult, profileResult)
+                contactData[contactId] = (
+                    contactResult,
+                    profileResult,
+                    false
+                )
                 contacts_iterator_advance(contactIterator)
             }
             contacts_iterator_free(contactIterator) // Need to free the iterator
@@ -61,7 +71,7 @@ internal extension SessionUtil {
         let targetContactData: ContactData = contactData.filter { $0.key != userPublicKey }
         
         // If we only updated the current user contact then no need to continue
-        guard !targetContactData.isEmpty else { return }
+        guard !targetContactData.isEmpty else { return mergeResult }
         
         // Since we don't sync 100% of the data stored against the contact and profile objects we
         // need to only update the data we do have to ensure we don't overwrite anything that doesn't
@@ -107,8 +117,8 @@ internal extension SessionUtil {
                 /// swapping `isApproved` and `didApproveMe` to `false`
                 if
                     (contact.isApproved != data.contact.isApproved) ||
-                        (contact.isBlocked != data.contact.isBlocked) ||
-                        (contact.didApproveMe != data.contact.didApproveMe)
+                    (contact.isBlocked != data.contact.isBlocked) ||
+                    (contact.didApproveMe != data.contact.didApproveMe)
                 {
                     try contact.save(db)
                     try Contact
@@ -116,17 +126,21 @@ internal extension SessionUtil {
                         .updateAll( // Handling a config update so don't use `updateAllAndConfig`
                             db,
                             [
-                                (!data.contact.isApproved ? nil :
+                                (!data.contact.isApproved || contact.isApproved == data.contact.isApproved ? nil :
                                     Contact.Columns.isApproved.set(to: true)
                                 ),
-                                Contact.Columns.isBlocked.set(to: data.contact.isBlocked),
-                                (!data.contact.didApproveMe ? nil :
+                                (contact.isBlocked == data.contact.isBlocked ? nil :
+                                    Contact.Columns.isBlocked.set(to: data.contact.isBlocked)
+                                ),
+                                (!data.contact.didApproveMe || contact.didApproveMe == data.contact.didApproveMe ? nil :
                                     Contact.Columns.didApproveMe.set(to: true)
                                 )
                             ].compactMap { $0 }
                         )
                 }
             }
+        
+        return mergeResult
     }
     
     // MARK: - Outgoing Changes

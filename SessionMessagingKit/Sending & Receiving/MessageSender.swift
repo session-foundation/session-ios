@@ -974,7 +974,7 @@ public final class MessageSender {
                         to: .contact(publicKey: userPublicKey),
                         interactionId: interactionId,
                         userPublicKey: userPublicKey,
-                        messageSendTimestamp: Int64(floor(Date().timeIntervalSince1970 * 1000)),
+                        messageSendTimestamp: SnodeAPI.currentOffsetTimestampMs(),
                         isSyncMessage: true
                     ),
                     using: dependencies

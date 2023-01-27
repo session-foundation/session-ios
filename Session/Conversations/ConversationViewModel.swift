@@ -105,7 +105,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         threadId: self.threadId,
         threadVariant: self.initialThreadVariant,
         threadIsNoteToSelf: (self.threadId == getUserHexEncodedPublicKey()),
-        currentUserIsClosedGroupMember: (self.initialThreadVariant != .closedGroup ?
+        currentUserIsClosedGroupMember: ((self.initialThreadVariant != .legacyClosedGroup && self.initialThreadVariant != .closedGroup) ?
             nil :
             Storage.shared.read { db in
                 GroupMember
@@ -406,6 +406,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         else { return }
         
         let threadId: String = self.threadData.threadId
+        let threadVariant: SessionThread.Variant = self.threadData.threadVariant
         let trySendReadReceipt: Bool = (self.threadData.threadIsMessageRequest == false)
         self.lastInteractionIdMarkedAsRead = targetInteractionId
         
@@ -414,6 +415,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                 db,
                 interactionId: targetInteractionId,
                 threadId: threadId,
+                threadVariant: threadVariant,
                 includingOlder: true,
                 trySendReadReceipt: trySendReadReceipt
             )

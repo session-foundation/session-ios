@@ -43,14 +43,25 @@ struct contact_info {
     bool approved_me = false;
     bool blocked = false;
 
-    contact_info(std::string sid);
+    explicit contact_info(std::string sid);
 
     // Internal ctor/method for C API implementations:
     contact_info(const struct contacts_contact& c);  // From c struct
-    void into(contacts_contact& c);                  // Into c struct
+    void into(contacts_contact& c) const;            // Into c struct
+
+    // Sets a name, storing the name internally in the object.  This is intended for use where the
+    // source string is a temporary may not outlive the `contact_info` object: the name is first
+    // copied into an internal std::string, and then the name string_view references that.
+    void set_name(std::string name);
+
+    // Same as above, but for nickname.
+    void set_nickname(std::string nickname);
 
   private:
     friend class Contacts;
+
+    std::string name_;
+    std::string nickname_;
 
     void load(const dict& info_dict);
 };
@@ -101,8 +112,8 @@ class Contacts : public ConfigBase {
     void set(const contact_info& contact);
 
     /// Alternative to `set()` for setting individual fields.
-    void set_name(std::string_view session_id, std::string_view name);
-    void set_nickname(std::string_view session_id, std::string_view nickname);
+    void set_name(std::string_view session_id, std::string name);
+    void set_nickname(std::string_view session_id, std::string nickname);
     void set_profile_pic(std::string_view session_id, profile_pic pic);
     void set_approved(std::string_view session_id, bool approved);
     void set_approved_me(std::string_view session_id, bool approved_me);

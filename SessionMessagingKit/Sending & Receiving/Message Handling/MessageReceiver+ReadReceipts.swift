@@ -9,7 +9,7 @@ extension MessageReceiver {
         guard let timestampMsValues: [Double] = message.timestamps?.map({ Double($0) }) else { return }
         guard let readTimestampMs: Double = message.receivedTimestamp.map({ Double($0) }) else { return }
         
-        try Interaction.markAsRead(
+        try Interaction.markAsRecipientRead(
             db,
             recipientId: sender,
             timestampMsValues: timestampMsValues,

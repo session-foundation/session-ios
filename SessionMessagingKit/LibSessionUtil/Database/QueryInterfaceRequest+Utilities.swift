@@ -26,6 +26,10 @@ public extension QueryInterfaceRequest {
 
             case let profileRequest as QueryInterfaceRequest<Profile>:
                 return try profileRequest.updateAndFetchAllAndUpdateConfig(db, assignments).count
+                
+            case let threadRequest as QueryInterfaceRequest<SessionThread>:
+                return try threadRequest.updateAndFetchAllAndUpdateConfig(db, assignments).count
+            
             
             default: return try self.updateAll(db, assignments)
         }
@@ -73,6 +77,9 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
             case is QueryInterfaceRequest<Profile>:
                 return try SessionUtil.updatingProfiles(db, try updateAndFetchAll(db, assignments))
                 
+            case is QueryInterfaceRequest<SessionThread>:
+                return try SessionUtil.updatingThreads(db, try updateAndFetchAll(db, assignments))
+            
             default: return try self.updateAndFetchAll(db, assignments)
         }
     }

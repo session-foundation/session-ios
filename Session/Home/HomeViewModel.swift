@@ -304,7 +304,7 @@ public class HomeViewModel {
     public func delete(threadId: String, threadVariant: SessionThread.Variant) {
         Storage.shared.writeAsync { db in
             switch threadVariant {
-                case .closedGroup:
+                case .legacyClosedGroup, .closedGroup:
                     MessageSender
                         .leave(db, groupPublicKey: threadId)
                         .sinkUntilComplete()

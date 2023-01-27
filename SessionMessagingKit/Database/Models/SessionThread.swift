@@ -32,12 +32,14 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
         case notificationSound
         case mutedUntilTimestamp
         case onlyNotifyForMentions
+        case markedAsUnread
     }
     
     public enum Variant: Int, Codable, Hashable, DatabaseValueConvertible {
         case contact
-        case closedGroup
+        case legacyClosedGroup
         case openGroup
+        case closedGroup
     }
 
     /// Unique identifier for a thread (formerly known as uniqueId)
@@ -73,6 +75,9 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
     
     /// A flag indicating whether the thread should only notify for mentions
     public let onlyNotifyForMentions: Bool
+    
+    /// A flag indicating whether this thread has been manually marked as unread by the user
+    public let markedAsUnread: Bool?
     
     // MARK: - Relationships
     
@@ -111,7 +116,8 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
         messageDraft: String? = nil,
         notificationSound: Preferences.Sound? = nil,
         mutedUntilTimestamp: TimeInterval? = nil,
-        onlyNotifyForMentions: Bool = false
+        onlyNotifyForMentions: Bool = false,
+        markedAsUnread: Bool? = false
     ) {
         self.id = id
         self.variant = variant
@@ -122,6 +128,7 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
         self.notificationSound = notificationSound
         self.mutedUntilTimestamp = mutedUntilTimestamp
         self.onlyNotifyForMentions = onlyNotifyForMentions
+        self.markedAsUnread = markedAsUnread
     }
     
     // MARK: - Custom Database Interaction
@@ -147,7 +154,8 @@ public extension SessionThread {
             messageDraft: messageDraft,
             notificationSound: notificationSound,
             mutedUntilTimestamp: mutedUntilTimestamp,
-            onlyNotifyForMentions: onlyNotifyForMentions
+            onlyNotifyForMentions: onlyNotifyForMentions,
+            markedAsUnread: markedAsUnread
         )
     }
 }
@@ -304,7 +312,7 @@ public extension SessionThread {
         profile: Profile? = nil
     ) -> String {
         switch variant {
-            case .closedGroup: return (closedGroupName ?? "Unknown Group")
+            case .legacyClosedGroup, .closedGroup: return (closedGroupName ?? "Unknown Group")
             case .openGroup: return (openGroupName ?? "Unknown Group")
             case .contact:
                 guard !isNoteToSelf else { return "NOTE_TO_SELF".localized() }

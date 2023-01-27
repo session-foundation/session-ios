@@ -609,6 +609,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             targetView: tappedView,
             info: confirmationInfo
+                .with(onConfirm: { _ in performAction() })
         )
         present(confirmationModal, animated: true, completion: nil)
     }

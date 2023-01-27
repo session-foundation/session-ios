@@ -324,7 +324,7 @@ public extension Profile {
         }
         
         switch threadVariant {
-            case .contact, .closedGroup: return name
+            case .contact, .legacyClosedGroup, .closedGroup: return name
                 
             case .openGroup:
                 // In open groups, where it's more likely that multiple users have the same name,

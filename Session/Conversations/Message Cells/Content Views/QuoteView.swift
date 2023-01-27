@@ -269,7 +269,7 @@ final class QuoteView: UIView {
         contentView.addSubview(mainStackView)
         mainStackView.pin(to: contentView)
         
-        if threadVariant != .openGroup && threadVariant != .closedGroup {
+        if threadVariant == .contact {
             bodyLabel.set(.width, to: bodyLabelSize.width)
         }
         

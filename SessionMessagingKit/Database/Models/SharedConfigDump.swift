@@ -19,6 +19,8 @@ public struct ConfigDump: Codable, Equatable, Hashable, FetchableRecord, Persist
     public enum Variant: String, Codable, DatabaseValueConvertible {
         case userProfile
         case contacts
+        case convoInfoVolatile
+        case groups
     }
     
     /// The type of config this dump is for
@@ -64,12 +66,14 @@ public extension ConfigDump {
 }
 
 public extension ConfigDump.Variant {
-    static let userVariants: [ConfigDump.Variant] = [ .userProfile, .contacts ]
+    static let userVariants: [ConfigDump.Variant] = [ .userProfile, .contacts, .convoInfoVolatile, .groups ]
     
     var configMessageKind: SharedConfigMessage.Kind {
         switch self {
             case .userProfile: return .userProfile
             case .contacts: return .contacts
+            case .convoInfoVolatile: return .convoInfoVolatile
+            case .groups: return .groups
         }
     }
     
@@ -77,6 +81,8 @@ public extension ConfigDump.Variant {
         switch self {
             case .userProfile: return SnodeAPI.Namespace.configUserProfile
             case .contacts: return SnodeAPI.Namespace.configContacts
+            case .convoInfoVolatile: return SnodeAPI.Namespace.configConvoInfoVolatile
+            case .groups: return SnodeAPI.Namespace.configGroups
         }
     }
 }

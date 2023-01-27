@@ -203,7 +203,7 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
                     case .contact:
                         notificationTitle = (isMessageRequest ? "Session" : senderName)
                         
-                    case .closedGroup, .openGroup:
+                    case .legacyClosedGroup, .closedGroup, .openGroup:
                         notificationTitle = String(
                             format: NotificationStrings.incomingGroupMessageTitleFormat,
                             senderName,
@@ -274,7 +274,11 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
     public func notifyUser(_ db: Database, forIncomingCall interaction: Interaction, in thread: SessionThread) {
         // No call notifications for muted or group threads
         guard Date().timeIntervalSince1970 > (thread.mutedUntilTimestamp ?? 0) else { return }
-        guard thread.variant != .closedGroup && thread.variant != .openGroup else { return }
+        guard
+            thread.variant != .legacyClosedGroup &&
+            thread.variant != .closedGroup &&
+            thread.variant != .openGroup
+        else { return }
         guard
             interaction.variant == .infoCall,
             let infoMessageData: Data = (interaction.body ?? "").data(using: .utf8),
@@ -342,7 +346,11 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
         
         // No reaction notifications for muted, group threads or message requests
         guard Date().timeIntervalSince1970 > (thread.mutedUntilTimestamp ?? 0) else { return }
-        guard thread.variant != .closedGroup && thread.variant != .openGroup else { return }
+        guard
+            thread.variant != .legacyClosedGroup &&
+            thread.variant != .closedGroup &&
+            thread.variant != .openGroup
+        else { return }
         guard !isMessageRequest else { return }
         
         let senderName: String = Profile.displayName(db, id: reaction.authorId, threadVariant: thread.variant)
@@ -551,6 +559,7 @@ class NotificationActionHandler {
                     db,
                     interactionId: interaction.id,
                     threadId: thread.id,
+                    threadVariant: thread.variant,
                     includingOlder: true,
                     trySendReadReceipt: true
                 )
@@ -607,6 +616,7 @@ class NotificationActionHandler {
                         .asRequest(of: Int64.self)
                         .fetchOne(db),
                     threadId: thread.id,
+                    threadVariant: thread.variant,
                     includingOlder: true,
                     trySendReadReceipt: true
                 )

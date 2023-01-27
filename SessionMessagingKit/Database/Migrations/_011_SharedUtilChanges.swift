@@ -14,6 +14,12 @@ enum _011_SharedUtilChanges: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     
     static func migrate(_ db: Database) throws {
+        // Add `markedAsUnread` to the thread table
+        try db.alter(table: SessionThread.self) { t in
+            t.add(.markedAsUnread, .boolean)
+        }
+        
+        // New table for storing the latest config dump for each type
         try db.create(table: ConfigDump.self) { t in
             t.column(.variant, .text)
                 .notNull()
@@ -94,6 +100,28 @@ enum _011_SharedUtilChanges: Migration {
                 .save(db)
         }
         
+        // Create a dump for the convoInfoVolatile data
+        let volatileThreadInfo: [SessionUtil.VolatileThreadInfo] = SessionUtil.VolatileThreadInfo.fetchAll(db)
+        let convoInfoVolatileConf: UnsafeMutablePointer<config_object>? = try SessionUtil.loadState(
+            for: .convoInfoVolatile,
+            secretKey: secretKey,
+            cachedData: nil
+        )
+        let convoInfoVolatileConfResult: SessionUtil.ConfResult = try SessionUtil.upsert(
+            convoInfoVolatileChanges: volatileThreadInfo,
+            in: Atomic(convoInfoVolatileConf)
+        )
+        
+        if convoInfoVolatileConfResult.needsDump {
+            try SessionUtil
+                .createDump(
+                    conf: contactsConf,
+                    for: .convoInfoVolatile,
+                    publicKey: userPublicKey,
+                    messageHashes: nil
+                )?
+                .save(db)
+        }
         Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
     }
 }

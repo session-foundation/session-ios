@@ -8,6 +8,8 @@ public extension SnodeAPI {
         
         case configUserProfile = 2
         case configContacts = 3
+        case configConvoInfoVolatile = 4
+        case configGroups = 5
         case configClosedGroupInfo = 11
         
         case legacyClosedGroup = -10

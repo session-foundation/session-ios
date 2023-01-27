@@ -217,7 +217,10 @@ public extension VisibleMessage {
             sentTimestamp: UInt64(interaction.timestampMs),
             recipient: (try? interaction.recipientStates.fetchOne(db))?.recipientId,
             groupPublicKey: try? interaction.thread
-                .filter(SessionThread.Columns.variant == SessionThread.Variant.closedGroup)
+                .filter(
+                    SessionThread.Columns.variant == SessionThread.Variant.legacyClosedGroup ||
+                    SessionThread.Columns.variant == SessionThread.Variant.closedGroup
+                )
                 .select(.id)
                 .asRequest(of: String.self)
                 .fetchOne(db),

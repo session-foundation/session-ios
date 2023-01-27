@@ -100,7 +100,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public var canWrite: Bool {
         switch threadVariant {
             case .contact: return true
-            case .closedGroup: return currentUserIsClosedGroupMember == true
+            case .legacyClosedGroup, .closedGroup: return currentUserIsClosedGroupMember == true
             case .openGroup: return openGroupPermissions?.contains(.write) ?? false
         }
     }
@@ -158,14 +158,15 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public var profile: Profile? {
         switch threadVariant {
             case .contact: return contactProfile
-            case .closedGroup: return (closedGroupProfileBack ?? closedGroupProfileBackFallback)
+            case .legacyClosedGroup, .closedGroup:
+                return (closedGroupProfileBack ?? closedGroupProfileBackFallback)
             case .openGroup: return nil
         }
     }
     
     public var additionalProfile: Profile? {
         switch threadVariant {
-            case .closedGroup: return closedGroupProfileFront
+            case .legacyClosedGroup, .closedGroup: return closedGroupProfileFront
             default: return nil
         }
     }
@@ -190,7 +191,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public var userCount: Int? {
         switch threadVariant {
             case .contact: return nil
-            case .closedGroup: return closedGroupUserCount
+            case .legacyClosedGroup, .closedGroup: return closedGroupUserCount
             case .openGroup: return openGroupUserCount
         }
     }
@@ -1256,7 +1257,10 @@ public extension SessionThreadViewModel {
             LEFT JOIN \(Profile.self) AS \(ViewModel.contactProfileKey) ON false
             LEFT JOIN \(OpenGroup.self) ON false
         
-            WHERE \(SQL("\(thread[.variant]) = \(SessionThread.Variant.closedGroup)"))
+            WHERE (
+                \(SQL("\(thread[.variant]) = \(SessionThread.Variant.legacyClosedGroup)")) OR
+                \(SQL("\(thread[.variant]) = \(SessionThread.Variant.closedGroup)"))
+            )
             GROUP BY \(thread[.id])
         """
         

@@ -120,6 +120,7 @@ public extension SendReadReceiptsJob {
                 .joining(
                     // Don't send read receipts in group threads
                     required: Interaction.thread
+                        .filter(SessionThread.Columns.variant != SessionThread.Variant.legacyClosedGroup)
                         .filter(SessionThread.Columns.variant != SessionThread.Variant.closedGroup)
                         .filter(SessionThread.Columns.variant != SessionThread.Variant.openGroup)
                 )

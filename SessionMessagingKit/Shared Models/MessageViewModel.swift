@@ -303,6 +303,11 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
                 case (false, true): return (.bottom, isOnlyMessageInCluster)
             }
         }()
+        let isGroupThread: Bool = (
+            self.threadVariant == .openGroup ||
+            self.threadVariant == .legacyClosedGroup ||
+            self.threadVariant == .closedGroup
+        )
         
         return ViewModel(
             threadId: self.threadId,
@@ -363,9 +368,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             authorName: authorDisplayName,
             senderName: {
                 // Only show for group threads
-                guard self.threadVariant == .openGroup || self.threadVariant == .closedGroup else {
-                    return nil
-                }
+                guard isGroupThread else { return nil }
                 
                 // Only show for incoming messages
                 guard self.variant == .standardIncoming || self.variant == .standardIncomingDeleted else {
@@ -381,7 +384,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             }(),
             shouldShowProfile: (
                 // Only group threads
-                (self.threadVariant == .openGroup || self.threadVariant == .closedGroup) &&
+                isGroupThread &&
                 
                 // Only incoming messages
                 (self.variant == .standardIncoming || self.variant == .standardIncomingDeleted) &&

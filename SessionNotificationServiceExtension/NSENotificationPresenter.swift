@@ -26,7 +26,7 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         )
         var notificationTitle: String = senderName
         
-        if thread.variant == .closedGroup || thread.variant == .openGroup {
+        if thread.variant == .legacyClosedGroup || thread.variant == .closedGroup || thread.variant == .openGroup {
             if thread.onlyNotifyForMentions && !interaction.hasMention {
                 // Ignore PNs if the group is set to only notify for mentions
                 return
@@ -127,7 +127,11 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
     public func notifyUser(_ db: Database, forIncomingCall interaction: Interaction, in thread: SessionThread) {
         // No call notifications for muted or group threads
         guard Date().timeIntervalSince1970 > (thread.mutedUntilTimestamp ?? 0) else { return }
-        guard thread.variant != .closedGroup && thread.variant != .openGroup else { return }
+        guard
+            thread.variant != .legacyClosedGroup &&
+            thread.variant != .closedGroup &&
+            thread.variant != .openGroup
+        else { return }
         guard
             interaction.variant == .infoCall,
             let infoMessageData: Data = (interaction.body ?? "").data(using: .utf8),
@@ -181,7 +185,11 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         
         // No reaction notifications for muted, group threads or message requests
         guard Date().timeIntervalSince1970 > (thread.mutedUntilTimestamp ?? 0) else { return }
-        guard thread.variant != .closedGroup && thread.variant != .openGroup else { return }
+        guard
+            thread.variant != .legacyClosedGroup &&
+            thread.variant != .closedGroup &&
+            thread.variant != .openGroup
+        else { return }
         guard !isMessageRequest else { return }
         
         let senderName: String = Profile.displayName(db, id: reaction.authorId, threadVariant: thread.variant)

@@ -54,11 +54,11 @@ extension MessageReceiver {
         let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
         let thread: SessionThread = try SessionThread
             .fetchOrCreate(db, id: threadInfo.id, variant: threadInfo.variant)
+        let maybeOpenGroup: OpenGroup? = openGroupId.map { try? OpenGroup.fetchOne(db, id: $0) }
         let variant: Interaction.Variant = {
             guard
-                let openGroupId: String = openGroupId,
                 let senderSessionId: SessionId = SessionId(from: sender),
-                let openGroup: OpenGroup = try? OpenGroup.fetchOne(db, id: openGroupId)
+                let openGroup: OpenGroup = maybeOpenGroup
             else {
                 return (sender == currentUserPublicKey ?
                     .standardOutgoing :
@@ -118,7 +118,17 @@ extension MessageReceiver {
                 variant: variant,
                 body: message.text,
                 timestampMs: Int64(messageSentTimestamp * 1000),
-                wasRead: (variant == .standardOutgoing), // Auto-mark sent messages as read
+                wasRead: (
+                    // Auto-mark sent messages or messages older than the 'lastReadTimestampMs' as read
+                    variant == .standardOutgoing ||
+                    SessionUtil.timestampAlreadyRead(
+                        threadId: thread.id,
+                        threadVariant: thread.variant,
+                        timestampMs: Int64(messageSentTimestamp * 1000),
+                        userPublicKey: currentUserPublicKey,
+                        openGroup: maybeOpenGroup
+                    )
+                ),
                 hasMention: Interaction.isUserMentioned(
                     db,
                     threadId: thread.id,
@@ -383,7 +393,7 @@ extension MessageReceiver {
                     ).save(db)
                 }
                 
-            case .closedGroup:
+            case .legacyClosedGroup, .closedGroup:
                 try GroupMember
                     .filter(GroupMember.Columns.groupId == thread.id)
                     .fetchAll(db)
@@ -410,6 +420,7 @@ extension MessageReceiver {
             db,
             interactionId: interactionId,
             threadId: thread.id,
+            threadVariant: thread.variant,
             includingOlder: true,
             trySendReadReceipt: true
         )

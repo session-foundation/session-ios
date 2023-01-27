@@ -3715,12 +3715,16 @@ extension SNProtoAttachmentPointer.SNProtoAttachmentPointerBuilder {
     @objc public enum SNProtoSharedConfigMessageKind: Int32 {
         case userProfile = 1
         case contacts = 2
+        case convoInfoVolatile = 3
+        case groups = 4
     }
 
     private class func SNProtoSharedConfigMessageKindWrap(_ value: SessionProtos_SharedConfigMessage.Kind) -> SNProtoSharedConfigMessageKind {
         switch value {
         case .userProfile: return .userProfile
         case .contacts: return .contacts
+        case .convoInfoVolatile: return .convoInfoVolatile
+        case .groups: return .groups
         }
     }
 
@@ -3728,6 +3732,8 @@ extension SNProtoAttachmentPointer.SNProtoAttachmentPointerBuilder {
         switch value {
         case .userProfile: return .userProfile
         case .contacts: return .contacts
+        case .convoInfoVolatile: return .convoInfoVolatile
+        case .groups: return .groups
         }
     }
 

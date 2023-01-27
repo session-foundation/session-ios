@@ -17,11 +17,17 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatabl
         case durationSeconds
     }
     
+    public enum DisappearingMessageType: Int, Codable, Hashable, DatabaseValueConvertible {
+        case disappearAfterRead
+        case disappearAfterSend
+    }
+    
     public var id: String { threadId }  // Identifiable
 
     public let threadId: String
     public let isEnabled: Bool
     public let durationSeconds: TimeInterval
+    public var type: DisappearingMessageType? { return nil }    // TODO: Add as part of Disappearing Message Rebuild
     
     // MARK: - Relationships
     
@@ -45,7 +51,8 @@ public extension DisappearingMessagesConfiguration {
     
     func with(
         isEnabled: Bool? = nil,
-        durationSeconds: TimeInterval? = nil
+        durationSeconds: TimeInterval? = nil,
+        type: DisappearingMessageType? = nil
     ) -> DisappearingMessagesConfiguration {
         return DisappearingMessagesConfiguration(
             threadId: threadId,

@@ -1622,6 +1622,8 @@ struct SessionProtos_SharedConfigMessage {
     typealias RawValue = Int
     case userProfile // = 1
     case contacts // = 2
+    case convoInfoVolatile // = 3
+    case groups // = 4
 
     init() {
       self = .userProfile
@@ -1631,6 +1633,8 @@ struct SessionProtos_SharedConfigMessage {
       switch rawValue {
       case 1: self = .userProfile
       case 2: self = .contacts
+      case 3: self = .convoInfoVolatile
+      case 4: self = .groups
       default: return nil
       }
     }
@@ -1639,6 +1643,8 @@ struct SessionProtos_SharedConfigMessage {
       switch self {
       case .userProfile: return 1
       case .contacts: return 2
+      case .convoInfoVolatile: return 3
+      case .groups: return 4
       }
     }
 
@@ -3336,5 +3342,7 @@ extension SessionProtos_SharedConfigMessage.Kind: SwiftProtobuf._ProtoNameProvid
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "USER_PROFILE"),
     2: .same(proto: "CONTACTS"),
+    3: .same(proto: "CONVO_INFO_VOLATILE"),
+    4: .same(proto: "GROUPS"),
   ]
 }

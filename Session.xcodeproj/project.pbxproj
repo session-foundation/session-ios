@@ -631,6 +631,8 @@
 		FD3C907127E445E500CD579F /* MessageReceiverDecryptionSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3C907027E445E500CD579F /* MessageReceiverDecryptionSpec.swift */; };
 		FD3E0C84283B5835002A425C /* SessionThreadViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3E0C83283B5835002A425C /* SessionThreadViewModel.swift */; };
 		FD42F9A8285064B800A0C77D /* PushNotificationAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDBDE255A581900E217F9 /* PushNotificationAPI.swift */; };
+		FD43EE9D297A5190009C87C5 /* SessionUtil+Groups.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD43EE9C297A5190009C87C5 /* SessionUtil+Groups.swift */; };
+		FD43EE9F297E2EE0009C87C5 /* SessionUtil+ConvoInfoVolatile.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD43EE9E297E2EE0009C87C5 /* SessionUtil+ConvoInfoVolatile.swift */; };
 		FD4B200E283492210034334B /* InsetLockableTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4B200D283492210034334B /* InsetLockableTableView.swift */; };
 		FD52090028AF6153006098F6 /* OWSBackgroundTask.m in Sources */ = {isa = PBXBuildFile; fileRef = C33FDC1B255A581F00E217F9 /* OWSBackgroundTask.m */; };
 		FD52090128AF61BA006098F6 /* OWSBackgroundTask.h in Headers */ = {isa = PBXBuildFile; fileRef = C33FDB38255A580B00E217F9 /* OWSBackgroundTask.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -1751,6 +1753,8 @@
 		FD3C907027E445E500CD579F /* MessageReceiverDecryptionSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageReceiverDecryptionSpec.swift; sourceTree = "<group>"; };
 		FD3C907427E83AC200CD579F /* OpenGroupServerIdLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenGroupServerIdLookup.swift; sourceTree = "<group>"; };
 		FD3E0C83283B5835002A425C /* SessionThreadViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionThreadViewModel.swift; sourceTree = "<group>"; };
+		FD43EE9C297A5190009C87C5 /* SessionUtil+Groups.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionUtil+Groups.swift"; sourceTree = "<group>"; };
+		FD43EE9E297E2EE0009C87C5 /* SessionUtil+ConvoInfoVolatile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionUtil+ConvoInfoVolatile.swift"; sourceTree = "<group>"; };
 		FD4B200D283492210034334B /* InsetLockableTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsetLockableTableView.swift; sourceTree = "<group>"; };
 		FD52090228B4680F006098F6 /* RadioButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadioButton.swift; sourceTree = "<group>"; };
 		FD52090428B4915F006098F6 /* PrivacySettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacySettingsViewModel.swift; sourceTree = "<group>"; };
@@ -4039,6 +4043,8 @@
 			children = (
 				FD8ECF8F29381FC200C0D1BB /* SessionUtil+UserProfile.swift */,
 				FD2B4AFC294688D000AB4848 /* SessionUtil+Contacts.swift */,
+				FD43EE9E297E2EE0009C87C5 /* SessionUtil+ConvoInfoVolatile.swift */,
+				FD43EE9C297A5190009C87C5 /* SessionUtil+Groups.swift */,
 			);
 			path = "Config Handling";
 			sourceTree = "<group>";
@@ -5674,6 +5680,7 @@
 				C3C2A7852553AAF300C340D1 /* SessionProtos.pb.swift in Sources */,
 				FDF0B74F28079E5E004C14C5 /* SendReadReceiptsJob.swift in Sources */,
 				FDF0B7422804EA4F004C14C5 /* _002_SetupStandardJobs.swift in Sources */,
+				FD43EE9F297E2EE0009C87C5 /* SessionUtil+ConvoInfoVolatile.swift in Sources */,
 				B8EB20EE2640F28000773E52 /* VisibleMessage+OpenGroupInvitation.swift in Sources */,
 				FDF8487F29405994007DCAE5 /* HTTPHeader+OpenGroup.swift in Sources */,
 				FD8ECF7D2934293A00C0D1BB /* _011_SharedUtilChanges.swift in Sources */,
@@ -5688,6 +5695,7 @@
 				FD245C692850666800B966DD /* ExpirationTimerUpdate.swift in Sources */,
 				FD42F9A8285064B800A0C77D /* PushNotificationAPI.swift in Sources */,
 				FD245C6C2850669200B966DD /* MessageReceiveJob.swift in Sources */,
+				FD43EE9D297A5190009C87C5 /* SessionUtil+Groups.swift in Sources */,
 				FD83B9CC27D179BC005E1583 /* FSEndpoint.swift in Sources */,
 				FD7115F228C6CB3900B47552 /* _010_AddThreadIdToFTS.swift in Sources */,
 				FD716E6428502DDD00C96BF4 /* CallManagerProtocol.swift in Sources */,
