@@ -14,17 +14,27 @@ final class MediaInfoVC: BaseVC {
     private lazy var mediaInfoView: MediaInfoView = MediaInfoView(attachment: nil)
     private lazy var mediaCarouselView: SessionCarouselView = {
         let result: SessionCarouselView = SessionCarouselView(
-            slices: self.attachments.map {
-                MediaPreviewView(
-                    attachment: $0,
-                    isOutgoing: self.isOutgoing
+            info: SessionCarouselView.Info(
+                slices: self.attachments.map {
+                    MediaPreviewView(
+                        attachment: $0,
+                        isOutgoing: self.isOutgoing
+                    )
+                },
+                sliceSize: CGSize(
+                    width: Self.mediaSize,
+                    height: Self.mediaSize
+                ),
+                shouldShowPageControl: true,
+                pageControlHeight: 10,
+                shouldShowArrows: true,
+                arrowsSize: CGSize(
+                    width: 20,
+                    height: 30
                 )
-            },
-            sliceSize: CGSize(
-                width: Self.mediaSize,
-                height: Self.mediaSize
             )
         )
+        result.set(.height, to: Self.mediaSize)
         
         return result
     }()
@@ -63,9 +73,11 @@ final class MediaInfoVC: BaseVC {
         
         let stackView: UIStackView = UIStackView(arrangedSubviews: [ mediaCarouselView, mediaInfoView ])
         stackView.axis = .vertical
+        stackView.alignment = .center
         stackView.spacing = Values.largeSpacing
         
         self.view.addSubview(stackView)
-        stackView.center(in: self.view)
+        stackView.pin([ UIView.HorizontalEdge.leading, UIView.HorizontalEdge.trailing ], to: self.view)
+        stackView.center(.vertical, in: self.view)
     }
 }

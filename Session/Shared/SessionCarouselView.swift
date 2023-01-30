@@ -1,18 +1,12 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
-import Foundation
+import UIKit
+import SessionUIKit
+import SessionUtilitiesKit
 
 final class SessionCarouselView: UIView, UIScrollViewDelegate {
     private let slicesForLoop: [UIView]
-    private let sliceSize: CGSize
-    private let sliceCount: Int
-    
-    // MARK: - Settings
-    public var showPageControl: Bool = true {
-        didSet {
-            self.pageControl.isHidden = !showPageControl
-        }
-    }
+    private let info: SessionCarouselView.Info
     
     // MARK: - UI
     private lazy var scrollView: UIScrollView = {
@@ -22,8 +16,8 @@ final class SessionCarouselView: UIView, UIScrollViewDelegate {
         result.showsHorizontalScrollIndicator = false
         result.showsVerticalScrollIndicator = false
         result.contentSize = CGSize(
-            width: self.sliceSize.width * CGFloat(self.slicesForLoop.count),
-            height: self.sliceSize.height
+            width: self.info.sliceSize.width * CGFloat(self.slicesForLoop.count),
+            height: self.info.sliceSize.height
         )
         
         return result
@@ -31,23 +25,52 @@ final class SessionCarouselView: UIView, UIScrollViewDelegate {
     
     private lazy var pageControl: UIPageControl = {
         let result: UIPageControl = UIPageControl()
-        result.numberOfPages = self.sliceCount
+        result.numberOfPages = self.info.sliceCount
         result.currentPage = 0
+        result.isHidden = !self.info.shouldShowPageControl
+        result.set(.height, to: self.info.pageControlHeight)
+        result.transform = CGAffineTransform(scaleX: self.info.pageControlScale, y: self.info.pageControlScale)
+        
+        return result
+    }()
+    
+    private lazy var arrowLeft: UIButton = {
+        let result = UIButton(type: .custom)
+        result.setImage(UIImage(systemName: "chevron.left")?.withRenderingMode(.alwaysTemplate), for: .normal)
+        result.addTarget(self, action: #selector(scrollToPreviousSlice), for: .touchUpInside)
+        result.themeTintColor = .textPrimary
+        result.set(.width, to: self.info.arrowsSize.width)
+        result.set(.height, to: self.info.arrowsSize.height)
+        result.isHidden = !self.info.shouldShowArrows
+        
+        return result
+    }()
+
+    private lazy var arrowRight: UIButton = {
+        let result = UIButton(type: .custom)
+        result.setImage(UIImage(systemName: "chevron.right")?.withRenderingMode(.alwaysTemplate), for: .normal)
+        result.addTarget(self, action: #selector(scrollToNextSlice), for: .touchUpInside)
+        result.themeTintColor = .textPrimary
+        result.set(.width, to: self.info.arrowsSize.width)
+        result.set(.height, to: self.info.arrowsSize.height)
+        result.isHidden = !self.info.shouldShowArrows
         
         return result
     }()
     
     // MARK: - Lifecycle
-    init(slices: [UIView], sliceSize: CGSize) {
-        self.sliceCount = slices.count
-        if self.sliceCount > 1, let copyOfFirstSlice: UIView = slices.first?.copyView(), let copyOfLastSlice: UIView = slices.last?.copyView() {
+    init(info: SessionCarouselView.Info) {
+        self.info = info
+        if self.info.sliceCount > 1,
+           let copyOfFirstSlice: UIView = self.info.slices.first?.copyView(),
+           let copyOfLastSlice: UIView = self.info.slices.last?.copyView()
+        {
             self.slicesForLoop = [copyOfLastSlice]
-                .appending(contentsOf: slices)
+                .appending(contentsOf: self.info.slices)
                 .appending(copyOfFirstSlice)
         } else {
-            self.slicesForLoop = slices
+            self.slicesForLoop = self.info.slices
         }
-        self.sliceSize = sliceSize
         
         super.init(frame: CGRect.zero)
         setUpViewHierarchy()
@@ -62,19 +85,22 @@ final class SessionCarouselView: UIView, UIScrollViewDelegate {
     }
 
     private func setUpViewHierarchy() {
+        set(.width, to: self.info.sliceSize.width + Values.largeSpacing + 2 * self.info.arrowsSize.width)
+        set(.height, to: self.info.sliceSize.height)
+        
         let stackView: UIStackView = UIStackView(arrangedSubviews: self.slicesForLoop)
         stackView.axis = .horizontal
-        stackView.set(.width, to: self.sliceSize.width * CGFloat(self.slicesForLoop.count))
-        stackView.set(.height, to: self.sliceSize.height)
+        stackView.set(.width, to: self.info.sliceSize.width * CGFloat(self.slicesForLoop.count))
+        stackView.set(.height, to: self.info.sliceSize.height)
         
         addSubview(self.scrollView)
-        scrollView.pin(to: self)
-        scrollView.set(.width, to: self.sliceSize.width)
-        scrollView.set(.height, to: self.sliceSize.height)
+        scrollView.center(in: self)
+        scrollView.set(.width, to: self.info.sliceSize.width)
+        scrollView.set(.height, to: self.info.sliceSize.height)
         scrollView.addSubview(stackView)
         scrollView.setContentOffset(
             CGPoint(
-                x: Int(self.sliceSize.width) * (self.sliceCount > 1 ? 1 : 0),
+                x: Int(self.info.sliceSize.width) * (self.info.sliceCount > 1 ? 1 : 0),
                 y: 0
             ),
             animated: false
@@ -83,13 +109,21 @@ final class SessionCarouselView: UIView, UIScrollViewDelegate {
         addSubview(self.pageControl)
         self.pageControl.center(.horizontal, in: self)
         self.pageControl.pin(.bottom, to: .bottom, of: self)
+        
+        addSubview(self.arrowLeft)
+        self.arrowLeft.pin(.leading, to: .leading, of: self)
+        self.arrowLeft.center(.vertical, in: self)
+        
+        addSubview(self.arrowRight)
+        self.arrowRight.pin(.trailing, to: .trailing, of: self)
+        self.arrowRight.center(.vertical, in: self)
     }
     
     // MARK: - UIScrollViewDelegate
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         let pageIndex: Int = {
-            let maybeCurrentPageIndex: Int = Int(round(scrollView.contentOffset.x/sliceSize.width))
-            if self.sliceCount > 1 {
+            let maybeCurrentPageIndex: Int = Int(round(scrollView.contentOffset.x/self.info.sliceSize.width))
+            if self.info.sliceCount > 1 {
                 if maybeCurrentPageIndex == 0 {
                     return pageControl.numberOfPages - 1
                 }
@@ -108,7 +142,7 @@ final class SessionCarouselView: UIView, UIScrollViewDelegate {
         if pageControl.currentPage == 0 {
             scrollView.setContentOffset(
                 CGPoint(
-                    x: Int(self.sliceSize.width) * 1,
+                    x: Int(self.info.sliceSize.width) * 1,
                     y: 0
                 ),
                 animated: false
@@ -119,11 +153,32 @@ final class SessionCarouselView: UIView, UIScrollViewDelegate {
             let realLastIndex: Int = self.slicesForLoop.count - 2
             scrollView.setContentOffset(
                 CGPoint(
-                    x: Int(self.sliceSize.width) * realLastIndex,
+                    x: Int(self.info.sliceSize.width) * realLastIndex,
                     y: 0
                 ),
                 animated: false
             )
         }
+    }
+    
+    // MARK: - Interaction
+    @objc func scrollToNextSlice() {
+        self.scrollView.setContentOffset(
+            CGPoint(
+                x: self.scrollView.contentOffset.x + self.info.sliceSize.width,
+                y: 0
+            ),
+            animated: true
+        )
+    }
+    
+    @objc func scrollToPreviousSlice() {
+        self.scrollView.setContentOffset(
+            CGPoint(
+                x: self.scrollView.contentOffset.x - self.info.sliceSize.width,
+                y: 0
+            ),
+            animated: true
+        )
     }
 }
