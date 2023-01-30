@@ -15,6 +15,7 @@ extension SessionCarouselView {
         let pageControlStyle: PageControlStyle
         let shouldShowArrows: Bool
         let arrowsSize: CGSize
+        let cornerRadius: CGFloat
         
         // MARK: - Initialization
         
@@ -26,7 +27,8 @@ extension SessionCarouselView {
             shouldShowPageControl: Bool = true,
             pageControlStyle: PageControlStyle,
             shouldShowArrows: Bool = true,
-            arrowsSize: CGSize = .zero
+            arrowsSize: CGSize = .zero,
+            cornerRadius: CGFloat = 0
         ) {
             self.slices = slices
             self.copyOfFirstSlice = copyOfFirstSlice
@@ -37,6 +39,7 @@ extension SessionCarouselView {
             self.pageControlStyle = pageControlStyle
             self.shouldShowArrows = shouldShowArrows && (self.sliceCount > 1)
             self.arrowsSize = arrowsSize
+            self.cornerRadius = cornerRadius
         }
     }
     

@@ -16,7 +16,8 @@ extension MediaInfoVC {
         private lazy var mediaView: MediaView = {
             let result: MediaView = MediaView.init(
                 attachment: attachment,
-                isOutgoing: isOutgoing
+                isOutgoing: isOutgoing,
+                cornerRadius: 0
             )
             
             return result

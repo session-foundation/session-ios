@@ -38,7 +38,8 @@ final class MediaInfoVC: BaseVC {
                 arrowsSize: CGSize(
                     width: 20,
                     height: 30
-                )
+                ),
+                cornerRadius: 8
             )
         )
         result.set(.height, to: Self.mediaSize)

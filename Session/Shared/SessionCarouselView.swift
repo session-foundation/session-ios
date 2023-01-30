@@ -19,6 +19,8 @@ final class SessionCarouselView: UIView, UIScrollViewDelegate {
             width: self.info.sliceSize.width * CGFloat(self.slicesForLoop.count),
             height: self.info.sliceSize.height
         )
+        result.layer.cornerRadius = self.info.cornerRadius
+        result.layer.masksToBounds = true
         
         return result
     }()

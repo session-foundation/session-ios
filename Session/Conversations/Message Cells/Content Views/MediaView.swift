@@ -47,7 +47,8 @@ public class MediaView: UIView {
     public required init(
         mediaCache: NSCache<NSString, AnyObject>? = nil,
         attachment: Attachment,
-        isOutgoing: Bool
+        isOutgoing: Bool,
+        cornerRadius: CGFloat
     ) {
         self.mediaCache = mediaCache
         self.attachment = attachment
@@ -58,7 +59,7 @@ public class MediaView: UIView {
         themeBackgroundColor = .backgroundSecondary
         clipsToBounds = true
         layer.masksToBounds = true
-        layer.cornerRadius = VisibleMessageCell.largeCornerRadius
+        layer.cornerRadius = cornerRadius
 
         createContents()
     }
