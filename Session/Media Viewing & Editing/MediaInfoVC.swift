@@ -13,20 +13,27 @@ final class MediaInfoVC: BaseVC {
     // MARK: - UI
     private lazy var mediaInfoView: MediaInfoView = MediaInfoView(attachment: nil)
     private lazy var mediaCarouselView: SessionCarouselView = {
+        let slices: [MediaPreviewView] = self.attachments.map {
+            MediaPreviewView(
+                attachment: $0,
+                isOutgoing: self.isOutgoing
+            )
+        }
         let result: SessionCarouselView = SessionCarouselView(
             info: SessionCarouselView.Info(
-                slices: self.attachments.map {
-                    MediaPreviewView(
-                        attachment: $0,
-                        isOutgoing: self.isOutgoing
-                    )
-                },
+                slices: slices,
+                copyOfFirstSlice: slices.first?.copyView(),
+                copyOfLastSlice: slices.last?.copyView(),
                 sliceSize: CGSize(
                     width: Self.mediaSize,
                     height: Self.mediaSize
                 ),
                 shouldShowPageControl: true,
-                pageControlHeight: 10,
+                pageControlStyle: SessionCarouselView.PageControlStyle(
+                    size: .medium,
+                    backgroundColor: .init(white: 0, alpha: 0.4),
+                    bottomInset: Values.mediumSpacing
+                ),
                 shouldShowArrows: true,
                 arrowsSize: CGSize(
                     width: 20,

@@ -72,14 +72,4 @@ public extension UIView {
         
         return result
     }
-    
-    func copyView<T: UIView>() -> T? {
-        do {
-            return try NSKeyedUnarchiver.unarchiveTopLevelObjectWithData(NSKeyedArchiver.archivedData(withRootObject:self, requiringSecureCoding:false)) as? T
-        } catch {
-            print("\(error)")
-            return nil
-        }
-        
-    }
 }

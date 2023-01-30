@@ -28,8 +28,10 @@ final class SessionCarouselView: UIView, UIScrollViewDelegate {
         result.numberOfPages = self.info.sliceCount
         result.currentPage = 0
         result.isHidden = !self.info.shouldShowPageControl
-        result.set(.height, to: self.info.pageControlHeight)
-        result.transform = CGAffineTransform(scaleX: self.info.pageControlScale, y: self.info.pageControlScale)
+        result.transform = CGAffineTransform(
+            scaleX: self.info.pageControlStyle.size.rawValue,
+            y: self.info.pageControlStyle.size.rawValue
+        )
         
         return result
     }()
@@ -59,11 +61,12 @@ final class SessionCarouselView: UIView, UIScrollViewDelegate {
     }()
     
     // MARK: - Lifecycle
+    
     init(info: SessionCarouselView.Info) {
         self.info = info
         if self.info.sliceCount > 1,
-           let copyOfFirstSlice: UIView = self.info.slices.first?.copyView(),
-           let copyOfLastSlice: UIView = self.info.slices.last?.copyView()
+           let copyOfFirstSlice: UIView = self.info.copyOfFirstSlice,
+           let copyOfLastSlice: UIView = self.info.copyOfLastSlice
         {
             self.slicesForLoop = [copyOfLastSlice]
                 .appending(contentsOf: self.info.slices)
@@ -120,6 +123,7 @@ final class SessionCarouselView: UIView, UIScrollViewDelegate {
     }
     
     // MARK: - UIScrollViewDelegate
+    
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         let pageIndex: Int = {
             let maybeCurrentPageIndex: Int = Int(round(scrollView.contentOffset.x/self.info.sliceSize.width))
@@ -139,6 +143,14 @@ final class SessionCarouselView: UIView, UIScrollViewDelegate {
     }
 
     func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        setCorrectCotentOffsetIfNeeded(scrollView)
+    }
+    
+    func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
+        setCorrectCotentOffsetIfNeeded(scrollView)
+    }
+    
+    private func setCorrectCotentOffsetIfNeeded(_ scrollView: UIScrollView) {
         if pageControl.currentPage == 0 {
             scrollView.setContentOffset(
                 CGPoint(
@@ -162,6 +174,7 @@ final class SessionCarouselView: UIView, UIScrollViewDelegate {
     }
     
     // MARK: - Interaction
+    
     @objc func scrollToNextSlice() {
         self.scrollView.setContentOffset(
             CGPoint(
