@@ -7,6 +7,7 @@ import SessionUtilitiesKit
 final class SessionCarouselView: UIView, UIScrollViewDelegate {
     private let slicesForLoop: [UIView]
     private let info: SessionCarouselView.Info
+    var delegate: SessionCarouselViewDelegate?
     
     // MARK: - UI
     private lazy var scrollView: UIScrollView = {
@@ -146,10 +147,12 @@ final class SessionCarouselView: UIView, UIScrollViewDelegate {
 
     func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
         setCorrectCotentOffsetIfNeeded(scrollView)
+        delegate?.carouselViewDidScrollToNewSlice(currentPage: pageControl.currentPage)
     }
     
     func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
         setCorrectCotentOffsetIfNeeded(scrollView)
+        delegate?.carouselViewDidScrollToNewSlice(currentPage: pageControl.currentPage)
     }
     
     private func setCorrectCotentOffsetIfNeeded(_ scrollView: UIScrollView) {

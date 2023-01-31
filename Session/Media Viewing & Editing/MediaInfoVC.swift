@@ -4,8 +4,9 @@ import UIKit
 import SessionUIKit
 import SessionUtilitiesKit
 
-final class MediaInfoVC: BaseVC {
+final class MediaInfoVC: BaseVC, SessionCarouselViewDelegate {
     internal static let mediaSize: CGFloat = 293
+    internal static let arrowSize: CGSize = CGSize(width: 20, height: 30)
     
     private let attachments: [Attachment]
     private let isOutgoing: Bool
@@ -35,14 +36,29 @@ final class MediaInfoVC: BaseVC {
                     bottomInset: Values.mediumSpacing
                 ),
                 shouldShowArrows: true,
-                arrowsSize: CGSize(
-                    width: 20,
-                    height: 30
-                ),
+                arrowsSize: Self.arrowSize,
                 cornerRadius: 8
             )
         )
         result.set(.height, to: Self.mediaSize)
+        result.delegate = self
+        
+        return result
+    }()
+    
+    private lazy var fullScreenButton: UIButton = {
+        let result: UIButton = UIButton(type: .custom)
+        result.setImage(
+            UIImage(systemName: "arrow.up.left.and.arrow.down.right")?
+                .withRenderingMode(.alwaysTemplate),
+            for: .normal
+        )
+        result.themeTintColor = .textPrimary
+        result.backgroundColor = .init(white: 0, alpha: 0.4)
+        result.layer.cornerRadius = 14
+        result.set(.width, to: 28)
+        result.set(.height, to: 28)
+        result.addTarget(self, action: #selector(showMediaFullScreen), for: .touchUpInside)
         
         return result
     }()
@@ -79,6 +95,10 @@ final class MediaInfoVC: BaseVC {
         
         mediaInfoView.update(attachment: attachments[0])
         
+        mediaCarouselView.addSubview(fullScreenButton)
+        fullScreenButton.pin(.trailing, to: .trailing, of: mediaCarouselView, withInset: -(Values.smallSpacing + Self.arrowSize.width + Values.largeSpacing))
+        fullScreenButton.pin(.bottom, to: .bottom, of: mediaCarouselView, withInset: -Values.smallSpacing)
+        
         let stackView: UIStackView = UIStackView(arrangedSubviews: [ mediaCarouselView, mediaInfoView ])
         stackView.axis = .vertical
         stackView.alignment = .center
@@ -87,5 +107,17 @@ final class MediaInfoVC: BaseVC {
         self.view.addSubview(stackView)
         stackView.pin([ UIView.HorizontalEdge.leading, UIView.HorizontalEdge.trailing ], to: self.view)
         stackView.center(.vertical, in: self.view)
+    }
+    
+    // MARK: - Interaction
+    
+    @objc func showMediaFullScreen() {
+        
+    }
+    
+    // MARK: - SessionCarouselViewDelegate
+    
+    func carouselViewDidScrollToNewSlice(currentPage: Int) {
+        mediaInfoView.update(attachment: attachments[currentPage])
     }
 }
