@@ -1013,17 +1013,19 @@ public enum PagedData {
                 target: updatedData
             )
             
-            // No need to do anything if there were no changes
-            guard !changeset.isEmpty else { return }
-            
-            // If we have the callback then trigger it, otherwise just store the changes to be sent
-            // to the callback if we ever start observing again (when we have the callback it needs
-            // to do the data updating as it's tied to UI updates and can cause crashes if not updated
-            // in the correct order)
+            /// If we have the callback then trigger it, otherwise just store the changes to be sent to the callback if we ever
+            /// start observing again (when we have the callback it needs to do the data updating as it's tied to UI updates
+            /// and can cause crashes if not updated in the correct order)
+            ///
+            /// **Note:** We do this even if the 'changeset' is empty because if this change reverts a previous change we
+            /// need to ensure the `onUnobservedDataChange` gets cleared so it doesn't end up in an invalid state
             guard let onDataChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ()) = onDataChange else {
                 onUnobservedDataChange(updatedData, changeset)
                 return
             }
+            
+            // No need to do anything if there were no changes
+            guard !changeset.isEmpty else { return }
             
             onDataChange(updatedData, changeset)
         }

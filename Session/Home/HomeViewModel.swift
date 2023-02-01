@@ -64,7 +64,8 @@ public class HomeViewModel {
                         .shouldBeVisible,
                         .isPinned,
                         .mutedUntilTimestamp,
-                        .onlyNotifyForMentions
+                        .onlyNotifyForMentions,
+                        .markedAsUnread
                     ]
                 ),
                 PagedData.ObservedChanges(
@@ -76,7 +77,7 @@ public class HomeViewModel {
                     joinToPagedType: {
                         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
                         
-                        return SQL("LEFT JOIN \(Interaction.self) ON \(interaction[.threadId]) = \(thread[.id])")
+                        return SQL("JOIN \(Interaction.self) ON \(interaction[.threadId]) = \(thread[.id])")
                     }()
                 ),
                 PagedData.ObservedChanges(
@@ -85,7 +86,7 @@ public class HomeViewModel {
                     joinToPagedType: {
                         let contact: TypedTableAlias<Contact> = TypedTableAlias()
                         
-                        return SQL("LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])")
+                        return SQL("JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])")
                     }()
                 ),
                 PagedData.ObservedChanges(
@@ -93,8 +94,53 @@ public class HomeViewModel {
                     columns: [.name, .nickname, .profilePictureFileName],
                     joinToPagedType: {
                         let profile: TypedTableAlias<Profile> = TypedTableAlias()
+                        let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
+                        let threadVariants: [SessionThread.Variant] = [.legacyClosedGroup, .closedGroup]
+                        let targetRole: GroupMember.Role = GroupMember.Role.standard
                         
-                        return SQL("LEFT JOIN \(Profile.self) ON \(profile[.id]) = \(thread[.id])")
+                        return SQL("""
+                            JOIN \(Profile.self) ON (
+                                (   -- Contact profile change
+                                    \(SQL("\(thread[.variant]) = \(SessionThread.Variant.contact)")) AND
+                                    \(profile[.id]) = \(thread[.id])
+                                ) OR ( -- Closed group profile change
+                                    \(SQL("\(thread[.variant]) IN \(threadVariants)")) AND (
+                                        profile.id = (  -- Front profile
+                                            SELECT MIN(\(groupMember[.profileId]))
+                                            FROM \(GroupMember.self)
+                                            JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
+                                            WHERE (
+                                                \(SQL("\(groupMember[.role]) = \(targetRole)")) AND
+                                                \(groupMember[.groupId]) = \(thread[.id]) AND
+                                                \(groupMember[.profileId]) != \(userPublicKey)
+                                            )
+                                        ) OR
+                                        profile.id = (  -- Back profile
+                                            SELECT MAX(\(groupMember[.profileId]))
+                                            FROM \(GroupMember.self)
+                                            JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
+                                            WHERE (
+                                                \(SQL("\(groupMember[.role]) = \(targetRole)")) AND
+                                                \(groupMember[.groupId]) = \(thread[.id]) AND
+                                                \(groupMember[.profileId]) != \(userPublicKey)
+                                            )
+                                        ) OR (  -- Fallback profile
+                                            profile.id = \(userPublicKey) AND
+                                            (
+                                                SELECT COUNT(\(groupMember[.profileId]))
+                                                FROM \(GroupMember.self)
+                                                JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
+                                                WHERE (
+                                                    \(SQL("\(groupMember[.role]) = \(targetRole)")) AND
+                                                    \(groupMember[.groupId]) = \(thread[.id]) AND
+                                                    \(groupMember[.profileId]) != \(userPublicKey)
+                                                )
+                                            ) = 1
+                                        )
+                                    )
+                                )
+                            )
+                        """)
                     }()
                 ),
                 PagedData.ObservedChanges(
@@ -103,7 +149,7 @@ public class HomeViewModel {
                     joinToPagedType: {
                         let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
                         
-                        return SQL("LEFT JOIN \(ClosedGroup.self) ON \(closedGroup[.threadId]) = \(thread[.id])")
+                        return SQL("JOIN \(ClosedGroup.self) ON \(closedGroup[.threadId]) = \(thread[.id])")
                     }()
                 ),
                 PagedData.ObservedChanges(
@@ -112,7 +158,7 @@ public class HomeViewModel {
                     joinToPagedType: {
                         let openGroup: TypedTableAlias<OpenGroup> = TypedTableAlias()
                         
-                        return SQL("LEFT JOIN \(OpenGroup.self) ON \(openGroup[.threadId]) = \(thread[.id])")
+                        return SQL("JOIN \(OpenGroup.self) ON \(openGroup[.threadId]) = \(thread[.id])")
                     }()
                 ),
                 PagedData.ObservedChanges(
@@ -123,8 +169,8 @@ public class HomeViewModel {
                         let recipientState: TypedTableAlias<RecipientState> = TypedTableAlias()
                         
                         return """
-                            LEFT JOIN \(Interaction.self) ON \(interaction[.threadId]) = \(thread[.id])
-                            LEFT JOIN \(RecipientState.self) ON \(recipientState[.interactionId]) = \(interaction[.id])
+                            JOIN \(Interaction.self) ON \(interaction[.threadId]) = \(thread[.id])
+                            JOIN \(RecipientState.self) ON \(recipientState[.interactionId]) = \(interaction[.id])
                         """
                     }()
                 ),
@@ -134,7 +180,7 @@ public class HomeViewModel {
                     joinToPagedType: {
                         let typingIndicator: TypedTableAlias<ThreadTypingIndicator> = TypedTableAlias()
                         
-                        return SQL("LEFT JOIN \(ThreadTypingIndicator.self) ON \(typingIndicator[.threadId]) = \(thread[.id])")
+                        return SQL("JOIN \(ThreadTypingIndicator.self) ON \(typingIndicator[.threadId]) = \(thread[.id])")
                     }()
                 )
             ],
@@ -155,7 +201,10 @@ public class HomeViewModel {
                     currentDataRetriever: { self?.threadData },
                     onDataChange: self?.onThreadChange,
                     onUnobservedDataChange: { updatedData, changeset in
-                        self?.unobservedThreadDataChanges = (updatedData, changeset)
+                        self?.unobservedThreadDataChanges = (changeset.isEmpty ?
+                            nil :
+                            (updatedData, changeset)
+                        )
                     }
                 )
             }
@@ -223,8 +272,11 @@ public class HomeViewModel {
             updatedData: updatedThreadData,
             currentDataRetriever: { [weak self] in (self?.unobservedThreadDataChanges?.0 ?? self?.threadData) },
             onDataChange: onThreadChange,
-            onUnobservedDataChange: { [weak self] updatedThreadData, changeset in
-                self?.unobservedThreadDataChanges = (updatedThreadData, changeset)
+            onUnobservedDataChange: { [weak self] updatedData, changeset in
+                self?.unobservedThreadDataChanges = (changeset.isEmpty ?
+                    nil :
+                    (updatedData, changeset)
+                )
             }
         )
     }
@@ -300,6 +352,17 @@ public class HomeViewModel {
     }
     
     // MARK: - Functions
+    
+    public func markAsRead(
+        threadViewModel: SessionThreadViewModel,
+        target: SessionThreadViewModel.ReadTarget
+    ) {
+        threadViewModel.markAsRead(target: target)
+    }
+    
+    public func markAsUnread(threadViewModel: SessionThreadViewModel) {
+        threadViewModel.markAsUnread()
+    }
     
     public func delete(threadId: String, threadVariant: SessionThread.Variant) {
         Storage.shared.writeAsync { db in

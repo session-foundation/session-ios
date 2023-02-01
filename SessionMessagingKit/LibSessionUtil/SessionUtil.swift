@@ -347,39 +347,40 @@ public enum SessionUtil {
                 SessionUtil.configStore.wrappedValue[key] ??
                 Atomic(nil)
             )
-            var finalResult: ConfResult = mergeResult.result
             
             // Apply the updated states to the database
-            switch variant {
-                case .userProfile:
-                    finalResult = try SessionUtil.handleUserProfileUpdate(
-                        db,
-                        in: atomicConf,
-                        mergeResult: mergeResult.result,
-                        latestConfigUpdateSentTimestamp: mergeResult.latestSentTimestamp
-                    )
-                    
-                case .contacts:
-                    finalResult = try SessionUtil.handleContactsUpdate(
-                        db,
-                        in: atomicConf,
-                        mergeResult: mergeResult.result
-                    )
-                    
-                case .convoInfoVolatile:
-                    finalResult = try SessionUtil.handleConvoInfoVolatileUpdate(
-                        db,
-                        in: atomicConf,
-                        mergeResult: mergeResult.result
-                    )
-                    
-                case .groups:
-                    finalResult = try SessionUtil.handleGroupsUpdate(
-                        db,
-                        in: atomicConf,
-                        mergeResult: mergeResult.result
-                    )
-            }
+            let postHandlingResult: ConfResult = try {
+                switch variant {
+                    case .userProfile:
+                        return try SessionUtil.handleUserProfileUpdate(
+                            db,
+                            in: atomicConf,
+                            mergeResult: mergeResult.result,
+                            latestConfigUpdateSentTimestamp: mergeResult.latestSentTimestamp
+                        )
+                        
+                    case .contacts:
+                        return try SessionUtil.handleContactsUpdate(
+                            db,
+                            in: atomicConf,
+                            mergeResult: mergeResult.result
+                        )
+                        
+                    case .convoInfoVolatile:
+                        return try SessionUtil.handleConvoInfoVolatileUpdate(
+                            db,
+                            in: atomicConf,
+                            mergeResult: mergeResult.result
+                        )
+                        
+                    case .groups:
+                        return try SessionUtil.handleGroupsUpdate(
+                            db,
+                            in: atomicConf,
+                            mergeResult: mergeResult.result
+                        )
+                }
+            }()
             
             // We need to get the existing message hashes and combine them with the latest from the
             // service node to ensure the next push will properly clean up old messages
@@ -399,7 +400,7 @@ public enum SessionUtil {
             let messageHashesChanged: Bool = (oldMessageHashes != mergeResult.messageHashes.asSet())
             
             // Now that the changes are applied, update the cached dumps
-            switch (finalResult.needsDump, messageHashesChanged) {
+            switch (postHandlingResult.needsDump, messageHashesChanged) {
                 case (true, _):
                     // The config data had changes so regenerate the dump and save it
                     try atomicConf
@@ -430,7 +431,7 @@ public enum SessionUtil {
                 default: break
             }
             
-            return finalResult
+            return postHandlingResult
         }
         
         // Now that the local state has been updated, trigger a config sync (this will push any

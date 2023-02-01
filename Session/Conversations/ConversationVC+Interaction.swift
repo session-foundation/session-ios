@@ -998,16 +998,18 @@ extension ConversationVC:
             case .textOnlyMessage:
                 if let quote: Quote = cellViewModel.quote {
                     // Scroll to the original quoted message
-                    let maybeOriginalInteractionId: Int64? = Storage.shared.read { db in
+                    let maybeOriginalInteractionInfo: Interaction.TimestampInfo? = Storage.shared.read { db in
                         try quote.originalInteraction
-                            .select(.id)
-                            .asRequest(of: Int64.self)
+                            .select(.id, .timestampMs)
+                            .asRequest(of: Interaction.TimestampInfo.self)
                             .fetchOne(db)
                     }
                     
-                    guard let interactionId: Int64 = maybeOriginalInteractionId else { return }
+                    guard let interactionInfo: Interaction.TimestampInfo = maybeOriginalInteractionInfo else {
+                        return
+                    }
                     
-                    self.scrollToInteractionIfNeeded(with: interactionId, highlight: true)
+                    self.scrollToInteractionIfNeeded(with: interactionInfo, highlight: true)
                 }
                 else if let linkPreview: LinkPreview = cellViewModel.linkPreview {
                     switch linkPreview.variant {

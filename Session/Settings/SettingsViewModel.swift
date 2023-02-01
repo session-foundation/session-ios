@@ -525,7 +525,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                 avatarUpdate: .remove,
                 success: { db in
                     // Wait for the database transaction to complete before updating the UI
-                    db.afterNextTransaction { _ in
+                    db.afterNextTransactionNested { _ in
                         DispatchQueue.main.async {
                             modalActivityIndicator.dismiss(completion: {})
                         }
@@ -564,7 +564,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                 avatarUpdate: avatarUpdate,
                 success: { db in
                     // Wait for the database transaction to complete before updating the UI
-                    db.afterNextTransaction { _ in
+                    db.afterNextTransactionNested { _ in
                         DispatchQueue.main.async {
                             modalActivityIndicator.dismiss(completion: {})
                         }

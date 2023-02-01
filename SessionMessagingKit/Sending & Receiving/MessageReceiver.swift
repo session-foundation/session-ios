@@ -74,7 +74,9 @@ public enum MessageReceiver {
                         throw MessageReceiverError.invalidGroupPublicKey
                     }
                     guard
-                        let encryptionKeyPairs: [ClosedGroupKeyPair] = try? closedGroup.keyPairs.order(ClosedGroupKeyPair.Columns.receivedTimestamp.desc).fetchAll(db),
+                        let encryptionKeyPairs: [ClosedGroupKeyPair] = try? closedGroup.keyPairs
+                            .order(ClosedGroupKeyPair.Columns.receivedTimestamp.desc)
+                            .fetchAll(db),
                         !encryptionKeyPairs.isEmpty
                     else {
                         throw MessageReceiverError.noGroupKeyPair

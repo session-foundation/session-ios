@@ -493,7 +493,7 @@ public final class OpenGroupManager {
                 }
         }
         
-        db.afterNextTransaction { db in
+        db.afterNextTransactionNested { db in
             // Start the poller if needed
             if dependencies.cache.pollers[server.lowercased()] == nil {
                 dependencies.mutableCache.mutate {

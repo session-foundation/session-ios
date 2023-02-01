@@ -143,7 +143,7 @@ public final class JobRunner {
         guard canStartJob else { return }
         
         // Start the job runner if needed
-        db.afterNextTransaction { _ in
+        db.afterNextTransactionNested { _ in
             queues.wrappedValue[updatedJob.variant]?.start()
         }
     }
@@ -166,7 +166,7 @@ public final class JobRunner {
         guard canStartJob else { return }
         
         // Start the job runner if needed
-        db.afterNextTransaction { _ in
+        db.afterNextTransactionNested { _ in
             queues.wrappedValue[job.variant]?.start()
         }
     }
@@ -211,7 +211,10 @@ public final class JobRunner {
                         ].contains(Job.Columns.behaviour)
                     )
                     .filter(Job.Columns.shouldBlock == true)
-                    .order(Job.Columns.id)
+                    .order(
+                        Job.Columns.priority.desc,
+                        Job.Columns.id
+                    )
                     .fetchAll(db)
                 let nonblockingJobs: [Job] = try Job
                     .filter(
@@ -221,7 +224,10 @@ public final class JobRunner {
                         ].contains(Job.Columns.behaviour)
                     )
                     .filter(Job.Columns.shouldBlock == false)
-                    .order(Job.Columns.id)
+                    .order(
+                        Job.Columns.priority.desc,
+                        Job.Columns.id
+                    )
                     .fetchAll(db)
                 
                 return (blockingJobs, nonblockingJobs)
@@ -260,7 +266,10 @@ public final class JobRunner {
             .read { db in
                 return try Job
                     .filter(Job.Columns.behaviour == Job.Behaviour.recurringOnActive)
-                    .order(Job.Columns.id)
+                    .order(
+                        Job.Columns.priority.desc,
+                        Job.Columns.id
+                    )
                     .fetchAll(db)
             }
             .defaulting(to: [])

@@ -63,7 +63,7 @@ internal extension SessionUtil {
                 guard
                     let profilePictureUrl: String = profileData.profilePictureUrl,
                     let profileKey: Data = profileData.profilePictureKey
-                else { return .none }
+                else { return .remove }
                 
                 return .updateTo(
                     url: profilePictureUrl,
@@ -106,26 +106,35 @@ internal extension SessionUtil {
         // blocking access in it's `mutate` closure
         return atomicConf.mutate { conf in
             // Update the name
-            user_profile_set_name(conf, profile.name)
-            
-            let profilePic: user_profile_pic? = profile.profilePictureUrl?
+            var updatedName: [CChar] = profile.name
                 .bytes
                 .map { CChar(bitPattern: $0) }
-                .withUnsafeBufferPointer { profileUrlPtr in
-                    let profileKey: [UInt8]? = profile.profileEncryptionKey?.bytes
-                    
-                    return profileKey?.withUnsafeBufferPointer { profileKeyPtr in
+            user_profile_set_name(conf, &updatedName)
+            
+            // Either assign the updated profile pic, or sent a blank profile pic (to remove the current one)
+            let profilePic: user_profile_pic? = {
+                guard
+                    let profilePictureUrl: String = profile.profilePictureUrl,
+                    let profileEncryptionKey: Data = profile.profileEncryptionKey
+                else { return nil }
+                
+                let updatedUrl: [CChar] = profilePictureUrl
+                    .bytes
+                    .map { CChar(bitPattern: $0) }
+                let updatedKey: [UInt8] = profileEncryptionKey
+                    .bytes
+                
+                return updatedUrl.withUnsafeBufferPointer { urlPtr in
+                    updatedKey.withUnsafeBufferPointer { keyPtr in
                         user_profile_pic(
-                            url: profileUrlPtr.baseAddress,
-                            key: profileKeyPtr.baseAddress,
-                            keylen: (profileKey?.count ?? 0)
+                            url: urlPtr.baseAddress,
+                            key: keyPtr.baseAddress,
+                            keylen: updatedKey.count
                         )
                     }
                 }
-            
-            if let profilePic: user_profile_pic = profilePic {
-                user_profile_set_pic(conf, profilePic)
-            }
+            }()
+            user_profile_set_pic(conf, (profilePic ?? user_profile_pic()))
             
             return ConfResult(
                 needsPush: config_needs_push(conf),

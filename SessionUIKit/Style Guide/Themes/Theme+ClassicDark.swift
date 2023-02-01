@@ -86,6 +86,7 @@ internal enum Theme_ClassicDark: ThemeColors {
         .conversationButton_swipeDestructive: .dangerDark,
         .conversationButton_swipeSecondary: .classicDark2,
         .conversationButton_swipeTertiary: Theme.PrimaryColor.orange.color,
+        .conversationButton_swipeRead: .classicDark3,
         
         // InputButton
         .inputButton_background: .classicDark2,

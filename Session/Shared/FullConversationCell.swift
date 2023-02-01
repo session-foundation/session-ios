@@ -43,6 +43,50 @@ public final class FullConversationCell: UITableViewCell {
         
         return result
     }()
+    
+    private lazy var unreadImageView: UIView = {
+        let iconHeight: CGFloat = 12
+        let indicatorSize: CGFloat = 6
+        
+        let result: UIView = UIView()
+        
+        let imageView: UIImageView = UIImageView(image: UIImage(systemName: "envelope"))
+        imageView.contentMode = .scaleAspectFit
+        imageView.themeTintColor = .textPrimary
+        result.addSubview(imageView)
+        
+        // Note: We add a 2 inset to align the bottom of the image with the bottom of the text (looks
+        // off otherwise)
+        imageView.pin(.top, to: .top, of: result, withInset: 2)
+        imageView.pin(.leading, to: .leading, of: result)
+        imageView.pin(.trailing, to: .trailing, of: result)
+        imageView.pin(.bottom, to: .bottom, of: result)
+        
+        // Note: For some weird reason if we dont '+ 4' here the height ends up getting set to '8'
+        imageView.set(.height, to: (iconHeight + 4))
+        imageView.set(.width, to: ((imageView.image?.size.width ?? 1) / (imageView.image?.size.height ?? 1) * iconHeight))
+        
+        let indicatorBackgroundView: UIView = UIView()
+        indicatorBackgroundView.themeBackgroundColor = .conversationButton_unreadBackground
+        indicatorBackgroundView.layer.cornerRadius = (indicatorSize / 2)
+        result.addSubview(indicatorBackgroundView)
+
+        indicatorBackgroundView.set(.width, to: indicatorSize)
+        indicatorBackgroundView.set(.height, to: indicatorSize)
+        indicatorBackgroundView.pin(.top, to: .top, of: result, withInset: 1)
+        indicatorBackgroundView.pin(.trailing, to: .trailing, of: result, withInset: 1)
+        
+        let indicatorView: UIView = UIView()
+        indicatorView.themeBackgroundColor = .conversationButton_unreadBubbleBackground
+        indicatorView.layer.cornerRadius = ((indicatorSize - 2) / 2)
+        result.addSubview(indicatorView)
+
+        indicatorView.set(.width, to: (indicatorSize - 2))
+        indicatorView.set(.height, to: (indicatorSize - 2))
+        indicatorView.center(in: indicatorBackgroundView)
+        
+        return result
+    }()
 
     private lazy var hasMentionView: UIView = {
         let result: UIView = UIView()
@@ -174,7 +218,7 @@ public final class FullConversationCell: UITableViewCell {
         
         // Label stack view
         let topLabelSpacer = UIView.hStretchingSpacer()
-        [ displayNameLabel, isPinnedIcon, unreadCountView, hasMentionView, topLabelSpacer, timestampLabel ].forEach{ view in
+        [ displayNameLabel, isPinnedIcon, unreadCountView, unreadImageView, hasMentionView, topLabelSpacer, timestampLabel ].forEach{ view in
             topLabelStackView.addArrangedSubview(view)
         }
         
@@ -239,6 +283,7 @@ public final class FullConversationCell: UITableViewCell {
         
         isPinnedIcon.isHidden = true
         unreadCountView.isHidden = true
+        unreadImageView.isHidden = true
         hasMentionView.isHidden = true
         timestampLabel.isHidden = false
         timestampLabel.text = cellViewModel.lastInteractionDate.formattedForDisplay
@@ -289,6 +334,7 @@ public final class FullConversationCell: UITableViewCell {
         
         isPinnedIcon.isHidden = true
         unreadCountView.isHidden = true
+        unreadImageView.isHidden = true
         hasMentionView.isHidden = true
         timestampLabel.isHidden = true
         
@@ -331,7 +377,11 @@ public final class FullConversationCell: UITableViewCell {
     
     public func update(with cellViewModel: SessionThreadViewModel) {
         let unreadCount: UInt = (cellViewModel.threadUnreadCount ?? 0)
-        let themeBackgroundColor: ThemeValue = (unreadCount > 0 ?
+        let threadIsUnread: Bool = (
+            unreadCount > 0 ||
+            cellViewModel.threadWasMarkedUnread == true
+        )
+        let themeBackgroundColor: ThemeValue = (threadIsUnread ?
             .conversationButton_unreadBackground :
             .conversationButton_background
         )
@@ -349,7 +399,11 @@ public final class FullConversationCell: UITableViewCell {
         
         isPinnedIcon.isHidden = !cellViewModel.threadIsPinned
         unreadCountView.isHidden = (unreadCount <= 0)
-        unreadCountLabel.text = (unreadCount < 10000 ? "\(unreadCount)" : "9999+")
+        unreadImageView.isHidden = (!unreadCountView.isHidden || !threadIsUnread)
+        unreadCountLabel.text = (unreadCount <= 0 ?
+            "" :
+            (unreadCount < 10000 ? "\(unreadCount)" : "9999+")
+        )
         unreadCountLabel.font = .boldSystemFont(
             ofSize: (unreadCount < 10000 ? Values.verySmallFontSize : 8)
         )
@@ -412,7 +466,10 @@ public final class FullConversationCell: UITableViewCell {
             }
             else {
                 accentLineView.themeBackgroundColor = .conversationButton_unreadStripBackground
-                accentLineView.alpha = (!unreadCountView.isHidden ? 1 : 0.0001) // Setting the alpha to exactly 0 causes an issue on iOS 12
+                accentLineView.alpha = (!unreadCountView.isHidden || !unreadImageView.isHidden ?
+                    1 :
+                    0.0001 // Setting the alpha to exactly 0 causes an issue on iOS 12
+                )
             }
         }
         

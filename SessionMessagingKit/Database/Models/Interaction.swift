@@ -608,13 +608,28 @@ public extension Interaction {
 // MARK: - Search Queries
 
 public extension Interaction {
-    static func idsForTermWithin(threadId: String, pattern: FTS5Pattern) -> SQLRequest<Int64> {
+    struct TimestampInfo: FetchableRecord, Codable {
+        public let id: Int64
+        public let timestampMs: Int64
+        
+        public init(
+            id: Int64,
+            timestampMs: Int64
+        ) {
+            self.id = id
+            self.timestampMs = timestampMs
+        }
+    }
+    
+    static func idsForTermWithin(threadId: String, pattern: FTS5Pattern) -> SQLRequest<TimestampInfo> {
         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
         let interactionFullTextSearch: SQL = SQL(stringLiteral: Interaction.fullTextSearchTableName)
         let threadIdLiteral: SQL = SQL(stringLiteral: Interaction.Columns.threadId.name)
         
-        let request: SQLRequest<Int64> = """
-            SELECT \(interaction[.id])
+        let request: SQLRequest<TimestampInfo> = """
+            SELECT
+                \(interaction[.id]),
+                \(interaction[.timestampMs])
             FROM \(Interaction.self)
             JOIN \(interactionFullTextSearch) ON (
                 \(interactionFullTextSearch).rowid = \(interaction.alias[Column.rowID]) AND

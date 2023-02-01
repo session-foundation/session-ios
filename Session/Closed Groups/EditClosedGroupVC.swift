@@ -244,12 +244,26 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         return adminIds.contains(userPublicKey)
     }
     
+    func tableView(_ tableView: UITableView, willBeginEditingRowAt indexPath: IndexPath) {
+        UIContextualAction.willBeginEditing(indexPath: indexPath, tableView: tableView)
+    }
+    
+    func tableView(_ tableView: UITableView, didEndEditingRowAt indexPath: IndexPath?) {
+        UIContextualAction.didEndEditing(indexPath: indexPath, tableView: tableView)
+    }
+    
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         let profileId: String = self.membersAndZombies[indexPath.row].profileId
         
         let delete: UIContextualAction = UIContextualAction(
-            style: .destructive,
-            title: "GROUP_ACTION_REMOVE".localized()
+            title: "GROUP_ACTION_REMOVE".localized(),
+            icon: UIImage(named: "icon_bin"),
+            themeTintColor: .textPrimary,
+            themeBackgroundColor: .conversationButton_swipeDestructive,
+            side: .trailing,
+            actionIndex: 0,
+            indexPath: indexPath,
+            tableView: tableView
         ) { [weak self] _, _, completionHandler in
             self?.adminIds.remove(profileId)
             self?.membersAndZombies.remove(at: indexPath.row)
@@ -257,7 +271,6 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
             
             completionHandler(true)
         }
-        delete.themeBackgroundColor = .conversationButton_swipeDestructive
         
         return UISwipeActionsConfiguration(actions: [ delete ])
     }
@@ -286,7 +299,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
     }
 
     private func handleMembersChanged() {
-        tableViewHeightConstraint.constant = CGFloat(membersAndZombies.count) * 67
+        tableViewHeightConstraint.constant = CGFloat(membersAndZombies.count) * 72
         tableView.reloadData()
     }
 

@@ -65,6 +65,7 @@ class ConfigContactsSpec: QuickSpec {
             expect(toPush).toNot(beNil())
             expect(seqno).to(equal(0))
             expect(toPushLen).to(equal(256))
+            toPush?.deallocate()
             
             // Update the contact data
             let contact2Name: [CChar] = "Joe"
@@ -125,7 +126,7 @@ class ConfigContactsSpec: QuickSpec {
             let error2: UnsafeMutablePointer<CChar>? = nil
             var conf2: UnsafeMutablePointer<config_object>? = nil
             expect(contacts_init(&conf2, &edSK, dump1, dump1Len, error2)).to(equal(0))
-            error?.deallocate()
+            error2?.deallocate()
             dump1?.deallocate()
             
             expect(config_needs_push(conf2)).to(beFalse())

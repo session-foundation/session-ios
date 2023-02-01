@@ -390,6 +390,14 @@ class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDat
         return true
     }
     
+    func tableView(_ tableView: UITableView, willBeginEditingRowAt indexPath: IndexPath) {
+        UIContextualAction.willBeginEditing(indexPath: indexPath, tableView: tableView)
+    }
+    
+    func tableView(_ tableView: UITableView, didEndEditingRowAt indexPath: IndexPath?) {
+        UIContextualAction.didEndEditing(indexPath: indexPath, tableView: tableView)
+    }
+    
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         let section: MessageRequestsViewModel.SectionModel = self.viewModel.threadData[indexPath.section]
         
@@ -398,8 +406,14 @@ class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDat
                 let threadId: String = section.elements[indexPath.row].threadId
                 let threadVariant: SessionThread.Variant = section.elements[indexPath.row].threadVariant
                 let delete: UIContextualAction = UIContextualAction(
-                    style: .destructive,
-                    title: "TXT_DELETE_TITLE".localized()
+                    title: "TXT_DELETE_TITLE".localized(),
+                    icon: UIImage(named: "icon_bin"),
+                    themeTintColor: .textPrimary,
+                    themeBackgroundColor: .conversationButton_swipeDestructive,
+                    side: .trailing,
+                    actionIndex: (threadVariant == .contact ? 1 : 0),
+                    indexPath: indexPath,
+                    tableView: tableView
                 ) { [weak self] _, _, completionHandler in
                     MessageRequestsViewModel.deleteMessageRequest(
                         threadId: threadId,
@@ -408,13 +422,18 @@ class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDat
                     )
                     completionHandler(true)
                 }
-                delete.themeBackgroundColor = .conversationButton_swipeDestructive
             
                 switch threadVariant {
                     case .contact:
                         let block: UIContextualAction = UIContextualAction(
-                            style: .normal,
-                            title: "BLOCK_LIST_BLOCK_BUTTON".localized()
+                            title: "BLOCK_LIST_BLOCK_BUTTON".localized(),
+                            icon: UIImage(named: "table_ic_block"),
+                            themeTintColor: .textPrimary,
+                            themeBackgroundColor: .conversationButton_swipeDestructive,
+                            side: .trailing,
+                            actionIndex: 0,
+                            indexPath: indexPath,
+                            tableView: tableView
                         ) { [weak self] _, _, completionHandler in
                             MessageRequestsViewModel.blockMessageRequest(
                                 threadId: threadId,
@@ -423,7 +442,6 @@ class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDat
                             )
                             completionHandler(true)
                         }
-                        block.themeBackgroundColor = .conversationButton_swipeSecondary
                         
                         return UISwipeActionsConfiguration(actions: [ delete, block ])
                         

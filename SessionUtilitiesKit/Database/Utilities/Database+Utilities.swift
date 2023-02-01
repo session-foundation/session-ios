@@ -36,4 +36,93 @@ public extension Database {
         
         sqlite3_interrupt(sqliteConnection)
     }
+    
+    /// This is a custom implementation of the `afterNextTransaction` method which executes the closures within their own
+    /// transactions to allow for nesting of 'afterNextTransaction' actions
+    ///
+    /// **Note:** GRDB doesn't notify read-only transactions to transaction observers
+    func afterNextTransactionNested(
+        onCommit: @escaping (Database) -> Void,
+        onRollback: @escaping (Database) -> Void = { _ in }
+    ) {
+        afterNextTransactionNestedOnce(
+            dedupeIdentifier: UUID().uuidString,
+            onCommit: onCommit,
+            onRollback: onRollback
+        )
+    }
+    
+    func afterNextTransactionNestedOnce(
+        dedupeIdentifier: String,
+        onCommit: @escaping (Database) -> Void,
+        onRollback: @escaping (Database) -> Void = { _ in }
+    ) {
+        // Only allow a single observer per `dedupeIdentifier` per transaction, this allows us to
+        // schedule an action to run at most once per transaction (eg. auto-scheduling a ConfigSyncJob
+        // when receiving messages)
+        guard !TransactionHandler.registeredHandlers.wrappedValue.contains(dedupeIdentifier) else {
+            return
+        }
+        
+        add(
+            transactionObserver: TransactionHandler(
+                identifier: dedupeIdentifier,
+                onCommit: onCommit,
+                onRollback: onRollback
+            ),
+            extent: .nextTransaction
+        )
+    }
+}
+
+fileprivate class TransactionHandler: TransactionObserver {
+    static var registeredHandlers: Atomic<Set<String>> = Atomic([])
+    
+    let identifier: String
+    let onCommit: (Database) -> Void
+    let onRollback: (Database) -> Void
+
+    init(
+        identifier: String,
+        onCommit: @escaping (Database) -> Void,
+        onRollback: @escaping (Database) -> Void
+    ) {
+        self.identifier = identifier
+        self.onCommit = onCommit
+        self.onRollback = onRollback
+        
+        TransactionHandler.registeredHandlers.mutate { $0.insert(identifier) }
+    }
+    
+    // Ignore changes
+    func observes(eventsOfKind eventKind: DatabaseEventKind) -> Bool { false }
+    func databaseDidChange(with event: DatabaseEvent) { }
+    
+    func databaseDidCommit(_ db: Database) {
+        TransactionHandler.registeredHandlers.mutate { $0.remove(identifier) }
+        
+        do {
+            try db.inTransaction {
+                onCommit(db)
+                return .commit
+            }
+        }
+        catch {
+            SNLog("[Database] afterNextTransactionNested onCommit failed")
+        }
+    }
+    
+    func databaseDidRollback(_ db: Database) {
+        TransactionHandler.registeredHandlers.mutate { $0.remove(identifier) }
+        
+        do {
+            try db.inTransaction {
+                onRollback(db)
+                return .commit
+            }
+        }
+        catch {
+            SNLog("[Database] afterNextTransactionNested onRollback failed")
+        }
+    }
 }

@@ -25,6 +25,15 @@ public enum ConfigurationSyncJob: JobExecutor {
             return
         }
         
+        // On startup it's possible for multiple ConfigSyncJob's to run at the same time (which is
+        // redundant) so check if there is another job already running and, if so, defer this job
+        let jobDetails: [Int64: Data?] = JobRunner.defailsForCurrentlyRunningJobs(of: .configurationSync)
+        
+        guard jobDetails.setting(job.id, nil).count == 0 else {
+            deferred(job)   // We will re-enqueue when needed
+            return
+        }
+        
         // If we don't have a userKeyPair yet then there is no need to sync the configuration
         // as the user doesn't exist yet (this will get triggered on the first launch of a
         // fresh install due to the migrations getting run)

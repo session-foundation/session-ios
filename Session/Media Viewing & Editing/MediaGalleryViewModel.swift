@@ -98,7 +98,10 @@ public class MediaGalleryViewModel {
                     currentDataRetriever: { self?.galleryData },
                     onDataChange: self?.onGalleryChange,
                     onUnobservedDataChange: { updatedData, changeset in
-                        self?.unobservedGalleryDataChanges = (updatedData, changeset)
+                        self?.unobservedGalleryDataChanges = (changeset.isEmpty ?
+                            nil :
+                            (updatedData, changeset)
+                        )
                     }
                 )
             }

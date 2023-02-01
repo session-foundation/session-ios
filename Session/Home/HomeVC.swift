@@ -610,7 +610,7 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                     variant: threadViewModel.threadVariant,
                     isMessageRequest: (threadViewModel.threadIsMessageRequest == true),
                     with: .none,
-                    focusedInteractionId: nil,
+                    focusedInteractionInfo: nil,
                     animated: true
                 )
                 
@@ -622,25 +622,102 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
         return true
     }
     
+    func tableView(_ tableView: UITableView, willBeginEditingRowAt indexPath: IndexPath) {
+        UIContextualAction.willBeginEditing(indexPath: indexPath, tableView: tableView)
+    }
+    
+    func tableView(_ tableView: UITableView, didEndEditingRowAt indexPath: IndexPath?) {
+        UIContextualAction.didEndEditing(indexPath: indexPath, tableView: tableView)
+    }
+    
+    func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        let section: HomeViewModel.SectionModel = self.viewModel.threadData[indexPath.section]
+        let unswipeAnimationDelay: DispatchTimeInterval = .milliseconds(500)
+        
+        switch section.model {
+            case .threads:
+                let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
+                let isUnread: Bool = (
+                    threadViewModel.threadWasMarkedUnread == true ||
+                    (threadViewModel.threadUnreadCount ?? 0) > 0
+                )
+                let changeReadStatus: UIContextualAction = UIContextualAction(
+                    title: (isUnread ?
+                        "MARK_AS_READ".localized() :
+                        "MARK_AS_UNREAD".localized()
+                    ),
+                    icon: (isUnread ?
+                        UIImage(systemName: "envelope.open") :
+                        UIImage(systemName: "envelope.badge")
+                    ),
+                    themeTintColor: .textPrimary,
+                    themeBackgroundColor: .conversationButton_swipeRead,
+                    side: .leading,
+                    actionIndex: 0,
+                    indexPath: indexPath,
+                    tableView: tableView
+                ) { [weak self] _, _, completionHandler  in
+                    // Delay the change to give the cell "unswipe" animation some time to complete
+                    DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
+                        switch isUnread {
+                            case true:
+                                self?.viewModel.markAsRead(
+                                    threadViewModel: threadViewModel,
+                                    target: .threadAndInteractions(
+                                        interactionsBeforeInclusive: threadViewModel.interactionId
+                                    )
+                                )
+                                
+                            case false:
+                                self?.viewModel.markAsUnread(threadViewModel: threadViewModel)
+                        }
+                    }
+                    completionHandler(true)
+                }
+                
+                return UISwipeActionsConfiguration(actions: [changeReadStatus])
+                
+            default: return nil
+        }
+    }
+    
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         let section: HomeViewModel.SectionModel = self.viewModel.threadData[indexPath.section]
         let unswipeAnimationDelay: DispatchTimeInterval = .milliseconds(500)
         
         switch section.model {
             case .messageRequests:
-                let hide: UIContextualAction = UIContextualAction(style: .destructive, title: "TXT_HIDE_TITLE".localized()) { _, _, completionHandler  in
+                let hide: UIContextualAction = UIContextualAction(
+                    title: "TXT_HIDE_TITLE".localized(),
+                    icon: UIImage(systemName: "eye.slash"),
+                    themeTintColor: .textPrimary,
+                    themeBackgroundColor: .conversationButton_swipeDestructive,
+                    side: .trailing,
+                    actionIndex: 0,
+                    indexPath: indexPath,
+                    tableView: tableView
+                ) { _, _, completionHandler  in
                     Storage.shared.write { db in db[.hasHiddenMessageRequests] = true }
                     completionHandler(true)
                 }
-                hide.themeBackgroundColor = .conversationButton_swipeDestructive
                 
                 return UISwipeActionsConfiguration(actions: [hide])
                 
             case .threads:
                 let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
+                let shouldHaveBlockAction: Bool = (
+                    threadViewModel.threadVariant == .contact &&
+                    !threadViewModel.threadIsNoteToSelf
+                )
                 let delete: UIContextualAction = UIContextualAction(
-                    style: .destructive,
-                    title: "TXT_DELETE_TITLE".localized()
+                    title: "TXT_DELETE_TITLE".localized(),
+                    icon: UIImage(named: "icon_bin"),
+                    themeTintColor: .textPrimary,
+                    themeBackgroundColor: .conversationButton_swipeDestructive,
+                    side: .trailing,
+                    actionIndex: 2,
+                    indexPath: indexPath,
+                    tableView: tableView
                 ) { [weak self] _, _, completionHandler in
                     let confirmationModal: ConfirmationModal = ConfirmationModal(
                         info: ConfirmationModal.Info(
@@ -668,14 +745,22 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                     
                     self?.present(confirmationModal, animated: true, completion: nil)
                 }
-                delete.themeBackgroundColor = .conversationButton_swipeDestructive
 
                 let pin: UIContextualAction = UIContextualAction(
-                    style: .normal,
                     title: (threadViewModel.threadIsPinned ?
                         "UNPIN_BUTTON_TEXT".localized() :
                         "PIN_BUTTON_TEXT".localized()
-                    )
+                    ),
+                    icon: (threadViewModel.threadIsPinned ?
+                        UIImage(systemName: "pin.slash") :
+                        UIImage(systemName: "pin")
+                    ),
+                    themeTintColor: .textPrimary,
+                    themeBackgroundColor: .conversationButton_swipeTertiary,
+                    side: .trailing,
+                    actionIndex: (shouldHaveBlockAction ? 0 : 1),
+                    indexPath: indexPath,
+                    tableView: tableView
                 ) { _, _, completionHandler in
                     (tableView.cellForRow(at: indexPath) as? FullConversationCell)?.optimisticUpdate(
                         isPinned: !threadViewModel.threadIsPinned
@@ -691,18 +776,23 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                         }
                     }
                 }
-                pin.themeBackgroundColor = .conversationButton_swipeTertiary
                 
-                guard threadViewModel.threadVariant == .contact && !threadViewModel.threadIsNoteToSelf else {
+                guard shouldHaveBlockAction else {
                     return UISwipeActionsConfiguration(actions: [ delete, pin ])
                 }
 
                 let block: UIContextualAction = UIContextualAction(
-                    style: .normal,
                     title: (threadViewModel.threadIsBlocked == true ?
                         "BLOCK_LIST_UNBLOCK_BUTTON".localized() :
                         "BLOCK_LIST_BLOCK_BUTTON".localized()
-                    )
+                    ),
+                    icon: UIImage(named: "table_ic_block"),
+                    themeTintColor: .textPrimary,
+                    themeBackgroundColor: .conversationButton_swipeSecondary,
+                    side: .trailing,
+                    actionIndex: 1,
+                    indexPath: indexPath,
+                    tableView: tableView
                 ) { _, _, completionHandler in
                     (tableView.cellForRow(at: indexPath) as? FullConversationCell)?.optimisticUpdate(
                         isBlocked: (threadViewModel.threadIsBlocked == false)
@@ -728,7 +818,6 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                             .sinkUntilComplete()
                     }
                 }
-                block.themeBackgroundColor = .conversationButton_swipeSecondary
                 
                 return UISwipeActionsConfiguration(actions: [ delete, block, pin ])
                 
@@ -749,7 +838,7 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
         variant: SessionThread.Variant,
         isMessageRequest: Bool,
         with action: ConversationViewModel.Action,
-        focusedInteractionId: Int64?,
+        focusedInteractionInfo: Interaction.TimestampInfo?,
         animated: Bool
     ) {
         if let presentedVC = self.presentedViewController {
@@ -762,7 +851,7 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
             ConversationVC(
                 threadId: threadId,
                 threadVariant: variant,
-                focusedInteractionId: focusedInteractionId
+                focusedInteractionInfo: focusedInteractionInfo
             )
         ].compactMap { $0 }
         

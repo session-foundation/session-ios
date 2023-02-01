@@ -390,7 +390,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
             viewModel.observableAlbumData,
             onError: { _ in },
             onChange: { [weak self] albumData in
-                // The defaul scheduler emits changes on the main thread
+                // The default scheduler emits changes on the main thread
                 self?.handleUpdates(albumData)
             }
         )
@@ -922,7 +922,9 @@ extension MediaGalleryViewModel.Item: GalleryRailItem {
         imageView.contentMode = .scaleAspectFill
         
         self.thumbnailImage { [weak imageView] image in
-            imageView?.image = image
+            DispatchQueue.main.async {
+                imageView?.image = image
+            }
         }
 
         return imageView

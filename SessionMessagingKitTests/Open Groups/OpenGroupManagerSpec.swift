@@ -3665,11 +3665,11 @@ class OpenGroupManagerSpec: QuickSpec {
                 
                 it("adds the image retrieval promise to the cache") {
                     class TestNeverReturningApi: OnionRequestAPIType {
-                        static func sendOnionRequest(_ request: URLRequest, to server: String, with x25519PublicKey: String) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
+                        static func sendOnionRequest(_ request: URLRequest, to server: String, with x25519PublicKey: String, timeout: TimeInterval) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
                             return Future<(ResponseInfoType, Data?), Error> { _ in }.eraseToAnyPublisher()
                         }
                         
-                        static func sendOnionRequest(_ payload: Data, to snode: Snode) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
+                        static func sendOnionRequest(_ payload: Data, to snode: Snode, timeout: TimeInterval) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
                             return Just(Data())
                                 .setFailureType(to: Error.self)
                                 .map { data in (HTTP.ResponseInfo(code: 0, headers: [:]), data) }

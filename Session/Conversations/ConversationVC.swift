@@ -25,7 +25,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     /// never have disappeared before - this is only needed for value observers since they run asynchronously)
     private var hasReloadedThreadDataAfterDisappearance: Bool = true
     
-    var focusedInteractionId: Int64?
+    var focusedInteractionInfo: Interaction.TimestampInfo?
     var shouldHighlightNextScrollToInteraction: Bool = false
     
     // Search
@@ -331,8 +331,8 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
 
     // MARK: - Initialization
     
-    init(threadId: String, threadVariant: SessionThread.Variant, focusedInteractionId: Int64? = nil) {
-        self.viewModel = ConversationViewModel(threadId: threadId, threadVariant: threadVariant, focusedInteractionId: focusedInteractionId)
+    init(threadId: String, threadVariant: SessionThread.Variant, focusedInteractionInfo: Interaction.TimestampInfo? = nil) {
+        self.viewModel = ConversationViewModel(threadId: threadId, threadVariant: threadVariant, focusedInteractionInfo: focusedInteractionInfo)
         
         Storage.shared.addObserver(viewModel.pagedDataObserver)
         
@@ -436,6 +436,12 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             name: UIApplication.userDidTakeScreenshotNotification,
             object: nil
         )
+        
+        // The first time the view loads we should mark the thread as read (in case it was manually
+        // marked as unread) - doing this here means if we add a "mark as unread" action within the
+        // conversation settings then we don't need to worry about the conversation getting marked as
+        // when when the user returns back through this view controller
+        self.viewModel.markAsRead(target: .thread, timestampMs: nil)
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -832,8 +838,8 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             
             // Animate to the target interaction (or the bottom) after a slightly delay to prevent buggy
             // animation conflicts
-            if let focusedInteractionId: Int64 = self.focusedInteractionId {
-                // If we had a focusedInteractionId then scroll to it (and hide the search
+            if let focusedInteractionInfo: Interaction.TimestampInfo = self.focusedInteractionInfo {
+                // If we had a focusedInteractionInfo then scroll to it (and hide the search
                 // result bar loading indicator)
                 let delay: DispatchTime = (didSwapAllContent ?
                     .now() :
@@ -843,7 +849,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                 DispatchQueue.main.asyncAfter(deadline: delay) { [weak self] in
                     self?.searchController.resultsBar.stopLoading()
                     self?.scrollToInteractionIfNeeded(
-                        with: focusedInteractionId,
+                        with: focusedInteractionInfo,
                         isAnimated: true,
                         highlight: (self?.shouldHighlightNextScrollToInteraction == true)
                     )
@@ -915,13 +921,13 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                         self?.tableView.contentOffset.y += oldCellTopOffset
                     }
                     
-                    if let focusedInteractionId: Int64 = self?.focusedInteractionId {
+                    if let focusedInteractionInfo: Interaction.TimestampInfo = self?.focusedInteractionInfo {
                         DispatchQueue.main.async { [weak self] in
-                            // If we had a focusedInteractionId then scroll to it (and hide the search
+                            // If we had a focusedInteractionInfo then scroll to it (and hide the search
                             // result bar loading indicator)
                             self?.searchController.resultsBar.stopLoading()
                             self?.scrollToInteractionIfNeeded(
-                                with: focusedInteractionId,
+                                with: focusedInteractionInfo,
                                 isAnimated: true,
                                 highlight: (self?.shouldHighlightNextScrollToInteraction == true)
                             )
@@ -935,13 +941,13 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             )
         }
         else if wasLoadingMore {
-            if let focusedInteractionId: Int64 = self.focusedInteractionId {
+            if let focusedInteractionInfo: Interaction.TimestampInfo = self.focusedInteractionInfo {
                 DispatchQueue.main.async { [weak self] in
-                    // If we had a focusedInteractionId then scroll to it (and hide the search
+                    // If we had a focusedInteractionInfo then scroll to it (and hide the search
                     // result bar loading indicator)
                     self?.searchController.resultsBar.stopLoading()
                     self?.scrollToInteractionIfNeeded(
-                        with: focusedInteractionId,
+                        with: focusedInteractionInfo,
                         isAnimated: true,
                         highlight: (self?.shouldHighlightNextScrollToInteraction == true)
                     )
@@ -983,8 +989,8 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         // Scroll to the last unread message if possible; otherwise scroll to the bottom.
         // When the unread message count is more than the number of view items of a page,
         // the screen will scroll to the bottom instead of the first unread message
-        if let focusedInteractionId: Int64 = self.viewModel.focusedInteractionId {
-            self.scrollToInteractionIfNeeded(with: focusedInteractionId, isAnimated: false, highlight: true)
+        if let focusedInteractionInfo: Interaction.TimestampInfo = self.viewModel.focusedInteractionInfo {
+            self.scrollToInteractionIfNeeded(with: focusedInteractionInfo, isAnimated: false, highlight: true)
         }
         else {
             self.scrollToBottom(isAnimated: false)
@@ -1385,11 +1391,22 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         
         guard !self.didFinishInitialLayout || !hasNewerItems else {
             let messages: [MessageViewModel] = self.viewModel.interactionData[messagesSectionIndex].elements
-            let lastInteractionId: Int64 = self.viewModel.threadData.interactionId
-                .defaulting(to: messages[messages.count - 1].id)
+            let lastInteractionInfo: Interaction.TimestampInfo = {
+                guard
+                    let interactionId: Int64 = self.viewModel.threadData.interactionId,
+                    let timestampMs: Int64 = self.viewModel.threadData.interactionTimestampMs
+                else {
+                    return Interaction.TimestampInfo(
+                        id: messages[messages.count - 1].id,
+                        timestampMs: messages[messages.count - 1].timestampMs
+                    )
+                }
+                
+                return Interaction.TimestampInfo(id: interactionId, timestampMs: timestampMs)
+            }()
             
             self.scrollToInteractionIfNeeded(
-                with: lastInteractionId,
+                with: lastInteractionInfo,
                 position: .bottom,
                 isJumpingToLastInteraction: true,
                 isAnimated: true
@@ -1416,7 +1433,10 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             animated: isAnimated
         )
         
-        self.viewModel.markAsRead(beforeInclusive: nil)
+        self.viewModel.markAsRead(
+            target: .threadAndInteractions(interactionsBeforeInclusive: nil),
+            timestampMs: nil
+        )
     }
 
     func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
@@ -1461,22 +1481,25 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                 .last?
                 .cellViewModel
         {
-            self.viewModel.markAsRead(beforeInclusive: newestCellViewModel.id)
+            self.viewModel.markAsRead(
+                target: .threadAndInteractions(interactionsBeforeInclusive: newestCellViewModel.id),
+                timestampMs: newestCellViewModel.timestampMs
+            )
         }
     }
     
     func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
         guard
-            let focusedInteractionId: Int64 = self.focusedInteractionId,
+            let focusedInteractionInfo: Interaction.TimestampInfo = self.focusedInteractionInfo,
             self.shouldHighlightNextScrollToInteraction
         else {
-            self.focusedInteractionId = nil
+            self.focusedInteractionInfo = nil
             self.shouldHighlightNextScrollToInteraction = false
             return
         }
         
         DispatchQueue.main.async { [weak self] in
-            self?.highlightCellIfNeeded(interactionId: focusedInteractionId)
+            self?.highlightCellIfNeeded(interactionId: focusedInteractionInfo.id)
         }
     }
 
@@ -1590,26 +1613,29 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         hideSearchUI()
     }
     
-    func conversationSearchController(_ conversationSearchController: ConversationSearchController, didUpdateSearchResults results: [Int64]?, searchText: String?) {
+    func conversationSearchController(_ conversationSearchController: ConversationSearchController, didUpdateSearchResults results: [Interaction.TimestampInfo]?, searchText: String?) {
         viewModel.lastSearchedText = searchText
         tableView.reloadRows(at: tableView.indexPathsForVisibleRows ?? [], with: UITableView.RowAnimation.none)
     }
 
-    func conversationSearchController(_ conversationSearchController: ConversationSearchController, didSelectInteractionId interactionId: Int64) {
-        scrollToInteractionIfNeeded(with: interactionId, highlight: true)
+    func conversationSearchController(_ conversationSearchController: ConversationSearchController, didSelectInteractionInfo interactionInfo: Interaction.TimestampInfo) {
+        scrollToInteractionIfNeeded(with: interactionInfo, highlight: true)
     }
 
     func scrollToInteractionIfNeeded(
-        with interactionId: Int64,
+        with interactionInfo: Interaction.TimestampInfo,
         position: UITableView.ScrollPosition = .middle,
         isJumpingToLastInteraction: Bool = false,
         isAnimated: Bool = true,
         highlight: Bool = false
     ) {
         // Store the info incase we need to load more data (call will be re-triggered)
-        self.focusedInteractionId = interactionId
+        self.focusedInteractionInfo = interactionInfo
         self.shouldHighlightNextScrollToInteraction = highlight
-        self.viewModel.markAsRead(beforeInclusive: interactionId)
+        self.viewModel.markAsRead(
+            target: .threadAndInteractions(interactionsBeforeInclusive: interactionInfo.id),
+            timestampMs: interactionInfo.timestampMs
+        )
         
         // Ensure the target interaction has been loaded
         guard
@@ -1617,7 +1643,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                 .firstIndex(where: { $0.model == .messages }),
             let targetMessageIndex = self.viewModel.interactionData[messageSectionIndex]
                 .elements
-                .firstIndex(where: { $0.id == interactionId })
+                .firstIndex(where: { $0.id == interactionInfo.id })
         else {
             // If not the make sure we have finished the initial layout before trying to
             // load the up until the specified interaction
@@ -1629,13 +1655,13 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                 if isJumpingToLastInteraction {
                     self?.viewModel.pagedDataObserver?.load(.jumpTo(
-                        id: interactionId,
+                        id: interactionInfo.id,
                         paddingForInclusive: 5
                     ))
                 }
                 else {
                     self?.viewModel.pagedDataObserver?.load(.untilInclusive(
-                        id: interactionId,
+                        id: interactionInfo.id,
                         padding: 5
                     ))
                 }
@@ -1671,12 +1697,12 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             // so it doesn't look buggy with the push transition
             if highlight {
                 DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(self.didFinishInitialLayout ? 0 : 150)) { [weak self] in
-                    self?.highlightCellIfNeeded(interactionId: interactionId)
+                    self?.highlightCellIfNeeded(interactionId: interactionInfo.id)
                 }
             }
             
             self.shouldHighlightNextScrollToInteraction = false
-            self.focusedInteractionId = nil
+            self.focusedInteractionInfo = nil
             return
         }
         
@@ -1687,7 +1713,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         let targetRect: CGRect = self.tableView.rectForRow(at: targetIndexPath)
         
         guard !self.tableView.bounds.contains(targetRect) else {
-            self.highlightCellIfNeeded(interactionId: interactionId)
+            self.highlightCellIfNeeded(interactionId: interactionInfo.id)
             return
         }
         
@@ -1696,7 +1722,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     
     func highlightCellIfNeeded(interactionId: Int64) {
         self.shouldHighlightNextScrollToInteraction = false
-        self.focusedInteractionId = nil
+        self.focusedInteractionInfo = nil
         
         // Trigger on the next run loop incase we are still finishing some other animation
         DispatchQueue.main.async {

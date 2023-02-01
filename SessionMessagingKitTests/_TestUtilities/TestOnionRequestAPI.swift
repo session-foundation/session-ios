@@ -38,7 +38,7 @@ class TestOnionRequestAPI: OnionRequestAPIType {
     
     class var mockResponse: Data? { return nil }
     
-    static func sendOnionRequest(_ request: URLRequest, to server: String, with x25519PublicKey: String) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
+    static func sendOnionRequest(_ request: URLRequest, to server: String, with x25519PublicKey: String, timeout: TimeInterval) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         let responseInfo: ResponseInfo = ResponseInfo(
             requestData: RequestData(
                 urlString: request.url?.absoluteString,
@@ -62,7 +62,7 @@ class TestOnionRequestAPI: OnionRequestAPIType {
             .eraseToAnyPublisher()
     }
     
-    static func sendOnionRequest(_ payload: Data, to snode: Snode) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
+    static func sendOnionRequest(_ payload: Data, to snode: Snode, timeout: TimeInterval) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         let responseInfo: ResponseInfo = ResponseInfo(
             requestData: RequestData(
                 urlString: "\(snode.address):\(snode.port)/onion_req/v2",

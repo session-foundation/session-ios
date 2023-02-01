@@ -52,14 +52,10 @@ internal extension SessionUtil {
                         .map { CChar($0) }
                         .nullTerminated()
                     )
-                    let publicKey: String = String(cString: withUnsafeBytes(of: openGroup.pubkey) { [UInt8]($0) }
-                        .map { CChar($0) }
-                        .nullTerminated()
-                    )
+                    let publicKey: String = withUnsafePointer(to: openGroup.pubkey, { pubkeyBytes in
+                        Data(bytes: pubkeyBytes, count: 32).toHexString()
+                    })
                     
-                    // Note: A normal 'openGroupId' isn't lowercased but the volatile conversation
-                    // info will always be lowercase so we force everything to lowercase to simplify
-                    // the code
                     volatileThreadInfo.append(
                         VolatileThreadInfo(
                             threadId: OpenGroup.idFor(roomToken: roomToken, server: server),
@@ -101,7 +97,7 @@ internal extension SessionUtil {
                 convo_info_volatile_iterator_advance(convoIterator)
             }
             convo_info_volatile_iterator_free(convoIterator) // Need to free the iterator
-
+            
             return volatileThreadInfo
         }
 
@@ -116,7 +112,9 @@ internal extension SessionUtil {
         // which should override any synced changes (eg. 'lastReadTimestampMs')
         let newerLocalChanges: [VolatileThreadInfo] = try volatileThreadInfo
             .compactMap { threadInfo -> VolatileThreadInfo? in
-                // Fetch the "proper" threadId (we need the correct casing for updating the database)
+                // Note: A normal 'openGroupId' isn't lowercased but the volatile conversation
+                // info will always be lowercase so we need to fetch the "proper" threadId (in
+                // order to be able to update the corrent database entries)
                 guard
                     let threadId: String = try? SessionThread
                         .select(.id)
@@ -234,7 +232,7 @@ internal extension SessionUtil {
                         guard
                             var cBaseUrl: [CChar] = threadInfo.cBaseUrl,
                             var cRoomToken: [CChar] = threadInfo.cRoomToken,
-                            var cPubkey: [CChar] = threadInfo.cPubkey
+                            var cPubkey: [UInt8] = threadInfo.cPubkey
                         else {
                             SNLog("Unable to create community conversation when updating last read timestamp due to missing URL info")
                             return
@@ -293,7 +291,7 @@ internal extension SessionUtil {
             )
         }
         
-        db.afterNextTransaction { db in
+        db.afterNextTransactionNested { db in
             do {
                 let atomicConf: Atomic<UnsafeMutablePointer<config_object>?> = SessionUtil.config(
                     for: .convoInfoVolatile,
@@ -484,9 +482,9 @@ public extension SessionUtil {
                 $0.bytes.map { CChar(bitPattern: $0) }
             }
         }
-        var cPubkey: [CChar]? {
+        var cPubkey: [UInt8]? {
             (openGroupUrlInfo?.publicKey).map {
-                $0.bytes.map { CChar(bitPattern: $0) }
+                Data(hex: $0).bytes
             }
         }
         
@@ -533,31 +531,39 @@ public extension SessionUtil {
             let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
             let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
             let openGroup: TypedTableAlias<OpenGroup> = TypedTableAlias()
+            let timestampMsLiteral: SQL = SQL(stringLiteral: Interaction.Columns.timestampMs.name)
             let request: SQLRequest<FetchedInfo> = """
                 SELECT
                     \(thread[.id]),
                     \(thread[.variant]),
                     \(thread[.markedAsUnread]),
-                    MAX(\(interaction[.timestampMs])),
+                    \(interaction[.timestampMs]),
                     \(openGroup[.server]),
                     \(openGroup[.roomToken]),
                     \(openGroup[.publicKey])
                 
                 FROM \(SessionThread.self)
-                LEFT JOIN \(Interaction.self) ON (
-                    \(interaction[.threadId]) = \(thread[.id]) AND
-                    \(interaction[.wasRead]) = true AND
-                    -- Note: Due to the complexity of how call messages are handled and the short
-                    -- duration they exist in the swarm, we have decided to exclude trying to
-                    -- include them when syncing the read status of conversations (they are also
-                    -- implemented differently between platforms so including them could be a
-                    -- significant amount of work)
-                    \(SQL("\(interaction[.variant]) IN \(Interaction.Variant.variantsToIncrementUnreadCount.filter { $0 != .infoCall })"))
-                )
+                LEFT JOIN (
+                    SELECT
+                        \(interaction[.threadId]),
+                        MAX(\(interaction[.timestampMs])) AS \(timestampMsLiteral)
+                    FROM \(Interaction.self)
+                    WHERE (
+                        \(interaction[.wasRead]) = true AND
+                        -- Note: Due to the complexity of how call messages are handled and the short
+                        -- duration they exist in the swarm, we have decided to exclude trying to
+                        -- include them when syncing the read status of conversations (they are also
+                        -- implemented differently between platforms so including them could be a
+                        -- significant amount of work)
+                        \(SQL("\(interaction[.variant]) IN \(Interaction.Variant.variantsToIncrementUnreadCount.filter { $0 != .infoCall })"))
+                    )
+                    GROUP BY \(interaction[.threadId])
+                ) AS \(Interaction.self) ON \(interaction[.threadId]) = \(thread[.id])
                 LEFT JOIN \(OpenGroup.self) ON \(openGroup[.threadId]) = \(thread[.id])
                 \(ids == nil ? SQL("") :
                 "WHERE \(SQL("\(thread[.id]) IN \(ids ?? [])"))"
                 )
+                GROUP BY \(thread[.id])
             """
             
             return ((try? request.fetchAll(db)) ?? [])

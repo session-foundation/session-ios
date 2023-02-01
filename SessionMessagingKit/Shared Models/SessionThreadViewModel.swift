@@ -30,6 +30,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public static let threadOnlyNotifyForMentionsKey: SQL = SQL(stringLiteral: CodingKeys.threadOnlyNotifyForMentions.stringValue)
     public static let threadMessageDraftKey: SQL = SQL(stringLiteral: CodingKeys.threadMessageDraft.stringValue)
     public static let threadContactIsTypingKey: SQL = SQL(stringLiteral: CodingKeys.threadContactIsTyping.stringValue)
+    public static let threadWasMarkedUnreadKey: SQL = SQL(stringLiteral: CodingKeys.threadWasMarkedUnread.stringValue)
     public static let threadUnreadCountKey: SQL = SQL(stringLiteral: CodingKeys.threadUnreadCount.stringValue)
     public static let threadUnreadMentionCountKey: SQL = SQL(stringLiteral: CodingKeys.threadUnreadMentionCount.stringValue)
     public static let contactProfileKey: SQL = SQL(stringLiteral: CodingKeys.contactProfile.stringValue)
@@ -60,6 +61,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public static let authorNameInternalKey: SQL = SQL(stringLiteral: CodingKeys.authorNameInternal.stringValue)
     public static let currentUserPublicKeyKey: SQL = SQL(stringLiteral: CodingKeys.currentUserPublicKey.stringValue)
     
+    public static let threadWasMarkedUnreadString: String = CodingKeys.threadWasMarkedUnread.stringValue
     public static let threadUnreadCountString: String = CodingKeys.threadUnreadCount.stringValue
     public static let threadUnreadMentionCountString: String = CodingKeys.threadUnreadMentionCount.stringValue
     public static let closedGroupUserCountString: String = CodingKeys.closedGroupUserCount.stringValue
@@ -94,6 +96,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public let threadMessageDraft: String?
     
     public let threadContactIsTyping: Bool?
+    public let threadWasMarkedUnread: Bool?
     public let threadUnreadCount: UInt?
     public let threadUnreadMentionCount: UInt?
     
@@ -127,7 +130,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     
     public let interactionId: Int64?
     public let interactionVariant: Interaction.Variant?
-    private let interactionTimestampMs: Int64?
+    public let interactionTimestampMs: Int64?
     public let interactionBody: String?
     public let interactionState: RecipientState.State?
     public let interactionHasAtLeastOneReadReceipt: Bool?
@@ -228,6 +231,95 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
             )
         )
     }
+    
+    // MARK: - Marking as Read
+    
+    public enum ReadTarget {
+        /// Only the thread should be marked as read
+        case thread
+        
+        /// Both the thread and interactions should be marked as read, if no interaction id is provided then all interactions for the
+        /// thread will be marked as read
+        case threadAndInteractions(interactionsBeforeInclusive: Int64?)
+    }
+    
+    /// This method marks a thread as read and depending on the target may also update the interactions within a thread as read
+    public func markAsRead(target: ReadTarget) {
+        // Store the logic to mark a thread as read (to paths need to run this)
+        let threadId: String = self.threadId
+        let threadWasMarkedUnread: Bool? = self.threadWasMarkedUnread
+        let markThreadAsReadIfNeeded: () -> () = {
+            guard threadWasMarkedUnread == true else { return }
+            
+            Storage.shared.writeAsync { db in
+                try SessionThread
+                    .filter(id: threadId)
+                    .updateAllAndConfig(
+                        db,
+                        SessionThread.Columns.markedAsUnread.set(to: false)
+                    )
+            }
+        }
+        
+        // Determine what we want to mark as read
+        switch target {
+            // Only mark the thread as read
+            case .thread: markThreadAsReadIfNeeded()
+            
+            // We want to mark both the thread and interactions as read
+            case .threadAndInteractions(let interactionId):
+                guard
+                    (self.threadUnreadCount ?? 0) > 0,
+                    let targetInteractionId: Int64 = (interactionId ?? self.interactionId)
+                else {
+                    // No unread interactions so just mark the thread as read if needed
+                    markThreadAsReadIfNeeded()
+                    return
+                }
+                
+                let threadId: String = self.threadId
+                let threadVariant: SessionThread.Variant = self.threadVariant
+                let trySendReadReceipt: Bool = (self.threadIsMessageRequest == false)
+                
+                Storage.shared.writeAsync { db in
+                    // Only make this change if needed (want to avoid triggering a thread update
+                    // if not needed)
+                    if threadWasMarkedUnread == true {
+                        try SessionThread
+                            .filter(id: threadId)
+                            .updateAllAndConfig(
+                                db,
+                                SessionThread.Columns.markedAsUnread.set(to: false)
+                            )
+                    }
+                    
+                    try Interaction.markAsRead(
+                        db,
+                        interactionId: targetInteractionId,
+                        threadId: threadId,
+                        threadVariant: threadVariant,
+                        includingOlder: true,
+                        trySendReadReceipt: trySendReadReceipt
+                    )
+                }
+        }
+    }
+    
+    /// This method will mark a thread as read
+    public func markAsUnread() {
+        guard self.threadWasMarkedUnread != true else { return }
+        
+        let threadId: String = self.threadId
+        
+        Storage.shared.writeAsync { db in
+            try SessionThread
+                .filter(id: threadId)
+                .updateAllAndConfig(
+                    db,
+                    SessionThread.Columns.markedAsUnread.set(to: true)
+                )
+        }
+    }
 }
 
 // MARK: - Convenience Initialization
@@ -261,6 +353,7 @@ public extension SessionThreadViewModel {
         self.threadMessageDraft = nil
         
         self.threadContactIsTyping = nil
+        self.threadWasMarkedUnread = nil
         self.threadUnreadCount = unreadCount
         self.threadUnreadMentionCount = nil
         
@@ -325,6 +418,7 @@ public extension SessionThreadViewModel {
             threadOnlyNotifyForMentions: self.threadOnlyNotifyForMentions,
             threadMessageDraft: self.threadMessageDraft,
             threadContactIsTyping: self.threadContactIsTyping,
+            threadWasMarkedUnread: self.threadWasMarkedUnread,
             threadUnreadCount: self.threadUnreadCount,
             threadUnreadMentionCount: self.threadUnreadMentionCount,
             contactProfile: self.contactProfile,
@@ -379,6 +473,7 @@ public extension SessionThreadViewModel {
             threadOnlyNotifyForMentions: self.threadOnlyNotifyForMentions,
             threadMessageDraft: self.threadMessageDraft,
             threadContactIsTyping: self.threadContactIsTyping,
+            threadWasMarkedUnread: self.threadWasMarkedUnread,
             threadUnreadCount: self.threadUnreadCount,
             threadUnreadMentionCount: self.threadUnreadMentionCount,
             contactProfile: self.contactProfile,
@@ -464,7 +559,7 @@ public extension SessionThreadViewModel {
             /// parse and might throw
             ///
             /// Explicitly set default values for the fields ignored for search results
-            let numColumnsBeforeProfiles: Int = 12
+            let numColumnsBeforeProfiles: Int = 13
             let numColumnsBetweenProfilesAndAttachmentInfo: Int = 11 // The attachment info columns will be combined
             
             let request: SQLRequest<ViewModel> = """
@@ -481,6 +576,7 @@ public extension SessionThreadViewModel {
                     \(thread[.onlyNotifyForMentions]) AS \(ViewModel.threadOnlyNotifyForMentionsKey),
             
                     (\(typingIndicator[.threadId]) IS NOT NULL) AS \(ViewModel.threadContactIsTypingKey),
+                    \(thread[.markedAsUnread]) AS \(ViewModel.threadWasMarkedUnreadKey),
                     \(Interaction.self).\(ViewModel.threadUnreadCountKey),
                     \(Interaction.self).\(ViewModel.threadUnreadMentionCountKey),
                 
@@ -724,7 +820,7 @@ public extension SessionThreadViewModel {
         /// parse and might throw
         ///
         /// Explicitly set default values for the fields ignored for search results
-        let numColumnsBeforeProfiles: Int = 14
+        let numColumnsBeforeProfiles: Int = 15
         let request: SQLRequest<ViewModel> = """
             SELECT
                 \(thread.alias[Column.rowID]) AS \(ViewModel.rowIdKey),
@@ -750,6 +846,7 @@ public extension SessionThreadViewModel {
                 \(thread[.onlyNotifyForMentions]) AS \(ViewModel.threadOnlyNotifyForMentionsKey),
                 \(thread[.messageDraft]) AS \(ViewModel.threadMessageDraftKey),
         
+                \(thread[.markedAsUnread]) AS \(ViewModel.threadWasMarkedUnreadKey),
                 \(Interaction.self).\(ViewModel.threadUnreadCountKey),
             
                 \(ViewModel.contactProfileKey).*,

@@ -28,6 +28,7 @@ public struct Job: Codable, Equatable, Identifiable, FetchableRecord, MutablePer
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression {
         case id
+        case priority
         case failureCount
         case variant
         case behaviour
@@ -132,6 +133,15 @@ public struct Job: Codable, Equatable, Identifiable, FetchableRecord, MutablePer
     /// the database yet this value will be `nil`
     public var id: Int64? = nil
     
+    /// The `priority` value is used to allow for forcing some jobs to run before others (Default value `0`)
+    ///
+    /// Jobs will be run in the following order:
+    /// - Jobs scheduled in the past (or with no `nextRunTimestamp`) first
+    /// - Jobs with a higher `priority` value
+    /// - Jobs with a sooner `nextRunTimestamp` value
+    /// - The order the job was inserted into the database
+    public var priority: Int64
+    
     /// A counter for the number of times this job has failed
     public let failureCount: UInt
     
@@ -190,6 +200,7 @@ public struct Job: Codable, Equatable, Identifiable, FetchableRecord, MutablePer
     
     fileprivate init(
         id: Int64?,
+        priority: Int64 = 0,
         failureCount: UInt,
         variant: Variant,
         behaviour: Behaviour,
@@ -207,6 +218,7 @@ public struct Job: Codable, Equatable, Identifiable, FetchableRecord, MutablePer
         )
         
         self.id = id
+        self.priority = priority
         self.failureCount = failureCount
         self.variant = variant
         self.behaviour = behaviour
@@ -219,6 +231,7 @@ public struct Job: Codable, Equatable, Identifiable, FetchableRecord, MutablePer
     }
     
     public init(
+        priority: Int64 = 0,
         failureCount: UInt = 0,
         variant: Variant,
         behaviour: Behaviour = .runOnce,
@@ -234,6 +247,7 @@ public struct Job: Codable, Equatable, Identifiable, FetchableRecord, MutablePer
             shouldSkipLaunchBecomeActive: shouldSkipLaunchBecomeActive
         )
         
+        self.priority = priority
         self.failureCount = failureCount
         self.variant = variant
         self.behaviour = behaviour
@@ -246,6 +260,7 @@ public struct Job: Codable, Equatable, Identifiable, FetchableRecord, MutablePer
     }
     
     public init?<T: Encodable>(
+        priority: Int64 = 0,
         failureCount: UInt = 0,
         variant: Variant,
         behaviour: Behaviour = .runOnce,
@@ -268,6 +283,7 @@ public struct Job: Codable, Equatable, Identifiable, FetchableRecord, MutablePer
             let detailsData: Data = try? JSONEncoder().encode(details)
         else { return nil }
         
+        self.priority = priority
         self.failureCount = failureCount
         self.variant = variant
         self.behaviour = behaviour
@@ -328,8 +344,12 @@ extension Job {
                 )
             )
             .filter(variants.contains(Job.Columns.variant))
-            .order(Job.Columns.nextRunTimestamp)
-            .order(Job.Columns.id)
+            .order(
+                Job.Columns.nextRunTimestamp > Date().timeIntervalSince1970, // Past jobs first
+                Job.Columns.priority.desc,
+                Job.Columns.nextRunTimestamp,
+                Job.Columns.id
+            )
         
         if excludeFutureJobs {
             query = query.filter(Job.Columns.nextRunTimestamp <= Date().timeIntervalSince1970)
@@ -352,6 +372,7 @@ public extension Job {
     ) -> Job {
         return Job(
             id: self.id,
+            priority: self.priority,
             failureCount: failureCount,
             variant: self.variant,
             behaviour: self.behaviour,
@@ -369,6 +390,7 @@ public extension Job {
         
         return Job(
             id: self.id,
+            priority: self.priority,
             failureCount: self.failureCount,
             variant: self.variant,
             behaviour: self.behaviour,

@@ -602,3 +602,5 @@
 "MESSAGE_DELIVERY_STATUS_FAILED" = "Failed to send";
 "REMOVE_AVATAR" = "Remove";
 "CONTACT_NICKNAME_PLACEHOLDER" = "Enter a name";
+"MARK_AS_READ" = "Mark Read";
+"MARK_AS_UNREAD" = "Mark Unread";

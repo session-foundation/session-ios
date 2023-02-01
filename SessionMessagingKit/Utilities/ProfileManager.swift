@@ -487,6 +487,7 @@ public struct ProfileManager {
                         
                         // Update the cached avatar image value
                         profileAvatarCache.mutate { $0[fileName] = data }
+                        UserDefaults.standard[.lastProfilePictureUpload] = Date()
                         
                         SNLog("Successfully uploaded avatar image.")
                         success((downloadUrl, fileName, newProfileKey))
@@ -553,11 +554,7 @@ public struct ProfileManager {
                     
                     profileChanges.append(Profile.Columns.profilePictureUrl.set(to: nil))
                     profileChanges.append(Profile.Columns.profileEncryptionKey.set(to: nil))
-                    
-                    // Profile filename (this isn't synchronized between devices so can be immediately saved)
-                    _ = try? Profile
-                        .filter(id: publicKey)
-                        .updateAll(db, Profile.Columns.profilePictureFileName.set(to: nil))
+                    profileChanges.append(Profile.Columns.profilePictureFileName.set(to: nil))
                     
                 case .updateTo(let url, let key, let fileName):
                     if
@@ -573,11 +570,9 @@ public struct ProfileManager {
                         avatarNeedsDownload = true
                     }
                     
-                    // Profile filename (this isn't synchronized between devices so can be immediately saved)
+                    // Profile filename (this isn't synchronized between devices)
                     if let fileName: String = fileName {
-                        _ = try? Profile
-                            .filter(id: publicKey)
-                            .updateAll(db, Profile.Columns.profilePictureFileName.set(to: fileName))
+                        profileChanges.append(Profile.Columns.profilePictureFileName.set(to: fileName))
                     }
             }
         }
@@ -623,7 +618,7 @@ public struct ProfileManager {
         // Download the profile picture if needed
         guard avatarNeedsDownload else { return }
         
-        db.afterNextTransaction { db in
+        db.afterNextTransactionNested { db in
             // Need to refetch to ensure the db changes have occurred
             ProfileManager.downloadAvatar(for: Profile.fetchOrCreate(db, id: publicKey))
         }

@@ -34,7 +34,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     public let initialThreadVariant: SessionThread.Variant
     public var sentMessageBeforeUpdate: Bool = false
     public var lastSearchedText: String?
-    public let focusedInteractionId: Int64?    // Note: This is used for global search
+    public let focusedInteractionInfo: Interaction.TimestampInfo? // Note: This is used for global search
     
     public lazy var blockedBannerMessage: String = {
         switch self.threadData.threadVariant {
@@ -52,28 +52,30 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     
     // MARK: - Initialization
     
-    init(threadId: String, threadVariant: SessionThread.Variant, focusedInteractionId: Int64?) {
+    init(threadId: String, threadVariant: SessionThread.Variant, focusedInteractionInfo: Interaction.TimestampInfo?) {
         // If we have a specified 'focusedInteractionId' then use that, otherwise retrieve the oldest
         // unread interaction and start focused around that one
-        let targetInteractionId: Int64? = {
-            if let focusedInteractionId: Int64 = focusedInteractionId { return focusedInteractionId }
+        let targetInteractionInfo: Interaction.TimestampInfo? = {
+            if let focusedInteractionInfo: Interaction.TimestampInfo = focusedInteractionInfo {
+                return focusedInteractionInfo
+            }
             
             return Storage.shared.read { db in
                 let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
                 
                 return try Interaction
-                    .select(.id)
+                    .select(.id, .timestampMs)
                     .filter(interaction[.wasRead] == false)
                     .filter(interaction[.threadId] == threadId)
                     .order(interaction[.timestampMs].asc)
-                    .asRequest(of: Int64.self)
+                    .asRequest(of: Interaction.TimestampInfo.self)
                     .fetchOne(db)
             }
         }()
         
         self.threadId = threadId
         self.initialThreadVariant = threadVariant
-        self.focusedInteractionId = targetInteractionId
+        self.focusedInteractionInfo = targetInteractionInfo
         self.pagedDataObserver = nil
         
         // Note: Since this references self we need to finish initializing before setting it, we
@@ -89,12 +91,12 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             // If we don't have a `initialFocusedId` then default to `.pageBefore` (it'll query
             // from a `0` offset)
-            guard let initialFocusedId: Int64 = targetInteractionId else {
+            guard let initialFocusedInfo: Interaction.TimestampInfo = targetInteractionInfo else {
                 self?.pagedDataObserver?.load(.pageBefore)
                 return
             }
             
-            self?.pagedDataObserver?.load(.initialPageAround(id: initialFocusedId))
+            self?.pagedDataObserver?.load(.initialPageAround(id: initialFocusedInfo.id))
         }
     }
     
@@ -150,7 +152,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     
     // MARK: - Interaction Data
     
-    private var lastInteractionIdMarkedAsRead: Int64?
+    private var lastInteractionTimestampMsMarkedAsRead: Int64 = 0
     public private(set) var unobservedInteractionDataChanges: ([SectionModel], StagedChangeset<[SectionModel]>)?
     public private(set) var interactionData: [SectionModel] = []
     public private(set) var reactionExpandedInteractionIds: Set<Int64> = []
@@ -186,7 +188,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
                         let contact: TypedTableAlias<Contact> = TypedTableAlias()
                         
-                        return SQL("LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(interaction[.threadId])")
+                        return SQL("JOIN \(Contact.self) ON \(contact[.id]) = \(interaction[.threadId])")
                     }()
                 ),
                 PagedData.ObservedChanges(
@@ -196,7 +198,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
                         let profile: TypedTableAlias<Profile> = TypedTableAlias()
                         
-                        return SQL("LEFT JOIN \(Profile.self) ON \(profile[.id]) = \(interaction[.authorId])")
+                        return SQL("JOIN \(Profile.self) ON \(profile[.id]) = \(interaction[.authorId])")
                     }()
                 )
             ],
@@ -253,7 +255,10 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                     currentDataRetriever: { self?.interactionData },
                     onDataChange: self?.onInteractionChange,
                     onUnobservedDataChange: { updatedData, changeset in
-                        self?.unobservedInteractionDataChanges = (updatedData, changeset)
+                        self?.unobservedInteractionDataChanges = (changeset.isEmpty ?
+                            nil :
+                            (updatedData, changeset)
+                        )
                     }
                 )
             }
@@ -389,36 +394,34 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         }
     }
     
-    /// This method will mark all interactions as read before the specified interaction id, if no id is provided then all interactions for
-    /// the thread will be marked as read
-    public func markAsRead(beforeInclusive interactionId: Int64?) {
+    /// This method marks a thread as read and depending on the target may also update the interactions within a thread as read
+    public func markAsRead(
+        target: SessionThreadViewModel.ReadTarget,
+        timestampMs: Int64?
+    ) {
         /// Since this method now gets triggered when scrolling we want to try to optimise it and avoid busying the database
-        /// write queue when it isn't needed, in order to do this we:
+        /// write queue when it isn't needed, in order to do this we don't bother marking anything as read if this was called with
+        /// the same `interactionId` that we previously marked as read (ie. when scrolling and the last message hasn't changed)
         ///
-        ///   - Don't bother marking anything as read if there are no unread interactions (we can rely on the
-        ///     `threadData.threadUnreadCount` to always be accurate)
-        ///   - Don't bother marking anything as read if this was called with the same `interactionId` that we
-        ///     previously marked as read (ie. when scrolling and the last message hasn't changed)
-        guard
-            (self.threadData.threadUnreadCount ?? 0) > 0,
-            let targetInteractionId: Int64 = (interactionId ?? self.threadData.interactionId),
-            self.lastInteractionIdMarkedAsRead != targetInteractionId
-        else { return }
-        
-        let threadId: String = self.threadData.threadId
-        let threadVariant: SessionThread.Variant = self.threadData.threadVariant
-        let trySendReadReceipt: Bool = (self.threadData.threadIsMessageRequest == false)
-        self.lastInteractionIdMarkedAsRead = targetInteractionId
-        
-        Storage.shared.writeAsync { db in
-            try Interaction.markAsRead(
-                db,
-                interactionId: targetInteractionId,
-                threadId: threadId,
-                threadVariant: threadVariant,
-                includingOlder: true,
-                trySendReadReceipt: trySendReadReceipt
-            )
+        /// The `ThreadViewModel.markAsRead` method also tries to avoid marking as read if a conversation is already fully read
+        switch target {
+            case .thread: self.threadData.markAsRead(target: target)
+            case .threadAndInteractions:
+                guard
+                    timestampMs == nil ||
+                    self.lastInteractionTimestampMsMarkedAsRead < (timestampMs ?? 0)
+                else {
+                    self.threadData.markAsRead(target: .thread)
+                    return
+                }
+                
+                // If we were given a timestamp then update the 'lastInteractionTimestampMsMarkedAsRead'
+                // to avoid needless updates
+                if let timestampMs: Int64 = timestampMs {
+                    self.lastInteractionTimestampMsMarkedAsRead = timestampMs
+                }
+                
+                self.threadData.markAsRead(target: target)
         }
     }
     

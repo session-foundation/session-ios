@@ -51,7 +51,7 @@ public class MessageRequestsViewModel {
                     joinToPagedType: {
                         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
                         
-                        return SQL("LEFT JOIN \(Interaction.self) ON \(interaction[.threadId]) = \(thread[.id])")
+                        return SQL("JOIN \(Interaction.self) ON \(interaction[.threadId]) = \(thread[.id])")
                     }()
                 ),
                 PagedData.ObservedChanges(
@@ -60,7 +60,7 @@ public class MessageRequestsViewModel {
                     joinToPagedType: {
                         let contact: TypedTableAlias<Contact> = TypedTableAlias()
                         
-                        return SQL("LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])")
+                        return SQL("JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])")
                     }()
                 ),
                 PagedData.ObservedChanges(
@@ -69,7 +69,7 @@ public class MessageRequestsViewModel {
                     joinToPagedType: {
                         let profile: TypedTableAlias<Profile> = TypedTableAlias()
                         
-                        return SQL("LEFT JOIN \(Profile.self) ON \(profile[.id]) = \(thread[.id])")
+                        return SQL("JOIN \(Profile.self) ON \(profile[.id]) = \(thread[.id])")
                     }()
                 ),
                 PagedData.ObservedChanges(
@@ -80,8 +80,8 @@ public class MessageRequestsViewModel {
                         let recipientState: TypedTableAlias<RecipientState> = TypedTableAlias()
                         
                         return """
-                            LEFT JOIN \(Interaction.self) ON \(interaction[.threadId]) = \(thread[.id])
-                            LEFT JOIN \(RecipientState.self) ON \(recipientState[.interactionId]) = \(interaction[.id])
+                            JOIN \(Interaction.self) ON \(interaction[.threadId]) = \(thread[.id])
+                            JOIN \(RecipientState.self) ON \(recipientState[.interactionId]) = \(interaction[.id])
                         """
                     }()
                 )
@@ -103,7 +103,10 @@ public class MessageRequestsViewModel {
                     currentDataRetriever: { self?.threadData },
                     onDataChange: self?.onThreadChange,
                     onUnobservedDataChange: { updatedData, changeset in
-                        self?.unobservedThreadDataChanges = (updatedData, changeset)
+                        self?.unobservedThreadDataChanges = (changeset.isEmpty ?
+                            nil :
+                            (updatedData, changeset)
+                        )
                     }
                 )
             }

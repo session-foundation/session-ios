@@ -207,7 +207,9 @@ class GlobalSearchViewController: BaseVC, UITableViewDelegate, UITableViewDataSo
                         
                         self?.termForCurrentSearchResultSet = searchText
                         self?.searchResultSet = [
-                            (hasResults ? nil : [ArraySection(model: .noResults, elements: [SessionThreadViewModel(unreadCount: 0)])]),
+                            (hasResults ? nil : [
+                                ArraySection(model: .noResults, elements: [SessionThreadViewModel()])
+                            ]),
                             (hasResults ? sections : nil)
                         ]
                         .compactMap { $0 }
@@ -271,15 +273,25 @@ extension GlobalSearchViewController {
                 show(
                     threadId: section.elements[indexPath.row].threadId,
                     threadVariant: section.elements[indexPath.row].threadVariant,
-                    focusedInteractionId: section.elements[indexPath.row].interactionId
+                    focusedInteractionInfo: {
+                        guard
+                            let interactionId: Int64 = section.elements[indexPath.row].interactionId,
+                            let timestampMs: Int64 = section.elements[indexPath.row].interactionTimestampMs
+                        else { return nil }
+                        
+                        return Interaction.TimestampInfo(
+                            id: interactionId,
+                            timestampMs: timestampMs
+                        )
+                    }()
                 )
         }
     }
 
-    private func show(threadId: String, threadVariant: SessionThread.Variant, focusedInteractionId: Int64? = nil, animated: Bool = true) {
+    private func show(threadId: String, threadVariant: SessionThread.Variant, focusedInteractionInfo: Interaction.TimestampInfo? = nil, animated: Bool = true) {
         guard Thread.isMainThread else {
             DispatchQueue.main.async { [weak self] in
-                self?.show(threadId: threadId, threadVariant: threadVariant, focusedInteractionId: focusedInteractionId, animated: animated)
+                self?.show(threadId: threadId, threadVariant: threadVariant, focusedInteractionInfo: focusedInteractionInfo, animated: animated)
             }
             return
         }
@@ -292,7 +304,7 @@ extension GlobalSearchViewController {
             .viewControllers)
             .defaulting(to: [])
             .appending(
-                ConversationVC(threadId: threadId, threadVariant: threadVariant, focusedInteractionId: focusedInteractionId)
+                ConversationVC(threadId: threadId, threadVariant: threadVariant, focusedInteractionInfo: focusedInteractionInfo)
             )
         
         self.navigationController?.setViewControllers(viewControllers, animated: true)

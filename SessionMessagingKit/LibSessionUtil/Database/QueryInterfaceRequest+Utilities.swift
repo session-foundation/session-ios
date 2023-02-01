@@ -51,16 +51,18 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
         _ assignments: [ColumnAssignment]
     ) throws -> [RowDecoder] {
         defer {
-            db.afterNextTransaction { db in
-                guard
-                    self is QueryInterfaceRequest<Contact> ||
-                    self is QueryInterfaceRequest<Profile> ||
-                    self is QueryInterfaceRequest<ClosedGroup>
-                else { return }
-                
-                // If we change one of these types then we may as well automatically enqueue
-                // a new config sync job once the transaction completes
-                ConfigurationSyncJob.enqueue(db)
+            // If we change one of these types then we may as well automatically enqueue
+            // a new config sync job once the transaction completes (but only enqueue it
+            // once per transaction - doing it more than once is pointless)
+            if
+                self is QueryInterfaceRequest<Contact> ||
+                self is QueryInterfaceRequest<Profile> ||
+                self is QueryInterfaceRequest<SessionThread> ||
+                self is QueryInterfaceRequest<ClosedGroup>
+            {
+                db.afterNextTransactionNestedOnce(dedupeIdentifier: "EnqueueConfigurationSyncJob") { db in
+                    ConfigurationSyncJob.enqueue(db)
+                }
             }
         }
         

@@ -256,7 +256,7 @@ internal extension SessionUtil {
         // If we only updated the current user contact then no need to continue
         guard !targetContacts.isEmpty else { return updated }
         
-        db.afterNextTransaction { db in
+        db.afterNextTransactionNested { db in
             do {
                 let atomicConf: Atomic<UnsafeMutablePointer<config_object>?> = SessionUtil.config(
                     for: .contacts,
@@ -312,7 +312,7 @@ internal extension SessionUtil {
         // Get the user public key (updating their profile is handled separately
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         
-        db.afterNextTransaction { db in
+        db.afterNextTransactionNested { db in
             do {
                 // Update the user profile first (if needed)
                 if let updatedUserProfile: Profile = updatedProfiles.first(where: { $0.id == userPublicKey }) {

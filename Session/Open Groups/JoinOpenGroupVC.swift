@@ -197,7 +197,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                                         threadVariant: .openGroup,
                                         isMessageRequest: false,
                                         action: .compose,
-                                        focusInteractionId: nil,
+                                        focusInteractionInfo: nil,
                                         animated: false
                                     )
                                 }
