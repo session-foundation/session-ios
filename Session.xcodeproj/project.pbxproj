@@ -5087,7 +5087,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${SRCROOT}/Scripts/LintLocalizableStrings.swift\"\n";
+			shellScript = "#\"${SRCROOT}/Scripts/LintLocalizableStrings.swift\"\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */

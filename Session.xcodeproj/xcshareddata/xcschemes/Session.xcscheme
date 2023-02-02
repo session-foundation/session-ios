@@ -185,6 +185,11 @@
             isEnabled = "YES">
          </EnvironmentVariable>
          <EnvironmentVariable
+            key = "PROJECT_DIR"
+            value = "/Users/emilyburton/Documents/session-ios"
+            isEnabled = "NO">
+         </EnvironmentVariable>
+         <EnvironmentVariable
             key = "UBSAN_OPTIONS"
             value = "suppressions=SignalUBSan.supp"
             isEnabled = "YES">

@@ -63,6 +63,7 @@ class SessionAvatarCell: UITableViewCell {
     fileprivate let displayNameContainer: UIView = {
         let view: UIView = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
+        view.accessibilityIdentifier = "Username"
         view.accessibilityLabel = "Username"
         view.isAccessibilityElement = true
         
