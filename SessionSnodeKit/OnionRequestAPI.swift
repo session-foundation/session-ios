@@ -7,13 +7,17 @@ import PromiseKit
 import SessionUtilitiesKit
 
 public protocol OnionRequestAPIType {
-    static func sendOnionRequest(to snode: Snode, invoking method: SnodeAPIEndpoint, with parameters: JSON, associatedWith publicKey: String?) -> Promise<Data>
-    static func sendOnionRequest(_ request: URLRequest, to server: String, using version: OnionRequestAPIVersion, with x25519PublicKey: String) -> Promise<(OnionRequestResponseInfoType, Data?)>
+    static func sendOnionRequest(to snode: Snode, invoking method: SnodeAPIEndpoint, with parameters: JSON, associatedWith publicKey: String?, timeout: TimeInterval) -> Promise<Data>
+    static func sendOnionRequest(_ request: URLRequest, to server: String, using version: OnionRequestAPIVersion, with x25519PublicKey: String, timeout: TimeInterval) -> Promise<(OnionRequestResponseInfoType, Data?)>
 }
 
 public extension OnionRequestAPIType {
-    static func sendOnionRequest(_ request: URLRequest, to server: String, with x25519PublicKey: String) -> Promise<(OnionRequestResponseInfoType, Data?)> {
-        sendOnionRequest(request, to: server, using: .v4, with: x25519PublicKey)
+    static func sendOnionRequest(to snode: Snode, invoking method: SnodeAPIEndpoint, with parameters: JSON, associatedWith publicKey: String?) -> Promise<Data> {
+        sendOnionRequest(to: snode, invoking: method, with: parameters, associatedWith: publicKey, timeout: HTTP.timeout)
+    }
+    
+    static func sendOnionRequest(_ request: URLRequest, to server: String, with x25519PublicKey: String, timeout: TimeInterval = HTTP.timeout) -> Promise<(OnionRequestResponseInfoType, Data?)> {
+        sendOnionRequest(request, to: server, using: .v4, with: x25519PublicKey, timeout: timeout)
     }
 }
 
@@ -369,7 +373,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
     // MARK: - Public API
     
     /// Sends an onion request to `snode`. Builds new paths as needed.
-    public static func sendOnionRequest(to snode: Snode, invoking method: SnodeAPIEndpoint, with parameters: JSON, associatedWith publicKey: String? = nil) -> Promise<Data> {
+    public static func sendOnionRequest(to snode: Snode, invoking method: SnodeAPIEndpoint, with parameters: JSON, associatedWith publicKey: String? = nil, timeout: TimeInterval = HTTP.timeout) -> Promise<Data> {
         let payloadJson: JSON = [ "method" : method.rawValue, "params" : parameters ]
         
         guard let payload: Data = try? JSONSerialization.data(withJSONObject: payloadJson, options: []) else {
@@ -377,7 +381,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
         }
         
         /// **Note:** Currently the service nodes only support V3 Onion Requests
-        return sendOnionRequest(with: payload, to: OnionRequestAPIDestination.snode(snode), version: .v3)
+        return sendOnionRequest(with: payload, to: OnionRequestAPIDestination.snode(snode), version: .v3, timeout: timeout)
             .map { _, maybeData in
                 guard let data: Data = maybeData else { throw HTTP.Error.invalidResponse }
                 
@@ -393,7 +397,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
     }
 
     /// Sends an onion request to `server`. Builds new paths as needed.
-    public static func sendOnionRequest(_ request: URLRequest, to server: String, using version: OnionRequestAPIVersion = .v4, with x25519PublicKey: String) -> Promise<(OnionRequestResponseInfoType, Data?)> {
+    public static func sendOnionRequest(_ request: URLRequest, to server: String, using version: OnionRequestAPIVersion = .v4, with x25519PublicKey: String, timeout: TimeInterval = HTTP.timeout) -> Promise<(OnionRequestResponseInfoType, Data?)> {
         guard let url = request.url, let host = request.url?.host else {
             return Promise(error: OnionRequestAPIError.invalidURL)
         }
@@ -412,14 +416,14 @@ public enum OnionRequestAPI: OnionRequestAPIType {
             scheme: scheme,
             port: port
         )
-        let promise = sendOnionRequest(with: payload, to: destination, version: version)
+        let promise = sendOnionRequest(with: payload, to: destination, version: version, timeout: timeout)
         promise.catch2 { error in
             SNLog("Couldn't reach server: \(url) due to error: \(error).")
         }
         return promise
     }
 
-    public static func sendOnionRequest(with payload: Data, to destination: OnionRequestAPIDestination, version: OnionRequestAPIVersion) -> Promise<(OnionRequestResponseInfoType, Data?)> {
+    public static func sendOnionRequest(with payload: Data, to destination: OnionRequestAPIDestination, version: OnionRequestAPIVersion, timeout: TimeInterval = HTTP.timeout) -> Promise<(OnionRequestResponseInfoType, Data?)> {
         let (promise, seal) = Promise<(OnionRequestResponseInfoType, Data?)>.pending()
         var guardSnode: Snode?
         
@@ -444,7 +448,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
                     }
                     let destinationSymmetricKey = intermediate.destinationSymmetricKey
                     
-                    HTTP.execute(.post, url, body: body)
+                    HTTP.execute(.post, url, body: body, timeout: timeout)
                         .done2 { responseData in
                             handleResponse(
                                 responseData: responseData,
@@ -672,7 +676,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
                         
                         if let timestamp = body["t"] as? Int64 {
                             let offset = timestamp - Int64(floor(Date().timeIntervalSince1970 * 1000))
-                            SnodeAPI.clockOffset.mutate { $0 = offset }
+                            SnodeAPI.clockOffsetMs.mutate { $0 = offset }
                         }
                         
                         guard 200...299 ~= statusCode else {

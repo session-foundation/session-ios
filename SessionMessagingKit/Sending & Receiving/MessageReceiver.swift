@@ -5,6 +5,7 @@ import GRDB
 import Sodium
 import SignalCoreKit
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 public enum MessageReceiver {
     private static var lastEncryptionKeyPairRequest: [String: Date] = [:]
@@ -144,7 +145,7 @@ public enum MessageReceiver {
         message.sender = sender
         message.recipient = userPublicKey
         message.sentTimestamp = envelope.timestamp
-        message.receivedTimestamp = UInt64((Date().timeIntervalSince1970) * 1000)
+        message.receivedTimestamp = UInt64(SnodeAPI.currentOffsetTimestampMs())
         message.groupPublicKey = groupPublicKey
         message.openGroupServerMessageId = openGroupMessageServerId.map { UInt64($0) }
         
@@ -318,7 +319,7 @@ public enum MessageReceiver {
         var updatedProfile: Profile = profile
         
         // Name
-        if let name = name, name != profile.name {
+        if let name = name, !name.isEmpty, name != profile.name {
             let shouldUpdate: Bool
             if isCurrentUser {
                 shouldUpdate = given(UserDefaults.standard[.lastDisplayNameUpdate]) {

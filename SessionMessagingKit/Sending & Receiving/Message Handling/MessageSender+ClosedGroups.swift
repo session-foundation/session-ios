@@ -6,6 +6,7 @@ import Sodium
 import Curve25519Kit
 import PromiseKit
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 extension MessageSender {
     public static var distributingKeyPairs: Atomic<[String: [ClosedGroupKeyPair]]> = Atomic([:])
@@ -24,7 +25,7 @@ extension MessageSender {
         let membersAsData = members.map { Data(hex: $0) }
         let admins = [ userPublicKey ]
         let adminsAsData = admins.map { Data(hex: $0) }
-        let formationTimestamp: TimeInterval = Date().timeIntervalSince1970
+        let formationTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
         let thread: SessionThread = try SessionThread
             .fetchOrCreate(db, id: groupPublicKey, variant: .closedGroup)
         try ClosedGroup(
@@ -91,7 +92,7 @@ extension MessageSender {
             threadId: groupPublicKey,
             publicKey: encryptionKeyPair.publicKey,
             secretKey: encryptionKeyPair.privateKey,
-            receivedTimestamp: Date().timeIntervalSince1970
+            receivedTimestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
         ).insert(db)
         
         // Notify the PN server
@@ -110,7 +111,7 @@ extension MessageSender {
             threadId: thread.id,
             authorId: userPublicKey,
             variant: .infoClosedGroupCreated,
-            timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
+            timestampMs: SnodeAPI.currentOffsetTimestampMs()
         ).inserted(db)
         
         // Start polling
@@ -142,7 +143,7 @@ extension MessageSender {
             threadId: closedGroup.threadId,
             publicKey: legacyNewKeyPair.publicKey,
             secretKey: legacyNewKeyPair.privateKey,
-            receivedTimestamp: Date().timeIntervalSince1970
+            receivedTimestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
         )
         
         // Distribute it
@@ -230,7 +231,7 @@ extension MessageSender {
                 body: ClosedGroupControlMessage.Kind
                     .nameChange(name: name)
                     .infoMessage(db, sender: userPublicKey),
-                timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
+                timestampMs: SnodeAPI.currentOffsetTimestampMs()
             ).inserted(db)
             
             guard let interactionId: Int64 = interaction.id else { throw StorageError.objectNotSaved }
@@ -330,7 +331,7 @@ extension MessageSender {
             body: ClosedGroupControlMessage.Kind
                 .membersAdded(members: addedMembers.map { Data(hex: $0) })
                 .infoMessage(db, sender: userPublicKey),
-            timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
+            timestampMs: SnodeAPI.currentOffsetTimestampMs()
         ).inserted(db)
         
         guard let interactionId: Int64 = interaction.id else { throw StorageError.objectNotSaved }
@@ -431,7 +432,7 @@ extension MessageSender {
                 body: ClosedGroupControlMessage.Kind
                     .membersRemoved(members: removedMembers.map { Data(hex: $0) })
                     .infoMessage(db, sender: userPublicKey),
-                timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
+                timestampMs: SnodeAPI.currentOffsetTimestampMs()
             ).inserted(db)
             
             guard let newInteractionId: Int64 = interaction.id else { throw StorageError.objectNotSaved }
@@ -496,7 +497,7 @@ extension MessageSender {
             body: ClosedGroupControlMessage.Kind
                 .memberLeft
                 .infoMessage(db, sender: userPublicKey),
-            timestampMs: Int64(floor(Date().timeIntervalSince1970 * 1000))
+            timestampMs: SnodeAPI.currentOffsetTimestampMs()
         ).inserted(db)
         
         guard let interactionId: Int64 = interaction.id else {

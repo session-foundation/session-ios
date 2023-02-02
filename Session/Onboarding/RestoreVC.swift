@@ -198,7 +198,7 @@ final class RestoreVC: BaseVC {
         do {
             let hexEncodedSeed = try Mnemonic.decode(mnemonic: mnemonic)
             let seed = Data(hex: hexEncodedSeed)
-            let (ed25519KeyPair, x25519KeyPair) = try! Identity.generate(from: seed)
+            let (ed25519KeyPair, x25519KeyPair) = try Identity.generate(from: seed)
             Onboarding.Flow.recover.preregister(with: seed, ed25519KeyPair: ed25519KeyPair, x25519KeyPair: x25519KeyPair)
             mnemonicTextView.resignFirstResponder()
             

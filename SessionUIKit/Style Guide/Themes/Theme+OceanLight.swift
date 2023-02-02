@@ -34,6 +34,7 @@ internal enum Theme_OceanLight: ThemeColors {
         .messageBubble_outgoingText: .oceanLight1,
         .messageBubble_incomingText: .oceanLight1,
         .messageBubble_overlay: .black_06,
+        .messageBubble_deliveryStatus: .oceanLight2,
 
         // MenuButton
         .menuButton_background: .primary,

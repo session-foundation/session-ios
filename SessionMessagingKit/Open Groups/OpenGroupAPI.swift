@@ -871,6 +871,7 @@ public enum OpenGroupAPI {
                     ],
                     body: bytes
                 ),
+                timeout: FileServerAPI.fileTimeout,
                 using: dependencies
             )
             .decoded(as: FileUploadResponse.self, on: OpenGroupAPI.workQueue, using: dependencies)
@@ -890,6 +891,7 @@ public enum OpenGroupAPI {
                     server: server,
                     endpoint: .roomFileIndividual(roomToken, fileId)
                 ),
+                timeout: FileServerAPI.fileTimeout,
                 using: dependencies
             )
             .map { responseInfo, maybeData in
@@ -1391,6 +1393,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         request: Request<T, Endpoint>,
         forceBlinded: Bool = false,
+        timeout: TimeInterval = HTTP.timeout,
         using dependencies: SMKDependencies = SMKDependencies()
     ) -> Promise<(OnionRequestResponseInfoType, Data?)> {
         let urlRequest: URLRequest
@@ -1415,6 +1418,6 @@ public enum OpenGroupAPI {
             return Promise(error: OpenGroupAPIError.signingFailed)
         }
         
-        return dependencies.onionApi.sendOnionRequest(signedRequest, to: request.server, with: publicKey)
+        return dependencies.onionApi.sendOnionRequest(signedRequest, to: request.server, with: publicKey, timeout: timeout)
     }
 }

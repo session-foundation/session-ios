@@ -6,6 +6,7 @@ import PromiseKit
 import AFNetworking
 import SignalCoreKit
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 public struct LinkPreview: Codable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "linkPreview" }
@@ -60,7 +61,7 @@ public struct LinkPreview: Codable, Equatable, Hashable, FetchableRecord, Persis
     public init(
         url: String,
         timestamp: TimeInterval = LinkPreview.timestampFor(
-            sentTimestampMs: (Date().timeIntervalSince1970 * 1000)  // Default to now
+            sentTimestampMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs())  // Default to now
         ),
         variant: Variant = .standard,
         title: String?,

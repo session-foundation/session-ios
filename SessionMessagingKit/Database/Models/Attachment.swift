@@ -1,12 +1,13 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import AVFAudio
+import AVFoundation
 import GRDB
 import PromiseKit
 import SignalCoreKit
 import SessionUtilitiesKit
-import AVFAudio
-import AVFoundation
+import SessionSnodeKit
 
 public struct Attachment: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "attachment" }
@@ -1062,7 +1063,7 @@ extension Attachment {
         
         // Check the file size
         SNLog("File size: \(data.count) bytes.")
-        if Double(data.count) > Double(FileServerAPI.maxFileSize) / FileServerAPI.fileSizeORMultiplier {
+        if data.count > FileServerAPI.maxFileSize {
             failure?(HTTP.Error.maxFileSizeExceeded)
             return
         }
@@ -1114,7 +1115,7 @@ extension Attachment {
                             state: .uploaded,
                             creationTimestamp: (
                                 updatedAttachment?.creationTimestamp ??
-                                Date().timeIntervalSince1970
+                                (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
                             ),
                             downloadUrl: "\(FileServerAPI.server)/files/\(fileId)"
                         )
