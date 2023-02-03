@@ -10,6 +10,7 @@ final class MediaInfoVC: BaseVC, SessionCarouselViewDelegate {
     
     private let attachments: [Attachment]
     private let isOutgoing: Bool
+    private var currentPage: Int = 0
     
     // MARK: - UI
     private lazy var mediaInfoView: MediaInfoView = MediaInfoView(attachment: nil)
@@ -112,12 +113,14 @@ final class MediaInfoVC: BaseVC, SessionCarouselViewDelegate {
     // MARK: - Interaction
     
     @objc func showMediaFullScreen() {
+        let attachment = self.attachments[self.currentPage]
         
     }
     
     // MARK: - SessionCarouselViewDelegate
     
     func carouselViewDidScrollToNewSlice(currentPage: Int) {
+        self.currentPage = currentPage
         mediaInfoView.update(attachment: attachments[currentPage])
     }
 }
