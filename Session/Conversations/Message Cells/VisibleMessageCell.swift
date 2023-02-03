@@ -1121,11 +1121,15 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     return [:]
                 }
                 
+                // Note: The 'String.count' value is based on actual character counts whereas
+                // NSAttributedString and NSRange are both based on UTF-16 encoded lengths, so
+                // in order to avoid strings which contain emojis breaking strings which end
+                // with URLs we need to use the 'String.utf16.count' value when creating the range
                 return detector
                     .matches(
                         in: attributedText.string,
                         options: [],
-                        range: NSRange(location: 0, length: attributedText.string.count)
+                        range: NSRange(location: 0, length: attributedText.string.utf16.count)
                     )
                     .reduce(into: [:]) { result, match in
                         guard
