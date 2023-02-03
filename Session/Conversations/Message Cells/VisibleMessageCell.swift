@@ -150,6 +150,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     
     internal lazy var messageStatusLabel: UILabel = {
         let result = UILabel()
+        result.accessibilityIdentifier = "Message sent status"
         result.accessibilityLabel = "Message sent status"
         result.font = .systemFont(ofSize: Values.verySmallFontSize)
         result.themeTextColor = .messageBubble_deliveryStatus
@@ -159,6 +160,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     
     internal lazy var messageStatusImageView: UIImageView = {
         let result = UIImageView()
+        result.accessibilityIdentifier = "Message sent status tick"
         result.accessibilityLabel = "Message sent status tick"
         result.contentMode = .scaleAspectFit
         result.themeTintColor = .messageBubble_deliveryStatus

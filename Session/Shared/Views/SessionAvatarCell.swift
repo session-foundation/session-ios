@@ -267,6 +267,7 @@ class SessionAvatarCell: UITableViewCell {
         }
         let completion: (Bool) -> Void = { [weak self] complete in
             self?.displayNameTextField.text = self?.originalInputValue
+            self?.displayNameContainer.accessibilityLabel = self?.displayNameLabel.text
         }
         
         if animated {
