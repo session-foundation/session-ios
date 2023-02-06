@@ -165,6 +165,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         
         return result
     }()
+    
+    internal lazy var messageStatusLabelPaddingView: UIView = UIView()
 
     // MARK: - Settings
     
@@ -252,6 +254,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         
         underBubbleStackView.addArrangedSubview(reactionContainerView)
         underBubbleStackView.addArrangedSubview(messageStatusContainerView)
+        underBubbleStackView.addArrangedSubview(messageStatusLabelPaddingView)
         
         messageStatusContainerView.addSubview(messageStatusLabel)
         messageStatusContainerView.addSubview(messageStatusImageView)
@@ -267,6 +270,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         messageStatusLabel.center(.vertical, in: messageStatusContainerView)
         messageStatusLabel.pin(.leading, to: .leading, of: messageStatusContainerView)
         messageStatusLabel.pin(.trailing, to: .leading, of: messageStatusImageView, withInset: -2)
+        messageStatusLabelPaddingView.pin(.leading, to: .leading, of: messageStatusContainerView)
+        messageStatusLabelPaddingView.pin(.trailing, to: .trailing, of: messageStatusContainerView)
     }
 
     override func setUpGestureRecognizers() {
@@ -428,6 +433,10 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 cellViewModel.state == .sent &&
                 !cellViewModel.isLast
             )
+        )
+        messageStatusLabelPaddingView.isHidden = (
+            messageStatusContainerView.isHidden ||
+            cellViewModel.isLast
         )
         
         // Set the height of the underBubbleStackView to 0 if it has no content (need to do this
