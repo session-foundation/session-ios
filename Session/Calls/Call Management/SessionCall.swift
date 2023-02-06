@@ -318,12 +318,20 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
                     }
                 }()
                 
-                guard shouldMarkAsRead else { return }
+                guard
+                    shouldMarkAsRead,
+                    let threadVariant: SessionThread.Variant = try? SessionThread
+                        .filter(id: interaction.threadId)
+                        .select(.variant)
+                        .asRequest(of: SessionThread.Variant.self)
+                        .fetchOne(db)
+                else { return }
                 
                 try Interaction.markAsRead(
                     db,
                     interactionId: interaction.id,
                     threadId: interaction.threadId,
+                    threadVariant: threadVariant,
                     includingOlder: false,
                     trySendReadReceipt: false
                 )

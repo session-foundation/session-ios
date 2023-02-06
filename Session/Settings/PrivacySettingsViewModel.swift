@@ -3,6 +3,7 @@
 import Foundation
 import Combine
 import GRDB
+import LocalAuthentication
 import DifferenceKit
 import SessionUIKit
 import SessionMessagingKit
@@ -99,7 +100,23 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                             title: "PRIVACY_SCREEN_SECURITY_LOCK_SESSION_TITLE".localized(),
                             subtitle: "PRIVACY_SCREEN_SECURITY_LOCK_SESSION_DESCRIPTION".localized(),
                             rightAccessory: .toggle(.settingBool(key: .isScreenLockEnabled)),
-                            onTap: {
+                            onTap: { [weak self] in
+                                // Make sure the device has a passcode set before allowing screen lock to
+                                // be enabled (Note: This will always return true on a simulator)
+                                guard LAContext().canEvaluatePolicy(.deviceOwnerAuthentication, error: nil) else {
+                                    self?.transitionToScreen(
+                                        ConfirmationModal(
+                                            info: ConfirmationModal.Info(
+                                                title: "SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_AVAILABLE".localized(),
+                                                cancelTitle: "BUTTON_OK".localized(),
+                                                cancelStyle: .alert_text
+                                            )
+                                        ),
+                                        transitionType: .present
+                                    )
+                                    return
+                                }
+                                
                                 Storage.shared.write { db in
                                     db[.isScreenLockEnabled] = !db[.isScreenLockEnabled]
                                 }

@@ -197,7 +197,17 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                         
                         return SQL("LEFT JOIN \(Profile.self) ON \(profile[.id]) = \(interaction[.authorId])")
                     }()
-                )
+                ),
+                PagedData.ObservedChanges(
+                    table: RecipientState.self,
+                    columns: [.state, .mostRecentFailureText],
+                    joinToPagedType: {
+                        let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
+                        let recipientState: TypedTableAlias<RecipientState> = TypedTableAlias()
+                        
+                        return SQL("LEFT JOIN \(RecipientState.self) ON \(recipientState[.interactionId]) = \(interaction[.id])")
+                    }()
+                ),
             ],
             filterSQL: MessageViewModel.filterSQL(threadId: threadId),
             groupSQL: MessageViewModel.groupSQL,
@@ -405,6 +415,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         else { return }
         
         let threadId: String = self.threadData.threadId
+        let threadVariant: SessionThread.Variant = self.threadData.threadVariant
         let trySendReadReceipt: Bool = (self.threadData.threadIsMessageRequest == false)
         self.lastInteractionIdMarkedAsRead = targetInteractionId
         
@@ -413,6 +424,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                 db,
                 interactionId: targetInteractionId,
                 threadId: threadId,
+                threadVariant: threadVariant,
                 includingOlder: true,
                 trySendReadReceipt: trySendReadReceipt
             )
