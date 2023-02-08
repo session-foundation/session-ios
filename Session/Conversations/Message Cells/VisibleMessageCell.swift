@@ -153,7 +153,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         result.accessibilityIdentifier = "Message sent status"
         result.accessibilityLabel = "Message sent status"
         result.font = .systemFont(ofSize: Values.verySmallFontSize)
-        result.themeTextColor = .messageBubble_deliveryStatus
+        result.themeTextColor = .messageBubble_deliveryStatus  
         
         return result
     }()
@@ -422,6 +422,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         messageStatusLabel.text = statusText
         messageStatusLabel.themeTextColor = tintColor
         messageStatusImageView.image = image
+        messageStatusImageView.accessibilityIdentifier = "Message sent status: \(statusText)"
         messageStatusImageView.themeTintColor = tintColor
         messageStatusContainerView.isHidden = (
             cellViewModel.variant != .standardOutgoing ||
