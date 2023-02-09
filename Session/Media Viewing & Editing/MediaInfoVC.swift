@@ -10,6 +10,10 @@ final class MediaInfoVC: BaseVC, SessionCarouselViewDelegate {
     
     private let attachments: [Attachment]
     private let isOutgoing: Bool
+    private let threadId: String
+    private let threadVariant: SessionThread.Variant
+    private let interactionId: Int64
+    
     private var currentPage: Int = 0
     
     // MARK: - UI
@@ -66,7 +70,16 @@ final class MediaInfoVC: BaseVC, SessionCarouselViewDelegate {
     
     // MARK: - Initialization
     
-    init(attachments: [Attachment], isOutgoing: Bool) {
+    init(
+        attachments: [Attachment],
+        isOutgoing: Bool,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        interactionId: Int64
+    ) {
+        self.threadId = threadId
+        self.threadVariant = threadVariant
+        self.interactionId = interactionId
         self.isOutgoing = isOutgoing
         self.attachments = attachments
         super.init(nibName: nil, bundle: nil)
@@ -114,7 +127,17 @@ final class MediaInfoVC: BaseVC, SessionCarouselViewDelegate {
     
     @objc func showMediaFullScreen() {
         let attachment = self.attachments[self.currentPage]
-        
+        let viewController: UIViewController? = MediaGalleryViewModel.createDetailViewController(
+            for: self.threadId,
+            threadVariant: self.threadVariant,
+            interactionId: self.interactionId,
+            selectedAttachmentId: attachment.id,
+            options: [ .sliderEnabled ]
+        )
+        if let viewController: UIViewController = viewController {
+            viewController.transitioningDelegate = nil
+            self.present(viewController, animated: true)
+        }
     }
     
     // MARK: - SessionCarouselViewDelegate

@@ -1561,7 +1561,10 @@ extension ConversationVC:
     func info(_ cellViewModel: MessageViewModel) {
         let mediaInfoVC = MediaInfoVC(
             attachments: (cellViewModel.attachments ?? []),
-            isOutgoing: (cellViewModel.variant == .standardOutgoing)
+            isOutgoing: (cellViewModel.variant == .standardOutgoing),
+            threadId: self.viewModel.threadData.threadId,
+            threadVariant: self.viewModel.threadData.threadVariant,
+            interactionId: cellViewModel.id
         )
         navigationController?.pushViewController(mediaInfoVC, animated: true)
     }
