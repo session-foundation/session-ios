@@ -621,6 +621,7 @@ public extension MessageViewModel {
     
     static func baseQuery(
         userPublicKey: String,
+        blindedPublicKey: String?,
         orderSQL: SQL,
         groupSQL: SQL?
     ) -> (([Int64]) -> AdaptedFetchRequest<SQLRequest<MessageViewModel>>) {
@@ -717,7 +718,8 @@ public extension MessageViewModel {
                            \(interactionAttachment[.attachmentId]) AS \(Quote.Columns.attachmentId)
                     FROM \(Quote.self)
                     LEFT JOIN \(Interaction.self) ON (
-                        \(quote[.authorId]) = \(interaction[.authorId]) AND
+                        (\(quote[.authorId]) = \(interaction[.authorId]) OR
+                        \(quote[.authorId]) = \(blindedPublicKey ?? "") AND \(userPublicKey) = \(interaction[.authorId]) ) AND
                         \(quote[.timestampMs]) = \(interaction[.timestampMs])
                     )
                     LEFT JOIN \(InteractionAttachment.self) ON \(interaction[.id]) = \(interactionAttachment[.interactionId])
