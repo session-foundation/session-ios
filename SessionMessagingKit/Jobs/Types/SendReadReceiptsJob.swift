@@ -98,32 +98,24 @@ extension SendReadReceiptsJob {
 // MARK: - Convenience
 
 public extension SendReadReceiptsJob {
+    /// This method upserts a 'sendReadReceipts' job to include the timestamps for the specified `interactionIds`
+    ///
+    /// **Note:** This method assumes that the provided `interactionIds` are valid and won't filter out any invalid ids so
+    /// ensure that is done correctly beforehand
     @discardableResult static func createOrUpdateIfNeeded(_ db: Database, threadId: String, interactionIds: [Int64]) -> Job? {
         guard db[.areReadReceiptsEnabled] == true else { return nil }
         
         // Retrieve the timestampMs values for the specified interactions
-        let maybeTimestampMsValues: [Int64]? = try? Int64.fetchAll(
-            db,
-            Interaction
-                .select(.timestampMs)
-                .filter(interactionIds.contains(Interaction.Columns.id))
-                // Only `standardIncoming` incoming interactions should have read receipts sent
-                .filter(Interaction.Columns.variant == Interaction.Variant.standardIncoming)
-                .filter(Interaction.Columns.wasRead == false)   // Only send for unread messages
-                .joining(
-                    // Don't send read receipts in group threads
-                    required: Interaction.thread
-                        .filter(SessionThread.Columns.variant != SessionThread.Variant.closedGroup)
-                        .filter(SessionThread.Columns.variant != SessionThread.Variant.openGroup)
-                )
-                .distinct()
-        )
+        let timestampMsValues: [Int64] = (try? Interaction
+            .select(.timestampMs)
+            .filter(interactionIds.contains(Interaction.Columns.id))
+            .distinct()
+            .asRequest(of: Int64.self)
+            .fetchAll(db))
+            .defaulting(to: [])
         
         // If there are no timestamp values then do nothing
-        guard
-            let timestampMsValues: [Int64] = maybeTimestampMsValues,
-            !timestampMsValues.isEmpty
-        else { return nil }
+        guard !timestampMsValues.isEmpty else { return nil }
         
         // Try to get an existing job (if there is one that's not running)
         if
