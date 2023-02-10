@@ -600,3 +600,4 @@
 "MESSAGE_DELIVERY_STATUS_SENT" = "Sent";
 "MESSAGE_DELIVERY_STATUS_READ" = "Read";
 "MESSAGE_DELIVERY_STATUS_FAILED" = "Failed to send";
+"delete_message_for_me_and_my_devices" = "Delete from all of my devices";

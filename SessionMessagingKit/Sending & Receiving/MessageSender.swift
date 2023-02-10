@@ -647,8 +647,9 @@ public final class MessageSender {
         // • it's a visible message or an expiration timer update
         // • the destination was a contact
         // • we didn't sync it already
+        // • it wasn't set to 'Note to Self'
         let userPublicKey = getUserHexEncodedPublicKey(db)
-        if case .contact(let publicKey) = destination, !isSyncMessage {
+        if case .contact(let publicKey) = destination, !isSyncMessage, publicKey != userPublicKey {
             if let message = message as? VisibleMessage { message.syncTarget = publicKey }
             if let message = message as? ExpirationTimerUpdate { message.syncTarget = publicKey }
             

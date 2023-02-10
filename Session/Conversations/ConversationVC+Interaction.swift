@@ -1826,10 +1826,16 @@ extension ConversationVC:
                 })
                 
                 actionSheet.addAction(UIAlertAction(
-                    title: (cellViewModel.threadVariant == .closedGroup ?
-                        "delete_message_for_everyone".localized() :
-                        String(format: "delete_message_for_me_and_recipient".localized(), threadName)
-                    ),
+                    title: {
+                        switch cellViewModel.threadVariant {
+                            case .closedGroup: return "delete_message_for_everyone".localized()
+                            default:
+                                return (cellViewModel.threadId == userPublicKey ?
+                                    "delete_message_for_me_and_my_devices".localized() :
+                                    String(format: "delete_message_for_me_and_recipient".localized(), threadName)
+                                )
+                        }
+                    }(),
                     style: .destructive
                 ) { [weak self] _ in
                     deleteRemotely(

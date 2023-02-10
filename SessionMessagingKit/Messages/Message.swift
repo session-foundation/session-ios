@@ -177,6 +177,9 @@ public extension Message {
     }
     
     static func shouldSync(message: Message) -> Bool {
+        // For 'Note to Self' messages we always want to sync the message
+        guard message.sender != message.recipient else { return true }
+        
         switch message {
             case let controlMessage as ClosedGroupControlMessage:
                 switch controlMessage.kind {
