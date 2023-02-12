@@ -817,6 +817,8 @@ extension ConversationVC:
             let actions: [ContextMenuVC.Action] = ContextMenuVC.actions(
                 for: cellViewModel,
                 recentEmojis: (self.viewModel.threadData.recentReactionEmoji ?? []).compactMap { EmojiWithSkinTones(rawValue: $0) },
+                currentUserPublicKey: self.viewModel.threadData.currentUserPublicKey,
+                currentUserBlindedPublicKey: self.viewModel.threadData.currentUserBlindedPublicKey,
                 currentUserIsOpenGroupModerator: OpenGroupManager.isUserModeratorOrAdmin(
                     self.viewModel.threadData.currentUserPublicKey,
                     for: self.viewModel.threadData.openGroupRoomToken,

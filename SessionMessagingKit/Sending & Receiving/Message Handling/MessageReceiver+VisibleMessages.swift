@@ -393,6 +393,7 @@ extension MessageReceiver {
             db,
             interactionId: interactionId,
             threadId: thread.id,
+            threadVariant: thread.variant,
             includingOlder: true,
             trySendReadReceipt: true
         )

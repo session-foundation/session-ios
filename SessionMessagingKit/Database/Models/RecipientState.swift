@@ -65,16 +65,37 @@ public struct RecipientState: Codable, Equatable, FetchableRecord, PersistableRe
             }
         }
         
-        public func statusIconInfo(variant: Interaction.Variant, hasAtLeastOneReadReceipt: Bool) -> (image: UIImage?, themeTintColor: ThemeValue) {
-            guard variant == .standardOutgoing else { return (nil, .textPrimary) }
+        public func statusIconInfo(variant: Interaction.Variant, hasAtLeastOneReadReceipt: Bool) -> (image: UIImage?, text: String?, themeTintColor: ThemeValue) {
+            guard variant == .standardOutgoing else { return (nil, nil, .textPrimary) }
 
             switch (self, hasAtLeastOneReadReceipt) {
-                case (.sending, _): return (UIImage(systemName: "ellipsis.circle"), .textPrimary)
+                case (.sending, _):
+                    return (
+                        UIImage(systemName: "ellipsis.circle"),
+                        "MESSAGE_DELIVERY_STATUS_SENDING".localized(),
+                        .messageBubble_deliveryStatus
+                    )
+
                 case (.sent, false), (.skipped, _):
-                    return (UIImage(systemName: "checkmark.circle"), .textPrimary)
+                    return (
+                        UIImage(systemName: "checkmark.circle"),
+                        "MESSAGE_DELIVERY_STATUS_SENT".localized(),
+                        .messageBubble_deliveryStatus
+                    )
+
+                case (.sent, true):
+                    return (
+                        UIImage(systemName: "eye.fill"),
+                        "MESSAGE_DELIVERY_STATUS_READ".localized(),
+                        .messageBubble_deliveryStatus
+                    )
                     
-                case (.sent, true): return (UIImage(systemName: "checkmark.circle.fill"), .textPrimary)
-                case (.failed, _): return (UIImage(systemName: "exclamationmark.circle"), .danger)
+                case (.failed, _):
+                    return (
+                        UIImage(systemName: "exclamationmark.triangle"),
+                        "MESSAGE_DELIVERY_STATUS_FAILED".localized(),
+                        .danger
+                    )
             }
         }
     }

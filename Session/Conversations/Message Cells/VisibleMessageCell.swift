@@ -142,18 +142,35 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
 
     private lazy var reactionContainerView = ReactionContainerView()
     
+    internal lazy var messageStatusContainerView: UIView = {
+        let result = UIView()
+        
+        return result
+    }()
+    
+    internal lazy var messageStatusLabel: UILabel = {
+        let result = UILabel()
+        result.accessibilityLabel = "Message sent status"
+        result.font = .systemFont(ofSize: Values.verySmallFontSize)
+        result.themeTextColor = .messageBubble_deliveryStatus
+        
+        return result
+    }()
+    
     internal lazy var messageStatusImageView: UIImageView = {
         let result = UIImageView()
         result.accessibilityLabel = "Message sent status tick"
         result.contentMode = .scaleAspectFit
-        result.layer.cornerRadius = VisibleMessageCell.messageStatusImageViewSize / 2
-        result.layer.masksToBounds = true
+        result.themeTintColor = .messageBubble_deliveryStatus
+        
         return result
     }()
+    
+    internal lazy var messageStatusLabelPaddingView: UIView = UIView()
 
     // MARK: - Settings
     
-    private static let messageStatusImageViewSize: CGFloat = 16
+    private static let messageStatusImageViewSize: CGFloat = 12
     private static let authorLabelBottomSpacing: CGFloat = 4
     private static let groupThreadHSpacing: CGFloat = 12
     private static let profilePictureSize = Values.verySmallProfilePictureSize
@@ -236,13 +253,25 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         underBubbleStackView.pin(.bottom, to: .bottom, of: self)
         
         underBubbleStackView.addArrangedSubview(reactionContainerView)
-        underBubbleStackView.addArrangedSubview(messageStatusImageView)
+        underBubbleStackView.addArrangedSubview(messageStatusContainerView)
+        underBubbleStackView.addArrangedSubview(messageStatusLabelPaddingView)
+        
+        messageStatusContainerView.addSubview(messageStatusLabel)
+        messageStatusContainerView.addSubview(messageStatusImageView)
         
         reactionContainerView.widthAnchor
             .constraint(lessThanOrEqualTo: underBubbleStackView.widthAnchor)
             .isActive = true
+        messageStatusImageView.pin(.top, to: .top, of: messageStatusContainerView)
+        messageStatusImageView.pin(.bottom, to: .bottom, of: messageStatusContainerView)
+        messageStatusImageView.pin(.trailing, to: .trailing, of: messageStatusContainerView)
         messageStatusImageView.set(.width, to: VisibleMessageCell.messageStatusImageViewSize)
         messageStatusImageView.set(.height, to: VisibleMessageCell.messageStatusImageViewSize)
+        messageStatusLabel.center(.vertical, in: messageStatusContainerView)
+        messageStatusLabel.pin(.leading, to: .leading, of: messageStatusContainerView)
+        messageStatusLabel.pin(.trailing, to: .leading, of: messageStatusImageView, withInset: -2)
+        messageStatusLabelPaddingView.pin(.leading, to: .leading, of: messageStatusContainerView)
+        messageStatusLabelPaddingView.pin(.trailing, to: .trailing, of: messageStatusContainerView)
     }
 
     override func setUpGestureRecognizers() {
@@ -389,19 +418,25 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         )
         
         // Message status image view
-        let (image, tintColor) = cellViewModel.state.statusIconInfo(
+        let (image, statusText, tintColor) = cellViewModel.state.statusIconInfo(
             variant: cellViewModel.variant,
             hasAtLeastOneReadReceipt: cellViewModel.hasAtLeastOneReadReceipt
         )
+        messageStatusLabel.text = statusText
+        messageStatusLabel.themeTextColor = tintColor
         messageStatusImageView.image = image
         messageStatusImageView.themeTintColor = tintColor
-        messageStatusImageView.isHidden = (
+        messageStatusContainerView.isHidden = (
             cellViewModel.variant != .standardOutgoing ||
             cellViewModel.variant == .infoCall ||
             (
                 cellViewModel.state == .sent &&
                 !cellViewModel.isLast
             )
+        )
+        messageStatusLabelPaddingView.isHidden = (
+            messageStatusContainerView.isHidden ||
+            cellViewModel.isLast
         )
         
         // Set the height of the underBubbleStackView to 0 if it has no content (need to do this
@@ -1095,11 +1130,15 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     return [:]
                 }
                 
+                // Note: The 'String.count' value is based on actual character counts whereas
+                // NSAttributedString and NSRange are both based on UTF-16 encoded lengths, so
+                // in order to avoid strings which contain emojis breaking strings which end
+                // with URLs we need to use the 'String.utf16.count' value when creating the range
                 return detector
                     .matches(
                         in: attributedText.string,
                         options: [],
-                        range: NSRange(location: 0, length: attributedText.string.count)
+                        range: NSRange(location: 0, length: attributedText.string.utf16.count)
                     )
                     .reduce(into: [:]) { result, match in
                         guard

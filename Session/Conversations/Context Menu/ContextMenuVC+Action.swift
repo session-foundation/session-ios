@@ -110,6 +110,8 @@ extension ContextMenuVC {
     static func actions(
         for cellViewModel: MessageViewModel,
         recentEmojis: [EmojiWithSkinTones],
+        currentUserPublicKey: String,
+        currentUserBlindedPublicKey: String?,
         currentUserIsOpenGroupModerator: Bool,
         currentThreadIsMessageRequest: Bool,
         delegate: ContextMenuActionDelegate?
@@ -163,6 +165,8 @@ extension ContextMenuVC {
         let canDelete: Bool = (
             cellViewModel.threadVariant != .openGroup ||
             currentUserIsOpenGroupModerator ||
+            cellViewModel.authorId == currentUserPublicKey ||
+            cellViewModel.authorId == currentUserBlindedPublicKey ||
             cellViewModel.state == .failed
         )
         let canBan: Bool = (

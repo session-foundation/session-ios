@@ -482,6 +482,7 @@ public extension Interaction {
         _ db: Database,
         interactionId: Int64?,
         threadId: String,
+        threadVariant: SessionThread.Variant,
         includingOlder: Bool,
         trySendReadReceipt: Bool
     ) throws {
@@ -518,8 +519,9 @@ public extension Interaction {
                     ))
             )
             
-            // If we want to send read receipts then try to add the 'SendReadReceiptsJob'
-            if trySendReadReceipt {
+            // If we want to send read receipts and it's a contact thread then try to add the
+            // 'SendReadReceiptsJob'
+            if trySendReadReceipt && threadVariant == .contact {
                 JobRunner.upsert(
                     db,
                     job: SendReadReceiptsJob.createOrUpdateIfNeeded(

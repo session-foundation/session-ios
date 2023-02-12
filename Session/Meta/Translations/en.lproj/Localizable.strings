@@ -604,3 +604,7 @@
 "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE" = "Legacy";
 "DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION" = "Original version of disappearing messages.";
 "DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER" = "%@ is using an outdated client.\nDisappearing messages may not work as expected.";
+"MESSAGE_DELIVERY_STATUS_SENDING" = "Sending";
+"MESSAGE_DELIVERY_STATUS_SENT" = "Sent";
+"MESSAGE_DELIVERY_STATUS_READ" = "Read";
+"MESSAGE_DELIVERY_STATUS_FAILED" = "Failed to send";
