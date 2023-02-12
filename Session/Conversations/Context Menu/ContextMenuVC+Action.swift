@@ -119,6 +119,7 @@ extension ContextMenuVC {
         for cellViewModel: MessageViewModel,
         recentEmojis: [EmojiWithSkinTones],
         currentUserPublicKey: String,
+        currentUserBlindedPublicKey: String?,
         currentUserIsOpenGroupModerator: Bool,
         currentThreadIsMessageRequest: Bool,
         delegate: ContextMenuActionDelegate?
@@ -173,6 +174,7 @@ extension ContextMenuVC {
             cellViewModel.threadVariant != .openGroup ||
             currentUserIsOpenGroupModerator ||
             cellViewModel.authorId == currentUserPublicKey ||
+            cellViewModel.authorId == currentUserBlindedPublicKey ||
             cellViewModel.state == .failed
         )
         let canBan: Bool = (

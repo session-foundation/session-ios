@@ -11,6 +11,7 @@ public enum SyncPushTokensJob: JobExecutor {
     public static let maxFailureCount: Int = -1
     public static let requiresThreadId: Bool = false
     public static let requiresInteractionId: Bool = false
+    private static let maxFrequency: TimeInterval = (12 * 60 * 60)
     
     public static func run(
         _ job: Job,
@@ -34,45 +35,44 @@ public enum SyncPushTokensJob: JobExecutor {
             return
         }
         
-        // Push tokens don't normally change while the app is launched, so checking once during launch is
-        // usually sufficient, but e.g. on iOS11, users who have disabled "Allow Notifications" and disabled
-        // "Background App Refresh" will not be able to obtain an APN token. Enabling those settings does not
-        // restart the app, so we check every activation for users who haven't yet registered.
-        guard job.behaviour != .recurringOnActive || !UIApplication.shared.isRegisteredForRemoteNotifications else {
+        // Push tokens don't normally change while the app is launched, so you would assume checking once
+        // during launch is sufficient, but e.g. on iOS11, users who have disabled "Allow Notifications"
+        // and disabled "Background App Refresh" will not be able to obtain an APN token. Enabling those
+        // settings does not restart the app, so we check every activation for users who haven't yet
+        // registered.
+        //
+        // It's also possible for a device to successfully register for push notifications but fail to
+        // register with Session
+        //
+        // Due to the above we want to re-register at least once every ~12 hours to ensure users will
+        // continue to receive push notifications
+        //
+        // In addition to this if we are custom running the job (eg. by toggling the push notification
+        // setting) then we should run regardless of the other settings so users have a mechanism to force
+        // the registration to run
+        let lastPushNotificationSync: Date = UserDefaults.standard[.lastPushNotificationSync]
+            .defaulting(to: Date.distantPast)
+        
+        guard
+            job.behaviour == .runOnce ||
+            !UIApplication.shared.isRegisteredForRemoteNotifications ||
+            Date().timeIntervalSince(lastPushNotificationSync) >= SyncPushTokensJob.maxFrequency
+        else {
             deferred(job) // Don't need to do anything if push notifications are already registered
             return
         }
         
-        Logger.info("Retrying remote notification registration since user hasn't registered yet.")
+        Logger.info("Re-registering for remote notifications.")
         
-        // Determine if we want to upload only if stale (Note: This should default to true, and be true if
-        // 'details' isn't provided)
-        let uploadOnlyIfStale: Bool = ((try? JSONDecoder().decode(Details.self, from: job.details ?? Data()))?.uploadOnlyIfStale ?? true)
-        
-        // Get the app version info (used to determine if we want to update the push tokens)
-        let lastAppVersion: String? = AppVersion.sharedInstance().lastAppVersion
-        let currentAppVersion: String? = AppVersion.sharedInstance().currentAppVersion
-        
+        // Perform device registration
         PushRegistrationManager.shared.requestPushTokens()
             .then(on: queue) { (pushToken: String, voipToken: String) -> Promise<Void> in
-                let lastPushToken: String? = Storage.shared[.lastRecordedPushToken]
-                let lastVoipToken: String? = Storage.shared[.lastRecordedVoipToken]
-                let shouldUploadTokens: Bool = (
-                    !uploadOnlyIfStale || (
-                        lastPushToken != pushToken ||
-                        lastVoipToken != voipToken
-                    ) ||
-                    lastAppVersion != currentAppVersion
-                )
-
-                guard shouldUploadTokens else { return Promise.value(()) }
-                
                 let (promise, seal) = Promise<Void>.pending()
                 
                 SyncPushTokensJob.registerForPushNotifications(
                     pushToken: pushToken,
                     voipToken: voipToken,
-                    isForcedUpdate: shouldUploadTokens,
+                    isForcedUpdate: true,
                     success: { seal.fulfill(()) },
                     failure: seal.reject
                 )
@@ -94,6 +94,7 @@ public enum SyncPushTokensJob: JobExecutor {
     public static func run(uploadOnlyIfStale: Bool) {
         guard let job: Job = Job(
             variant: .syncPushTokens,
+            behaviour: .runOnce,
             details: SyncPushTokensJob.Details(
                 uploadOnlyIfStale: uploadOnlyIfStale
             )
