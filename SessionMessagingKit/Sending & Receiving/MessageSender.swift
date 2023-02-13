@@ -319,7 +319,6 @@ public final class MessageSender {
         dependencies: SMKDependencies = SMKDependencies()
     ) -> Promise<Void> {
         let (promise, seal) = Promise<Void>.pending()
-        let threadId: String
         
         // Set the timestamp, sender and recipient
         if message.sentTimestamp == nil { // Visible messages will already have their sent timestamp set
@@ -329,7 +328,6 @@ public final class MessageSender {
         switch destination {
             case .contact, .closedGroup, .openGroupInbox: preconditionFailure()
             case .openGroup(let roomToken, let server, let whisperTo, let whisperMods, _):
-                threadId = OpenGroup.idFor(roomToken: roomToken, server: server)
                 message.recipient = [
                     server,
                     roomToken,
@@ -344,33 +342,11 @@ public final class MessageSender {
         // which would go into this case, so rather than handling it as an invalid state we just want to
         // error in a non-retryable way
         guard
-            let openGroup: OpenGroup = try? OpenGroup.fetchOne(db, id: threadId),
-            let userEdKeyPair: Box.KeyPair = Identity.fetchUserEd25519KeyPair(db),
             case .openGroup(let roomToken, let server, let whisperTo, let whisperMods, let fileIds) = destination
         else {
             seal.reject(MessageSenderError.invalidMessage)
             return promise
         }
-        
-        message.sender = {
-            let capabilities: [Capability.Variant] = (try? Capability
-                .select(.variant)
-                .filter(Capability.Columns.openGroupServer == server)
-                .filter(Capability.Columns.isMissing == false)
-                .asRequest(of: Capability.Variant.self)
-                .fetchAll(db))
-                .defaulting(to: [])
-            
-            // If the server doesn't support blinding then go with an unblinded id
-            guard capabilities.isEmpty || capabilities.contains(.blind) else {
-                return SessionId(.unblinded, publicKey: userEdKeyPair.publicKey).hexString
-            }
-            guard let blindedKeyPair: Box.KeyPair = dependencies.sodium.blindedKeyPair(serverPublicKey: openGroup.publicKey, edKeyPair: userEdKeyPair, genericHash: dependencies.genericHash) else {
-                preconditionFailure()
-            }
-            
-            return SessionId(.blinded, publicKey: blindedKeyPair.publicKey).hexString
-        }()
         
         // Set the failure handler (need it here already for precondition failure handling)
         func handleFailure(_ db: Database, with error: MessageSenderError) {
@@ -465,7 +441,6 @@ public final class MessageSender {
         dependencies: SMKDependencies = SMKDependencies()
     ) -> Promise<Void> {
         let (promise, seal) = Promise<Void>.pending()
-        let userPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
         
         guard case .openGroupInbox(let server, let openGroupPublicKey, let recipientBlindedPublicKey) = destination else {
             preconditionFailure()
@@ -476,7 +451,6 @@ public final class MessageSender {
             message.sentTimestamp = UInt64(SnodeAPI.currentOffsetTimestampMs())
         }
         
-        message.sender = userPublicKey
         message.recipient = recipientBlindedPublicKey
         
         // Set the failure handler (need it here already for precondition failure handling)
