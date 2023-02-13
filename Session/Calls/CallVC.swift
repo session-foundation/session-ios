@@ -8,6 +8,9 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 
 final class CallVC: UIViewController, VideoPreviewDelegate {
+    static let floatingVideoViewWidth: CGFloat = UIDevice.current.isIPad ? 160 : 80
+    static let floatingVideoViewHeight: CGFloat = UIDevice.current.isIPad ? 346: 173
+    
     let call: SessionCall
     var latestKnownAudioOutputDeviceName: String?
     var durationTimer: Timer?
@@ -23,25 +26,92 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
     
     // MARK: - UI Components
     
-    private lazy var localVideoView: LocalVideoView = {
+    private lazy var floatingLocalVideoView: LocalVideoView = {
         let result = LocalVideoView()
         result.clipsToBounds = true
         result.themeBackgroundColor = .backgroundSecondary
         result.isHidden = !call.isVideoEnabled
         result.layer.cornerRadius = UIDevice.current.isIPad ? 20 : 10
         result.layer.masksToBounds = true
-        result.set(.width, to: LocalVideoView.width)
-        result.set(.height, to: LocalVideoView.height)
-        result.makeViewDraggable()
+        result.set(.width, to: Self.floatingVideoViewWidth)
+        result.set(.height, to: Self.floatingVideoViewHeight)
         
         return result
     }()
     
-    private lazy var remoteVideoView: RemoteVideoView = {
+    private lazy var floatingRemoteVideoView: RemoteVideoView = {
+        let result = RemoteVideoView()
+        result.clipsToBounds = true
+        result.themeBackgroundColor = .backgroundSecondary
+        result.layer.cornerRadius = UIDevice.current.isIPad ? 20 : 10
+        result.layer.masksToBounds = true
+        result.set(.width, to: Self.floatingVideoViewWidth)
+        result.set(.height, to: Self.floatingVideoViewHeight)
+        
+        return result
+    }()
+    
+    private lazy var fullScreenLocalVideoView: LocalVideoView = {
+        let result = LocalVideoView()
+        result.alpha = 0
+        result.themeBackgroundColor = .backgroundPrimary
+        result.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleFullScreenVideoViewTapped)))
+        
+        return result
+    }()
+    
+    private lazy var fullScreenRemoteVideoView: RemoteVideoView = {
         let result = RemoteVideoView()
         result.alpha = 0
         result.themeBackgroundColor = .backgroundPrimary
-        result.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleRemoteVieioViewTapped)))
+        result.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleFullScreenVideoViewTapped)))
+        
+        return result
+    }()
+    
+    private lazy var switchVideoButton: UIButton = {
+        let result = UIButton(type: .custom)
+        result.setImage(
+            UIImage(named: "ic_switch_camera")?
+                .withRenderingMode(.alwaysTemplate),
+            for: .normal
+        )
+        result.themeTintColor = .textPrimary
+        result.addTarget(self, action: #selector(switchVideo), for: UIControl.Event.touchUpInside)
+        result.set(.width, to: 20)
+        result.set(.height, to: 20)
+        
+        return result
+    }()
+    
+    private lazy var switchVideoButtonContainer: UIView = {
+        let result = UIView()
+        result.themeBackgroundColor = .backgroundPrimary
+        result.layer.cornerRadius = UIDevice.current.isIPad ? 12 : 6
+        result.layer.masksToBounds = true
+        result.addSubview(switchVideoButton)
+        switchVideoButton.pin(.leading, to: .leading, of: result, withInset: Values.smallSpacing)
+        switchVideoButton.pin(.trailing, to: .trailing, of: result, withInset: Values.smallSpacing)
+        switchVideoButton.pin(.bottom, to: .bottom, of: result, withInset: Values.smallSpacing)
+        switchVideoButton.pin(.top, to: .top, of: result, withInset: Values.largeSpacing)
+        
+        return result
+    }()
+    
+    private lazy var floatingViewContainer: UIView = {
+        let result = UIView()
+        result.makeViewDraggable()
+        result.addSubview(switchVideoButtonContainer)
+        switchVideoButtonContainer.pin(.trailing, to: .trailing, of: result)
+        switchVideoButtonContainer.pin(.bottom, to: .bottom, of: result)
+        
+        result.addSubview(floatingLocalVideoView)
+        floatingLocalVideoView.pin([ UIView.HorizontalEdge.leading, UIView.HorizontalEdge.trailing, UIView.VerticalEdge.top], to: result)
+        floatingLocalVideoView.pin(.bottom, to: .bottom, of: result, withInset: 36)
+        
+        result.addSubview(floatingRemoteVideoView)
+        floatingRemoteVideoView.pin([ UIView.HorizontalEdge.leading, UIView.HorizontalEdge.trailing, UIView.VerticalEdge.top], to: result)
+        floatingRemoteVideoView.pin(.bottom, to: .bottom, of: result, withInset: 36)
         
         return result
     }()
@@ -584,6 +654,10 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         call.isVideoEnabled = true
     }
     
+    @objc private func switchVideo() {
+        
+    }
+    
     @objc private func switchCamera() {
         cameraManager.switchCamera()
     }
@@ -645,7 +719,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         }
     }
     
-    @objc private func handleRemoteVieioViewTapped(gesture: UITapGestureRecognizer) {
+    @objc private func handleFullScreenVideoViewTapped(gesture: UITapGestureRecognizer) {
         let isHidden = callDurationLabel.alpha < 0.5
         
         UIView.animate(withDuration: 0.5) {
