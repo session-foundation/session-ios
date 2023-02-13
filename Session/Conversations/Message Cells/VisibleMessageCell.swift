@@ -422,7 +422,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         messageStatusLabel.text = statusText
         messageStatusLabel.themeTextColor = tintColor
         messageStatusImageView.image = image
-        messageStatusImageView.accessibilityIdentifier = "Message sent status: \(statusText)"
+        messageStatusLabel.accessibilityIdentifier = "Message sent status: \(statusText ?? "invalid")"
         messageStatusImageView.themeTintColor = tintColor
         messageStatusContainerView.isHidden = (
             cellViewModel.variant != .standardOutgoing ||
@@ -765,15 +765,15 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
 
     // MARK: - Interaction
     
-    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        if let bodyTappableLabel = bodyTappableLabel {
-            let btIngetBodyTappableLabelCoordinates = convert(point, to: bodyTappableLabel)
-            if bodyTappableLabel.bounds.contains(btIngetBodyTappableLabelCoordinates) {
-                return bodyTappableLabel
-            }
-        }
-        return super.hitTest(point, with: event)
-    }
+//    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+//        if let bodyTappableLabel = bodyTappableLabel {
+//            let btIngetBodyTappableLabelCoordinates = convert(point, to: bodyTappableLabel)
+//            if bodyTappableLabel.bounds.contains(btIngetBodyTappableLabelCoordinates) {
+//                return bodyTappableLabel
+//            }
+//        }
+//        return super.hitTest(point, with: event)
+//    }
 
     override func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         return true // Needed for the pan gesture recognizer to work with the table view's pan gesture recognizer
