@@ -718,8 +718,12 @@ public extension MessageViewModel {
                            \(interactionAttachment[.attachmentId]) AS \(Quote.Columns.attachmentId)
                     FROM \(Quote.self)
                     LEFT JOIN \(Interaction.self) ON (
-                        (\(quote[.authorId]) = \(interaction[.authorId]) OR
-                        \(quote[.authorId]) = \(blindedPublicKey ?? "") AND \(userPublicKey) = \(interaction[.authorId]) ) AND
+                        (
+                            \(quote[.authorId]) = \(interaction[.authorId]) OR (
+                                \(quote[.authorId]) = \(blindedPublicKey ?? "") AND
+                                \(userPublicKey) = \(interaction[.authorId])
+                            )
+                        ) AND
                         \(quote[.timestampMs]) = \(interaction[.timestampMs])
                     )
                     LEFT JOIN \(InteractionAttachment.self) ON \(interaction[.id]) = \(interactionAttachment[.interactionId])

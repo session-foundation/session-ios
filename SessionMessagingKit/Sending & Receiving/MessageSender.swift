@@ -597,8 +597,6 @@ public final class MessageSender {
                 // real message has no use when we delete a message. It is OK to let it be.
                 try interaction.with(
                     serverHash: message.serverHash,
-                    // Update the authorId if blinded id is enabled, otherwise it will remain the same
-                    authorId: message.sender,
                     // Track the open group server message ID and update server timestamp (use server
                     // timestamp for open group messages otherwise the quote messages may not be able
                     // to be found by the timestamp on other devices
