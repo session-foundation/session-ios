@@ -14,7 +14,10 @@ public final class FileServerAPI: NSObject {
     public static let oldServerPublicKey = "7cb31905b55cd5580c686911debf672577b3fb0bff81df4ce2d5c4cb3a7aaa69"
     @objc public static let server = "http://filev2.getsession.org"
     public static let serverPublicKey = "da21e1d886c6fbaea313f75298bd64aab03a97ce985b46bb2dad9f2089c8ee59"
-    public static let maxFileSize = (10 * 1024 * 1024) // 10 MB
+    
+    /// **Note:** The max file size is 10,000,000 bytes (rather than 10MiB which would be `(10 * 1024 * 1024)`), 10,000,000
+    /// exactly will be fine but a single byte more will result in an error
+    public static let maxFileSize = 10_000_000
     
     /// Standard timeout is 10 seconds which is a little too short fir file upload/download with slightly larger files
     public static let fileTimeout: TimeInterval = 30
