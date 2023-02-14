@@ -24,6 +24,13 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         return result
     }()
     
+    enum FloatingViewVideoSource {
+        case local
+        case remote
+    }
+    
+    var floatingViewVideoSource: FloatingViewVideoSource = .local
+    
     // MARK: - UI Components
     
     private lazy var floatingLocalVideoView: LocalVideoView = {
@@ -41,6 +48,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
     
     private lazy var floatingRemoteVideoView: RemoteVideoView = {
         let result = RemoteVideoView()
+        result.alpha = 0
         result.clipsToBounds = true
         result.themeBackgroundColor = .backgroundSecondary
         result.layer.cornerRadius = UIDevice.current.isIPad ? 20 : 10
@@ -91,8 +99,8 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         result.layer.masksToBounds = true
         result.addSubview(switchVideoButton)
         switchVideoButton.pin(.leading, to: .leading, of: result, withInset: Values.smallSpacing)
-        switchVideoButton.pin(.trailing, to: .trailing, of: result, withInset: Values.smallSpacing)
-        switchVideoButton.pin(.bottom, to: .bottom, of: result, withInset: Values.smallSpacing)
+        switchVideoButton.pin(.trailing, to: .trailing, of: result, withInset: -Values.smallSpacing)
+        switchVideoButton.pin(.bottom, to: .bottom, of: result, withInset: -Values.smallSpacing)
         switchVideoButton.pin(.top, to: .top, of: result, withInset: Values.largeSpacing)
         
         return result
@@ -100,6 +108,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
     
     private lazy var floatingViewContainer: UIView = {
         let result = UIView()
+        result.isHidden = true
         result.makeViewDraggable()
         result.addSubview(switchVideoButtonContainer)
         switchVideoButtonContainer.pin(.trailing, to: .trailing, of: result)
@@ -107,11 +116,11 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         
         result.addSubview(floatingLocalVideoView)
         floatingLocalVideoView.pin([ UIView.HorizontalEdge.leading, UIView.HorizontalEdge.trailing, UIView.VerticalEdge.top], to: result)
-        floatingLocalVideoView.pin(.bottom, to: .bottom, of: result, withInset: 36)
+        floatingLocalVideoView.pin(.bottom, to: .bottom, of: result, withInset: -36)
         
         result.addSubview(floatingRemoteVideoView)
         floatingRemoteVideoView.pin([ UIView.HorizontalEdge.leading, UIView.HorizontalEdge.trailing, UIView.VerticalEdge.top], to: result)
-        floatingRemoteVideoView.pin(.bottom, to: .bottom, of: result, withInset: 36)
+        floatingRemoteVideoView.pin(.bottom, to: .bottom, of: result, withInset: -36)
         
         return result
     }()
@@ -335,7 +344,8 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         self.call.remoteVideoStateDidChange = { isEnabled in
             DispatchQueue.main.async {
                 UIView.animate(withDuration: 0.25) {
-                    self.remoteVideoView.alpha = isEnabled ? 1 : 0
+                    let remoteVideoView: RemoteVideoView = self.floatingViewVideoSource == .remote ? self.floatingRemoteVideoView : self.fullScreenRemoteVideoView
+                    remoteVideoView.alpha = isEnabled ? 1 : 0
                 }
                 
                 if self.callInfoLabel.alpha < 0.5 {
@@ -445,13 +455,16 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         view.addSubview(profilePictureContainer)
         
         // Remote video view
-        call.attachRemoteVideoRenderer(remoteVideoView)
-        view.addSubview(remoteVideoView)
-        remoteVideoView.translatesAutoresizingMaskIntoConstraints = false
-        remoteVideoView.pin(to: view)
+        call.attachRemoteVideoRenderer(fullScreenRemoteVideoView)
+        view.addSubview(fullScreenRemoteVideoView)
+        fullScreenRemoteVideoView.translatesAutoresizingMaskIntoConstraints = false
+        fullScreenRemoteVideoView.pin(to: view)
         
         // Local video view
-        call.attachLocalVideoRenderer(localVideoView)
+        call.attachLocalVideoRenderer(floatingLocalVideoView)
+        view.addSubview(fullScreenLocalVideoView)
+        fullScreenLocalVideoView.translatesAutoresizingMaskIntoConstraints = false
+        fullScreenLocalVideoView.pin(to: view)
         
         // Fade view
         view.addSubview(fadeView)
@@ -501,12 +514,12 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         callDurationLabel.center(in: callInfoLabelContainer)
     }
     
-    private func addLocalVideoView() {
+    private func addFloatingVideoView() {
         let safeAreaInsets = UIApplication.shared.keyWindow?.safeAreaInsets
-        CurrentAppContext().mainWindow?.addSubview(localVideoView)
-        localVideoView.autoPinEdge(toSuperviewEdge: .right, withInset: Values.smallSpacing)
+        CurrentAppContext().mainWindow?.addSubview(floatingViewContainer)
+        floatingViewContainer.autoPinEdge(toSuperviewEdge: .right, withInset: Values.smallSpacing)
         let topMargin = (safeAreaInsets?.top ?? 0) + Values.veryLargeSpacing
-        localVideoView.autoPinEdge(toSuperviewEdge: .top, withInset: topMargin)
+        floatingViewContainer.autoPinEdge(toSuperviewEdge: .top, withInset: topMargin)
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -515,7 +528,8 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         if (call.isVideoEnabled && shouldRestartCamera) { cameraManager.start() }
         
         shouldRestartCamera = true
-        addLocalVideoView()
+        addFloatingVideoView()
+        let remoteVideoView: RemoteVideoView = self.floatingViewVideoSource == .remote ? self.floatingRemoteVideoView : self.fullScreenRemoteVideoView
         remoteVideoView.alpha = (call.isRemoteVideoEnabled ? 1 : 0)
     }
     
@@ -524,7 +538,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         
         if (call.isVideoEnabled && shouldRestartCamera) { cameraManager.stop() }
         
-        localVideoView.removeFromSuperview()
+        floatingViewContainer.removeFromSuperview()
     }
     
     // MARK: - Orientation
@@ -571,7 +585,8 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         self.callInfoLabel.text = "Call Ended"
         
         UIView.animate(withDuration: 0.25) {
-            self.remoteVideoView.alpha = 0
+            let remoteVideoView: RemoteVideoView = self.floatingViewVideoSource == .remote ? self.floatingRemoteVideoView : self.fullScreenRemoteVideoView
+            remoteVideoView.alpha = 0
             self.operationPanel.alpha = 1
             self.responsePanel.alpha = 1
             self.callInfoLabel.alpha = 1
@@ -629,7 +644,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
     
     @objc private func operateCamera() {
         if (call.isVideoEnabled) {
-            localVideoView.isHidden = true
+            floatingViewContainer.isHidden = true
             cameraManager.stop()
             videoButton.themeTintColor = .textPrimary
             videoButton.themeBackgroundColor = .backgroundSecondary
@@ -645,7 +660,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
     }
     
     func cameraDidConfirmTurningOn() {
-        localVideoView.isHidden = false
+        floatingViewContainer.isHidden = false
         cameraManager.prepare()
         cameraManager.start()
         videoButton.themeTintColor = .backgroundSecondary
@@ -655,7 +670,31 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
     }
     
     @objc private func switchVideo() {
-        
+        if self.floatingViewVideoSource == .remote {
+            call.removeRemoteVideoRenderer(self.floatingRemoteVideoView)
+            call.removeLocalVideoRenderer(self.fullScreenLocalVideoView)
+            
+            self.floatingRemoteVideoView.alpha = 0
+            self.floatingLocalVideoView.alpha = 1
+            self.fullScreenRemoteVideoView.alpha = 1
+            self.fullScreenLocalVideoView.alpha = 0
+            
+            self.floatingViewVideoSource = .local
+            call.attachRemoteVideoRenderer(self.fullScreenRemoteVideoView)
+            call.attachLocalVideoRenderer(self.floatingLocalVideoView)
+        } else {
+            call.removeRemoteVideoRenderer(self.fullScreenRemoteVideoView)
+            call.removeLocalVideoRenderer(self.floatingLocalVideoView)
+            
+            self.floatingRemoteVideoView.alpha = 1
+            self.floatingLocalVideoView.alpha = 0
+            self.fullScreenRemoteVideoView.alpha = 0
+            self.fullScreenLocalVideoView.alpha = 1
+            
+            self.floatingViewVideoSource = .remote
+            call.attachRemoteVideoRenderer(self.floatingRemoteVideoView)
+            call.attachLocalVideoRenderer(self.fullScreenLocalVideoView)
+        }
     }
     
     @objc private func switchCamera() {
