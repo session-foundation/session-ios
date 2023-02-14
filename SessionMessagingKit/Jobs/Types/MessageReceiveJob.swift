@@ -88,7 +88,7 @@ public enum MessageReceiveJob: JobExecutor {
                 failure(updatedJob, error, true)
                 
             case .some(let error):
-                failure(updatedJob, error, false) // TODO: Confirm the 'noKeyPair' errors here aren't an issue
+                failure(updatedJob, error, false)
                 
             case .none:
                 success(updatedJob, false)

@@ -298,6 +298,15 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                                     index == (sortedData.count - 1) &&
                                     pageInfo.pageOffset == 0
                                 ),
+                                isLastOutgoing: (
+                                    cellViewModel.id == sortedData
+                                        .filter {
+                                            $0.authorId == threadData.currentUserPublicKey ||
+                                            $0.authorId == threadData.currentUserBlindedPublicKey
+                                        }
+                                        .last?
+                                        .id
+                                ),
                                 currentUserBlindedPublicKey: threadData.currentUserBlindedPublicKey
                             )
                         }

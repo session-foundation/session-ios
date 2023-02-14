@@ -177,10 +177,12 @@ public extension Message {
     }
     
     static func shouldSync(message: Message) -> Bool {
-        // For 'Note to Self' messages we always want to sync the message
-        guard message.sender != message.recipient else { return true }
-        
         switch message {
+            case is VisibleMessage: return true
+            case is ExpirationTimerUpdate: return true
+            case is ConfigurationMessage: return true
+            case is UnsendRequest: return true
+            
             case let controlMessage as ClosedGroupControlMessage:
                 switch controlMessage.kind {
                     case .new: return true
@@ -192,9 +194,7 @@ public extension Message {
                     case .answer, .endCall: return true
                     default: return false
                 }
-                
-            case is ConfigurationMessage: return true
-            case is UnsendRequest: return true
+            
             default: return false
         }
     }

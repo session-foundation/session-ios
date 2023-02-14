@@ -139,13 +139,6 @@ extension MessageReceiver {
                     return recipientParts[2]
                 }()
             ).inserted(db)
-            
-            // If the message was an outgoing message then immediately update the recipient state to 'sent'
-            if variant == .standardOutgoing, let interactionId: Int64 = interaction.id {
-                _ = try? RecipientState
-                    .filter(RecipientState.Columns.interactionId == interactionId)
-                    .updateAll(db, RecipientState.Columns.state.set(to: RecipientState.State.sent))
-            }
         }
         catch {
             switch error {
@@ -375,6 +368,12 @@ extension MessageReceiver {
     ) throws {
         guard variant == .standardOutgoing else { return }
         
+        // Immediately update any existing outgoing message 'RecipientState' records to be 'sent'
+        _ = try? RecipientState
+            .filter(RecipientState.Columns.interactionId == interactionId)
+            .updateAll(db, RecipientState.Columns.state.set(to: RecipientState.State.sent))
+        
+        // Create any addiitonal 'RecipientState' records as needed
         switch thread.variant {
             case .contact:
                 if let syncTarget: String = syncTarget {

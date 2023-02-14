@@ -7,6 +7,7 @@ import PhotosUI
 import Sodium
 import PromiseKit
 import GRDB
+import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
@@ -828,7 +829,7 @@ extension ConversationVC:
     }
 
     func handleItemTapped(_ cellViewModel: MessageViewModel, gestureRecognizer: UITapGestureRecognizer) {
-        guard cellViewModel.variant != .standardOutgoing || cellViewModel.state != .failed else {
+        guard cellViewModel.variant != .standardOutgoing || (cellViewModel.state != .failed && cellViewModel.state != .failedToSync) else {
             // Show the failed message sheet
             showFailedMessageSheet(for: cellViewModel)
             return
@@ -1450,30 +1451,34 @@ extension ConversationVC:
     // MARK: --action handling
     
     func showFailedMessageSheet(for cellViewModel: MessageViewModel) {
-        let sheet = UIAlertController(title: cellViewModel.mostRecentFailureText, message: nil, preferredStyle: .actionSheet)
-        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
-        sheet.addAction(UIAlertAction(title: "Delete", style: .destructive, handler: { _ in
-            Storage.shared.writeAsync { db in
-                try Interaction
-                    .filter(id: cellViewModel.id)
-                    .deleteAll(db)
-            }
-        }))
-        sheet.addAction(UIAlertAction(title: "Resend", style: .default, handler: { _ in
-            Storage.shared.writeAsync { [weak self] db in
-                guard
-                    let threadId: String = self?.viewModel.threadData.threadId,
-                    let interaction: Interaction = try? Interaction.fetchOne(db, id: cellViewModel.id),
-                    let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId)
-                else { return }
-                
-                try MessageSender.send(
-                    db,
-                    interaction: interaction,
-                    in: thread
-                )
-            }
-        }))
+        let sheet = UIAlertController(
+            title: (cellViewModel.state == .failedToSync ?
+                "MESSAGE_DELIVERY_FAILED_SYNC_TITLE".localized() :
+                "MESSAGE_DELIVERY_FAILED_TITLE".localized()
+            ),
+            message: cellViewModel.mostRecentFailureText,
+            preferredStyle: .actionSheet
+        )
+        sheet.addAction(UIAlertAction(title: "TXT_CANCEL_TITLE".localized(), style: .cancel, handler: nil))
+        
+        if cellViewModel.state != .failedToSync {
+            sheet.addAction(UIAlertAction(title: "TXT_DELETE_TITLE".localized(), style: .destructive, handler: { _ in
+                Storage.shared.writeAsync { db in
+                    try Interaction
+                        .filter(id: cellViewModel.id)
+                        .deleteAll(db)
+                }
+            }))
+        }
+        
+        sheet.addAction(UIAlertAction(
+            title: (cellViewModel.state == .failedToSync ?
+                "context_menu_resync".localized() :
+                "context_menu_resend".localized()
+            ),
+            style: .default,
+            handler: { [weak self] _ in self?.retry(cellViewModel) }
+        ))
         
         // HACK: Extracting this info from the error string is pretty dodgy
         let prefix: String = "HTTP request failed at destination (Service node "
@@ -1557,6 +1562,23 @@ extension ConversationVC:
     }
     
     // MARK: - ContextMenuActionDelegate
+    
+    func retry(_ cellViewModel: MessageViewModel) {
+        Storage.shared.writeAsync { [weak self] db in
+            guard
+                let threadId: String = self?.viewModel.threadData.threadId,
+                let interaction: Interaction = try? Interaction.fetchOne(db, id: cellViewModel.id),
+                let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId)
+            else { return }
+            
+            try MessageSender.send(
+                db,
+                interaction: interaction,
+                in: thread,
+                isSyncMessage: (cellViewModel.state == .failedToSync)
+            )
+        }
+    }
 
     func reply(_ cellViewModel: MessageViewModel) {
         let maybeQuoteDraft: QuotedReplyModel? = QuotedReplyModel.quotedReplyForSending(

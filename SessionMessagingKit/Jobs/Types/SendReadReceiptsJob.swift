@@ -43,7 +43,8 @@ public enum SendReadReceiptsJob: JobExecutor {
                         timestamps: details.timestampMsValues.map { UInt64($0) }
                     ),
                     to: details.destination,
-                    interactionId: nil
+                    interactionId: nil,
+                    isSyncMessage: false
                 )
             }
             .done(on: queue) {
