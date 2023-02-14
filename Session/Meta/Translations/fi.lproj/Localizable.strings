@@ -600,3 +600,5 @@
 "MESSAGE_DELIVERY_STATUS_SENT" = "Sent";
 "MESSAGE_DELIVERY_STATUS_READ" = "Read";
 "MESSAGE_DELIVERY_STATUS_FAILED" = "Failed to send";
+"GIPHY_PERMISSION_TITLE" = "Search GIFs?";
+"GIPHY_PERMISSION_MESSAGE" = "Session will connect to Giphy to provide search results. You will not have full metadata protection when sending GIFs.";

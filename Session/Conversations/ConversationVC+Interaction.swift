@@ -7,6 +7,7 @@ import PhotosUI
 import Sodium
 import PromiseKit
 import GRDB
+import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
@@ -200,6 +201,30 @@ extension ConversationVC:
     // MARK: - ExpandingAttachmentsButtonDelegate
 
     func handleGIFButtonTapped() {
+        guard Storage.shared[.isGiphyEnabled] else {
+            let modal: ConfirmationModal = ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "GIPHY_PERMISSION_TITLE".localized(),
+                    explanation: "GIPHY_PERMISSION_MESSAGE".localized(),
+                    confirmTitle: "continue_2".localized()
+                ) { [weak self] _ in
+                    Storage.shared.writeAsync(
+                        updates: { db in
+                            db[.isGiphyEnabled] = true
+                        },
+                        completion: { _, _ in
+                            DispatchQueue.main.async {
+                                self?.handleGIFButtonTapped()
+                            }
+                        }
+                    )
+                }
+            )
+            
+            present(modal, animated: true, completion: nil)
+            return
+        }
+        
         let gifVC = GifPickerViewController()
         gifVC.delegate = self
         
