@@ -641,6 +641,7 @@ public final class MessageSender {
                 
                 // Mark the message as sent
                 try interaction.recipientStates
+                    .filter(RecipientState.Columns.state != RecipientState.State.sent)
                     .updateAll(db, RecipientState.Columns.state.set(to: RecipientState.State.sent))
                 
                 // Start the disappearing messages timer if needed
@@ -773,19 +774,21 @@ public final class MessageSender {
             if let message = message as? VisibleMessage { message.syncTarget = publicKey }
             if let message = message as? ExpirationTimerUpdate { message.syncTarget = publicKey }
             
-            JobRunner.add(
-                db,
-                job: Job(
-                    variant: .messageSend,
-                    threadId: threadId,
-                    interactionId: interactionId,
-                    details: MessageSendJob.Details(
-                        destination: .contact(publicKey: currentUserPublicKey),
-                        message: message,
-                        isSyncMessage: true
+            Storage.shared.write { db in
+                JobRunner.add(
+                    db,
+                    job: Job(
+                        variant: .messageSend,
+                        threadId: threadId,
+                        interactionId: interactionId,
+                        details: MessageSendJob.Details(
+                            destination: .contact(publicKey: currentUserPublicKey),
+                            message: message,
+                            isSyncMessage: true
+                        )
                     )
                 )
-            )
+            }
         }
     }
 }

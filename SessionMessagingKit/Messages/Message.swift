@@ -547,6 +547,7 @@ public extension Message {
             try MessageReceiveJob.Details.MessageInfo(
                 message: message,
                 variant: variant,
+                serverExpirationTimestamp: serverExpirationTimestamp,
                 proto: proto
             )
         )

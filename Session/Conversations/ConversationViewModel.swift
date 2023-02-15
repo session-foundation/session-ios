@@ -200,7 +200,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                 ),
                 PagedData.ObservedChanges(
                     table: RecipientState.self,
-                    columns: [.state, .mostRecentFailureText],
+                    columns: [.state, .readTimestampMs, .mostRecentFailureText],
                     joinToPagedType: {
                         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
                         let recipientState: TypedTableAlias<RecipientState> = TypedTableAlias()
