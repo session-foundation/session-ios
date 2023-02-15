@@ -77,31 +77,40 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         return result
     }()
     
-    private lazy var switchVideoButton: UIButton = {
-        let result = UIButton(type: .custom)
-        result.setImage(
-            UIImage(named: "ic_switch_camera")?
-                .withRenderingMode(.alwaysTemplate),
-            for: .normal
-        )
-        result.themeTintColor = .textPrimary
-        result.addTarget(self, action: #selector(switchVideo), for: UIControl.Event.touchUpInside)
-        result.set(.width, to: 60)
-        result.set(.height, to: 60)
-        
-        return result
-    }()
-    
     private lazy var floatingViewContainer: UIView = {
         let result = UIView()
         result.isHidden = true
+        result.themeBackgroundColor = .backgroundSecondary
         result.makeViewDraggable()
+        
+        let noVideoIcon: UIImageView = UIImageView(
+            image: UIImage(systemName: "video.slash")?
+                .withRenderingMode(.alwaysTemplate)
+        )
+        noVideoIcon.themeTintColor = .textPrimary
+        noVideoIcon.set(.width, to: 30)
+        noVideoIcon.set(.height, to: 20)
+        result.addSubview(noVideoIcon)
+        noVideoIcon.center(in: result)
         
         result.addSubview(floatingLocalVideoView)
         floatingLocalVideoView.pin(to: result)
         
         result.addSubview(floatingRemoteVideoView)
         floatingRemoteVideoView.pin(to: result)
+        
+        let swappingVideoIcon: UIImageView = UIImageView(
+            image: UIImage(systemName: "arrow.2.squarepath")?
+                .withRenderingMode(.alwaysTemplate)
+        )
+        swappingVideoIcon.themeTintColor = .textPrimary
+        swappingVideoIcon.set(.height, to: 20)
+        swappingVideoIcon.set(.width, to: 20)
+        result.addSubview(swappingVideoIcon)
+        swappingVideoIcon.pin(.top, to: .top, of: result, withInset: Values.mediumSpacing)
+        swappingVideoIcon.pin(.trailing, to: .trailing, of: result, withInset: -Values.mediumSpacing)
+        
+        result.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(switchVideo)))
         
         return result
     }()
@@ -457,12 +466,6 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         minimizeButton.translatesAutoresizingMaskIntoConstraints = false
         minimizeButton.pin(.left, to: .left, of: view)
         minimizeButton.pin(.top, to: .top, of: view, withInset: 32)
-        
-        // Swap button
-        view.addSubview(switchVideoButton)
-        switchVideoButton.translatesAutoresizingMaskIntoConstraints = false
-        switchVideoButton.pin(.right, to: .right, of: view)
-        switchVideoButton.pin(.top, to: .top, of: view, withInset: 32)
         
         // Title label
         view.addSubview(titleLabel)
