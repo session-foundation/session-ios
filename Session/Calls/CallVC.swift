@@ -664,8 +664,8 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
             call.removeLocalVideoRenderer(self.fullScreenLocalVideoView)
             
             self.floatingRemoteVideoView.alpha = 0
-            self.floatingLocalVideoView.alpha = 1
-            self.fullScreenRemoteVideoView.alpha = 1
+            self.floatingLocalVideoView.alpha = call.isVideoEnabled ? 1 : 0
+            self.fullScreenRemoteVideoView.alpha = call.isRemoteVideoEnabled ? 1 : 0
             self.fullScreenLocalVideoView.alpha = 0
             
             self.floatingViewVideoSource = .local
@@ -675,10 +675,10 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
             call.removeRemoteVideoRenderer(self.fullScreenRemoteVideoView)
             call.removeLocalVideoRenderer(self.floatingLocalVideoView)
             
-            self.floatingRemoteVideoView.alpha = 1
+            self.floatingRemoteVideoView.alpha = call.isRemoteVideoEnabled ? 1 : 0
             self.floatingLocalVideoView.alpha = 0
             self.fullScreenRemoteVideoView.alpha = 0
-            self.fullScreenLocalVideoView.alpha = 1
+            self.fullScreenLocalVideoView.alpha = call.isVideoEnabled ? 1 : 0
             
             self.floatingViewVideoSource = .remote
             call.attachRemoteVideoRenderer(self.floatingRemoteVideoView)
