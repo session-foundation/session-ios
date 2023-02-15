@@ -35,9 +35,9 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
     
     private lazy var floatingLocalVideoView: LocalVideoView = {
         let result = LocalVideoView()
+        result.alpha = 0
         result.clipsToBounds = true
         result.themeBackgroundColor = .backgroundSecondary
-        result.isHidden = !call.isVideoEnabled
         result.layer.cornerRadius = UIDevice.current.isIPad ? 20 : 10
         result.layer.masksToBounds = true
         result.set(.width, to: Self.floatingVideoViewWidth)
@@ -86,22 +86,8 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         )
         result.themeTintColor = .textPrimary
         result.addTarget(self, action: #selector(switchVideo), for: UIControl.Event.touchUpInside)
-        result.set(.width, to: 20)
-        result.set(.height, to: 20)
-        
-        return result
-    }()
-    
-    private lazy var switchVideoButtonContainer: UIView = {
-        let result = UIView()
-        result.themeBackgroundColor = .backgroundPrimary
-        result.layer.cornerRadius = UIDevice.current.isIPad ? 12 : 6
-        result.layer.masksToBounds = true
-        result.addSubview(switchVideoButton)
-        switchVideoButton.pin(.leading, to: .leading, of: result, withInset: Values.smallSpacing)
-        switchVideoButton.pin(.trailing, to: .trailing, of: result, withInset: -Values.smallSpacing)
-        switchVideoButton.pin(.bottom, to: .bottom, of: result, withInset: -Values.smallSpacing)
-        switchVideoButton.pin(.top, to: .top, of: result, withInset: Values.largeSpacing)
+        result.set(.width, to: 60)
+        result.set(.height, to: 60)
         
         return result
     }()
@@ -110,17 +96,12 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         let result = UIView()
         result.isHidden = true
         result.makeViewDraggable()
-        result.addSubview(switchVideoButtonContainer)
-        switchVideoButtonContainer.pin(.trailing, to: .trailing, of: result)
-        switchVideoButtonContainer.pin(.bottom, to: .bottom, of: result)
         
         result.addSubview(floatingLocalVideoView)
-        floatingLocalVideoView.pin([ UIView.HorizontalEdge.leading, UIView.HorizontalEdge.trailing, UIView.VerticalEdge.top], to: result)
-        floatingLocalVideoView.pin(.bottom, to: .bottom, of: result, withInset: -36)
+        floatingLocalVideoView.pin(to: result)
         
         result.addSubview(floatingRemoteVideoView)
-        floatingRemoteVideoView.pin([ UIView.HorizontalEdge.leading, UIView.HorizontalEdge.trailing, UIView.VerticalEdge.top], to: result)
-        floatingRemoteVideoView.pin(.bottom, to: .bottom, of: result, withInset: -36)
+        floatingRemoteVideoView.pin(to: result)
         
         return result
     }()
@@ -477,6 +458,12 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         minimizeButton.pin(.left, to: .left, of: view)
         minimizeButton.pin(.top, to: .top, of: view, withInset: 32)
         
+        // Swap button
+        view.addSubview(switchVideoButton)
+        switchVideoButton.translatesAutoresizingMaskIntoConstraints = false
+        switchVideoButton.pin(.right, to: .right, of: view)
+        switchVideoButton.pin(.top, to: .top, of: view, withInset: 32)
+        
         // Title label
         view.addSubview(titleLabel)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -661,6 +648,8 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
     
     func cameraDidConfirmTurningOn() {
         floatingViewContainer.isHidden = false
+        let localVideoView: LocalVideoView = self.floatingViewVideoSource == .local ? self.floatingLocalVideoView : self.fullScreenLocalVideoView
+        localVideoView.alpha = 1
         cameraManager.prepare()
         cameraManager.start()
         videoButton.themeTintColor = .backgroundSecondary
