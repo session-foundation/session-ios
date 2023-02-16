@@ -36,10 +36,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
     private lazy var floatingLocalVideoView: LocalVideoView = {
         let result = LocalVideoView()
         result.alpha = 0
-        result.clipsToBounds = true
         result.themeBackgroundColor = .backgroundSecondary
-        result.layer.cornerRadius = UIDevice.current.isIPad ? 20 : 10
-        result.layer.masksToBounds = true
         result.set(.width, to: Self.floatingVideoViewWidth)
         result.set(.height, to: Self.floatingVideoViewHeight)
         
@@ -49,10 +46,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
     private lazy var floatingRemoteVideoView: RemoteVideoView = {
         let result = RemoteVideoView()
         result.alpha = 0
-        result.clipsToBounds = true
         result.themeBackgroundColor = .backgroundSecondary
-        result.layer.cornerRadius = UIDevice.current.isIPad ? 20 : 10
-        result.layer.masksToBounds = true
         result.set(.width, to: Self.floatingVideoViewWidth)
         result.set(.height, to: Self.floatingVideoViewHeight)
         
@@ -80,6 +74,9 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
     private lazy var floatingViewContainer: UIView = {
         let result = UIView()
         result.isHidden = true
+        result.clipsToBounds = true
+        result.layer.cornerRadius = UIDevice.current.isIPad ? 20 : 10
+        result.layer.masksToBounds = true
         result.themeBackgroundColor = .backgroundSecondary
         result.makeViewDraggable()
         
@@ -88,8 +85,8 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
                 .withRenderingMode(.alwaysTemplate)
         )
         noVideoIcon.themeTintColor = .textPrimary
-        noVideoIcon.set(.width, to: 30)
-        noVideoIcon.set(.height, to: 20)
+        noVideoIcon.set(.width, to: 34)
+        noVideoIcon.set(.height, to: 28)
         result.addSubview(noVideoIcon)
         noVideoIcon.center(in: result)
         
@@ -104,11 +101,11 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
                 .withRenderingMode(.alwaysTemplate)
         )
         swappingVideoIcon.themeTintColor = .textPrimary
-        swappingVideoIcon.set(.height, to: 20)
-        swappingVideoIcon.set(.width, to: 20)
+        swappingVideoIcon.set(.width, to: 16)
+        swappingVideoIcon.set(.height, to: 12)
         result.addSubview(swappingVideoIcon)
-        swappingVideoIcon.pin(.top, to: .top, of: result, withInset: Values.mediumSpacing)
-        swappingVideoIcon.pin(.trailing, to: .trailing, of: result, withInset: -Values.mediumSpacing)
+        swappingVideoIcon.pin(.top, to: .top, of: result, withInset: Values.smallSpacing)
+        swappingVideoIcon.pin(.trailing, to: .trailing, of: result, withInset: -Values.smallSpacing)
         
         result.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(switchVideo)))
         
