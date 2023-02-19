@@ -461,10 +461,17 @@ extension ConversationVC:
                     .filter(id: threadId)
                     .updateAll(db, SessionThread.Columns.shouldBeVisible.set(to: true))
                 
+                let authorId: String = {
+                    if let blindedId = self?.viewModel.threadData.currentUserBlindedPublicKey {
+                        return blindedId
+                    }
+                    return self?.viewModel.threadData.currentUserPublicKey ?? getUserHexEncodedPublicKey(db)
+                }()
+                
                 // Create the interaction
                 let interaction: Interaction = try Interaction(
                     threadId: threadId,
-                    authorId: getUserHexEncodedPublicKey(db),
+                    authorId: authorId,
                     variant: .standardOutgoing,
                     body: text,
                     timestampMs: sentTimestampMs,
