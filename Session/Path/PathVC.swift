@@ -1,9 +1,11 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Reachability
 import NVActivityIndicatorView
 import SessionMessagingKit
 import SessionUIKit
+import SessionSnodeKit
 
 final class PathVC: BaseVC {
     public static let dotSize: CGFloat = 8
@@ -239,6 +241,7 @@ private final class LineView: UIView {
     private var dotViewWidthConstraint: NSLayoutConstraint!
     private var dotViewHeightConstraint: NSLayoutConstraint!
     private var dotViewAnimationTimer: Timer!
+    private let reachability: Reachability = Reachability.forInternetConnection()
 
     enum Location {
         case top, middle, bottom
@@ -273,6 +276,7 @@ private final class LineView: UIView {
         super.init(frame: CGRect.zero)
         
         setUpViewHierarchy()
+        registerObservers()
     }
     
     override init(frame: CGRect) {
@@ -281,6 +285,12 @@ private final class LineView: UIView {
     
     required init?(coder: NSCoder) {
         preconditionFailure("Use init(location:dotAnimationStartDelay:dotAnimationRepeatInterval:) instead.")
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+        
+        dotViewAnimationTimer?.invalidate()
     }
     
     private func setUpViewHierarchy() {
@@ -315,10 +325,33 @@ private final class LineView: UIView {
                 self?.animate()
             }
         }
+        
+        switch (reachability.isReachable(), OnionRequestAPI.paths.isEmpty) {
+            case (false, _): setStatus(to: .error)
+            case (true, true): setStatus(to: .connecting)
+            case (true, false): setStatus(to: .connected)
+        }
     }
-
-    deinit {
-        dotViewAnimationTimer?.invalidate()
+    
+    private func registerObservers() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleBuildingPathsNotification),
+            name: .buildingPaths,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handlePathsBuiltNotification),
+            name: .pathsBuilt,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(reachabilityChanged),
+            name: .reachabilityChanged,
+            object: nil
+        )
     }
 
     private func animate() {
@@ -339,5 +372,42 @@ private final class LineView: UIView {
         UIView.animate(withDuration: 0.5) { [weak self] in
             self?.dotView.transform = CGAffineTransform.scale(1)
         }
+    }
+    
+    private func setStatus(to status: PathStatusView.Status) {
+        dotView.themeBackgroundColor = status.themeColor
+        dotView.layer.themeShadowColor = status.themeColor
+    }
+    
+    @objc private func handleBuildingPathsNotification() {
+        guard reachability.isReachable() else {
+            setStatus(to: .error)
+            return
+        }
+        
+        setStatus(to: .connecting)
+    }
+
+    @objc private func handlePathsBuiltNotification() {
+        guard reachability.isReachable() else {
+            setStatus(to: .error)
+            return
+        }
+        
+        setStatus(to: .connected)
+    }
+    
+    @objc private func reachabilityChanged() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in self?.reachabilityChanged() }
+            return
+        }
+        
+        guard reachability.isReachable() else {
+            setStatus(to: .error)
+            return
+        }
+        
+        setStatus(to: (!OnionRequestAPI.paths.isEmpty ? .connected : .connecting))
     }
 }
