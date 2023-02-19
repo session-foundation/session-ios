@@ -651,6 +651,8 @@
 		FD3C907127E445E500CD579F /* MessageReceiverDecryptionSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3C907027E445E500CD579F /* MessageReceiverDecryptionSpec.swift */; };
 		FD3E0C84283B5835002A425C /* SessionThreadViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3E0C83283B5835002A425C /* SessionThreadViewModel.swift */; };
 		FD42F9A8285064B800A0C77D /* PushNotificationAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDBDE255A581900E217F9 /* PushNotificationAPI.swift */; };
+		FD432432299C6933008A0213 /* _011_AddPendingReadReceipts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD432431299C6933008A0213 /* _011_AddPendingReadReceipts.swift */; };
+		FD432434299C6985008A0213 /* PendingReadReceipt.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD432433299C6985008A0213 /* PendingReadReceipt.swift */; };
 		FD4B200E283492210034334B /* InsetLockableTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4B200D283492210034334B /* InsetLockableTableView.swift */; };
 		FD52090028AF6153006098F6 /* OWSBackgroundTask.m in Sources */ = {isa = PBXBuildFile; fileRef = C33FDC1B255A581F00E217F9 /* OWSBackgroundTask.m */; };
 		FD52090128AF61BA006098F6 /* OWSBackgroundTask.h in Headers */ = {isa = PBXBuildFile; fileRef = C33FDB38255A580B00E217F9 /* OWSBackgroundTask.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -1735,6 +1737,8 @@
 		FD3C907027E445E500CD579F /* MessageReceiverDecryptionSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageReceiverDecryptionSpec.swift; sourceTree = "<group>"; };
 		FD3C907427E83AC200CD579F /* OpenGroupServerIdLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenGroupServerIdLookup.swift; sourceTree = "<group>"; };
 		FD3E0C83283B5835002A425C /* SessionThreadViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionThreadViewModel.swift; sourceTree = "<group>"; };
+		FD432431299C6933008A0213 /* _011_AddPendingReadReceipts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _011_AddPendingReadReceipts.swift; sourceTree = "<group>"; };
+		FD432433299C6985008A0213 /* PendingReadReceipt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingReadReceipt.swift; sourceTree = "<group>"; };
 		FD4B200D283492210034334B /* InsetLockableTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsetLockableTableView.swift; sourceTree = "<group>"; };
 		FD52090228B4680F006098F6 /* RadioButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadioButton.swift; sourceTree = "<group>"; };
 		FD52090428B4915F006098F6 /* PrivacySettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacySettingsViewModel.swift; sourceTree = "<group>"; };
@@ -3524,6 +3528,7 @@
 				FDE77F6A280FEB28002CFC5D /* ControlMessageProcessRecord.swift */,
 				FD5C7308285007920029977D /* BlindedIdLookup.swift */,
 				FD09B7E6288670FD00ED0B66 /* Reaction.swift */,
+				FD432433299C6985008A0213 /* PendingReadReceipt.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -3541,6 +3546,7 @@
 				FD09B7E4288670BB00ED0B66 /* _008_EmojiReacts.swift */,
 				7BAA7B6528D2DE4700AE1489 /* _009_OpenGroupPermission.swift */,
 				FD7115F128C6CB3900B47552 /* _010_AddThreadIdToFTS.swift */,
+				FD432431299C6933008A0213 /* _011_AddPendingReadReceipts.swift */,
 			);
 			path = Migrations;
 			sourceTree = "<group>";
@@ -5490,6 +5496,7 @@
 				FD716E6428502DDD00C96BF4 /* CallManagerProtocol.swift in Sources */,
 				FDC438C727BB6DF000C60D73 /* DirectMessage.swift in Sources */,
 				FDC4384F27B4804F00C60D73 /* Header.swift in Sources */,
+				FD432434299C6985008A0213 /* PendingReadReceipt.swift in Sources */,
 				FDC4381727B32EC700C60D73 /* Personalization.swift in Sources */,
 				FD245C51285065CC00B966DD /* MessageReceiver.swift in Sources */,
 				FD245C652850665400B966DD /* ClosedGroupControlMessage.swift in Sources */,
@@ -5551,6 +5558,7 @@
 				FDC438C127BB4E6800C60D73 /* SMKDependencies.swift in Sources */,
 				FDC4383827B3863200C60D73 /* VersionResponse.swift in Sources */,
 				B806ECA126C4A7E4008BDA44 /* WebRTCSession+UI.swift in Sources */,
+				FD432432299C6933008A0213 /* _011_AddPendingReadReceipts.swift in Sources */,
 				7BCD116C27016062006330F1 /* WebRTCSession+DataChannel.swift in Sources */,
 				FD5C72F9284F0E880029977D /* MessageReceiver+TypingIndicators.swift in Sources */,
 				FD5C7303284F0FA50029977D /* MessageReceiver+Calls.swift in Sources */,

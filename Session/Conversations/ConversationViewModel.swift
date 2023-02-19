@@ -206,7 +206,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                 ),
                 PagedData.ObservedChanges(
                     table: RecipientState.self,
-                    columns: [.state, .mostRecentFailureText],
+                    columns: [.state, .readTimestampMs, .mostRecentFailureText],
                     joinToPagedType: {
                         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
                         let recipientState: TypedTableAlias<RecipientState> = TypedTableAlias()
@@ -303,6 +303,15 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                                     // it's the last element in the 'sortedData' array
                                     index == (sortedData.count - 1) &&
                                     pageInfo.pageOffset == 0
+                                ),
+                                isLastOutgoing: (
+                                    cellViewModel.id == sortedData
+                                        .filter {
+                                            $0.authorId == threadData.currentUserPublicKey ||
+                                            $0.authorId == threadData.currentUserBlindedPublicKey
+                                        }
+                                        .last?
+                                        .id
                                 ),
                                 currentUserBlindedPublicKey: threadData.currentUserBlindedPublicKey
                             )

@@ -5,6 +5,8 @@
 import Foundation
 import UserNotifications
 import PromiseKit
+import SignalCoreKit
+import SignalUtilitiesKit
 import SessionMessagingKit
 
 class UserNotificationConfig {
