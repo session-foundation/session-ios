@@ -33,6 +33,11 @@ public extension Setting.BoolKey {
     /// **Note:** Link Previews are only enabled for HTTPS urls
     static let areLinkPreviewsEnabled: Setting.BoolKey = "areLinkPreviewsEnabled"
     
+    /// Controls whether Giphy search is enabled
+    ///
+    /// **Note:** Link Previews are only enabled for HTTPS urls
+    static let isGiphyEnabled: Setting.BoolKey = "isGiphyEnabled"
+    
     /// Controls whether Calls are enabled
     static let areCallsEnabled: Setting.BoolKey = "areCallsEnabled"
     

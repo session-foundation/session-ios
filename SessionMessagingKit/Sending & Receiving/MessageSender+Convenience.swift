@@ -9,7 +9,7 @@ extension MessageSender {
     
     // MARK: - Durable
     
-    public static func send(_ db: Database, interaction: Interaction, with attachments: [SignalAttachment], in thread: SessionThread) throws {
+    public static func send(_ db: Database, interaction: Interaction, with attachments: [SignalAttachment], in thread: SessionThread, isSyncMessage: Bool = false) throws {
         guard let interactionId: Int64 = interaction.id else { throw StorageError.objectNotSaved }
         
         try prep(db, signalAttachments: attachments, for: interactionId)
@@ -18,11 +18,12 @@ extension MessageSender {
             message: VisibleMessage.from(db, interaction: interaction),
             threadId: thread.id,
             interactionId: interactionId,
-            to: try Message.Destination.from(db, thread: thread)
+            to: try Message.Destination.from(db, thread: thread),
+            isSyncMessage: isSyncMessage
         )
     }
     
-    public static func send(_ db: Database, interaction: Interaction, in thread: SessionThread) throws {
+    public static func send(_ db: Database, interaction: Interaction, in thread: SessionThread, isSyncMessage: Bool = false) throws {
         // Only 'VisibleMessage' types can be sent via this method
         guard interaction.variant == .standardOutgoing else { throw MessageSenderError.invalidMessage }
         guard let interactionId: Int64 = interaction.id else { throw StorageError.objectNotSaved }
@@ -32,21 +33,37 @@ extension MessageSender {
             message: VisibleMessage.from(db, interaction: interaction),
             threadId: thread.id,
             interactionId: interactionId,
-            to: try Message.Destination.from(db, thread: thread)
+            to: try Message.Destination.from(db, thread: thread),
+            isSyncMessage: isSyncMessage
         )
     }
     
-    public static func send(_ db: Database, message: Message, interactionId: Int64?, in thread: SessionThread) throws {
+    public static func send(_ db: Database, message: Message, interactionId: Int64?, in thread: SessionThread, isSyncMessage: Bool = false) throws {
         send(
             db,
             message: message,
             threadId: thread.id,
             interactionId: interactionId,
-            to: try Message.Destination.from(db, thread: thread)
+            to: try Message.Destination.from(db, thread: thread),
+            isSyncMessage: isSyncMessage
         )
     }
     
-    public static func send(_ db: Database, message: Message, threadId: String?, interactionId: Int64?, to destination: Message.Destination) {
+    public static func send(_ db: Database, message: Message, threadId: String?, interactionId: Int64?, to destination: Message.Destination, isSyncMessage: Bool = false) {
+        // If it's a sync message then we need to make some slight tweaks before sending so use the proper
+        // sync message sending process instead of the standard process
+        guard !isSyncMessage else {
+            scheduleSyncMessageIfNeeded(
+                db,
+                message: message,
+                destination: destination,
+                threadId: threadId,
+                interactionId: interactionId,
+                isAlreadySyncMessage: false
+            )
+            return
+        }
+        
         JobRunner.add(
             db,
             job: Job(
@@ -55,7 +72,8 @@ extension MessageSender {
                 interactionId: interactionId,
                 details: MessageSendJob.Details(
                     destination: destination,
-                    message: message
+                    message: message,
+                    isSyncMessage: isSyncMessage
                 )
             )
         )
@@ -179,7 +197,8 @@ extension MessageSender {
                         message: message,
                         to: destination
                             .with(fileIds: fileIds),
-                        interactionId: interactionId
+                        interactionId: interactionId,
+                        isSyncMessage: false
                     )
                 }
             }
@@ -200,7 +219,7 @@ extension MessageSender {
         
         if forceSyncNow {
             try MessageSender
-                .sendImmediate(db, message: configurationMessage, to: destination, interactionId: nil)
+                .sendImmediate(db, message: configurationMessage, to: destination, interactionId: nil, isSyncMessage: false)
                 .done { seal.fulfill(()) }
                 .catch { _ in seal.reject(StorageError.generic) }
                 .retainUntilComplete()

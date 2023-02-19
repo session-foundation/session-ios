@@ -1607,15 +1607,14 @@ public extension SessionThreadViewModel {
                     \(SQL("\(thread[.variant]) != \(SessionThread.Variant.contact)")) OR
                     \(SQL("\(thread[.id]) = \(userPublicKey)")) OR
                     \(contact[.isApproved]) = true
-                ) AND (
-                    -- Only show the 'Note to Self' thread if it has an interaction
-                    \(SQL("\(thread[.id]) != \(userPublicKey)")) OR
-                    \(interaction[.id]) IS NOT NULL
                 )
+                -- Always show the 'Note to Self' thread when sharing
+                OR \(SQL("\(thread[.id]) = \(userPublicKey)"))
             )
         
             GROUP BY \(thread[.id])
-            ORDER BY IFNULL(\(interaction[.timestampMs]), (\(thread[.creationDateTimestamp]) * 1000)) DESC
+            -- 'Note to Self', then by most recent message
+            ORDER BY \(SQL("\(thread[.id]) = \(userPublicKey)")) DESC, IFNULL(\(interaction[.timestampMs]), (\(thread[.creationDateTimestamp]) * 1000)) DESC
         """
         
         return request.adapted { db in
