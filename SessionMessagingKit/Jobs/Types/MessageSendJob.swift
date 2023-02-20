@@ -165,7 +165,7 @@ public enum MessageSendJob: JobExecutor {
         /// **Note:** No need to upload attachments as part of this process as the above logic splits that out into it's own job
         /// so we shouldn't get here until attachments have already been uploaded
         Storage.shared
-            .writePublisher { db in
+            .writePublisher(receiveOn: queue) { db in
                 try MessageSender.preparedSendData(
                     db,
                     message: details.message,
@@ -173,9 +173,9 @@ public enum MessageSendJob: JobExecutor {
                     interactionId: job.interactionId
                 )
             }
-            .subscribe(on: queue)
             .map { sendData in sendData.with(fileIds: messageFileIds) }
             .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
+            .receive(on: queue)
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {

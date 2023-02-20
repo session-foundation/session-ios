@@ -82,15 +82,12 @@ public final class ClosedGroupPoller: Poller {
         for publicKey: String
     ) -> AnyPublisher<Snode, Error> {
         return SnodeAPI.getSwarm(for: publicKey)
-            .flatMap { swarm -> AnyPublisher<Snode, Error> in
+            .tryMap { swarm -> Snode in
                 guard let snode: Snode = swarm.randomElement() else {
-                    return Fail(error: OnionRequestAPIError.insufficientSnodes)
-                        .eraseToAnyPublisher()
+                    throw OnionRequestAPIError.insufficientSnodes
                 }
                 
-                return Just(snode)
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
+                return snode
             }
             .eraseToAnyPublisher()
     }

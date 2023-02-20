@@ -6,7 +6,6 @@ extension SnodeAPI {
     public class SendMessageRequest: SnodeAuthenticatedRequestBody {
         enum CodingKeys: String, CodingKey {
             case namespace
-            case signatureTimestamp = "timestamp"//"sig_timestamp"  // TODO: Add this back once the snodes are fixed!!
         }
         
         let message: SnodeMessage
@@ -39,22 +38,22 @@ extension SnodeAPI {
         override public func encode(to encoder: Encoder) throws {
             var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
             
-            try super.encode(to: encoder)
-            
-            /// **Note:** We **MUST** do the `message.encode` after we call `super.encode` because it will
-            /// override the `timestampMs` value with the value in the message (if we do it the other way around then
-            /// the the API call timestamp will be sent instead which is incorrect. For this specific request type we have a
-            /// separate `signatureTimestamp` value to store the timestamp used to generate the signature
+            /// **Note:** We **MUST** do the `message.encode` before we call `super.encode` because otherwise
+            /// it will override the `timestampMs` value with the value in the message which is incorrect - we actually want the
+            /// `timestampMs` value at the time the request was made so that older messages stuck in the job queue don't
+            /// end up failing due to being outside the approved timestamp window (clients use the timestamp within the message
+            /// data rather than this one anyway)
             try message.encode(to: encoder)
             try container.encode(namespace, forKey: .namespace)
-            try container.encode(timestampMs, forKey: .signatureTimestamp)
+            
+            try super.encode(to: encoder)
         }
         
         // MARK: - Abstract Methods
         
         override func generateSignature() throws -> [UInt8] {
-            /// Ed25519 signature of `("store" || namespace || sig_timestamp)`, where namespace and
-            /// `sig_timestamp` are the base10 expression of the namespace and `sig_timestamp` values.  Must be
+            /// Ed25519 signature of `("store" || namespace || timestamp)`, where namespace and
+            /// `timestamp` are the base10 expression of the namespace and `timestamp` values.  Must be
             /// base64 encoded for json requests; binary for OMQ requests.  For non-05 type pubkeys (i.e. non
             /// session ids) the signature will be verified using `pubkey`.  For 05 pubkeys, see the following
             /// option.

@@ -7,13 +7,12 @@ extern "C" {
 #include <stddef.h>
 
 typedef struct user_profile_pic {
-    // Null-terminated C string containing the uploaded URL of the pic.  Will be NULL if there is no
-    // profile pic.
-    const char* url;
-    // The profile pic decryption key, in bytes.  This is a byte buffer of length `keylen`, *not* a
-    // null-terminated C string.  Will be NULL if there is no profile pic.
-    const unsigned char* key;
-    size_t keylen;
+    // Null-terminated C string containing the uploaded URL of the pic.  Will be length 0 if there
+    // is no profile pic.
+    char url[224];
+    // The profile pic decryption key, in bytes.  This is a byte buffer of length 32, *not* a
+    // null-terminated C string.  This is only valid when there is a url (i.e. url has strlen > 0).
+    unsigned char key[32];
 } user_profile_pic;
 
 #ifdef __cplusplus

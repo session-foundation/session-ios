@@ -40,7 +40,7 @@ extension MessageSender {
         do {
             // Create the relevant objects in the database
             thread = try SessionThread
-                .fetchOrCreate(db, id: groupPublicKey, variant: .legacyClosedGroup)
+                .fetchOrCreate(db, id: groupPublicKey, variant: .legacyGroup)
             try ClosedGroup(
                 threadId: groupPublicKey,
                 name: name,

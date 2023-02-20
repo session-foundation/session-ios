@@ -201,7 +201,7 @@ public final class ProfilePictureView: UIView {
         
         // Otherwise there are conversation-type-specific behaviours
         switch threadVariant {
-            case .openGroup:
+            case .community:
                 switch self.size {
                     case Values.smallProfilePictureSize..<Values.mediumProfilePictureSize:
                         imageView.image = #imageLiteral(resourceName: "SessionWhite16")
@@ -219,7 +219,7 @@ public final class ProfilePictureView: UIView {
                 imageViewHeightConstraint.constant = self.size
                 imageContainerView.layer.cornerRadius = (self.size / 2)
                 
-            case .legacyClosedGroup, .closedGroup:
+            case .legacyGroup, .group:
                 guard !publicKey.isEmpty else { return }
                 
                 // If the `publicKey` we were given matches the first profile id then we have

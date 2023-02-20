@@ -21,8 +21,8 @@ internal extension SessionUtil {
         let volatileThreadInfo: [VolatileThreadInfo] = atomicConf.mutate { conf -> [VolatileThreadInfo] in
             var volatileThreadInfo: [VolatileThreadInfo] = []
             var oneToOne: convo_info_volatile_1to1 = convo_info_volatile_1to1()
-            var openGroup: convo_info_volatile_open = convo_info_volatile_open()
-            var legacyClosedGroup: convo_info_volatile_legacy_closed = convo_info_volatile_legacy_closed()
+            var community: convo_info_volatile_community = convo_info_volatile_community()
+            var legacyGroup: convo_info_volatile_legacy_group = convo_info_volatile_legacy_group()
             let convoIterator: OpaquePointer = convo_info_volatile_iterator_new(conf)
 
             while !convo_info_volatile_iterator_done(convoIterator) {
@@ -43,23 +43,23 @@ internal extension SessionUtil {
                         )
                     )
                 }
-                else if convo_info_volatile_it_is_open(convoIterator, &openGroup) {
-                    let server: String = String(cString: withUnsafeBytes(of: openGroup.base_url) { [UInt8]($0) }
+                else if convo_info_volatile_it_is_community(convoIterator, &community) {
+                    let server: String = String(cString: withUnsafeBytes(of: community.base_url) { [UInt8]($0) }
                         .map { CChar($0) }
                         .nullTerminated()
                     )
-                    let roomToken: String = String(cString: withUnsafeBytes(of: openGroup.room) { [UInt8]($0) }
+                    let roomToken: String = String(cString: withUnsafeBytes(of: community.room) { [UInt8]($0) }
                         .map { CChar($0) }
                         .nullTerminated()
                     )
-                    let publicKey: String = withUnsafePointer(to: openGroup.pubkey, { pubkeyBytes in
+                    let publicKey: String = withUnsafePointer(to: community.pubkey, { pubkeyBytes in
                         Data(bytes: pubkeyBytes, count: 32).toHexString()
                     })
                     
                     volatileThreadInfo.append(
                         VolatileThreadInfo(
                             threadId: OpenGroup.idFor(roomToken: roomToken, server: server),
-                            variant: .openGroup,
+                            variant: .community,
                             openGroupUrlInfo: VolatileThreadInfo.OpenGroupUrlInfo(
                                 threadId: OpenGroup.idFor(roomToken: roomToken, server: server),
                                 server: server,
@@ -67,14 +67,14 @@ internal extension SessionUtil {
                                 publicKey: publicKey
                             ),
                             changes: [
-                                .markedAsUnread(openGroup.unread),
-                                .lastReadTimestampMs(openGroup.last_read)
+                                .markedAsUnread(community.unread),
+                                .lastReadTimestampMs(community.last_read)
                             ]
                         )
                     )
                 }
-                else if convo_info_volatile_it_is_legacy_closed(convoIterator, &legacyClosedGroup) {
-                    let groupId: String = String(cString: withUnsafeBytes(of: legacyClosedGroup.group_id) { [UInt8]($0) }
+                else if convo_info_volatile_it_is_legacy_group(convoIterator, &legacyGroup) {
+                    let groupId: String = String(cString: withUnsafeBytes(of: legacyGroup.group_id) { [UInt8]($0) }
                         .map { CChar($0) }
                         .nullTerminated()
                     )
@@ -82,10 +82,10 @@ internal extension SessionUtil {
                     volatileThreadInfo.append(
                         VolatileThreadInfo(
                             threadId: groupId,
-                            variant: .legacyClosedGroup,
+                            variant: .legacyGroup,
                             changes: [
-                                .markedAsUnread(legacyClosedGroup.unread),
-                                .lastReadTimestampMs(legacyClosedGroup.last_read)
+                                .markedAsUnread(legacyGroup.unread),
+                                .lastReadTimestampMs(legacyGroup.last_read)
                             ]
                         )
                     )
@@ -183,11 +183,13 @@ internal extension SessionUtil {
         convoInfoVolatileChanges: [VolatileThreadInfo],
         in atomicConf: Atomic<UnsafeMutablePointer<config_object>?>
     ) throws -> ConfResult {
+        guard atomicConf.wrappedValue != nil else { throw SessionUtilError.nilConfigObject }
+        
         // Since we are doing direct memory manipulation we are using an `Atomic` type which has
         // blocking access in it's `mutate` closure
         return atomicConf.mutate { conf in
             convoInfoVolatileChanges.forEach { threadInfo in
-                var cThreadId: [CChar] = threadInfo.cThreadId
+                var cThreadId: [CChar] = threadInfo.threadId.cArray
                 
                 switch threadInfo.variant {
                     case .contact:
@@ -209,10 +211,10 @@ internal extension SessionUtil {
                         }
                         convo_info_volatile_set_1to1(conf, &oneToOne)
                         
-                    case .legacyClosedGroup:
-                        var legacyClosedGroup: convo_info_volatile_legacy_closed = convo_info_volatile_legacy_closed()
+                    case .legacyGroup:
+                        var legacyGroup: convo_info_volatile_legacy_group = convo_info_volatile_legacy_group()
                         
-                        guard convo_info_volatile_get_or_construct_legacy_closed(conf, &legacyClosedGroup, &cThreadId) else {
+                        guard convo_info_volatile_get_or_construct_legacy_group(conf, &legacyGroup, &cThreadId) else {
                             SNLog("Unable to create legacy group conversation when updating last read timestamp")
                             return
                         }
@@ -220,27 +222,27 @@ internal extension SessionUtil {
                         threadInfo.changes.forEach { change in
                             switch change {
                                 case .lastReadTimestampMs(let lastReadMs):
-                                    legacyClosedGroup.last_read = lastReadMs
+                                    legacyGroup.last_read = lastReadMs
                                     
                                 case .markedAsUnread(let unread):
-                                    legacyClosedGroup.unread = unread
+                                    legacyGroup.unread = unread
                             }
                         }
-                        convo_info_volatile_set_legacy_closed(conf, &legacyClosedGroup)
+                        convo_info_volatile_set_legacy_group(conf, &legacyGroup)
                         
-                    case .openGroup:
+                    case .community:
                         guard
-                            var cBaseUrl: [CChar] = threadInfo.cBaseUrl,
-                            var cRoomToken: [CChar] = threadInfo.cRoomToken,
-                            var cPubkey: [UInt8] = threadInfo.cPubkey
+                            var cBaseUrl: [CChar] = threadInfo.openGroupUrlInfo?.server.cArray,
+                            var cRoomToken: [CChar] = threadInfo.openGroupUrlInfo?.roomToken.cArray,
+                            var cPubkey: [UInt8] = threadInfo.openGroupUrlInfo?.publicKey.bytes
                         else {
                             SNLog("Unable to create community conversation when updating last read timestamp due to missing URL info")
                             return
                         }
                         
-                        var openGroup: convo_info_volatile_open = convo_info_volatile_open()
+                        var community: convo_info_volatile_community = convo_info_volatile_community()
                         
-                        guard convo_info_volatile_get_or_construct_open(conf, &openGroup, &cBaseUrl, &cRoomToken, &cPubkey) else {
+                        guard convo_info_volatile_get_or_construct_community(conf, &community, &cBaseUrl, &cRoomToken, &cPubkey) else {
                             SNLog("Unable to create legacy group conversation when updating last read timestamp")
                             return
                         }
@@ -248,15 +250,15 @@ internal extension SessionUtil {
                         threadInfo.changes.forEach { change in
                             switch change {
                                 case .lastReadTimestampMs(let lastReadMs):
-                                    openGroup.last_read = lastReadMs
+                                    community.last_read = lastReadMs
                                     
                                 case .markedAsUnread(let unread):
-                                    openGroup.unread = unread
+                                    community.unread = unread
                             }
                         }
-                        convo_info_volatile_set_open(conf, &openGroup)
+                        convo_info_volatile_set_community(conf, &community)
                         
-                    case .closedGroup: return   // TODO: Need to add when the type is added to the lib
+                    case .group: return   // TODO: Need to add when the type is added to the lib
                 }
             }
             
@@ -284,7 +286,7 @@ internal extension SessionUtil {
             VolatileThreadInfo(
                 threadId: thread.id,
                 variant: thread.variant,
-                openGroupUrlInfo: (thread.variant != .openGroup ? nil :
+                openGroupUrlInfo: (thread.variant != .community ? nil :
                     try VolatileThreadInfo.OpenGroupUrlInfo.fetchOne(db, id: thread.id)
                 ),
                 changes: [.markedAsUnread(thread.markedAsUnread ?? false)]
@@ -340,7 +342,7 @@ internal extension SessionUtil {
         let change: VolatileThreadInfo = VolatileThreadInfo(
             threadId: threadId,
             variant: threadVariant,
-            openGroupUrlInfo: (threadVariant != .openGroup ? nil :
+            openGroupUrlInfo: (threadVariant != .community ? nil :
                 try VolatileThreadInfo.OpenGroupUrlInfo.fetchOne(db, id: threadId)
             ),
             changes: [.lastReadTimestampMs(lastReadTimestampMs)]
@@ -394,47 +396,36 @@ internal extension SessionUtil {
         return atomicConf.mutate { conf in
             switch threadVariant {
                 case .contact:
-                    var cThreadId: [CChar] = threadId
-                        .bytes
-                        .map { CChar(bitPattern: $0) }
+                    var cThreadId: [CChar] = threadId.cArray
                     var oneToOne: convo_info_volatile_1to1 = convo_info_volatile_1to1()
                     guard convo_info_volatile_get_1to1(conf, &oneToOne, &cThreadId) else { return false }
                     
                     return (oneToOne.last_read > timestampMs)
                     
-                case .legacyClosedGroup:
-                    var cThreadId: [CChar] = threadId
-                        .bytes
-                        .map { CChar(bitPattern: $0) }
-                    var legacyClosedGroup: convo_info_volatile_legacy_closed = convo_info_volatile_legacy_closed()
+                case .legacyGroup:
+                    var cThreadId: [CChar] = threadId.cArray
+                    var legacyGroup: convo_info_volatile_legacy_group = convo_info_volatile_legacy_group()
                     
-                    guard convo_info_volatile_get_legacy_closed(conf, &legacyClosedGroup, &cThreadId) else {
+                    guard convo_info_volatile_get_legacy_group(conf, &legacyGroup, &cThreadId) else {
                         return false
                     }
                     
-                    return (legacyClosedGroup.last_read > timestampMs)
+                    return (legacyGroup.last_read > timestampMs)
                     
-                case .openGroup:
+                case .community:
                     guard let openGroup: OpenGroup = openGroup else { return false }
                     
-                    var cBaseUrl: [CChar] = openGroup.server
-                        .bytes
-                        .map { CChar(bitPattern: $0) }
-                    var cRoomToken: [CChar] = openGroup.roomToken
-                        .bytes
-                        .map { CChar(bitPattern: $0) }
-                    var cPubKey: [CChar] = openGroup.publicKey
-                        .bytes
-                        .map { CChar(bitPattern: $0) }
-                    var convoOpenGroup: convo_info_volatile_open = convo_info_volatile_open()
+                    var cBaseUrl: [CChar] = openGroup.server.cArray
+                    var cRoomToken: [CChar] = openGroup.roomToken.cArray
+                    var convoCommunity: convo_info_volatile_community = convo_info_volatile_community()
                     
-                    guard convo_info_volatile_get_open(conf, &convoOpenGroup, &cBaseUrl, &cRoomToken, &cPubKey) else {
+                    guard convo_info_volatile_get_community(conf, &convoCommunity, &cBaseUrl, &cRoomToken) else {
                         return false
                     }
                     
-                    return (convoOpenGroup.last_read > timestampMs)
+                    return (convoCommunity.last_read > timestampMs)
                     
-                case .closedGroup: return false // TODO: Need to add when the type is added to the lib
+                case .group: return false // TODO: Need to add when the type is added to the lib
             }
         }
     }
@@ -466,27 +457,8 @@ public extension SessionUtil {
         
         let threadId: String
         let variant: SessionThread.Variant
-        private let openGroupUrlInfo: OpenGroupUrlInfo?
+        fileprivate let openGroupUrlInfo: OpenGroupUrlInfo?
         let changes: [Change]
-        
-        var cThreadId: [CChar] {
-            threadId.bytes.map { CChar(bitPattern: $0) }
-        }
-        var cBaseUrl: [CChar]? {
-            (openGroupUrlInfo?.server).map {
-                $0.bytes.map { CChar(bitPattern: $0) }
-            }
-        }
-        var cRoomToken: [CChar]? {
-            (openGroupUrlInfo?.roomToken).map {
-                $0.bytes.map { CChar(bitPattern: $0) }
-            }
-        }
-        var cPubkey: [UInt8]? {
-            (openGroupUrlInfo?.publicKey).map {
-                Data(hex: $0).bytes
-            }
-        }
         
         fileprivate init(
             threadId: String,

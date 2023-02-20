@@ -88,7 +88,7 @@ let kAudioNotificationsThrottleInterval: TimeInterval = 5
 
 protocol NotificationPresenterAdaptee: AnyObject {
 
-    func registerNotificationSettings() -> Future<Void, Never>
+    func registerNotificationSettings() -> AnyPublisher<Void, Never>
 
     func notify(
         category: AppNotificationCategory,
@@ -150,7 +150,6 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
 
     func registerNotificationSettings() -> AnyPublisher<Void, Never> {
         return adaptee.registerNotificationSettings()
-            .eraseToAnyPublisher()
     }
 
     public func notifyUser(_ db: Database, for interaction: Interaction, in thread: SessionThread) {
@@ -163,7 +162,7 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
         
         // Try to group notifications for interactions from open groups
         let identifier: String = interaction.notificationIdentifier(
-            shouldGroupMessagesForThread: (thread.variant == .openGroup)
+            shouldGroupMessagesForThread: (thread.variant == .community)
         )
 
         // While batch processing, some of the necessary changes have not been commited.
@@ -203,7 +202,7 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
                     case .contact:
                         notificationTitle = (isMessageRequest ? "Session" : senderName)
                         
-                    case .legacyClosedGroup, .closedGroup, .openGroup:
+                    case .legacyGroup, .group, .community:
                         notificationTitle = String(
                             format: NotificationStrings.incomingGroupMessageTitleFormat,
                             senderName,
@@ -275,9 +274,9 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
         // No call notifications for muted or group threads
         guard Date().timeIntervalSince1970 > (thread.mutedUntilTimestamp ?? 0) else { return }
         guard
-            thread.variant != .legacyClosedGroup &&
-            thread.variant != .closedGroup &&
-            thread.variant != .openGroup
+            thread.variant != .legacyGroup &&
+            thread.variant != .group &&
+            thread.variant != .community
         else { return }
         guard
             interaction.variant == .infoCall,
@@ -347,9 +346,9 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
         // No reaction notifications for muted, group threads or message requests
         guard Date().timeIntervalSince1970 > (thread.mutedUntilTimestamp ?? 0) else { return }
         guard
-            thread.variant != .legacyClosedGroup &&
-            thread.variant != .closedGroup &&
-            thread.variant != .openGroup
+            thread.variant != .legacyGroup &&
+            thread.variant != .group &&
+            thread.variant != .community
         else { return }
         guard !isMessageRequest else { return }
         
@@ -539,7 +538,7 @@ class NotificationActionHandler {
         }
         
         return Storage.shared
-            .writePublisher { db in
+            .writePublisher(receiveOn: DispatchQueue.main) { db in
                 let interaction: Interaction = try Interaction(
                     threadId: thread.id,
                     authorId: getUserHexEncodedPublicKey(db),
@@ -607,7 +606,7 @@ class NotificationActionHandler {
     
     private func markAsRead(thread: SessionThread) -> AnyPublisher<Void, Error> {
         return Storage.shared
-            .writePublisher { db in
+            .writePublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
                 try Interaction.markAsRead(
                     db,
                     interactionId: try thread.interactions

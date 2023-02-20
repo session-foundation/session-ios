@@ -326,7 +326,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
                 
                 guard
                     shouldMarkAsRead,
-                    let threadVariant: SessionThread.Variant = try SessionThread
+                    let threadVariant: SessionThread.Variant = try? SessionThread
                         .filter(id: interaction.threadId)
                         .select(.variant)
                         .asRequest(of: SessionThread.Variant.self)
@@ -421,7 +421,9 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         let webRTCSession: WebRTCSession = self.webRTCSession
         
         Storage.shared
-            .readPublisherFlatMap { db in webRTCSession.sendOffer(db, to: sessionId, isRestartingICEConnection: true) }
+            .readPublisherFlatMap(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
+                webRTCSession.sendOffer(db, to: sessionId, isRestartingICEConnection: true)
+            }
             .sinkUntilComplete()
     }
     

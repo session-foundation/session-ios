@@ -32,25 +32,22 @@ class ConfigContactsSpec: QuickSpec {
             error?.deallocate()
             
             // Empty contacts shouldn't have an existing contact
-            var definitelyRealId: [CChar] = "050000000000000000000000000000000000000000000000000000000000000000"
-                .bytes
-                .map { CChar(bitPattern: $0) }
+            var definitelyRealId: String = "050000000000000000000000000000000000000000000000000000000000000000"
+            var cDefinitelyRealId: [CChar] = definitelyRealId.cArray
             let contactPtr: UnsafeMutablePointer<contacts_contact>? = nil
-            expect(contacts_get(conf, contactPtr, &definitelyRealId)).to(beFalse())
+            expect(contacts_get(conf, contactPtr, &cDefinitelyRealId)).to(beFalse())
             
             expect(contacts_size(conf)).to(equal(0))
             
             var contact2: contacts_contact = contacts_contact()
-            expect(contacts_get_or_construct(conf, &contact2, &definitelyRealId)).to(beTrue())
-            expect(contact2.name).to(beNil())
-            expect(contact2.nickname).to(beNil())
+            expect(contacts_get_or_construct(conf, &contact2, &cDefinitelyRealId)).to(beTrue())
+            expect(String(libSessionVal: contact2.name)).to(beEmpty())
+            expect(String(libSessionVal: contact2.nickname)).to(beEmpty())
             expect(contact2.approved).to(beFalse())
             expect(contact2.approved_me).to(beFalse())
             expect(contact2.blocked).to(beFalse())
             expect(contact2.profile_pic).toNot(beNil()) // Creates an empty instance apparently
-            expect(contact2.profile_pic.url).to(beNil())
-            expect(contact2.profile_pic.key).to(beNil())
-            expect(contact2.profile_pic.keylen).to(equal(0))
+            expect(String(libSessionVal: contact2.profile_pic.url)).to(beEmpty())
 
             // We don't need to push anything, since this is a default contact
             expect(config_needs_push(conf)).to(beFalse())
@@ -68,14 +65,8 @@ class ConfigContactsSpec: QuickSpec {
             toPush?.deallocate()
             
             // Update the contact data
-            let contact2Name: [CChar] = "Joe"
-                .bytes
-                .map { CChar(bitPattern: $0) }
-            let contact2Nickname: [CChar] = "Joey"
-                .bytes
-                .map { CChar(bitPattern: $0) }
-            contact2Name.withUnsafeBufferPointer { contact2.name = $0.baseAddress }
-            contact2Nickname.withUnsafeBufferPointer { contact2.nickname = $0.baseAddress }
+            contact2.name = "Joe".toLibSession()
+            contact2.nickname = "Joey".toLibSession()
             contact2.approved = true
             contact2.approved_me = true
             
@@ -85,19 +76,14 @@ class ConfigContactsSpec: QuickSpec {
             // Ensure the contact details were updated
             var contact3: contacts_contact = contacts_contact()
             expect(contacts_get(conf, &contact3, &definitelyRealId)).to(beTrue())
-            expect(String(cString: contact3.name)).to(equal("Joe"))
-            expect(String(cString: contact3.nickname)).to(equal("Joey"))
+            expect(String(libSessionVal: contact3.name)).to(equal("Joe"))
+            expect(String(libSessionVal: contact3.nickname)).to(equal("Joey"))
             expect(contact3.approved).to(beTrue())
             expect(contact3.approved_me).to(beTrue())
             expect(contact3.profile_pic).toNot(beNil()) // Creates an empty instance apparently
-            expect(contact3.profile_pic.url).to(beNil())
-            expect(contact3.profile_pic.key).to(beNil())
-            expect(contact3.profile_pic.keylen).to(equal(0))
+            expect(String(libSessionVal: contact3.profile_pic.url)).to(beEmpty())
             expect(contact3.blocked).to(beFalse())
-            
-            let contact3SessionId: [CChar] = withUnsafeBytes(of: contact3.session_id) { [UInt8]($0) }
-                .map { CChar($0) }
-            expect(contact3SessionId).to(equal(definitelyRealId.nullTerminated()))
+            expect(String(libSessionVal: contact3.session_id)).to(equal(definitelyRealId))
             
             // Since we've made changes, we should need to push new config to the swarm, *and* should need
             // to dump the updated state:
@@ -144,29 +130,24 @@ class ConfigContactsSpec: QuickSpec {
             // Ensure the contact details were updated
             var contact4: contacts_contact = contacts_contact()
             expect(contacts_get(conf2, &contact4, &definitelyRealId)).to(beTrue())
-            expect(String(cString: contact4.name)).to(equal("Joe"))
-            expect(String(cString: contact4.nickname)).to(equal("Joey"))
+            expect(String(libSessionVal: contact4.name)).to(equal("Joe"))
+            expect(String(libSessionVal: contact4.nickname)).to(equal("Joey"))
             expect(contact4.approved).to(beTrue())
             expect(contact4.approved_me).to(beTrue())
             expect(contact4.profile_pic).toNot(beNil()) // Creates an empty instance apparently
-            expect(contact4.profile_pic.url).to(beNil())
-            expect(contact4.profile_pic.key).to(beNil())
-            expect(contact4.profile_pic.keylen).to(equal(0))
+            expect(String(libSessionVal: contact4.profile_pic.url)).to(beEmpty())
             expect(contact4.blocked).to(beFalse())
             
-            var anotherId: [CChar] = "051111111111111111111111111111111111111111111111111111111111111111"
-                .bytes
-                .map { CChar(bitPattern: $0) }
+            var anotherId: String = "051111111111111111111111111111111111111111111111111111111111111111"
+            var cAnotherId: [CChar] = anotherId.cArray
             var contact5: contacts_contact = contacts_contact()
-            expect(contacts_get_or_construct(conf2, &contact5, &anotherId)).to(beTrue())
-            expect(contact5.name).to(beNil())
-            expect(contact5.nickname).to(beNil())
+            expect(contacts_get_or_construct(conf2, &contact5, &cAnotherId)).to(beTrue())
+            expect(String(libSessionVal: contact5.name)).to(beEmpty())
+            expect(String(libSessionVal: contact5.nickname)).to(beEmpty())
             expect(contact5.approved).to(beFalse())
             expect(contact5.approved_me).to(beFalse())
             expect(contact5.profile_pic).toNot(beNil()) // Creates an empty instance apparently
-            expect(contact5.profile_pic.url).to(beNil())
-            expect(contact5.profile_pic.key).to(beNil())
-            expect(contact5.profile_pic.keylen).to(equal(0))
+            expect(String(libSessionVal: contact5.profile_pic.url)).to(beEmpty())
             expect(contact5.blocked).to(beFalse())
             
             // We're not setting any fields, but we should still keep a record of the session id
@@ -201,24 +182,16 @@ class ConfigContactsSpec: QuickSpec {
             var contact6: contacts_contact = contacts_contact()
             let contactIterator: UnsafeMutablePointer<contacts_iterator> = contacts_iterator_new(conf)
             while !contacts_iterator_done(contactIterator, &contact6) {
-                sessionIds.append(
-                    String(cString: withUnsafeBytes(of: contact6.session_id) { [UInt8]($0) }
-                        .map { CChar($0) }
-                        .nullTerminated()
-                    )
-                )
-                nicknames.append(
-                    contact6.nickname.map { String(cString: $0) } ??
-                    "(N/A)"
-                )
+                sessionIds.append(String(libSessionVal: contact6.session_id) ?? "(N/A)")
+                nicknames.append(String(libSessionVal: contact6.nickname, nullIfEmpty: true) ?? "(N/A)")
                 contacts_iterator_advance(contactIterator)
             }
             contacts_iterator_free(contactIterator) // Need to free the iterator
             
             expect(sessionIds.count).to(equal(2))
             expect(sessionIds.count).to(equal(contacts_size(conf)))
-            expect(sessionIds.first).to(equal(String(cString: definitelyRealId.nullTerminated())))
-            expect(sessionIds.last).to(equal(String(cString: anotherId.nullTerminated())))
+            expect(sessionIds.first).to(equal(definitelyRealId))
+            expect(sessionIds.last).to(equal(anotherId))
             expect(nicknames.first).to(equal("Joey"))
             expect(nicknames.last).to(equal("(N/A)"))
 
@@ -228,24 +201,15 @@ class ConfigContactsSpec: QuickSpec {
             contacts_erase(conf, definitelyRealId)
             
             // Client 2 adds a new friend:
-            var thirdId: [CChar] = "052222222222222222222222222222222222222222222222222222222222222222"
-                .bytes
-                .map { CChar(bitPattern: $0) }
-            let nickname7: [CChar] = "Nickname 3"
-                .bytes
-                .map { CChar(bitPattern: $0) }
-            let profileUrl7: [CChar] = "http://example.com/huge.bmp"
-                .bytes
-                .map { CChar(bitPattern: $0) }
-            let profileKey7: [UInt8] = "qwerty".bytes
+            var thirdId: String = "052222222222222222222222222222222222222222222222222222222222222222"
+            var cThirdId: [CChar] = thirdId.cArray
             var contact7: contacts_contact = contacts_contact()
-            expect(contacts_get_or_construct(conf2, &contact7, &thirdId)).to(beTrue())
-            nickname7.withUnsafeBufferPointer { contact7.nickname = $0.baseAddress }
+            expect(contacts_get_or_construct(conf2, &contact7, &cThirdId)).to(beTrue())
+            contact7.nickname = "Nickname 3".toLibSession()
             contact7.approved = true
             contact7.approved_me = true
-            profileUrl7.withUnsafeBufferPointer { contact7.profile_pic.url = $0.baseAddress }
-            profileKey7.withUnsafeBufferPointer { contact7.profile_pic.key = $0.baseAddress }
-            contact7.profile_pic.keylen = 6
+            contact7.profile_pic.url = "http://example.com/huge.bmp".toLibSession()
+            contact7.profile_pic.key = "qwerty78901234567890123456789012".data(using: .utf8)!.toLibSession()
             contacts_set(conf2, &contact7)
             
             expect(config_needs_push(conf)).to(beTrue())
@@ -308,23 +272,15 @@ class ConfigContactsSpec: QuickSpec {
             var contact8: contacts_contact = contacts_contact()
             let contactIterator2: UnsafeMutablePointer<contacts_iterator> = contacts_iterator_new(conf)
             while !contacts_iterator_done(contactIterator2, &contact8) {
-                sessionIds2.append(
-                    String(cString: withUnsafeBytes(of: contact8.session_id) { [UInt8]($0) }
-                        .map { CChar($0) }
-                        .nullTerminated()
-                    )
-                )
-                nicknames2.append(
-                    contact8.nickname.map { String(cString: $0) } ??
-                    "(N/A)"
-                )
+                sessionIds2.append(String(libSessionVal: contact8.session_id) ?? "(N/A)")
+                nicknames2.append(String(libSessionVal: contact8.nickname, nullIfEmpty: true) ?? "(N/A)")
                 contacts_iterator_advance(contactIterator2)
             }
             contacts_iterator_free(contactIterator2) // Need to free the iterator
             
             expect(sessionIds2.count).to(equal(2))
-            expect(sessionIds2.first).to(equal(String(cString: anotherId.nullTerminated())))
-            expect(sessionIds2.last).to(equal(String(cString: thirdId.nullTerminated())))
+            expect(sessionIds2.first).to(equal(anotherId))
+            expect(sessionIds2.last).to(equal(thirdId))
             expect(nicknames2.first).to(equal("(N/A)"))
             expect(nicknames2.last).to(equal("Nickname 3"))
         }

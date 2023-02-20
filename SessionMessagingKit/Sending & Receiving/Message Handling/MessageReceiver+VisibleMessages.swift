@@ -393,7 +393,7 @@ extension MessageReceiver {
                     ).save(db)
                 }
                 
-            case .legacyClosedGroup, .closedGroup:
+            case .legacyGroup, .group:
                 try GroupMember
                     .filter(GroupMember.Columns.groupId == thread.id)
                     .fetchAll(db)
@@ -405,7 +405,7 @@ extension MessageReceiver {
                         ).save(db)
                     }
                 
-            case .openGroup:
+            case .community:
                 try RecipientState(
                     interactionId: interactionId,
                     recipientId: thread.id, // For open groups this will always be the thread id

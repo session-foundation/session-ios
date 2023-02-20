@@ -44,9 +44,9 @@ class UserProfile final : public ConfigBase {
     /// Sets the user profile name; if given an empty string then the name is removed.
     void set_name(std::string_view new_name);
 
-    /// Gets the user's current profile pic URL and decryption key.  Returns nullptr for *both*
-    /// values if *either* value is unset or empty in the config data.
-    std::optional<profile_pic> get_profile_pic() const;
+    /// Gets the user's current profile pic URL and decryption key.  The returned object will
+    /// evaluate as false if the URL and/or key are not set.
+    profile_pic get_profile_pic() const;
 
     /// Sets the user's current profile pic to a new URL and decryption key.  Clears both if either
     /// one is empty.

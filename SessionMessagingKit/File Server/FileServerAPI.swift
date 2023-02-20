@@ -79,15 +79,10 @@ public enum FileServerAPI {
         
         return OnionRequestAPI.sendOnionRequest(urlRequest, to: request.server, with: serverPublicKey, timeout: FileServerAPI.fileTimeout)
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .flatMap { _, response -> AnyPublisher<Data, Error> in
-                guard let response: Data = response else {
-                    return Fail(error: HTTPError.parsingFailed)
-                        .eraseToAnyPublisher()
-                }
+            .tryMap { _, response -> Data in
+                guard let response: Data = response else { throw HTTPError.parsingFailed }
                 
-                return Just(response)
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
+                return response
             }
             .eraseToAnyPublisher()
     }

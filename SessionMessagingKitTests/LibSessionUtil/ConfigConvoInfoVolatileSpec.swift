@@ -60,9 +60,9 @@ class ConfigConvoInfoVolatileSpec: QuickSpec {
             // The new data doesn't get stored until we call this:
             convo_info_volatile_set_1to1(conf, &oneToOne2)
             
-            var legacyClosed1: convo_info_volatile_legacy_closed = convo_info_volatile_legacy_closed()
+            var legacyGroup1: convo_info_volatile_legacy_group = convo_info_volatile_legacy_group()
             var oneToOne3: convo_info_volatile_1to1 = convo_info_volatile_1to1()
-            expect(convo_info_volatile_get_legacy_closed(conf, &legacyClosed1, &definitelyRealId))
+            expect(convo_info_volatile_get_legacy_group(conf, &legacyGroup1, &definitelyRealId))
                 .to(beFalse())
             expect(convo_info_volatile_get_1to1(conf, &oneToOne3, &definitelyRealId)).to(beTrue())
             expect(oneToOne3.last_read).to(equal(nowTimestampMs))
@@ -70,40 +70,34 @@ class ConfigConvoInfoVolatileSpec: QuickSpec {
             expect(config_needs_push(conf)).to(beTrue())
             expect(config_needs_dump(conf)).to(beTrue())
 
-            var openGroupBaseUrl: [CChar] = "http://Example.ORG:5678"
-                .bytes
-                .map { CChar(bitPattern: $0) }
+            var openGroupBaseUrl: [CChar] = "http://Example.ORG:5678".cArray
             let openGroupBaseUrlResult: [CChar] = ("http://Example.ORG:5678"
                 .lowercased()
-                .bytes
-                .map { CChar(bitPattern: $0) } +
+                .cArray +
                 [CChar](repeating: 0, count: (268 - openGroupBaseUrl.count))
             )
-            var openGroupRoom: [CChar] = "SudokuRoom"
-                .bytes
-                .map { CChar(bitPattern: $0) }
+            var openGroupRoom: [CChar] = "SudokuRoom".cArray
             let openGroupRoomResult: [CChar] = ("SudokuRoom"
                 .lowercased()
-                .bytes
-                .map { CChar(bitPattern: $0) } +
+                .cArray +
                 [CChar](repeating: 0, count: (65 - openGroupRoom.count))
             )
             var openGroupPubkey: [UInt8] = Data(hex: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
                 .bytes
-            var openGroup1: convo_info_volatile_open = convo_info_volatile_open()
-            expect(convo_info_volatile_get_or_construct_open(conf, &openGroup1, &openGroupBaseUrl, &openGroupRoom, &openGroupPubkey)).to(beTrue())
-            expect(withUnsafeBytes(of: openGroup1.base_url) { [UInt8]($0) }
+            var community1: convo_info_volatile_community = convo_info_volatile_community()
+            expect(convo_info_volatile_get_or_construct_community(conf, &community1, &openGroupBaseUrl, &openGroupRoom, &openGroupPubkey)).to(beTrue())
+            expect(withUnsafeBytes(of: community1.base_url) { [UInt8]($0) }
                 .map { CChar($0) }
             ).to(equal(openGroupBaseUrlResult))
-            expect(withUnsafeBytes(of: openGroup1.room) { [UInt8]($0) }
+            expect(withUnsafeBytes(of: community1.room) { [UInt8]($0) }
                 .map { CChar($0) }
             ).to(equal(openGroupRoomResult))
-            expect(withUnsafePointer(to: openGroup1.pubkey) { Data(bytes: $0, count: 32).toHexString() })
+            expect(withUnsafePointer(to: community1.pubkey) { Data(bytes: $0, count: 32).toHexString() })
                 .to(equal("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"))
-            openGroup1.unread = true
+            community1.unread = true
             
             // The new data doesn't get stored until we call this:
-            convo_info_volatile_set_open(conf, &openGroup1);
+            convo_info_volatile_set_community(conf, &community1);
             
             var toPush: UnsafeMutablePointer<UInt8>? = nil
             var toPushLen: Int = 0
@@ -143,17 +137,17 @@ class ConfigConvoInfoVolatileSpec: QuickSpec {
             ).to(equal(definitelyRealId.nullTerminated()))
             expect(oneToOne4.unread).to(beFalse())
             
-            var openGroup2: convo_info_volatile_open = convo_info_volatile_open()
-            expect(convo_info_volatile_get_open(conf2, &openGroup2, &openGroupBaseUrl, &openGroupRoom, &openGroupPubkey)).to(beTrue())
-            expect(withUnsafeBytes(of: openGroup2.base_url) { [UInt8]($0) }
+            var community2: convo_info_volatile_community = convo_info_volatile_community()
+            expect(convo_info_volatile_get_community(conf2, &community2, &openGroupBaseUrl, &openGroupRoom)).to(beTrue())
+            expect(withUnsafeBytes(of: community2.base_url) { [UInt8]($0) }
                 .map { CChar($0) }
             ).to(equal(openGroupBaseUrlResult))
-            expect(withUnsafeBytes(of: openGroup2.room) { [UInt8]($0) }
+            expect(withUnsafeBytes(of: community2.room) { [UInt8]($0) }
                 .map { CChar($0) }
             ).to(equal(openGroupRoomResult))
-            expect(withUnsafePointer(to: openGroup2.pubkey) { Data(bytes: $0, count: 32).toHexString() })
+            expect(withUnsafePointer(to: community2.pubkey) { Data(bytes: $0, count: 32).toHexString() })
                 .to(equal("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"))
-            openGroup2.unread = true
+            community2.unread = true
 
             var anotherId: [CChar] = "051111111111111111111111111111111111111111111111111111111111111111"
                 .bytes
@@ -165,10 +159,10 @@ class ConfigConvoInfoVolatileSpec: QuickSpec {
             var thirdId: [CChar] = "05cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
                 .bytes
                 .map { CChar(bitPattern: $0) }
-            var legacyClosed2: convo_info_volatile_legacy_closed = convo_info_volatile_legacy_closed()
-            expect(convo_info_volatile_get_or_construct_legacy_closed(conf2, &legacyClosed2, &thirdId)).to(beTrue())
-            legacyClosed2.last_read = (nowTimestampMs - 50)
-            convo_info_volatile_set_legacy_closed(conf2, &legacyClosed2)
+            var legacyGroup2: convo_info_volatile_legacy_group = convo_info_volatile_legacy_group()
+            expect(convo_info_volatile_get_or_construct_legacy_group(conf2, &legacyGroup2, &thirdId)).to(beTrue())
+            legacyGroup2.last_read = (nowTimestampMs - 50)
+            convo_info_volatile_set_legacy_group(conf2, &legacyGroup2)
             expect(config_needs_push(conf2)).to(beTrue())
 
             var toPush2: UnsafeMutablePointer<UInt8>? = nil
@@ -190,12 +184,12 @@ class ConfigConvoInfoVolatileSpec: QuickSpec {
                 var seen: [String] = []
                 expect(convo_info_volatile_size(conf)).to(equal(4))
                 expect(convo_info_volatile_size_1to1(conf)).to(equal(2))
-                expect(convo_info_volatile_size_open(conf)).to(equal(1))
-                expect(convo_info_volatile_size_legacy_closed(conf)).to(equal(1))
+                expect(convo_info_volatile_size_communities(conf)).to(equal(1))
+                expect(convo_info_volatile_size_legacy_groups(conf)).to(equal(1))
                 
                 var c1: convo_info_volatile_1to1 = convo_info_volatile_1to1()
-                var c2: convo_info_volatile_open = convo_info_volatile_open()
-                var c3: convo_info_volatile_legacy_closed = convo_info_volatile_legacy_closed()
+                var c2: convo_info_volatile_community = convo_info_volatile_community()
+                var c3: convo_info_volatile_legacy_group = convo_info_volatile_legacy_group()
                 let it: OpaquePointer = convo_info_volatile_iterator_new(targetConf)
                 
                 while !convo_info_volatile_iterator_done(it) {
@@ -206,7 +200,7 @@ class ConfigConvoInfoVolatileSpec: QuickSpec {
                         )
                         seen.append("1-to-1: \(sessionId)")
                     }
-                    else if convo_info_volatile_it_is_open(it, &c2) {
+                    else if convo_info_volatile_it_is_community(it, &c2) {
                         let baseUrl: String = String(cString: withUnsafeBytes(of: c2.base_url) { [UInt8]($0) }
                             .map { CChar($0) }
                             .nullTerminated()
@@ -218,7 +212,7 @@ class ConfigConvoInfoVolatileSpec: QuickSpec {
                         
                         seen.append("og: \(baseUrl)/r/\(room)")
                     }
-                    else if convo_info_volatile_it_is_legacy_closed(it, &c3) {
+                    else if convo_info_volatile_it_is_legacy_group(it, &c3) {
                         let groupId: String = String(cString: withUnsafeBytes(of: c3.group_id) { [UInt8]($0) }
                             .map { CChar($0) }
                             .nullTerminated()
@@ -271,11 +265,11 @@ class ConfigConvoInfoVolatileSpec: QuickSpec {
             ]))
             
             var seen2: [String] = []
-            var c2: convo_info_volatile_open = convo_info_volatile_open()
-            let it2: OpaquePointer = convo_info_volatile_iterator_new_open(conf)
+            var c2: convo_info_volatile_community = convo_info_volatile_community()
+            let it2: OpaquePointer = convo_info_volatile_iterator_new_communities(conf)
             
             while !convo_info_volatile_iterator_done(it2) {
-                expect(convo_info_volatile_it_is_open(it2, &c2)).to(beTrue())
+                expect(convo_info_volatile_it_is_community(it2, &c2)).to(beTrue())
                 let baseUrl: String = String(cString: withUnsafeBytes(of: c2.base_url) { [UInt8]($0) }
                     .map { CChar($0) }
                     .nullTerminated()
@@ -291,11 +285,11 @@ class ConfigConvoInfoVolatileSpec: QuickSpec {
             ]))
             
             var seen3: [String] = []
-            var c3: convo_info_volatile_legacy_closed = convo_info_volatile_legacy_closed()
-            let it3: OpaquePointer = convo_info_volatile_iterator_new_legacy_closed(conf)
+            var c3: convo_info_volatile_legacy_group = convo_info_volatile_legacy_group()
+            let it3: OpaquePointer = convo_info_volatile_iterator_new_legacy_groups(conf)
             
             while !convo_info_volatile_iterator_done(it3) {
-                expect(convo_info_volatile_it_is_legacy_closed(it3, &c3)).to(beTrue())
+                expect(convo_info_volatile_it_is_legacy_group(it3, &c3)).to(beTrue())
                 let groupId: String = String(cString: withUnsafeBytes(of: c3.group_id) { [UInt8]($0) }
                     .map { CChar($0) }
                     .nullTerminated()

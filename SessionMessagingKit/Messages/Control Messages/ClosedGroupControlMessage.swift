@@ -373,7 +373,7 @@ public extension ClosedGroupControlMessage.Kind {
                 let addedMemberNames: [String] = memberIds
                     .map {
                         knownMemberNameMap[$0] ??
-                        Profile.truncated(id: $0, threadVariant: .legacyClosedGroup)
+                        Profile.truncated(id: $0, threadVariant: .legacyGroup)
                     }
                 
                 return String(
@@ -396,7 +396,7 @@ public extension ClosedGroupControlMessage.Kind {
                     let removedMemberNames: [String] = memberIds.removing(userPublicKey)
                         .map {
                             knownMemberNameMap[$0] ??
-                            Profile.truncated(id: $0, threadVariant: .legacyClosedGroup)
+                            Profile.truncated(id: $0, threadVariant: .legacyGroup)
                         }
                     let format: String = (removedMemberNames.count > 1 ?
                         "GROUP_MEMBERS_REMOVED".localized() :

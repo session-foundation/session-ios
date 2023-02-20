@@ -15,6 +15,8 @@ public final class SharedConfigMessage: ControlMessage {
     public var seqNo: Int64
     public var data: Data
     
+    /// SharedConfigMessages should last for 30 days rather than the standard 14
+    public override var ttl: UInt64 { 30 * 24 * 60 * 60 * 1000 }
     public override var isSelfSendValid: Bool { true }
     
     // MARK: - Kind
@@ -23,14 +25,14 @@ public final class SharedConfigMessage: ControlMessage {
         case userProfile
         case contacts
         case convoInfoVolatile
-        case groups
+        case userGroups
 
         public var description: String {
             switch self {
                 case .userProfile: return "userProfile"
                 case .contacts: return "contacts"
                 case .convoInfoVolatile: return "convoInfoVolatile"
-                case .groups: return "groups"
+                case .userGroups: return "userGroups"
             }
         }
     }
@@ -82,7 +84,7 @@ public final class SharedConfigMessage: ControlMessage {
                     case .userProfile: return .userProfile
                     case .contacts: return .contacts
                     case .convoInfoVolatile: return .convoInfoVolatile
-                    case .groups: return .groups
+                    case .userGroups: return .userGroups
                 }
             }(),
             seqNo: sharedConfigMessage.seqno,
@@ -98,7 +100,7 @@ public final class SharedConfigMessage: ControlMessage {
                         case .userProfile: return .userProfile
                         case .contacts: return .contacts
                         case .convoInfoVolatile: return .convoInfoVolatile
-                        case .groups: return .groups
+                        case .userGroups: return .userGroups
                     }
                 }(),
                 seqno: self.seqNo,
@@ -135,7 +137,7 @@ public extension SharedConfigMessage.Kind {
             case .userProfile: return .userProfile
             case .contacts: return .contacts
             case .convoInfoVolatile: return .convoInfoVolatile
-            case .groups: return .groups
+            case .userGroups: return .userGroups
         }
     }
 }

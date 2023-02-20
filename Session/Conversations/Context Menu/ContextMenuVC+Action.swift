@@ -158,20 +158,20 @@ extension ContextMenuVC {
         )
         let canCopySessionId: Bool = (
             cellViewModel.variant == .standardIncoming &&
-            cellViewModel.threadVariant != .openGroup
+            cellViewModel.threadVariant != .community
         )
         let canDelete: Bool = (
-            cellViewModel.threadVariant != .openGroup ||
+            cellViewModel.threadVariant != .community ||
             currentUserIsOpenGroupModerator ||
             cellViewModel.state == .failed
         )
         let canBan: Bool = (
-            cellViewModel.threadVariant == .openGroup &&
+            cellViewModel.threadVariant == .community &&
             currentUserIsOpenGroupModerator
         )
         
         let shouldShowEmojiActions: Bool = {
-            if cellViewModel.threadVariant == .openGroup {
+            if cellViewModel.threadVariant == .community {
                 return OpenGroupManager.isOpenGroupSupport(.reactions, on: cellViewModel.threadOpenGroupServer)
             }
             return !currentThreadIsMessageRequest

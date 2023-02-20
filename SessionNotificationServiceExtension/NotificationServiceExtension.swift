@@ -83,7 +83,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                 .asRequest(of: SessionThread.Variant.self)
                                 .fetchOne(db)
                         }
-                    let isOpenGroup: Bool = (maybeVariant == .openGroup)
+                    let isOpenGroup: Bool = (maybeVariant == .community)
                     
                     switch processedMessage.messageInfo.message {
                         case let visibleMessage as VisibleMessage:

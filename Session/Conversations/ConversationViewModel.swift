@@ -107,7 +107,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         threadId: self.threadId,
         threadVariant: self.initialThreadVariant,
         threadIsNoteToSelf: (self.threadId == getUserHexEncodedPublicKey()),
-        currentUserIsClosedGroupMember: ((self.initialThreadVariant != .legacyClosedGroup && self.initialThreadVariant != .closedGroup) ?
+        currentUserIsClosedGroupMember: ((self.initialThreadVariant != .legacyGroup && self.initialThreadVariant != .group) ?
             nil :
             Storage.shared.read { db in
                 GroupMember
@@ -342,7 +342,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             .read { db -> [MentionInfo] in
                 let userPublicKey: String = getUserHexEncodedPublicKey(db)
                 let pattern: FTS5Pattern? = try? SessionThreadViewModel.pattern(db, searchTerm: query, forTable: Profile.self)
-                let capabilities: Set<Capability.Variant> = (threadData.threadVariant != .openGroup ?
+                let capabilities: Set<Capability.Variant> = (threadData.threadVariant != .community ?
                     nil :
                     try? Capability
                         .select(.variant)

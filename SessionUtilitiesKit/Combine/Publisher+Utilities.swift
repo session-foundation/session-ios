@@ -74,6 +74,25 @@ public extension Publisher {
             }
             .eraseToAnyPublisher()
     }
+    
+    func tryFlatMap<T, P>(
+        maxPublishers: Subscribers.Demand = .unlimited,
+        _ transform: @escaping (Self.Output) throws -> P
+    ) -> AnyPublisher<T, Error> where T == P.Output, P : Publisher, P.Failure == Error {
+        return self
+            .mapError { $0 }
+            .flatMap(maxPublishers: maxPublishers) { output -> AnyPublisher<P.Output, Error> in
+                do {
+                    return try transform(output)
+                        .eraseToAnyPublisher()
+                }
+                catch {
+                    return Fail<P.Output, Error>(error: error)
+                        .eraseToAnyPublisher()
+                }
+            }
+            .eraseToAnyPublisher()
+    }
 }
 
 // MARK: - Convenience
@@ -124,17 +143,7 @@ public extension AnyPublisher where Output == Data, Failure == Error {
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<R, Failure> {
         self
-            .flatMap { data -> AnyPublisher<R, Error> in
-                do {
-                    return Just(try data.decoded(as: type, using: dependencies))
-                        .setFailureType(to: Error.self)
-                        .eraseToAnyPublisher()
-                }
-                catch {
-                    return Fail(error: error)
-                        .eraseToAnyPublisher()
-                }
-            }
+            .tryMap { data -> R in try data.decoded(as: type, using: dependencies) }
             .eraseToAnyPublisher()
     }
 }
@@ -145,21 +154,10 @@ public extension AnyPublisher where Output == (ResponseInfoType, Data?), Failure
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<(ResponseInfoType, R), Error> {
         self
-            .flatMap { responseInfo, maybeData -> AnyPublisher<(ResponseInfoType, R), Error> in
-                guard let data: Data = maybeData else {
-                    return Fail(error: HTTPError.parsingFailed)
-                        .eraseToAnyPublisher()
-                }
+            .tryMap { responseInfo, maybeData -> (ResponseInfoType, R) in
+                guard let data: Data = maybeData else { throw HTTPError.parsingFailed }
                 
-                do {
-                    return Just((responseInfo, try data.decoded(as: type, using: dependencies)))
-                        .setFailureType(to: Error.self)
-                        .eraseToAnyPublisher()
-                }
-                catch {
-                    return Fail(error: HTTPError.parsingFailed)
-                        .eraseToAnyPublisher()
-                }
+                return (responseInfo, try data.decoded(as: type, using: dependencies))
             }
             .eraseToAnyPublisher()
     }

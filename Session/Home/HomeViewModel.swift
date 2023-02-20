@@ -95,7 +95,7 @@ public class HomeViewModel {
                     joinToPagedType: {
                         let profile: TypedTableAlias<Profile> = TypedTableAlias()
                         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
-                        let threadVariants: [SessionThread.Variant] = [.legacyClosedGroup, .closedGroup]
+                        let threadVariants: [SessionThread.Variant] = [.legacyGroup, .group]
                         let targetRole: GroupMember.Role = GroupMember.Role.standard
                         
                         return SQL("""
@@ -367,12 +367,12 @@ public class HomeViewModel {
     public func delete(threadId: String, threadVariant: SessionThread.Variant) {
         Storage.shared.writeAsync { db in
             switch threadVariant {
-                case .legacyClosedGroup, .closedGroup:
+                case .legacyGroup, .group:
                     MessageSender
                         .leave(db, groupPublicKey: threadId)
                         .sinkUntilComplete()
                     
-                case .openGroup:
+                case .community:
                     OpenGroupManager.shared.delete(db, openGroupId: threadId)
                     
                 default: break

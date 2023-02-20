@@ -352,14 +352,14 @@ public final class FullConversationCell: UITableViewCell {
         }
         
         switch cellViewModel.threadVariant {
-            case .contact, .openGroup: bottomLabelStackView.isHidden = true
+            case .contact, .community: bottomLabelStackView.isHidden = true
                 
-            case .legacyClosedGroup, .closedGroup:
+            case .legacyGroup, .group:
                 bottomLabelStackView.isHidden = (cellViewModel.threadMemberNames ?? "").isEmpty
         
                 ThemeManager.onThemeChange(observer: displayNameLabel) { [weak self, weak snippetLabel] theme, _ in
                     guard let textColor: UIColor = theme.color(for: .textPrimary) else { return }
-                    if cellViewModel.threadVariant == .legacyClosedGroup || cellViewModel.threadVariant == .closedGroup {
+                    if cellViewModel.threadVariant == .legacyGroup || cellViewModel.threadVariant == .group {
                         snippetLabel?.attributedText = self?.getHighlightedSnippet(
                             content: (cellViewModel.threadMemberNames ?? ""),
                             currentUserPublicKey: cellViewModel.currentUserPublicKey,
@@ -409,9 +409,9 @@ public final class FullConversationCell: UITableViewCell {
         )
         hasMentionView.isHidden = !(
             ((cellViewModel.threadUnreadMentionCount ?? 0) > 0) && (
-                cellViewModel.threadVariant == .legacyClosedGroup ||
-                cellViewModel.threadVariant == .closedGroup ||
-                cellViewModel.threadVariant == .openGroup
+                cellViewModel.threadVariant == .legacyGroup ||
+                cellViewModel.threadVariant == .group ||
+                cellViewModel.threadVariant == .community
             )
         )
         profilePictureView.update(
@@ -514,7 +514,7 @@ public final class FullConversationCell: UITableViewCell {
             ))
         }
         
-        if cellViewModel.threadVariant == .legacyClosedGroup || cellViewModel.threadVariant == .closedGroup || cellViewModel.threadVariant == .openGroup {
+        if cellViewModel.threadVariant == .legacyGroup || cellViewModel.threadVariant == .group || cellViewModel.threadVariant == .community {
             let authorName: String = cellViewModel.authorName(for: cellViewModel.threadVariant)
             
             result.append(NSAttributedString(

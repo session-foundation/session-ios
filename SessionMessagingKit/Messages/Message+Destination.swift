@@ -39,10 +39,10 @@ public extension Message {
                     
                     return .contact(publicKey: thread.id)
                 
-                case .legacyClosedGroup, .closedGroup:
+                case .legacyGroup, .group:
                     return .closedGroup(groupPublicKey: thread.id)
                 
-                case .openGroup:
+                case .community:
                     guard let openGroup: OpenGroup = try thread.openGroup.fetchOne(db) else {
                         throw StorageError.objectNotFound
                     }

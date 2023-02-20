@@ -42,14 +42,17 @@ internal extension SessionUtil {
                     isBlocked: contact.blocked,
                     didApproveMe: contact.approved_me
                 )
+                let profilePictureUrl: String? = String(libSessionVal: contact.profile_pic.url, nullIfEmpty: true)
                 let profileResult: Profile = Profile(
                     id: contactId,
-                    name: (contact.name.map { String(cString: $0) } ?? ""),
-                    nickname: contact.nickname.map { String(cString: $0) },
-                    profilePictureUrl: contact.profile_pic.url.map { String(cString: $0) },
-                    profileEncryptionKey: (contact.profile_pic.key != nil && contact.profile_pic.keylen > 0 ?
-                        Data(bytes: contact.profile_pic.key, count: contact.profile_pic.keylen) :
-                        nil
+                    name: (String(libSessionVal: contact.name) ?? ""),
+                    nickname: String(libSessionVal: contact.nickname, nullIfEmpty: true),
+                    profilePictureUrl: profilePictureUrl,
+                    profileEncryptionKey: (profilePictureUrl == nil ? nil :
+                        Data(
+                            libSessionVal: contact.profile_pic.key,
+                            count: ProfileManager.avatarAES256KeyByteLength
+                        )
                     )
                 )
                 
@@ -165,9 +168,7 @@ internal extension SessionUtil {
             // Update the name
             targetContacts
                 .forEach { (id, maybeContact, maybeProfile) in
-                    var sessionId: [CChar] = id
-                        .bytes
-                        .map { CChar(bitPattern: $0) }
+                    var sessionId: [CChar] = id.cArray
                     var contact: contacts_contact = contacts_contact()
                     guard contacts_get_or_construct(conf, &contact, &sessionId) else {
                         SNLog("Unable to upsert contact from Config Message")
@@ -179,60 +180,33 @@ internal extension SessionUtil {
                         contact.approved = updatedContact.isApproved
                         contact.approved_me = updatedContact.didApproveMe
                         contact.blocked = updatedContact.isBlocked
+                        
+                        // Store the updated contact (needs to happen before variables go out of scope)
+                        contacts_set(conf, &contact)
                     }
                     
-                    // Update the profile data (if there is one)
+                    // Update the profile data (if there is one - users we have sent a message request to may
+                    // not have profile info in certain situations)
                     if let updatedProfile: Profile = maybeProfile {
-                        /// Users we have sent a message request to may not have profile info in certain situations
-                        ///
-                        /// Note: We **MUST** store these in local variables rather than access them directly or they won't
-                        /// exist in memory long enough to actually be assigned in the C type
-                        let updatedName: [CChar]? = (updatedProfile.name.isEmpty ?
-                            nil :
-                            updatedProfile.name
-                                .bytes
-                                .map { CChar(bitPattern: $0) }
+                        let oldAvatarUrl: String? = String(libSessionVal: contact.profile_pic.url)
+                        let oldAvatarKey: Data? = Data(
+                            libSessionVal: contact.profile_pic.key,
+                            count: ProfileManager.avatarAES256KeyByteLength
                         )
-                        let updatedNickname: [CChar]? = updatedProfile.nickname?
-                            .bytes
-                            .map { CChar(bitPattern: $0) }
-                        let updatedAvatarUrl: [CChar]? = updatedProfile.profilePictureUrl?
-                            .bytes
-                            .map { CChar(bitPattern: $0) }
-                        let updatedAvatarKey: [UInt8]? = updatedProfile.profileEncryptionKey?
-                            .bytes
-                        let oldAvatarUrl: String? = contact.profile_pic.url.map { String(cString: $0) }
-                        let oldAvatarKey: Data? = (contact.profile_pic.key != nil && contact.profile_pic.keylen > 0 ?
-                            Data(bytes: contact.profile_pic.key, count: contact.profile_pic.keylen) :
-                            nil
-                        )
-                        updatedName?.withUnsafeBufferPointer { contact.name = $0.baseAddress }
-                        (updatedNickname == nil ?
-                            contact.nickname = nil :
-                            updatedNickname?.withUnsafeBufferPointer { contact.nickname = $0.baseAddress }
-                        )
-                        (updatedAvatarUrl == nil ?
-                            contact.profile_pic.url = nil :
-                            updatedAvatarUrl?.withUnsafeBufferPointer {
-                                contact.profile_pic.url = $0.baseAddress
-                            }
-                        )
-                        (updatedAvatarKey == nil ?
-                            contact.profile_pic.key = nil :
-                            updatedAvatarKey?.withUnsafeBufferPointer {
-                                contact.profile_pic.key = $0.baseAddress
-                            }
-                        )
-                        contact.profile_pic.keylen = (updatedAvatarKey?.count ?? 0)
+                        
+                        contact.name = updatedProfile.name.toLibSession()
+                        contact.nickname = updatedProfile.nickname.toLibSession()
+                        contact.profile_pic.url = updatedProfile.profilePictureUrl.toLibSession()
+                        contact.profile_pic.key = updatedProfile.profileEncryptionKey.toLibSession()
                         
                         // Download the profile picture if needed
                         if oldAvatarUrl != updatedProfile.profilePictureUrl || oldAvatarKey != updatedProfile.profileEncryptionKey {
                             ProfileManager.downloadAvatar(for: updatedProfile)
                         }
+                        
+                        // Store the updated contact (needs to happen before variables go out of scope)
+                        contacts_set(conf, &contact)
                     }
-                    
-                    // Store the updated contact
-                    contacts_set(conf, &contact)
                 }
             
             return ConfResult(

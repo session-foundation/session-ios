@@ -1,8 +1,11 @@
 module SessionUtil {
   module capi {
+    header "session/version.h"
     header "session/export.h"
     header "session/config.h"
     header "session/config/error.h"
+    header "session/config/expiring.h"
+    header "session/config/user_groups.h"
     header "session/config/convo_info_volatile.h"
     header "session/config/user_profile.h"
     header "session/config/util.h"

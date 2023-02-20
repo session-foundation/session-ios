@@ -103,8 +103,8 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public var canWrite: Bool {
         switch threadVariant {
             case .contact: return true
-            case .legacyClosedGroup, .closedGroup: return currentUserIsClosedGroupMember == true
-            case .openGroup: return openGroupPermissions?.contains(.write) ?? false
+            case .legacyGroup, .group: return currentUserIsClosedGroupMember == true
+            case .community: return openGroupPermissions?.contains(.write) ?? false
         }
     }
     
@@ -161,15 +161,15 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public var profile: Profile? {
         switch threadVariant {
             case .contact: return contactProfile
-            case .legacyClosedGroup, .closedGroup:
+            case .legacyGroup, .group:
                 return (closedGroupProfileBack ?? closedGroupProfileBackFallback)
-            case .openGroup: return nil
+            case .community: return nil
         }
     }
     
     public var additionalProfile: Profile? {
         switch threadVariant {
-            case .legacyClosedGroup, .closedGroup: return closedGroupProfileFront
+            case .legacyGroup, .group: return closedGroupProfileFront
             default: return nil
         }
     }
@@ -194,8 +194,8 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public var userCount: Int? {
         switch threadVariant {
             case .contact: return nil
-            case .legacyClosedGroup, .closedGroup: return closedGroupUserCount
-            case .openGroup: return openGroupUserCount
+            case .legacyGroup, .group: return closedGroupUserCount
+            case .community: return openGroupUserCount
         }
     }
     
@@ -1355,8 +1355,8 @@ public extension SessionThreadViewModel {
             LEFT JOIN \(OpenGroup.self) ON false
         
             WHERE (
-                \(SQL("\(thread[.variant]) = \(SessionThread.Variant.legacyClosedGroup)")) OR
-                \(SQL("\(thread[.variant]) = \(SessionThread.Variant.closedGroup)"))
+                \(SQL("\(thread[.variant]) = \(SessionThread.Variant.legacyGroup)")) OR
+                \(SQL("\(thread[.variant]) = \(SessionThread.Variant.group)"))
             )
             GROUP BY \(thread[.id])
         """
@@ -1435,7 +1435,7 @@ public extension SessionThreadViewModel {
             ) AS \(groupMemberInfoLiteral) ON false
         
             WHERE
-                \(SQL("\(thread[.variant]) = \(SessionThread.Variant.openGroup)")) AND
+                \(SQL("\(thread[.variant]) = \(SessionThread.Variant.community)")) AND
                 \(SQL("\(thread[.id]) != \(userPublicKey)"))
             GROUP BY \(thread[.id])
         """

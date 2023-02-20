@@ -73,14 +73,16 @@ public enum SyncPushTokensJob: JobExecutor {
                         .eraseToAnyPublisher()
                 }
                 
-                return Future<Void, Error> { resolver in
-                    SyncPushTokensJob.registerForPushNotifications(
-                        pushToken: pushToken,
-                        voipToken: voipToken,
-                        isForcedUpdate: shouldUploadTokens,
-                        success: { resolver(Result.success(())) },
-                        failure: { resolver(Result.failure($0)) }
-                    )
+                return Deferred {
+                    Future<Void, Error> { resolver in
+                        SyncPushTokensJob.registerForPushNotifications(
+                            pushToken: pushToken,
+                            voipToken: voipToken,
+                            isForcedUpdate: shouldUploadTokens,
+                            success: { resolver(Result.success(())) },
+                            failure: { resolver(Result.failure($0)) }
+                        )
+                    }
                 }
                 .handleEvents(
                     receiveCompletion: { result in

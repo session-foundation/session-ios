@@ -153,7 +153,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 
                 testGroupThread = SessionThread(
                     id: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
-                    variant: .openGroup
+                    variant: .community
                 )
                 testOpenGroup = OpenGroup(
                     server: "testServer",
@@ -681,7 +681,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         mockStorage.write { db in
                             try SessionThread(
                                 id: OpenGroup.idFor(roomToken: "testRoom", server: "http://116.203.70.33"),
-                                variant: .openGroup,
+                                variant: .community,
                                 creationDateTimestamp: 0,
                                 shouldBeVisible: true,
                                 isPinned: false,
@@ -713,7 +713,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         mockStorage.write { db in
                             try SessionThread(
                                 id: OpenGroup.idFor(roomToken: "testRoom", server: "http://open.getsession.org"),
-                                variant: .openGroup,
+                                variant: .community,
                                 creationDateTimestamp: 0,
                                 shouldBeVisible: true,
                                 isPinned: false,
@@ -815,7 +815,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     var didComplete: Bool = false   // Prevent multi-threading test bugs
                     
                     mockStorage
-                        .writePublisherFlatMap { (db: Database) -> AnyPublisher<Void, Error> in
+                        .writePublisherFlatMap(receiveOn: DispatchQueue.main) { (db: Database) -> AnyPublisher<Void, Error> in
                             openGroupManager
                                 .add(
                                     db,
@@ -845,7 +845,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     var didComplete: Bool = false   // Prevent multi-threading test bugs
                     
                     mockStorage
-                        .writePublisherFlatMap { (db: Database) -> AnyPublisher<Void, Error> in
+                        .writePublisherFlatMap(receiveOn: DispatchQueue.main) { (db: Database) -> AnyPublisher<Void, Error> in
                             openGroupManager
                                 .add(
                                     db,
@@ -881,7 +881,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         var didComplete: Bool = false   // Prevent multi-threading test bugs
                         
                         mockStorage
-                            .writePublisherFlatMap { (db: Database) -> AnyPublisher<Void, Error> in
+                            .writePublisherFlatMap(receiveOn: DispatchQueue.main) { (db: Database) -> AnyPublisher<Void, Error> in
                                 openGroupManager
                                     .add(
                                         db,
@@ -936,7 +936,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         var error: Error?
                         
                         mockStorage
-                            .writePublisherFlatMap { (db: Database) -> AnyPublisher<Void, Error> in
+                            .writePublisherFlatMap(receiveOn: DispatchQueue.main) { (db: Database) -> AnyPublisher<Void, Error> in
                                 openGroupManager
                                     .add(
                                         db,
@@ -3325,8 +3325,8 @@ class OpenGroupManagerSpec: QuickSpec {
                     let publisher = Future<[OpenGroupAPI.Room], Error> { resolver in
                         resolver(Result.success([uniqueRoomInstance]))
                     }
-                        .shareReplay(1)
-                        .eraseToAnyPublisher()
+                    .shareReplay(1)
+                    .eraseToAnyPublisher()
                     mockOGMCache.when { $0.defaultRoomsPublisher }.thenReturn(publisher)
                     let publisher2 = OpenGroupManager.getDefaultRoomsIfNeeded(using: dependencies)
                     
@@ -3587,7 +3587,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     var result: Data?
                     mockStorage
-                        .readPublisherFlatMap { (db: Database) -> AnyPublisher<Data, Error> in
+                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { (db: Database) -> AnyPublisher<Data, Error> in
                             OpenGroupManager
                                 .roomImage(
                                     db,
@@ -3606,7 +3606,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 it("does not save the fetched image to storage") {
                     var didComplete: Bool = false
                     mockStorage
-                        .readPublisherFlatMap { (db: Database) -> AnyPublisher<Data, Error> in
+                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { (db: Database) -> AnyPublisher<Data, Error> in
                             OpenGroupManager
                                 .roomImage(
                                     db,
@@ -3637,7 +3637,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 it("does not update the image update timestamp") {
                     var didComplete: Bool = false
                     mockStorage
-                        .readPublisherFlatMap { (db: Database) -> AnyPublisher<Data, Error> in
+                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { (db: Database) -> AnyPublisher<Data, Error> in
                             OpenGroupManager
                                 .roomImage(
                                     db,
@@ -3679,7 +3679,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     dependencies = dependencies.with(onionApi: TestNeverReturningApi.self)
                     
                     let publisher = mockStorage
-                        .readPublisherFlatMap { (db: Database) -> AnyPublisher<Data, Error> in
+                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { (db: Database) -> AnyPublisher<Data, Error> in
                             OpenGroupManager
                                 .roomImage(
                                     db,
@@ -3705,7 +3705,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         var result: Data?
                         
                         mockStorage
-                            .readPublisherFlatMap { (db: Database) -> AnyPublisher<Data, Error> in
+                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { (db: Database) -> AnyPublisher<Data, Error> in
                                 OpenGroupManager
                                     .roomImage(
                                         db,
@@ -3725,7 +3725,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         var didComplete: Bool = false
                         
                         mockStorage
-                            .readPublisherFlatMap { (db: Database) -> AnyPublisher<Data, Error> in
+                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { (db: Database) -> AnyPublisher<Data, Error> in
                                 OpenGroupManager
                                     .roomImage(
                                         db,
@@ -3757,7 +3757,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         var didComplete: Bool = false
                         
                         mockStorage
-                            .readPublisherFlatMap { (db: Database) -> AnyPublisher<Data, Error> in
+                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { (db: Database) -> AnyPublisher<Data, Error> in
                                 OpenGroupManager
                                     .roomImage(
                                         db,
@@ -3805,7 +3805,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             var result: Data?
                             
                             mockStorage
-                                .readPublisherFlatMap { (db: Database) -> AnyPublisher<Data, Error> in
+                                .readPublisherFlatMap(receiveOn: DispatchQueue.main) { (db: Database) -> AnyPublisher<Data, Error> in
                                     OpenGroupManager
                                         .roomImage(
                                             db,
@@ -3835,7 +3835,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             var result: Data?
                             
                             mockStorage
-                                .readPublisherFlatMap { (db: Database) -> AnyPublisher<Data, Error> in
+                                .readPublisherFlatMap(receiveOn: DispatchQueue.main) { (db: Database) -> AnyPublisher<Data, Error> in
                                     OpenGroupManager
                                         .roomImage(
                                             db,

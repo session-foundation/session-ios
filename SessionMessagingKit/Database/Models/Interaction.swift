@@ -353,7 +353,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
                             state: .sending
                         ).insert(db)
                         
-                    case .legacyClosedGroup, .closedGroup:
+                    case .legacyGroup, .group:
                         let closedGroupMemberIds: Set<String> = (try? GroupMember
                             .select(.profileId)
                             .filter(GroupMember.Columns.groupId == threadId)
@@ -379,7 +379,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
                                 ).insert(db)
                             }
                         
-                    case .openGroup:
+                    case .community:
                         // Since we use the 'RecipientState' type to manage the message state
                         // we need to ensure we have a state for all threads; so for open groups
                         // we just use the open group id as the 'recipientId' value

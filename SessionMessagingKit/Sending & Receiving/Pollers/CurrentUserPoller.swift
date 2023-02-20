@@ -9,7 +9,7 @@ import SessionUtilitiesKit
 
 public final class CurrentUserPoller: Poller {
     public static var namespaces: [SnodeAPI.Namespace] = [
-        .default, .configUserProfile, .configContacts, .configConvoInfoVolatile, .configGroups
+        .default, .configUserProfile, .configContacts, .configConvoInfoVolatile, .configUserGroups
     ]
     
     private var targetSnode: Atomic<Snode?> = Atomic(nil)
@@ -89,11 +89,8 @@ public final class CurrentUserPoller: Poller {
         // If we haven't retrieved a target snode at this point then either the cache
         // is empty or we have used all of the snodes and need to start from scratch
         return SnodeAPI.getSwarm(for: publicKey)
-            .flatMap { [weak self] _ -> AnyPublisher<Snode, Error> in
-                guard let strongSelf = self else {
-                    return Fail(error: SnodeAPIError.generic)
-                        .eraseToAnyPublisher()
-                }
+            .tryFlatMap { [weak self] _ -> AnyPublisher<Snode, Error> in
+                guard let strongSelf = self else { throw SnodeAPIError.generic }
                 
                 self?.targetSnode.mutate { $0 = nil }
                 self?.usedSnodes.mutate { $0.removeAll() }

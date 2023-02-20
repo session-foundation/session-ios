@@ -34,7 +34,7 @@ public struct ProfileManager {
     // Before encrypting and submitting we NULL pad the name data to this length.
     private static let nameDataLength: UInt = 64
     public static let maxAvatarDiameter: CGFloat = 640
-    internal static let avatarAES256KeyByteLength: Int = 32
+    public static let avatarAES256KeyByteLength: Int = 32
     private static let avatarNonceLength: Int = 12
     private static let avatarTagLength: Int = 16
     

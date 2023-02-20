@@ -1036,7 +1036,7 @@ extension Attachment {
         let attachmentId: String = self.id
         
         return Storage.shared
-            .writePublisherFlatMap { db -> AnyPublisher<(String?, Data?, Data?), Error> in
+            .writePublisherFlatMap(receiveOn: queue) { db -> AnyPublisher<(String?, Data?, Data?), Error> in
                 // If the attachment is a downloaded attachment, check if it came from
                 // the server and if so just succeed immediately (no use re-uploading
                 // an attachment that is already present on the server) - or if we want
@@ -1068,8 +1068,7 @@ extension Attachment {
                 if destination.shouldEncrypt {
                     guard let ciphertext = Cryptography.encryptAttachmentData(data, shouldPad: true, outKey: &encryptionKey, outDigest: &digest) else {
                         SNLog("Couldn't encrypt attachment.")
-                        return Fail(error: AttachmentError.encryptionFailed)
-                            .eraseToAnyPublisher()
+                        throw AttachmentError.encryptionFailed
                     }
                     
                     data = ciphertext
@@ -1077,10 +1076,7 @@ extension Attachment {
                 
                 // Check the file size
                 SNLog("File size: \(data.count) bytes.")
-                if data.count > FileServerAPI.maxFileSize {
-                    return Fail(error: HTTPError.maxFileSizeExceeded)
-                        .eraseToAnyPublisher()
-                }
+                if data.count > FileServerAPI.maxFileSize { throw HTTPError.maxFileSizeExceeded }
                 
                 // Update the attachment to the 'uploading' state
                 _ = try? Attachment
@@ -1131,13 +1127,14 @@ extension Attachment {
                             .eraseToAnyPublisher()
                 }
             }
+            .receive(on: queue)
             .flatMap { fileId, encryptionKey, digest -> AnyPublisher<String?, Error> in
                 /// Save the final upload info
                 ///
                 /// **Note:** We **MUST** use the `.with` function here to ensure the `isValid` flag is
                 /// updated correctly
                 Storage.shared
-                    .writePublisher { db in
+                    .writePublisher(receiveOn: queue) { db in
                         try self
                             .with(
                                 serverId: fileId,

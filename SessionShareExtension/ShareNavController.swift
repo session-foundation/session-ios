@@ -432,163 +432,165 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         }
         Logger.debug("matched utiType: \(srcUtiType)")
 
-        return Future<LoadedItem, Error> { resolver in
-            let loadCompletion: NSItemProvider.CompletionHandler = { [weak self] value, error in
-                guard self != nil else { return }
-                if let error: Error = error {
-                    resolver(Result.failure(error))
-                    return
-                }
-
-                guard let value = value else {
-                    resolver(
-                        Result.failure(ShareViewControllerError.assertionError(description: "missing item provider"))
-                    )
-                    return
-                }
-
-                Logger.info("value type: \(type(of: value))")
-                
-                switch value {
-                    case let data as Data:
-                        let customFileName = "Contact.vcf"
-
-                        let customFileExtension = MIMETypeUtil.fileExtension(forUTIType: srcUtiType)
-                        guard let tempFilePath = OWSFileSystem.writeData(toTemporaryFile: data, fileExtension: customFileExtension) else {
-                            resolver(
-                                Result.failure(ShareViewControllerError.assertionError(description: "Error writing item data: \(String(describing: error))"))
-                            )
-                            return
-                        }
-                        let fileUrl = URL(fileURLWithPath: tempFilePath)
-                        
+        return Deferred {
+            Future<LoadedItem, Error> { resolver in
+                let loadCompletion: NSItemProvider.CompletionHandler = { [weak self] value, error in
+                    guard self != nil else { return }
+                    if let error: Error = error {
+                        resolver(Result.failure(error))
+                        return
+                    }
+                    
+                    guard let value = value else {
                         resolver(
-                            Result.success(
-                                LoadedItem(
-                                    itemProvider: itemProvider,
-                                    itemUrl: fileUrl,
-                                    utiType: srcUtiType,
-                                    customFileName: customFileName,
-                                    isConvertibleToContactShare: false
-                                )
-                            )
+                            Result.failure(ShareViewControllerError.assertionError(description: "missing item provider"))
                         )
-                        
-                    case let string as String:
-                        Logger.debug("string provider: \(string)")
-                        guard let data = string.filterStringForDisplay().data(using: String.Encoding.utf8) else {
-                            resolver(
-                                Result.failure(ShareViewControllerError.assertionError(description: "Error writing item data: \(String(describing: error))"))
-                            )
-                            return
-                        }
-                        guard let tempFilePath = OWSFileSystem.writeData(toTemporaryFile: data, fileExtension: "txt") else {
-                            resolver(
-                                Result.failure(ShareViewControllerError.assertionError(description: "Error writing item data: \(String(describing: error))"))
-                            )
-                            return
-                        }
-
-                        let fileUrl = URL(fileURLWithPath: tempFilePath)
-
-                        let isConvertibleToTextMessage = !itemProvider.registeredTypeIdentifiers.contains(kUTTypeFileURL as String)
-
-                        if UTTypeConformsTo(srcUtiType as CFString, kUTTypeText) {
+                        return
+                    }
+                    
+                    Logger.info("value type: \(type(of: value))")
+                    
+                    switch value {
+                        case let data as Data:
+                            let customFileName = "Contact.vcf"
+                            
+                            let customFileExtension = MIMETypeUtil.fileExtension(forUTIType: srcUtiType)
+                            guard let tempFilePath = OWSFileSystem.writeData(toTemporaryFile: data, fileExtension: customFileExtension) else {
+                                resolver(
+                                    Result.failure(ShareViewControllerError.assertionError(description: "Error writing item data: \(String(describing: error))"))
+                                )
+                                return
+                            }
+                            let fileUrl = URL(fileURLWithPath: tempFilePath)
+                            
                             resolver(
                                 Result.success(
                                     LoadedItem(
                                         itemProvider: itemProvider,
                                         itemUrl: fileUrl,
                                         utiType: srcUtiType,
-                                        isConvertibleToTextMessage: isConvertibleToTextMessage
+                                        customFileName: customFileName,
+                                        isConvertibleToContactShare: false
                                     )
                                 )
                             )
-                        }
-                        else {
-                            resolver(
-                                Result.success(
-                                    LoadedItem(
-                                        itemProvider: itemProvider,
-                                        itemUrl: fileUrl,
-                                        utiType: kUTTypeText as String,
-                                        isConvertibleToTextMessage: isConvertibleToTextMessage
+                            
+                        case let string as String:
+                            Logger.debug("string provider: \(string)")
+                            guard let data = string.filterStringForDisplay().data(using: String.Encoding.utf8) else {
+                                resolver(
+                                    Result.failure(ShareViewControllerError.assertionError(description: "Error writing item data: \(String(describing: error))"))
+                                )
+                                return
+                            }
+                            guard let tempFilePath = OWSFileSystem.writeData(toTemporaryFile: data, fileExtension: "txt") else {
+                                resolver(
+                                    Result.failure(ShareViewControllerError.assertionError(description: "Error writing item data: \(String(describing: error))"))
+                                )
+                                return
+                            }
+                            
+                            let fileUrl = URL(fileURLWithPath: tempFilePath)
+                            
+                            let isConvertibleToTextMessage = !itemProvider.registeredTypeIdentifiers.contains(kUTTypeFileURL as String)
+                            
+                            if UTTypeConformsTo(srcUtiType as CFString, kUTTypeText) {
+                                resolver(
+                                    Result.success(
+                                        LoadedItem(
+                                            itemProvider: itemProvider,
+                                            itemUrl: fileUrl,
+                                            utiType: srcUtiType,
+                                            isConvertibleToTextMessage: isConvertibleToTextMessage
+                                        )
                                     )
                                 )
-                            )
-                        }
-                        
-                    case let url as URL:
-                        // If the share itself is a URL (e.g. a link from Safari), try to send this as a text message.
-                        let isConvertibleToTextMessage = (
-                            itemProvider.registeredTypeIdentifiers.contains(kUTTypeURL as String) &&
-                            !itemProvider.registeredTypeIdentifiers.contains(kUTTypeFileURL as String)
-                        )
-                        
-                        if isConvertibleToTextMessage {
-                            resolver(
-                                Result.success(
-                                    LoadedItem(
-                                        itemProvider: itemProvider,
-                                        itemUrl: url,
-                                        utiType: kUTTypeURL as String,
-                                        isConvertibleToTextMessage: isConvertibleToTextMessage
+                            }
+                            else {
+                                resolver(
+                                    Result.success(
+                                        LoadedItem(
+                                            itemProvider: itemProvider,
+                                            itemUrl: fileUrl,
+                                            utiType: kUTTypeText as String,
+                                            isConvertibleToTextMessage: isConvertibleToTextMessage
+                                        )
                                     )
                                 )
+                            }
+                            
+                        case let url as URL:
+                            // If the share itself is a URL (e.g. a link from Safari), try to send this as a text message.
+                            let isConvertibleToTextMessage = (
+                                itemProvider.registeredTypeIdentifiers.contains(kUTTypeURL as String) &&
+                                !itemProvider.registeredTypeIdentifiers.contains(kUTTypeFileURL as String)
                             )
-                        }
-                        else {
-                            resolver(
-                                Result.success(
-                                    LoadedItem(
-                                        itemProvider: itemProvider,
-                                        itemUrl: url,
-                                        utiType: srcUtiType,
-                                        isConvertibleToTextMessage: isConvertibleToTextMessage
-                                    )
-                                )
-                            )
-                        }
-                        
-                    case let image as UIImage:
-                        if let data = image.pngData() {
-                            let tempFilePath = OWSFileSystem.temporaryFilePath(withFileExtension: "png")
-                            do {
-                                let url = NSURL.fileURL(withPath: tempFilePath)
-                                try data.write(to: url)
-                                
+                            
+                            if isConvertibleToTextMessage {
                                 resolver(
                                     Result.success(
                                         LoadedItem(
                                             itemProvider: itemProvider,
                                             itemUrl: url,
-                                            utiType: srcUtiType
+                                            utiType: kUTTypeURL as String,
+                                            isConvertibleToTextMessage: isConvertibleToTextMessage
                                         )
                                     )
                                 )
                             }
-                            catch {
+                            else {
                                 resolver(
-                                    Result.failure(ShareViewControllerError.assertionError(description: "couldn't write UIImage: \(String(describing: error))"))
+                                    Result.success(
+                                        LoadedItem(
+                                            itemProvider: itemProvider,
+                                            itemUrl: url,
+                                            utiType: srcUtiType,
+                                            isConvertibleToTextMessage: isConvertibleToTextMessage
+                                        )
+                                    )
                                 )
                             }
-                        }
-                        else {
+                            
+                        case let image as UIImage:
+                            if let data = image.pngData() {
+                                let tempFilePath = OWSFileSystem.temporaryFilePath(withFileExtension: "png")
+                                do {
+                                    let url = NSURL.fileURL(withPath: tempFilePath)
+                                    try data.write(to: url)
+                                    
+                                    resolver(
+                                        Result.success(
+                                            LoadedItem(
+                                                itemProvider: itemProvider,
+                                                itemUrl: url,
+                                                utiType: srcUtiType
+                                            )
+                                        )
+                                    )
+                                }
+                                catch {
+                                    resolver(
+                                        Result.failure(ShareViewControllerError.assertionError(description: "couldn't write UIImage: \(String(describing: error))"))
+                                    )
+                                }
+                            }
+                            else {
+                                resolver(
+                                    Result.failure(ShareViewControllerError.assertionError(description: "couldn't convert UIImage to PNG: \(String(describing: error))"))
+                                )
+                            }
+                            
+                        default:
+                            // It's unavoidable that we may sometimes receives data types that we
+                            // don't know how to handle.
                             resolver(
-                                Result.failure(ShareViewControllerError.assertionError(description: "couldn't convert UIImage to PNG: \(String(describing: error))"))
+                                Result.failure(ShareViewControllerError.assertionError(description: "unexpected value: \(String(describing: value))"))
                             )
-                        }
-                        
-                    default:
-                        // It's unavoidable that we may sometimes receives data types that we
-                        // don't know how to handle.
-                        resolver(
-                            Result.failure(ShareViewControllerError.assertionError(description: "unexpected value: \(String(describing: value))"))
-                        )
+                    }
                 }
+                
+                itemProvider.loadItem(forTypeIdentifier: srcUtiType, options: nil, completionHandler: loadCompletion)
             }
-            
-            itemProvider.loadItem(forTypeIdentifier: srcUtiType, options: nil, completionHandler: loadCompletion)
         }
         .eraseToAnyPublisher()
     }
@@ -652,11 +654,9 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
 
     private func buildAttachments() -> AnyPublisher<[SignalAttachment], Error> {
         return selectItemProviders()
-            .flatMap { [weak self] itemProviders -> AnyPublisher<[SignalAttachment], Error> in
+            .tryFlatMap { [weak self] itemProviders -> AnyPublisher<[SignalAttachment], Error> in
                 guard let strongSelf = self else {
-                    let error = ShareViewControllerError.assertionError(description: "expired")
-                    return Fail(error: error)
-                        .eraseToAnyPublisher()
+                    throw ShareViewControllerError.assertionError(description: "expired")
                 }
 
                 var loadPublishers = [AnyPublisher<SignalAttachment, Error>]()
@@ -676,15 +676,12 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                     .collect()
                     .eraseToAnyPublisher()
             }
-            .flatMap { signalAttachments -> AnyPublisher<[SignalAttachment], Error> in
+            .tryMap { signalAttachments -> [SignalAttachment] in
                 guard signalAttachments.count > 0 else {
-                    return Fail(error: ShareViewControllerError.assertionError(description: "no valid attachments"))
-                        .eraseToAnyPublisher()
+                    throw ShareViewControllerError.assertionError(description: "no valid attachments")
                 }
                 
-                return Just(signalAttachments)
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
+                return signalAttachments
             }
             .shareReplay(1)
             .eraseToAnyPublisher()

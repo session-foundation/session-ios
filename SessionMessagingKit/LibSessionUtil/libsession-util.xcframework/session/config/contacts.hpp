@@ -1,15 +1,19 @@
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <iterator>
 #include <memory>
 #include <session/config.hpp>
 
 #include "base.hpp"
+#include "expiring.hpp"
 #include "namespaces.hpp"
 #include "profile_pic.hpp"
 
 extern "C" struct contacts_contact;
+
+using namespace std::literals;
 
 namespace session::config {
 
@@ -18,30 +22,41 @@ namespace session::config {
 /// c - dict of contacts; within this dict each key is the session pubkey (binary, 33 bytes) and
 ///     value is a dict containing keys:
 ///
-///     ! - dummy value that is always set to an empty string.  This ensures that we always have at
-///         least one key set, which is required to keep the dict value alive (empty dicts get
-///         pruned when serialied).
-///     n - contact name (string)
+///     n - contact name (string).  This is always serialized, even if empty (but empty indicates
+///         no name) so that we always have at least one key set (required to keep the dict value
+///         alive as empty dicts get pruned).
 ///     N - contact nickname (string)
 ///     p - profile url (string)
 ///     q - profile decryption key (binary)
 ///     a - 1 if approved, omitted otherwise (int)
 ///     A - 1 if remote has approved me, omitted otherwise (int)
 ///     b - 1 if contact is blocked, omitted otherwise
+///     h - 1 if the conversation with this contact is hidden, omitted if visible.
+///     + - the conversation priority, for pinned messages.  Omitted means not pinned; otherwise an
+///         integer value >0, where a higher priority means the conversation is meant to appear
+///         earlier in the pinned conversation list.
+///     e - Disappearing messages expiration type.  Omitted if disappearing messages are not enabled
+///         for the conversation with this contact; 1 for delete-after-send, and 2 for
+///         delete-after-read.
+///     E - Disappearing message timer, in minutes.  Omitted when `e` is omitted.
 
-/// Struct containing contact info.  Note that data must be copied/used immediately as the data will
-/// not remain valid beyond other calls into the library.  When settings things in this externally
-/// (e.g. to pass into `set()`), take note that the `name` and `nickname` are string_views: that is,
-/// they must reference existing string data that remains valid for the duration of the contact_info
-/// instance.
+/// Struct containing contact info.
 struct contact_info {
+    static constexpr size_t MAX_NAME_LENGTH = 100;
+
     std::string session_id;  // in hex
-    std::optional<std::string_view> name;
-    std::optional<std::string_view> nickname;
-    std::optional<profile_pic> profile_picture;
+    std::string name;
+    std::string nickname;
+    profile_pic profile_picture;
     bool approved = false;
     bool approved_me = false;
     bool blocked = false;
+    bool hidden = false;  // True if the conversation with this contact is not visible in the convo
+                          // list (typically because it has been deleted).
+    int priority = 0;     // If >0 then this message is pinned; higher values mean higher priority
+                          // (i.e. pinned earlier in the pinned list).
+    expiration_mode exp_mode = expiration_mode::none;  // The expiry time; none if not expiring.
+    std::chrono::minutes exp_timer{0};                 // The expiration timer (in minutes)
 
     explicit contact_info(std::string sid);
 
@@ -49,20 +64,13 @@ struct contact_info {
     contact_info(const struct contacts_contact& c);  // From c struct
     void into(contacts_contact& c) const;            // Into c struct
 
-    // Sets a name, storing the name internally in the object.  This is intended for use where the
-    // source string is a temporary may not outlive the `contact_info` object: the name is first
-    // copied into an internal std::string, and then the name string_view references that.
+    // Sets a name or nickname; this is exactly the same as assigning to .name/.nickname directly,
+    // except that we throw an exception if the given name is longer than MAX_NAME_LENGTH.
     void set_name(std::string name);
-
-    // Same as above, but for nickname.
     void set_nickname(std::string nickname);
 
   private:
     friend class Contacts;
-
-    std::string name_;
-    std::string nickname_;
-
     void load(const dict& info_dict);
 };
 
@@ -111,13 +119,20 @@ class Contacts : public ConfigBase {
     ///     contacts.set(c);
     void set(const contact_info& contact);
 
-    /// Alternative to `set()` for setting individual fields.
+    /// Alternative to `set()` for setting a single field.  (If setting multiple fields at once you
+    /// should use `set()` instead).
     void set_name(std::string_view session_id, std::string name);
     void set_nickname(std::string_view session_id, std::string nickname);
     void set_profile_pic(std::string_view session_id, profile_pic pic);
     void set_approved(std::string_view session_id, bool approved);
     void set_approved_me(std::string_view session_id, bool approved_me);
     void set_blocked(std::string_view session_id, bool blocked);
+    void set_hidden(std::string_view session_id, bool hidden);
+    void set_priority(std::string_view session_id, int priority);
+    void set_expiry(
+            std::string_view session_id,
+            expiration_mode exp_mode,
+            std::chrono::minutes expiration_timer = 0min);
 
     /// Removes a contact, if present.  Returns true if it was found and removed, false otherwise.
     /// Note that this removes all fields related to a contact, even fields we do not know about.

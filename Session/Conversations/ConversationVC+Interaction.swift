@@ -421,7 +421,7 @@ extension ConversationVC:
         
         // Send the message
         Storage.shared
-            .writePublisher { [weak self] db in
+            .writePublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { [weak self] db in
                 guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
                     return
                 }
@@ -545,7 +545,7 @@ extension ConversationVC:
         
         // Send the message
         Storage.shared
-            .writePublisher { [weak self] db in
+            .writePublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { [weak self] db in
                 guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
                     return
                 }
@@ -1110,9 +1110,9 @@ extension ConversationVC:
         guard
             cellViewModel.reactionInfo?.isEmpty == false &&
             (
-                self.viewModel.threadData.threadVariant == .legacyClosedGroup ||
-                self.viewModel.threadData.threadVariant == .closedGroup ||
-                self.viewModel.threadData.threadVariant == .openGroup
+                self.viewModel.threadData.threadVariant == .legacyGroup ||
+                self.viewModel.threadData.threadVariant == .group ||
+                self.viewModel.threadData.threadVariant == .community
             ),
             let allMessages: [MessageViewModel] = self.viewModel.interactionData
                 .first(where: { $0.model == .messages })?
@@ -1173,10 +1173,10 @@ extension ConversationVC:
     }
     
     func removeAllReactions(_ cellViewModel: MessageViewModel, for emoji: String) {
-        guard cellViewModel.threadVariant == .openGroup else { return }
+        guard cellViewModel.threadVariant == .community else { return }
         
         Storage.shared
-            .readPublisherFlatMap { db -> AnyPublisher<(OpenGroupAPI.ReactionRemoveAllResponse, OpenGroupAPI.PendingChange), Error> in
+            .readPublisherFlatMap(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db -> AnyPublisher<(OpenGroupAPI.ReactionRemoveAllResponse, OpenGroupAPI.PendingChange), Error> in
                 guard
                     let openGroup: OpenGroup = try? OpenGroup
                         .fetchOne(db, id: cellViewModel.threadId),
@@ -1185,10 +1185,7 @@ extension ConversationVC:
                         .filter(id: cellViewModel.id)
                         .asRequest(of: Int64.self)
                         .fetchOne(db)
-                else {
-                    return Fail(error: StorageError.objectNotFound)
-                        .eraseToAnyPublisher()
-                }
+                else { throw StorageError.objectNotFound }
                 
                 let pendingChange: OpenGroupAPI.PendingChange = OpenGroupManager
                     .addPendingReaction(
@@ -1267,7 +1264,7 @@ extension ConversationVC:
         // TODO: Need to test emoji reacts for both open groups and one-to-one to make sure this isn't broken
         // Perform the sending logic
         Storage.shared
-            .writePublisherFlatMap { db -> AnyPublisher<MessageSender.PreparedSendData?, Error> in
+            .writePublisherFlatMap(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db -> AnyPublisher<MessageSender.PreparedSendData?, Error> in
                 guard let thread: SessionThread = try SessionThread.fetchOne(db, id: cellViewModel.threadId) else {
                     return Just(nil)
                         .setFailureType(to: Error.self)
@@ -1360,10 +1357,7 @@ extension ConversationVC:
                         .filter(id: cellViewModel.id)
                         .asRequest(of: Int64.self)
                         .fetchOne(db)
-                else {
-                    return Fail(error: MessageSenderError.invalidMessage)
-                        .eraseToAnyPublisher()
-                }
+                else { throw MessageSenderError.invalidMessage }
                 
                 let pendingChange: OpenGroupAPI.PendingChange = OpenGroupManager
                     .addPendingReaction(
@@ -1552,7 +1546,7 @@ extension ConversationVC:
                     }
                     
                     Storage.shared
-                        .writePublisherFlatMap { db in
+                        .writePublisherFlatMap(receiveOn: DispatchQueue.main) { db in
                             OpenGroupManager.shared.add(
                                 db,
                                 roomToken: room,
@@ -1674,9 +1668,11 @@ extension ConversationVC:
         // Remote deletion logic
         func deleteRemotely(from viewController: UIViewController?, request: AnyPublisher<Void, Error>, onComplete: (() -> ())?) {
             // Show a loading indicator
-            Future<Void, Error> { resolver in
-                ModalActivityIndicatorViewController.present(fromViewController: viewController, canCancel: false) { _ in
-                    resolver(Result.success(()))
+            Deferred {
+                Future<Void, Error> { resolver in
+                    ModalActivityIndicatorViewController.present(fromViewController: viewController, canCancel: false) { _ in
+                        resolver(Result.success(()))
+                    }
                 }
             }
             .flatMap { _ in request }
@@ -1707,7 +1703,7 @@ extension ConversationVC:
         // How we delete the message differs depending on the type of thread
         switch cellViewModel.threadVariant {
             // Handle open group messages the old way
-            case .openGroup:
+            case .community:
                 // If it's an incoming message the user must have moderator status
                 let result: (openGroupServerMessageId: Int64?, openGroup: OpenGroup?)? = Storage.shared.read { db -> (Int64?, OpenGroup?) in
                     (
@@ -1786,7 +1782,7 @@ extension ConversationVC:
                 // Delete the message from the open group
                 deleteRemotely(
                     from: self,
-                    request: Storage.shared.readPublisherFlatMap { db in
+                    request: Storage.shared.readPublisherFlatMap(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
                         OpenGroupAPI.messageDelete(
                             db,
                             id: openGroupServerMessageId,
@@ -1800,7 +1796,7 @@ extension ConversationVC:
                     self?.showInputAccessoryView()
                 }
                 
-            case .contact, .legacyClosedGroup, .closedGroup:
+            case .contact, .legacyGroup, .group:
                 let serverHash: String? = Storage.shared.read { db -> String? in
                     try Interaction
                         .select(.serverHash)
@@ -1859,7 +1855,7 @@ extension ConversationVC:
                 })
                 
                 actionSheet.addAction(UIAlertAction(
-                    title: (cellViewModel.threadVariant == .legacyClosedGroup || cellViewModel.threadVariant == .closedGroup ?
+                    title: (cellViewModel.threadVariant == .legacyGroup || cellViewModel.threadVariant == .group ?
                         "delete_message_for_everyone".localized() :
                         String(format: "delete_message_for_me_and_recipient".localized(), threadName)
                     ),
@@ -1963,7 +1959,7 @@ extension ConversationVC:
     }
 
     func ban(_ cellViewModel: MessageViewModel) {
-        guard cellViewModel.threadVariant == .openGroup else { return }
+        guard cellViewModel.threadVariant == .community else { return }
         
         let threadId: String = self.viewModel.threadData.threadId
         let modal: ConfirmationModal = ConfirmationModal(
@@ -1975,10 +1971,9 @@ extension ConversationVC:
                 cancelStyle: .alert_text,
                 onConfirm: { [weak self] _ in
                     Storage.shared
-                        .readPublisherFlatMap { db -> AnyPublisher<Void, Error> in
+                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db -> AnyPublisher<Void, Error> in
                             guard let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId) else {
-                                return Fail(error: StorageError.objectNotFound)
-                                    .eraseToAnyPublisher()
+                                throw StorageError.objectNotFound
                             }
                             
                             return OpenGroupAPI
@@ -2020,7 +2015,7 @@ extension ConversationVC:
     }
 
     func banAndDeleteAllMessages(_ cellViewModel: MessageViewModel) {
-        guard cellViewModel.threadVariant == .openGroup else { return }
+        guard cellViewModel.threadVariant == .community else { return }
         
         let threadId: String = self.viewModel.threadData.threadId
         let modal: ConfirmationModal = ConfirmationModal(
@@ -2032,10 +2027,9 @@ extension ConversationVC:
                 cancelStyle: .alert_text,
                 onConfirm: { [weak self] _ in
                     Storage.shared
-                        .readPublisherFlatMap { db -> AnyPublisher<Void, Error> in
+                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db -> AnyPublisher<Void, Error> in
                             guard let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId) else {
-                                return Fail(error: StorageError.objectNotFound)
-                                    .eraseToAnyPublisher()
+                                throw StorageError.objectNotFound
                             }
                         
                             return OpenGroupAPI
@@ -2300,7 +2294,7 @@ extension ConversationVC {
         }
         
         Storage.shared
-            .writePublisher { db in
+            .writePublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
                 // If we aren't creating a new thread (ie. sending a message request) then send a
                 // messageRequestResponse back to the sender (this allows the sender to know that
                 // they have been approved and can now use this contact in closed groups)

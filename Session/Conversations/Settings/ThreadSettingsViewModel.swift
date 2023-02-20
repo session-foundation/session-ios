@@ -180,7 +180,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
     override var title: String {
         switch threadVariant {
             case .contact: return "vc_settings_title".localized()
-            case .legacyClosedGroup, .closedGroup, .openGroup: return "vc_group_settings_title".localized()
+            case .legacyGroup, .group, .community: return "vc_group_settings_title".localized()
         }
     }
     
@@ -216,8 +216,8 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                 .defaulting(to: DisappearingMessagesConfiguration.defaultWith(threadId))
             let currentUserIsClosedGroupMember: Bool = (
                 (
-                    threadVariant == .legacyClosedGroup ||
-                    threadVariant == .closedGroup
+                    threadVariant == .legacyGroup ||
+                    threadVariant == .group
                 ) &&
                 threadViewModel.currentUserIsClosedGroupMember == true
             )
@@ -307,14 +307,14 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                 SectionModel(
                     model: .content,
                     elements: [
-                        (threadVariant == .legacyClosedGroup || threadVariant == .closedGroup ? nil :
+                        (threadVariant == .legacyGroup || threadVariant == .group ? nil :
                             SessionCell.Info(
                                 id: .copyThreadId,
                                 leftAccessory: .icon(
                                     UIImage(named: "ic_copy")?
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
-                                title: (threadVariant == .openGroup ?
+                                title: (threadVariant == .community ?
                                     "COPY_GROUP_URL".localized() :
                                     "vc_conversation_settings_copy_session_id_button_title".localized()
                                 ),
@@ -324,10 +324,10 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 ),
                                 onTap: {
                                     switch threadVariant {
-                                        case .contact, .legacyClosedGroup, .closedGroup:
+                                        case .contact, .legacyGroup, .group:
                                             UIPasteboard.general.string = threadId
 
-                                        case .openGroup:
+                                        case .community:
                                             guard
                                                 let server: String = threadViewModel.openGroupServer,
                                                 let roomToken: String = threadViewModel.openGroupRoomToken,
@@ -387,7 +387,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                             }
                         ),
 
-                        (threadVariant != .openGroup ? nil :
+                        (threadVariant != .community ? nil :
                             SessionCell.Info(
                                 id: .addToOpenGroup,
                                 leftAccessory: .icon(
@@ -414,7 +414,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                             )
                         ),
 
-                        (threadVariant == .openGroup || threadViewModel.threadIsBlocked == true ? nil :
+                        (threadVariant == .community || threadViewModel.threadIsBlocked == true ? nil :
                             SessionCell.Info(
                                 id: .disappearingMessages,
                                 leftAccessory: .icon(
@@ -495,7 +495,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 ),
                                 onTap: { [weak self] in
                                     dependencies.storage
-                                        .writePublisherFlatMap { db in
+                                        .writePublisherFlatMap(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
                                             MessageSender.leave(db, groupPublicKey: threadId)
                                         }
                                         .sinkUntilComplete()
@@ -538,8 +538,8 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 ),
                                 isEnabled: (
                                     (
-                                        threadViewModel.threadVariant != .legacyClosedGroup &&
-                                        threadViewModel.threadVariant != .closedGroup
+                                        threadViewModel.threadVariant != .legacyGroup &&
+                                        threadViewModel.threadVariant != .group
                                     ) ||
                                     currentUserIsClosedGroupMember
                                 ),
@@ -576,8 +576,8 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 ),
                                 isEnabled: (
                                     (
-                                        threadViewModel.threadVariant != .legacyClosedGroup &&
-                                        threadViewModel.threadVariant != .closedGroup
+                                        threadViewModel.threadVariant != .legacyGroup &&
+                                        threadViewModel.threadVariant != .group
                                     ) ||
                                     currentUserIsClosedGroupMember
                                 ),

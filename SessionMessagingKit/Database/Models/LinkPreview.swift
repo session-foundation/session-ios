@@ -318,17 +318,12 @@ public extension LinkPreview {
             .flatMap { data, response in
                 parseLinkDataAndBuildDraft(linkData: data, response: response, linkUrlString: previewUrl)
             }
-            .flatMap { linkPreviewDraft -> AnyPublisher<LinkPreviewDraft, Error> in
-                guard linkPreviewDraft.isValid() else {
-                    return Fail(error: LinkPreviewError.noPreview)
-                        .eraseToAnyPublisher()
-                }
+            .tryMap { linkPreviewDraft -> LinkPreviewDraft in
+                guard linkPreviewDraft.isValid() else { throw LinkPreviewError.noPreview }
                 
                 setCachedLinkPreview(linkPreviewDraft, forPreviewUrl: previewUrl)
 
-                return Just(linkPreviewDraft)
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
+                return linkPreviewDraft
             }
             .eraseToAnyPublisher()
     }
@@ -362,25 +357,18 @@ public extension LinkPreview {
             .dataTaskPublisher(for: request)
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .mapError { _ -> Error in HTTPError.generic }   // URLError codes are negative values
-            .flatMap { data, response -> AnyPublisher<(Data, URLResponse), Error> in
+            .tryMap { data, response -> (Data, URLResponse) in
                 guard let urlResponse: HTTPURLResponse = response as? HTTPURLResponse else {
-                    return Fail(error: LinkPreviewError.assertionFailure)
-                        .eraseToAnyPublisher()
+                    throw LinkPreviewError.assertionFailure
                 }
                 if let contentType: String = urlResponse.allHeaderFields["Content-Type"] as? String {
                     guard contentType.lowercased().hasPrefix("text/") else {
-                        return Fail(error: LinkPreviewError.invalidContent)
-                            .eraseToAnyPublisher()
+                        throw LinkPreviewError.invalidContent
                     }
                 }
-                guard data.count > 0 else {
-                    return Fail(error: LinkPreviewError.invalidContent)
-                        .eraseToAnyPublisher()
-                }
+                guard data.count > 0 else { throw LinkPreviewError.invalidContent }
                 
-                return Just((data, response))
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
+                return (data, response)
             }
             .catch { error -> AnyPublisher<(Data, URLResponse), Error> in
                 guard isRetryable(error: error), remainingRetries > 0 else {
@@ -496,63 +484,44 @@ public extension LinkPreview {
                 priority: .high,
                 shouldIgnoreSignalProxy: true
             )
-            .flatMap { asset, _ -> AnyPublisher<Data, Error> in
-                do {
-                    let imageSize = NSData.imageSize(forFilePath: asset.filePath, mimeType: imageMimeType)
-                    
-                    guard imageSize.width > 0, imageSize.height > 0 else {
-                        return Fail(error: LinkPreviewError.invalidContent)
-                            .eraseToAnyPublisher()
-                    }
-                    
-                    let data = try Data(contentsOf: URL(fileURLWithPath: asset.filePath))
-
-                    guard let srcImage = UIImage(data: data) else {
-                        return Fail(error: LinkPreviewError.invalidContent)
-                            .eraseToAnyPublisher()
-                    }
-                    
-                    // Loki: If it's a GIF then ensure its validity and don't download it as a JPG
-                    if
-                        imageMimeType == OWSMimeTypeImageGif &&
-                        NSData(data: data).ows_isValidImage(withMimeType: OWSMimeTypeImageGif)
-                    {
-                        return Just(data)
-                            .setFailureType(to: Error.self)
-                            .eraseToAnyPublisher()
-                    }
-
-                    let maxImageSize: CGFloat = 1024
-                    let shouldResize = imageSize.width > maxImageSize || imageSize.height > maxImageSize
-                    
-                    guard shouldResize else {
-                        guard let dstData = srcImage.jpegData(compressionQuality: 0.8) else {
-                            return Fail(error: LinkPreviewError.invalidContent)
-                                .eraseToAnyPublisher()
-                        }
-                        
-                        return Just(dstData)
-                            .setFailureType(to: Error.self)
-                            .eraseToAnyPublisher()
-                    }
-
-                    guard let dstImage = srcImage.resized(withMaxDimensionPoints: maxImageSize) else {
-                        return Fail(error: LinkPreviewError.invalidContent)
-                            .eraseToAnyPublisher()
-                    }
-                    guard let dstData = dstImage.jpegData(compressionQuality: 0.8) else {
-                        return Fail(error: LinkPreviewError.invalidContent)
-                            .eraseToAnyPublisher()
-                    }
-                    
-                    return Just(dstData)
-                        .setFailureType(to: Error.self)
-                        .eraseToAnyPublisher()
+            .tryMap { asset, _ -> Data in
+                let imageSize = NSData.imageSize(forFilePath: asset.filePath, mimeType: imageMimeType)
+                
+                guard imageSize.width > 0, imageSize.height > 0 else {
+                    throw LinkPreviewError.invalidContent
                 }
-                catch {
-                    return Fail(error: LinkPreviewError.assertionFailure)
-                        .eraseToAnyPublisher()
+                
+                guard let data: Data = try? Data(contentsOf: URL(fileURLWithPath: asset.filePath)) else {
+                    throw LinkPreviewError.assertionFailure
                 }
+
+                guard let srcImage = UIImage(data: data) else { throw LinkPreviewError.invalidContent }
+                
+                // Loki: If it's a GIF then ensure its validity and don't download it as a JPG
+                if
+                    imageMimeType == OWSMimeTypeImageGif &&
+                    NSData(data: data).ows_isValidImage(withMimeType: OWSMimeTypeImageGif)
+                {
+                    return data
+                }
+
+                let maxImageSize: CGFloat = 1024
+                let shouldResize = imageSize.width > maxImageSize || imageSize.height > maxImageSize
+                
+                guard shouldResize else {
+                    guard let dstData = srcImage.jpegData(compressionQuality: 0.8) else {
+                        throw LinkPreviewError.invalidContent
+                    }
+                    
+                    return dstData
+                }
+
+                guard
+                    let dstImage = srcImage.resized(withMaxDimensionPoints: maxImageSize),
+                    let dstData = dstImage.jpegData(compressionQuality: 0.8)
+                else { throw LinkPreviewError.invalidContent }
+                
+                return dstData
             }
             .mapError { _ -> Error in LinkPreviewError.couldNotDownload }
             .eraseToAnyPublisher()

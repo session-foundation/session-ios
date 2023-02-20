@@ -336,23 +336,29 @@ open class Storage {
         )
     }
     
-    open func writePublisher<T>(updates: @escaping (Database) throws -> T) -> AnyPublisher<T, Error> {
+    open func writePublisher<S, T>(
+        receiveOn scheduler: S,
+        updates: @escaping (Database) throws -> T
+    ) -> AnyPublisher<T, Error> where S: Scheduler {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
             return Fail<T, Error>(error: StorageError.databaseInvalid)
                 .eraseToAnyPublisher()
         }
         
-        return dbWriter.writePublisher(updates: updates)
+        return dbWriter.writePublisher(receiveOn: scheduler, updates: updates)
             .eraseToAnyPublisher()
     }
     
-    open func readPublisher<T>(value: @escaping (Database) throws -> T) -> AnyPublisher<T, Error> {
+    open func readPublisher<S, T>(
+        receiveOn scheduler: S,
+        value: @escaping (Database) throws -> T
+    ) -> AnyPublisher<T, Error> where S: Scheduler {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
             return Fail<T, Error>(error: StorageError.databaseInvalid)
                 .eraseToAnyPublisher()
         }
         
-        return dbWriter.readPublisher(value: value)
+        return dbWriter.readPublisher(receiveOn: scheduler, value: value)
             .eraseToAnyPublisher()
     }
     
@@ -417,14 +423,20 @@ open class Storage {
 // MARK: - Combine Extensions
 
 public extension Storage {
-    func readPublisherFlatMap<T>(value: @escaping (Database) throws -> AnyPublisher<T, Error>) -> AnyPublisher<T, Error> {
-        return readPublisher(value: value)
+    func readPublisherFlatMap<S, T>(
+        receiveOn scheduler: S,
+        value: @escaping (Database) throws -> AnyPublisher<T, Error>
+    ) -> AnyPublisher<T, Error> where S: Scheduler {
+        return readPublisher(receiveOn: scheduler, value: value)
             .flatMap { resultPublisher -> AnyPublisher<T, Error> in resultPublisher }
             .eraseToAnyPublisher()
     }
     
-    func writePublisherFlatMap<T>(updates: @escaping (Database) throws -> AnyPublisher<T, Error>) -> AnyPublisher<T, Error> {
-        return writePublisher(updates: updates)
+    func writePublisherFlatMap<S, T>(
+        receiveOn scheduler: S,
+        updates: @escaping (Database) throws -> AnyPublisher<T, Error>
+    ) -> AnyPublisher<T, Error> where S: Scheduler {
+        return writePublisher(receiveOn: scheduler, updates: updates)
             .flatMap { resultPublisher -> AnyPublisher<T, Error> in resultPublisher }
             .eraseToAnyPublisher()
     }

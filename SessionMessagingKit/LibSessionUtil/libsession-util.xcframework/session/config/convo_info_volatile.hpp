@@ -7,11 +7,14 @@
 #include <session/config.hpp>
 
 #include "base.hpp"
+#include "community.hpp"
+
+using namespace std::literals;
 
 extern "C" {
 struct convo_info_volatile_1to1;
-struct convo_info_volatile_open;
-struct convo_info_volatile_legacy_closed;
+struct convo_info_volatile_community;
+struct convo_info_volatile_legacy_group;
 }
 
 namespace session::config {
@@ -29,22 +32,23 @@ class ConvoInfoVolatile;
 ///         included, but will be 0 if no messages are read.
 ///     u - will be present and set to 1 if this conversation is specifically marked unread.
 ///
-/// o - open group conversations.  Each key is: BASE_URL + '\0' + LC_ROOM_NAME + '\0' +
-///     SERVER_PUBKEY (in bytes).  Note that room name is *always* lower-cased here (so that clients
-///     with the same room but with different cases will always set the same key).  Values are dicts
-///     with keys:
-///     r - the unix timestamp (in integer milliseconds) of the last-read message.  Always included,
-///         but will be 0 if no messages are read.
-///     u - will be present and set to 1 if this conversation is specifically marked unread.
+/// o - community conversations.  This is a nested dict where the outer keys are the BASE_URL of the
+///     community and the outer value is a dict containing:
+///     - `#` -- the 32-byte server pubkey
+///     - `R` -- dict of rooms on the server; each key is the lower-case room name, value is a dict
+///       containing keys:
+///       r - the unix timestamp (in integer milliseconds) of the last-read message.  Always
+///           included, but will be 0 if no messages are read.
+///       u - will be present and set to 1 if this conversation is specifically marked unread.
 ///
-/// C - legacy closed group conversations.  The key is the closed group identifier (which looks
-///     indistinguishable from a Session ID, but isn't really a proper Session ID).  Values are
-///     dicts with keys:
+/// C - legacy group conversations (aka closed groups).  The key is the group identifier (which
+///     looks indistinguishable from a Session ID, but isn't really a proper Session ID).  Values
+///     are dicts with keys:
 ///     r - the unix timestamp (integer milliseconds) of the last-read message.  Always included,
 ///         but will be 0 if no messages are read.
 ///     u - will be present and set to 1 if this conversation is specifically marked unread.
 ///
-/// c - reserved for future tracking of new closed group conversations.
+/// c - reserved for future tracking of new group conversations.
 
 namespace convo {
 
@@ -71,96 +75,34 @@ namespace convo {
         friend class session::config::ConvoInfoVolatile;
     };
 
-    struct open_group : base {
-        // 267 = len('https://') + 253 (max valid DNS name length) + len(':XXXXX')
-        static constexpr size_t MAX_URL = 267, MAX_ROOM = 64;
+    struct community : config::community, base {
 
-        std::string_view base_url() const;  // Accesses the base url (i.e. not including room or
-                                            // pubkey). Always lower-case.
-        std::string_view room()
-                const;  // Accesses the room name, always in lower-case.  (Note that the
-                        // actual open group info might not be lower-case; it is just in
-                        // the open group convo where we force it lower-case).
-        ustring_view pubkey() const;     // Accesses the server pubkey (32 bytes).
-        std::string pubkey_hex() const;  // Accesses the server pubkey as hex (64 hex digits).
-
-        open_group() = default;
-
-        // Constructs an empty open_group convo struct from url, room, and pubkey.  `base_url` and
-        // `room` will be lower-cased if not already (they do not have to be passed lower-case).
-        // pubkey is 32 bytes.
-        open_group(std::string_view base_url, std::string_view room, ustring_view pubkey);
-
-        // Same as above, but takes pubkey as a hex string.
-        open_group(std::string_view base_url, std::string_view room, std::string_view pubkey_hex);
-
-        // Takes a combined room URL (e.g. https://whatever.com/r/Room?public_key=01234....), either
-        // new style (with /r/) or old style (without /r/).  Note that the URL gets canonicalized so
-        // the resulting `base_url()` and `room()` values may not be exactly equal to what is given.
-        //
-        // See also `parse_full_url` which does the same thing but returns it in pieces rather than
-        // constructing a new `open_group` object.
-        explicit open_group(std::string_view full_url);
+        using config::community::community;
 
         // Internal ctor/method for C API implementations:
-        open_group(const struct convo_info_volatile_open& c);  // From c struct
-        void into(convo_info_volatile_open& c) const;          // Into c struct
-
-        // Replaces the baseurl/room/pubkey of this object.  Note that changing this and then giving
-        // it to `set` will end up inserting a *new* record but not removing the *old* one (you need
-        // to erase first to do that).
-        void set_server(std::string_view base_url, std::string_view room, ustring_view pubkey);
-        void set_server(
-                std::string_view base_url, std::string_view room, std::string_view pubkey_hex);
-        void set_server(std::string_view full_url);
-
-        // Loads the baseurl/room/pubkey of this object from an encoded key.  Throws
-        // std::invalid_argument if the encoded key does not look right.
-        void load_encoded_key(std::string key);
-
-        // Takes a base URL as input and returns it in canonical form.  This involves doing things
-        // like lower casing it and removing redundant ports (e.g. :80 when using http://).
-        static std::string canonical_url(std::string_view url);
-
-        // Takes a full room URL, splits it up into canonical url (see above), lower-case room
-        // token, and server pubkey.  We take both the deprecated form (e.g.
-        // https://example.com/SomeRoom?public_key=...) and new form
-        // (https://example.com/r/SomeRoom?public_key=...).  The public_key is typically specified
-        // in hex (64 digits), but we also accept unpadded base64 (43 chars) and base32z (52 chars)
-        // encodings (for slightly shorter URLs).
-        static std::tuple<std::string, std::string, ustring> parse_full_url(
-                std::string_view full_url);
-
-      private:
-        std::string key;
-        size_t url_size = 0;
+        community(const convo_info_volatile_community& c);  // From c struct
+        void into(convo_info_volatile_community& c) const;  // Into c struct
 
         friend class session::config::ConvoInfoVolatile;
-
-        // Returns the key value we use in the stored dict for this open group, i.e.
-        // lc(URL) + lc(NAME) + PUBKEY_BYTES.
-        static std::string make_key(
-                std::string_view base_url, std::string_view room, std::string_view pubkey_hex);
-        static std::string make_key(
-                std::string_view base_url, std::string_view room, ustring_view pubkey);
+        friend struct session::config::comm_iterator_helper;
     };
 
-    struct legacy_closed_group : base {
+    struct legacy_group : base {
         std::string id;  // in hex, indistinguishable from a Session ID
 
-        // Constructs an empty legacy_closed_group from a quasi-session_id
-        explicit legacy_closed_group(std::string&& group_id);
-        explicit legacy_closed_group(std::string_view group_id);
+        // Constructs an empty legacy_group from a quasi-session_id
+        explicit legacy_group(std::string&& group_id);
+        explicit legacy_group(std::string_view group_id);
 
         // Internal ctor/method for C API implementations:
-        legacy_closed_group(const struct convo_info_volatile_legacy_closed& c);  // From c struct
-        void into(convo_info_volatile_legacy_closed& c) const;                   // Into c struct
+        legacy_group(const struct convo_info_volatile_legacy_group& c);  // From c struct
+        void into(convo_info_volatile_legacy_group& c) const;            // Into c struct
 
       private:
         friend class session::config::ConvoInfoVolatile;
     };
 
-    using any = std::variant<one_to_one, open_group, legacy_closed_group>;
+    using any = std::variant<one_to_one, community, legacy_group>;
 }  // namespace convo
 
 class ConvoInfoVolatile : public ConfigBase {
@@ -186,33 +128,49 @@ class ConvoInfoVolatile : public ConfigBase {
 
     const char* encryption_domain() const override { return "ConvoInfoVolatile"; }
 
+    /// Our pruning ages.  We ignore added conversations that are more than PRUNE_LOW before now,
+    /// and we active remove (when doing a new push) any conversations that are more than PRUNE_HIGH
+    /// before now.  Clients can mostly ignore these and just add all conversations; the class just
+    /// transparently ignores (or removes) pruned values.
+    static constexpr auto PRUNE_LOW = 30 * 24h;
+    static constexpr auto PRUNE_HIGH = 45 * 24h;
+
+    /// Overrides push() to prune stale last-read values before we do the push.
+    std::pair<ustring, seqno_t> push() override;
+
     /// Looks up and returns a contact by session ID (hex).  Returns nullopt if the session ID was
     /// not found, otherwise returns a filled out `convo::one_to_one`.
     std::optional<convo::one_to_one> get_1to1(std::string_view session_id) const;
 
-    /// Looks up and returns an open group conversation.  Takes the base URL, room name (case
-    /// insensitive), and pubkey (in hex).  Retuns nullopt if the open group was not found,
-    /// otherwise a filled out `convo::open_group`.
-    std::optional<convo::open_group> get_open(
-            std::string_view base_url, std::string_view room, std::string_view pubkey_hex) const;
+    /// Looks up and returns a community conversation.  Takes the base URL and room name (case
+    /// insensitive).  Retuns nullopt if the community was not found, otherwise a filled out
+    /// `convo::community`.
+    std::optional<convo::community> get_community(
+            std::string_view base_url, std::string_view room) const;
 
-    /// Same as above, but takes the pubkey as bytes instead of hex
-    std::optional<convo::open_group> get_open(
-            std::string_view base_url, std::string_view room, ustring_view pubkey) const;
-
-    /// Looks up and returns a legacy closed group conversation by ID.  The ID looks like a hex
-    /// Session ID, but isn't really a Session ID.  Returns nullopt if there is no record of the
-    /// closed group conversation.
-    std::optional<convo::legacy_closed_group> get_legacy_closed(std::string_view pubkey_hex) const;
+    /// Looks up and returns a legacy group conversation by ID.  The ID looks like a hex Session ID,
+    /// but isn't really a Session ID.  Returns nullopt if there is no record of the group
+    /// conversation.
+    std::optional<convo::legacy_group> get_legacy_group(std::string_view pubkey_hex) const;
 
     /// These are the same as the above methods (without "_or_construct" in the name), except that
     /// when the conversation doesn't exist a new one is created, prefilled with the pubkey/url/etc.
     convo::one_to_one get_or_construct_1to1(std::string_view session_id) const;
-    convo::open_group get_or_construct_open(
+    convo::legacy_group get_or_construct_legacy_group(std::string_view pubkey_hex) const;
+
+    /// This is similar to get_community, except that it also takes the pubkey; the community is
+    /// looked up by the url & room; if not found, it is constructed using room, url, and pubkey; if
+    /// it *is* found, then it will always have the *input* pubkey, not the stored pubkey
+    /// (effectively the provided pubkey replaces the stored one in the returned object; this is not
+    /// applied to storage, however, unless/until the instance is given to `set()`).
+    ///
+    /// Note, however, that when modifying an object like this the update is *only* applied to the
+    /// returned object; like other fields, it is not updated in the internal state unless/until
+    /// that community instance is passed to `set()`.
+    convo::community get_or_construct_community(
             std::string_view base_url, std::string_view room, std::string_view pubkey_hex) const;
-    convo::open_group get_or_construct_open(
+    convo::community get_or_construct_community(
             std::string_view base_url, std::string_view room, ustring_view pubkey) const;
-    convo::legacy_closed_group get_or_construct_legacy_closed(std::string_view pubkey_hex) const;
 
     /// Inserts or replaces existing conversation info.  For example, to update a 1-to-1
     /// conversation last read time you would do:
@@ -222,31 +180,35 @@ class ConvoInfoVolatile : public ConfigBase {
     ///     conversations.set(info);
     ///
     void set(const convo::one_to_one& c);
-    void set(const convo::legacy_closed_group& c);
-    void set(const convo::open_group& c);
+    void set(const convo::legacy_group& c);
+    void set(const convo::community& c);
 
     void set(const convo::any& c);  // Variant which can be any of the above
 
   protected:
     void set_base(const convo::base& c, DictFieldProxy& info);
 
+    // Drills into the nested dicts to access community details; if the second argument is
+    // non-nullptr then it will be set to the community's pubkey, if it exists.
+    DictFieldProxy community_field(
+            const convo::community& og, ustring_view* get_pubkey = nullptr) const;
+
   public:
     /// Removes a one-to-one conversation.  Returns true if found and removed, false if not present.
     bool erase_1to1(std::string_view pubkey);
 
-    /// Removes an open group conversation record.  Returns true if found and removed, false if not
-    /// present.  Arguments are the same as `get_open`.
-    bool erase_open(std::string_view base_url, std::string_view room, std::string_view pubkey_hex);
-    bool erase_open(std::string_view base_url, std::string_view room, ustring_view pubkey);
+    /// Removes a community conversation record.  Returns true if found and removed, false if not
+    /// present.  Arguments are the same as `get_community`.
+    bool erase_community(std::string_view base_url, std::string_view room);
 
-    /// Removes a legacy closed group conversation.  Returns true if found and removed, false if not
+    /// Removes a legacy group conversation.  Returns true if found and removed, false if not
     /// present.
-    bool erase_legacy_closed(std::string_view pubkey_hex);
+    bool erase_legacy_group(std::string_view pubkey_hex);
 
     /// Removes a conversation taking the convo::whatever record (rather than the pubkey/url).
     bool erase(const convo::one_to_one& c);
-    bool erase(const convo::open_group& c);
-    bool erase(const convo::legacy_closed_group& c);
+    bool erase(const convo::community& c);
+    bool erase(const convo::legacy_group& c);
 
     bool erase(const convo::any& c);  // Variant of any of them
 
@@ -261,11 +223,10 @@ class ConvoInfoVolatile : public ConfigBase {
     /// Returns the number of conversations (of any type).
     size_t size() const;
 
-    /// Returns the number of 1-to-1, open group, and legacy closed group conversations,
-    /// respectively.
+    /// Returns the number of 1-to-1, community, and legacy group conversations, respectively.
     size_t size_1to1() const;
-    size_t size_open() const;
-    size_t size_legacy_closed() const;
+    size_t size_communities() const;
+    size_t size_legacy_groups() const;
 
     /// Returns true if the conversation list is empty.
     bool empty() const { return size() == 0; }
@@ -276,9 +237,9 @@ class ConvoInfoVolatile : public ConfigBase {
     ///     for (auto& convo : conversations) {
     ///         if (auto* dm = std::get_if<convo::one_to_one>(&convo)) {
     ///             // use dm->session_id, dm->last_read, etc.
-    ///         } else if (auto* og = std::get_if<convo::open_group>(&convo)) {
+    ///         } else if (auto* og = std::get_if<convo::community>(&convo)) {
     ///             // use og->base_url, og->room, om->last_read, etc.
-    ///         } else if (auto* lcg = std::get_if<convo::legacy_closed_group>(&convo)) {
+    ///         } else if (auto* lcg = std::get_if<convo::legacy_group>(&convo)) {
     ///             // use lcg->id, lcg->last_read
     ///         }
     ///     }
@@ -302,8 +263,8 @@ class ConvoInfoVolatile : public ConfigBase {
     ///
     /// Alternatively, you can use the first version with two loops: the first loop through all
     /// converations doesn't erase but just builds a vector of IDs to erase, then the second loops
-    /// through that vector calling `erase_1to1()`/`erase_open()`/`erase_legacy_closed()` for each
-    /// one.
+    /// through that vector calling `erase_1to1()`/`erase_community()`/`erase_legacy_group()` for
+    /// each one.
     ///
     iterator begin() const { return iterator{data}; }
     iterator end() const { return iterator{}; }
@@ -313,12 +274,11 @@ class ConvoInfoVolatile : public ConfigBase {
 
     /// Returns an iterator that iterates only through one type of conversations
     subtype_iterator<convo::one_to_one> begin_1to1() const { return {data}; }
-    subtype_iterator<convo::open_group> begin_open() const { return {data}; }
-    subtype_iterator<convo::legacy_closed_group> begin_legacy_closed() const { return {data}; }
+    subtype_iterator<convo::community> begin_communities() const { return {data}; }
+    subtype_iterator<convo::legacy_group> begin_legacy_groups() const { return {data}; }
 
     using iterator_category = std::input_iterator_tag;
-    using value_type =
-            std::variant<convo::one_to_one, convo::open_group, convo::legacy_closed_group>;
+    using value_type = std::variant<convo::one_to_one, convo::community, convo::legacy_group>;
     using reference = value_type&;
     using pointer = value_type*;
     using difference_type = std::ptrdiff_t;
@@ -326,15 +286,15 @@ class ConvoInfoVolatile : public ConfigBase {
     struct iterator {
       protected:
         std::shared_ptr<convo::any> _val;
-        std::optional<dict::const_iterator> _it_11, _end_11, _it_open, _end_open, _it_lclosed,
-                _end_lclosed;
+        std::optional<dict::const_iterator> _it_11, _end_11, _it_lgroup, _end_lgroup;
+        std::optional<comm_iterator_helper> _it_comm;
         void _load_val();
         iterator() = default;  // Constructs an end tombstone
         explicit iterator(
                 const DictFieldRoot& data,
                 bool oneto1 = true,
-                bool open = true,
-                bool closed = true);
+                bool communities = true,
+                bool legacy_groups = true);
         friend class ConvoInfoVolatile;
 
       public:
@@ -358,8 +318,8 @@ class ConvoInfoVolatile : public ConfigBase {
                 iterator(
                         data,
                         std::is_same_v<convo::one_to_one, ConvoType>,
-                        std::is_same_v<convo::open_group, ConvoType>,
-                        std::is_same_v<convo::legacy_closed_group, ConvoType>) {}
+                        std::is_same_v<convo::community, ConvoType>,
+                        std::is_same_v<convo::legacy_group, ConvoType>) {}
         friend class ConvoInfoVolatile;
 
       public:

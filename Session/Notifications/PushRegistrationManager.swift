@@ -54,10 +54,9 @@ public enum PushRegistrationError: Error {
         return registerUserNotificationSettings()
             .setFailureType(to: Error.self)
             .receive(on: DispatchQueue.main)    // MUST be on main thread
-            .flatMap { _ -> AnyPublisher<(pushToken: String, voipToken: String), Error> in
+            .tryFlatMap { _ -> AnyPublisher<(pushToken: String, voipToken: String), Error> in
                 #if targetEnvironment(simulator)
-                return Fail(error: PushRegistrationError.pushNotSupported(description: "Push not supported on simulators"))
-                    .eraseToAnyPublisher()
+                throw PushRegistrationError.pushNotSupported(description: "Push not supported on simulators")
                 #endif
 
                 return self.registerForVanillaPushToken()
@@ -101,7 +100,6 @@ public enum PushRegistrationError: Error {
     public func registerUserNotificationSettings() -> AnyPublisher<Void, Never> {
         AssertIsOnMainThread()
         return notificationPresenter.registerNotificationSettings()
-            .eraseToAnyPublisher()
     }
 
     /**
@@ -142,8 +140,10 @@ public enum PushRegistrationError: Error {
         UIApplication.shared.registerForRemoteNotifications()
         
         // No pending vanilla token yet; create a new publisher
-        let publisher: AnyPublisher<Data, Error> = Future<Data, Error> { self.vanillaTokenResolver = $0 }
-            .eraseToAnyPublisher()
+        let publisher: AnyPublisher<Data, Error> = Deferred {
+            Future<Data, Error> { self.vanillaTokenResolver = $0 }
+        }
+        .eraseToAnyPublisher()
         self.vanillaTokenPublisher = publisher
         
         return publisher
@@ -238,8 +238,10 @@ public enum PushRegistrationError: Error {
         }
         
         // No pending voip token yet. Create a new publisher
-        let publisher: AnyPublisher<Data?, Error> = Future<Data?, Error> { self.voipTokenResolver = $0 }
-            .eraseToAnyPublisher()
+        let publisher: AnyPublisher<Data?, Error> = Deferred {
+            Future<Data?, Error> { self.voipTokenResolver = $0 }
+        }
+        .eraseToAnyPublisher()
         self.voipTokenPublisher = publisher
         
         return publisher

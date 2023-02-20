@@ -55,6 +55,8 @@ public enum SessionUtil {
             }
     }
     
+    public static var libSessionVersion: String { String(cString: LIBSESSION_UTIL_VERSION_STR) }
+    
     // MARK: - Loading
     
     public static func loadState(
@@ -133,6 +135,9 @@ public enum SessionUtil {
 
                 case .convoInfoVolatile:
                     return convo_info_volatile_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), error)
+
+                case .userGroups:
+                    return user_groups_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), error)
             }
         }()
         
@@ -208,11 +213,10 @@ public enum SessionUtil {
     
     // MARK: - Pushes
     
-    public static func pendingChanges(
-        _ db: Database,
-        userPublicKey: String,
-        ed25519SecretKey: [UInt8]
-    ) throws -> [OutgoingConfResult] {
+    public static func pendingChanges(_ db: Database) throws -> [OutgoingConfResult] {
+        guard Identity.userExists(db) else { throw SessionUtilError.userDoesNotExist }
+        
+        let userPublicKey: String = getUserHexEncodedPublicKey(db)
         let existingDumpInfo: Set<DumpInfo> = try ConfigDump
             .select(.variant, .publicKey, .combinedMessageHashes)
             .asRequest(of: DumpInfo.self)
@@ -285,6 +289,20 @@ public enum SessionUtil {
         
         // Update the result to indicate whether the config needs to be dumped
         return config_needs_dump(atomicConf.wrappedValue)
+    }
+    
+    public static func configHashes(for publicKey: String) -> [String] {
+        return Storage.shared
+            .read { db in
+                try ConfigDump
+                    .filter(ConfigDump.Columns.publicKey == publicKey)
+                    .select(.combinedMessageHashes)
+                    .asRequest(of: String.self)
+                    .fetchAll(db)
+            }
+            .defaulting(to: [])
+            .compactMap { ConfigDump.messageHashes(from: $0) }
+            .flatMap { $0 }
     }
     
     // MARK: - Receiving
@@ -373,7 +391,7 @@ public enum SessionUtil {
                             mergeResult: mergeResult.result
                         )
                         
-                    case .groups:
+                    case .userGroups:
                         return try SessionUtil.handleGroupsUpdate(
                             db,
                             in: atomicConf,

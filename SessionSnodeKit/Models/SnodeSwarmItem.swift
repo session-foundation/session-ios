@@ -13,8 +13,9 @@ public class SnodeSwarmItem: Codable {
         case badPeerResponse = "bad_peer_response"
         case queryFailure = "query_failure"
     }
-
-    public let signatureBase64: String
+    
+    /// Should be present as long as the request didn't fail
+    public let signatureBase64: String?
     
     /// `true` if the request failed, possibly accompanied by one of the following: `timeout`, `code`,
     /// `reason`, `badPeerResponse`, `queryFailure`
@@ -40,7 +41,7 @@ public class SnodeSwarmItem: Codable {
     public required init(from decoder: Decoder) throws {
         let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
         
-        signatureBase64 = try container.decode(String.self, forKey: .signatureBase64)
+        signatureBase64 = try? container.decode(String.self, forKey: .signatureBase64)
         failed = ((try? container.decode(Bool.self, forKey: .failed)) ?? false)
         timeout = try? container.decode(Bool.self, forKey: .timeout)
         code = try? container.decode(Int.self, forKey: .code)

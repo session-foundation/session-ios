@@ -67,11 +67,8 @@ public final class BackgroundPoller {
         return SnodeAPI.getSwarm(for: userPublicKey)
             .subscribeOnMain(immediately: true)
             .receiveOnMain(immediately: true)
-            .flatMap { swarm -> AnyPublisher<Void, Error> in
-                guard let snode = swarm.randomElement() else {
-                    return Fail(error: SnodeAPIError.generic)
-                        .eraseToAnyPublisher()
-                }
+            .tryFlatMap { swarm -> AnyPublisher<Void, Error> in
+                guard let snode = swarm.randomElement() else { throw SnodeAPIError.generic }
                 
                 return CurrentUserPoller.poll(
                     namespaces: CurrentUserPoller.namespaces,
@@ -104,10 +101,9 @@ public final class BackgroundPoller {
                 SnodeAPI.getSwarm(for: groupPublicKey)
                     .subscribeOnMain(immediately: true)
                     .receiveOnMain(immediately: true)
-                    .flatMap { swarm -> AnyPublisher<Void, Error> in
+                    .tryFlatMap { swarm -> AnyPublisher<Void, Error> in
                         guard let snode: Snode = swarm.randomElement() else {
-                            return Fail(error: OnionRequestAPIError.insufficientSnodes)
-                                .eraseToAnyPublisher()
+                            throw OnionRequestAPIError.insufficientSnodes
                         }
                         
                         return ClosedGroupPoller.poll(

@@ -87,17 +87,14 @@ public enum AttachmentDownloadJob: JobExecutor {
         
         Just(attachment.downloadUrl)
             .setFailureType(to: Error.self)
-            .flatMap { maybeDownloadUrl -> AnyPublisher<Data, Error> in
+            .tryFlatMap { maybeDownloadUrl -> AnyPublisher<Data, Error> in
                 guard
                     let downloadUrl: String = maybeDownloadUrl,
                     let fileId: String = Attachment.fileId(for: downloadUrl)
-                else {
-                    return Fail(error: AttachmentDownloadError.invalidUrl)
-                        .eraseToAnyPublisher()
-                }
+                else { throw AttachmentDownloadError.invalidUrl }
                 
                 return Storage.shared
-                    .readPublisher { db in try OpenGroup.fetchOne(db, id: threadId) }
+                    .readPublisher(receiveOn: queue) { db in try OpenGroup.fetchOne(db, id: threadId) }
                     .flatMap { maybeOpenGroup -> AnyPublisher<Data, Error> in
                         guard let openGroup: OpenGroup = maybeOpenGroup else {
                             return FileServerAPI
@@ -109,7 +106,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                         }
                         
                         return Storage.shared
-                            .readPublisherFlatMap { db in
+                            .readPublisherFlatMap(receiveOn: queue) { db in
                                 OpenGroupAPI
                                     .downloadFile(
                                         db,
@@ -123,41 +120,34 @@ public enum AttachmentDownloadJob: JobExecutor {
                     }
                     .eraseToAnyPublisher()
             }
-            .flatMap { data -> AnyPublisher<Void, Error> in
-                do {
-                    // Store the encrypted data temporarily
-                    try data.write(to: temporaryFileUrl, options: .atomic)
-                    
-                    // Decrypt the data
-                    let plaintext: Data = try {
-                        guard
-                            let key: Data = attachment.encryptionKey,
-                            let digest: Data = attachment.digest,
-                            key.count > 0,
-                            digest.count > 0
-                        else { return data } // Open group attachments are unencrypted
-                            
-                        return try Cryptography.decryptAttachment(
-                            data,
-                            withKey: key,
-                            digest: digest,
-                            unpaddedSize: UInt32(attachment.byteCount)
-                        )
-                    }()
-                    
-                    // Write the data to disk
-                    guard try attachment.write(data: plaintext) else {
-                        throw AttachmentDownloadError.failedToSaveFile
-                    }
-                    
-                    return Just(())
-                        .setFailureType(to: Error.self)
-                        .eraseToAnyPublisher()
+            .receive(on: queue)
+            .tryMap { data -> Void in
+                // Store the encrypted data temporarily
+                try data.write(to: temporaryFileUrl, options: .atomic)
+                
+                // Decrypt the data
+                let plaintext: Data = try {
+                    guard
+                        let key: Data = attachment.encryptionKey,
+                        let digest: Data = attachment.digest,
+                        key.count > 0,
+                        digest.count > 0
+                    else { return data } // Open group attachments are unencrypted
+                        
+                    return try Cryptography.decryptAttachment(
+                        data,
+                        withKey: key,
+                        digest: digest,
+                        unpaddedSize: UInt32(attachment.byteCount)
+                    )
+                }()
+                
+                // Write the data to disk
+                guard try attachment.write(data: plaintext) else {
+                    throw AttachmentDownloadError.failedToSaveFile
                 }
-                catch {
-                    return Fail(error: error)
-                        .eraseToAnyPublisher()
-                }
+                
+                return ()
             }
             .sinkUntilComplete(
                 receiveCompletion: { result in

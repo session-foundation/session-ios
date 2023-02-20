@@ -200,9 +200,16 @@ public class Poller {
             poller?.pollerName(for: publicKey) ??
             "poller with public key \(publicKey)"
         )
+        let configHashes: [String] = SessionUtil.configHashes(for: publicKey)
         
         // Fetch the messages
-        return SnodeAPI.getMessages(in: namespaces, from: snode, associatedWith: publicKey)
+        return SnodeAPI
+            .poll(
+                namespaces: namespaces,
+                refreshingConfigHashes: configHashes,
+                from: snode,
+                associatedWith: publicKey
+            )
             .flatMap { namespacedResults -> AnyPublisher<Void, Error> in
                 guard
                     (calledFromBackgroundPoller && isBackgroundPollValid()) ||
@@ -322,15 +329,17 @@ public class Poller {
                 return Publishers
                     .MergeMany(
                         jobsToRun.map { job -> AnyPublisher<Void, Error> in
-                            Future<Void, Error> { resolver in
-                                // Note: In the background we just want jobs to fail silently
-                                MessageReceiveJob.run(
-                                    job,
-                                    queue: queue,
-                                    success: { _, _ in resolver(Result.success(())) },
-                                    failure: { _, _, _ in resolver(Result.success(())) },
-                                    deferred: { _ in resolver(Result.success(())) }
-                                )
+                            Deferred {
+                                Future<Void, Error> { resolver in
+                                    // Note: In the background we just want jobs to fail silently
+                                    MessageReceiveJob.run(
+                                        job,
+                                        queue: queue,
+                                        success: { _, _ in resolver(Result.success(())) },
+                                        failure: { _, _, _ in resolver(Result.success(())) },
+                                        deferred: { _ in resolver(Result.success(())) }
+                                    )
+                                }
                             }
                             .eraseToAnyPublisher()
                         }

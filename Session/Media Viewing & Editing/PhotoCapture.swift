@@ -86,26 +86,17 @@ class PhotoCapture: NSObject {
         return Just(())
             .subscribe(on: sessionQueue)
             .setFailureType(to: Error.self)
-            .flatMap { [weak self] _ -> AnyPublisher<Void, Error> in
+            .tryMap { [weak self] _ -> Void in
                 self?.session.beginConfiguration()
                 defer { self?.session.commitConfiguration() }
 
-                do {
-                    try self?.updateCurrentInput(position: .back)
-                }
-                catch {
-                    return Fail(error: error)
-                        .eraseToAnyPublisher()
-                }
+                try self?.updateCurrentInput(position: .back)
 
-                guard let photoOutput = self?.captureOutput.photoOutput else {
-                    return Fail(error: PhotoCaptureError.initializationFailed)
-                        .eraseToAnyPublisher()
-                }
-
-                guard self?.session.canAddOutput(photoOutput) == true else {
-                    return Fail(error: PhotoCaptureError.initializationFailed)
-                        .eraseToAnyPublisher()
+                guard
+                    let photoOutput = self?.captureOutput.photoOutput,
+                    self?.session.canAddOutput(photoOutput) == true
+                else {
+                    throw PhotoCaptureError.initializationFailed
                 }
 
                 if let connection = photoOutput.connection(with: .video) {
@@ -130,9 +121,7 @@ class PhotoCapture: NSObject {
                     }
                 }
                 
-                return Just(())
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
+                return ()
             }
             .handleEvents(
                 receiveCompletion: { [weak self] result in
@@ -172,21 +161,12 @@ class PhotoCapture: NSObject {
         return Just(())
             .setFailureType(to: Error.self)
             .subscribe(on: sessionQueue)
-            .flatMap { [weak self, newPosition = self.desiredPosition] _ -> AnyPublisher<Void, Error> in
+            .tryMap { [weak self, newPosition = self.desiredPosition] _ -> Void in
                 self?.session.beginConfiguration()
                 defer { self?.session.commitConfiguration() }
                 
-                do {
-                    try self?.updateCurrentInput(position: newPosition)
-                }
-                catch {
-                    return Fail(error: error)
-                        .eraseToAnyPublisher()
-                }
-            
-                return Just(())
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
+                try self?.updateCurrentInput(position: newPosition)
+                return ()
             }
             .eraseToAnyPublisher()
     }

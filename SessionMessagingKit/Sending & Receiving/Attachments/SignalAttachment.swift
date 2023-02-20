@@ -918,23 +918,25 @@ public class SignalAttachment: Equatable, Hashable {
         let exportURL = videoTempPath.appendingPathComponent(UUID().uuidString).appendingPathExtension("mp4")
         exportSession.outputURL = exportURL
 
-        let publisher = Future<SignalAttachment, Error> { resolver in
-            exportSession.exportAsynchronously {
-                let baseFilename = dataSource.sourceFilename
-                let mp4Filename = baseFilename?.filenameWithoutExtension.appendingFileExtension("mp4")
-
-                guard let dataSource = DataSourcePath.dataSource(with: exportURL,
-                                                                 shouldDeleteOnDeallocation: true) else {
-                    let attachment = SignalAttachment(dataSource: DataSourceValue.emptyDataSource(), dataUTI: dataUTI)
-                    attachment.error = .couldNotConvertToMpeg4
+        let publisher = Deferred {
+            Future<SignalAttachment, Error> { resolver in
+                exportSession.exportAsynchronously {
+                    let baseFilename = dataSource.sourceFilename
+                    let mp4Filename = baseFilename?.filenameWithoutExtension.appendingFileExtension("mp4")
+                    
+                    guard let dataSource = DataSourcePath.dataSource(with: exportURL,
+                                                                     shouldDeleteOnDeallocation: true) else {
+                        let attachment = SignalAttachment(dataSource: DataSourceValue.emptyDataSource(), dataUTI: dataUTI)
+                        attachment.error = .couldNotConvertToMpeg4
+                        resolver(Result.success(attachment))
+                        return
+                    }
+                    
+                    dataSource.sourceFilename = mp4Filename
+                    
+                    let attachment = SignalAttachment(dataSource: dataSource, dataUTI: kUTTypeMPEG4 as String)
                     resolver(Result.success(attachment))
-                    return
                 }
-
-                dataSource.sourceFilename = mp4Filename
-
-                let attachment = SignalAttachment(dataSource: dataSource, dataUTI: kUTTypeMPEG4 as String)
-                resolver(Result.success(attachment))
             }
         }
         .eraseToAnyPublisher()

@@ -429,14 +429,14 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         
                         try SessionThread(
                             id: "TestId",
-                            variant: .legacyClosedGroup
+                            variant: .legacyGroup
                         ).insert(db)
                     }
                     
                     viewModel = ThreadSettingsViewModel(
                         dependencies: dependencies,
                         threadId: "TestId",
-                        threadVariant: .legacyClosedGroup,
+                        threadVariant: .legacyGroup,
                         didTriggerSearch: {
                             didTriggerSearchCallbackTriggered = true
                         }
@@ -471,14 +471,14 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         
                         try SessionThread(
                             id: "TestId",
-                            variant: .openGroup
+                            variant: .community
                         ).insert(db)
                     }
                     
                     viewModel = ThreadSettingsViewModel(
                         dependencies: dependencies,
                         threadId: "TestId",
-                        threadVariant: .openGroup,
+                        threadVariant: .community,
                         didTriggerSearch: {
                             didTriggerSearchCallbackTriggered = true
                         }

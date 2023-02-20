@@ -4,18 +4,27 @@ import Foundation
 import Sodium
 import SessionUtilitiesKit
 
-public class DeleteAllBeforeResponse: SnodeRecursiveResponse<DeleteAllMessagesResponse.SwarmItem> {
-    // MARK: - Convenience
+public class DeleteAllBeforeResponse: SnodeRecursiveResponse<DeleteAllMessagesResponse.SwarmItem> {}
+
+// MARK: - ValidatableResponse
+
+extension DeleteAllBeforeResponse: ValidatableResponse {
+    typealias ValidationData = UInt64
+    typealias ValidationResponse = Bool
+    
+    /// Just one response in the swarm must be valid
+    internal static var requiredSuccessfulResponses: Int { 1 }
     
     internal func validResultMap(
+        sodium: Sodium,
         userX25519PublicKey: String,
-        beforeMs: UInt64,
-        sodium: Sodium
-    ) -> [String: Bool] {
-        return swarm.reduce(into: [:]) { result, next in
+        validationData: UInt64
+    ) throws -> [String: Bool] {
+        let validationMap: [String: Bool] = swarm.reduce(into: [:]) { result, next in
             guard
                 !next.value.failed,
-                let encodedSignature: Data = Data(base64Encoded: next.value.signatureBase64)
+                let signatureBase64: String = next.value.signatureBase64,
+                let encodedSignature: Data = Data(base64Encoded: signatureBase64)
             else {
                 result[next.key] = false
                 
@@ -32,7 +41,7 @@ public class DeleteAllBeforeResponse: SnodeRecursiveResponse<DeleteAllMessagesRe
             /// signed by the node's ed25519 pubkey.  When doing a multi-namespace delete the `DELETEDHASH`
             /// values are totally ordered (i.e. among all the hashes deleted regardless of namespace)
             let verificationBytes: [UInt8] = userX25519PublicKey.bytes
-                .appending(contentsOf: "\(beforeMs)".data(using: .ascii)?.bytes)
+                .appending(contentsOf: "\(validationData)".data(using: .ascii)?.bytes)
                 .appending(contentsOf: next.value.deleted.joined().bytes)
             
             result[next.key] = sodium.sign.verify(
@@ -41,5 +50,7 @@ public class DeleteAllBeforeResponse: SnodeRecursiveResponse<DeleteAllMessagesRe
                 signature: encodedSignature.bytes
             )
         }
+        
+        return try Self.validated(map: validationMap)
     }
 }

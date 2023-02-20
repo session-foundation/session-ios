@@ -37,9 +37,9 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
     
     public enum Variant: Int, Codable, Hashable, DatabaseValueConvertible {
         case contact
-        case legacyClosedGroup
-        case openGroup
-        case closedGroup
+        case legacyGroup
+        case community
+        case group
     }
 
     /// Unique identifier for a thread (formerly known as uniqueId)
@@ -312,8 +312,8 @@ public extension SessionThread {
         profile: Profile? = nil
     ) -> String {
         switch variant {
-            case .legacyClosedGroup, .closedGroup: return (closedGroupName ?? "Unknown Group")
-            case .openGroup: return (openGroupName ?? "Unknown Group")
+            case .legacyGroup, .group: return (closedGroupName ?? "Unknown Group")
+            case .community: return (openGroupName ?? "Unknown Community")
             case .contact:
                 guard !isNoteToSelf else { return "NOTE_TO_SELF".localized() }
                 guard let profile: Profile = profile else {
@@ -329,7 +329,7 @@ public extension SessionThread {
         threadVariant: Variant
     ) -> String? {
         guard
-            threadVariant == .openGroup,
+            threadVariant == .community,
             let blindingInfo: (edkeyPair: Box.KeyPair?, publicKey: String?) = Storage.shared.read({ db in
                 return (
                     Identity.fetchUserEd25519KeyPair(db),

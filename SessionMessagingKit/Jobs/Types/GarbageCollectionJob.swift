@@ -84,7 +84,7 @@ public enum GarbageCollectionJob: JobExecutor {
                             SELECT \(interaction.alias[Column.rowID])
                             FROM \(Interaction.self)
                             JOIN \(SessionThread.self) ON (
-                                \(SQL("\(thread[.variant]) = \(SessionThread.Variant.openGroup)")) AND
+                                \(SQL("\(thread[.variant]) = \(SessionThread.Variant.community)")) AND
                                 \(thread[.id]) = \(interaction[.threadId])
                             )
                             JOIN (

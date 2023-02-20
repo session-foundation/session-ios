@@ -87,6 +87,11 @@ public extension UIContextualAction {
             label.numberOfLines = (title.components(separatedBy: " ").count > 1 ? 2 : 1)
             label.frame = CGRect(
                 origin: .zero,
+                // Note: It looks like there is a semi-max width of 68px for images in the swipe actions
+                // if the image ends up larger then there an odd behaviour can occur where 8/10 times the
+                // image is scaled down to fit, but ocassionally (primarily if you hide the action and
+                // immediately swipe to show it again once the cell hits the edge of the screen) the image
+                // won't be scaled down but will be full size - appearing as if two different images are used
                 size: label.sizeThatFits(CGSize(width: 68, height: 999))
             )
             label.set(.width, to: label.frame.width)

@@ -324,9 +324,9 @@ public extension Profile {
         }
         
         switch threadVariant {
-            case .contact, .legacyClosedGroup, .closedGroup: return name
+            case .contact, .legacyGroup, .group: return name
                 
-            case .openGroup:
+            case .community:
                 // In open groups, where it's more likely that multiple users have the same name,
                 // we display a bit of the Session ID after a user's display name for added context
                 return "\(name) (\(Profile.truncated(id: id, truncating: .middle)))"

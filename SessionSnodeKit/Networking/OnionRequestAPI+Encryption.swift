@@ -33,16 +33,8 @@ internal extension OnionRequestAPI {
             case .snode(let snode):
                 // Need to wrap the payload for snode requests
                 return encode(ciphertext: payload, json: [ "headers" : "" ])
-                    .flatMap { data -> AnyPublisher<AES.GCM.EncryptionResult, Error> in
-                        do {
-                            return Just(try AES.GCM.encrypt(data, for: snode.x25519PublicKey))
-                                .setFailureType(to: Error.self)
-                                .eraseToAnyPublisher()
-                        }
-                        catch {
-                            return Fail(error: error)
-                                .eraseToAnyPublisher()
-                        }
+                    .tryMap { data -> AES.GCM.EncryptionResult in
+                        try AES.GCM.encrypt(data, for: snode.x25519PublicKey)
                     }
                     .eraseToAnyPublisher()
                 
@@ -89,17 +81,7 @@ internal extension OnionRequestAPI {
         }()
         
         return encode(ciphertext: previousEncryptionResult.ciphertext, json: parameters)
-            .flatMap { data -> AnyPublisher<AES.GCM.EncryptionResult, Error> in
-                do {
-                    return Just(try AES.GCM.encrypt(data, for: x25519PublicKey))
-                        .setFailureType(to: Error.self)
-                        .eraseToAnyPublisher()
-                }
-                catch (let error) {
-                    return Fail(error: error)
-                        .eraseToAnyPublisher()
-                }
-            }
+            .tryMap { data -> AES.GCM.EncryptionResult in try AES.GCM.encrypt(data, for: x25519PublicKey) }
             .eraseToAnyPublisher()
     }
 }

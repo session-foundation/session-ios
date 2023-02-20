@@ -68,6 +68,7 @@ extension MessageSender {
     }
     
     public static func performUploadsIfNeeded(
+        queue: DispatchQueue,
         preparedSendData: PreparedSendData
     ) -> AnyPublisher<PreparedSendData, Error> {
         // We need an interactionId in order for a message to have uploads
@@ -95,7 +96,7 @@ extension MessageSender {
         }()
         
         return Storage.shared
-            .readPublisherFlatMap { db -> AnyPublisher<(attachments: [Attachment], openGroup: OpenGroup?), Error> in
+            .readPublisherFlatMap(receiveOn: queue) { db -> AnyPublisher<(attachments: [Attachment], openGroup: OpenGroup?), Error> in
                 let attachmentStateInfo: [Attachment.StateInfo] = (try? Attachment
                     .stateInfo(interactionId: interactionId, state: .uploading)
                     .fetchAll(db))

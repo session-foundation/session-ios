@@ -7,10 +7,14 @@ extension SnodeAPI {
         enum CodingKeys: String, CodingKey {
             case lastHash = "last_hash"
             case namespace
+            case maxCount = "max_count"
+            case maxSize = "max_size"
         }
         
         let lastHash: String
         let namespace: SnodeAPI.Namespace?
+        let maxCount: Int64?
+        let maxSize: Int64?
         
         // MARK: - Init
         
@@ -21,10 +25,14 @@ extension SnodeAPI {
             subkey: String?,
             timestampMs: UInt64,
             ed25519PublicKey: [UInt8],
-            ed25519SecretKey: [UInt8]
+            ed25519SecretKey: [UInt8],
+            maxCount: Int64? = nil,
+            maxSize: Int64? = nil
         ) {
             self.lastHash = lastHash
             self.namespace = namespace
+            self.maxCount = maxCount
+            self.maxSize = maxSize
             
             super.init(
                 pubkey: pubkey,
@@ -42,6 +50,8 @@ extension SnodeAPI {
             
             try container.encode(lastHash, forKey: .lastHash)
             try container.encodeIfPresent(namespace, forKey: .namespace)
+            try container.encodeIfPresent(maxCount, forKey: .maxCount)
+            try container.encodeIfPresent(maxSize, forKey: .maxSize)
             
             try super.encode(to: encoder)
         }

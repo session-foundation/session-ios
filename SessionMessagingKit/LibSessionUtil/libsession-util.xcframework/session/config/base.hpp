@@ -90,6 +90,7 @@ class ConfigBase {
     // already dirty (i.e. Clean or Waiting) then calling this increments the seqno counter.
     MutableConfigMessage& dirty();
 
+  public:
     // class for proxying subfield access; this class should never be stored but only used
     // ephemerally (most of its methods are rvalue-qualified).  This lets constructs such as
     // foo["abc"]["def"]["ghi"] = 12;
@@ -271,7 +272,7 @@ class ConfigBase {
         std::string string_or(std::string fallback) const {
             if (auto* s = string())
                 return *s;
-            return std::move(fallback);
+            return fallback;
         }
 
         /// Returns a const pointer to the integer if one exists at the given location, nullptr
@@ -297,7 +298,7 @@ class ConfigBase {
         /// Replaces the current value with the given string.  This also auto-vivifies any
         /// intermediate dicts needed to reach the given key, including replacing non-dict values if
         /// they currently exist along the path.
-        void operator=(std::string value) { assign_if_changed(std::move(value)); }
+        void operator=(std::string&& value) { assign_if_changed(std::move(value)); }
         /// Same as above, but takes a string_view for convenience (this makes a copy).
         void operator=(std::string_view value) { *this = std::string{value}; }
         /// Same as above, but takes a ustring_view
@@ -391,6 +392,7 @@ class ConfigBase {
         }
     };
 
+  protected:
     // Called when dumping to obtain any extra data that a subclass needs to store to reconstitute
     // the object.  The base implementation does nothing.  The counterpart to this,
     // `load_extra_data()`, is called when loading from a dump that has extra data; a subclass
@@ -429,6 +431,11 @@ class ConfigBase {
     /// to use.  This is rarely needed externally; it is public merely for testing purposes.
     virtual const char* encryption_domain() const = 0;
 
+    /// The zstd compression level to use for this type.  Subclasses can override this if they have
+    /// some particular special compression level, or to disable compression entirely (by returning
+    /// std::nullopt).  The default is zstd level 1.
+    virtual std::optional<int> compression_level() const { return 1; }
+
     // How many config lags should be used for this object; default to 5.  Implementing subclasses
     // can override to return a different constant if desired.  More lags require more "diff"
     // storage in the config messages, but also allow for a higher tolerance of simultaneous message
@@ -463,13 +470,16 @@ class ConfigBase {
     // the server.  This will be true whenever `is_clean()` is false: that is, if we are currently
     // "dirty" (i.e.  have changes that haven't been pushed) or are still awaiting confirmation of
     // storage of the most recent serialized push data.
-    bool needs_push() const;
+    virtual bool needs_push() const;
 
     // Returns the data messages to push to the server along with the seqno value of the data.  If
     // the config is currently dirty (i.e. has previously unsent modifications) then this marks it
     // as awaiting-confirmation instead of dirty so that any future change immediately increments
     // the seqno.
-    std::pair<ustring, seqno_t> push();
+    //
+    // Subclasses that need to perform pre-push tasks (such as pruning stale data) can override this
+    // to prune and then call the base method to perform the actual push generation.
+    virtual std::pair<ustring, seqno_t> push();
 
     // Should be called after the push is confirmed stored on the storage server swarm to let the
     // object know the data is stored.  (Once this is called `needs_push` will start returning false

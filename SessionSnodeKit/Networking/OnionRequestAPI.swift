@@ -72,25 +72,20 @@ public enum OnionRequestAPI: OnionRequestAPIType {
         
         return HTTP.execute(.get, url, timeout: timeout)
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .flatMap { responseData -> AnyPublisher<Void, Error> in
+            .tryMap { responseData -> Void in
                 // TODO: Remove JSON usage
                 guard let responseJson: JSON = try? JSONSerialization.jsonObject(with: responseData, options: [ .fragmentsAllowed ]) as? JSON else {
-                    return Fail(error: HTTPError.invalidJSON)
-                        .eraseToAnyPublisher()
+                    throw HTTPError.invalidJSON
                 }
                 guard let version = responseJson["version"] as? String else {
-                    return Fail(error: OnionRequestAPIError.missingSnodeVersion)
-                        .eraseToAnyPublisher()
+                    throw OnionRequestAPIError.missingSnodeVersion
                 }
                 guard version >= "2.0.7" else {
                     SNLog("Unsupported snode version: \(version).")
-                    return Fail(error: OnionRequestAPIError.unsupportedSnodeVersion(version))
-                        .eraseToAnyPublisher()
+                    throw OnionRequestAPIError.unsupportedSnodeVersion(version)
                 }
                 
-                return Just(())
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
+                return ()
             }
             .eraseToAnyPublisher()
     }

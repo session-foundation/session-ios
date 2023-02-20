@@ -36,7 +36,7 @@ public enum SendReadReceiptsJob: JobExecutor {
         }
         
         Storage.shared
-            .writePublisher { db in
+            .writePublisher(receiveOn: queue) { db in
                 try MessageSender.preparedSendData(
                     db,
                     message: ReadReceipt(
@@ -46,7 +46,6 @@ public enum SendReadReceiptsJob: JobExecutor {
                     interactionId: nil
                 )
             }
-            .subscribe(on: queue)
             .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
             .receive(on: queue)
             .sinkUntilComplete(
@@ -120,9 +119,9 @@ public extension SendReadReceiptsJob {
                 .joining(
                     // Don't send read receipts in group threads
                     required: Interaction.thread
-                        .filter(SessionThread.Columns.variant != SessionThread.Variant.legacyClosedGroup)
-                        .filter(SessionThread.Columns.variant != SessionThread.Variant.closedGroup)
-                        .filter(SessionThread.Columns.variant != SessionThread.Variant.openGroup)
+                        .filter(SessionThread.Columns.variant != SessionThread.Variant.legacyGroup)
+                        .filter(SessionThread.Columns.variant != SessionThread.Variant.group)
+                        .filter(SessionThread.Columns.variant != SessionThread.Variant.community)
                 )
                 .distinct()
         )

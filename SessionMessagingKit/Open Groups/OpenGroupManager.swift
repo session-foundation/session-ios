@@ -230,7 +230,7 @@ public final class OpenGroupManager {
         
         // Optionally try to insert a new version of the OpenGroup (it will fail if there is already an
         // inactive one but that won't matter as we then activate it
-        _ = try? SessionThread.fetchOrCreate(db, id: threadId, variant: .openGroup)
+        _ = try? SessionThread.fetchOrCreate(db, id: threadId, variant: .community)
         _ = try? SessionThread.filter(id: threadId).updateAll(db, SessionThread.Columns.shouldBeVisible.set(to: true))
         
         if (try? OpenGroup.exists(db, id: threadId)) == false {
@@ -249,67 +249,64 @@ public final class OpenGroupManager {
                 OpenGroup.Columns.sequenceNumber.set(to: 0)
             )
         
-        // We was to avoid blocking the db write thread so we dispatch the API call to a different thread
+        // We want to avoid blocking the db write thread so we dispatch the API call to a different thread
         //
         // Note: We don't do this after the db commit as it can fail (resulting in endless loading)
-        return Just(())
-            .setFailureType(to: Error.self)
-            .subscribe(on: OpenGroupAPI.workQueue)
-            .receive(on: OpenGroupAPI.workQueue)
-            .flatMap { _ in
-                dependencies.storage
-                    .readPublisherFlatMap { db in
-                        // Note: The initial request for room info and it's capabilities should NOT be
-                        // authenticated (this is because if the server requires blinding and the auth
-                        // headers aren't blinded it will error - these endpoints do support unauthenticated
-                        // retrieval so doing so prevents the error)
-                        OpenGroupAPI
-                            .capabilitiesAndRoom(
-                                db,
-                                for: roomToken,
-                                on: targetServer,
-                                using: dependencies
-                            )
-                    }
-            }
-            .flatMap { response -> Future<Void, Error> in
-                Future<Void, Error> { resolver in
-                    dependencies.storage.write { db in
-                        // Enqueue a config sync job (have a newly added open group to sync)
-                        if !calledFromConfigHandling {
-                            ConfigurationSyncJob.enqueue(db)
-                        }
-                        
-                        // Store the capabilities first
-                        OpenGroupManager.handleCapabilities(
+        return Deferred {
+            dependencies.storage
+                .readPublisherFlatMap(receiveOn: OpenGroupAPI.workQueue) { db in
+                    // Note: The initial request for room info and it's capabilities should NOT be
+                    // authenticated (this is because if the server requires blinding and the auth
+                    // headers aren't blinded it will error - these endpoints do support unauthenticated
+                    // retrieval so doing so prevents the error)
+                    OpenGroupAPI
+                        .capabilitiesAndRoom(
                             db,
-                            capabilities: response.data.capabilities.data,
-                            on: targetServer
-                        )
-                        
-                        // Then the room
-                        try OpenGroupManager.handlePollInfo(
-                            db,
-                            pollInfo: OpenGroupAPI.RoomPollInfo(room: response.data.room.data),
-                            publicKey: publicKey,
                             for: roomToken,
                             on: targetServer,
-                            dependencies: dependencies
-                        ) {
-                            resolver(Result.success(()))
-                        }
+                            using: dependencies
+                        )
+                }
+        }
+        .receive(on: OpenGroupAPI.workQueue)
+        .flatMap { response -> Future<Void, Error> in
+            Future<Void, Error> { resolver in
+                dependencies.storage.write { db in
+                    // Enqueue a config sync job (have a newly added open group to sync)
+                    if !calledFromConfigHandling {
+                        ConfigurationSyncJob.enqueue(db)
+                    }
+                    
+                    // Store the capabilities first
+                    OpenGroupManager.handleCapabilities(
+                        db,
+                        capabilities: response.data.capabilities.data,
+                        on: targetServer
+                    )
+                    
+                    // Then the room
+                    try OpenGroupManager.handlePollInfo(
+                        db,
+                        pollInfo: OpenGroupAPI.RoomPollInfo(room: response.data.room.data),
+                        publicKey: publicKey,
+                        for: roomToken,
+                        on: targetServer,
+                        dependencies: dependencies
+                    ) {
+                        resolver(Result.success(()))
                     }
                 }
             }
-            .handleEvents(
-                receiveCompletion: { result in
-                    switch result {
-                        case .finished: break
-                        case .failure: SNLog("Failed to join open group.")
-                    }
+        }
+        .handleEvents(
+            receiveCompletion: { result in
+                switch result {
+                    case .finished: break
+                    case .failure: SNLog("Failed to join open group.")
                 }
-            )
-            .eraseToAnyPublisher()
+            }
+        )
+        .eraseToAnyPublisher()
     }
 
     public func delete(_ db: Database, openGroupId: String, dependencies: OGMDependencies = OGMDependencies()) {
@@ -961,14 +958,14 @@ public final class OpenGroupManager {
         
         // Try to retrieve the default rooms 8 times
         let publisher: AnyPublisher<[OpenGroupAPI.Room], Error> = dependencies.storage
-            .readPublisherFlatMap { db in
+            .readPublisherFlatMap(receiveOn: OpenGroupAPI.workQueue) { db in
                 OpenGroupAPI.capabilitiesAndRooms(
                     db,
                     on: OpenGroupAPI.defaultServer,
                     using: dependencies
                 )
             }
-            .subscribe(on: OpenGroupAPI.workQueue)
+            .receive(on: OpenGroupAPI.workQueue)
             .retry(8)
             .map { response in
                 dependencies.storage.writeAsync { db in

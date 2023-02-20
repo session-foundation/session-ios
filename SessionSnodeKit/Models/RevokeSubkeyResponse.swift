@@ -4,24 +4,33 @@ import Foundation
 import Sodium
 import SessionUtilitiesKit
 
-public class RevokeSubkeyResponse: SnodeRecursiveResponse<SnodeSwarmItem> {
-    // MARK: - Convenience
+public class RevokeSubkeyResponse: SnodeRecursiveResponse<SnodeSwarmItem> {}
+
+// MARK: - ValidatableResponse
+
+extension RevokeSubkeyResponse: ValidatableResponse {
+    typealias ValidationData = String
+    typealias ValidationResponse = Bool
     
-    internal func validateResult(
+    /// All responses in the swarm must be valid
+    internal static var requiredSuccessfulResponses: Int { -1 }
+    
+    internal func validResultMap(
+        sodium: Sodium,
         userX25519PublicKey: String,
-        subkeyToRevoke: String,
-        sodium: Sodium
-    ) throws {
-        try swarm.forEach { snodePublicKey, swarmItem in
+        validationData: String
+    ) throws -> [String: Bool] {
+        let validationMap: [String: Bool] = try swarm.reduce(into: [:]) { result, next in
             guard
-                !swarmItem.failed,
-                let encodedSignature: Data = Data(base64Encoded: swarmItem.signatureBase64)
+                !next.value.failed,
+                let signatureBase64: String = next.value.signatureBase64,
+                let encodedSignature: Data = Data(base64Encoded: signatureBase64)
             else {
-                if let reason: String = swarmItem.reason, let statusCode: Int = swarmItem.code {
-                    SNLog("Couldn't revoke subkey from: \(snodePublicKey) due to error: \(reason) (\(statusCode)).")
+                if let reason: String = next.value.reason, let statusCode: Int = next.value.code {
+                    SNLog("Couldn't revoke subkey from: \(next.key) due to error: \(reason) (\(statusCode)).")
                 }
                 else {
-                    SNLog("Couldn't revoke subkey from: \(snodePublicKey).")
+                    SNLog("Couldn't revoke subkey from: \(next.key).")
                 }
                 return
             }
@@ -29,15 +38,19 @@ public class RevokeSubkeyResponse: SnodeRecursiveResponse<SnodeSwarmItem> {
             /// Signature of `( PUBKEY_HEX || SUBKEY_TAG_BYTES )` where `SUBKEY_TAG_BYTES` is the
             /// requested subkey tag for revocation
             let verificationBytes: [UInt8] = userX25519PublicKey.bytes
-                .appending(contentsOf: subkeyToRevoke.bytes)
+                .appending(contentsOf: validationData.bytes)
             let isValid: Bool = sodium.sign.verify(
                 message: verificationBytes,
-                publicKey: Data(hex: snodePublicKey).bytes,
+                publicKey: Data(hex: next.key).bytes,
                 signature: encodedSignature.bytes
             )
             
             // If the update signature is invalid then we want to fail here
             guard isValid else { throw SnodeAPIError.signatureVerificationFailed }
+            
+            result[next.key] = isValid
         }
+        
+        return try Self.validated(map: validationMap)
     }
 }

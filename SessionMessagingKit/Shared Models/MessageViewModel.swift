@@ -304,9 +304,9 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             }
         }()
         let isGroupThread: Bool = (
-            self.threadVariant == .openGroup ||
-            self.threadVariant == .legacyClosedGroup ||
-            self.threadVariant == .closedGroup
+            self.threadVariant == .community ||
+            self.threadVariant == .legacyGroup ||
+            self.threadVariant == .group
         )
         
         return ViewModel(
@@ -741,13 +741,13 @@ public extension MessageViewModel {
                     \(interaction[.id]) = \(readReceiptTableLiteral).\(interactionStateInteractionIdColumnLiteral)
                 )
                 LEFT JOIN \(GroupMember.self) AS \(groupMemberModeratorTableLiteral) ON (
-                    \(SQL("\(thread[.variant]) = \(SessionThread.Variant.openGroup)")) AND
+                    \(SQL("\(thread[.variant]) = \(SessionThread.Variant.community)")) AND
                     \(groupMemberModeratorTableLiteral).\(groupMemberGroupIdColumnLiteral) = \(interaction[.threadId]) AND
                     \(groupMemberModeratorTableLiteral).\(groupMemberProfileIdColumnLiteral) = \(interaction[.authorId]) AND
                     \(SQL("\(groupMemberModeratorTableLiteral).\(groupMemberRoleColumnLiteral) = \(GroupMember.Role.moderator)"))
                 )
                 LEFT JOIN \(GroupMember.self) AS \(groupMemberAdminTableLiteral) ON (
-                    \(SQL("\(thread[.variant]) = \(SessionThread.Variant.openGroup)")) AND
+                    \(SQL("\(thread[.variant]) = \(SessionThread.Variant.community)")) AND
                     \(groupMemberAdminTableLiteral).\(groupMemberGroupIdColumnLiteral) = \(interaction[.threadId]) AND
                     \(groupMemberAdminTableLiteral).\(groupMemberProfileIdColumnLiteral) = \(interaction[.authorId]) AND
                     \(SQL("\(groupMemberAdminTableLiteral).\(groupMemberRoleColumnLiteral) = \(GroupMember.Role.admin)"))

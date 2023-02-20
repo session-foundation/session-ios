@@ -236,8 +236,9 @@ public final class MessageSender {
             return PreparedSendData()
         }
         
-        // Attach the user's profile if needed
-        if var messageWithProfile: MessageWithProfile = message as? MessageWithProfile {
+        // Attach the user's profile if needed (no need to do so for 'Note to Self' or sync messages as they
+        // will be managed by the user config handling
+        if !isSelfSend, !isSyncMessage, var messageWithProfile: MessageWithProfile = message as? MessageWithProfile {
             let profile: Profile = Profile.fetchOrCreateCurrentUser(db)
             
             if let profileKey: Data = profile.profileEncryptionKey, let profilePictureUrl: String = profile.profilePictureUrl {
@@ -597,8 +598,8 @@ public final class MessageSender {
         // uploading first, this is here to ensure we don't send a message which should have uploaded
         // files
         //
-        // If you see this error then you need to call `MessageSender.performUploadsIfNeeded(preparedSendData:)`
-        // before calling this function
+        // If you see this error then you need to call
+        // `MessageSender.performUploadsIfNeeded(queue:preparedSendData:)` before calling this function
         switch preparedSendData.message {
             case let visibleMessage as VisibleMessage:
                 guard visibleMessage.attachmentIds.count == preparedSendData.totalAttachmentsUploaded else {
@@ -674,7 +675,7 @@ public final class MessageSender {
                 }()
 
                 return dependencies.storage
-                    .writePublisher { db -> Void in
+                    .writePublisher(receiveOn: DispatchQueue.global(qos: .default)) { db -> Void in
                         try MessageSender.handleSuccessfulMessageSend(
                             db,
                             message: updatedMessage,
@@ -701,20 +702,22 @@ public final class MessageSender {
                                 .eraseToAnyPublisher()
                         }
 
-                        return Future<Bool, Error> { resolver in
-                            NotifyPushServerJob.run(
-                                job,
-                                queue: DispatchQueue.global(qos: .default),
-                                success: { _, _ in resolver(Result.success(true)) },
-                                failure: { _, _, _ in
-                                    // Always fulfill because the notify PN server job isn't critical.
-                                    resolver(Result.success(true))
-                                },
-                                deferred: { _ in
-                                    // Always fulfill because the notify PN server job isn't critical.
-                                    resolver(Result.success(true))
-                                }
-                            )
+                        return Deferred {
+                            Future<Bool, Error> { resolver in
+                                NotifyPushServerJob.run(
+                                    job,
+                                    queue: DispatchQueue.global(qos: .default),
+                                    success: { _, _ in resolver(Result.success(true)) },
+                                    failure: { _, _, _ in
+                                        // Always fulfill because the notify PN server job isn't critical.
+                                        resolver(Result.success(true))
+                                    },
+                                    deferred: { _ in
+                                        // Always fulfill because the notify PN server job isn't critical.
+                                        resolver(Result.success(true))
+                                    }
+                                )
+                            }
                         }
                         .eraseToAnyPublisher()
                     }
@@ -762,7 +765,7 @@ public final class MessageSender {
         
         // Send the result
         return dependencies.storage
-            .readPublisherFlatMap { db in
+            .readPublisherFlatMap(receiveOn: DispatchQueue.global(qos: .default)) { db in
                 OpenGroupAPI
                     .send(
                         db,
@@ -781,7 +784,7 @@ public final class MessageSender {
                 let updatedMessage: Message = message
                 updatedMessage.openGroupServerMessageId = UInt64(responseData.id)
                 
-                return dependencies.storage.writePublisher { db in
+                return dependencies.storage.writePublisher(receiveOn: DispatchQueue.global(qos: .default)) { db in
                     // The `posted` value is in seconds but we sent it in ms so need that for de-duping
                     try MessageSender.handleSuccessfulMessageSend(
                         db,
@@ -831,7 +834,7 @@ public final class MessageSender {
         
         // Send the result
         return dependencies.storage
-            .readPublisherFlatMap { db in
+            .readPublisherFlatMap(receiveOn: DispatchQueue.global(qos: .default)) { db in
                 return OpenGroupAPI
                     .send(
                         db,
@@ -846,7 +849,7 @@ public final class MessageSender {
                 let updatedMessage: Message = message
                 updatedMessage.openGroupServerMessageId = UInt64(responseData.id)
                 
-                return dependencies.storage.writePublisher { db in
+                return dependencies.storage.writePublisher(receiveOn: DispatchQueue.global(qos: .default)) { db in
                     // The `posted` value is in seconds but we sent it in ms so need that for de-duping
                     try MessageSender.handleSuccessfulMessageSend(
                         db,

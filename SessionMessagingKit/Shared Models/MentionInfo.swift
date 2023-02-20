@@ -34,7 +34,7 @@ public extension MentionInfo {
         let profileFullTextSearch: SQL = SQL(stringLiteral: Profile.fullTextSearchTableName)
         
         /// **Note:** The `\(MentionInfo.profileKey).*` value **MUST** be first
-        let limitSQL: SQL? = (threadVariant == .openGroup ? SQL("LIMIT 20") : nil)
+        let limitSQL: SQL? = (threadVariant == .community ? SQL("LIMIT 20") : nil)
         
         let request: SQLRequest<MentionInfo> = {
             guard let pattern: FTS5Pattern = pattern else {
@@ -57,7 +57,7 @@ public extension MentionInfo {
                 
                     WHERE (
                         \(SQL("\(profile[.id]) != \(userPublicKey)")) AND (
-                            \(SQL("\(threadVariant) != \(SessionThread.Variant.openGroup)")) OR
+                            \(SQL("\(threadVariant) != \(SessionThread.Variant.community)")) OR
                             \(SQL("\(profile[.id]) LIKE '\(prefixLiteral)'"))
                         )
                     )
@@ -83,7 +83,7 @@ public extension MentionInfo {
                 JOIN \(Profile.self) ON (
                     \(Profile.self).rowid = \(profileFullTextSearch).rowid AND
                     \(SQL("\(profile[.id]) != \(userPublicKey)")) AND (
-                        \(SQL("\(threadVariant) != \(SessionThread.Variant.openGroup)")) OR
+                        \(SQL("\(threadVariant) != \(SessionThread.Variant.community)")) OR
                         \(SQL("\(profile[.id]) LIKE '\(prefixLiteral)'"))
                     )
                 )

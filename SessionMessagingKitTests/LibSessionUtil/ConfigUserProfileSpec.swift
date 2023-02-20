@@ -4,6 +4,7 @@ import Foundation
 import Sodium
 import SessionUtil
 import SessionUtilitiesKit
+import SessionMessagingKit
 
 import Quick
 import Nimble
@@ -68,25 +69,14 @@ class ConfigUserProfileSpec: QuickSpec {
             
             // This should also be unset:
             let pic: user_profile_pic = user_profile_get_pic(conf)
-            expect(pic.url).to(beNil())
-            expect(pic.key).to(beNil())
-            expect(pic.keylen).to(equal(0))
+            expect(String(libSessionVal: pic.url)).to(beEmpty())
             
             // Now let's go set a profile name and picture:
             expect(user_profile_set_name(conf, "Kallie")).to(equal(0))
-            let profileUrl: [CChar] = "http://example.org/omg-pic-123.bmp"
-                .bytes
-                .map { CChar(bitPattern: $0) }
-            let profileKey: [UInt8] = "secretNOTSECRET".bytes
-            let p: user_profile_pic = profileUrl.withUnsafeBufferPointer { profileUrlPtr in
-                profileKey.withUnsafeBufferPointer { profileKeyPtr in
-                    user_profile_pic(
-                        url: profileUrlPtr.baseAddress,
-                        key: profileKeyPtr.baseAddress,
-                        keylen: 6
-                    )
-                }
-            }
+            let p: user_profile_pic = user_profile_pic(
+                url: "http://example.org/omg-pic-123.bmp".toLibSession(),
+                key: "secret78901234567890123456789012".data(using: .utf8)!.toLibSession()
+            )
             expect(user_profile_set_pic(conf, p)).to(equal(0))
             
             // Retrieve them just to make sure they set properly:
@@ -95,11 +85,9 @@ class ConfigUserProfileSpec: QuickSpec {
             expect(String(cString: namePtr2!)).to(equal("Kallie"))
             
             let pic2: user_profile_pic = user_profile_get_pic(conf);
-            expect(pic2.url).toNot(beNil())
-            expect(pic2.key).toNot(beNil())
-            expect(pic2.keylen).to(equal(6))
-            expect(String(cString: pic2.url!)).to(equal("http://example.org/omg-pic-123.bmp"))
-            expect(String(pointer: pic2.key, length: pic2.keylen)).to(equal("secret"))
+            expect(String(libSessionVal: pic2.url)).to(equal("http://example.org/omg-pic-123.bmp"))
+            expect(Data(libSessionVal: pic2.key, count: ProfileManager.avatarAES256KeyByteLength))
+                .to(equal("secret78901234567890123456789012".data(using: .utf8)))
             
             // Since we've made changes, we should need to push new config to the swarm, *and* should need
             // to dump the updated state:
@@ -125,7 +113,7 @@ class ConfigUserProfileSpec: QuickSpec {
                   1:& d
                     1:n 6:Kallie
                     1:p 34:http://example.org/omg-pic-123.bmp
-                    1:q 6:secret
+                    1:q 32:secret78901234567890123456789012
                   e
                   1:< l
                     l i0e 32:
@@ -146,12 +134,13 @@ class ConfigUserProfileSpec: QuickSpec {
             ]
             .flatMap { $0 }
             let expPush1Encrypted: [UInt8] = Data(hex: [
-              "a2952190dcb9797bc48e48f6dc7b3254d004bde9091cfc9ec3433cbc5939a3726deb04f58a546d7d79e6f8",
-              "0ea185d43bf93278398556304998ae882304075c77f15c67f9914c4d10005a661f29ff7a79e0a9de7f2172",
-              "5ba3b5a6c19eaa3797671b8fa4008d62e9af2744629cbb46664c4d8048e2867f66ed9254120371bdb24e95",
-              "b2d92341fa3b1f695046113a768ceb7522269f937ead5591bfa8a5eeee3010474002f2db9de043f0f0d1cf",
-              "b1066a03e7b5d6cfb70a8f84a20cd2df5a510cd3d175708015a52dd4a105886d916db0005dbea5706e5a5d",
-              "c37ffd0a0ca2824b524da2e2ad181a48bb38e21ed9abe136014a4ee1e472cb2f53102db2a46afa9d68"
+              "877c8e0f5d33f5fffa5a4e162785a9a89918e95de1c4b925201f1f5c29d9ee4f8c36e2b278fce1e6",
+              "b9d999689dd86ff8e79e0a04004fa54d24da89bc2604cb1df8c1356da8f14710543ecec44f2d57fc",
+              "56ea8b7e73d119c69d755f4d513d5d069f02396b8ec0cbed894169836f57ca4b782ce705895c593b",
+              "4230d50c175d44a08045388d3f4160bacb617b9ae8de3ebc8d9024245cd09ce102627cab2acf1b91",
+              "26159211359606611ca5814de320d1a7099a65c99b0eebbefb92a115f5efa6b9132809300ac010c6",
+              "857cfbd62af71b0fa97eccec75cb95e67edf40b35fdb9cad125a6976693ab085c6bba96a2e51826e",
+              "81e16b9ec1232af5680f2ced55310486"
             ].joined()).bytes
             
             expect(String(pointer: toPush2, length: toPush2Len, encoding: .ascii))
@@ -259,19 +248,10 @@ class ConfigUserProfileSpec: QuickSpec {
             user_profile_set_name(conf2, "Raz")
             
             // And, on conf2, we're also going to change the profile pic:
-            let profile2Url: [CChar] = "http://new.example.com/pic"
-                .bytes
-                .map { CChar(bitPattern: $0) }
-            let profile2Key: [UInt8] = "qwert\0yuio".bytes
-            let p2: user_profile_pic = profile2Url.withUnsafeBufferPointer { profile2UrlPtr in
-                profile2Key.withUnsafeBufferPointer { profile2KeyPtr in
-                    user_profile_pic(
-                        url: profile2UrlPtr.baseAddress,
-                        key: profile2KeyPtr.baseAddress,
-                        keylen: 10
-                    )
-                }
-            }
+            let p2: user_profile_pic = user_profile_pic(
+                url: "http://new.example.com/pic".toLibSession(),
+                key: "qwert\0yuio1234567890123456789012".data(using: .utf8)!.toLibSession()
+            )
             user_profile_set_pic(conf2, p2)
             
             // Both have changes, so push need a push
@@ -336,14 +316,16 @@ class ConfigUserProfileSpec: QuickSpec {
             // Since only one of them set a profile pic there should be no conflict there:
             let pic3: user_profile_pic = user_profile_get_pic(conf)
             expect(pic3.url).toNot(beNil())
-            expect(String(cString: pic3.url!)).to(equal("http://new.example.com/pic"))
+            expect(String(libSessionVal: pic3.url)).to(equal("http://new.example.com/pic"))
             expect(pic3.key).toNot(beNil())
-            expect(String(pointer: pic3.key, length: pic3.keylen)).to(equal("qwert\0yuio"))
+            expect(Data(libSessionVal: pic3.key, count: 32).toHexString())
+                .to(equal("7177657274007975696f31323334353637383930313233343536373839303132"))
             let pic4: user_profile_pic = user_profile_get_pic(conf2)
             expect(pic4.url).toNot(beNil())
-            expect(String(cString: pic4.url!)).to(equal("http://new.example.com/pic"))
+            expect(String(libSessionVal: pic4.url)).to(equal("http://new.example.com/pic"))
             expect(pic4.key).toNot(beNil())
-            expect(String(pointer: pic4.key, length: pic4.keylen)).to(equal("qwert\0yuio"))
+            expect(Data(libSessionVal: pic4.key, count: 32).toHexString())
+                .to(equal("7177657274007975696f31323334353637383930313233343536373839303132"))
 
             config_confirm_pushed(conf, seqno5)
             config_confirm_pushed(conf2, seqno6)

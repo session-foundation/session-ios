@@ -346,17 +346,14 @@ enum GiphyAPI {
                 // URLError codes are negative values
                 return HTTPError.generic
             }
-            .flatMap { data, _ -> AnyPublisher<[GiphyImageInfo], Error> in
+            .tryMap { data, _ -> [GiphyImageInfo] in
                 Logger.error("search request succeeded")
                 
                 guard let imageInfos = self.parseGiphyImages(responseData: data) else {
-                    return Fail(error: HTTPError.invalidResponse)
-                        .eraseToAnyPublisher()
+                    throw HTTPError.invalidResponse
                 }
                 
-                return Just(imageInfos)
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
+                return imageInfos
             }
             .eraseToAnyPublisher()
     }

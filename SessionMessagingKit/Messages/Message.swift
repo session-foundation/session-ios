@@ -361,7 +361,7 @@ public extension Message {
         let blindedUserPublicKey: String? = SessionThread
             .getUserHexEncodedBlindedKey(
                 threadId: openGroupId,
-                threadVariant: .openGroup
+                threadVariant: .community
             )
         for (encodedEmoji, rawReaction) in reactions {
             if let decodedEmoji = encodedEmoji.removingPercentEncoding,

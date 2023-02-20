@@ -73,25 +73,27 @@ class UserNotificationPresenterAdaptee: NSObject, UNUserNotificationCenterDelega
 }
 
 extension UserNotificationPresenterAdaptee: NotificationPresenterAdaptee {
-    func registerNotificationSettings() -> Future<Void, Never> {
-        return Future { [weak self] resolver in
-            self?.notificationCenter.requestAuthorization(options: [.badge, .sound, .alert]) { (granted, error) in
-                self?.notificationCenter.setNotificationCategories(UserNotificationConfig.allNotificationCategories)
-
-                if granted {}
-                else if let error: Error = error {
-                    Logger.error("failed with error: \(error)")
+    func registerNotificationSettings() -> AnyPublisher<Void, Never> {
+        return Deferred {
+            Future { [weak self] resolver in
+                self?.notificationCenter.requestAuthorization(options: [.badge, .sound, .alert]) { (granted, error) in
+                    self?.notificationCenter.setNotificationCategories(UserNotificationConfig.allNotificationCategories)
+                    
+                    if granted {}
+                    else if let error: Error = error {
+                        Logger.error("failed with error: \(error)")
+                    }
+                    else {
+                        Logger.error("failed without error.")
+                    }
+                    
+                    // Note that the promise is fulfilled regardless of if notification permssions were
+                    // granted. This promise only indicates that the user has responded, so we can
+                    // proceed with requesting push tokens and complete registration.
+                    resolver(Result.success(()))
                 }
-                else {
-                    Logger.error("failed without error.")
-                }
-
-                // Note that the promise is fulfilled regardless of if notification permssions were
-                // granted. This promise only indicates that the user has responded, so we can
-                // proceed with requesting push tokens and complete registration.
-                resolver(Result.success(()))
             }
-        }
+        }.eraseToAnyPublisher()
     }
 
     func notify(
@@ -114,7 +116,7 @@ extension UserNotificationPresenterAdaptee: NotificationPresenterAdaptee {
         content.threadIdentifier = (threadIdentifier ?? content.threadIdentifier)
         
         let shouldGroupNotification: Bool = (
-            threadVariant == .openGroup &&
+            threadVariant == .community &&
             replacingIdentifier == threadIdentifier
         )
         let isAppActive = UIApplication.shared.applicationState == .active

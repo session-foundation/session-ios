@@ -1,39 +1,57 @@
 #pragma once
 
+#include <stdexcept>
+
 #include "session/types.hpp"
 
 namespace session::config {
 
-// Profile pic info.  Note that `url` is null terminated (though the null lies just beyond the end
-// of the string view: that is, it views into a full std::string).
+// Profile pic info.
 struct profile_pic {
-  private:
-    std::string url_;
-    ustring key_;
+    static constexpr size_t MAX_URL_LENGTH = 223;
 
-  public:
-    std::string_view url;
-    ustring_view key;
+    std::string url;
+    ustring key;
+
+    static void check_key(ustring_view key) {
+        if (!(key.empty() || key.size() == 32))
+            throw std::invalid_argument{"Invalid profile pic key: 32 bytes required"};
+    }
 
     // Default constructor, makes an empty profile pic
     profile_pic() = default;
 
-    // Constructs from string views: the values must stay alive for the duration of the profile_pic
-    // instance.  (If not, use `set_url`/`set_key` or the rvalue-argument constructor instead).
-    profile_pic(std::string_view url, ustring_view key) : url{url}, key{key} {}
+    // Constructs from a URL and key.  Key must be empty or 32 bytes.
+    profile_pic(std::string_view url, ustring_view key) : url{url}, key{key} {
+        check_key(this->key);
+    }
 
-    // Constructs from temporary strings; the strings are stored/managed internally
-    profile_pic(std::string&& url, ustring&& key) :
-            url_{std::move(url)}, key_{std::move(key)}, url{url_}, key{key_} {}
+    // Constructs from a string/ustring pair moved into the constructor
+    profile_pic(std::string&& url, ustring&& key) : url{std::move(url)}, key{std::move(key)} {
+        check_key(this->key);
+    }
 
-    // Returns true if either url or key are empty
-    bool empty() const { return url.empty() || key.empty(); }
+    // Returns true if either url or key are empty (or invalid)
+    bool empty() const { return url.empty() || key.size() != 32; }
 
-    // Sets the url or key to a temporary value that needs to be copied and owned by this
-    // profile_pic object.  (This is only needed when the source string may not outlive the
-    // profile_pic object; if it does, the `url` or `key` can be assigned to directly).
-    void set_url(std::string url);
-    void set_key(ustring key);
+    // Clears the current url/key, if set.  This is just a shortcut for calling `.clear()` on each
+    // of them.
+    void clear() {
+        url.clear();
+        key.clear();
+    }
+
+    // The object in boolean context is true if url and key are both set, i.e. the opposite of
+    // `empty()`.
+    explicit operator bool() const { return !empty(); }
+
+    // Sets and validates the key.  The key can be empty, or 32 bytes.  This is almost the same as
+    // just setting `.key` directly, except that it will throw if the provided key is invalid (i.e.
+    // neither empty nor 32 bytes).
+    void set_key(ustring new_key) {
+        check_key(new_key);
+        key = std::move(new_key);
+    }
 };
 
 }  // namespace session::config

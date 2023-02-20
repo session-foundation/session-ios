@@ -284,14 +284,14 @@ public enum MessageReceiver {
             // Note: We don't want to create a thread for an open group if it doesn't exist
             if (try? SessionThread.exists(db, id: openGroupId)) != true { return nil }
             
-            return (openGroupId, .openGroup)
+            return (openGroupId, .community)
         }
         
         if let groupPublicKey: String = message.groupPublicKey {
             // Note: We don't want to create a thread for a closed group if it doesn't exist
             if (try? SessionThread.exists(db, id: groupPublicKey)) != true { return nil }
             
-            return (groupPublicKey, .legacyClosedGroup)
+            return (groupPublicKey, .legacyGroup)
         }
         
         // Extract the 'syncTarget' value if there is one

@@ -241,7 +241,7 @@ enum MockDataGenerator {
                 }
                 
                 let thread: SessionThread = try! SessionThread
-                    .fetchOrCreate(db, id: randomGroupPublicKey, variant: .legacyClosedGroup)
+                    .fetchOrCreate(db, id: randomGroupPublicKey, variant: .legacyGroup)
                     .with(shouldBeVisible: true)
                     .saved(db)
                 _ = try! ClosedGroup(
@@ -367,7 +367,7 @@ enum MockDataGenerator {
                 
                 // Create the open group model and the thread
                 let thread: SessionThread = try! SessionThread
-                    .fetchOrCreate(db, id: randomGroupPublicKey, variant: .openGroup)
+                    .fetchOrCreate(db, id: randomGroupPublicKey, variant: .community)
                     .with(shouldBeVisible: true)
                     .saved(db)
                 _ = try! OpenGroup(

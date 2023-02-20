@@ -163,48 +163,50 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                 .eraseToAnyPublisher()
         }
         
-        return Future<Void, Error> { [weak self] resolver in
-            self?.peerConnection?.offer(for: mediaConstraints) { sdp, error in
-                if let error = error {
-                    return
-                }
-                
-                guard let sdp: RTCSessionDescription = self?.correctSessionDescription(sdp: sdp) else {
-                    preconditionFailure()
-                }
-                
-                self?.peerConnection?.setLocalDescription(sdp) { error in
+        return Deferred {
+            Future<Void, Error> { [weak self] resolver in
+                self?.peerConnection?.offer(for: mediaConstraints) { sdp, error in
                     if let error = error {
-                        print("Couldn't initiate call due to error: \(error).")
-                        resolver(Result.failure(error))
                         return
                     }
-                }
-                
-                Storage.shared
-                    .writePublisher { db in
-                        try MessageSender
-                            .preparedSendData(
-                                db,
-                                message: CallMessage(
-                                    uuid: uuid,
-                                    kind: .offer,
-                                    sdps: [ sdp.sdp ],
-                                    sentTimestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs())
-                                ),
-                                to: try Message.Destination.from(db, thread: thread),
-                                interactionId: nil
-                            )
+                    
+                    guard let sdp: RTCSessionDescription = self?.correctSessionDescription(sdp: sdp) else {
+                        preconditionFailure()
                     }
-                    .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
-                    .sinkUntilComplete(
-                        receiveCompletion: { result in
-                            switch result {
-                                case .finished: resolver(Result.success(()))
-                                case .failure(let error): resolver(Result.failure(error))
-                            }
+                    
+                    self?.peerConnection?.setLocalDescription(sdp) { error in
+                        if let error = error {
+                            print("Couldn't initiate call due to error: \(error).")
+                            resolver(Result.failure(error))
+                            return
                         }
-                    )
+                    }
+                    
+                    Storage.shared
+                        .writePublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
+                            try MessageSender
+                                .preparedSendData(
+                                    db,
+                                    message: CallMessage(
+                                        uuid: uuid,
+                                        kind: .offer,
+                                        sdps: [ sdp.sdp ],
+                                        sentTimestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs())
+                                    ),
+                                    to: try Message.Destination.from(db, thread: thread),
+                                    interactionId: nil
+                                )
+                        }
+                        .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
+                        .sinkUntilComplete(
+                            receiveCompletion: { result in
+                                switch result {
+                                    case .finished: resolver(Result.success(()))
+                                    case .failure(let error): resolver(Result.failure(error))
+                                }
+                            }
+                        )
+                }
             }
         }
         .eraseToAnyPublisher()
@@ -216,10 +218,9 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         let mediaConstraints: RTCMediaConstraints = mediaConstraints(false)
         
         return Storage.shared
-            .readPublisherFlatMap { db -> AnyPublisher<SessionThread, Error> in
+            .readPublisherFlatMap(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db -> AnyPublisher<SessionThread, Error> in
                 guard let thread: SessionThread = try? SessionThread.fetchOne(db, id: sessionId) else {
-                    return Fail(error: WebRTCSessionError.noThread)
-                        .eraseToAnyPublisher()
+                    throw WebRTCSessionError.noThread
                 }
                 
                 return Just(thread)
@@ -246,7 +247,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                         }
                         
                         Storage.shared
-                            .writePublisher { db in
+                            .writePublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
                                 try MessageSender
                                     .preparedSendData(
                                         db,
@@ -293,10 +294,9 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         self.queuedICECandidates.removeAll()
         
         Storage.shared
-            .writePublisherFlatMap { db in
+            .writePublisherFlatMap(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
                 guard let thread: SessionThread = try SessionThread.fetchOne(db, id: contactSessionId) else {
-                    return Fail(error: WebRTCSessionError.noThread)
-                        .eraseToAnyPublisher()
+                    throw WebRTCSessionError.noThread
                 }
                 
                 SNLog("[Calls] Batch sending \(candidates.count) ICE candidates.")

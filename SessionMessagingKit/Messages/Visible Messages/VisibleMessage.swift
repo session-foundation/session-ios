@@ -218,8 +218,8 @@ public extension VisibleMessage {
             recipient: (try? interaction.recipientStates.fetchOne(db))?.recipientId,
             groupPublicKey: try? interaction.thread
                 .filter(
-                    SessionThread.Columns.variant == SessionThread.Variant.legacyClosedGroup ||
-                    SessionThread.Columns.variant == SessionThread.Variant.closedGroup
+                    SessionThread.Columns.variant == SessionThread.Variant.legacyGroup ||
+                    SessionThread.Columns.variant == SessionThread.Variant.group
                 )
                 .select(.id)
                 .asRequest(of: String.self)

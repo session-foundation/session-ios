@@ -31,23 +31,18 @@ internal extension SessionUtil {
             
             let profileName: String = String(cString: profileNamePtr)
             let profilePic: user_profile_pic = user_profile_get_pic(conf)
-            var profilePictureUrl: String? = nil
-            var profilePictureKey: Data? = nil
+            let profilePictureUrl: String? = String(libSessionVal: profilePic.url, nullIfEmpty: true)
             
-            // Make sure the url and key exist before reading the memory
-            if
-                profilePic.keylen > 0,
-                let profilePictureUrlPtr: UnsafePointer<CChar> = profilePic.url,
-                let profilePictureKeyPtr: UnsafePointer<UInt8> = profilePic.key
-            {
-                profilePictureUrl = String(cString: profilePictureUrlPtr)
-                profilePictureKey = Data(bytes: profilePictureKeyPtr, count: profilePic.keylen)
-            }
-            
+            // Make sure the url and key exists before reading the memory
             return (
                 profileName: profileName,
                 profilePictureUrl: profilePictureUrl,
-                profilePictureKey: profilePictureKey
+                profilePictureKey: (profilePictureUrl == nil ? nil :
+                    Data(
+                        libSessionVal: profilePic.url,
+                        count: ProfileManager.avatarAES256KeyByteLength
+                    )
+                )
             )
         }
         
@@ -106,35 +101,14 @@ internal extension SessionUtil {
         // blocking access in it's `mutate` closure
         return atomicConf.mutate { conf in
             // Update the name
-            var updatedName: [CChar] = profile.name
-                .bytes
-                .map { CChar(bitPattern: $0) }
+            var updatedName: [CChar] = profile.name.cArray
             user_profile_set_name(conf, &updatedName)
             
             // Either assign the updated profile pic, or sent a blank profile pic (to remove the current one)
-            let profilePic: user_profile_pic? = {
-                guard
-                    let profilePictureUrl: String = profile.profilePictureUrl,
-                    let profileEncryptionKey: Data = profile.profileEncryptionKey
-                else { return nil }
-                
-                let updatedUrl: [CChar] = profilePictureUrl
-                    .bytes
-                    .map { CChar(bitPattern: $0) }
-                let updatedKey: [UInt8] = profileEncryptionKey
-                    .bytes
-                
-                return updatedUrl.withUnsafeBufferPointer { urlPtr in
-                    updatedKey.withUnsafeBufferPointer { keyPtr in
-                        user_profile_pic(
-                            url: urlPtr.baseAddress,
-                            key: keyPtr.baseAddress,
-                            keylen: updatedKey.count
-                        )
-                    }
-                }
-            }()
-            user_profile_set_pic(conf, (profilePic ?? user_profile_pic()))
+            var profilePic: user_profile_pic = user_profile_pic()
+            profilePic.url = profile.profilePictureUrl.toLibSession()
+            profilePic.key = profile.profileEncryptionKey.toLibSession()
+            user_profile_set_pic(conf, profilePic)
             
             return ConfResult(
                 needsPush: config_needs_push(conf),

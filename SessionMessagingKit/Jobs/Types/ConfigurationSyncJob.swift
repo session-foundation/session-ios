@@ -39,18 +39,7 @@ public enum ConfigurationSyncJob: JobExecutor {
         // fresh install due to the migrations getting run)
         guard
             let pendingSwarmConfigChanges: [SingleDestinationChanges] = Storage.shared
-                .read({ db -> [SessionUtil.OutgoingConfResult]? in
-                    guard
-                        Identity.userExists(db),
-                        let ed25519SecretKey: [UInt8] = Identity.fetchUserEd25519KeyPair(db)?.secretKey
-                    else { return nil }
-                    
-                    return try SessionUtil.pendingChanges(
-                        db,
-                        userPublicKey: getUserHexEncodedPublicKey(db),
-                        ed25519SecretKey: ed25519SecretKey
-                    )
-                })?
+                .read({ db in try SessionUtil.pendingChanges(db) })?
                 .grouped(by: { $0.destination })
                 .map({ (destination: Message.Destination, value: [SessionUtil.OutgoingConfResult]) -> SingleDestinationChanges in
                     SingleDestinationChanges(
@@ -75,7 +64,7 @@ public enum ConfigurationSyncJob: JobExecutor {
         }
         
         Storage.shared
-            .readPublisher { db in
+            .readPublisher(receiveOn: queue) { db in
                 try pendingSwarmConfigChanges
                     .map { (change: SingleDestinationChanges) -> (messages: [TargetedMessage], allOldHashes: Set<String>) in
                         (
@@ -96,8 +85,6 @@ public enum ConfigurationSyncJob: JobExecutor {
                         )
                     }
             }
-            .subscribe(on: queue)
-            .receive(on: queue)
             .flatMap { (pendingSwarmChange: [(messages: [TargetedMessage], allOldHashes: Set<String>)]) -> AnyPublisher<[HTTP.BatchResponse], Error> in
                 Publishers
                     .MergeMany(
@@ -119,17 +106,17 @@ public enum ConfigurationSyncJob: JobExecutor {
                     .collect()
                     .eraseToAnyPublisher()
             }
-            .flatMap { (responses: [HTTP.BatchResponse]) -> AnyPublisher<[SuccessfulChange], Error> in
+            .receive(on: queue)
+            .tryMap { (responses: [HTTP.BatchResponse]) -> [SuccessfulChange] in
                 // We make a sequence call for this so it's possible to get fewer responses than
                 // expected so if that happens fail and re-run later
                 guard responses.count == pendingSwarmConfigChanges.count else {
-                    return Fail(error: HTTPError.invalidResponse)
-                        .eraseToAnyPublisher()
+                    throw HTTPError.invalidResponse
                 }
                 
                 // Process the response data into an easy to understand for (this isn't strictly
                 // needed but the code gets convoluted without this)
-                let successfulChanges: [SuccessfulChange] = zip(responses, pendingSwarmConfigChanges)
+                return zip(responses, pendingSwarmConfigChanges)
                     .compactMap { (batchResponse: HTTP.BatchResponse, pendingSwarmChange: SingleDestinationChanges) -> [SuccessfulChange]? in
                         let maybePublicKey: String? = {
                             switch pendingSwarmChange.destination {
@@ -179,10 +166,6 @@ public enum ConfigurationSyncJob: JobExecutor {
                             }
                     }
                     .flatMap { $0 }
-                
-                return Just(successfulChanges)
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
             }
             .map { (successfulChanges: [SuccessfulChange]) -> [ConfigDump] in
                 // Now that we have the successful changes, we need to mark them as pushed and
@@ -213,8 +196,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                 receiveCompletion: { result in
                     switch result {
                         case .finished: break
-                        case .failure(let error):
-                            failure(job, error, false)
+                        case .failure(let error): failure(job, error, false)
                     }
                 },
                 receiveValue: { (configDumps: [ConfigDump]) in
@@ -354,7 +336,7 @@ public extension ConfigurationSyncJob {
         // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
         guard Features.useSharedUtilForUserConfig else {
             return Storage.shared
-                .writePublisher { db -> MessageSender.PreparedSendData in
+                .writePublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db -> MessageSender.PreparedSendData in
                     // If we don't have a userKeyPair yet then there is no need to sync the configuration
                     // as the user doesn't exist yet (this will get triggered on the first launch of a
                     // fresh install due to the migrations getting run)
@@ -369,21 +351,21 @@ public extension ConfigurationSyncJob {
                         interactionId: nil
                     )
                 }
-                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .receive(on: DispatchQueue.global(qos: .userInitiated))
                 .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
                 .eraseToAnyPublisher()
         }
         
         // Trigger the job emitting the result when completed
-        return Future { resolver in
-            ConfigurationSyncJob.run(
-                Job(variant: .configurationSync),
-                queue: DispatchQueue.global(qos: .userInitiated),
-                success: { _, _ in resolver(Result.success(())) },
-                failure: { _, error, _ in resolver(Result.failure(error ?? HTTPError.generic)) },
-                deferred: { _ in }
-            )
+        return Deferred {
+            Future { resolver in
+                ConfigurationSyncJob.run(
+                    Job(variant: .configurationSync),
+                    queue: DispatchQueue.global(qos: .userInitiated),
+                    success: { _, _ in resolver(Result.success(())) },
+                    failure: { _, error, _ in resolver(Result.failure(error ?? HTTPError.generic)) },
+                    deferred: { _ in }
+                )
+            }
         }
         .eraseToAnyPublisher()
     }

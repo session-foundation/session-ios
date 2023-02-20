@@ -91,7 +91,7 @@ extension OpenGroupAPI {
             let server: String = self.server
             
             return dependencies.storage
-                .readPublisherFlatMap { db -> AnyPublisher<(Int64, PollResponse), Error> in
+                .readPublisherFlatMap(receiveOn: Threading.pollerQueue) { db -> AnyPublisher<(Int64, PollResponse), Error> in
                     let failureCount: Int64 = (try? OpenGroup
                         .select(max(OpenGroup.Columns.pollFailureCount))
                         .asRequest(of: Int64.self)
@@ -225,7 +225,7 @@ extension OpenGroupAPI {
             }
             
             return dependencies.storage
-                .readPublisherFlatMap { db in
+                .readPublisherFlatMap(receiveOn: OpenGroupAPI.workQueue) { db in
                     OpenGroupAPI.capabilities(
                         db,
                         server: server,

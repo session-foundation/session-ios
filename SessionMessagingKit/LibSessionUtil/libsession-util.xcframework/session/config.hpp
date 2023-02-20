@@ -225,7 +225,9 @@ class ConfigMessage {
 
 // Constructor tag
 struct increment_seqno_t {};
+struct retain_seqno_t {};
 inline constexpr increment_seqno_t increment_seqno{};
+inline constexpr retain_seqno_t retain_seqno{};
 
 class MutableConfigMessage : public ConfigMessage {
   protected:
@@ -292,7 +294,14 @@ class MutableConfigMessage : public ConfigMessage {
 
     /// Constructor that does the same thing as the `m.increment()` factory method.  The second
     /// value should be the literal `increment_seqno` value (to select this constructor).
-    explicit MutableConfigMessage(const ConfigMessage& m, increment_seqno_t);
+    explicit MutableConfigMessage(const ConfigMessage& m, const increment_seqno_t&);
+
+    /// Constructor that moves a immutable message into a mutable one, retaining the current seqno.
+    /// This is typically used in situations where the ConfigMessage has had some implicit seqno
+    /// increment already (e.g. from merging) and we want it to become mutable without incrementing
+    /// the seqno again.  The second value should be the literal `retain_seqno` value (to select
+    /// this constructor).
+    explicit MutableConfigMessage(ConfigMessage&& m, const retain_seqno_t&);
 
     using ConfigMessage::data;
     /// Returns a mutable reference to the underlying config data.

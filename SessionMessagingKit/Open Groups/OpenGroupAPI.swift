@@ -363,7 +363,7 @@ public enum OpenGroupAPI {
                 requests: requestResponseType,
                 using: dependencies
             )
-            .flatMap { (info: ResponseInfoType, data: [Endpoint: Codable]) -> AnyPublisher<CapabilitiesAndRoomResponse, Error> in
+            .tryMap { (info: ResponseInfoType, data: [Endpoint: Codable]) -> CapabilitiesAndRoomResponse in
                 let maybeCapabilities: HTTP.BatchSubResponse<Capabilities>? = (data[.capabilities] as? HTTP.BatchSubResponse<Capabilities>)
                 let maybeRoomResponse: Codable? = data
                     .first(where: { key, _ in
@@ -380,20 +380,15 @@ public enum OpenGroupAPI {
                     let capabilities: Capabilities = maybeCapabilities?.body,
                     let roomInfo: ResponseInfoType = maybeRoom?.responseInfo,
                     let room: Room = maybeRoom?.body
-                else {
-                    return Fail(error: HTTPError.parsingFailed)
-                        .eraseToAnyPublisher()
-                }
+                else { throw HTTPError.parsingFailed }
                 
-                return Just((
+                return (
                     info: info,
                     data: (
                         capabilities: (info: capabilitiesInfo, data: capabilities),
                         room: (info: roomInfo, data: room)
                     )
-                ))
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
+                )
             }
             .eraseToAnyPublisher()
     }
@@ -434,7 +429,7 @@ public enum OpenGroupAPI {
                 requests: requestResponseType,
                 using: dependencies
             )
-            .flatMap { (info: ResponseInfoType, data: [Endpoint: Codable]) -> AnyPublisher<(capabilities: (info: ResponseInfoType, data: Capabilities), rooms: (info: ResponseInfoType, data: [Room])), Error> in
+            .tryMap { (info: ResponseInfoType, data: [Endpoint: Codable]) -> (capabilities: (info: ResponseInfoType, data: Capabilities), rooms: (info: ResponseInfoType, data: [Room])) in
                 let maybeCapabilities: HTTP.BatchSubResponse<Capabilities>? = (data[.capabilities] as? HTTP.BatchSubResponse<Capabilities>)
                 let maybeRooms: HTTP.BatchSubResponse<[Room]>? = data
                     .first(where: { key, _ in
@@ -450,17 +445,12 @@ public enum OpenGroupAPI {
                     let capabilities: Capabilities = maybeCapabilities?.body,
                     let roomsInfo: ResponseInfoType = maybeRooms?.responseInfo,
                     let rooms: [Room] = maybeRooms?.body
-                else {
-                    return Fail(error: HTTPError.parsingFailed)
-                        .eraseToAnyPublisher()
-                }
+                else { throw HTTPError.parsingFailed }
                 
-                return Just((
+                return (
                     capabilities: (info: capabilitiesInfo, data: capabilities),
                     rooms: (info: roomsInfo, data: rooms)
-                ))
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
+                )
             }
             .eraseToAnyPublisher()
     }
@@ -957,15 +947,10 @@ public enum OpenGroupAPI {
                 timeout: FileServerAPI.fileTimeout,
                 using: dependencies
             )
-            .flatMap { responseInfo, maybeData -> AnyPublisher<(ResponseInfoType, Data), Error> in
-                guard let data: Data = maybeData else {
-                    return Fail(error: HTTPError.parsingFailed)
-                        .eraseToAnyPublisher()
-                }
+            .tryMap { responseInfo, maybeData -> (ResponseInfoType, Data) in
+                guard let data: Data = maybeData else { throw HTTPError.parsingFailed }
                 
-                return Just((responseInfo, data))
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
+                return (responseInfo, data)
             }
             .eraseToAnyPublisher()
     }

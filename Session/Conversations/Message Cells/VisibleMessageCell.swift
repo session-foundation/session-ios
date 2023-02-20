@@ -306,18 +306,18 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             )
         )
         let isGroupThread: Bool = (
-            cellViewModel.threadVariant == .openGroup ||
-            cellViewModel.threadVariant == .legacyClosedGroup ||
-            cellViewModel.threadVariant == .closedGroup
+            cellViewModel.threadVariant == .community ||
+            cellViewModel.threadVariant == .legacyGroup ||
+            cellViewModel.threadVariant == .group
         )
         
-        // Profile picture view
+        // Profile picture view (should always be handled as a standard 'contact' profile picture)
         profilePictureViewLeadingConstraint.constant = (isGroupThread ? VisibleMessageCell.groupThreadHSpacing : 0)
         profilePictureViewWidthConstraint.constant = (isGroupThread ? VisibleMessageCell.profilePictureSize : 0)
         profilePictureView.isHidden = (!cellViewModel.shouldShowProfile || cellViewModel.profile == nil)
         profilePictureView.update(
             publicKey: cellViewModel.authorId,
-            threadVariant: cellViewModel.threadVariant,
+            threadVariant: .contact,    // Should always be '.contact'
             customImageData: nil,
             profile: cellViewModel.profile,
             additionalProfile: nil
@@ -710,9 +710,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             maxWidth: maxWidth,
             showingAllReactions: showExpandedReactions,
             showNumbers: (
-                cellViewModel.threadVariant == .legacyClosedGroup ||
-                cellViewModel.threadVariant == .closedGroup ||
-                cellViewModel.threadVariant == .openGroup
+                cellViewModel.threadVariant == .legacyGroup ||
+                cellViewModel.threadVariant == .group ||
+                cellViewModel.threadVariant == .community
             )
         )
     }
@@ -860,7 +860,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         
         if profilePictureView.bounds.contains(profilePictureView.convert(location, from: self)), cellViewModel.shouldShowProfile {
             // For open groups only attempt to start a conversation if the author has a blinded id
-            guard cellViewModel.threadVariant != .openGroup else {
+            guard cellViewModel.threadVariant != .community else {
                 guard SessionId.Prefix(from: cellViewModel.authorId) == .blinded else { return }
                 
                 delegate?.startThread(
@@ -1070,9 +1070,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 
             case .standardIncoming, .standardIncomingDeleted:
                 let isGroupThread = (
-                    cellViewModel.threadVariant == .openGroup ||
-                    cellViewModel.threadVariant == .legacyClosedGroup ||
-                    cellViewModel.threadVariant == .closedGroup
+                    cellViewModel.threadVariant == .community ||
+                    cellViewModel.threadVariant == .legacyGroup ||
+                    cellViewModel.threadVariant == .group
                 )
                 let leftGutterSize = (isGroupThread ? leftGutterSize : contactThreadHSpacing)
                 

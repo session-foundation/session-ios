@@ -186,12 +186,12 @@ public class MessageRequestsViewModel {
             ) { _ in
                 Storage.shared.write { db in
                     switch threadVariant {
-                        case .contact, .openGroup:
+                        case .contact, .community:
                             _ = try SessionThread
                                 .filter(id: threadId)
                                 .deleteAll(db)
                             
-                        case .legacyClosedGroup, .closedGroup:
+                        case .legacyGroup, .group:
                             try ClosedGroup.removeKeysAndUnsubscribe(
                                 db,
                                 threadId: threadId,

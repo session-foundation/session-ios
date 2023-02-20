@@ -150,7 +150,7 @@ class HelpViewModel: SessionTableViewModel<NoNav, HelpViewModel.Section, HelpVie
     ) {
         let version: String = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String)
             .defaulting(to: "")
-        OWSLogger.info("[Version] iOS \(UIDevice.current.systemVersion) \(version)")
+        OWSLogger.info("[Version] iOS \(UIDevice.current.systemVersion), App: \(version), libSession: \(SessionUtil.libSessionVersion)")
         DDLog.flushLog()
         
         let logFilePaths: [String] = AppEnvironment.shared.fileLogger.logFileManager.sortedLogFilePaths

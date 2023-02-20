@@ -277,7 +277,7 @@ message SharedConfigMessage {
         USER_PROFILE            = 1;
         CONTACTS                = 2;
         CONVO_INFO_VOLATILE     = 3;
-        GROUPS                  = 4;
+        USER_GROUPS             = 4;
     }
 
     // @required

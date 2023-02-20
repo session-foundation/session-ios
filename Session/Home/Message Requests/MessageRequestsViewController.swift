@@ -445,7 +445,7 @@ class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDat
                         
                         return UISwipeActionsConfiguration(actions: [ delete, block ])
                         
-                    case .legacyClosedGroup, .closedGroup, .openGroup:
+                    case .legacyGroup, .group, .community:
                         return UISwipeActionsConfiguration(actions: [ delete ])
                 }
                 
@@ -469,7 +469,7 @@ class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDat
         let closedGroupThreadIds: [String] = (viewModel.threadData
             .first { $0.model == .threads }?
             .elements
-            .filter { $0.threadVariant == .legacyClosedGroup || $0.threadVariant == .closedGroup }
+            .filter { $0.threadVariant == .legacyGroup || $0.threadVariant == .group }
             .map { $0.threadId })
             .defaulting(to: [])
         let alertVC: UIAlertController = UIAlertController(

@@ -189,7 +189,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             NotificationCenter.default.post(name: Database.resumeNotification, object: self)
             
             Storage.shared
-                .writePublisher { db -> MessageSender.PreparedSendData in
+                .writePublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db -> MessageSender.PreparedSendData in
                     guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
                         throw MessageSenderError.noThread
                     }
@@ -248,7 +248,12 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                             in: thread
                         )
                 }
-                .flatMap { MessageSender.performUploadsIfNeeded(preparedSendData: $0) }
+                .flatMap {
+                    MessageSender.performUploadsIfNeeded(
+                        queue: DispatchQueue.global(qos: .userInitiated),
+                        preparedSendData: $0
+                    )
+                }
                 .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(

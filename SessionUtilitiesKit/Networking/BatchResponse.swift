@@ -85,15 +85,11 @@ public extension AnyPublisher where Output == (ResponseInfoType, Data?), Failure
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<HTTP.BatchResponse, Error> {
         self
-            .flatMap { responseInfo, maybeData -> AnyPublisher<HTTP.BatchResponse, Error> in
+            .tryMap { responseInfo, maybeData -> HTTP.BatchResponse in
                 // Need to split the data into an array of data so each item can be Decoded correctly
-                guard let data: Data = maybeData else {
-                    return Fail(error: HTTPError.parsingFailed)
-                        .eraseToAnyPublisher()
-                }
+                guard let data: Data = maybeData else { throw HTTPError.parsingFailed }
                 guard let jsonObject: Any = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]) else {
-                    return Fail(error: HTTPError.parsingFailed)
-                        .eraseToAnyPublisher()
+                    throw HTTPError.parsingFailed
                 }
                 
                 let dataArray: [Data]
@@ -103,8 +99,7 @@ public extension AnyPublisher where Output == (ResponseInfoType, Data?), Failure
                         dataArray = anyArray.compactMap { try? JSONSerialization.data(withJSONObject: $0) }
                         
                         guard !requireAllResults || dataArray.count == types.count else {
-                            return Fail(error: HTTPError.parsingFailed)
-                                .eraseToAnyPublisher()
+                            throw HTTPError.parsingFailed
                         }
                         
                     case let anyDict as [String: Any]:
@@ -115,34 +110,19 @@ public extension AnyPublisher where Output == (ResponseInfoType, Data?), Failure
                                 !requireAllResults ||
                                 resultsArray.count == types.count
                             )
-                        else {
-                            return Fail(error: HTTPError.parsingFailed)
-                                .eraseToAnyPublisher()
-                        }
+                        else { throw HTTPError.parsingFailed }
                         
                         dataArray = resultsArray
                         
-                    default:
-                        return Fail(error: HTTPError.parsingFailed)
-                            .eraseToAnyPublisher()
+                    default: throw HTTPError.parsingFailed
                 }
                 
-                do {
-                    // TODO: Remove the 'Swift.'
-                    return Just(
-                        HTTP.BatchResponse(
-                            info: responseInfo,
-                            responses: try Swift.zip(dataArray, types)
-                                .map { data, type in try type.decoded(from: data, using: dependencies) }
-                        )
-                    )
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
-                }
-                catch {
-                    return Fail(error: HTTPError.parsingFailed)
-                        .eraseToAnyPublisher()
-                }
+                // TODO: Remove the 'Swift.'
+                return HTTP.BatchResponse(
+                    info: responseInfo,
+                    responses: try Swift.zip(dataArray, types)
+                        .map { data, type in try type.decoded(from: data, using: dependencies) }
+                )
             }
             .eraseToAnyPublisher()
     }

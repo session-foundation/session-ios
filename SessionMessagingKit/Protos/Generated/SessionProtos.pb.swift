@@ -1623,7 +1623,7 @@ struct SessionProtos_SharedConfigMessage {
     case userProfile // = 1
     case contacts // = 2
     case convoInfoVolatile // = 3
-    case groups // = 4
+    case userGroups // = 4
 
     init() {
       self = .userProfile
@@ -1634,7 +1634,7 @@ struct SessionProtos_SharedConfigMessage {
       case 1: self = .userProfile
       case 2: self = .contacts
       case 3: self = .convoInfoVolatile
-      case 4: self = .groups
+      case 4: self = .userGroups
       default: return nil
       }
     }
@@ -1644,7 +1644,7 @@ struct SessionProtos_SharedConfigMessage {
       case .userProfile: return 1
       case .contacts: return 2
       case .convoInfoVolatile: return 3
-      case .groups: return 4
+      case .userGroups: return 4
       }
     }
 
@@ -3343,6 +3343,6 @@ extension SessionProtos_SharedConfigMessage.Kind: SwiftProtobuf._ProtoNameProvid
     1: .same(proto: "USER_PROFILE"),
     2: .same(proto: "CONTACTS"),
     3: .same(proto: "CONVO_INFO_VOLATILE"),
-    4: .same(proto: "GROUPS"),
+    4: .same(proto: "USER_GROUPS"),
   ]
 }

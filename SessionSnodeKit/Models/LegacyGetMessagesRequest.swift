@@ -9,11 +9,15 @@ extension SnodeAPI {
             case pubkey
             case lastHash = "last_hash"
             case namespace
+            case maxCount = "max_count"
+            case maxSize = "max_size"
         }
         
         let pubkey: String
         let lastHash: String
         let namespace: SnodeAPI.Namespace?
+        let maxCount: Int64?
+        let maxSize: Int64?
         
         // MARK: - Coding
         
@@ -23,6 +27,8 @@ extension SnodeAPI {
             try container.encode(pubkey, forKey: .pubkey)
             try container.encode(lastHash, forKey: .lastHash)
             try container.encodeIfPresent(namespace, forKey: .namespace)
+            try container.encodeIfPresent(maxCount, forKey: .maxCount)
+            try container.encodeIfPresent(maxSize, forKey: .maxSize)
         }
     }
 }

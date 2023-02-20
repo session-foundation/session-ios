@@ -513,22 +513,24 @@ open class ProxiedContentDownloader: NSObject, URLSessionTaskDelegate, URLSessio
         // Cache miss.
         //
         // Asset requests are done queued and performed asynchronously.
-        return Future { [weak self] resolver in
-            let assetRequest = ProxiedContentAssetRequest(
-                assetDescription: assetDescription,
-                priority: priority,
-                success: { request, asset in resolver(Result.success((asset, request))) },
-                failure: { request in
-                    resolver(Result.failure(HTTPError.generic))
-                }
-            )
-            assetRequest.shouldIgnoreSignalProxy = shouldIgnoreSignalProxy
-            self?.assetRequestQueue.append(assetRequest)
-            // Process the queue (which may start this request)
-            // asynchronously so that the caller has time to store
-            // a reference to the asset request returned by this
-            // method before its success/failure handler is called.
-            self?.processRequestQueueAsync()
+        return Deferred {
+            Future { [weak self] resolver in
+                let assetRequest = ProxiedContentAssetRequest(
+                    assetDescription: assetDescription,
+                    priority: priority,
+                    success: { request, asset in resolver(Result.success((asset, request))) },
+                    failure: { request in
+                        resolver(Result.failure(HTTPError.generic))
+                    }
+                )
+                assetRequest.shouldIgnoreSignalProxy = shouldIgnoreSignalProxy
+                self?.assetRequestQueue.append(assetRequest)
+                // Process the queue (which may start this request)
+                // asynchronously so that the caller has time to store
+                // a reference to the asset request returned by this
+                // method before its success/failure handler is called.
+                self?.processRequestQueueAsync()
+            }
         }.eraseToAnyPublisher()
     }
 

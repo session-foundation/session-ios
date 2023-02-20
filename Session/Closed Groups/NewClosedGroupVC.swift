@@ -333,10 +333,9 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         let message: String? = (selectedContacts.count > 20 ? "GROUP_CREATION_PLEASE_WAIT".localized() : nil)
         ModalActivityIndicatorViewController.present(fromViewController: navigationController!, message: message) { [weak self] _ in
             Storage.shared
-                .writePublisherFlatMap { db in
+                .writePublisherFlatMap(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
                     MessageSender.createClosedGroup(db, name: name, members: selectedContacts)
                 }
-                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveCompletion: { result in

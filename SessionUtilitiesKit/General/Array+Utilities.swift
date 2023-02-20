@@ -63,11 +63,3 @@ public extension Array where Element == String {
         return self.reversed()
     }
 }
-
-public extension Array where Element == CChar {
-    func nullTerminated() -> [Element] {
-        guard self.last != CChar(0) else { return self }
-        
-        return self.appending(CChar(0))
-    }
-}

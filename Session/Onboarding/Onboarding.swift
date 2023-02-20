@@ -23,11 +23,8 @@ enum Onboarding {
         return Atomic(
             SnodeAPI.getSwarm(for: userPublicKey)
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .flatMap { swarm -> AnyPublisher<Void, Error> in
-                    guard let snode = swarm.randomElement() else {
-                        return Fail(error: SnodeAPIError.generic)
-                            .eraseToAnyPublisher()
-                    }
+                .tryFlatMap { swarm -> AnyPublisher<Void, Error> in
+                    guard let snode = swarm.randomElement() else { throw SnodeAPIError.generic }
                     
                     return CurrentUserPoller.poll(
                         namespaces: [.configUserProfile],
@@ -41,7 +38,7 @@ enum Onboarding {
                     )
                 }
                 .flatMap { _ -> AnyPublisher<String?, Error> in
-                    Storage.shared.readPublisher { db in
+                    Storage.shared.readPublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
                         try Profile
                             .filter(id: userPublicKey)
                             .select(.name)

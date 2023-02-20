@@ -20,7 +20,7 @@ public struct ConfigDump: Codable, Equatable, Hashable, FetchableRecord, Persist
         case userProfile
         case contacts
         case convoInfoVolatile
-        case groups
+        case userGroups
     }
     
     /// The type of config this dump is for
@@ -66,14 +66,14 @@ public extension ConfigDump {
 }
 
 public extension ConfigDump.Variant {
-    static let userVariants: [ConfigDump.Variant] = [ .userProfile, .contacts, .convoInfoVolatile, .groups ]
+    static let userVariants: [ConfigDump.Variant] = [ .userProfile, .contacts, .convoInfoVolatile, .userGroups ]
     
     var configMessageKind: SharedConfigMessage.Kind {
         switch self {
             case .userProfile: return .userProfile
             case .contacts: return .contacts
             case .convoInfoVolatile: return .convoInfoVolatile
-            case .groups: return .groups
+            case .userGroups: return .userGroups
         }
     }
     
@@ -82,7 +82,7 @@ public extension ConfigDump.Variant {
             case .userProfile: return SnodeAPI.Namespace.configUserProfile
             case .contacts: return SnodeAPI.Namespace.configContacts
             case .convoInfoVolatile: return SnodeAPI.Namespace.configConvoInfoVolatile
-            case .groups: return SnodeAPI.Namespace.configGroups
+            case .userGroups: return SnodeAPI.Namespace.configUserGroups
         }
     }
 }

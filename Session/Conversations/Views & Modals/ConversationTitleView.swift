@@ -168,12 +168,12 @@ final class ConversationTitleView: UIView {
             switch threadVariant {
                 case .contact: break
                     
-                case .legacyClosedGroup, .closedGroup:
+                case .legacyGroup, .group:
                     subtitleLabel?.attributedText = NSAttributedString(
                         string: "\(userCount) member\(userCount == 1 ? "" : "s")"
                     )
                     
-                case .openGroup:
+                case .community:
                     subtitleLabel?.attributedText = NSAttributedString(
                         string: "\(userCount) active member\(userCount == 1 ? "" : "s")"
                     )

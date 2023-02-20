@@ -322,7 +322,7 @@ extension OpenGroupSuggestionGrid {
             Publishers
                 .MergeMany(
                     Storage.shared
-                        .readPublisherFlatMap { db in
+                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
                             OpenGroupManager
                                 .roomImage(db, fileId: imageId, for: room.token, on: OpenGroupAPI.defaultServer)
                         }

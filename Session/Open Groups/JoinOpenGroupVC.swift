@@ -169,7 +169,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         
         ModalActivityIndicatorViewController.present(fromViewController: navigationController, canCancel: false) { [weak self] _ in
             Storage.shared
-                .writePublisherFlatMap { db in
+                .writePublisherFlatMap(receiveOn: DispatchQueue.main) { db in
                     OpenGroupManager.shared.add(
                         db,
                         roomToken: roomToken,
@@ -194,7 +194,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                                 if shouldOpenCommunity {
                                     SessionApp.presentConversation(
                                         for: OpenGroup.idFor(roomToken: roomToken, server: server),
-                                        threadVariant: .openGroup,
+                                        threadVariant: .community,
                                         isMessageRequest: false,
                                         action: .compose,
                                         focusInteractionInfo: nil,

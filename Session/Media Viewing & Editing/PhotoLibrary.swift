@@ -137,64 +137,68 @@ class PhotoCollectionContents {
     }
 
     private func requestImageDataSource(for asset: PHAsset) -> AnyPublisher<(dataSource: DataSource, dataUTI: String), Error> {
-        return Future { [weak self] resolver in
-
-            let options: PHImageRequestOptions = PHImageRequestOptions()
-            options.isNetworkAccessAllowed = true
-
-            _ = self?.imageManager.requestImageData(for: asset, options: options) { imageData, dataUTI, orientation, info in
-
-                guard let imageData = imageData else {
-                    resolver(Result.failure(PhotoLibraryError.assertionError(description: "imageData was unexpectedly nil")))
-                    return
+        return Deferred {
+            Future { [weak self] resolver in
+                
+                let options: PHImageRequestOptions = PHImageRequestOptions()
+                options.isNetworkAccessAllowed = true
+                
+                _ = self?.imageManager.requestImageData(for: asset, options: options) { imageData, dataUTI, orientation, info in
+                    
+                    guard let imageData = imageData else {
+                        resolver(Result.failure(PhotoLibraryError.assertionError(description: "imageData was unexpectedly nil")))
+                        return
+                    }
+                    
+                    guard let dataUTI = dataUTI else {
+                        resolver(Result.failure(PhotoLibraryError.assertionError(description: "dataUTI was unexpectedly nil")))
+                        return
+                    }
+                    
+                    guard let dataSource = DataSourceValue.dataSource(with: imageData, utiType: dataUTI) else {
+                        resolver(Result.failure(PhotoLibraryError.assertionError(description: "dataSource was unexpectedly nil")))
+                        return
+                    }
+                    
+                    resolver(Result.success((dataSource: dataSource, dataUTI: dataUTI)))
                 }
-
-                guard let dataUTI = dataUTI else {
-                    resolver(Result.failure(PhotoLibraryError.assertionError(description: "dataUTI was unexpectedly nil")))
-                    return
-                }
-
-                guard let dataSource = DataSourceValue.dataSource(with: imageData, utiType: dataUTI) else {
-                    resolver(Result.failure(PhotoLibraryError.assertionError(description: "dataSource was unexpectedly nil")))
-                    return
-                }
-
-                resolver(Result.success((dataSource: dataSource, dataUTI: dataUTI)))
             }
         }
         .eraseToAnyPublisher()
     }
 
     private func requestVideoDataSource(for asset: PHAsset) -> AnyPublisher<(dataSource: DataSource, dataUTI: String), Error> {
-        return Future { [weak self] resolver in
-
-            let options: PHVideoRequestOptions = PHVideoRequestOptions()
-            options.isNetworkAccessAllowed = true
-
-            _ = self?.imageManager.requestExportSession(forVideo: asset, options: options, exportPreset: AVAssetExportPresetMediumQuality) { exportSession, foo in
-
-                guard let exportSession = exportSession else {
-                    resolver(Result.failure(PhotoLibraryError.assertionError(description: "exportSession was unexpectedly nil")))
-                    return
-                }
-
-                exportSession.outputFileType = AVFileType.mp4
-                exportSession.metadataItemFilter = AVMetadataItemFilter.forSharing()
-
-                let exportPath = OWSFileSystem.temporaryFilePath(withFileExtension: "mp4")
-                let exportURL = URL(fileURLWithPath: exportPath)
-                exportSession.outputURL = exportURL
-
-                Logger.debug("starting video export")
-                exportSession.exportAsynchronously {
-                    Logger.debug("Completed video export")
-
-                    guard let dataSource = DataSourcePath.dataSource(with: exportURL, shouldDeleteOnDeallocation: true) else {
-                        resolver(Result.failure(PhotoLibraryError.assertionError(description: "Failed to build data source for exported video URL")))
+        return Deferred {
+            Future { [weak self] resolver in
+                
+                let options: PHVideoRequestOptions = PHVideoRequestOptions()
+                options.isNetworkAccessAllowed = true
+                
+                _ = self?.imageManager.requestExportSession(forVideo: asset, options: options, exportPreset: AVAssetExportPresetMediumQuality) { exportSession, foo in
+                    
+                    guard let exportSession = exportSession else {
+                        resolver(Result.failure(PhotoLibraryError.assertionError(description: "exportSession was unexpectedly nil")))
                         return
                     }
-
-                    resolver(Result.success((dataSource: dataSource, dataUTI: kUTTypeMPEG4 as String)))
+                    
+                    exportSession.outputFileType = AVFileType.mp4
+                    exportSession.metadataItemFilter = AVMetadataItemFilter.forSharing()
+                    
+                    let exportPath = OWSFileSystem.temporaryFilePath(withFileExtension: "mp4")
+                    let exportURL = URL(fileURLWithPath: exportPath)
+                    exportSession.outputURL = exportURL
+                    
+                    Logger.debug("starting video export")
+                    exportSession.exportAsynchronously {
+                        Logger.debug("Completed video export")
+                        
+                        guard let dataSource = DataSourcePath.dataSource(with: exportURL, shouldDeleteOnDeallocation: true) else {
+                            resolver(Result.failure(PhotoLibraryError.assertionError(description: "Failed to build data source for exported video URL")))
+                            return
+                        }
+                        
+                        resolver(Result.success((dataSource: dataSource, dataUTI: kUTTypeMPEG4 as String)))
+                    }
                 }
             }
         }

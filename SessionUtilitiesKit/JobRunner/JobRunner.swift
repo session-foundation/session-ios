@@ -844,9 +844,27 @@ private final class JobQueue {
         detailsForCurrentlyRunningJobs.mutate { $0 = $0.setting(nextJob.id, nextJob.details) }
         SNLog("[JobRunner] \(queueContext) started \(nextJob.variant) job (\(executionType == .concurrent ? "\(numJobsRunning) currently running, " : "")\(numJobsRemaining) remaining)")
         
+        /// As it turns out Combine doesn't plat too nicely with concurrent Dispatch Queues, in Combine events are dispatched asynchronously to
+        /// the queue which means an odd situation can occasionally occur where the `finished` event can actually run before the `output`
+        /// event - this can result in unexpected behaviours (for more information see https://github.com/groue/GRDB.swift/issues/1334)
+        ///
+        /// Due to this if a job is meant to run on a concurrent queue then we actually want to create a temporary serial queue just for the execution
+        /// of that job
+        let targetQueue: DispatchQueue = {
+            guard executionType == .concurrent else { return internalQueue }
+            
+            return DispatchQueue(
+                label: "\(self.queueContext)-serial",
+                qos: self.qosClass,
+                attributes: [],
+                autoreleaseFrequency: .inherit,
+                target: nil
+            )
+        }()
+        
         jobExecutor.run(
             nextJob,
-            queue: internalQueue,
+            queue: targetQueue,
             success: handleJobSucceeded,
             failure: handleJobFailed,
             deferred: handleJobDeferred

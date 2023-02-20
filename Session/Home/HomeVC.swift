@@ -802,7 +802,7 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                     // Delay the change to give the cell "unswipe" animation some time to complete
                     DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
                         Storage.shared
-                            .writePublisher { db in
+                            .writePublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
                                 try Contact
                                     .filter(id: threadViewModel.threadId)
                                     .updateAllAndConfig(

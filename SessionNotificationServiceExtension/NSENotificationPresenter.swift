@@ -26,7 +26,7 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         )
         var notificationTitle: String = senderName
         
-        if thread.variant == .legacyClosedGroup || thread.variant == .closedGroup || thread.variant == .openGroup {
+        if thread.variant == .legacyGroup || thread.variant == .group || thread.variant == .community {
             if thread.onlyNotifyForMentions && !interaction.hasMention {
                 // Ignore PNs if the group is set to only notify for mentions
                 return
@@ -85,11 +85,11 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         
         // Add request (try to group notifications for interactions from open groups)
         let identifier: String = interaction.notificationIdentifier(
-            shouldGroupMessagesForThread: (thread.variant == .openGroup)
+            shouldGroupMessagesForThread: (thread.variant == .community)
         )
         var trigger: UNNotificationTrigger?
         
-        if thread.variant == .openGroup {
+        if thread.variant == .community {
             trigger = UNTimeIntervalNotificationTrigger(
                 timeInterval: Notifications.delayForGroupedNotifications,
                 repeats: false
@@ -128,9 +128,9 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         // No call notifications for muted or group threads
         guard Date().timeIntervalSince1970 > (thread.mutedUntilTimestamp ?? 0) else { return }
         guard
-            thread.variant != .legacyClosedGroup &&
-            thread.variant != .closedGroup &&
-            thread.variant != .openGroup
+            thread.variant != .legacyGroup &&
+            thread.variant != .group &&
+            thread.variant != .community
         else { return }
         guard
             interaction.variant == .infoCall,
@@ -186,9 +186,9 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         // No reaction notifications for muted, group threads or message requests
         guard Date().timeIntervalSince1970 > (thread.mutedUntilTimestamp ?? 0) else { return }
         guard
-            thread.variant != .legacyClosedGroup &&
-            thread.variant != .closedGroup &&
-            thread.variant != .openGroup
+            thread.variant != .legacyGroup &&
+            thread.variant != .group &&
+            thread.variant != .community
         else { return }
         guard !isMessageRequest else { return }
         
