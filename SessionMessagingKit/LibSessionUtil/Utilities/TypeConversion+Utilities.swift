@@ -19,16 +19,21 @@ public extension String {
     
     init?<T>(
         libSessionVal: T,
-        nullTerminated: Bool = true,
+        fixedLength: Int? = .none,
         nullIfEmpty: Bool = false
     ) {
         let result: String = {
-            guard !nullTerminated else {
-                return String(cString: withUnsafeBytes(of: libSessionVal) { [UInt8]($0) })
+            guard let fixedLength: Int = fixedLength else {
+                // Note: The `String(cString:)` function requires that the value is null-terminated
+                // so add a null-termination character if needed
+                return String(
+                    cString: withUnsafeBytes(of: libSessionVal) { [UInt8]($0) }
+                        .nullTerminated()
+                )
             }
             
             return String(
-                data: Data(libSessionVal: libSessionVal, count: MemoryLayout<T>.size),
+                data: Data(libSessionVal: libSessionVal, count: fixedLength),
                 encoding: .utf8
             )
             .defaulting(to: "")
@@ -100,5 +105,13 @@ public extension Array where Element == CChar {
         guard self.last != CChar(0) else { return self }
         
         return self.appending(CChar(0))
+    }
+}
+
+public extension Array where Element == UInt8 {
+    func nullTerminated() -> [Element] {
+        guard self.last != UInt8(0) else { return self }
+        
+        return self.appending(UInt8(0))
     }
 }

@@ -19,6 +19,14 @@ class TypeConversionUtilitiesSpec: QuickSpec {
                 expect("Test123".cArray).to(equal([84, 101, 115, 116, 49, 50, 51]))
             }
             
+            it("can contain emoji") {
+                let original: String = "Hi 👋"
+                let libSessionVal: (CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar, CChar) = original.toLibSession()
+                let result: String? = String(libSessionVal: libSessionVal)
+                
+                expect(result).to(equal(original))
+            }
+            
             context("when initialised with a pointer and length") {
                 it("returns null when given a null pointer") {
                     let test: [CChar] = [84, 101, 115, 116]
@@ -49,18 +57,39 @@ class TypeConversionUtilitiesSpec: QuickSpec {
             }
             
             context("when initialised with a libSession value") {
-                it("returns a string when valid and null terminated") {
+                it("returns a string when valid and has no fixed length") {
                     let value: (CChar, CChar, CChar, CChar, CChar) = (84, 101, 115, 116, 0)
-                    let result = String(libSessionVal: value, nullTerminated: true)
+                    let result = String(libSessionVal: value, fixedLength: .none)
                     
                     expect(result).to(equal("Test"))
                 }
                 
-                it("returns a string when valid and not null terminated") {
+                it("returns a string when valid and has a fixed length") {
                     let value: (CChar, CChar, CChar, CChar, CChar) = (84, 101, 0, 115, 116)
-                    let result = String(libSessionVal: value, nullTerminated: false)
+                    let result = String(libSessionVal: value, fixedLength: 5)
                     
                     expect(result).to(equal("Te\0st"))
+                }
+                
+                it("truncates at the first null termination character when fixed length is none") {
+                    let value: (CChar, CChar, CChar, CChar, CChar) = (84, 101, 0, 115, 116)
+                    let result = String(libSessionVal: value, fixedLength: .none)
+                    
+                    expect(result).to(equal("Te"))
+                }
+                
+                it("parses successfully if there is no null termination character and there is no fixed length") {
+                    let value: (CChar, CChar, CChar, CChar, CChar) = (84, 101, 115, 116, 84)
+                    let result = String(libSessionVal: value, fixedLength: .none)
+                    
+                    expect(result).to(equal("TestT"))
+                }
+                
+                it("defaults the fixed length value to none") {
+                    let value: (CChar, CChar, CChar, CChar, CChar) = (84, 101, 0, 0, 0)
+                    let result = String(libSessionVal: value)
+                    
+                    expect(result).to(equal("Te"))
                 }
                 
                 it("returns an empty string when null and not set to return null") {
@@ -77,13 +106,6 @@ class TypeConversionUtilitiesSpec: QuickSpec {
                     expect(result).to(beNil())
                 }
                 
-                it("defaults the null terminated flag to true") {
-                    let value: (CChar, CChar, CChar, CChar, CChar) = (84, 101, 0, 0, 0)
-                    let result = String(libSessionVal: value)
-                    
-                    expect(result).to(equal("Te"))
-                }
-                
                 it("defaults the null if empty flag to false") {
                     let value: (CChar, CChar, CChar, CChar, CChar) = (0, 0, 0, 0, 0)
                     let result = String(libSessionVal: value)
@@ -92,32 +114,43 @@ class TypeConversionUtilitiesSpec: QuickSpec {
                 }
             }
             
-            it("can convert to a libSession value") {
-                let result: (CChar, CChar, CChar, CChar, CChar) = "Test".toLibSession()
-                expect(result.0).to(equal(84))
-                expect(result.1).to(equal(101))
-                expect(result.2).to(equal(115))
-                expect(result.3).to(equal(116))
-                expect(result.4).to(equal(0))
-            }
-            
-            context("when optional") {
-                context("returns null when null") {
-                    let value: String? = nil
-                    let result: (CChar, CChar, CChar, CChar, CChar)? = value?.toLibSession()
-                    
-                    expect(result).to(beNil())
+            context("when converting to a libSession value") {
+                it("succeeeds with a valid value") {
+                    let result: (CChar, CChar, CChar, CChar, CChar) = "Test".toLibSession()
+                    expect(result.0).to(equal(84))
+                    expect(result.1).to(equal(101))
+                    expect(result.2).to(equal(115))
+                    expect(result.3).to(equal(116))
+                    expect(result.4).to(equal(0))
                 }
                 
-                context("returns a libSession value when not null") {
-                    let value: String? = "Test"
-                    let result: (CChar, CChar, CChar, CChar, CChar)? = value?.toLibSession()
+                it("truncates when too long") {
+                    let result: (CChar, CChar, CChar, CChar, CChar) = "TestTest".toLibSession()
+                    expect(result.0).to(equal(84))
+                    expect(result.1).to(equal(101))
+                    expect(result.2).to(equal(115))
+                    expect(result.3).to(equal(116))
+                    expect(result.4).to(equal(84))
+                }
+                
+                context("when optional") {
+                    context("returns null when null") {
+                        let value: String? = nil
+                        let result: (CChar, CChar, CChar, CChar, CChar)? = value?.toLibSession()
+                        
+                        expect(result).to(beNil())
+                    }
                     
-                    expect(result?.0).to(equal(84))
-                    expect(result?.1).to(equal(101))
-                    expect(result?.2).to(equal(115))
-                    expect(result?.3).to(equal(116))
-                    expect(result?.4).to(equal(0))
+                    context("returns a libSession value when not null") {
+                        let value: String? = "Test"
+                        let result: (CChar, CChar, CChar, CChar, CChar)? = value?.toLibSession()
+                        
+                        expect(result?.0).to(equal(84))
+                        expect(result?.1).to(equal(101))
+                        expect(result?.2).to(equal(115))
+                        expect(result?.3).to(equal(116))
+                        expect(result?.4).to(equal(0))
+                    }
                 }
             }
         }
@@ -145,32 +178,43 @@ class TypeConversionUtilitiesSpec: QuickSpec {
                 }
             }
             
-            it("can convert to a libSession value") {
-                let result: (Int8, Int8, Int8, Int8, Int8) = Data([1, 2, 3, 4, 5]).toLibSession()
-                expect(result.0).to(equal(1))
-                expect(result.1).to(equal(2))
-                expect(result.2).to(equal(3))
-                expect(result.3).to(equal(4))
-                expect(result.4).to(equal(5))
-            }
-            
-            context("when optional") {
-                context("returns null when null") {
-                    let value: Data? = nil
-                    let result: (Int8, Int8, Int8, Int8, Int8)? = value?.toLibSession()
-                    
-                    expect(result).to(beNil())
+            context("when converting to a libSession value") {
+                it("succeeeds with a valid value") {
+                    let result: (Int8, Int8, Int8, Int8, Int8) = Data([1, 2, 3, 4, 5]).toLibSession()
+                    expect(result.0).to(equal(1))
+                    expect(result.1).to(equal(2))
+                    expect(result.2).to(equal(3))
+                    expect(result.3).to(equal(4))
+                    expect(result.4).to(equal(5))
                 }
                 
-                context("returns a libSession value when not null") {
-                    let value: Data? = Data([1, 2, 3, 4, 5])
-                    let result: (Int8, Int8, Int8, Int8, Int8)? = value?.toLibSession()
+                it("truncates when too long") {
+                    let result: (Int8, Int8, Int8, Int8, Int8) = Data([1, 2, 3, 4, 1, 2, 3, 4]).toLibSession()
+                    expect(result.0).to(equal(1))
+                    expect(result.1).to(equal(2))
+                    expect(result.2).to(equal(3))
+                    expect(result.3).to(equal(4))
+                    expect(result.4).to(equal(1))
+                }
+                
+                context("when optional") {
+                    context("returns null when null") {
+                        let value: Data? = nil
+                        let result: (Int8, Int8, Int8, Int8, Int8)? = value?.toLibSession()
+                        
+                        expect(result).to(beNil())
+                    }
                     
-                    expect(result?.0).to(equal(1))
-                    expect(result?.1).to(equal(2))
-                    expect(result?.2).to(equal(3))
-                    expect(result?.3).to(equal(4))
-                    expect(result?.4).to(equal(5))
+                    context("returns a libSession value when not null") {
+                        let value: Data? = Data([1, 2, 3, 4, 5])
+                        let result: (Int8, Int8, Int8, Int8, Int8)? = value?.toLibSession()
+                        
+                        expect(result?.0).to(equal(1))
+                        expect(result?.1).to(equal(2))
+                        expect(result?.2).to(equal(3))
+                        expect(result?.3).to(equal(4))
+                        expect(result?.4).to(equal(5))
+                    }
                 }
             }
         }

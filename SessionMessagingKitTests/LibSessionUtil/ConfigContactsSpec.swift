@@ -32,7 +32,7 @@ class ConfigContactsSpec: QuickSpec {
             error?.deallocate()
             
             // Empty contacts shouldn't have an existing contact
-            var definitelyRealId: String = "050000000000000000000000000000000000000000000000000000000000000000"
+            let definitelyRealId: String = "050000000000000000000000000000000000000000000000000000000000000000"
             var cDefinitelyRealId: [CChar] = definitelyRealId.cArray
             let contactPtr: UnsafeMutablePointer<contacts_contact>? = nil
             expect(contacts_get(conf, contactPtr, &cDefinitelyRealId)).to(beFalse())
@@ -75,7 +75,7 @@ class ConfigContactsSpec: QuickSpec {
             
             // Ensure the contact details were updated
             var contact3: contacts_contact = contacts_contact()
-            expect(contacts_get(conf, &contact3, &definitelyRealId)).to(beTrue())
+            expect(contacts_get(conf, &contact3, &cDefinitelyRealId)).to(beTrue())
             expect(String(libSessionVal: contact3.name)).to(equal("Joe"))
             expect(String(libSessionVal: contact3.nickname)).to(equal("Joey"))
             expect(contact3.approved).to(beTrue())
@@ -129,7 +129,7 @@ class ConfigContactsSpec: QuickSpec {
             
             // Ensure the contact details were updated
             var contact4: contacts_contact = contacts_contact()
-            expect(contacts_get(conf2, &contact4, &definitelyRealId)).to(beTrue())
+            expect(contacts_get(conf2, &contact4, &cDefinitelyRealId)).to(beTrue())
             expect(String(libSessionVal: contact4.name)).to(equal("Joe"))
             expect(String(libSessionVal: contact4.nickname)).to(equal("Joey"))
             expect(contact4.approved).to(beTrue())
@@ -138,7 +138,7 @@ class ConfigContactsSpec: QuickSpec {
             expect(String(libSessionVal: contact4.profile_pic.url)).to(beEmpty())
             expect(contact4.blocked).to(beFalse())
             
-            var anotherId: String = "051111111111111111111111111111111111111111111111111111111111111111"
+            let anotherId: String = "051111111111111111111111111111111111111111111111111111111111111111"
             var cAnotherId: [CChar] = anotherId.cArray
             var contact5: contacts_contact = contacts_contact()
             expect(contacts_get_or_construct(conf2, &contact5, &cAnotherId)).to(beTrue())
@@ -201,7 +201,7 @@ class ConfigContactsSpec: QuickSpec {
             contacts_erase(conf, definitelyRealId)
             
             // Client 2 adds a new friend:
-            var thirdId: String = "052222222222222222222222222222222222222222222222222222222222222222"
+            let thirdId: String = "052222222222222222222222222222222222222222222222222222222222222222"
             var cThirdId: [CChar] = thirdId.cArray
             var contact7: contacts_contact = contacts_contact()
             expect(contacts_get_or_construct(conf2, &contact7, &cThirdId)).to(beTrue())
