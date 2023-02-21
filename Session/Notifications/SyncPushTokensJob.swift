@@ -20,8 +20,11 @@ public enum SyncPushTokensJob: JobExecutor {
         failure: @escaping (Job, Error?, Bool) -> (),
         deferred: @escaping (Job) -> ()
     ) {
-        // Don't run when inactive or not in main app
-        guard (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false) else {
+        // Don't run when inactive or not in main app or if the user doesn't exist yet
+        guard
+            (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false),
+            Identity.userExists()
+        else {
             deferred(job) // Don't need to do anything if it's not the main app
             return
         }
