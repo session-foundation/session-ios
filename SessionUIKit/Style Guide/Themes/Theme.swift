@@ -98,6 +98,7 @@ public indirect enum ThemeValue: Hashable {
     case clear
     case primary
     case defaultPrimary
+    case warning
     case danger
     case disabled
     case backgroundPrimary

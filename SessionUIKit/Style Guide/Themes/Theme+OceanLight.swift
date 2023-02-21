@@ -10,6 +10,7 @@ internal enum Theme_OceanLight: ThemeColors {
         .clear: .clear,
         .primary: .primary,
         .defaultPrimary: Theme.PrimaryColor.blue.color,
+        .warning: .warning,
         .danger: .dangerLight,
         .disabled: .disabledLight,
         .backgroundPrimary: .oceanLight7,

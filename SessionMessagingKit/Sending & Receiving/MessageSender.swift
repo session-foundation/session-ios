@@ -149,7 +149,7 @@ public final class MessageSender {
         using dependencies: SMKDependencies = SMKDependencies()
     ) throws -> PreparedSendData {
         // Common logic for all destinations
-        let userPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
+        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
         let messageSendTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs()
         let updatedMessage: Message = message
         
@@ -166,8 +166,9 @@ public final class MessageSender {
                     message: updatedMessage,
                     to: destination,
                     interactionId: interactionId,
-                    userPublicKey: userPublicKey,
+                    userPublicKey: currentUserPublicKey,
                     messageSendTimestamp: messageSendTimestamp,
+                    isSyncMessage: isSyncMessage,
                     using: dependencies
                 )
 
@@ -187,7 +188,7 @@ public final class MessageSender {
                     message: message,
                     to: destination,
                     interactionId: interactionId,
-                    userPublicKey: userPublicKey,
+                    userPublicKey: currentUserPublicKey,
                     messageSendTimestamp: messageSendTimestamp,
                     using: dependencies
                 )
@@ -224,20 +225,10 @@ public final class MessageSender {
             )
         }
         
-        // Stop here if this is a self-send, unless we should sync the message
-        let isSelfSend: Bool = (message.recipient == userPublicKey)
-        
-        guard
-            !isSelfSend ||
-            isSyncMessage ||
-            Message.shouldSync(message: message)
-        else {
-            try MessageSender.handleSuccessfulMessageSend(db, message: message, to: destination, interactionId: interactionId, using: dependencies)
-            return PreparedSendData()
-        }
-        
         // Attach the user's profile if needed (no need to do so for 'Note to Self' or sync messages as they
         // will be managed by the user config handling
+        let isSelfSend: Bool = (message.recipient == userPublicKey)
+
         if !isSelfSend, !isSyncMessage, var messageWithProfile: MessageWithProfile = message as? MessageWithProfile {
             let profile: Profile = Profile.fetchOrCreateCurrentUser(db)
             
@@ -252,6 +243,9 @@ public final class MessageSender {
                 messageWithProfile.profile = VisibleMessage.VMProfile(displayName: profile.name)
             }
         }
+        
+        // Perform any pre-send actions
+        handleMessageWillSend(db, message: message, interactionId: interactionId, isSyncMessage: isSyncMessage)
         
         // Convert it to protobuf
         guard let proto = message.toProto(db) else {
@@ -455,6 +449,9 @@ public final class MessageSender {
             )
         }
         
+        // Perform any pre-send actions
+        handleMessageWillSend(db, message: message, interactionId: interactionId)
+        
         // Convert it to protobuf
         guard let proto = message.toProto(db) else {
             throw MessageSender.handleFailedMessageSend(
@@ -522,6 +519,9 @@ public final class MessageSender {
                 message.profile = VisibleMessage.VMProfile(displayName: profile.name)
             }
         }
+        
+        // Perform any pre-send actions
+        handleMessageWillSend(db, message: message, interactionId: interactionId)
         
         // Convert it to protobuf
         guard let proto = message.toProto(db) else {
@@ -638,9 +638,6 @@ public final class MessageSender {
                 .eraseToAnyPublisher()
         }
         
-        let isMainAppActive: Bool = (UserDefaults.sharedLokiProject?[.isMainAppActive])
-            .defaulting(to: false)
-        
         return SnodeAPI
             .sendMessage(
                 snodeMessage,
@@ -691,6 +688,9 @@ public final class MessageSender {
                         return ()
                     }
                     .flatMap { _ -> AnyPublisher<Bool, Error> in
+                        let isMainAppActive: Bool = (UserDefaults.sharedLokiProject?[.isMainAppActive])
+                            .defaulting(to: false)
+                        
                         guard shouldNotify && !isMainAppActive else {
                             return Just(true)
                                 .setFailureType(to: Error.self)
@@ -885,6 +885,32 @@ public final class MessageSender {
 
     // MARK: Success & Failure Handling
     
+    public static func handleMessageWillSend(
+        _ db: Database,
+        message: Message,
+        interactionId: Int64?,
+        isSyncMessage: Bool = false
+    ) {
+        // If the message was a reaction then we don't want to do anything to the original
+        // interaction (which the 'interactionId' is pointing to
+        guard (message as? VisibleMessage)?.reaction == nil else { return }
+        
+        // Mark messages as "sending"/"syncing" if needed (this is for retries)
+        _ = try? RecipientState
+            .filter(RecipientState.Columns.interactionId == interactionId)
+            .filter(isSyncMessage ?
+                RecipientState.Columns.state == RecipientState.State.failedToSync :
+                RecipientState.Columns.state == RecipientState.State.failed
+            )
+            .updateAll(
+                db,
+                RecipientState.Columns.state.set(to: isSyncMessage ?
+                    RecipientState.State.syncing :
+                    RecipientState.State.sending
+                )
+            )
+    }
+    
     private static func handleSuccessfulMessageSend(
         _ db: Database,
         message: Message,
@@ -895,7 +921,7 @@ public final class MessageSender {
         using dependencies: SMKDependencies = SMKDependencies()
     ) throws {
         // If the message was a reaction then we want to update the reaction instead of the original
-        // interaciton (which the 'interactionId' is pointing to
+        // interaction (which the 'interactionId' is pointing to
         if let visibleMessage: VisibleMessage = message as? VisibleMessage, let reaction: VisibleMessage.VMReaction = visibleMessage.reaction {
             try Reaction
                 .filter(Reaction.Columns.interactionId == interactionId)
@@ -914,7 +940,6 @@ public final class MessageSender {
                 // real message has no use when we delete a message. It is OK to let it be.
                 try interaction.with(
                     serverHash: message.serverHash,
-                    
                     // Track the open group server message ID and update server timestamp (use server
                     // timestamp for open group messages otherwise the quote messages may not be able
                     // to be found by the timestamp on other devices
@@ -927,6 +952,7 @@ public final class MessageSender {
                 
                 // Mark the message as sent
                 try interaction.recipientStates
+                    .filter(RecipientState.Columns.state != RecipientState.State.sent)
                     .updateAll(db, RecipientState.Columns.state.set(to: RecipientState.State.sent))
                 
                 // Start the disappearing messages timer if needed
@@ -941,49 +967,36 @@ public final class MessageSender {
             }
         }
         
+        let threadId: String = {
+            switch destination {
+                case .contact(let publicKey): return publicKey
+                case .closedGroup(let groupPublicKey): return groupPublicKey
+                case .openGroup(let roomToken, let server, _, _, _):
+                    return OpenGroup.idFor(roomToken: roomToken, server: server)
+                
+                case .openGroupInbox(_, _, let blindedPublicKey): return blindedPublicKey
+            }
+        }()
+        
         // Prevent ControlMessages from being handled multiple times if not supported
         try? ControlMessageProcessRecord(
-            threadId: {
-                switch destination {
-                    case .contact(let publicKey): return publicKey
-                    case .closedGroup(let groupPublicKey): return groupPublicKey
-                    case .openGroup(let roomToken, let server, _, _, _):
-                        return OpenGroup.idFor(roomToken: roomToken, server: server)
-                    
-                    case .openGroupInbox(_, _, let blindedPublicKey): return blindedPublicKey
-                }
-            }(),
+            threadId: threadId,
             message: message,
             serverExpirationTimestamp: (
                 (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000) +
                 ControlMessageProcessRecord.defaultExpirationSeconds
             )
         )?.insert(db)
-        
-        // Sync the message if:
-        // • it's a visible message or an expiration timer update
-        // • the destination was a contact
-        // • we didn't sync it already
-        let userPublicKey = getUserHexEncodedPublicKey(db)
-        if case .contact(let publicKey) = destination, !isSyncMessage {
-            if let message = message as? VisibleMessage { message.syncTarget = publicKey }
-            if let message = message as? ExpirationTimerUpdate { message.syncTarget = publicKey }
-            
-            MessageSender
-                .sendToSnodeDestination(
-                    data: try prepareSendToSnodeDestination(
-                        db,
-                        message: message,
-                        to: .contact(publicKey: userPublicKey),
-                        interactionId: interactionId,
-                        userPublicKey: userPublicKey,
-                        messageSendTimestamp: SnodeAPI.currentOffsetTimestampMs(),
-                        isSyncMessage: true
-                    ),
-                    using: dependencies
-                )
-                .sinkUntilComplete()
-        }
+
+        // Sync the message if needed
+        scheduleSyncMessageIfNeeded(
+            db,
+            message: message,
+            destination: destination,
+            threadId: threadId,
+            interactionId: interactionId,
+            isAlreadySyncMessage: isSyncMessage
+        )
     }
 
     @discardableResult private static func handleFailedMessageSend(
@@ -991,6 +1004,7 @@ public final class MessageSender {
         message: Message,
         with error: MessageSenderError,
         interactionId: Int64?,
+        isSyncMessage: Bool = false,
         using dependencies: SMKDependencies = SMKDependencies()
     ) -> Error {
         // TODO: Revert the local database change
@@ -1006,7 +1020,12 @@ public final class MessageSender {
         let rowIds: [Int64] = (try? RecipientState
             .select(Column.rowID)
             .filter(RecipientState.Columns.interactionId == interactionId)
-            .filter(RecipientState.Columns.state == RecipientState.State.sending)
+            .filter(!isSyncMessage ?
+                RecipientState.Columns.state == RecipientState.State.sending : (
+                    RecipientState.Columns.state == RecipientState.State.syncing ||
+                    RecipientState.Columns.state == RecipientState.State.sent
+                )
+            )
             .asRequest(of: Int64.self)
             .fetchAll(db))
             .defaulting(to: [])
@@ -1021,7 +1040,9 @@ public final class MessageSender {
                     .filter(rowIds.contains(Column.rowID))
                     .updateAll(
                         db,
-                        RecipientState.Columns.state.set(to: RecipientState.State.failed),
+                        RecipientState.Columns.state.set(
+                            to: (isSyncMessage ? RecipientState.State.failedToSync : RecipientState.State.failed)
+                        ),
                         RecipientState.Columns.mostRecentFailureText.set(to: error.localizedDescription)
                     )
             }
@@ -1044,5 +1065,44 @@ public final class MessageSender {
         }
         
         return nil
+    }
+    
+    public static func scheduleSyncMessageIfNeeded(
+        _ db: Database,
+        message: Message,
+        destination: Message.Destination,
+        threadId: String?,
+        interactionId: Int64?,
+        isAlreadySyncMessage: Bool
+    ) {
+        // Sync the message if it's not a sync message, wasn't already sent to the current user and
+        // it's a message type which should be synced
+        let currentUserPublicKey = getUserHexEncodedPublicKey(db)
+        
+        if
+            case .contact(let publicKey) = destination,
+            !isAlreadySyncMessage,
+            publicKey != currentUserPublicKey,
+            Message.shouldSync(message: message)
+        {
+            if let message = message as? VisibleMessage { message.syncTarget = publicKey }
+            if let message = message as? ExpirationTimerUpdate { message.syncTarget = publicKey }
+            
+            Storage.shared.write { db in
+                JobRunner.add(
+                    db,
+                    job: Job(
+                        variant: .messageSend,
+                        threadId: threadId,
+                        interactionId: interactionId,
+                        details: MessageSendJob.Details(
+                            destination: .contact(publicKey: currentUserPublicKey),
+                            message: message,
+                            isSyncMessage: true
+                        )
+                    )
+                )
+            }
+        }
     }
 }

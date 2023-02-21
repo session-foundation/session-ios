@@ -9,7 +9,7 @@ extension MessageSender {
     
     // MARK: - Durable
     
-    public static func send(_ db: Database, interaction: Interaction, in thread: SessionThread) throws {
+    public static func send(_ db: Database, interaction: Interaction, in thread: SessionThread, isSyncMessage: Bool = false) throws {
         // Only 'VisibleMessage' types can be sent via this method
         guard interaction.variant == .standardOutgoing else { throw MessageSenderError.invalidMessage }
         guard let interactionId: Int64 = interaction.id else { throw StorageError.objectNotSaved }
@@ -19,21 +19,37 @@ extension MessageSender {
             message: VisibleMessage.from(db, interaction: interaction),
             threadId: thread.id,
             interactionId: interactionId,
-            to: try Message.Destination.from(db, thread: thread)
+            to: try Message.Destination.from(db, thread: thread),
+            isSyncMessage: isSyncMessage
         )
     }
     
-    public static func send(_ db: Database, message: Message, interactionId: Int64?, in thread: SessionThread) throws {
+    public static func send(_ db: Database, message: Message, interactionId: Int64?, in thread: SessionThread, isSyncMessage: Bool = false) throws {
         send(
             db,
             message: message,
             threadId: thread.id,
             interactionId: interactionId,
-            to: try Message.Destination.from(db, thread: thread)
+            to: try Message.Destination.from(db, thread: thread),
+            isSyncMessage: isSyncMessage
         )
     }
     
-    public static func send(_ db: Database, message: Message, threadId: String?, interactionId: Int64?, to destination: Message.Destination) {
+    public static func send(_ db: Database, message: Message, threadId: String?, interactionId: Int64?, to destination: Message.Destination, isSyncMessage: Bool = false) {
+        // If it's a sync message then we need to make some slight tweaks before sending so use the proper
+        // sync message sending process instead of the standard process
+        guard !isSyncMessage else {
+            scheduleSyncMessageIfNeeded(
+                db,
+                message: message,
+                destination: destination,
+                threadId: threadId,
+                interactionId: interactionId,
+                isAlreadySyncMessage: false
+            )
+            return
+        }
+        
         JobRunner.add(
             db,
             job: Job(
@@ -42,7 +58,8 @@ extension MessageSender {
                 interactionId: interactionId,
                 details: MessageSendJob.Details(
                     destination: destination,
-                    message: message
+                    message: message,
+                    isSyncMessage: isSyncMessage
                 )
             )
         )
@@ -90,7 +107,7 @@ extension MessageSender {
                 case .closedGroup(let groupPublicKey): return groupPublicKey
                 case .openGroup(let roomToken, let server, _, _, _):
                     return OpenGroup.idFor(roomToken: roomToken, server: server)
-                    
+                
                 case .openGroupInbox(_, _, let blindedPublicKey): return blindedPublicKey
             }
         }()

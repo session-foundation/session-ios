@@ -3,6 +3,7 @@
 import Foundation
 import Combine
 import CoreServices
+import SignalUtilitiesKit
 import SessionUtilitiesKit
 
 // There's no UTI type for webp!

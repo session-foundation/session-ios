@@ -27,7 +27,8 @@ public enum SNMessagingKit { // Just to make the external API nice
                     _010_AddThreadIdToFTS.self
                 ],  // Add job priorities
                 [
-                    _011_SharedUtilChanges.self
+                    _011_AddPendingReadReceipts.self,
+                    _012_SharedUtilChanges.self
                 ]
             ]
         )

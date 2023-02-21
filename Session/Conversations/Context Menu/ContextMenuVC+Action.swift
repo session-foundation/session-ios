@@ -34,6 +34,17 @@ extension ContextMenuVC {
         }
         
         // MARK: - Actions
+        
+        static func retry(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
+            return Action(
+                icon: UIImage(systemName: "arrow.triangle.2.circlepath"),
+                title: (cellViewModel.state == .failedToSync ?
+                    "context_menu_resync".localized() :
+                    "context_menu_resend".localized()
+                ),
+                accessibilityLabel: (cellViewModel.state == .failedToSync ? "Resync message" : "Resend message")
+            ) { delegate?.retry(cellViewModel) }
+        }
 
         static func reply(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
@@ -110,6 +121,8 @@ extension ContextMenuVC {
     static func actions(
         for cellViewModel: MessageViewModel,
         recentEmojis: [EmojiWithSkinTones],
+        currentUserPublicKey: String,
+        currentUserBlindedPublicKey: String?,
         currentUserIsOpenGroupModerator: Bool,
         currentThreadIsMessageRequest: Bool,
         delegate: ContextMenuActionDelegate?
@@ -125,6 +138,14 @@ extension ContextMenuVC {
             case .standardOutgoing, .standardIncoming: break
         }
         
+        let canRetry: Bool = (
+            cellViewModel.variant == .standardOutgoing && (
+                cellViewModel.state == .failed || (
+                    cellViewModel.threadVariant == .contact &&
+                    cellViewModel.state == .failedToSync
+                )
+            )
+        )
         let canReply: Bool = (
             cellViewModel.variant != .standardOutgoing || (
                 cellViewModel.state != .failed &&
@@ -163,6 +184,8 @@ extension ContextMenuVC {
         let canDelete: Bool = (
             cellViewModel.threadVariant != .community ||
             currentUserIsOpenGroupModerator ||
+            cellViewModel.authorId == currentUserPublicKey ||
+            cellViewModel.authorId == currentUserBlindedPublicKey ||
             cellViewModel.state == .failed
         )
         let canBan: Bool = (
@@ -178,6 +201,7 @@ extension ContextMenuVC {
         }()
         
         let generatedActions: [Action] = [
+            (canRetry ? Action.retry(cellViewModel, delegate) : nil),
             (canReply ? Action.reply(cellViewModel, delegate) : nil),
             (canCopy ? Action.copy(cellViewModel, delegate) : nil),
             (canSave ? Action.save(cellViewModel, delegate) : nil),
@@ -199,6 +223,7 @@ extension ContextMenuVC {
 // MARK: - Delegate
 
 protocol ContextMenuActionDelegate {
+    func retry(_ cellViewModel: MessageViewModel)
     func reply(_ cellViewModel: MessageViewModel)
     func copy(_ cellViewModel: MessageViewModel)
     func copySessionID(_ cellViewModel: MessageViewModel)

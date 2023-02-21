@@ -454,13 +454,20 @@ public extension Interaction {
         trySendReadReceipt: Bool
     ) throws {
         guard let interactionId: Int64 = interactionId else { return }
+        
+        struct InteractionReadInfo: Decodable, FetchableRecord {
+            let id: Int64
+            let variant: Interaction.Variant
+            let timestampMs: Int64
+            let wasRead: Bool
+        }
 
         // Once all of the below is done schedule the jobs
         func scheduleJobs(
             _ db: Database,
             threadId: String,
             threadVariant: SessionThread.Variant,
-            interactionIds: [Int64],
+            interactionInfo: [InteractionReadInfo],
             lastReadTimestampMs: Int64
         ) throws {
             // Update the last read timestamp if needed
@@ -477,17 +484,17 @@ public extension Interaction {
                 db,
                 job: DisappearingMessagesJob.updateNextRunIfNeeded(
                     db,
-                    interactionIds: interactionIds,
+                    interactionIds: interactionInfo.map { $0.id },
                     startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs())
                 )
             )
             
             // Clear out any notifications for the interactions we mark as read
             Environment.shared?.notificationsManager.wrappedValue?.cancelNotifications(
-                identifiers: interactionIds
-                    .map { interactionId in
+                identifiers: interactionInfo
+                    .map { interactionInfo in
                         Interaction.notificationIdentifier(
-                            for: interactionId,
+                            for: interactionInfo.id,
                             threadId: threadId,
                             shouldGroupMessagesForThread: false
                         )
@@ -499,39 +506,42 @@ public extension Interaction {
                     ))
             )
             
-            // If we want to send read receipts then try to add the 'SendReadReceiptsJob'
-            if trySendReadReceipt {
+            // If we want to send read receipts and it's a contact thread then try to add the
+            // 'SendReadReceiptsJob' for and unread messages that weren't outgoing
+            if trySendReadReceipt && threadVariant == .contact {
                 JobRunner.upsert(
                     db,
                     job: SendReadReceiptsJob.createOrUpdateIfNeeded(
                         db,
                         threadId: threadId,
-                        interactionIds: interactionIds
+                        interactionIds: interactionInfo
+                            .filter { !$0.wasRead && $0.variant != .standardOutgoing }
+                            .map { $0.id }
                     )
                 )
             }
         }
         
-        // If we aren't including older interactions then update and save the current one
-        struct InteractionReadInfo: Decodable, FetchableRecord {
-            let timestampMs: Int64
-            let wasRead: Bool
-        }
-        
         // Since there is no guarantee on the order messages are inserted into the database
         // fetch the timestamp for the interaction and set everything before that as read
         let maybeInteractionInfo: InteractionReadInfo? = try Interaction
-            .select(.timestampMs, .wasRead)
+            .select(.id, .variant, .timestampMs, .wasRead)
             .filter(id: interactionId)
             .asRequest(of: InteractionReadInfo.self)
             .fetchOne(db)
         
+        // If we aren't including older interactions then update and save the current one
         guard includingOlder, let interactionInfo: InteractionReadInfo = maybeInteractionInfo else {
             // Only mark as read and trigger the subsequent jobs if the interaction is
             // actually not read (no point updating and triggering db changes otherwise)
             guard
                 maybeInteractionInfo?.wasRead == false,
-                let timestampMs: Int64 = maybeInteractionInfo?.timestampMs
+                let timestampMs: Int64 = maybeInteractionInfo?.timestampMs,
+                let variant: Variant = try Interaction
+                    .filter(id: interactionId)
+                    .select(.variant)
+                    .asRequest(of: Variant.self)
+                    .fetchOne(db)
             else { return }
             
             _ = try Interaction
@@ -542,7 +552,14 @@ public extension Interaction {
                 db,
                 threadId: threadId,
                 threadVariant: threadVariant,
-                interactionIds: [interactionId],
+                interactionInfo: [
+                    InteractionReadInfo(
+                        id: interactionId,
+                        variant: variant,
+                        timestampMs: 0,
+                        wasRead: false
+                    )
+                ],
                 lastReadTimestampMs: timestampMs
             )
             return
@@ -552,20 +569,20 @@ public extension Interaction {
             .filter(Interaction.Columns.threadId == threadId)
             .filter(Interaction.Columns.timestampMs <= interactionInfo.timestampMs)
             .filter(Interaction.Columns.wasRead == false)
-        let interactionIdsToMarkAsRead: [Int64] = try interactionQuery
-            .select(.id)
-            .asRequest(of: Int64.self)
+        let interactionInfoToMarkAsRead: [InteractionReadInfo] = try interactionQuery
+            .select(.id, .variant, .timestampMs, .wasRead)
+            .asRequest(of: InteractionReadInfo.self)
             .fetchAll(db)
         
         // If there are no other interactions to mark as read then just schedule the jobs
         // for this interaction (need to ensure the disapeparing messages run for sync'ed
         // outgoing messages which will always have 'wasRead' as false)
-        guard !interactionIdsToMarkAsRead.isEmpty else {
+        guard !interactionInfoToMarkAsRead.isEmpty else {
             try scheduleJobs(
                 db,
                 threadId: threadId,
                 threadVariant: threadVariant,
-                interactionIds: [interactionId],
+                interactionInfo: [interactionInfo],
                 lastReadTimestampMs: interactionInfo.timestampMs
             )
             return
@@ -579,7 +596,7 @@ public extension Interaction {
             db,
             threadId: threadId,
             threadVariant: threadVariant,
-            interactionIds: interactionIdsToMarkAsRead,
+            interactionInfo: interactionInfoToMarkAsRead,
             lastReadTimestampMs: interactionInfo.timestampMs
         )
     }
@@ -587,21 +604,65 @@ public extension Interaction {
     /// This method flags sent messages as read for the specified recipients
     ///
     /// **Note:** This method won't update the 'wasRead' flag (it will be updated via the above method)
-    static func markAsRecipientRead(_ db: Database, recipientId: String, timestampMsValues: [Double], readTimestampMs: Double) throws {
-        guard db[.areReadReceiptsEnabled] == true else { return }
+    @discardableResult static func markAsRead(
+        _ db: Database,
+        recipientId: String,
+        timestampMsValues: [Int64],
+        readTimestampMs: Int64
+    ) throws -> Set<Int64> {
+        guard db[.areReadReceiptsEnabled] == true else { return [] }
         
-        try RecipientState
+        // Update the read state
+        let rowIds: [Int64] = try RecipientState
+            .select(Column.rowID)
             .filter(RecipientState.Columns.recipientId == recipientId)
             .joining(
                 required: RecipientState.interaction
-                    .filter(Columns.variant == Variant.standardOutgoing)
                     .filter(timestampMsValues.contains(Columns.timestampMs))
+                    .filter(Columns.variant == Variant.standardOutgoing)
             )
+            .asRequest(of: Int64.self)
+            .fetchAll(db)
+        
+        // If there were no 'rowIds' then no need to run the below queries, all of the timestamps
+        // and for pending read receipts
+        guard !rowIds.isEmpty else { return timestampMsValues.asSet() }
+        
+        // Update the 'readTimestampMs' if it doesn't match (need to do this to prevent
+        // the UI update from being triggered for a redundant update)
+        try RecipientState
+            .filter(rowIds.contains(Column.rowID))
+            .filter(RecipientState.Columns.readTimestampMs == nil)
             .updateAll(
                 db,
-                RecipientState.Columns.readTimestampMs.set(to: readTimestampMs),
+                RecipientState.Columns.readTimestampMs.set(to: readTimestampMs)
+            )
+        
+        // If the message still appeared to be sending then mark it as sent
+        try RecipientState
+            .filter(rowIds.contains(Column.rowID))
+            .filter(RecipientState.Columns.state == RecipientState.State.sending)
+            .updateAll(
+                db,
                 RecipientState.Columns.state.set(to: RecipientState.State.sent)
             )
+        
+        // Retrieve the set of timestamps which were updated
+        let timestampsUpdated: Set<Int64> = try Interaction
+            .select(Columns.timestampMs)
+            .filter(timestampMsValues.contains(Columns.timestampMs))
+            .filter(Columns.variant == Variant.standardOutgoing)
+            .joining(
+                required: Interaction.recipientStates
+                    .filter(rowIds.contains(Column.rowID))
+            )
+            .asRequest(of: Int64.self)
+            .fetchSet(db)
+        
+        // Return the timestamps which weren't updated
+        return timestampMsValues
+            .asSet()
+            .subtracting(timestampsUpdated)
     }
 }
 

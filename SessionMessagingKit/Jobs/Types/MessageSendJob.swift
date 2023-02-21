@@ -223,21 +223,25 @@ extension MessageSendJob {
         private enum CodingKeys: String, CodingKey {
             case destination
             case message
+            case isSyncMessage
             case variant
         }
         
         public let destination: Message.Destination
         public let message: Message
+        public let isSyncMessage: Bool?
         public let variant: Message.Variant?
         
         // MARK: - Initialization
         
         public init(
             destination: Message.Destination,
-            message: Message
+            message: Message,
+            isSyncMessage: Bool? = nil
         ) {
             self.destination = destination
             self.message = message
+            self.isSyncMessage = isSyncMessage
             self.variant = Message.Variant(from: message)
         }
         
@@ -253,7 +257,8 @@ extension MessageSendJob {
             
             self = Details(
                 destination: try container.decode(Message.Destination.self, forKey: .destination),
-                message: try variant.decode(from: container, forKey: .message)
+                message: try variant.decode(from: container, forKey: .message),
+                isSyncMessage: try? container.decode(Bool.self, forKey: .isSyncMessage)
             )
         }
         
@@ -267,6 +272,7 @@ extension MessageSendJob {
 
             try container.encode(destination, forKey: .destination)
             try container.encode(message, forKey: .message)
+            try container.encodeIfPresent(isSyncMessage, forKey: .isSyncMessage)
             try container.encode(variant, forKey: .variant)
         }
     }

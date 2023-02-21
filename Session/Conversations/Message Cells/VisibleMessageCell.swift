@@ -165,6 +165,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         
         return result
     }()
+    
+    internal lazy var messageStatusLabelPaddingView: UIView = UIView()
 
     // MARK: - Settings
     
@@ -252,6 +254,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         
         underBubbleStackView.addArrangedSubview(reactionContainerView)
         underBubbleStackView.addArrangedSubview(messageStatusContainerView)
+        underBubbleStackView.addArrangedSubview(messageStatusLabelPaddingView)
         
         messageStatusContainerView.addSubview(messageStatusLabel)
         messageStatusContainerView.addSubview(messageStatusImageView)
@@ -267,6 +270,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         messageStatusLabel.center(.vertical, in: messageStatusContainerView)
         messageStatusLabel.pin(.leading, to: .leading, of: messageStatusContainerView)
         messageStatusLabel.pin(.trailing, to: .leading, of: messageStatusImageView, withInset: -2)
+        messageStatusLabelPaddingView.pin(.leading, to: .leading, of: messageStatusContainerView)
+        messageStatusLabelPaddingView.pin(.trailing, to: .trailing, of: messageStatusContainerView)
     }
 
     override func setUpGestureRecognizers() {
@@ -432,8 +437,12 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             cellViewModel.variant == .infoCall ||
             (
                 cellViewModel.state == .sent &&
-                !cellViewModel.isLast
+                !cellViewModel.isLastOutgoing
             )
+        )
+        messageStatusLabelPaddingView.isHidden = (
+            messageStatusContainerView.isHidden ||
+            cellViewModel.isLast
         )
         
         // Set the height of the underBubbleStackView to 0 if it has no content (need to do this
@@ -1129,11 +1138,15 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     return [:]
                 }
                 
+                // Note: The 'String.count' value is based on actual character counts whereas
+                // NSAttributedString and NSRange are both based on UTF-16 encoded lengths, so
+                // in order to avoid strings which contain emojis breaking strings which end
+                // with URLs we need to use the 'String.utf16.count' value when creating the range
                 return detector
                     .matches(
                         in: attributedText.string,
                         options: [],
-                        range: NSRange(location: 0, length: attributedText.string.count)
+                        range: NSRange(location: 0, length: attributedText.string.utf16.count)
                     )
                     .reduce(into: [:]) { result, match in
                         guard

@@ -733,11 +733,17 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         
         // Store the 'sentMessageBeforeUpdate' state locally
         let didSendMessageBeforeUpdate: Bool = self.viewModel.sentMessageBeforeUpdate
+        let wasOnlyUpdates: Bool = (
+            changeset.count == 1 &&
+            changeset[0].elementUpdated.count == changeset[0].changeCount
+        )
         self.viewModel.sentMessageBeforeUpdate = false
         
-        // When sending a message we want to reload the UI instantly (with any form of animation the message
-        // sending feels somewhat unresponsive but an instant update feels snappy)
-        guard !didSendMessageBeforeUpdate else {
+        // When sending a message, or if there were only cell updates (ie. read status changes) we want to
+        // reload the UI instantly (with any form of animation the message sending feels somewhat unresponsive
+        // but an instant update feels snappy and without the instant update there is some overlap of the read
+        // status text change even though there shouldn't be any animations)
+        guard !didSendMessageBeforeUpdate && !wasOnlyUpdates else {
             self.viewModel.updateInteractionData(updatedData)
             self.tableView.reloadData()
             

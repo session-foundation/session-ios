@@ -60,6 +60,7 @@ public enum MessageReceiveJob: JobExecutor {
                     try MessageReceiver.handle(
                         db,
                         message: messageInfo.message,
+                        serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
                         associatedWithProto: protoContent,
                         openGroupId: nil
                     )
@@ -130,30 +131,36 @@ extension MessageReceiveJob {
             private enum CodingKeys: String, CodingKey {
                 case message
                 case variant
+                case serverExpirationTimestamp
                 case serializedProtoData
             }
             
             public let message: Message
             public let variant: Message.Variant
+            public let serverExpirationTimestamp: TimeInterval?
             public let serializedProtoData: Data
             
             public init(
                 message: Message,
                 variant: Message.Variant,
+                serverExpirationTimestamp: TimeInterval?,
                 proto: SNProtoContent
             ) throws {
                 self.message = message
                 self.variant = variant
+                self.serverExpirationTimestamp = serverExpirationTimestamp
                 self.serializedProtoData = try proto.serializedData()
             }
             
             private init(
                 message: Message,
                 variant: Message.Variant,
+                serverExpirationTimestamp: TimeInterval?,
                 serializedProtoData: Data
             ) {
                 self.message = message
                 self.variant = variant
+                self.serverExpirationTimestamp = serverExpirationTimestamp
                 self.serializedProtoData = serializedProtoData
             }
             
@@ -170,6 +177,7 @@ extension MessageReceiveJob {
                 self = MessageInfo(
                     message: try variant.decode(from: container, forKey: .message),
                     variant: variant,
+                    serverExpirationTimestamp: try? container.decode(TimeInterval.self, forKey: .serverExpirationTimestamp),
                     serializedProtoData: try container.decode(Data.self, forKey: .serializedProtoData)
                 )
             }
@@ -184,6 +192,7 @@ extension MessageReceiveJob {
 
                 try container.encode(message, forKey: .message)
                 try container.encode(variant, forKey: .variant)
+                try container.encodeIfPresent(serverExpirationTimestamp, forKey: .serverExpirationTimestamp)
                 try container.encode(serializedProtoData, forKey: .serializedProtoData)
             }
         }

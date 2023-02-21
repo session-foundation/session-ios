@@ -628,6 +628,8 @@ public final class SnodeAPI {
                             sodium: sodium.wrappedValue,
                             userX25519PublicKey: userX25519PublicKey
                         )
+                        
+                        return (info, response)
                     }
                     .retry(maxRetryCount)
                     .eraseToAnyPublisher()

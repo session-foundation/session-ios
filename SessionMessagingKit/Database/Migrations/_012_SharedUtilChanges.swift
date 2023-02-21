@@ -7,7 +7,7 @@ import SessionUtilitiesKit
 
 /// This migration recreates the interaction FTS table and adds the threadId so we can do a performant in-conversation
 /// searh (currently it's much slower than the global search)
-enum _011_SharedUtilChanges: Migration {
+enum _012_SharedUtilChanges: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "SharedUtilChanges"
     static let needsConfigSync: Bool = true

@@ -4,6 +4,7 @@ import UIKit
 import Combine
 import SessionUIKit
 import SessionMessagingKit
+import SessionUtilitiesKit
 
 final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, MentionSelectionViewDelegate {
     // MARK: - Variables
@@ -413,8 +414,11 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     func handleInputViewButtonLongPressBegan(_ inputViewButton: InputViewButton?) {
         guard inputViewButton == voiceMessageButton else { return }
         
-        delegate?.startVoiceMessageRecording()
+        // Note: The 'showVoiceMessageUI' call MUST come before triggering 'startVoiceMessageRecording'
+        // because if something goes wrong it'll trigger `hideVoiceMessageUI` and we don't want it to
+        // end up in a state with the input content hidden
         showVoiceMessageUI()
+        delegate?.startVoiceMessageRecording()
     }
 
     func handleInputViewButtonLongPressMoved(_ inputViewButton: InputViewButton, with touch: UITouch?) {
@@ -475,9 +479,9 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         UIView.animate(withDuration: 0.25, animations: {
             allOtherViews.forEach { $0.alpha = 1 }
             self.voiceMessageRecordingView?.alpha = 0
-        }, completion: { _ in
-            self.voiceMessageRecordingView?.removeFromSuperview()
-            self.voiceMessageRecordingView = nil
+        }, completion: { [weak self] _ in
+            self?.voiceMessageRecordingView?.removeFromSuperview()
+            self?.voiceMessageRecordingView = nil
         })
     }
 
