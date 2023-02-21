@@ -9,6 +9,7 @@ public struct SnodeReceivedMessage: CustomDebugStringConvertible {
     public static let defaultExpirationSeconds: Int64 = ((15 * 24 * 60 * 60) * 1000)
     
     public let info: SnodeReceivedMessageInfo
+    public let namespace: SnodeAPI.Namespace
     public let data: Data
     
     init?(
@@ -29,6 +30,7 @@ public struct SnodeReceivedMessage: CustomDebugStringConvertible {
             hash: rawMessage.hash,
             expirationDateMs: (rawMessage.expiration ?? SnodeReceivedMessage.defaultExpirationSeconds)
         )
+        self.namespace = namespace
         self.data = data
     }
     

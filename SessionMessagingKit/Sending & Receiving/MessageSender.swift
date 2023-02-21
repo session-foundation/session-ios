@@ -1088,21 +1088,19 @@ public final class MessageSender {
             if let message = message as? VisibleMessage { message.syncTarget = publicKey }
             if let message = message as? ExpirationTimerUpdate { message.syncTarget = publicKey }
             
-            Storage.shared.write { db in
-                JobRunner.add(
-                    db,
-                    job: Job(
-                        variant: .messageSend,
-                        threadId: threadId,
-                        interactionId: interactionId,
-                        details: MessageSendJob.Details(
-                            destination: .contact(publicKey: currentUserPublicKey),
-                            message: message,
-                            isSyncMessage: true
-                        )
+            JobRunner.add(
+                db,
+                job: Job(
+                    variant: .messageSend,
+                    threadId: threadId,
+                    interactionId: interactionId,
+                    details: MessageSendJob.Details(
+                        destination: .contact(publicKey: currentUserPublicKey),
+                        message: message,
+                        isSyncMessage: true
                     )
                 )
-            }
+            )
         }
     }
 }

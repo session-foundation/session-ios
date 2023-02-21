@@ -83,6 +83,12 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
         // message handling to make sure the messages are for the same ongoing call
         if message is CallMessage { return nil }
         
+        // We don't want to do any de-duping for SharedConfigMessages as libSession will handle
+        // the deduping for us, it also gives libSession more options to potentially recover from
+        // invalid data, conflicts or even process new changes which weren't supported from older
+        // versions of the library as it will always re-process messages
+        if message is SharedConfigMessage { return nil }
+        
         // Allow '.new' and 'encryptionKeyPair' closed group control message duplicates to avoid
         // the following situation:
         // • The app performed a background poll or received a push notification
@@ -103,7 +109,7 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
                 case is ClosedGroupControlMessage: return .closedGroupControlMessage
                 case is DataExtractionNotification: return .dataExtractionNotification
                 case is ExpirationTimerUpdate: return .expirationTimerUpdate
-                case is ConfigurationMessage, is SharedConfigMessage: return .configurationMessage  // TODO: Confirm this is desired
+                case is ConfigurationMessage, is SharedConfigMessage: return .configurationMessage
                 case is UnsendRequest: return .unsendRequest
                 case is MessageRequestResponse: return .messageRequestResponse
                 case is CallMessage: return .call

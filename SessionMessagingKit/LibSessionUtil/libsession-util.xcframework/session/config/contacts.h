@@ -9,6 +9,9 @@ extern "C" {
 #include "profile_pic.h"
 #include "util.h"
 
+// Maximum length of a contact name/nickname, in bytes (not including the null terminator).
+extern const size_t CONTACT_MAX_NAME_LENGTH;
+
 typedef struct contacts_contact {
     char session_id[67];  // in hex; 66 hex chars + null terminator.
 

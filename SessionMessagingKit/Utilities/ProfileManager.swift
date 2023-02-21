@@ -533,6 +533,7 @@ public struct ProfileManager {
         
         // Profile picture & profile key
         var avatarNeedsDownload: Bool = false
+        var targetAvatarUrl: String? = nil
         let shouldUpdateAvatar: Bool = {
             guard isCurrentUser else { return true }
             
@@ -568,6 +569,7 @@ public struct ProfileManager {
                         profileChanges.append(Profile.Columns.profilePictureUrl.set(to: url))
                         profileChanges.append(Profile.Columns.profileEncryptionKey.set(to: key))
                         avatarNeedsDownload = true
+                        targetAvatarUrl = url
                     }
                     
                     // Profile filename (this isn't synchronized between devices)
@@ -618,7 +620,9 @@ public struct ProfileManager {
         // Download the profile picture if needed
         guard avatarNeedsDownload else { return }
         
-        db.afterNextTransactionNested { db in
+        let dedupeIdentifier: String = "AvatarDownload-\(publicKey)-\(targetAvatarUrl ?? "remove")"
+        
+        db.afterNextTransactionNestedOnce(dedupeIdentifier: dedupeIdentifier) { db in
             // Need to refetch to ensure the db changes have occurred
             ProfileManager.downloadAvatar(for: Profile.fetchOrCreate(db, id: publicKey))
         }

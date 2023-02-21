@@ -317,13 +317,13 @@ public enum SessionUtil {
         guard !messages.isEmpty else { return }
         guard !publicKey.isEmpty else { throw MessageReceiverError.noThread }
         
-        let groupedMessages: [SharedConfigMessage.Kind: [SharedConfigMessage]] = messages
-            .grouped(by: \.kind)
-        
+        let groupedMessages: [ConfigDump.Variant: [SharedConfigMessage]] = messages
+            .grouped(by: \.kind.configDumpVariant)
         // Merge the config messages into the current state
         let mergeResults: [ConfigDump.Variant: IncomingConfResult] = groupedMessages
+            .sorted { lhs, rhs in lhs.key.processingOrder < rhs.key.processingOrder }
             .reduce(into: [:]) { result, next in
-                let key: ConfigKey = ConfigKey(variant: next.key.configDumpVariant, publicKey: publicKey)
+                let key: ConfigKey = ConfigKey(variant: next.key, publicKey: publicKey)
                 let atomicConf: Atomic<UnsafeMutablePointer<config_object>?> = (
                     SessionUtil.configStore.wrappedValue[key] ??
                     Atomic(nil)
@@ -340,8 +340,8 @@ public enum SessionUtil {
                     var mergeData: [UnsafePointer<UInt8>?] = next.value
                         .map { message -> [UInt8] in message.data.bytes }
                         .unsafeCopy()
-                    var mergeSize: [Int] = messages.map { $0.data.count }
-                    config_merge(conf, &mergeData, &mergeSize, messages.count)
+                    var mergeSize: [Int] = next.value.map { $0.data.count }
+                    config_merge(conf, &mergeData, &mergeSize, next.value.count)
                     mergeData.forEach { $0?.deallocate() }
                     
                     // Get the state of this variant
@@ -350,7 +350,7 @@ public enum SessionUtil {
                 }
                 
                 // Return the current state of the config
-                result[next.key.configDumpVariant] = IncomingConfResult(
+                result[next.key] = IncomingConfResult(
                     needsPush: needsPush,
                     needsDump: needsDump,
                     messageHashes: messageHashes,

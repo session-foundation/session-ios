@@ -7,15 +7,26 @@ extern "C" {
 #include "base.h"
 #include "util.h"
 
+// Maximum length of a group name, in bytes
+extern const size_t GROUP_NAME_MAX_LENGTH;
+
+// Maximum length of a community full URL
+extern const size_t COMMUNITY_URL_MAX_LENGTH;
+
+// Maximum length of a community room token
+extern const size_t COMMUNITY_ROOM_MAX_LENGTH;
+
 typedef struct ugroups_legacy_group_info {
     char session_id[67];  // in hex; 66 hex chars + null terminator.
 
-    char name[101];  // Null-terminated C string (human-readable).  Max length is 511.  Will always
-                     // be set (even if an empty string).
+    char name[101];  // Null-terminated C string (human-readable).  Max length is 100 (plus 1 for
+                     // null).  Will always be set (even if an empty string).
 
     bool have_enc_keys;            // Will be true if we have an encryption keypair, false if not.
-    unsigned char enc_pubkey[32];  // If `have_enc_keys`, this is the 32-byte pubkey
-    unsigned char enc_seckey[32];  // If `have_enc_keys`, this is the 32-byte secret key
+    unsigned char enc_pubkey[32];  // If `have_enc_keys`, this is the 32-byte pubkey (no NULL
+                                   // terminator).
+    unsigned char enc_seckey[32];  // If `have_enc_keys`, this is the 32-byte secret key (no NULL
+                                   // terminator).
 
     int64_t disappearing_timer;  // Minutes. 0 == disabled.
     bool hidden;                 // true if hidden from the convo list

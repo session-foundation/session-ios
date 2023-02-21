@@ -264,17 +264,13 @@ public final class SnodeAPI {
         }
         
         SNLog("Getting swarm for: \((publicKey == getUserHexEncodedPublicKey()) ? "self" : publicKey).")
-        let targetPublicKey: String = (Features.useTestnet ?
-            publicKey.removingIdPrefixIfNeeded() :
-            publicKey
-        )
         
         return getRandomSnode()
             .flatMap { snode in
                 SnodeAPI.send(
                     request: SnodeRequest(
                         endpoint: .getSwarm,
-                        body: GetSwarmRequest(pubkey: targetPublicKey)
+                        body: GetSwarmRequest(pubkey: publicKey)
                     ),
                     to: snode,
                     associatedWith: publicKey,
@@ -305,16 +301,14 @@ public final class SnodeAPI {
         }
         
         let userX25519PublicKey: String = getUserHexEncodedPublicKey()
-        let targetPublicKey: String = (Features.useTestnet ?
-            publicKey.removingIdPrefixIfNeeded() :
-            publicKey
-        )
         
         return Just(())
             .setFailureType(to: Error.self)
             .map { _ -> [SnodeAPI.Namespace: String] in
                 namespaces
                     .reduce(into: [:]) { result, namespace in
+                        guard namespace.shouldDedupeMessages else { return }
+                        
                         // Prune expired message hashes for this namespace on this service node
                         SnodeReceivedMessageInfo.pruneExpiredMessageHashInfo(
                             for: snode,
@@ -375,7 +369,7 @@ public final class SnodeAPI {
                                 request: SnodeRequest(
                                     endpoint: .getMessages,
                                     body: LegacyGetMessagesRequest(
-                                        pubkey: targetPublicKey,
+                                        pubkey: publicKey,
                                         lastHash: (namespaceLastHash[namespace] ?? ""),
                                         namespace: namespace,
                                         maxCount: nil,
@@ -393,7 +387,7 @@ public final class SnodeAPI {
                                 body: GetMessagesRequest(
                                     lastHash: (namespaceLastHash[namespace] ?? ""),
                                     namespace: namespace,
-                                    pubkey: targetPublicKey,
+                                    pubkey: publicKey,
                                     subkey: nil,    // TODO: Need to get this
                                     timestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs()),
                                     ed25519PublicKey: userED25519KeyPair.publicKey,
@@ -462,11 +456,6 @@ public final class SnodeAPI {
         associatedWith publicKey: String,
         using dependencies: SSKDependencies = SSKDependencies()
     ) -> AnyPublisher<(info: ResponseInfoType, data: (messages: [SnodeReceivedMessage], lastHash: String?)?), Error> {
-        let targetPublicKey: String = (Features.useTestnet ?
-            publicKey.removingIdPrefixIfNeeded() :
-            publicKey
-        )
-        
         return Deferred {
             Future<String?, Error> { resolver in
                 // Prune expired message hashes for this namespace on this service node
@@ -495,7 +484,7 @@ public final class SnodeAPI {
                         request: SnodeRequest(
                             endpoint: .getMessages,
                             body: LegacyGetMessagesRequest(
-                                pubkey: targetPublicKey,
+                                pubkey: publicKey,
                                 lastHash: (lastHash ?? ""),
                                 namespace: namespace,
                                 maxCount: nil,
@@ -522,7 +511,7 @@ public final class SnodeAPI {
                         body: GetMessagesRequest(
                             lastHash: (lastHash ?? ""),
                             namespace: namespace,
-                            pubkey: targetPublicKey,
+                            pubkey: publicKey,
                             subkey: nil,
                             timestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs()),
                             ed25519PublicKey: userED25519KeyPair.publicKey,
@@ -566,10 +555,7 @@ public final class SnodeAPI {
         in namespace: Namespace,
         using dependencies: SSKDependencies = SSKDependencies()
     ) -> AnyPublisher<(ResponseInfoType, SendMessagesResponse), Error> {
-        let publicKey: String = (Features.useTestnet ?
-            message.recipient.removingIdPrefixIfNeeded() :
-            message.recipient
-        )
+        let publicKey: String = message.recipient
         let userX25519PublicKey: String = getUserHexEncodedPublicKey()
         let sendTimestamp: UInt64 = UInt64(SnodeAPI.currentOffsetTimestampMs())
         
@@ -657,10 +643,7 @@ public final class SnodeAPI {
         }
         
         let userX25519PublicKey: String = getUserHexEncodedPublicKey()
-        let publicKey: String = (Features.useTestnet ?
-            recipient.removingIdPrefixIfNeeded() :
-            recipient
-        )
+        let publicKey: String = recipient
         var requests: [SnodeAPI.BatchRequest.Info] = targetedMessages
             .map { message, namespace in
                 // Check if this namespace requires authentication
@@ -749,11 +732,6 @@ public final class SnodeAPI {
                 .eraseToAnyPublisher()
         }
         
-        let publicKey: String = (Features.useTestnet ?
-            publicKey.removingIdPrefixIfNeeded() :
-            publicKey
-        )
-        
         return getSwarm(for: publicKey)
             .subscribe(on: Threading.workQueue)
             .tryFlatMap { swarm -> AnyPublisher<[String: (hashes: [String], expiry: UInt64)], Error> in
@@ -800,11 +778,6 @@ public final class SnodeAPI {
             return Fail(error: SnodeAPIError.noKeyPair)
                 .eraseToAnyPublisher()
         }
-        
-        let publicKey: String = (Features.useTestnet ?
-            publicKey.removingIdPrefixIfNeeded() :
-            publicKey
-        )
         
         return getSwarm(for: publicKey)
             .subscribe(on: Threading.workQueue)
@@ -855,10 +828,6 @@ public final class SnodeAPI {
                 .eraseToAnyPublisher()
         }
         
-        let publicKey: String = (Features.useTestnet ?
-            publicKey.removingIdPrefixIfNeeded() :
-            publicKey
-        )
         let userX25519PublicKey: String = getUserHexEncodedPublicKey()
         
         return getSwarm(for: publicKey)

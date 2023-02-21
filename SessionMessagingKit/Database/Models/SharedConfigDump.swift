@@ -66,7 +66,9 @@ public extension ConfigDump {
 }
 
 public extension ConfigDump.Variant {
-    static let userVariants: [ConfigDump.Variant] = [ .userProfile, .contacts, .convoInfoVolatile, .userGroups ]
+    static let userVariants: [ConfigDump.Variant] = [
+        .userProfile, .contacts, .convoInfoVolatile, .userGroups
+    ]
     
     var configMessageKind: SharedConfigMessage.Kind {
         switch self {
@@ -83,6 +85,17 @@ public extension ConfigDump.Variant {
             case .contacts: return SnodeAPI.Namespace.configContacts
             case .convoInfoVolatile: return SnodeAPI.Namespace.configConvoInfoVolatile
             case .userGroups: return SnodeAPI.Namespace.configUserGroups
+        }
+    }
+    
+    /// This value defines the order that the SharedConfigMessages should be processed in, while we re-process config
+    /// messages every time we poll this will prevent an edge-case where we have `convoInfoVolatile` data related
+    /// to a new conversation which hasn't been created yet because it's associated `contacts`/`userGroups` message
+    /// hasn't yet been processed (without this we would have to wait until the next poll for it to be processed correctly)
+    var processingOrder: Int {
+        switch self {
+            case .userProfile, .contacts, .userGroups: return 0
+            case .convoInfoVolatile: return 1
         }
     }
 }

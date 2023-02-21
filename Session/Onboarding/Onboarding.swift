@@ -26,16 +26,72 @@ enum Onboarding {
                 .tryFlatMap { swarm -> AnyPublisher<Void, Error> in
                     guard let snode = swarm.randomElement() else { throw SnodeAPIError.generic }
                     
-                    return CurrentUserPoller.poll(
-                        namespaces: [.configUserProfile],
-                        from: snode,
-                        for: userPublicKey,
-                        on: DispatchQueue.global(qos: .userInitiated),
-                        // Note: These values mean the received messages will be
-                        // processed immediately rather than async as part of a Job
-                        calledFromBackgroundPoller: true,
-                        isBackgroundPollValid: { true }
-                    )
+                    return CurrentUserPoller
+                        .poll(
+                            namespaces: [.configUserProfile],
+                            from: snode,
+                            for: userPublicKey,
+                            on: DispatchQueue.global(qos: .userInitiated),
+                            // Note: These values mean the received messages will be
+                            // processed immediately rather than async as part of a Job
+                            calledFromBackgroundPoller: true,
+                            isBackgroundPollValid: { true }
+                        )
+                        .tryFlatMap { receivedMessageTypes -> AnyPublisher<Void, Error> in
+                            // FIXME: Remove this entire 'tryFlatMap' once the updated user config has been released for long enough
+                            guard !receivedMessageTypes.isEmpty else {
+                                return Just(())
+                                    .setFailureType(to: Error.self)
+                                    .eraseToAnyPublisher()
+                            }
+                            
+                            SNLog("Onboarding failed to retrieve user config, checking for legacy config")
+                            
+                            return CurrentUserPoller
+                                .poll(
+                                    namespaces: [.default],
+                                    from: snode,
+                                    for: userPublicKey,
+                                    on: DispatchQueue.global(qos: .userInitiated),
+                                    // Note: These values mean the received messages will be
+                                    // processed immediately rather than async as part of a Job
+                                    calledFromBackgroundPoller: true,
+                                    isBackgroundPollValid: { true }
+                                )
+                                .tryMap { receivedMessageTypes -> Void in
+                                    guard
+                                        let message: ConfigurationMessage = receivedMessageTypes
+                                            .last(where: { $0 is ConfigurationMessage })
+                                            .asType(ConfigurationMessage.self),
+                                        let displayName: String = message.displayName
+                                    else { return () }
+                                    
+                                    // Handle user profile changes
+                                    Storage.shared.write { db in
+                                        try ProfileManager.updateProfileIfNeeded(
+                                            db,
+                                            publicKey: userPublicKey,
+                                            name: displayName,
+                                            avatarUpdate: {
+                                                guard
+                                                    let profilePictureUrl: String = message.profilePictureUrl,
+                                                    let profileKey: Data = message.profileKey
+                                                else { return .none }
+                                                
+                                                return .updateTo(
+                                                    url: profilePictureUrl,
+                                                    key: profileKey,
+                                                    fileName: nil
+                                                )
+                                            }(),
+                                            sentTimestamp: TimeInterval((message.sentTimestamp ?? 0) / 1000),
+                                            calledFromConfigHandling: false
+                                        )
+                                    }
+                                    return ()
+                                }
+                                .eraseToAnyPublisher()
+                        }
                 }
                 .flatMap { _ -> AnyPublisher<String?, Error> in
                     Storage.shared.readPublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in

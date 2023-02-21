@@ -209,6 +209,10 @@ public extension Message {
                 handleClosedGroupKeyUpdateMessages: true
             )
             
+            // Ensure we actually want to de-dupe messages for this namespace, otherwise just
+            // succeed early
+            guard rawMessage.namespace.shouldDedupeMessages else { return processedMessage }
+            
             // Retrieve the number of entries we have for the hash of this message
             let numExistingHashes: Int = (try? SnodeReceivedMessageInfo
                 .filter(SnodeReceivedMessageInfo.Columns.hash == rawMessage.info.hash)

@@ -6,6 +6,9 @@ extern "C" {
 
 #include <stddef.h>
 
+// Maximum length of the profile pic URL (not including the null terminator)
+extern const size_t PROFILE_PIC_MAX_URL_LENGTH;
+
 typedef struct user_profile_pic {
     // Null-terminated C string containing the uploaded URL of the pic.  Will be length 0 if there
     // is no profile pic.

@@ -53,10 +53,7 @@ extension SnodeMessage {
     public func encode(to encoder: Encoder) throws {
         var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
 
-        try container.encode(
-            (Features.useTestnet ? recipient.removingIdPrefixIfNeeded() : recipient),
-            forKey: .recipient
-        )
+        try container.encode(recipient, forKey: .recipient)
         try container.encode(data, forKey: .data)
         try container.encode(ttl, forKey: .ttl)
         try container.encode(timestampMs, forKey: .timestampMs)

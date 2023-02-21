@@ -31,6 +31,24 @@ public extension SnodeAPI {
             }
         }
         
+        /// This flag indicates whether we should dedupe messages from the specified namespace, when `true` we will
+        /// store a `SnodeReceivedMessageInfo` record for the message and check for a matching record whenever
+        /// we receive a message from this namespace
+        ///
+        /// **Note:** An additional side-effect of this flag is that when we poll for messages from the specified namespace
+        /// we will always retrieve **all** messages from the namespace (instead of just new messages since the last one
+        /// we have seen)
+        public var shouldDedupeMessages: Bool {
+            switch self {
+                case .`default`, .legacyClosedGroup: return true
+                    
+                case .configUserProfile, .configContacts,
+                    .configConvoInfoVolatile, .configUserGroups,
+                    .configClosedGroupInfo:
+                    return false
+            }
+        }
+        
         var verificationString: String {
             switch self {
                 case .`default`: return ""
