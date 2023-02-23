@@ -194,6 +194,11 @@ public extension Message {
     
     static func shouldSync(message: Message) -> Bool {
         switch message {
+            case is VisibleMessage: return true
+            case is ExpirationTimerUpdate: return true
+            case is ConfigurationMessage: return true
+            case is UnsendRequest: return true
+            
             case let controlMessage as ClosedGroupControlMessage:
                 switch controlMessage.kind {
                     case .new: return true
@@ -205,9 +210,7 @@ public extension Message {
                     case .answer, .endCall: return true
                     default: return false
                 }
-                
-            case is ConfigurationMessage: return true
-            case is UnsendRequest: return true
+            
             default: return false
         }
     }
@@ -560,6 +563,7 @@ public extension Message {
             try MessageReceiveJob.Details.MessageInfo(
                 message: message,
                 variant: variant,
+                serverExpirationTimestamp: serverExpirationTimestamp,
                 proto: proto
             )
         )

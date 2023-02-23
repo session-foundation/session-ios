@@ -43,7 +43,8 @@ public enum SendReadReceiptsJob: JobExecutor {
                         timestamps: details.timestampMsValues.map { UInt64($0) }
                     ),
                     to: details.destination,
-                    interactionId: nil
+                    interactionId: nil,
+                    isSyncMessage: false
                 )
             }
             .done(on: queue) {
@@ -104,6 +105,7 @@ public extension SendReadReceiptsJob {
     /// ensure that is done correctly beforehand
     @discardableResult static func createOrUpdateIfNeeded(_ db: Database, threadId: String, interactionIds: [Int64]) -> Job? {
         guard db[.areReadReceiptsEnabled] == true else { return nil }
+        guard !interactionIds.isEmpty else { return nil }
         
         // Retrieve the timestampMs values for the specified interactions
         let timestampMsValues: [Int64] = (try? Interaction

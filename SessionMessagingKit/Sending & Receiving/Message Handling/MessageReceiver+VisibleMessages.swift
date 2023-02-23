@@ -149,6 +149,7 @@ extension MessageReceiver {
                         db,
                         thread: thread,
                         interactionId: existingInteractionId,
+                        messageSentTimestamp: messageSentTimestamp,
                         variant: variant,
                         syncTarget: message.syncTarget
                     )
@@ -166,6 +167,7 @@ extension MessageReceiver {
             db,
             thread: thread,
             interactionId: interactionId,
+            messageSentTimestamp: messageSentTimestamp,
             variant: variant,
             syncTarget: message.syncTarget
         )
@@ -351,11 +353,19 @@ extension MessageReceiver {
         _ db: Database,
         thread: SessionThread,
         interactionId: Int64,
+        messageSentTimestamp: TimeInterval,
         variant: Interaction.Variant,
         syncTarget: String?
     ) throws {
         guard variant == .standardOutgoing else { return }
         
+        // Immediately update any existing outgoing message 'RecipientState' records to be 'sent'
+        _ = try? RecipientState
+            .filter(RecipientState.Columns.interactionId == interactionId)
+            .filter(RecipientState.Columns.state != RecipientState.State.sent)
+            .updateAll(db, RecipientState.Columns.state.set(to: RecipientState.State.sent))
+        
+        // Create any addiitonal 'RecipientState' records as needed
         switch thread.variant {
             case .contact:
                 if let syncTarget: String = syncTarget {
@@ -397,5 +407,22 @@ extension MessageReceiver {
             includingOlder: true,
             trySendReadReceipt: true
         )
+        
+        // Process any PendingReadReceipt values
+        let maybePendingReadReceipt: PendingReadReceipt? = try PendingReadReceipt
+            .filter(PendingReadReceipt.Columns.threadId == thread.id)
+            .filter(PendingReadReceipt.Columns.interactionTimestampMs == Int64(messageSentTimestamp * 1000))
+            .fetchOne(db)
+        
+        if let pendingReadReceipt: PendingReadReceipt = maybePendingReadReceipt {
+            try Interaction.markAsRead(
+                db,
+                recipientId: thread.id,
+                timestampMsValues: [pendingReadReceipt.interactionTimestampMs],
+                readTimestampMs: pendingReadReceipt.readTimestampMs
+            )
+            
+            _ = try pendingReadReceipt.delete(db)
+        }
     }
 }
