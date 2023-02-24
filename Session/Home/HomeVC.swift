@@ -618,6 +618,20 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
         return true
     }
     
+    func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        let section: HomeViewModel.SectionModel = self.viewModel.threadData[indexPath.section]
+        let unswipeAnimationDelay: DispatchTimeInterval = .milliseconds(500)
+        
+        switch section.model {
+            case .messageRequests:
+                return nil
+            case .threads:
+                
+                return UISwipeActionsConfiguration(actions: [  ])
+            default: return nil
+        }
+    }
+    
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         let section: HomeViewModel.SectionModel = self.viewModel.threadData[indexPath.section]
         let unswipeAnimationDelay: DispatchTimeInterval = .milliseconds(500)
@@ -665,6 +679,7 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                     self?.present(confirmationModal, animated: true, completion: nil)
                 }
                 delete.themeBackgroundColor = .conversationButton_swipeDestructive
+                delete.setupSessionStyle(with: UIImage(systemName: "trash"))
 
                 let pin: UIContextualAction = UIContextualAction(
                     style: .normal,
@@ -688,6 +703,7 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                     }
                 }
                 pin.themeBackgroundColor = .conversationButton_swipeTertiary
+                pin.setupSessionStyle(with: UIImage(systemName: "pin"))
                 
                 guard threadViewModel.threadVariant == .contact && !threadViewModel.threadIsNoteToSelf else {
                     return UISwipeActionsConfiguration(actions: [ delete, pin ])
