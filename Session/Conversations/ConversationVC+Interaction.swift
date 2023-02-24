@@ -1526,6 +1526,7 @@ extension ConversationVC:
             }
         }
         
+        Modal.setupForIPadIfNeeded(sheet, targetView: self.view)
         present(sheet, animated: true, completion: nil)
     }
     
@@ -2376,6 +2377,7 @@ extension ConversationVC {
         })
         alertVC.addAction(UIAlertAction(title: "TXT_CANCEL_TITLE".localized(), style: .cancel, handler: nil))
         
+        Modal.setupForIPadIfNeeded(alertVC, targetView: self.view)
         self.present(alertVC, animated: true, completion: nil)
     }
     
@@ -2423,6 +2425,7 @@ extension ConversationVC {
         })
         alertVC.addAction(UIAlertAction(title: "TXT_CANCEL_TITLE".localized(), style: .cancel, handler: nil))
         
+        Modal.setupForIPadIfNeeded(alertVC, targetView: self.view)
         self.present(alertVC, animated: true, completion: nil)
     }
 }
