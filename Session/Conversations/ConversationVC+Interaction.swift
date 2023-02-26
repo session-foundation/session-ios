@@ -461,10 +461,17 @@ extension ConversationVC:
                     .filter(id: threadId)
                     .updateAll(db, SessionThread.Columns.shouldBeVisible.set(to: true))
                 
+                let authorId: String = {
+                    if let blindedId = self?.viewModel.threadData.currentUserBlindedPublicKey {
+                        return blindedId
+                    }
+                    return self?.viewModel.threadData.currentUserPublicKey ?? getUserHexEncodedPublicKey(db)
+                }()
+                
                 // Create the interaction
                 let interaction: Interaction = try Interaction(
                     threadId: threadId,
-                    authorId: getUserHexEncodedPublicKey(db),
+                    authorId: authorId,
                     variant: .standardOutgoing,
                     body: text,
                     timestampMs: sentTimestampMs,
@@ -1519,6 +1526,7 @@ extension ConversationVC:
             }
         }
         
+        Modal.setupForIPadIfNeeded(sheet, targetView: self.view)
         present(sheet, animated: true, completion: nil)
     }
     
@@ -2369,6 +2377,7 @@ extension ConversationVC {
         })
         alertVC.addAction(UIAlertAction(title: "TXT_CANCEL_TITLE".localized(), style: .cancel, handler: nil))
         
+        Modal.setupForIPadIfNeeded(alertVC, targetView: self.view)
         self.present(alertVC, animated: true, completion: nil)
     }
     
@@ -2416,6 +2425,7 @@ extension ConversationVC {
         })
         alertVC.addAction(UIAlertAction(title: "TXT_CANCEL_TITLE".localized(), style: .cancel, handler: nil))
         
+        Modal.setupForIPadIfNeeded(alertVC, targetView: self.view)
         self.present(alertVC, animated: true, completion: nil)
     }
 }

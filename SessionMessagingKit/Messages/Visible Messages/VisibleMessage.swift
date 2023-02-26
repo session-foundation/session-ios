@@ -44,6 +44,7 @@ public final class VisibleMessage: Message {
     // MARK: - Initialization
     
     public init(
+        sender: String? = nil,
         sentTimestamp: UInt64? = nil,
         recipient: String? = nil,
         groupPublicKey: String? = nil,
@@ -68,6 +69,7 @@ public final class VisibleMessage: Message {
         super.init(
             sentTimestamp: sentTimestamp,
             recipient: recipient,
+            sender: sender,
             groupPublicKey: groupPublicKey
         )
     }
@@ -228,6 +230,7 @@ public extension VisibleMessage {
         let linkPreview: LinkPreview? = try? interaction.linkPreview.fetchOne(db)
         
         return VisibleMessage(
+            sender: interaction.authorId,
             sentTimestamp: UInt64(interaction.timestampMs),
             recipient: (try? interaction.recipientStates.fetchOne(db))?.recipientId,
             groupPublicKey: try? interaction.thread
