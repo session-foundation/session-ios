@@ -431,7 +431,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             cellViewModel.variant == .infoCall ||
             (
                 cellViewModel.state == .sent &&
-                !cellViewModel.isLast
+                !cellViewModel.isLastOutgoing
             )
         )
         messageStatusLabelPaddingView.isHidden = (

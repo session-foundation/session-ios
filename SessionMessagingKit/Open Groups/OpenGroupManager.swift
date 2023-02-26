@@ -576,6 +576,7 @@ public final class OpenGroupManager: NSObject {
                         try MessageReceiver.handle(
                             db,
                             message: messageInfo.message,
+                            serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
                             associatedWithProto: try SNProtoContent.parseData(messageInfo.serializedProtoData),
                             openGroupId: openGroup.id,
                             dependencies: dependencies
@@ -739,6 +740,7 @@ public final class OpenGroupManager: NSObject {
                     try MessageReceiver.handle(
                         db,
                         message: messageInfo.message,
+                        serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
                         associatedWithProto: try SNProtoContent.parseData(messageInfo.serializedProtoData),
                         openGroupId: nil,   // Intentionally nil as they are technically not open group messages
                         dependencies: dependencies

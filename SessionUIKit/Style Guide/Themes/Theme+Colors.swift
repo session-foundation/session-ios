@@ -41,6 +41,7 @@ public extension Theme {
 // MARK: - Standard Theme Colors
 
 internal extension UIColor {
+    static let warning: UIColor = #colorLiteral(red: 0.9882352941, green: 0.6941176471, blue: 0.3490196078, alpha: 1)            // #FCB159
     static let dangerDark: UIColor = #colorLiteral(red: 1, green: 0.2274509804, blue: 0.2274509804, alpha: 1)         // #FF3A3A
     static let dangerLight: UIColor = #colorLiteral(red: 0.8823529412, green: 0.1764705882, blue: 0.09803921569, alpha: 1)        // #E12D19
     static let disabledDark: UIColor = #colorLiteral(red: 0.631372549, green: 0.6352941176, blue: 0.631372549, alpha: 1)       // #A1A2A1

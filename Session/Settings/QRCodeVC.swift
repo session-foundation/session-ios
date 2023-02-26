@@ -4,6 +4,7 @@ import UIKit
 import AVFoundation
 import Curve25519Kit
 import SessionUIKit
+import SessionMessagingKit
 import SessionUtilitiesKit
 
 final class QRCodeVC : BaseVC, UIPageViewControllerDataSource, UIPageViewControllerDelegate, QRScannerDelegate {
