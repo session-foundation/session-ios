@@ -346,7 +346,7 @@ public final class FullConversationCell: UITableViewCell {
         }
         else {
             accentLineView.themeBackgroundColor = .conversationButton_unreadStripBackground
-            accentLineView.alpha = (unreadCount > 0 ? 1 : 0.0001) // Setting the alpha to exactly 0 causes an issue on iOS 12
+            accentLineView.alpha = (unreadCount > 0 ? 1 : 0)
         }
         
         isPinnedIcon.isHidden = !cellViewModel.threadIsPinned
@@ -406,22 +406,32 @@ public final class FullConversationCell: UITableViewCell {
     }
     
     public func optimisticUpdate(
-        isBlocked: Bool? = nil,
-        isPinned: Bool? = nil
+        isMuted: Bool? = nil,
+        isPinned: Bool? = nil,
+        hasUnread: Bool? = nil
     ) {
-        if let isBlocked: Bool = isBlocked {
-            if isBlocked {
-                accentLineView.themeBackgroundColor = .danger
-                accentLineView.alpha = 1
-            }
-            else {
-                accentLineView.themeBackgroundColor = .conversationButton_unreadStripBackground
-                accentLineView.alpha = (!unreadCountView.isHidden ? 1 : 0.0001) // Setting the alpha to exactly 0 causes an issue on iOS 12
+        if let isMuted: Bool = isMuted {
+            if isMuted {
+                
+            } else {
+                
             }
         }
         
         if let isPinned: Bool = isPinned {
             isPinnedIcon.isHidden = !isPinned
+        }
+        
+        if let hasUnread: Bool = hasUnread {
+            if hasUnread {
+                unreadCountView.isHidden = false
+                unreadCountLabel.text = "1"
+                unreadCountLabel.font = .boldSystemFont(ofSize: Values.verySmallFontSize)
+                accentLineView.alpha = 1
+            } else {
+                unreadCountView.isHidden = true
+                accentLineView.alpha = 0
+            }
         }
     }
     

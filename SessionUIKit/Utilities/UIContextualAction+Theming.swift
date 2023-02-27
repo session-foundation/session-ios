@@ -66,11 +66,18 @@ public extension UIContextualAction {
         let stackView: UIStackView = UIStackView()
         stackView.axis = .vertical
         stackView.alignment = .center
-        stackView.spacing = 3
+        stackView.spacing = 4
         
         if let icon: UIImage = icon {
             let aspectRatio: CGFloat = (icon.size.width / icon.size.height)
-            let imageView: UIImageView = UIImageView(image: icon)
+            let imageView: UIImageView = UIImageView(
+                image: icon.resizedImage(
+                    to: CGSize(
+                        width: iconHeight * aspectRatio,
+                        height: iconHeight
+                    )
+                )
+            )
             imageView.frame = CGRect(x: 0, y: 0, width: (iconHeight * aspectRatio), height: iconHeight)
             imageView.contentMode = .scaleAspectFit
             imageView.themeTintColor = themeTintColor

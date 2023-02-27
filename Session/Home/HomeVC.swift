@@ -627,7 +627,45 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                 return nil
             case .threads:
                 let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
-                return UISwipeActionsConfiguration(actions: [  ])
+                let hasUnread: Bool = (threadViewModel.threadUnreadCount ?? 0) > 0
+                let mark: UIContextualAction = UIContextualAction(
+                    title: ((hasUnread) ? "mark_read_button_text".localized() : "mark_unread_button_text".localized()),
+                    icon: ((hasUnread) ? UIImage(named: "icon_mark_read") : UIImage(named: "icon_mark_unread")),
+                    iconHeight: Values.mediumFontSize,
+                    themeTintColor: .textPrimary,
+                    themeBackgroundColor: .conversationButton_swipeDestructive,
+                    side: .trailing,
+                    actionIndex: 0,
+                    indexPath: indexPath,
+                    tableView: tableView
+                ) { _, _, completionHandler in
+                    (tableView.cellForRow(at: indexPath) as? FullConversationCell)?.optimisticUpdate(
+                        hasUnread: !hasUnread
+                    )
+                    completionHandler(true)
+                    
+                    // Delay the change to give the cell "unswipe" animation some time to complete
+                    DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
+                        Storage.shared.writeAsync { db in
+                            if hasUnread {
+                                try Interaction.markAsRead(
+                                    db,
+                                    interactionId: threadViewModel.interactionId,
+                                    threadId: threadViewModel.threadId,
+                                    threadVariant: threadViewModel.threadVariant,
+                                    includingOlder: true,
+                                    trySendReadReceipt: true
+                                )
+                            } else {
+                                try Interaction
+                                    .filter(id: threadViewModel.interactionId)
+                                    .updateAll(db, Interaction.Columns.wasRead.set(to: false))
+                            }
+                        }
+                    }
+                }
+                mark.themeBackgroundColor = .conversationButton_swipeSecondary
+                return UISwipeActionsConfiguration(actions: [ mark ])
             default: return nil
         }
     }
@@ -648,51 +686,17 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                 
             case .threads:
                 let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
-                let delete: UIContextualAction = UIContextualAction(
-                    title: "TXT_DELETE_TITLE".localized(),
-                    icon: UIImage(named: "icon_bin"),
-                    iconHeight: 5,
+
+                let pin: UIContextualAction = UIContextualAction(
+                    title: (threadViewModel.threadIsPinned ? "UNPIN_BUTTON_TEXT".localized() : "PIN_BUTTON_TEXT".localized()),
+                    icon: UIImage(named: "icon_pin"),
+                    iconHeight: Values.mediumFontSize,
                     themeTintColor: .textPrimary,
                     themeBackgroundColor: .conversationButton_swipeDestructive,
                     side: .trailing,
-                    actionIndex: 2,
+                    actionIndex: 0,
                     indexPath: indexPath,
                     tableView: tableView
-                ) { [weak self] _, _, completionHandler in
-                    let confirmationModal: ConfirmationModal = ConfirmationModal(
-                        info: ConfirmationModal.Info(
-                            title: "CONVERSATION_DELETE_CONFIRMATION_ALERT_TITLE".localized(),
-                            explanation: (threadViewModel.currentUserIsClosedGroupAdmin == true ?
-                                "admin_group_leave_warning".localized() :
-                                "CONVERSATION_DELETE_CONFIRMATION_ALERT_MESSAGE".localized()
-                            ),
-                            confirmTitle: "TXT_DELETE_TITLE".localized(),
-                            confirmStyle: .danger,
-                            cancelStyle: .alert_text,
-                            dismissOnConfirm: true,
-                            onConfirm: { [weak self] _ in
-                                self?.viewModel.delete(
-                                    threadId: threadViewModel.threadId,
-                                    threadVariant: threadViewModel.threadVariant
-                                )
-                                self?.dismiss(animated: true, completion: nil)
-                                
-                                completionHandler(true)
-                            },
-                            afterClosed: { completionHandler(false) }
-                        )
-                    )
-                    
-                    self?.present(confirmationModal, animated: true, completion: nil)
-                }
-                delete.themeBackgroundColor = .conversationButton_swipeDestructive
-
-                let pin: UIContextualAction = UIContextualAction(
-                    style: .normal,
-                    title: (threadViewModel.threadIsPinned ?
-                        "UNPIN_BUTTON_TEXT".localized() :
-                        "PIN_BUTTON_TEXT".localized()
-                    )
                 ) { _, _, completionHandler in
                     (tableView.cellForRow(at: indexPath) as? FullConversationCell)?.optimisticUpdate(
                         isPinned: !threadViewModel.threadIsPinned
@@ -709,47 +713,154 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                     }
                 }
                 pin.themeBackgroundColor = .conversationButton_swipeTertiary
-                
-                guard threadViewModel.threadVariant == .contact && !threadViewModel.threadIsNoteToSelf else {
-                    return UISwipeActionsConfiguration(actions: [ delete, pin ])
-                }
-
-                let block: UIContextualAction = UIContextualAction(
-                    style: .normal,
-                    title: (threadViewModel.threadIsBlocked == true ?
-                        "BLOCK_LIST_UNBLOCK_BUTTON".localized() :
-                        "BLOCK_LIST_BLOCK_BUTTON".localized()
-                    )
+            
+                let mute: UIContextualAction = UIContextualAction(
+                    title: ((threadViewModel.threadMutedUntilTimestamp != nil) ? "unmute_button_text".localized() : "mute_button_text".localized()),
+                    icon: UIImage(named: "icon_mute"),
+                    iconHeight: Values.mediumFontSize,
+                    themeTintColor: .textPrimary,
+                    themeBackgroundColor: .conversationButton_swipeDestructive,
+                    side: .trailing,
+                    actionIndex: 1,
+                    indexPath: indexPath,
+                    tableView: tableView
                 ) { _, _, completionHandler in
                     (tableView.cellForRow(at: indexPath) as? FullConversationCell)?.optimisticUpdate(
-                        isBlocked: (threadViewModel.threadIsBlocked == false)
+                        isMuted: !(threadViewModel.threadMutedUntilTimestamp != nil)
                     )
                     completionHandler(true)
                     
                     // Delay the change to give the cell "unswipe" animation some time to complete
                     DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
                         Storage.shared.writeAsync { db in
-                            try Contact
+                            let currentValue: TimeInterval? = try SessionThread
+                                .filter(id: threadViewModel.threadId)
+                                .select(.mutedUntilTimestamp)
+                                .asRequest(of: TimeInterval.self)
+                                .fetchOne(db)
+                            
+                            try SessionThread
                                 .filter(id: threadViewModel.threadId)
                                 .updateAll(
                                     db,
-                                    Contact.Columns.isBlocked.set(
-                                        to: (threadViewModel.threadIsBlocked == false ?
-                                            true:
-                                            false
+                                    SessionThread.Columns.mutedUntilTimestamp.set(
+                                        to: (currentValue == nil ?
+                                            Date.distantFuture.timeIntervalSince1970 :
+                                            nil
                                         )
                                     )
                                 )
-                            
-                            try MessageSender.syncConfiguration(db, forceSyncNow: true)
-                                .retainUntilComplete()
                         }
                     }
                 }
-                block.themeBackgroundColor = .conversationButton_swipeSecondary
-                
-                return UISwipeActionsConfiguration(actions: [ delete, block, pin ])
-                
+                mute.themeBackgroundColor = .conversationButton_swipeSecondary
+            
+                switch threadViewModel.threadVariant {
+                    case .contact:
+                        let delete: UIContextualAction = UIContextualAction(
+                            title: "TXT_DELETE_TITLE".localized(),
+                            icon: UIImage(named: "icon_bin"),
+                            iconHeight: Values.smallFontSize,
+                            themeTintColor: .textPrimary,
+                            themeBackgroundColor: .conversationButton_swipeDestructive,
+                            side: .trailing,
+                            actionIndex: 2,
+                            indexPath: indexPath,
+                            tableView: tableView
+                        ) { [weak self] _, _, completionHandler in
+                            let confirmationModal: ConfirmationModal = ConfirmationModal(
+                                info: ConfirmationModal.Info(
+                                    title: "CONVERSATION_DELETE_CONFIRMATION_ALERT_TITLE".localized(),
+                                    explanation: (threadViewModel.currentUserIsClosedGroupAdmin == true ?
+                                        "admin_group_leave_warning".localized() :
+                                        "CONVERSATION_DELETE_CONFIRMATION_ALERT_MESSAGE".localized()
+                                    ),
+                                    confirmTitle: "TXT_DELETE_TITLE".localized(),
+                                    confirmStyle: .danger,
+                                    cancelStyle: .alert_text,
+                                    dismissOnConfirm: true,
+                                    onConfirm: { [weak self] _ in
+                                        self?.viewModel.delete(
+                                            threadId: threadViewModel.threadId,
+                                            threadVariant: threadViewModel.threadVariant
+                                        )
+                                        self?.dismiss(animated: true, completion: nil)
+                                        
+                                        completionHandler(true)
+                                    },
+                                    afterClosed: { completionHandler(false) }
+                                )
+                            )
+                            
+                            self?.present(confirmationModal, animated: true, completion: nil)
+                        }
+                        delete.themeBackgroundColor = .conversationButton_swipeDestructive
+                        
+                        return UISwipeActionsConfiguration(actions: [ delete, mute, pin ])
+                    
+                    case .openGroup, .closedGroup:
+                        let leave: UIContextualAction = UIContextualAction(
+                            title: "LEAVE_BUTTON_TITLE".localized(),
+                            icon: UIImage(named: "icon_leave"),
+                            iconHeight: Values.mediumFontSize,
+                            themeTintColor: .textPrimary,
+                            themeBackgroundColor: .conversationButton_swipeDestructive,
+                            side: .trailing,
+                            actionIndex: 2,
+                            indexPath: indexPath,
+                            tableView: tableView
+                        ) { [weak self] _, _, completionHandler in
+                            let confirmationModalTitle: String = (threadViewModel.threadVariant == .closedGroup) ?
+                                "leave_group_confirmation_alert_title".localized() :
+                                "leave_community_confirmation_alert_title".localized()
+                            
+                            let confirmationModalExplanation: NSAttributedString = {
+                                if threadViewModel.threadVariant == .closedGroup && threadViewModel.currentUserIsClosedGroupAdmin == true {
+                                    return NSAttributedString(string: "admin_group_leave_warning".localized())
+                                }
+                                
+                                let mutableAttributedString = NSMutableAttributedString(
+                                    string: String(
+                                        format: "leave_community_confirmation_alert_message".localized(),
+                                        threadViewModel.displayName
+                                    )
+                                )
+                                mutableAttributedString.addAttribute(
+                                    .font,
+                                    value: UIFont.boldSystemFont(ofSize: Values.smallFontSize),
+                                    range: (mutableAttributedString.string as NSString).range(of: threadViewModel.displayName)
+                                )
+                                return mutableAttributedString
+                            }()
+                            
+                            let confirmationModal: ConfirmationModal = ConfirmationModal(
+                                info: ConfirmationModal.Info(
+                                    title: confirmationModalTitle,
+                                    attributedExplanation: confirmationModalExplanation,
+                                    confirmTitle: "LEAVE_BUTTON_TITLE".localized(),
+                                    confirmStyle: .danger,
+                                    cancelStyle: .alert_text,
+                                    dismissOnConfirm: true,
+                                    onConfirm: { [weak self] _ in
+                                        self?.viewModel.delete(
+                                            threadId: threadViewModel.threadId,
+                                            threadVariant: threadViewModel.threadVariant
+                                        )
+                                        self?.dismiss(animated: true, completion: nil)
+                                        
+                                        completionHandler(true)
+                                    },
+                                    afterClosed: { completionHandler(false) }
+                                )
+                            )
+                            
+                            self?.present(confirmationModal, animated: true, completion: nil)
+                        }
+                        leave.themeBackgroundColor = .conversationButton_swipeDestructive
+                        
+                        return UISwipeActionsConfiguration(actions: [ leave, mute, pin ])
+                }
+            
             default: return nil
         }
     }

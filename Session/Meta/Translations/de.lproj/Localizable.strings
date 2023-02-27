@@ -609,3 +609,10 @@
 "context_menu_resync" = "Resync";
 "GIPHY_PERMISSION_TITLE" = "Search GIFs?";
 "GIPHY_PERMISSION_MESSAGE" = "Session will connect to Giphy to provide search results. You will not have full metadata protection when sending GIFs.";
+"mute_button_text" = "Mute";
+"unmute_button_text" = "Unmute";
+"mark_read_button_text" = "Mark read";
+"mark_unread_button_text" = "Mark unread";
+"leave_group_confirmation_alert_title" = "Leave Group";
+"leave_community_confirmation_alert_title" = "Leave Community";
+"leave_community_confirmation_alert_message" = "Are you sure you want to leave %@?";
