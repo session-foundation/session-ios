@@ -156,10 +156,7 @@ final class QuoteView: UIView {
             mainStackView.addArrangedSubview(imageView)
             
             if (body ?? "").isEmpty {
-                body = (attachment.isImage ?
-                    "Image" :
-                    (isAudio ? "Audio" : "Document")
-                )
+                body = attachment.shortDescription
             }
             
             // Generate the thumbnail if needed
@@ -223,7 +220,7 @@ final class QuoteView: UIView {
                 }
                 .defaulting(
                     to: attachment.map {
-                        NSAttributedString(string: MIMETypeUtil.isAudio($0.contentType) ? "Audio" : "Document")
+                        NSAttributedString(string: $0.shortDescription)
                     }
                 )
                 .defaulting(to: NSAttributedString(string: "Document"))
