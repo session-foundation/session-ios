@@ -58,7 +58,7 @@ var executableFiles: [String] = {
 func contents(atPath path: String) -> String {
     print("Path: \(path)")
     guard let data = fileManager.contents(atPath: path), let content = String(data: data, encoding: .utf8) else {
-//        fatalError("Could not read from path: \(path)")
+        fatalError("Could not read from path: \(path)")
         return ""
     }
     
