@@ -39,6 +39,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     public static let positionInClusterKey: SQL = SQL(stringLiteral: CodingKeys.positionInCluster.stringValue)
     public static let isOnlyMessageInClusterKey: SQL = SQL(stringLiteral: CodingKeys.isOnlyMessageInCluster.stringValue)
     public static let isLastKey: SQL = SQL(stringLiteral: CodingKeys.isLast.stringValue)
+    public static let isLastOutgoingKey: SQL = SQL(stringLiteral: CodingKeys.isLastOutgoing.stringValue)
     
     public static let profileString: String = CodingKeys.profile.stringValue
     public static let quoteString: String = CodingKeys.quote.stringValue
@@ -140,6 +141,8 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     /// This value indicates whether this is the last message in the thread
     public let isLast: Bool
     
+    public let isLastOutgoing: Bool
+    
     /// This is the users blinded key (will only be set for messages within open groups)
     public let currentUserBlindedPublicKey: String?
 
@@ -191,6 +194,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             positionInCluster: self.positionInCluster,
             isOnlyMessageInCluster: self.isOnlyMessageInCluster,
             isLast: self.isLast,
+            isLastOutgoing: self.isLastOutgoing,
             currentUserBlindedPublicKey: self.currentUserBlindedPublicKey
         )
     }
@@ -199,6 +203,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         prevModel: MessageViewModel?,
         nextModel: MessageViewModel?,
         isLast: Bool,
+        isLastOutgoing: Bool,
         currentUserBlindedPublicKey: String?
     ) -> MessageViewModel {
         let cellType: CellType = {
@@ -403,6 +408,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             positionInCluster: positionInCluster,
             isOnlyMessageInCluster: isOnlyMessageInCluster,
             isLast: isLast,
+            isLastOutgoing: isLastOutgoing,
             currentUserBlindedPublicKey: currentUserBlindedPublicKey
         )
     }
@@ -498,7 +504,8 @@ public extension MessageViewModel {
         quote: Quote? = nil,
         cellType: CellType = .typingIndicator,
         isTypingIndicator: Bool? = nil,
-        isLast: Bool = true
+        isLast: Bool = true,
+        isLastOutgoing: Bool = false
     ) {
         self.threadId = "INVALID_THREAD_ID"
         self.threadVariant = .contact
@@ -554,6 +561,7 @@ public extension MessageViewModel {
         self.positionInCluster = .middle
         self.isOnlyMessageInCluster = true
         self.isLast = isLast
+        self.isLastOutgoing = isLastOutgoing
         self.currentUserBlindedPublicKey = nil
     }
 }
@@ -621,6 +629,7 @@ public extension MessageViewModel {
     
     static func baseQuery(
         userPublicKey: String,
+        blindedPublicKey: String?,
         orderSQL: SQL,
         groupSQL: SQL?
     ) -> (([Int64]) -> AdaptedFetchRequest<SQLRequest<MessageViewModel>>) {
@@ -700,7 +709,8 @@ public extension MessageViewModel {
                     false AS \(ViewModel.shouldShowDateHeaderKey),
                     \(Position.middle) AS \(ViewModel.positionInClusterKey),
                     false AS \(ViewModel.isOnlyMessageInClusterKey),
-                    false AS \(ViewModel.isLastKey)
+                    false AS \(ViewModel.isLastKey),
+                    false AS \(ViewModel.isLastOutgoingKey)
                 
                 FROM \(Interaction.self)
                 JOIN \(SessionThread.self) ON \(thread[.id]) = \(interaction[.threadId])
@@ -717,7 +727,12 @@ public extension MessageViewModel {
                            \(interactionAttachment[.attachmentId]) AS \(Quote.Columns.attachmentId)
                     FROM \(Quote.self)
                     LEFT JOIN \(Interaction.self) ON (
-                        \(quote[.authorId]) = \(interaction[.authorId]) AND
+                        (
+                            \(quote[.authorId]) = \(interaction[.authorId]) OR (
+                                \(quote[.authorId]) = \(blindedPublicKey ?? "") AND
+                                \(userPublicKey) = \(interaction[.authorId])
+                            )
+                        ) AND
                         \(quote[.timestampMs]) = \(interaction[.timestampMs])
                     )
                     LEFT JOIN \(InteractionAttachment.self) ON \(interaction[.id]) = \(interactionAttachment[.interactionId])

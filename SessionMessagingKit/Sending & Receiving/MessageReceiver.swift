@@ -179,13 +179,18 @@ public enum MessageReceiver {
     public static func handle(
         _ db: Database,
         message: Message,
+        serverExpirationTimestamp: TimeInterval?,
         associatedWithProto proto: SNProtoContent,
         openGroupId: String?,
         dependencies: SMKDependencies = SMKDependencies()
     ) throws {
         switch message {
             case let message as ReadReceipt:
-                try MessageReceiver.handleReadReceipt(db, message: message)
+                try MessageReceiver.handleReadReceipt(
+                    db,
+                    message: message,
+                    serverExpirationTimestamp: serverExpirationTimestamp
+                )
                 
             case let message as TypingIndicator:
                 try MessageReceiver.handleTypingIndicator(db, message: message)

@@ -1,7 +1,9 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Reachability
 import SessionUIKit
+import SessionSnodeKit
 
 final class PathStatusView: UIView {
     enum Size {
@@ -42,6 +44,7 @@ final class PathStatusView: UIView {
     // MARK: - Initialization
     
     private let size: Size
+    private let reachability: Reachability = Reachability.forInternetConnection()
     
     init(size: Size = .small) {
         self.size = size
@@ -73,15 +76,34 @@ final class PathStatusView: UIView {
         self.set(.width, to: self.size.pointSize)
         self.set(.height, to: self.size.pointSize)
         
-        setStatus(to: (!OnionRequestAPI.paths.isEmpty ? .connected : .connecting))
+        switch (reachability.isReachable(), OnionRequestAPI.paths.isEmpty) {
+            case (false, _): setStatus(to: .error)
+            case (true, true): setStatus(to: .connecting)
+            case (true, false): setStatus(to: .connected)
+        }
     }
     
     // MARK: - Functions
 
     private func registerObservers() {
-        let notificationCenter = NotificationCenter.default
-        notificationCenter.addObserver(self, selector: #selector(handleBuildingPathsNotification), name: .buildingPaths, object: nil)
-        notificationCenter.addObserver(self, selector: #selector(handlePathsBuiltNotification), name: .pathsBuilt, object: nil)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleBuildingPathsNotification),
+            name: .buildingPaths,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handlePathsBuiltNotification),
+            name: .pathsBuilt,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(reachabilityChanged),
+            name: .reachabilityChanged,
+            object: nil
+        )
     }
 
     private func setStatus(to status: Status) {
@@ -102,10 +124,34 @@ final class PathStatusView: UIView {
     }
 
     @objc private func handleBuildingPathsNotification() {
+        guard reachability.isReachable() else {
+            setStatus(to: .error)
+            return
+        }
+        
         setStatus(to: .connecting)
     }
 
     @objc private func handlePathsBuiltNotification() {
+        guard reachability.isReachable() else {
+            setStatus(to: .error)
+            return
+        }
+        
         setStatus(to: .connected)
+    }
+    
+    @objc private func reachabilityChanged() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in self?.reachabilityChanged() }
+            return
+        }
+        
+        guard reachability.isReachable() else {
+            setStatus(to: .error)
+            return
+        }
+        
+        setStatus(to: (!OnionRequestAPI.paths.isEmpty ? .connected : .connecting))
     }
 }

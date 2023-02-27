@@ -546,6 +546,7 @@ class NotificationActionHandler {
                 db,
                 interactionId: interaction.id,
                 threadId: thread.id,
+                threadVariant: thread.variant,
                 includingOlder: true,
                 trySendReadReceipt: true
             )
@@ -600,6 +601,7 @@ class NotificationActionHandler {
                         .asRequest(of: Int64.self)
                         .fetchOne(db),
                     threadId: thread.id,
+                    threadVariant: thread.variant,
                     includingOlder: true,
                     trySendReadReceipt: true
                 )
