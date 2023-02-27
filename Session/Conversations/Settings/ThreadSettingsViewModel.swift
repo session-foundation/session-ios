@@ -678,9 +678,9 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 nil
                             ),
                             accessibilityLabel: oldBlockedState == false ? "User blocked" : "Confirm unblock",
-                            accessibilityId: "OK",
+                            accessibilityId: "Test_name",
                             cancelTitle: "BUTTON_OK".localized(),
-                            cancelAccessibilityLabel: "OK",
+                            cancelAccessibilityLabel: "OK_BUTTON",
                             cancelStyle: .alert_text
                         )
                     )

@@ -172,7 +172,7 @@ final class RegisterVC : BaseVC {
     private func updatePublicKeyLabel() {
         let hexEncodedPublicKey = x25519KeyPair.hexEncodedPublicKey
         publicKeyLabel.accessibilityLabel = hexEncodedPublicKey
-        publicKeyLabel.accessibilityIdentifier = "Session ID generated"
+        publicKeyLabel.accessibilityIdentifier = "Session ID"
         publicKeyLabel.isAccessibilityElement = true
         let characterCount = hexEncodedPublicKey.count
         var count = 0
