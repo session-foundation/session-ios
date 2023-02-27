@@ -98,7 +98,8 @@ public final class VoiceMessageView: UIView {
     
     init() {
         super.init(frame: CGRect.zero)
-        
+        self.accessibilityIdentifier = "Voice message"
+        self.isAccessibilityElement = true        
         setUpViewHierarchy()
     }
 
