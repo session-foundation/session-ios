@@ -626,7 +626,7 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
             case .messageRequests:
                 return nil
             case .threads:
-                
+                let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
                 return UISwipeActionsConfiguration(actions: [  ])
             default: return nil
         }
@@ -649,8 +649,15 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
             case .threads:
                 let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
                 let delete: UIContextualAction = UIContextualAction(
-                    style: .destructive,
-                    title: "TXT_DELETE_TITLE".localized()
+                    title: "TXT_DELETE_TITLE".localized(),
+                    icon: UIImage(named: "icon_bin"),
+                    iconHeight: 5,
+                    themeTintColor: .textPrimary,
+                    themeBackgroundColor: .conversationButton_swipeDestructive,
+                    side: .trailing,
+                    actionIndex: 2,
+                    indexPath: indexPath,
+                    tableView: tableView
                 ) { [weak self] _, _, completionHandler in
                     let confirmationModal: ConfirmationModal = ConfirmationModal(
                         info: ConfirmationModal.Info(
@@ -679,7 +686,6 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                     self?.present(confirmationModal, animated: true, completion: nil)
                 }
                 delete.themeBackgroundColor = .conversationButton_swipeDestructive
-                delete.setupSessionStyle(with: UIImage(systemName: "trash"))
 
                 let pin: UIContextualAction = UIContextualAction(
                     style: .normal,
@@ -703,7 +709,6 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                     }
                 }
                 pin.themeBackgroundColor = .conversationButton_swipeTertiary
-                pin.setupSessionStyle(with: UIImage(systemName: "pin"))
                 
                 guard threadViewModel.threadVariant == .contact && !threadViewModel.threadIsNoteToSelf else {
                     return UISwipeActionsConfiguration(actions: [ delete, pin ])
@@ -747,6 +752,14 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                 
             default: return nil
         }
+    }
+    
+    func tableView(_ tableView: UITableView, willBeginEditingRowAt indexPath: IndexPath) {
+        UIContextualAction.willBeginEditing(indexPath: indexPath, tableView: tableView)
+    }
+        
+    func tableView(_ tableView: UITableView, didEndEditingRowAt indexPath: IndexPath?) {
+        UIContextualAction.didEndEditing(indexPath: indexPath, tableView: tableView)
     }
     
     // MARK: - Interaction

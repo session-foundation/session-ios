@@ -34,6 +34,12 @@ public extension Dictionary {
         return self[key]
     }
     
+    func getting(_ key: Key?) -> Value? {
+        guard let key: Key = key else { return nil }
+
+        return self[key]
+    }
+    
     func setting(_ key: Key?, _ value: Value?) -> [Key: Value] {
         guard let key: Key = key else { return self }
         
