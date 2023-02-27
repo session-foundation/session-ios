@@ -157,7 +157,7 @@
       </Testables>
    </TestAction>
    <LaunchAction
-      buildConfiguration = "App Store Release"
+      buildConfiguration = "Debug"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       enableUBSanitizer = "YES"
@@ -183,11 +183,6 @@
             key = "OS_ACTIVITY_MODE"
             value = "disable"
             isEnabled = "YES">
-         </EnvironmentVariable>
-         <EnvironmentVariable
-            key = "PROJECT_DIR"
-            value = "/Users/emilyburton/Documents/session-ios"
-            isEnabled = "NO">
          </EnvironmentVariable>
          <EnvironmentVariable
             key = "UBSAN_OPTIONS"
