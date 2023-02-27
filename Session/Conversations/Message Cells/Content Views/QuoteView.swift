@@ -144,7 +144,7 @@ final class QuoteView: UIView {
                         .messageBubble_outgoingText :
                         .messageBubble_incomingText
                     )
-                    case .draft: return .messageBubble_outgoingText
+                    case .draft: return .textPrimary
                 }
             }()
             imageView.contentMode = .center
