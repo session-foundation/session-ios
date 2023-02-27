@@ -220,10 +220,10 @@ final class QuoteView: UIView {
                 }
                 .defaulting(
                     to: attachment.map {
-                        NSAttributedString(string: $0.shortDescription)
+                        NSAttributedString(string: $0.shortDescription, attributes: [ .foregroundColor: textColor ])
                     }
                 )
-                .defaulting(to: NSAttributedString(string: "Document"))
+                .defaulting(to: NSAttributedString(string: "QUOTED_MESSAGE_NOT_FOUND".localized(), attributes: [ .foregroundColor: textColor ]))
         }
         
         // Label stack view
