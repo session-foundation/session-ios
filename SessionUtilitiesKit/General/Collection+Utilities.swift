@@ -18,7 +18,6 @@ public extension Collection {
     }
 }
 
-
 public extension Collection where Element == [CChar] {
     /// This creates an array of UnsafePointer types to access data of the C strings in memory. This array provides no automated
     /// memory management of it's children so after use you are responsible for handling the life cycle of the child elements and

@@ -13,7 +13,6 @@ public struct ConfigDump: Codable, Equatable, Hashable, FetchableRecord, Persist
         case variant
         case publicKey
         case data
-        case combinedMessageHashes
     }
     
     public enum Variant: String, Codable, DatabaseValueConvertible {
@@ -34,36 +33,18 @@ public struct ConfigDump: Codable, Equatable, Hashable, FetchableRecord, Persist
     /// The data for this dump
     public let data: Data
     
-    /// A comma delimited array of message hashes for previously stored messages on the server
-    private let combinedMessageHashes: String?
-    
-    /// An array of message hashes for previously stored messages on the server
-    var messageHashes: [String]? { ConfigDump.messageHashes(from: combinedMessageHashes) }
-    
     internal init(
         variant: Variant,
         publicKey: String,
-        data: Data,
-        messageHashes: [String]?
+        data: Data
     ) {
         self.variant = variant
         self.publicKey = publicKey
         self.data = data
-        self.combinedMessageHashes = ConfigDump.combinedMessageHashes(from: messageHashes)
     }
 }
 
 // MARK: - Convenience
-
-public extension ConfigDump {
-    static func combinedMessageHashes(from messageHashes: [String]?) -> String? {
-        return messageHashes?.joined(separator: ",")
-    }
-    
-    static func messageHashes(from combinedMessageHashes: String?) -> [String]? {
-        return combinedMessageHashes?.components(separatedBy: ",")
-    }
-}
 
 public extension ConfigDump.Variant {
     static let userVariants: [ConfigDump.Variant] = [
@@ -89,13 +70,15 @@ public extension ConfigDump.Variant {
     }
     
     /// This value defines the order that the SharedConfigMessages should be processed in, while we re-process config
-    /// messages every time we poll this will prevent an edge-case where we have `convoInfoVolatile` data related
-    /// to a new conversation which hasn't been created yet because it's associated `contacts`/`userGroups` message
-    /// hasn't yet been processed (without this we would have to wait until the next poll for it to be processed correctly)
+    /// messages every time we poll this will prevent an edge-case where data/logic between different config messages
+    /// could be dependant on each other (eg. there could be `convoInfoVolatile` data related to a new conversation
+    /// which hasn't been created yet because it's associated `contacts`/`userGroups` message hasn't yet been
+    /// processed (without this we would have to wait until the next poll for it to be processed correctly)
     var processingOrder: Int {
         switch self {
-            case .userProfile, .contacts, .userGroups: return 0
-            case .convoInfoVolatile: return 1
+            case .userProfile, .contacts: return 0
+            case .userGroups: return 1
+            case .convoInfoVolatile: return 2
         }
     }
 }

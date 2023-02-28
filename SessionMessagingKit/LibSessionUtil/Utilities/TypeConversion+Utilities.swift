@@ -17,27 +17,41 @@ public extension String {
         self = result
     }
     
+    init<T>(
+        libSessionVal: T,
+        fixedLength: Int? = .none
+    ) {
+        guard let fixedLength: Int = fixedLength else {
+            // Note: The `String(cString:)` function requires that the value is null-terminated
+            // so add a null-termination character if needed
+            self = String(
+                cString: withUnsafeBytes(of: libSessionVal) { [UInt8]($0) }
+                    .nullTerminated()
+            )
+            return
+        }
+        
+        guard
+            let fixedLengthData: Data = Data(
+                libSessionVal: libSessionVal,
+                count: fixedLength,
+                nullIfEmpty: true
+            ),
+            let result: String = String(data: fixedLengthData, encoding: .utf8)
+        else {
+            self = ""
+            return
+        }
+        
+        self = result
+    }
+    
     init?<T>(
         libSessionVal: T,
         fixedLength: Int? = .none,
-        nullIfEmpty: Bool = false
+        nullIfEmpty: Bool
     ) {
-        let result: String = {
-            guard let fixedLength: Int = fixedLength else {
-                // Note: The `String(cString:)` function requires that the value is null-terminated
-                // so add a null-termination character if needed
-                return String(
-                    cString: withUnsafeBytes(of: libSessionVal) { [UInt8]($0) }
-                        .nullTerminated()
-                )
-            }
-            
-            return String(
-                data: Data(libSessionVal: libSessionVal, count: fixedLength),
-                encoding: .utf8
-            )
-            .defaulting(to: "")
-        }()
+        let result = String(libSessionVal: libSessionVal, fixedLength: fixedLength)
         
         guard !nullIfEmpty || !result.isEmpty else { return nil }
         
@@ -46,13 +60,15 @@ public extension String {
     
     func toLibSession<T>() -> T {
         let targetSize: Int = MemoryLayout<T>.stride
-        let result: UnsafeMutableRawPointer = UnsafeMutableRawPointer.allocate(
-            byteCount: targetSize,
-            alignment: MemoryLayout<T>.alignment
+        var dataMatchingDestinationSize: [CChar] = [CChar](repeating: 0, count: targetSize)
+        dataMatchingDestinationSize.replaceSubrange(
+            0..<Swift.min(targetSize, self.utf8CString.count),
+            with: self.utf8CString
         )
-        self.utf8CString.withUnsafeBytes { result.copyMemory(from: $0.baseAddress!, byteCount: $0.count) }
         
-        return result.withMemoryRebound(to: T.self, capacity: targetSize) { $0.pointee }
+        return dataMatchingDestinationSize.withUnsafeBytes { ptr in
+            ptr.baseAddress!.assumingMemoryBound(to: T.self).pointee
+        }
     }
 }
 
@@ -71,21 +87,33 @@ public extension Data {
     var cArray: [UInt8] { [UInt8](self) }
     
     init<T>(libSessionVal: T, count: Int) {
-        self = Data(
-            bytes: Swift.withUnsafeBytes(of: libSessionVal) { [UInt8]($0) },
-            count: count
-        )
+        let result: Data = Swift.withUnsafePointer(to: libSessionVal) {
+            Data(bytes: $0, count: count)
+        }
+        
+        self = result
+    }
+    
+    init?<T>(libSessionVal: T, count: Int, nullIfEmpty: Bool) {
+        let result: Data = Data(libSessionVal: libSessionVal, count: count)
+        
+        // If all of the values are 0 then return the data as null
+        guard !nullIfEmpty || result.contains(where: { $0 != 0 }) else { return nil }
+        
+        self = result
     }
     
     func toLibSession<T>() -> T {
         let targetSize: Int = MemoryLayout<T>.stride
-        let result: UnsafeMutableRawPointer = UnsafeMutableRawPointer.allocate(
-            byteCount: targetSize,
-            alignment: MemoryLayout<T>.alignment
+        var dataMatchingDestinationSize: Data = Data(count: targetSize)
+        dataMatchingDestinationSize.replaceSubrange(
+            0..<Swift.min(targetSize, self.count),
+            with: self
         )
-        self.withUnsafeBytes { result.copyMemory(from: $0.baseAddress!, byteCount: $0.count) }
-
-        return result.withMemoryRebound(to: T.self, capacity: targetSize) { $0.pointee }
+        
+        return dataMatchingDestinationSize.withUnsafeBytes { ptr in
+            ptr.baseAddress!.assumingMemoryBound(to: T.self).pointee
+        }
     }
 }
 
@@ -99,6 +127,38 @@ public extension Optional<Data> {
 }
 
 // MARK: - Array
+
+public extension Array where Element == String {
+    init?(
+        pointer: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
+        count: Int?
+    ) {
+        guard
+            let pointee: UnsafeMutablePointer<CChar> = pointer?.pointee,
+            let count: Int = count
+        else { return nil }
+        
+        self = (0..<count)
+            .reduce(into: []) { result, index in
+                /// We need to calculate the start position of each of the hashes in memory which will
+                /// be at the end of the previous hash plus one (due to the null termination character
+                /// which isn't included in Swift strings so isn't included in `count`)
+                let prevLength: Int = (result.isEmpty ? 0 :
+                    result.map { ($0.count + 1) }.reduce(0, +)
+                )
+                
+                result.append(String(cString: pointee.advanced(by: prevLength)))
+            }
+    }
+    
+    init(
+        pointer: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
+        count: Int?,
+        defaultValue: [String]
+    ) {
+        self = ([String](pointer: pointer, count: count) ?? defaultValue)
+    }
+}
 
 public extension Array where Element == CChar {
     func nullTerminated() -> [Element] {

@@ -62,7 +62,7 @@ public class HomeViewModel {
                     columns: [
                         .id,
                         .shouldBeVisible,
-                        .isPinned,
+                        .pinnedPriority,
                         .mutedUntilTimestamp,
                         .onlyNotifyForMentions,
                         .markedAsUnread
@@ -326,8 +326,9 @@ public class HomeViewModel {
                     elements: data
                         .filter { $0.id != SessionThreadViewModel.invalidId }
                         .sorted { lhs, rhs -> Bool in
-                            if lhs.threadIsPinned && !rhs.threadIsPinned { return true }
-                            if !lhs.threadIsPinned && rhs.threadIsPinned { return false }
+                            guard lhs.threadPinnedPriority == rhs.threadPinnedPriority else {
+                                return lhs.threadPinnedPriority > rhs.threadPinnedPriority
+                            }
                             
                             return lhs.lastInteractionDate > rhs.lastInteractionDate
                         }
@@ -373,7 +374,11 @@ public class HomeViewModel {
                         .sinkUntilComplete()
                     
                 case .community:
-                    OpenGroupManager.shared.delete(db, openGroupId: threadId)
+                    OpenGroupManager.shared.delete(
+                        db,
+                        openGroupId: threadId,
+                        calledFromConfigHandling: false
+                    )
                     
                 default: break
             }

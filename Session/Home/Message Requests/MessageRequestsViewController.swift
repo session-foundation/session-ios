@@ -490,7 +490,8 @@ class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDat
                 try ClosedGroup.removeKeysAndUnsubscribe(
                     db,
                     threadIds: closedGroupThreadIds,
-                    removeGroupData: true
+                    removeGroupData: true,
+                    calledFromConfigHandling: false
                 )
             }
         })

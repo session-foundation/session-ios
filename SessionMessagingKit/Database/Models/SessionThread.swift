@@ -11,7 +11,7 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
     public static let contact = hasOne(Contact.self, using: Contact.threadForeignKey)
     public static let closedGroup = hasOne(ClosedGroup.self, using: ClosedGroup.threadForeignKey)
     public static let openGroup = hasOne(OpenGroup.self, using: OpenGroup.threadForeignKey)
-    private static let disappearingMessagesConfiguration = hasOne(
+    public static let disappearingMessagesConfiguration = hasOne(
         DisappearingMessagesConfiguration.self,
         using: DisappearingMessagesConfiguration.threadForeignKey
     )
@@ -33,6 +33,7 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
         case mutedUntilTimestamp
         case onlyNotifyForMentions
         case markedAsUnread
+        case pinnedPriority
     }
     
     public enum Variant: Int, Codable, Hashable, DatabaseValueConvertible {
@@ -60,7 +61,8 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
     public let shouldBeVisible: Bool
     
     /// A flag indicating whether the thread is pinned
-    public let isPinned: Bool
+    @available(*, unavailable, message: "use 'pinnedPriority' instead")
+    public let isPinned: Bool = false
     
     /// The value the user started entering into the input field before they left the conversation screen
     public let messageDraft: String?
@@ -78,6 +80,9 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
     
     /// A flag indicating whether this thread has been manually marked as unread by the user
     public let markedAsUnread: Bool?
+    
+    /// A value indicating the priority of this conversation within the pinned conversations
+    public let pinnedPriority: Int32?
     
     // MARK: - Relationships
     
@@ -117,18 +122,21 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
         notificationSound: Preferences.Sound? = nil,
         mutedUntilTimestamp: TimeInterval? = nil,
         onlyNotifyForMentions: Bool = false,
-        markedAsUnread: Bool? = false
+        markedAsUnread: Bool? = false,
+        pinnedPriority: Int32? = nil
     ) {
         self.id = id
         self.variant = variant
         self.creationDateTimestamp = creationDateTimestamp
         self.shouldBeVisible = shouldBeVisible
-        self.isPinned = isPinned
         self.messageDraft = messageDraft
         self.notificationSound = notificationSound
         self.mutedUntilTimestamp = mutedUntilTimestamp
         self.onlyNotifyForMentions = onlyNotifyForMentions
         self.markedAsUnread = markedAsUnread
+        self.pinnedPriority = ((pinnedPriority ?? 0) > 0 ? pinnedPriority :
+            (isPinned ? 1 : 0)
+        )
     }
     
     // MARK: - Custom Database Interaction
@@ -143,19 +151,19 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
 public extension SessionThread {
     func with(
         shouldBeVisible: Bool? = nil,
-        isPinned: Bool? = nil
+        pinnedPriority: Int32? = nil
     ) -> SessionThread {
         return SessionThread(
             id: id,
             variant: variant,
             creationDateTimestamp: creationDateTimestamp,
             shouldBeVisible: (shouldBeVisible ?? self.shouldBeVisible),
-            isPinned: (isPinned ?? self.isPinned),
             messageDraft: messageDraft,
             notificationSound: notificationSound,
             mutedUntilTimestamp: mutedUntilTimestamp,
             onlyNotifyForMentions: onlyNotifyForMentions,
-            markedAsUnread: markedAsUnread
+            markedAsUnread: markedAsUnread,
+            pinnedPriority: (pinnedPriority ?? self.pinnedPriority)
         )
     }
 }
@@ -189,6 +197,43 @@ public extension SessionThread {
                 .fetchOne(db))
                 .defaulting(to: false) == false
         )
+    }
+    
+    static func refreshPinnedPriorities(_ db: Database, adding threadId: String) throws {
+        struct PinnedPriority: TableRecord, ColumnExpressible {
+            public typealias Columns = CodingKeys
+            public enum CodingKeys: String, CodingKey, ColumnExpression {
+                case id
+                case rowIndex
+            }
+        }
+        
+        let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
+        let pinnedPriority: TypedTableAlias<PinnedPriority> = TypedTableAlias()
+        let rowIndexLiteral: SQL = SQL(stringLiteral: PinnedPriority.Columns.rowIndex.name)
+        let pinnedPriorityLiteral: SQL = SQL(stringLiteral: SessionThread.Columns.pinnedPriority.name)
+        
+        try db.execute(literal: """
+            WITH \(PinnedPriority.self) AS (
+                SELECT
+                    \(thread[.id]),
+                    ROW_NUMBER() OVER (
+                        ORDER BY \(SQL("\(thread[.id]) != \(threadId)")),
+                        \(thread[.pinnedPriority]) ASC
+                    ) AS \(rowIndexLiteral)
+                FROM \(SessionThread.self)
+                WHERE
+                    \(thread[.pinnedPriority]) > 0 OR
+                    \(SQL("\(thread[.id]) = \(threadId)"))
+            )
+
+            UPDATE \(SessionThread.self)
+            SET \(pinnedPriorityLiteral) = (
+                SELECT \(pinnedPriority[.rowIndex])
+                FROM \(PinnedPriority.self)
+                WHERE \(pinnedPriority[.id]) = \(thread[.id])
+            )
+        """)
     }
 }
 

@@ -196,7 +196,7 @@ extension MessageReceiver {
             
             // Open groups
             for openGroupURL in message.openGroups {
-                if let (room, server, publicKey) = OpenGroupManager.parseOpenGroup(from: openGroupURL) {
+                if let (room, server, publicKey) = SessionUtil.parseCommunity(url: openGroupURL) {
                     OpenGroupManager.shared
                         .add(
                             db,

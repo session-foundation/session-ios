@@ -822,6 +822,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     roomToken: "testRoom",
                                     server: "testServer",
                                     publicKey: TestConstants.serverPublicKey,
+                                    calledFromConfigHandling: true, // Don't trigger SessionUtil logic
                                     dependencies: dependencies
                                 )
                         }
@@ -852,6 +853,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     roomToken: "testRoom",
                                     server: "testServer",
                                     publicKey: TestConstants.serverPublicKey,
+                                    calledFromConfigHandling: true, // Don't trigger SessionUtil logic
                                     dependencies: dependencies
                                 )
                         }
@@ -890,6 +892,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                         publicKey: TestConstants.serverPublicKey
                                             .replacingOccurrences(of: "c3", with: "00")
                                             .replacingOccurrences(of: "b3", with: "00"),
+                                        calledFromConfigHandling: true, // Don't trigger SessionUtil logic
                                         dependencies: dependencies
                                     )
                             }
@@ -943,6 +946,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                         roomToken: "testRoom",
                                         server: "testServer",
                                         publicKey: TestConstants.serverPublicKey,
+                                        calledFromConfigHandling: true, // Don't trigger SessionUtil logic
                                         dependencies: dependencies
                                     )
                             }
@@ -986,6 +990,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             .delete(
                                 db,
                                 openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
+                                calledFromConfigHandling: true, // Don't trigger SessionUtil logic
                                 dependencies: dependencies
                             )
                     }
@@ -1000,6 +1005,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             .delete(
                                 db,
                                 openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
+                                calledFromConfigHandling: true, // Don't trigger SessionUtil logic
                                 dependencies: dependencies
                             )
                     }
@@ -1017,6 +1023,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 .delete(
                                     db,
                                     openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
+                                    calledFromConfigHandling: true, // Don't trigger SessionUtil logic
                                     dependencies: dependencies
                                 )
                         }
@@ -1030,6 +1037,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 .delete(
                                     db,
                                     openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
+                                    calledFromConfigHandling: true, // Don't trigger SessionUtil logic
                                     dependencies: dependencies
                                 )
                         }
@@ -1068,6 +1076,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 .delete(
                                     db,
                                     openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
+                                    calledFromConfigHandling: true, // Don't trigger SessionUtil logic
                                     dependencies: dependencies
                                 )
                         }
@@ -1120,6 +1129,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 .delete(
                                     db,
                                     openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: OpenGroupAPI.defaultServer),
+                                    calledFromConfigHandling: true, // Don't trigger SessionUtil logic
                                     dependencies: dependencies
                                 )
                         }
@@ -1134,6 +1144,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 .delete(
                                     db,
                                     openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: OpenGroupAPI.defaultServer),
+                                    calledFromConfigHandling: true, // Don't trigger SessionUtil logic
                                     dependencies: dependencies
                                 )
                         }
@@ -3851,158 +3862,6 @@ class OpenGroupManagerSpec: QuickSpec {
                             expect(result).toEventually(equal(Data([1, 2, 3])), timeout: .milliseconds(50))
                         }
                     }
-                }
-            }
-            
-            // MARK: - --parseOpenGroup
-            
-            context("when parsing an open group url") {
-                it("handles the example urls correctly") {
-                    let validUrls: [String] = [
-                         "https://sessionopengroup.co/r/main?public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c",
-                         "https://sessionopengroup.co/main?public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c",
-                         "http://sessionopengroup.co/r/main?public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c",
-                         "http://sessionopengroup.co/main?public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c",
-                         "sessionopengroup.co/main?public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c",
-                         "sessionopengroup.co/r/main?public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c",
-                         "https://143.198.213.225:443/r/main?public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c",
-                         "https://143.198.213.225:443/main?public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c",
-                         "143.198.213.255:80/main?public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c",
-                         "143.198.213.255:80/r/main?public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c"
-                    ]
-                    let processedValues: [(room: String, server: String, publicKey: String)] = validUrls
-                        .map { OpenGroupManager.parseOpenGroup(from: $0) }
-                        .compactMap { $0 }
-                    let processedRooms: [String] = processedValues.map { $0.room }
-                    let processedServers: [String] = processedValues.map { $0.server }
-                    let processedPublicKeys: [String] = processedValues.map { $0.publicKey }
-                    let expectedRooms: [String] = [String](repeating: "main", count: 10)
-                    let expectedServers: [String] = [
-                        "https://sessionopengroup.co",
-                        "https://sessionopengroup.co",
-                        "http://sessionopengroup.co",
-                        "http://sessionopengroup.co",
-                        "http://sessionopengroup.co",
-                        "http://sessionopengroup.co",
-                        "https://143.198.213.225:443",
-                        "https://143.198.213.225:443",
-                        "http://143.198.213.255:80",
-                        "http://143.198.213.255:80"
-                    ]
-                    let expectedPublicKeys: [String] = [String](
-                        repeating: "658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c",
-                        count: 10
-                    )
-                    
-                    expect(processedValues.count).to(equal(validUrls.count))
-                    expect(processedRooms).to(equal(expectedRooms))
-                    expect(processedServers).to(equal(expectedServers))
-                    expect(processedPublicKeys).to(equal(expectedPublicKeys))
-                }
-                
-                it("handles the r prefix if present") {
-                    let info = OpenGroupManager.parseOpenGroup(
-                        from: [
-                            "https://sessionopengroup.co/r/main?",
-                            "public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c"
-                        ].joined()
-                    )
-                    
-                    expect(info?.room).to(equal("main"))
-                    expect(info?.server).to(equal("https://sessionopengroup.co"))
-                    expect(info?.publicKey).to(equal("658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c"))
-                }
-                
-                it("fails if there is no room") {
-                    let info = OpenGroupManager.parseOpenGroup(
-                        from: [
-                            "https://sessionopengroup.co?",
-                            "public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c"
-                        ].joined()
-                    )
-                    
-                    expect(info?.room).to(beNil())
-                    expect(info?.server).to(beNil())
-                    expect(info?.publicKey).to(beNil())
-                }
-                
-                it("fails if there is no public key parameter") {
-                    let info = OpenGroupManager.parseOpenGroup(
-                        from: "https://sessionopengroup.co/r/main"
-                    )
-                    
-                    expect(info?.room).to(beNil())
-                    expect(info?.server).to(beNil())
-                    expect(info?.publicKey).to(beNil())
-                }
-                
-                it("fails if the public key parameter is not 64 characters") {
-                    let info = OpenGroupManager.parseOpenGroup(
-                        from: [
-                            "https://sessionopengroup.co/r/main?",
-                            "public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231"
-                        ].joined()
-                    )
-                    
-                    expect(info?.room).to(beNil())
-                    expect(info?.server).to(beNil())
-                    expect(info?.publicKey).to(beNil())
-                }
-                
-                it("fails if the public key parameter is not a hex string") {
-                    let info = OpenGroupManager.parseOpenGroup(
-                        from: [
-                            "https://sessionopengroup.co/r/main?",
-                            "public_key=!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-                        ].joined()
-                    )
-                    
-                    expect(info?.room).to(beNil())
-                    expect(info?.server).to(beNil())
-                    expect(info?.publicKey).to(beNil())
-                }
-                
-                it("maintains the same TLS") {
-                    let server1 = OpenGroupManager.parseOpenGroup(
-                        from: [
-                            "sessionopengroup.co/r/main?",
-                            "public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c"
-                        ].joined()
-                    )?.server
-                    let server2 = OpenGroupManager.parseOpenGroup(
-                        from: [
-                            "http://sessionopengroup.co/r/main?",
-                            "public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c"
-                        ].joined()
-                    )?.server
-                    let server3 = OpenGroupManager.parseOpenGroup(
-                        from: [
-                            "https://sessionopengroup.co/r/main?",
-                            "public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c"
-                        ].joined()
-                    )?.server
-                    
-                    expect(server1).to(equal("http://sessionopengroup.co"))
-                    expect(server2).to(equal("http://sessionopengroup.co"))
-                    expect(server3).to(equal("https://sessionopengroup.co"))
-                }
-                
-                it("maintains the same port") {
-                    let server1 = OpenGroupManager.parseOpenGroup(
-                        from: [
-                            "https://sessionopengroup.co/r/main?",
-                            "public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c"
-                        ].joined()
-                    )?.server
-                    let server2 = OpenGroupManager.parseOpenGroup(
-                        from: [
-                            "https://sessionopengroup.co:1234/r/main?",
-                            "public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c"
-                        ].joined()
-                    )?.server
-                    
-                    expect(server1).to(equal("https://sessionopengroup.co"))
-                    expect(server2).to(equal("https://sessionopengroup.co:1234"))
                 }
             }
         }

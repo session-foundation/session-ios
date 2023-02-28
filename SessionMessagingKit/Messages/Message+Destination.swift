@@ -18,6 +18,14 @@ public extension Message {
         )
         case openGroupInbox(server: String, openGroupPublicKey: String, blindedPublicKey: String)
         
+        public var defaultNamespace: SnodeAPI.Namespace? {
+            switch self {
+                case .contact: return .`default`
+                case .closedGroup: return .legacyClosedGroup
+                default: return nil
+            }
+        }
+        
         public static func from(
             _ db: Database,
             thread: SessionThread,

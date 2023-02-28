@@ -218,7 +218,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         
         // If we need a config sync then trigger it now
         if needsConfigSync {
-            ConfigurationSyncJob.enqueue()
+            Storage.shared.write { db in
+                ConfigurationSyncJob.enqueue(db, publicKey: getUserHexEncodedPublicKey(db))
+            }
         }
 
         checkIsAppReady()

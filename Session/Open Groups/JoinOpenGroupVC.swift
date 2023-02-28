@@ -151,7 +151,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
     fileprivate func joinOpenGroup(with urlString: String) {
         // A V2 open group URL will look like: <optional scheme> + <host> + <optional port> + <room> + <public key>
         // The host doesn't parse if no explicit scheme is provided
-        guard let (room, server, publicKey) = OpenGroupManager.parseOpenGroup(from: urlString) else {
+        guard let (room, server, publicKey) = SessionUtil.parseCommunity(url: urlString) else {
             showError(
                 title: "invalid_url".localized(),
                 message: "COMMUNITY_ERROR_INVALID_URL".localized()
@@ -169,12 +169,13 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         
         ModalActivityIndicatorViewController.present(fromViewController: navigationController, canCancel: false) { [weak self] _ in
             Storage.shared
-                .writePublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                .writePublisherFlatMap(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
                     OpenGroupManager.shared.add(
                         db,
                         roomToken: roomToken,
                         server: server,
-                        publicKey: publicKey
+                        publicKey: publicKey,
+                        calledFromConfigHandling: false
                     )
                 }
                 .receive(on: DispatchQueue.main)

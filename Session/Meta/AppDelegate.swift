@@ -295,7 +295,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                         appVersion.lastAppVersion != appVersion.currentAppVersion
                     )
                 {
-                    ConfigurationSyncJob.enqueue(db)
+                    ConfigurationSyncJob.enqueue(db, publicKey: getUserHexEncodedPublicKey(db))
                 }
             }
         }
@@ -666,7 +666,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         Storage.shared
             .writeAsync(
-                updates: { db in ConfigurationSyncJob.enqueue(db) },
+                updates: { db in
+                    ConfigurationSyncJob.enqueue(db, publicKey: getUserHexEncodedPublicKey(db))
+                },
                 completion: { _, result in
                     switch result {
                         case .failure: break

@@ -116,6 +116,8 @@ public enum GarbageCollectionJob: JobExecutor {
                             LEFT JOIN \(SessionThread.self) ON \(thread[.id]) = \(job[.threadId])
                             LEFT JOIN \(Interaction.self) ON \(interaction[.id]) = \(job[.interactionId])
                             WHERE (
+                                -- Never delete config sync jobs, even if their threads were deleted
+                                \(SQL("\(job[.variant]) != \(Job.Variant.configurationSync)")) AND
                                 (
                                     \(job[.threadId]) IS NOT NULL AND
                                     \(thread[.id]) IS NULL

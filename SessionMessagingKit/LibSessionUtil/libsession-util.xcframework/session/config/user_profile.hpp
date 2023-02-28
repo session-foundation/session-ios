@@ -14,6 +14,8 @@ namespace session::config {
 /// n - user profile name
 /// p - user profile url
 /// q - user profile decryption key (binary)
+/// + - the priority value for the "Note to Self" pseudo-conversation (higher = higher in the
+///     conversation list).  Omitted when 0.
 
 class UserProfile final : public ConfigBase {
 
@@ -52,6 +54,12 @@ class UserProfile final : public ConfigBase {
     /// one is empty.
     void set_profile_pic(std::string_view url, ustring_view key);
     void set_profile_pic(profile_pic pic);
+
+    /// Gets/sets the Note-to-self conversation priority.  Will always be >= 0.
+    int get_nts_priority() const;
+
+    /// Sets the Note-to-self conversation priority. Should be >= 0 (negatives will be set to 0).
+    void set_nts_priority(int priority);
 };
 
 }  // namespace session::config

@@ -334,7 +334,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                                 let publicKey: String = threadViewModel.openGroupPublicKey
                                             else { return }
 
-                                            UIPasteboard.general.string = OpenGroup.urlFor(
+                                            UIPasteboard.general.string = SessionUtil.communityUrlFor(
                                                 server: server,
                                                 roomToken: roomToken,
                                                 publicKey: publicKey
@@ -706,18 +706,18 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
             let publicKey: String = threadViewModel.openGroupPublicKey
         else { return }
         
+        let communityUrl: String = SessionUtil.communityUrlFor(
+            server: server,
+            roomToken: roomToken,
+            publicKey: publicKey
+        )
+        
         dependencies.storage.writeAsync { db in
-            let urlString: String = OpenGroup.urlFor(
-                server: server,
-                roomToken: roomToken,
-                publicKey: publicKey
-            )
-            
             try selectedUsers.forEach { userId in
                 let thread: SessionThread = try SessionThread.fetchOrCreate(db, id: userId, variant: .contact)
                 
                 try LinkPreview(
-                    url: urlString,
+                    url: communityUrl,
                     variant: .openGroupInvitation,
                     title: name
                 )
@@ -734,7 +734,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                         .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
                         .asRequest(of: TimeInterval.self)
                         .fetchOne(db),
-                    linkPreviewUrl: urlString
+                    linkPreviewUrl: communityUrl
                 )
                 .inserted(db)
                 

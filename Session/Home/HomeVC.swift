@@ -747,11 +747,11 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                 }
 
                 let pin: UIContextualAction = UIContextualAction(
-                    title: (threadViewModel.threadIsPinned ?
+                    title: (threadViewModel.threadPinnedPriority > 0 ?
                         "UNPIN_BUTTON_TEXT".localized() :
                         "PIN_BUTTON_TEXT".localized()
                     ),
-                    icon: (threadViewModel.threadIsPinned ?
+                    icon: (threadViewModel.threadPinnedPriority > 0 ?
                         UIImage(systemName: "pin.slash") :
                         UIImage(systemName: "pin")
                     ),
@@ -763,16 +763,27 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                     tableView: tableView
                 ) { _, _, completionHandler in
                     (tableView.cellForRow(at: indexPath) as? FullConversationCell)?.optimisticUpdate(
-                        isPinned: !threadViewModel.threadIsPinned
+                        isPinned: !(threadViewModel.threadPinnedPriority > 0)
                     )
                     completionHandler(true)
                     
                     // Delay the change to give the cell "unswipe" animation some time to complete
                     DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
                         Storage.shared.writeAsync { db in
-                            try SessionThread
-                                .filter(id: threadViewModel.threadId)
-                                .updateAll(db, SessionThread.Columns.isPinned.set(to: !threadViewModel.threadIsPinned))
+                            // If we are unpinning then just clear the value
+                            guard threadViewModel.threadPinnedPriority == 0 else {
+                                try SessionThread
+                                    .filter(id: threadViewModel.threadId)
+                                    .updateAllAndConfig(
+                                        db,
+                                        SessionThread.Columns.pinnedPriority.set(to: 0)
+                                    )
+                                return
+                            }
+                            
+                            // Otherwise we want to reset the priority values for all of the currently
+                            // pinned threads (adding the newly pinned one at the end)
+                            try SessionThread.refreshPinnedPriorities(db, adding: threadViewModel.threadId)
                         }
                     }
                 }

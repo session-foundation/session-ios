@@ -170,6 +170,7 @@ public enum MessageSendJob: JobExecutor {
                     db,
                     message: details.message,
                     to: details.destination,
+                    namespace: details.destination.defaultNamespace,
                     interactionId: job.interactionId
                 )
             }

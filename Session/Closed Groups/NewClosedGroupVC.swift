@@ -334,7 +334,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         ModalActivityIndicatorViewController.present(fromViewController: navigationController!, message: message) { [weak self] _ in
             Storage.shared
                 .writePublisherFlatMap(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
-                    MessageSender.createClosedGroup(db, name: name, members: selectedContacts)
+                    try MessageSender.createClosedGroup(db, name: name, members: selectedContacts)
                 }
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
@@ -357,7 +357,6 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                         }
                     },
                     receiveValue: { thread in
-                        ConfigurationSyncJob.enqueue()
                         self?.presentingViewController?.dismiss(animated: true, completion: nil)
                         SessionApp.presentConversation(for: thread.id, action: .compose, animated: false)
                     }

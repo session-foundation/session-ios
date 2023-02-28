@@ -42,8 +42,8 @@ extension ConfigurationMessage {
             .filter(OpenGroup.Columns.roomToken != "")
             .filter(OpenGroup.Columns.isActive)
             .fetchAll(db)
-            .map { openGroup in
-                OpenGroup.urlFor(
+            .compactMap { openGroup in
+                SessionUtil.communityUrlFor(
                     server: openGroup.server,
                     roomToken: openGroup.roomToken,
                     publicKey: openGroup.publicKey

@@ -604,7 +604,12 @@ extension MessageSender {
                 receiveCompletion: { result in
                     switch result {
                         case .failure: break
-                        case .finished: try? ClosedGroup.removeKeysAndUnsubscribe(threadId: groupPublicKey)
+                        case .finished:
+                            try? ClosedGroup.removeKeysAndUnsubscribe(
+                                threadId: groupPublicKey,
+                                removeGroupData: false,
+                                calledFromConfigHandling: false
+                            )
                     }
                 }
             )

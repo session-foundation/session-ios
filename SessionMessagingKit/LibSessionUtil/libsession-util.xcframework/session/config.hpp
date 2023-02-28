@@ -89,7 +89,11 @@ class ConfigMessage {
 
     bool verified_signature_ = false;
 
-    bool merged_ = false;
+    // This will be set during construction from configs based on the merge result:
+    // -1 means we had to merge one or more configs together into a new merged config
+    // >= 0 indicates the index of the config we used if we did not merge (i.e. there was only one
+    // config, or there were multiple but one of them referenced all the others).
+    int unmerged_ = -1;
 
   public:
     constexpr static int DEFAULT_DIFF_LAGS = 5;
@@ -147,19 +151,20 @@ class ConfigMessage {
     /// set, thus allowing unsigned messages (though messages with an invalid signature are still
     /// not allowed).  This option is ignored when verifier is not set.
     ///
-    /// error_callback - if set then any config message parsing error will be passed to this
-    /// function for handling: the callback typically warns and, if the overall construction should
-    /// abort, rethrows the error.  If this function is omitted then the default skips (without
-    /// failing) individual parse errors and only aborts construction if *all* messages fail to
-    /// parse.  A simple handler such as `[](const auto& e) { throw e; }` can be used to make any
-    /// parse error of any message fatal.
+    /// error_handler - if set then any config message parsing error will be passed to this function
+    /// for handling with the index of `configs` that failed and the error exception: the callback
+    /// typically warns and, if the overall construction should abort, rethrows the error.  If this
+    /// function is omitted then the default skips (without failing) individual parse errors and
+    /// only aborts construction if *all* messages fail to parse.  A simple handler such as
+    /// `[](size_t, const auto& e) { throw e; }` can be used to make any parse error of any message
+    /// fatal.
     explicit ConfigMessage(
             const std::vector<ustring_view>& configs,
             verify_callable verifier = nullptr,
             sign_callable signer = nullptr,
             int lag = DEFAULT_DIFF_LAGS,
             bool signature_optional = false,
-            std::function<void(const config_error&)> error_handler = nullptr);
+            std::function<void(size_t, const config_error&)> error_handler = nullptr);
 
     /// Returns a read-only reference to the contained data.  (To get a mutable config object use
     /// MutableConfigMessage).
@@ -198,7 +203,13 @@ class ConfigMessage {
     /// After loading multiple config files this flag indicates whether or not we had to produce a
     /// new, merged configuration message (true) or did not need to merge (false).  (For config
     /// messages that were not loaded from serialized data this is always true).
-    bool merged() const { return merged_; }
+    bool merged() const { return unmerged_ == -1; }
+
+    /// After loading multiple config files this field contains the index of the single config we
+    /// used if we didn't need to merge (that is: there was only one config or one config that
+    /// superceded all the others).  If we had to merge (or this wasn't loaded from serialized
+    /// data), this will return -1.
+    int unmerged_index() const { return unmerged_; }
 
     /// Returns true if this message contained a valid, verified signature when it was parsed.
     /// Returns false otherwise (e.g. not loaded from verification at all; loaded without a
@@ -273,7 +284,7 @@ class MutableConfigMessage : public ConfigMessage {
             sign_callable signer = nullptr,
             int lag = DEFAULT_DIFF_LAGS,
             bool signature_optional = false,
-            std::function<void(const config_error&)> error_handler = nullptr);
+            std::function<void(size_t, const config_error&)> error_handler = nullptr);
 
     /// Wrapper around the above that takes a single string view to load a single message, doesn't
     /// take an error handler and instead always throws on parse errors (the above also throws for

@@ -195,11 +195,12 @@ public class MessageRequestsViewModel {
                             try ClosedGroup.removeKeysAndUnsubscribe(
                                 db,
                                 threadId: threadId,
-                                removeGroupData: true
+                                removeGroupData: true,
+                                calledFromConfigHandling: false
                             )
                             
                             // Trigger a config sync
-                            ConfigurationSyncJob.enqueue(db)
+                            ConfigurationSyncJob.enqueue(db, publicKey: getUserHexEncodedPublicKey(db))
                     }
                 }
                 

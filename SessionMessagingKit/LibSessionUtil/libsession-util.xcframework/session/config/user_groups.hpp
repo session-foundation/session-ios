@@ -27,7 +27,7 @@ namespace session::config {
 ///     K - encryption secret key (32 bytes).  Optional.
 ///     m - set of member session ids (each 33 bytes).
 ///     a - set of admin session ids (each 33 bytes).
-///     E - disappearing messages duration, in minutes, > 0.  Omitted if disappearing messages is
+///     E - disappearing messages duration, in seconds, > 0.  Omitted if disappearing messages is
 ///         disabled.  (Note that legacy groups only support expire after-read)
 ///     h - hidden: 1 if the conversation has been removed from the conversation list, omitted if
 ///         visible.
@@ -60,7 +60,7 @@ struct legacy_group_info {
                        // set to an empty string.
     ustring enc_pubkey;                          // bytes (32 or empty)
     ustring enc_seckey;                          // bytes (32 or empty)
-    std::chrono::minutes disappearing_timer{0};  // 0 == disabled.
+    std::chrono::seconds disappearing_timer{0};  // 0 == disabled.
     bool hidden = false;  // true if the conversation is hidden from the convo list
     int priority = 0;     // The priority; 0 means unpinned, larger means pinned higher (i.e.
                           // higher priority conversations come first).
@@ -88,13 +88,21 @@ struct legacy_group_info {
 
     // Internal ctor/method for C API implementations:
     legacy_group_info(const struct ugroups_legacy_group_info& c);  // From c struct
-    void into(struct ugroups_legacy_group_info& c) const;          // Into c struct
+    legacy_group_info(struct ugroups_legacy_group_info&& c);       // From c struct
+    void into(struct ugroups_legacy_group_info& c) const&;         // Copy into c struct
+    void into(struct ugroups_legacy_group_info& c) &&;             // Move into c struct
 
   private:
     // session_id => (is admin)
     std::map<std::string, bool> members_;
 
     friend class UserGroups;
+
+    // Private implementations of the to/from C struct methods
+    struct impl_t {};
+    static constexpr inline impl_t impl{};
+    legacy_group_info(const struct ugroups_legacy_group_info& c, impl_t);
+    void into(struct ugroups_legacy_group_info& c, impl_t) const;
 
     void load(const dict& info_dict);
 };
@@ -154,6 +162,10 @@ class UserGroups : public ConfigBase {
     std::optional<community_info> get_community(
             std::string_view base_url, std::string_view room) const;
 
+    /// Looks up a community from a full URL.  It is permitted for the URL to omit the pubkey (it
+    /// is not used or needed by this call).
+    std::optional<community_info> get_community(std::string_view partial_url) const;
+
     /// Looks up and returns a legacy group by group ID (hex, looks like a Session ID).  Returns
     /// nullopt if the group was not found, otherwise returns a filled out `legacy_group_info`.
     std::optional<legacy_group_info> get_legacy_group(std::string_view pubkey_hex) const;
@@ -177,6 +189,8 @@ class UserGroups : public ConfigBase {
             std::string_view pubkey_encoded) const;
     community_info get_or_construct_community(
             std::string_view base_url, std::string_view room, ustring_view pubkey) const;
+    /// Shortcut to pass the url through community::parse_full_url, then call the above.
+    community_info get_or_construct_community(std::string_view full_url) const;
 
     /// Gets or constructs a blank legacy_group_info for the given group id.
     legacy_group_info get_or_construct_legacy_group(std::string_view pubkey_hex) const;

@@ -6,63 +6,47 @@ import SessionUtil
 import SessionUtilitiesKit
 
 internal extension SessionUtil {
+    static let columnsRelatedToUserProfile: [Profile.Columns] = [
+        Profile.Columns.name,
+        Profile.Columns.profilePictureUrl,
+        Profile.Columns.profileEncryptionKey
+    ]
+    
     // MARK: - Incoming Changes
     
     static func handleUserProfileUpdate(
         _ db: Database,
-        in atomicConf: Atomic<UnsafeMutablePointer<config_object>?>,
-        mergeResult: ConfResult,
+        in conf: UnsafeMutablePointer<config_object>?,
+        mergeNeedsDump: Bool,
         latestConfigUpdateSentTimestamp: TimeInterval
-    ) throws -> ConfResult {
+    ) throws {
         typealias ProfileData = (profileName: String, profilePictureUrl: String?, profilePictureKey: Data?)
         
-        guard mergeResult.needsDump else { return mergeResult }
-        guard atomicConf.wrappedValue != nil else { throw SessionUtilError.nilConfigObject }
+        guard mergeNeedsDump else { return }
+        guard conf != nil else { throw SessionUtilError.nilConfigObject }
+        
+        // A profile must have a name so if this is null then it's invalid and can be ignored
+        guard let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf) else { return }
         
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
-        
-        // Since we are doing direct memory manipulation we are using an `Atomic` type which has
-        // blocking access in it's `mutate` closure
-        let maybeProfileData: ProfileData? = atomicConf.mutate { conf -> ProfileData? in
-            // A profile must have a name so if this is null then it's invalid and can be ignored
-            guard let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf) else {
-                return nil
-            }
-            
-            let profileName: String = String(cString: profileNamePtr)
-            let profilePic: user_profile_pic = user_profile_get_pic(conf)
-            let profilePictureUrl: String? = String(libSessionVal: profilePic.url, nullIfEmpty: true)
-            
-            // Make sure the url and key exists before reading the memory
-            return (
-                profileName: profileName,
-                profilePictureUrl: profilePictureUrl,
-                profilePictureKey: (profilePictureUrl == nil ? nil :
-                    Data(
-                        libSessionVal: profilePic.url,
-                        count: ProfileManager.avatarAES256KeyByteLength
-                    )
-                )
-            )
-        }
-        
-        // Only save the data in the database if it's valid
-        guard let profileData: ProfileData = maybeProfileData else { return mergeResult }
+        let profileName: String = String(cString: profileNamePtr)
+        let profilePic: user_profile_pic = user_profile_get_pic(conf)
+        let profilePictureUrl: String? = String(libSessionVal: profilePic.url, nullIfEmpty: true)
         
         // Handle user profile changes
         try ProfileManager.updateProfileIfNeeded(
             db,
             publicKey: userPublicKey,
-            name: profileData.profileName,
+            name: profileName,
             avatarUpdate: {
-                guard
-                    let profilePictureUrl: String = profileData.profilePictureUrl,
-                    let profileKey: Data = profileData.profilePictureKey
-                else { return .remove }
+                guard let profilePictureUrl: String = profilePictureUrl else { return .remove }
                 
                 return .updateTo(
                     url: profilePictureUrl,
-                    key: profileKey,
+                    key: Data(
+                        libSessionVal: profilePic.url,
+                        count: ProfileManager.avatarAES256KeyByteLength
+                    ),
                     fileName: nil
                 )
             }(),
@@ -85,35 +69,54 @@ internal extension SessionUtil {
                     Contact.Columns.didApproveMe.set(to: true)
                 )
         }
-        
-        return mergeResult
     }
     
     // MARK: - Outgoing Changes
     
     static func update(
         profile: Profile,
-        in atomicConf: Atomic<UnsafeMutablePointer<config_object>?>
+        in conf: UnsafeMutablePointer<config_object>?
     ) throws -> ConfResult {
+        guard conf != nil else { throw SessionUtilError.nilConfigObject }
+        
+        // Update the name
+        var updatedName: [CChar] = profile.name.cArray
+        user_profile_set_name(conf, &updatedName)
+        
+        // Either assign the updated profile pic, or sent a blank profile pic (to remove the current one)
+        var profilePic: user_profile_pic = user_profile_pic()
+        profilePic.url = profile.profilePictureUrl.toLibSession()
+        profilePic.key = profile.profileEncryptionKey.toLibSession()
+        user_profile_set_pic(conf, profilePic)
+        
+        return ConfResult(
+            needsPush: config_needs_push(conf),
+            needsDump: config_needs_dump(conf)
+        )
+    }
+    
+    static func updateNoteToSelfPriority(
+        _ db: Database,
+        priority: Int32,
+        in atomicConf: Atomic<UnsafeMutablePointer<config_object>?>
+    ) throws {
         guard atomicConf.wrappedValue != nil else { throw SessionUtilError.nilConfigObject }
+        
+        let userPublicKey: String = getUserHexEncodedPublicKey(db)
         
         // Since we are doing direct memory manipulation we are using an `Atomic` type which has
         // blocking access in it's `mutate` closure
-        return atomicConf.mutate { conf in
-            // Update the name
-            var updatedName: [CChar] = profile.name.cArray
-            user_profile_set_name(conf, &updatedName)
+        try atomicConf.mutate { conf in
+            user_profile_set_nts_priority(conf, priority)
             
-            // Either assign the updated profile pic, or sent a blank profile pic (to remove the current one)
-            var profilePic: user_profile_pic = user_profile_pic()
-            profilePic.url = profile.profilePictureUrl.toLibSession()
-            profilePic.key = profile.profileEncryptionKey.toLibSession()
-            user_profile_set_pic(conf, profilePic)
+            // If we don't need to dump the data the we can finish early
+            guard config_needs_dump(conf) else { return }
             
-            return ConfResult(
-                needsPush: config_needs_push(conf),
-                needsDump: config_needs_dump(conf)
-            )
+            try SessionUtil.createDump(
+                conf: conf,
+                for: .userProfile,
+                publicKey: userPublicKey
+            )?.save(db)
         }
     }
 }

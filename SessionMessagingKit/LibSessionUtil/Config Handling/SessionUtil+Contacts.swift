@@ -10,9 +10,9 @@ internal extension SessionUtil {
     
     static func handleContactsUpdate(
         _ db: Database,
-        in atomicConf: Atomic<UnsafeMutablePointer<config_object>?>,
-        mergeResult: ConfResult
-    ) throws -> ConfResult {
+        in conf: UnsafeMutablePointer<config_object>?,
+        mergeNeedsDump: Bool
+    ) throws {
         typealias ContactData = [
             String: (
                 contact: Contact,
@@ -21,60 +21,53 @@ internal extension SessionUtil {
             )
         ]
         
-        guard mergeResult.needsDump else { return mergeResult }
-        guard atomicConf.wrappedValue != nil else { throw SessionUtilError.nilConfigObject }
+        guard mergeNeedsDump else { return }
+        guard conf != nil else { throw SessionUtilError.nilConfigObject }
         
-        // Since we are doing direct memory manipulation we are using an `Atomic` type which has
-        // blocking access in it's `mutate` closure
-        let contactData: ContactData = atomicConf.mutate { conf -> ContactData in
-            var contactData: ContactData = [:]
-            var contact: contacts_contact = contacts_contact()
-            let contactIterator: UnsafeMutablePointer<contacts_iterator> = contacts_iterator_new(conf)
-            
-            while !contacts_iterator_done(contactIterator, &contact) {
-                let contactId: String = String(cString: withUnsafeBytes(of: contact.session_id) { [UInt8]($0) }
-                    .map { CChar($0) }
-                    .nullTerminated()
-                )
-                let contactResult: Contact = Contact(
-                    id: contactId,
-                    isApproved: contact.approved,
-                    isBlocked: contact.blocked,
-                    didApproveMe: contact.approved_me
-                )
-                let profilePictureUrl: String? = String(libSessionVal: contact.profile_pic.url, nullIfEmpty: true)
-                let profileResult: Profile = Profile(
-                    id: contactId,
-                    name: (String(libSessionVal: contact.name) ?? ""),
-                    nickname: String(libSessionVal: contact.nickname, nullIfEmpty: true),
-                    profilePictureUrl: profilePictureUrl,
-                    profileEncryptionKey: (profilePictureUrl == nil ? nil :
-                        Data(
-                            libSessionVal: contact.profile_pic.key,
-                            count: ProfileManager.avatarAES256KeyByteLength
-                        )
+        var contactData: ContactData = [:]
+        var contact: contacts_contact = contacts_contact()
+        let contactIterator: UnsafeMutablePointer<contacts_iterator> = contacts_iterator_new(conf)
+        
+        while !contacts_iterator_done(contactIterator, &contact) {
+            let contactId: String = String(cString: withUnsafeBytes(of: contact.session_id) { [UInt8]($0) }
+                .map { CChar($0) }
+                .nullTerminated()
+            )
+            let contactResult: Contact = Contact(
+                id: contactId,
+                isApproved: contact.approved,
+                isBlocked: contact.blocked,
+                didApproveMe: contact.approved_me
+            )
+            let profilePictureUrl: String? = String(libSessionVal: contact.profile_pic.url, nullIfEmpty: true)
+            let profileResult: Profile = Profile(
+                id: contactId,
+                name: String(libSessionVal: contact.name),
+                nickname: String(libSessionVal: contact.nickname, nullIfEmpty: true),
+                profilePictureUrl: profilePictureUrl,
+                profileEncryptionKey: (profilePictureUrl == nil ? nil :
+                    Data(
+                        libSessionVal: contact.profile_pic.key,
+                        count: ProfileManager.avatarAES256KeyByteLength
                     )
                 )
-                
-                contactData[contactId] = (
-                    contactResult,
-                    profileResult,
-                    false
-                )
-                contacts_iterator_advance(contactIterator)
-            }
-            contacts_iterator_free(contactIterator) // Need to free the iterator
+            )
             
-            return contactData
+            contactData[contactId] = (
+                contactResult,
+                profileResult,
+            )
+            contacts_iterator_advance(contactIterator)
         }
+        contacts_iterator_free(contactIterator) // Need to free the iterator
         
         // The current users contact data is handled separately so exclude it if it's present (as that's
         // actually a bug)
-        let userPublicKey: String = getUserHexEncodedPublicKey()
+        let userPublicKey: String = getUserHexEncodedPublicKey(db)
         let targetContactData: ContactData = contactData.filter { $0.key != userPublicKey }
         
         // If we only updated the current user contact then no need to continue
-        guard !targetContactData.isEmpty else { return mergeResult }
+        guard !targetContactData.isEmpty else { return }
         
         // Since we don't sync 100% of the data stored against the contact and profile objects we
         // need to only update the data we do have to ensure we don't overwrite anything that doesn't
@@ -141,79 +134,100 @@ internal extension SessionUtil {
                             ].compactMap { $0 }
                         )
                 }
+                
+                /// If the contact's `hidden` flag doesn't match the visibility of their conversation then create/delete the
+                /// associated contact conversation accordingly
+                let threadExists: Bool = try SessionThread.exists(db, id: contact.id)
+                
+                if data.isHiddenConversation && threadExists {
+                    try SessionThread
+                        .deleteOne(db, id: contact.id)
+                }
+                else if !data.isHiddenConversation && !threadExists {
+                    try SessionThread(id: contact.id, variant: .contact)
+                        .save(db)
+                }
             }
         
-        return mergeResult
     }
     
     // MARK: - Outgoing Changes
     
+    typealias ContactData = (
+        id: String,
+        contact: Contact?,
+        profile: Profile?,
+        priority: Int32?,
+        hidden: Bool?
+    )
+    
     static func upsert(
-        contactData: [(id: String, contact: Contact?, profile: Profile?)],
-        in atomicConf: Atomic<UnsafeMutablePointer<config_object>?>
+        contactData: [ContactData],
+        in conf: UnsafeMutablePointer<config_object>?
     ) throws -> ConfResult {
-        guard atomicConf.wrappedValue != nil else { throw SessionUtilError.nilConfigObject }
+        guard conf != nil else { throw SessionUtilError.nilConfigObject }
         
         // The current users contact data doesn't need to sync so exclude it
         let userPublicKey: String = getUserHexEncodedPublicKey()
-        let targetContacts: [(id: String, contact: Contact?, profile: Profile?)] = contactData
             .filter { $0.id != userPublicKey }
+        let targetContacts: [(id: String, contact: Contact?, profile: Profile?, priority: Int32?, hidden: Bool?)] = contactData
         
         // If we only updated the current user contact then no need to continue
         guard !targetContacts.isEmpty else { return ConfResult(needsPush: false, needsDump: false) }
         
-        // Since we are doing direct memory manipulation we are using an `Atomic` type which has
-        // blocking access in it's `mutate` closure
-        return atomicConf.mutate { conf in
-            // Update the name
-            targetContacts
-                .forEach { (id, maybeContact, maybeProfile) in
-                    var sessionId: [CChar] = id.cArray
-                    var contact: contacts_contact = contacts_contact()
-                    guard contacts_get_or_construct(conf, &contact, &sessionId) else {
-                        SNLog("Unable to upsert contact from Config Message")
-                        return
-                    }
-                    
-                    // Assign all properties to match the updated contact (if there is one)
-                    if let updatedContact: Contact = maybeContact {
-                        contact.approved = updatedContact.isApproved
-                        contact.approved_me = updatedContact.didApproveMe
-                        contact.blocked = updatedContact.isBlocked
-                        
-                        // Store the updated contact (needs to happen before variables go out of scope)
-                        contacts_set(conf, &contact)
-                    }
-                    
-                    // Update the profile data (if there is one - users we have sent a message request to may
-                    // not have profile info in certain situations)
-                    if let updatedProfile: Profile = maybeProfile {
-                        let oldAvatarUrl: String? = String(libSessionVal: contact.profile_pic.url)
-                        let oldAvatarKey: Data? = Data(
-                            libSessionVal: contact.profile_pic.key,
-                            count: ProfileManager.avatarAES256KeyByteLength
-                        )
-                        
-                        contact.name = updatedProfile.name.toLibSession()
-                        contact.nickname = updatedProfile.nickname.toLibSession()
-                        contact.profile_pic.url = updatedProfile.profilePictureUrl.toLibSession()
-                        contact.profile_pic.key = updatedProfile.profileEncryptionKey.toLibSession()
-                        
-                        // Download the profile picture if needed
-                        if oldAvatarUrl != updatedProfile.profilePictureUrl || oldAvatarKey != updatedProfile.profileEncryptionKey {
-                            ProfileManager.downloadAvatar(for: updatedProfile)
-                        }
-                        
-                        // Store the updated contact (needs to happen before variables go out of scope)
-                        contacts_set(conf, &contact)
-                    }
+        // Update the name
+        targetContacts
+            .forEach { (id, maybeContact, maybeProfile, priority, hidden) in
+                var sessionId: [CChar] = id.cArray
+                var contact: contacts_contact = contacts_contact()
+                guard contacts_get_or_construct(conf, &contact, &sessionId) else {
+                    SNLog("Unable to upsert contact from Config Message")
+                    return
                 }
-            
-            return ConfResult(
-                needsPush: config_needs_push(conf),
-                needsDump: config_needs_dump(conf)
-            )
-        }
+                
+                // Assign all properties to match the updated contact (if there is one)
+                if let updatedContact: Contact = maybeContact {
+                    contact.approved = updatedContact.isApproved
+                    contact.approved_me = updatedContact.didApproveMe
+                    contact.blocked = updatedContact.isBlocked
+                    
+                    // Store the updated contact (needs to happen before variables go out of scope)
+                    contacts_set(conf, &contact)
+                }
+                
+                // Update the profile data (if there is one - users we have sent a message request to may
+                // not have profile info in certain situations)
+                if let updatedProfile: Profile = maybeProfile {
+                    let oldAvatarUrl: String? = String(libSessionVal: contact.profile_pic.url)
+                    let oldAvatarKey: Data? = Data(
+                        libSessionVal: contact.profile_pic.key,
+                        count: ProfileManager.avatarAES256KeyByteLength
+                    )
+                    
+                    contact.name = updatedProfile.name.toLibSession()
+                    contact.nickname = updatedProfile.nickname.toLibSession()
+                    contact.profile_pic.url = updatedProfile.profilePictureUrl.toLibSession()
+                    contact.profile_pic.key = updatedProfile.profileEncryptionKey.toLibSession()
+                    
+                    // Download the profile picture if needed
+                    if oldAvatarUrl != updatedProfile.profilePictureUrl || oldAvatarKey != updatedProfile.profileEncryptionKey {
+                        ProfileManager.downloadAvatar(for: updatedProfile)
+                    }
+                    
+                    // Store the updated contact (needs to happen before variables go out of scope)
+                    contacts_set(conf, &contact)
+                }
+                
+                // Store the updated contact (can't be sure if we made any changes above)
+                contact.hidden = (hidden ?? contact.hidden)
+                contact.priority = (priority ?? contact.priority)
+                contacts_set(conf, &contact)
+            }
+        
+        return ConfResult(
+            needsPush: config_needs_push(conf),
+            needsDump: config_needs_dump(conf)
+        )
     }
 }
 
@@ -230,37 +244,33 @@ internal extension SessionUtil {
         // If we only updated the current user contact then no need to continue
         guard !targetContacts.isEmpty else { return updated }
         
-        db.afterNextTransactionNested { db in
-            do {
-                let atomicConf: Atomic<UnsafeMutablePointer<config_object>?> = SessionUtil.config(
-                    for: .contacts,
-                    publicKey: userPublicKey
-                )
+        do {
+            let atomicConf: Atomic<UnsafeMutablePointer<config_object>?> = SessionUtil.config(
+                for: .contacts,
+                publicKey: userPublicKey
+            )
+            
+            // Since we are doing direct memory manipulation we are using an `Atomic` type which has
+            // blocking access in it's `mutate` closure
+            try atomicConf.mutate { conf in
                 let result: ConfResult = try SessionUtil
                     .upsert(
-                        contactData: targetContacts.map { (id: $0.id, contact: $0, profile: nil) },
-                        in: atomicConf
+                        contactData: targetContacts.map { ($0.id, $0, nil, nil, nil) },
+                        in: conf
                     )
                 
                 // If we don't need to dump the data the we can finish early
                 guard result.needsDump else { return }
                 
-                try SessionUtil.saveState(
-                    db,
-                    keepingExistingMessageHashes: true,
-                    configDump: try atomicConf.mutate { conf in
-                        try SessionUtil.createDump(
-                            conf: conf,
-                            for: .contacts,
-                            publicKey: userPublicKey,
-                            messageHashes: nil
-                        )
-                    }
-                )
+                try SessionUtil.createDump(
+                    conf: conf,
+                    for: .contacts,
+                    publicKey: userPublicKey
+                )?.save(db)
             }
-            catch {
-                SNLog("[libSession-util] Failed to dump updated data")
-            }
+        }
+        catch {
+            SNLog("[libSession-util] Failed to dump updated data")
         }
         
         return updated
@@ -285,68 +295,64 @@ internal extension SessionUtil {
         
         // Get the user public key (updating their profile is handled separately
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let targetProfiles: [Profile] = updatedProfiles
+            .filter {
+                $0.id != userPublicKey &&
+                existingContactIds.contains($0.id)
+            }
         
-        db.afterNextTransactionNested { db in
-            do {
-                // Update the user profile first (if needed)
-                if let updatedUserProfile: Profile = updatedProfiles.first(where: { $0.id == userPublicKey }) {
-                    let atomicConf: Atomic<UnsafeMutablePointer<config_object>?> = SessionUtil.config(
+        do {
+            // Update the user profile first (if needed)
+            if let updatedUserProfile: Profile = updatedProfiles.first(where: { $0.id == userPublicKey }) {
+                try SessionUtil
+                    .config(
                         for: .userProfile,
                         publicKey: userPublicKey
                     )
-                    let result: ConfResult = try SessionUtil.update(
-                        profile: updatedUserProfile,
-                        in: atomicConf
-                    )
-                    
-                    if result.needsDump {
-                        try SessionUtil.saveState(
-                            db,
-                            keepingExistingMessageHashes: true,
-                            configDump: try atomicConf.mutate { conf in
-                                try SessionUtil.createDump(
-                                    conf: conf,
-                                    for: .userProfile,
-                                    publicKey: userPublicKey,
-                                    messageHashes: nil
-                                )
-                            }
+                    .mutate { conf in
+                        let result: ConfResult = try SessionUtil.update(
+                            profile: updatedUserProfile,
+                            in: conf
                         )
+                        
+                        // If we don't need to dump the data the we can finish early
+                        guard result.needsDump else { return }
+                        
+                        try SessionUtil.createDump(
+                            conf: conf,
+                            for: .userProfile,
+                            publicKey: userPublicKey
+                        )?.save(db)
                     }
-                }
-                
-                // Then update other contacts
-                let atomicConf: Atomic<UnsafeMutablePointer<config_object>?> = SessionUtil.config(
+            }
+            
+            // Since we are doing direct memory manipulation we are using an `Atomic` type which has
+            // blocking access in it's `mutate` closure
+            try SessionUtil
+                .config(
                     for: .contacts,
                     publicKey: userPublicKey
                 )
-                let result: ConfResult = try SessionUtil
-                    .upsert(
-                        contactData: updatedProfiles
-                            .filter { $0.id != userPublicKey }
-                            .map { (id: $0.id, contact: nil, profile: $0) },
-                        in: atomicConf
-                    )
-                
-                // If we don't need to dump the data the we can finish early
-                guard result.needsDump else { return }
-                
-                try SessionUtil.saveState(
-                    db,
-                    keepingExistingMessageHashes: true,
-                    configDump: try atomicConf.mutate { conf in
-                        try SessionUtil.createDump(
-                            conf: conf,
-                            for: .contacts,
-                            publicKey: userPublicKey,
-                            messageHashes: nil
+                .mutate { conf in
+                    let result: ConfResult = try SessionUtil
+                        .upsert(
+                            contactData: targetProfiles
+                                .map { ($0.id, nil, $0, nil, nil) },
+                            in: conf
                         )
-                    }
-                )
-            }
-            catch {
-                SNLog("[libSession-util] Failed to dump updated data")
-            }
+                    
+                    // If we don't need to dump the data the we can finish early
+                    guard result.needsDump else { return }
+                    
+                    try SessionUtil.createDump(
+                        conf: conf,
+                        for: .contacts,
+                        publicKey: userPublicKey
+                    )?.save(db)
+                }
+        }
+        catch {
+            SNLog("[libSession-util] Failed to dump updated data")
         }
         
         return updated

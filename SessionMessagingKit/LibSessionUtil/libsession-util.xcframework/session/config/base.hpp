@@ -4,6 +4,7 @@
 #include <memory>
 #include <session/config.hpp>
 #include <type_traits>
+#include <unordered_set>
 #include <variant>
 #include <vector>
 
@@ -64,6 +65,15 @@ class ConfigBase {
     size_t _keys_size = 0;
     size_t _keys_capacity = 0;
 
+    // Contains the current active message hash, as fed into us in `confirm_pushed()`.  Empty if we
+    // don't know it yet.  When we dirty the config this value gets moved into `old_hashes_` to be
+    // removed by the next push.
+    std::string _curr_hash;
+
+    // Contains obsolete known message hashes that are obsoleted by the most recent merge or push;
+    // these are returned (and cleared) when `push` is called.
+    std::unordered_set<std::string> _old_hashes;
+
   protected:
     // Constructs a base config by loading the data from a dump as produced by `dump()`.  If the
     // dump is nullopt then an empty base config is constructed with no config settings and seqno
@@ -74,11 +84,10 @@ class ConfigBase {
     // calling set_state, which sets to to true implicitly).
     bool _needs_dump = false;
 
-    // Sets the current state; this also sets _needs_dump to true.
-    void set_state(ConfigState s) {
-        _state = s;
-        _needs_dump = true;
-    }
+    // Sets the current state; this also sets _needs_dump to true.  If transitioning to a dirty
+    // state and we know our current message hash, that hash gets added to `old_hashes_` to be
+    // deleted at the next push.
+    void set_state(ConfigState s);
 
     // Invokes the `logger` callback if set, does nothing if there is no logger.
     void log(LogLevel lvl, std::string msg) {
@@ -445,18 +454,21 @@ class ConfigBase {
     // This takes all of the messages pulled down from the server and does whatever is necessary to
     // merge (or replace) the current values.
     //
+    // Values are pairs of the message hash (as provided by the server) and the raw message body.
+    //
     // After this call the caller should check `needs_push()` to see if the data on hand was updated
-    // and needs to be pushed to the server again.
+    // and needs to be pushed to the server again (for example, because the data contained conflicts
+    // that required another update to resolve).
     //
     // Returns the number of the given config messages that were successfully parsed.
     //
     // Will throw on serious error (i.e. if neither the current nor any of the given configs are
     // parseable).  This should not happen (the current config, at least, should always be
     // re-parseable).
-    virtual int merge(const std::vector<ustring_view>& configs);
+    virtual int merge(const std::vector<std::pair<std::string, ustring_view>>& configs);
 
-    // Same as above but takes a vector of ustring's as sometimes that is more convenient.
-    int merge(const std::vector<ustring>& configs);
+    // Same as above but takes the values as ustring's as sometimes that is more convenient.
+    int merge(const std::vector<std::pair<std::string, ustring>>& configs);
 
     // Returns true if we are currently dirty (i.e. have made changes that haven't been serialized
     // yet).
@@ -466,31 +478,51 @@ class ConfigBase {
     // unmodified).
     bool is_clean() const { return _state == ConfigState::Clean; }
 
+    // The current config hash(es); this can be empty if the current hash is unknown or the current
+    // state is not clean (i.e. a push is needed or pending).
+    std::vector<std::string> current_hashes() const;
+
     // Returns true if this object contains updated data that has not yet been confirmed stored on
     // the server.  This will be true whenever `is_clean()` is false: that is, if we are currently
     // "dirty" (i.e.  have changes that haven't been pushed) or are still awaiting confirmation of
     // storage of the most recent serialized push data.
     virtual bool needs_push() const;
 
-    // Returns the data messages to push to the server along with the seqno value of the data.  If
-    // the config is currently dirty (i.e. has previously unsent modifications) then this marks it
-    // as awaiting-confirmation instead of dirty so that any future change immediately increments
-    // the seqno.
+    // Returns a tuple of three elements:
+    // - the seqno value of the data
+    // - the data message to push to the server
+    // - a list of known message hashes that are obsoleted by this push.
+    //
+    // Additionally, if the internal state is currently dirty (i.e. there are unpushed changes), the
+    // internal state will be marked as awaiting-confirmation.  Any further data changes made after
+    // this call will re-dirty the data (incrementing seqno and requiring another push).
+    //
+    // The client is expected to send a sequence request to the server that stores the message and
+    // deletes the hashes (if any).  It is strongly recommended to use a sequence rather than a
+    // batch so that the deletions won't happen if the store fails for some reason.
+    //
+    // Upon successful completion of the store+deletion requests the client should call
+    // `confirm_pushed` with the seqno value to confirm that the message has been stored.
     //
     // Subclasses that need to perform pre-push tasks (such as pruning stale data) can override this
     // to prune and then call the base method to perform the actual push generation.
-    virtual std::pair<ustring, seqno_t> push();
+    virtual std::tuple<seqno_t, ustring, std::vector<std::string>> push();
 
     // Should be called after the push is confirmed stored on the storage server swarm to let the
-    // object know the data is stored.  (Once this is called `needs_push` will start returning false
-    // until something changes).  Takes the seqno that was pushed so that the object can ensure that
-    // the latest version was pushed (i.e. in case there have been other changes since the `push()`
-    // call that returned this seqno).
+    // object know the config message has been stored and, ideally, that the obsolete messages
+    // returned by `push()` are deleted.  Once this is called `needs_push` will start returning
+    // false until something changes.  Takes the seqno that was pushed so that the object can ensure
+    // that the latest version was pushed (i.e. in case there have been other changes since the
+    // `push()` call that returned this seqno).
+    //
+    // Ideally the caller should have both stored the returned message and deleted the given
+    // messages.  The deletion step isn't critical (it is just cleanup) and callers should call this
+    // as long as the store succeeded even if there were errors in the deletions.
     //
     // It is safe to call this multiple times with the same seqno value, and with out-of-order
     // seqnos (e.g. calling with seqno 122 after having called with 123; the duplicates and earlier
     // ones will just be ignored).
-    virtual void confirm_pushed(seqno_t seqno);
+    virtual void confirm_pushed(seqno_t seqno, std::string msg_hash);
 
     // Returns a dump of the current state for storage in the database; this value would get passed
     // into the constructor to reconstitute the object (including the push/not pushed status).  This

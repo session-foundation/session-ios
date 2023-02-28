@@ -4,13 +4,52 @@ import Foundation
 import GRDB
 import SessionUtilitiesKit
 
-// MARK: - GRDB
+// MARK: - ConfigColumnAssignment
+
+public struct ConfigColumnAssignment {
+    var column: ColumnExpression
+    var assignment: ColumnAssignment
+    
+    init(
+        column: ColumnExpression,
+        assignment: ColumnAssignment
+    ) {
+        self.column = column
+        self.assignment = assignment
+    }
+}
+
+// MARK: - ColumnExpression
+
+extension ColumnExpression {
+    public func set(to value: (any SQLExpressible)?) -> ConfigColumnAssignment {
+        ConfigColumnAssignment(column: self, assignment: self.set(to: value))
+    }
+}
+
+// MARK: - QueryInterfaceRequest
 
 public extension QueryInterfaceRequest {
     @discardableResult
+    func updateAll(
+        _ db: Database,
+        _ assignments: ConfigColumnAssignment...
+    ) throws -> Int {
+        return try updateAll(db, assignments)
+    }
+    
+    @discardableResult
+    func updateAll(
+        _ db: Database,
+        _ assignments: [ConfigColumnAssignment]
+    ) throws -> Int {
+        return try self.updateAll(db, assignments.map { $0.assignment })
+    }
+    
+    @discardableResult
     func updateAllAndConfig(
         _ db: Database,
-        _ assignments: ColumnAssignment...
+        _ assignments: ConfigColumnAssignment...
     ) throws -> Int {
         return try updateAllAndConfig(db, assignments)
     }
@@ -18,8 +57,15 @@ public extension QueryInterfaceRequest {
     @discardableResult
     func updateAllAndConfig(
         _ db: Database,
-        _ assignments: [ColumnAssignment]
+        _ assignments: [ConfigColumnAssignment]
     ) throws -> Int {
+        let targetAssignments: [ColumnAssignment] = assignments.map { $0.assignment }
+        
+        // Before we do anything make sure the changes actually do need to be sunced
+        guard SessionUtil.assignmentsRequireConfigUpdate(assignments) else {
+            return try self.updateAll(db, targetAssignments)
+        }
+        
         switch self {
             case let contactRequest as QueryInterfaceRequest<Contact>:
                 return try contactRequest.updateAndFetchAllAndUpdateConfig(db, assignments).count
@@ -29,9 +75,11 @@ public extension QueryInterfaceRequest {
                 
             case let threadRequest as QueryInterfaceRequest<SessionThread>:
                 return try threadRequest.updateAndFetchAllAndUpdateConfig(db, assignments).count
+                
+            case let threadRequest as QueryInterfaceRequest<ClosedGroup>:
+                return try threadRequest.updateAndFetchAllAndUpdateConfig(db, assignments).count
             
-            
-            default: return try self.updateAll(db, assignments)
+            default: return try self.updateAll(db, targetAssignments)
         }
     }
 }
@@ -40,7 +88,7 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
     @discardableResult
     func updateAndFetchAllAndUpdateConfig(
         _ db: Database,
-        _ assignments: ColumnAssignment...
+        _ assignments: ConfigColumnAssignment...
     ) throws -> [RowDecoder] {
         return try updateAndFetchAllAndUpdateConfig(db, assignments)
     }
@@ -48,41 +96,45 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
     @discardableResult
     func updateAndFetchAllAndUpdateConfig(
         _ db: Database,
-        _ assignments: [ColumnAssignment]
+        _ assignments: [ConfigColumnAssignment]
     ) throws -> [RowDecoder] {
+        // First perform the actual updates
+        let updatedData: [RowDecoder] = try self.updateAndFetchAll(db, assignments.map { $0.assignment })
+        
+        // Then check if any of the changes could affect the config
+        guard
+            // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
+            Features.useSharedUtilForUserConfig,
+            SessionUtil.assignmentsRequireConfigUpdate(assignments)
+        else { return updatedData }
+        
         defer {
-            // If we change one of these types then we may as well automatically enqueue
-            // a new config sync job once the transaction completes (but only enqueue it
-            // once per transaction - doing it more than once is pointless)
-            if
-                self is QueryInterfaceRequest<Contact> ||
-                self is QueryInterfaceRequest<Profile> ||
-                self is QueryInterfaceRequest<SessionThread> ||
-                self is QueryInterfaceRequest<ClosedGroup>
-            {
-                db.afterNextTransactionNestedOnce(dedupeIdentifier: "EnqueueConfigurationSyncJob") { db in
-                    ConfigurationSyncJob.enqueue(db)
-                }
+            // If we changed a column that requires a config update then we may as well automatically
+            // enqueue a new config sync job once the transaction completes (but only enqueue it once
+            // per transaction - doing it more than once is pointless)
+            let userPublicKey: String = getUserHexEncodedPublicKey(db)
+            
+            db.afterNextTransactionNestedOnce(dedupeId: SessionUtil.syncDedupeId(userPublicKey)) { db in
+                ConfigurationSyncJob.enqueue(db, publicKey: userPublicKey)
             }
         }
         
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard Features.useSharedUtilForUserConfig else {
-            return try self.updateAndFetchAll(db, assignments)
-        }
-        
         // Update the config dump state where needed
+        
+        try SessionUtil.updateThreadPrioritiesIfNeeded(db, assignments, updatedData)
+        
         switch self {
             case is QueryInterfaceRequest<Contact>:
-                return try SessionUtil.updatingContacts(db, try updateAndFetchAll(db, assignments))
+                return try SessionUtil.updatingContacts(db, updatedData)
                 
             case is QueryInterfaceRequest<Profile>:
-                return try SessionUtil.updatingProfiles(db, try updateAndFetchAll(db, assignments))
+                return try SessionUtil.updatingProfiles(db, updatedData)
                 
             case is QueryInterfaceRequest<SessionThread>:
-                return try SessionUtil.updatingThreads(db, try updateAndFetchAll(db, assignments))
+                return updatedData
             
-            default: return try self.updateAndFetchAll(db, assignments)
+                
+            default: return updatedData
         }
     }
 }

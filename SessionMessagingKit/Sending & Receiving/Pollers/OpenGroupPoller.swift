@@ -93,6 +93,7 @@ extension OpenGroupAPI {
             return dependencies.storage
                 .readPublisherFlatMap(receiveOn: Threading.pollerQueue) { db -> AnyPublisher<(Int64, PollResponse), Error> in
                     let failureCount: Int64 = (try? OpenGroup
+                        .filter(OpenGroup.Columns.server == server)
                         .select(max(OpenGroup.Columns.pollFailureCount))
                         .asRequest(of: Int64.self)
                         .fetchOne(db))
@@ -176,17 +177,73 @@ extension OpenGroupAPI {
                                                 .fetchOne(db)
                                         }
                                         .defaulting(to: 0)
+                                    var prunedIds: [String] = []
 
                                     Storage.shared.writeAsync { db in
+                                        struct Info: Decodable, FetchableRecord {
+                                            let id: String
+                                            let shouldBeVisible: Bool
+                                        }
+                                        
+                                        let rooms: [String] = try OpenGroup
+                                            .filter(
+                                                OpenGroup.Columns.server == server &&
+                                                OpenGroup.Columns.isActive == true
+                                            )
+                                            .select(.roomToken)
+                                            .asRequest(of: String.self)
+                                            .fetchAll(db)
+                                        let roomsAreVisible: [Info] = try SessionThread
+                                            .select(.id, .shouldBeVisible)
+                                            .filter(
+                                                ids: rooms.map {
+                                                    OpenGroup.idFor(roomToken: $0, server: server)
+                                                }
+                                            )
+                                            .asRequest(of: Info.self)
+                                            .fetchAll(db)
+                                        
+                                        // Increase the failure count
                                         try OpenGroup
                                             .filter(OpenGroup.Columns.server == server)
                                             .updateAll(
                                                 db,
-                                                OpenGroup.Columns.pollFailureCount.set(to: (pollFailureCount + 1))
+                                                OpenGroup.Columns.pollFailureCount
+                                                    .set(to: (pollFailureCount + 1))
                                             )
+                                        
+                                        /// If the polling has failed 10+ times then try to prune any invalid rooms that
+                                        /// aren't visible (they would have been added via config messages and will
+                                        /// likely always fail but the user has no way to delete them)
+                                        guard pollFailureCount > 10 else { return }
+                                        
+                                        prunedIds = roomsAreVisible
+                                            .filter { !$0.shouldBeVisible }
+                                            .map { $0.id }
+                                        
+                                        prunedIds.forEach { id in
+                                            OpenGroupManager.shared.delete(
+                                                db,
+                                                openGroupId: id,
+                                                /// **Note:** We pass `calledFromConfigHandling` as `true`
+                                                /// here because we want to avoid syncing this deletion as the room might
+                                                /// not be in an invalid state on other devices - one of the other devices
+                                                /// will eventually trigger a new config update which will re-add this room
+                                                /// and hopefully at that time it'll work again
+                                                calledFromConfigHandling: true
+                                            )
+                                        }
                                     }
-
+                                    
                                     SNLog("Open group polling failed due to error: \(error). Setting failure count to \(pollFailureCount).")
+                                    
+                                    // Add a note to the logs that this happened
+                                    if !prunedIds.isEmpty {
+                                        let rooms: String = prunedIds
+                                            .compactMap { $0.components(separatedBy: server).last }
+                                            .joined(separator: ", ")
+                                        SNLog("Hidden open group failure count surpassed 10, removed hidden rooms \(rooms).")
+                                    }
                                 }
 
                                 self?.isPolling = false

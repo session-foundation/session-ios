@@ -38,7 +38,7 @@ namespace session::config {
 ///     e - Disappearing messages expiration type.  Omitted if disappearing messages are not enabled
 ///         for the conversation with this contact; 1 for delete-after-send, and 2 for
 ///         delete-after-read.
-///     E - Disappearing message timer, in minutes.  Omitted when `e` is omitted.
+///     E - Disappearing message timer, in seconds.  Omitted when `e` is omitted.
 
 /// Struct containing contact info.
 struct contact_info {
@@ -56,7 +56,7 @@ struct contact_info {
     int priority = 0;     // If >0 then this message is pinned; higher values mean higher priority
                           // (i.e. pinned earlier in the pinned list).
     expiration_mode exp_mode = expiration_mode::none;  // The expiry time; none if not expiring.
-    std::chrono::minutes exp_timer{0};                 // The expiration timer (in minutes)
+    std::chrono::seconds exp_timer{0};                 // The expiration timer (in seconds)
 
     explicit contact_info(std::string sid);
 
@@ -132,7 +132,7 @@ class Contacts : public ConfigBase {
     void set_expiry(
             std::string_view session_id,
             expiration_mode exp_mode,
-            std::chrono::minutes expiration_timer = 0min);
+            std::chrono::seconds expiration_timer = 0min);
 
     /// Removes a contact, if present.  Returns true if it was found and removed, false otherwise.
     /// Note that this removes all fields related to a contact, even fields we do not know about.

@@ -507,7 +507,7 @@ public struct ProfileManager {
     ) throws {
         let isCurrentUser = (publicKey == getUserHexEncodedPublicKey(db, dependencies: dependencies))
         let profile: Profile = Profile.fetchOrCreate(id: publicKey)
-        var profileChanges: [ColumnAssignment] = []
+        var profileChanges: [ConfigColumnAssignment] = []
         
         // Name
         if let name: String = name, !name.isEmpty, name != profile.name {
@@ -622,7 +622,7 @@ public struct ProfileManager {
         
         let dedupeIdentifier: String = "AvatarDownload-\(publicKey)-\(targetAvatarUrl ?? "remove")"
         
-        db.afterNextTransactionNestedOnce(dedupeIdentifier: dedupeIdentifier) { db in
+        db.afterNextTransactionNestedOnce(dedupeId: dedupeIdentifier) { db in
             // Need to refetch to ensure the db changes have occurred
             ProfileManager.downloadAvatar(for: Profile.fetchOrCreate(db, id: publicKey))
         }

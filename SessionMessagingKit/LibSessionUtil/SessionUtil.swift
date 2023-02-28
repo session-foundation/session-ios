@@ -24,8 +24,7 @@ public enum SessionUtil {
     public struct OutgoingConfResult {
         let message: SharedConfigMessage
         let namespace: SnodeAPI.Namespace
-        let destination: Message.Destination
-        let oldMessageHashes: [String]?
+        let obsoleteHashes: [String]
     }
     
     // MARK: - Configs
@@ -42,6 +41,10 @@ public enum SessionUtil {
     }
     
     // MARK: - Variables
+    
+    internal static func syncDedupeId(_ publicKey: String) -> String {
+        return "EnqueueConfigurationSyncJob-\(publicKey)"
+    }
     
     /// Returns `true` if there is a config which needs to be pushed, but returns `false` if the configs are all up to date or haven't been
     /// loaded yet (eg. fresh install)
@@ -150,44 +153,10 @@ public enum SessionUtil {
         return conf
     }
     
-    internal static func saveState(
-        _ db: Database,
-        keepingExistingMessageHashes: Bool,
-        configDump: ConfigDump?
-    ) throws {
-        guard let configDump: ConfigDump = configDump else { return }
-        
-        // If we want to keep the existing message hashes then we need
-        // to fetch them from the db and create a new 'ConfigDump' instance
-        let targetDump: ConfigDump = try {
-            guard keepingExistingMessageHashes else { return configDump }
-            
-            let existingCombinedMessageHashes: String? = try ConfigDump
-                .filter(
-                    ConfigDump.Columns.variant == configDump.variant &&
-                    ConfigDump.Columns.publicKey == configDump.publicKey
-                )
-                .select(.combinedMessageHashes)
-                .asRequest(of: String.self)
-                .fetchOne(db)
-            
-            return ConfigDump(
-                variant: configDump.variant,
-                publicKey: configDump.publicKey,
-                data: configDump.data,
-                messageHashes: ConfigDump.messageHashes(from: existingCombinedMessageHashes)
-            )
-        }()
-        
-        // Actually save the dump
-        try targetDump.save(db)
-    }
-    
     internal static func createDump(
         conf: UnsafeMutablePointer<config_object>?,
         for variant: ConfigDump.Variant,
-        publicKey: String,
-        messageHashes: [String]?
+        publicKey: String
     ) throws -> ConfigDump? {
         guard conf != nil else { throw SessionUtilError.nilConfigObject }
         
@@ -206,103 +175,131 @@ public enum SessionUtil {
         return ConfigDump(
             variant: variant,
             publicKey: publicKey,
-            data: dumpData,
-            messageHashes: messageHashes
+            data: dumpData
         )
     }
     
     // MARK: - Pushes
     
-    public static func pendingChanges(_ db: Database) throws -> [OutgoingConfResult] {
+    public static func pendingChanges(
+        _ db: Database,
+        publicKey: String
+    ) throws -> [OutgoingConfResult] {
         guard Identity.userExists(db) else { throw SessionUtilError.userDoesNotExist }
         
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
-        let existingDumpInfo: Set<DumpInfo> = try ConfigDump
-            .select(.variant, .publicKey, .combinedMessageHashes)
-            .asRequest(of: DumpInfo.self)
+        var existingDumpVariants: Set<ConfigDump.Variant> = try ConfigDump
+            .select(.variant)
+            .filter(ConfigDump.Columns.publicKey == publicKey)
+            .asRequest(of: ConfigDump.Variant.self)
             .fetchSet(db)
         
         // Ensure we always check the required user config types for changes even if there is no dump
         // data yet (to deal with first launch cases)
-        return existingDumpInfo
-            .inserting(
-                contentsOf: DumpInfo.requiredUserConfigDumpInfo(userPublicKey: userPublicKey)
-                    .filter { requiredInfo -> Bool in
-                        !existingDumpInfo.contains(where: {
-                            $0.variant == requiredInfo.variant &&
-                            $0.publicKey == requiredInfo.publicKey
-                        })
+        if publicKey == userPublicKey {
+            ConfigDump.Variant.userVariants.forEach { existingDumpVariants.insert($0) }
+        }
+        
+        // Ensure we always check the required user config types for changes even if there is no dump
+        // data yet (to deal with first launch cases)
+        return existingDumpVariants
+            .compactMap { variant -> OutgoingConfResult? in
+                SessionUtil
+                    .config(for: variant, publicKey: publicKey)
+                    .mutate { conf in
+                        // Check if the config needs to be pushed
+                        guard conf != nil && config_needs_push(conf) else { return nil }
+                        
+                        let cPushData: UnsafeMutablePointer<config_push_data> = config_push(conf)
+                        let pushData: Data = Data(
+                            bytes: cPushData.pointee.config,
+                            count: cPushData.pointee.config_len
+                        )
+                        let hashesToRemove: [String] = [String](
+                            pointer: cPushData.pointee.obsolete,
+                            count: cPushData.pointee.obsolete_len,
+                            defaultValue: []
+                        )
+                        let seqNo: Int64 = cPushData.pointee.seqno
+                        cPushData.deallocate()
+                        
+                        return OutgoingConfResult(
+                            message: SharedConfigMessage(
+                                kind: variant.configMessageKind,
+                                seqNo: seqNo,
+                                data: pushData
+                            ),
+                            namespace: variant.namespace,
+                            obsoleteHashes: hashesToRemove
+                        )
                     }
-            )
-            .compactMap { dumpInfo -> OutgoingConfResult? in
-                let key: ConfigKey = ConfigKey(variant: dumpInfo.variant, publicKey: dumpInfo.publicKey)
-                let atomicConf: Atomic<UnsafeMutablePointer<config_object>?> = (
-                    SessionUtil.configStore.wrappedValue[key] ??
-                    Atomic(nil)
-                )
-                
-                // Check if the config needs to be pushed
-                guard
-                    atomicConf.wrappedValue != nil &&
-                    config_needs_push(atomicConf.wrappedValue)
-                else { return nil }
-                
-                var toPush: UnsafeMutablePointer<UInt8>? = nil
-                var toPushLen: Int = 0
-                let seqNo: Int64 = atomicConf.mutate { config_push($0, &toPush, &toPushLen) }
-                
-                guard let toPush: UnsafeMutablePointer<UInt8> = toPush else { return nil }
-                
-                let pushData: Data = Data(bytes: toPush, count: toPushLen)
-                toPush.deallocate()
-                
-                return OutgoingConfResult(
-                    message: SharedConfigMessage(
-                        kind: dumpInfo.variant.configMessageKind,
-                        seqNo: seqNo,
-                        data: pushData
-                    ),
-                    namespace: dumpInfo.variant.namespace,
-                    destination: (dumpInfo.publicKey == userPublicKey ?
-                        Message.Destination.contact(publicKey: userPublicKey) :
-                        Message.Destination.closedGroup(groupPublicKey: dumpInfo.publicKey)
-                    ),
-                    oldMessageHashes: dumpInfo.messageHashes
-                )
             }
     }
     
-    public static func markAsPushed(
+    public static func markingAsPushed(
         message: SharedConfigMessage,
+        serverHash: String,
         publicKey: String
-    ) -> Bool {
-        let key: ConfigKey = ConfigKey(variant: message.kind.configDumpVariant, publicKey: publicKey)
-        let atomicConf: Atomic<UnsafeMutablePointer<config_object>?> = (
-            SessionUtil.configStore.wrappedValue[key] ??
-            Atomic(nil)
-        )
-        
-        guard atomicConf.wrappedValue != nil else { return false }
-        
-        // Mark the config as pushed
-        config_confirm_pushed(atomicConf.wrappedValue, message.seqNo)
-        
-        // Update the result to indicate whether the config needs to be dumped
-        return config_needs_dump(atomicConf.wrappedValue)
+    ) -> ConfigDump? {
+        return SessionUtil
+            .config(
+                for: message.kind.configDumpVariant,
+                publicKey: publicKey
+            )
+            .mutate { conf in
+                guard conf != nil else { return nil }
+                
+                // Mark the config as pushed
+                var cHash: [CChar] = serverHash.cArray
+                config_confirm_pushed(conf, message.seqNo, &cHash)
+                
+                // Update the result to indicate whether the config needs to be dumped
+                guard config_needs_dump(conf) else { return nil }
+                
+                return try? SessionUtil.createDump(
+                    conf: conf,
+                    for: message.kind.configDumpVariant,
+                    publicKey: publicKey
+                )
+            }
     }
     
     public static func configHashes(for publicKey: String) -> [String] {
         return Storage.shared
-            .read { db in
-                try ConfigDump
+            .read { db -> [String] in
+                guard Identity.userExists(db) else { return [] }
+                
+                let existingDumpVariants: Set<ConfigDump.Variant> = (try? ConfigDump
+                    .select(.variant)
                     .filter(ConfigDump.Columns.publicKey == publicKey)
-                    .select(.combinedMessageHashes)
-                    .asRequest(of: String.self)
-                    .fetchAll(db)
+                    .asRequest(of: ConfigDump.Variant.self)
+                    .fetchSet(db))
+                    .defaulting(to: [])
+                
+                /// Extract all existing hashes for any dumps associated with the given `publicKey`
+                return existingDumpVariants
+                    .map { variant -> [String] in
+                        guard
+                            let conf = SessionUtil
+                                .config(for: variant, publicKey: publicKey)
+                                .wrappedValue,
+                            let hashList: UnsafeMutablePointer<config_string_list> = config_current_hashes(conf)
+                        else {
+                            return []
+                        }
+                        
+                        let result: [String] = [String](
+                            pointer: hashList.pointee.value,
+                            count: hashList.pointee.len,
+                            defaultValue: []
+                        )
+                        hashList.deallocate()
+                        
+                        return result
+                    }
+                    .reduce([], +)
             }
             .defaulting(to: [])
-            .compactMap { ConfigDump.messageHashes(from: $0) }
-            .flatMap { $0 }
     }
     
     // MARK: - Receiving
@@ -319,143 +316,87 @@ public enum SessionUtil {
         
         let groupedMessages: [ConfigDump.Variant: [SharedConfigMessage]] = messages
             .grouped(by: \.kind.configDumpVariant)
-        // Merge the config messages into the current state
-        let mergeResults: [ConfigDump.Variant: IncomingConfResult] = groupedMessages
+        
+        let needsPush: Bool = try groupedMessages
             .sorted { lhs, rhs in lhs.key.processingOrder < rhs.key.processingOrder }
-            .reduce(into: [:]) { result, next in
-                let key: ConfigKey = ConfigKey(variant: next.key, publicKey: publicKey)
-                let atomicConf: Atomic<UnsafeMutablePointer<config_object>?> = (
-                    SessionUtil.configStore.wrappedValue[key] ??
-                    Atomic(nil)
-                )
-                var needsPush: Bool = false
-                var needsDump: Bool = false
-                let messageHashes: [String] = next.value.compactMap { $0.serverHash }
+            .reduce(false) { prevNeedsPush, next -> Bool in
                 let messageSentTimestamp: TimeInterval = TimeInterval(
                     (next.value.compactMap { $0.sentTimestamp }.max() ?? 0) / 1000
                 )
+                let needsPush: Bool = try SessionUtil
+                    .config(for: next.key, publicKey: publicKey)
+                    .mutate { conf in
+                        // Merge the messages
+                        var mergeHashes: [UnsafePointer<CChar>?] = next.value
+                            .map { message in
+                                (message.serverHash ?? "").cArray
+                                    .nullTerminated()
+                            }
+                            .unsafeCopy()
+                        var mergeData: [UnsafePointer<UInt8>?] = next.value
+                            .map { message -> [UInt8] in message.data.bytes }
+                            .unsafeCopy()
+                        var mergeSize: [Int] = next.value.map { $0.data.count }
+                        config_merge(conf, &mergeHashes, &mergeData, &mergeSize, next.value.count)
+                        mergeHashes.forEach { $0?.deallocate() }
+                        mergeData.forEach { $0?.deallocate() }
+                        
+                        // Apply the updated states to the database
+                        switch next.key {
+                            case .userProfile:
+                                try SessionUtil.handleUserProfileUpdate(
+                                    db,
+                                    in: conf,
+                                    mergeNeedsDump: config_needs_dump(conf),
+                                    latestConfigUpdateSentTimestamp: messageSentTimestamp
+                                )
+                                
+                            case .contacts:
+                                try SessionUtil.handleContactsUpdate(
+                                    db,
+                                    in: conf,
+                                    mergeNeedsDump: config_needs_dump(conf)
+                                )
+                                
+                            case .convoInfoVolatile:
+                                try SessionUtil.handleConvoInfoVolatileUpdate(
+                                    db,
+                                    in: conf,
+                                    mergeNeedsDump: config_needs_dump(conf)
+                                )
+                                
+                            case .userGroups:
+                                try SessionUtil.handleGroupsUpdate(
+                                    db,
+                                    in: conf,
+                                    mergeNeedsDump: config_needs_dump(conf),
+                                    latestConfigUpdateSentTimestamp: messageSentTimestamp
+                                )
+                        }
+                        
+                        // Need to check if the config needs to be dumped (this might have changed
+                        // after handling the merge changes)
+                        guard config_needs_dump(conf) else { return config_needs_push(conf) }
+                        
+                        try SessionUtil.createDump(
+                            conf: conf,
+                            for: next.key,
+                            publicKey: publicKey
+                        )?.save(db)
                 
-                // Block the config while we are merging
-                atomicConf.mutate { conf in
-                    var mergeData: [UnsafePointer<UInt8>?] = next.value
-                        .map { message -> [UInt8] in message.data.bytes }
-                        .unsafeCopy()
-                    var mergeSize: [Int] = next.value.map { $0.data.count }
-                    config_merge(conf, &mergeData, &mergeSize, next.value.count)
-                    mergeData.forEach { $0?.deallocate() }
-                    
-                    // Get the state of this variant
-                    needsPush = config_needs_push(conf)
-                    needsDump = config_needs_dump(conf)
-                }
+                        return config_needs_push(conf)
+                    }
                 
-                // Return the current state of the config
-                result[next.key] = IncomingConfResult(
-                    needsPush: needsPush,
-                    needsDump: needsDump,
-                    messageHashes: messageHashes,
-                    latestSentTimestamp: messageSentTimestamp
-                )
+                // Update the 'needsPush' state as needed
+                return (prevNeedsPush || needsPush)
             }
         
-        // Process the results from the merging
-        let finalResults: [ConfResult] = try mergeResults.map { variant, mergeResult in
-            let key: ConfigKey = ConfigKey(variant: variant, publicKey: publicKey)
-            let atomicConf: Atomic<UnsafeMutablePointer<config_object>?> = (
-                SessionUtil.configStore.wrappedValue[key] ??
-                Atomic(nil)
-            )
-            
-            // Apply the updated states to the database
-            let postHandlingResult: ConfResult = try {
-                switch variant {
-                    case .userProfile:
-                        return try SessionUtil.handleUserProfileUpdate(
-                            db,
-                            in: atomicConf,
-                            mergeResult: mergeResult.result,
-                            latestConfigUpdateSentTimestamp: mergeResult.latestSentTimestamp
-                        )
-                        
-                    case .contacts:
-                        return try SessionUtil.handleContactsUpdate(
-                            db,
-                            in: atomicConf,
-                            mergeResult: mergeResult.result
-                        )
-                        
-                    case .convoInfoVolatile:
-                        return try SessionUtil.handleConvoInfoVolatileUpdate(
-                            db,
-                            in: atomicConf,
-                            mergeResult: mergeResult.result
-                        )
-                        
-                    case .userGroups:
-                        return try SessionUtil.handleGroupsUpdate(
-                            db,
-                            in: atomicConf,
-                            mergeResult: mergeResult.result
-                        )
-                }
-            }()
-            
-            // We need to get the existing message hashes and combine them with the latest from the
-            // service node to ensure the next push will properly clean up old messages
-            let oldMessageHashes: Set<String> = try ConfigDump
-                .filter(
-                    ConfigDump.Columns.variant == variant &&
-                    ConfigDump.Columns.publicKey == publicKey
-                )
-                .select(.combinedMessageHashes)
-                .asRequest(of: String.self)
-                .fetchOne(db)
-                .map { ConfigDump.messageHashes(from: $0) }
-                .defaulting(to: [])
-                .asSet()
-            let allMessageHashes: [String] = Array(oldMessageHashes
-                .inserting(contentsOf: mergeResult.messageHashes.asSet()))
-            let messageHashesChanged: Bool = (oldMessageHashes != mergeResult.messageHashes.asSet())
-            
-            // Now that the changes are applied, update the cached dumps
-            switch (postHandlingResult.needsDump, messageHashesChanged) {
-                case (true, _):
-                    // The config data had changes so regenerate the dump and save it
-                    try atomicConf
-                        .mutate { conf -> ConfigDump? in
-                            try SessionUtil.createDump(
-                                conf: conf,
-                                for: variant,
-                                publicKey: publicKey,
-                                messageHashes: allMessageHashes
-                            )
-                        }?
-                        .save(db)
-                    
-                case (false, true):
-                    // The config data didn't change but there were different messages on the service node
-                    // so just update the message hashes so the next sync can properly remove any old ones
-                    try ConfigDump
-                        .filter(
-                            ConfigDump.Columns.variant == variant &&
-                            ConfigDump.Columns.publicKey == publicKey
-                        )
-                        .updateAll(
-                            db,
-                            ConfigDump.Columns.combinedMessageHashes
-                                .set(to: ConfigDump.combinedMessageHashes(from: allMessageHashes))
-                        )
-                    
-                default: break
-            }
-            
-            return postHandlingResult
-        }
+        // Now that the local state has been updated, schedule a config sync if needed (this will
+        // push any pending updates and properly update the state)
+        guard needsPush else { return }
         
-        // Now that the local state has been updated, trigger a config sync (this will push any
-        // pending updates and properly update the state)
-        if finalResults.contains(where: { $0.needsPush }) {
-            ConfigurationSyncJob.enqueue(db)
+        db.afterNextTransactionNestedOnce(dedupeId: SessionUtil.syncDedupeId(publicKey)) { db in
+            ConfigurationSyncJob.enqueue(db, publicKey: publicKey)
         }
     }
 }
@@ -467,20 +408,41 @@ fileprivate extension SessionUtil {
         let variant: ConfigDump.Variant
         let publicKey: String
     }
+}
+
+// MARK: - Convenience
+
+public extension SessionUtil {
+    static func parseCommunity(url: String) -> (room: String, server: String, publicKey: String)? {
+        var cFullUrl: [CChar] = url.cArray
+        var cBaseUrl: [CChar] = [CChar](repeating: 0, count: COMMUNITY_BASE_URL_MAX_LENGTH)
+        var cRoom: [CChar] = [CChar](repeating: 0, count: COMMUNITY_ROOM_MAX_LENGTH)
+        var cPubkey: [UInt8] = [UInt8](repeating: 0, count: OpenGroup.pubkeyByteLength)
+        
+        guard
+            community_parse_full_url(&cFullUrl, &cBaseUrl, &cRoom, &cPubkey) &&
+            !String(cString: cRoom).isEmpty &&
+            !String(cString: cBaseUrl).isEmpty &&
+            cPubkey.contains(where: { $0 != 0 })
+        else { return nil }
+        
+        // Note: Need to store them in variables instead of returning directly to ensure they
+        // don't get freed from memory early (was seeing this happen intermittently during
+        // unit tests...)
+        let room: String = String(cString: cRoom)
+        let baseUrl: String = String(cString: cBaseUrl)
+        let pubkeyHex: String = Data(cPubkey).toHexString()
+        
+        return (room, baseUrl, pubkeyHex)
+    }
     
-    struct DumpInfo: FetchableRecord, Decodable, Hashable {
-        let variant: ConfigDump.Variant
-        let publicKey: String
-        private let combinedMessageHashes: String?
+    static func communityUrlFor(server: String, roomToken: String, publicKey: String) -> String {
+        var cBaseUrl: [CChar] = server.cArray
+        var cRoom: [CChar] = roomToken.cArray
+        var cPubkey: [UInt8] = Data(hex: publicKey).cArray
+        var cFullUrl: [CChar] = [CChar](repeating: 0, count: COMMUNITY_FULL_URL_MAX_LENGTH)
+        community_make_full_url(&cBaseUrl, &cRoom, &cPubkey, &cFullUrl)
         
-        var messageHashes: [String]? { ConfigDump.messageHashes(from: combinedMessageHashes) }
-        
-        // MARK: - Convenience
-        
-        static func requiredUserConfigDumpInfo(userPublicKey: String) -> Set<DumpInfo> {
-            return ConfigDump.Variant.userVariants
-                .map { DumpInfo(variant: $0, publicKey: userPublicKey, combinedMessageHashes: nil) }
-                .asSet()
-        }
+        return String(cString: cFullUrl)
     }
 }

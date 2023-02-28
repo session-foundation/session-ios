@@ -16,7 +16,7 @@ namespace session::config {
 struct community {
 
     // 267 = len('https://') + 253 (max valid DNS name length) + len(':XXXXX')
-    static constexpr size_t URL_MAX_LENGTH = 267;
+    static constexpr size_t BASE_URL_MAX_LENGTH = 267;
     static constexpr size_t ROOM_MAX_LENGTH = 64;
 
     community() = default;
@@ -86,6 +86,16 @@ struct community {
     std::string pubkey_b64() const;   // Accesses the server pubkey as unpadded base64 (43 from
                                       // alphanumeric, '+', and '/').
 
+    // Constructs and returns the full URL for this room.  See below.
+    std::string full_url() const;
+
+    // Constructs and returns the full URL for a given base, room, and pubkey.  Currently this
+    // returns it in a Session-compatibility form (https://server.com/RoomName?public_key=....), but
+    // future versions are expected to change to use (https://server.com/r/RoomName?public_key=...),
+    // which this library also accepts.
+    static std::string full_url(
+            std::string_view base_url, std::string_view room, ustring_view pubkey);
+
     // Takes a base URL as input and returns it in canonical form.  This involves doing things
     // like lower casing it and removing redundant ports (e.g. :80 when using http://).  Throws
     // std::invalid_argument if given an invalid base URL.
@@ -114,6 +124,11 @@ struct community {
     //
     // Throw std::invalid_argument if anything in the URL is unparseable or invalid.
     static std::tuple<std::string, std::string, ustring> parse_full_url(std::string_view full_url);
+
+    // Takes a full or partial room URL (partial here meaning missing the ?public_key=...) and
+    // splits it up into canonical url, room, and (if present) pubkey.
+    static std::tuple<std::string, std::string, std::optional<ustring>> parse_partial_url(
+            std::string_view url);
 
   protected:
     // The canonical base url and room (i.e. lower-cased, URL cleaned up):

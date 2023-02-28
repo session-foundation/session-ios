@@ -397,7 +397,7 @@ public final class FullConversationCell: UITableViewCell {
             accentLineView.alpha = (unreadCount > 0 ? 1 : 0.0001) // Setting the alpha to exactly 0 causes an issue on iOS 12
         }
         
-        isPinnedIcon.isHidden = !cellViewModel.threadIsPinned
+        isPinnedIcon.isHidden = (cellViewModel.threadPinnedPriority == 0)
         unreadCountView.isHidden = (unreadCount <= 0)
         unreadImageView.isHidden = (!unreadCountView.isHidden || !threadIsUnread)
         unreadCountLabel.text = (unreadCount <= 0 ?

@@ -1375,6 +1375,7 @@ extension ConversationVC:
                             )
                         ),
                         to: try Message.Destination.from(db, thread: thread),
+                        namespace: try Message.Destination.from(db, thread: thread).defaultNamespace,
                         interactionId: cellViewModel.id
                     )
                     
@@ -1571,7 +1572,8 @@ extension ConversationVC:
                     guard let presentingViewController: UIViewController = modal.presentingViewController else {
                         return
                     }
-                    guard let (room, server, publicKey) = OpenGroupManager.parseOpenGroup(from: url) else {
+                    
+                    guard let (room, server, publicKey) = SessionUtil.parseCommunity(url: url) else {
                         let errorModal: ConfirmationModal = ConfirmationModal(
                             info: ConfirmationModal.Info(
                                 title: "COMMUNITY_ERROR_GENERIC".localized(),
@@ -1589,7 +1591,8 @@ extension ConversationVC:
                                 db,
                                 roomToken: room,
                                 server: server,
-                                publicKey: publicKey
+                                publicKey: publicKey,
+                                calledFromConfigHandling: false
                             )
                         }
                         .receive(on: DispatchQueue.main)

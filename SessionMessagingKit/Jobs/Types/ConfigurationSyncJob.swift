@@ -38,19 +38,9 @@ public enum ConfigurationSyncJob: JobExecutor {
         // as the user doesn't exist yet (this will get triggered on the first launch of a
         // fresh install due to the migrations getting run)
         guard
-            let pendingSwarmConfigChanges: [SingleDestinationChanges] = Storage.shared
-                .read({ db in try SessionUtil.pendingChanges(db) })?
-                .grouped(by: { $0.destination })
-                .map({ (destination: Message.Destination, value: [SessionUtil.OutgoingConfResult]) -> SingleDestinationChanges in
-                    SingleDestinationChanges(
-                        destination: destination,
-                        messages: value,
-                        allOldHashes: value
-                            .map { ($0.oldMessageHashes ?? []) }
-                            .reduce([], +)
-                            .asSet()
-                    )
-                })
+            let publicKey: String = job.threadId,
+            let pendingConfigChanges: [SessionUtil.OutgoingConfResult] = Storage.shared
+                .read({ db in try SessionUtil.pendingChanges(db, publicKey: publicKey) })
         else {
             failure(job, StorageError.generic, false)
             return
@@ -58,137 +48,69 @@ public enum ConfigurationSyncJob: JobExecutor {
         
         // If there are no pending changes then the job can just complete (next time something
         // is updated we want to try and run immediately so don't scuedule another run in this case)
-        guard !pendingSwarmConfigChanges.isEmpty else {
+        guard !pendingConfigChanges.isEmpty else {
             success(job, true)
             return
         }
         
+        // Identify the destination and merge all obsolete hashes into a single set
+        let destination: Message.Destination = (publicKey == getUserHexEncodedPublicKey() ?
+            Message.Destination.contact(publicKey: publicKey) :
+            Message.Destination.closedGroup(groupPublicKey: publicKey)
+        )
+        let allObsoleteHashes: Set<String> = pendingConfigChanges
+            .map { $0.obsoleteHashes }
+            .reduce([], +)
+            .asSet()
+        
         Storage.shared
             .readPublisher(receiveOn: queue) { db in
-                try pendingSwarmConfigChanges
-                    .map { (change: SingleDestinationChanges) -> (messages: [TargetedMessage], allOldHashes: Set<String>) in
-                        (
-                            messages: try change.messages
-                                .map { (outgoingConf: SessionUtil.OutgoingConfResult) -> TargetedMessage in
-                                    TargetedMessage(
-                                        sendData: try MessageSender.preparedSendData(
-                                            db,
-                                            message: outgoingConf.message,
-                                            to: change.destination,
-                                            interactionId: nil
-                                        ),
-                                        namespace: outgoingConf.namespace,
-                                        oldHashes: (outgoingConf.oldMessageHashes ?? [])
-                                    )
-                                },
-                            allOldHashes: change.allOldHashes
-                        )
-                    }
-            }
-            .flatMap { (pendingSwarmChange: [(messages: [TargetedMessage], allOldHashes: Set<String>)]) -> AnyPublisher<[HTTP.BatchResponse], Error> in
-                Publishers
-                    .MergeMany(
-                        pendingSwarmChange
-                            .map { (messages: [TargetedMessage], oldHashes: Set<String>) in
-                                // Note: We do custom sending logic here because we want to batch the
-                                // sending and deletion of messages within the same swarm
-                                SnodeAPI
-                                    .sendConfigMessages(
-                                        messages
-                                            .compactMap { targetedMessage -> SnodeAPI.TargetedMessage? in
-                                                targetedMessage.sendData.snodeMessage
-                                                    .map { ($0, targetedMessage.namespace) }
-                                            },
-                                        oldHashes: Array(oldHashes)
-                                    )
-                            }
+                try pendingConfigChanges.map { change -> MessageSender.PreparedSendData in
+                    try MessageSender.preparedSendData(
+                        db,
+                        message: change.message,
+                        to: destination,
+                        namespace: change.namespace,
+                        interactionId: nil
                     )
-                    .collect()
-                    .eraseToAnyPublisher()
+                }
+            }
+            .flatMap { (changes: [MessageSender.PreparedSendData]) -> AnyPublisher<HTTP.BatchResponse, Error> in
+                SnodeAPI
+                    .sendConfigMessages(
+                        changes.compactMap { change in
+                            guard
+                                let namespace: SnodeAPI.Namespace = change.namespace,
+                                let snodeMessage: SnodeMessage = change.snodeMessage
+                            else { return nil }
+                            
+                            return (snodeMessage, namespace)
+                        },
+                        allObsoleteHashes: Array(allObsoleteHashes)
+                    )
             }
             .receive(on: queue)
-            .tryMap { (responses: [HTTP.BatchResponse]) -> [SuccessfulChange] in
-                // We make a sequence call for this so it's possible to get fewer responses than
-                // expected so if that happens fail and re-run later
-                guard responses.count == pendingSwarmConfigChanges.count else {
-                    throw HTTPError.invalidResponse
-                }
-                
-                // Process the response data into an easy to understand for (this isn't strictly
-                // needed but the code gets convoluted without this)
-                return zip(responses, pendingSwarmConfigChanges)
-                    .compactMap { (batchResponse: HTTP.BatchResponse, pendingSwarmChange: SingleDestinationChanges) -> [SuccessfulChange]? in
-                        let maybePublicKey: String? = {
-                            switch pendingSwarmChange.destination {
-                                case .contact(let publicKey), .closedGroup(let publicKey):
-                                    return publicKey
-                                    
-                                default: return nil
-                            }
-                        }()
+            .map { (response: HTTP.BatchResponse) -> [ConfigDump] in
+                /// The number of responses returned might not match the number of changes sent but they will be returned
+                /// in the same order, this means we can just `zip` the two arrays as it will take the smaller of the two and
+                /// correctly align the response to the change
+                zip(response.responses, pendingConfigChanges)
+                    .compactMap { (subResponse: Codable, change: SessionUtil.OutgoingConfResult) in
+                        /// If the request wasn't successful then just ignore it (the next time we sync this config we will try
+                        /// to send the changes again)
+                        guard
+                            let typedResponse: HTTP.BatchSubResponse<SendMessagesResponse> = (subResponse as? HTTP.BatchSubResponse<SendMessagesResponse>),
+                            200...299 ~= typedResponse.code,
+                            !typedResponse.failedToParseBody,
+                            let sendMessageResponse: SendMessagesResponse = typedResponse.body
+                        else { return nil }
                         
-                        // If we don't have a publicKey then this is an invalid config
-                        guard let publicKey: String = maybePublicKey else { return nil }
-                        
-                        // Need to know if we successfully deleted old messages (if we didn't then
-                        // we want to keep the old hashes so we can delete them the next time)
-                        let didDeleteOldConfigMessages: Bool = {
-                            guard
-                                let subResponse: HTTP.BatchSubResponse<DeleteMessagesResponse> = (batchResponse.responses.last as? HTTP.BatchSubResponse<DeleteMessagesResponse>),
-                                200...299 ~= subResponse.code
-                            else { return false }
-                            
-                            return true
-                        }()
-                        
-                        return zip(batchResponse.responses, pendingSwarmChange.messages)
-                            .reduce(into: []) { (result: inout [SuccessfulChange], next: ResponseChange) in
-                                // If the request wasn't successful then just ignore it (the next
-                                // config sync will try make the changes again
-                                guard
-                                    let subResponse: HTTP.BatchSubResponse<SendMessagesResponse> = (next.response as? HTTP.BatchSubResponse<SendMessagesResponse>),
-                                    200...299 ~= subResponse.code,
-                                    !subResponse.failedToParseBody,
-                                    let sendMessageResponse: SendMessagesResponse = subResponse.body
-                                else { return }
-                                
-                                result.append(
-                                    SuccessfulChange(
-                                        message: next.change.message,
-                                        publicKey: publicKey,
-                                        updatedHashes: (didDeleteOldConfigMessages ?
-                                            [sendMessageResponse.hash] :
-                                            (next.change.oldMessageHashes ?? [])
-                                                .appending(sendMessageResponse.hash)
-                                        )
-                                    )
-                                )
-                            }
-                    }
-                    .flatMap { $0 }
-            }
-            .map { (successfulChanges: [SuccessfulChange]) -> [ConfigDump] in
-                // Now that we have the successful changes, we need to mark them as pushed and
-                // generate any config dumps which need to be stored
-                successfulChanges
-                    .compactMap { successfulChange -> ConfigDump? in
-                        // Updating the pushed state returns a flag indicating whether the config
-                        // needs to be dumped
-                        guard SessionUtil.markAsPushed(message: successfulChange.message, publicKey: successfulChange.publicKey) else {
-                            return nil
-                        }
-                        
-                        let variant: ConfigDump.Variant = successfulChange.message.kind.configDumpVariant
-                        let atomicConf: Atomic<UnsafeMutablePointer<config_object>?> = SessionUtil.config(
-                            for: variant,
-                            publicKey: successfulChange.publicKey
-                        )
-                        
-                        return try? SessionUtil.createDump(
-                            conf: atomicConf.wrappedValue,
-                            for: variant,
-                            publicKey: successfulChange.publicKey,
-                            messageHashes: successfulChange.updatedHashes
+                        /// Since this change was successful we need to mark it as pushed and generate any config dumps
+                        /// which need to be stored
+                        return SessionUtil.markingAsPushed(
+                            message: change.message,
+                            serverHash: sendMessageResponse.hash,
+                            publicKey: publicKey
                         )
                     }
             }
@@ -219,6 +141,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                             let existingJob: Job = try? Job
                                 .filter(Job.Columns.id != job.id)
                                 .filter(Job.Columns.variant == Job.Variant.configurationSync)
+                                .filter(Job.Columns.threadId == publicKey)
                                 .fetchOne(db)
                         {
                             // If the next job isn't currently running then delay it's start time
@@ -245,39 +168,11 @@ public enum ConfigurationSyncJob: JobExecutor {
     }
 }
 
-// MARK: - Convenience Types
-
-public extension ConfigurationSyncJob {
-    fileprivate struct SingleDestinationChanges {
-        let destination: Message.Destination
-        let messages: [SessionUtil.OutgoingConfResult]
-        let allOldHashes: Set<String>
-    }
-    
-    fileprivate struct TargetedMessage {
-        let sendData: MessageSender.PreparedSendData
-        let namespace: SnodeAPI.Namespace
-        let oldHashes: [String]
-    }
-    
-    typealias ResponseChange = (response: Codable, change: SessionUtil.OutgoingConfResult)
-    
-    fileprivate struct SuccessfulChange {
-        let message: SharedConfigMessage
-        let publicKey: String
-        let updatedHashes: [String]
-    }
-}
-
 // MARK: - Convenience
 
 public extension ConfigurationSyncJob {
-    static func enqueue(_ db: Database? = nil) {
-        guard let db: Database = db else {
-            Storage.shared.writeAsync { ConfigurationSyncJob.enqueue($0) }
-            return
-        }
         
+    static func enqueue(_ db: Database, publicKey: String) {
         // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
         guard Features.useSharedUtilForUserConfig else {
             // If we don't have a userKeyPair (or name) yet then there is no need to sync the
@@ -310,15 +205,16 @@ public extension ConfigurationSyncJob {
         // to add another one)
         JobRunner.upsert(
             db,
-            job: ConfigurationSyncJob.createOrUpdateIfNeeded(db)
+            job: ConfigurationSyncJob.createOrUpdateIfNeeded(db, publicKey: publicKey)
         )
     }
     
-    @discardableResult static func createOrUpdateIfNeeded(_ db: Database) -> Job {
+    @discardableResult static func createOrUpdateIfNeeded(_ db: Database, publicKey: String) -> Job {
         // Try to get an existing job (if there is one that's not running)
         if
             let existingJobs: [Job] = try? Job
                 .filter(Job.Columns.variant == Job.Variant.configurationSync)
+                .filter(Job.Columns.threadId == publicKey)
                 .fetchAll(db),
             let existingJob: Job = existingJobs.first(where: { !JobRunner.isCurrentlyRunning($0) })
         {
@@ -328,7 +224,8 @@ public extension ConfigurationSyncJob {
         // Otherwise create a new job
         return Job(
             variant: .configurationSync,
-            behaviour: .recurring
+            behaviour: .recurring,
+            threadId: publicKey
         )
     }
     
@@ -348,6 +245,7 @@ public extension ConfigurationSyncJob {
                         db,
                         message: try ConfigurationMessage.getCurrent(db),
                         to: Message.Destination.contact(publicKey: publicKey),
+                        namespace: .default,
                         interactionId: nil
                     )
                 }

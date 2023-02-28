@@ -28,7 +28,7 @@ typedef struct contacts_contact {
     int priority;
 
     CONVO_EXPIRATION_MODE exp_mode;
-    int exp_minutes;
+    int exp_seconds;
 
 } contacts_contact;
 

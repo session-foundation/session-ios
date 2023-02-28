@@ -24,7 +24,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public static let threadIsMessageRequestKey: SQL = SQL(stringLiteral: CodingKeys.threadIsMessageRequest.stringValue)
     public static let threadRequiresApprovalKey: SQL = SQL(stringLiteral: CodingKeys.threadRequiresApproval.stringValue)
     public static let threadShouldBeVisibleKey: SQL = SQL(stringLiteral: CodingKeys.threadShouldBeVisible.stringValue)
-    public static let threadIsPinnedKey: SQL = SQL(stringLiteral: CodingKeys.threadIsPinned.stringValue)
+    public static let threadPinnedPriorityKey: SQL = SQL(stringLiteral: CodingKeys.threadPinnedPriority.stringValue)
     public static let threadIsBlockedKey: SQL = SQL(stringLiteral: CodingKeys.threadIsBlocked.stringValue)
     public static let threadMutedUntilTimestampKey: SQL = SQL(stringLiteral: CodingKeys.threadMutedUntilTimestamp.stringValue)
     public static let threadOnlyNotifyForMentionsKey: SQL = SQL(stringLiteral: CodingKeys.threadOnlyNotifyForMentions.stringValue)
@@ -89,7 +89,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     /// This flag indicates whether the thread is an incoming message request
     public let threadRequiresApproval: Bool?
     public let threadShouldBeVisible: Bool?
-    public let threadIsPinned: Bool
+    public let threadPinnedPriority: Int32
     public let threadIsBlocked: Bool?
     public let threadMutedUntilTimestamp: TimeInterval?
     public let threadOnlyNotifyForMentions: Bool?
@@ -346,7 +346,7 @@ public extension SessionThreadViewModel {
         self.threadIsMessageRequest = false
         self.threadRequiresApproval = false
         self.threadShouldBeVisible = false
-        self.threadIsPinned = false
+        self.threadPinnedPriority = 0
         self.threadIsBlocked = nil
         self.threadMutedUntilTimestamp = nil
         self.threadOnlyNotifyForMentions = nil
@@ -412,7 +412,7 @@ public extension SessionThreadViewModel {
             threadIsMessageRequest: self.threadIsMessageRequest,
             threadRequiresApproval: self.threadRequiresApproval,
             threadShouldBeVisible: self.threadShouldBeVisible,
-            threadIsPinned: self.threadIsPinned,
+            threadPinnedPriority: self.threadPinnedPriority,
             threadIsBlocked: self.threadIsBlocked,
             threadMutedUntilTimestamp: self.threadMutedUntilTimestamp,
             threadOnlyNotifyForMentions: self.threadOnlyNotifyForMentions,
@@ -467,7 +467,7 @@ public extension SessionThreadViewModel {
             threadIsMessageRequest: self.threadIsMessageRequest,
             threadRequiresApproval: self.threadRequiresApproval,
             threadShouldBeVisible: self.threadShouldBeVisible,
-            threadIsPinned: self.threadIsPinned,
+            threadPinnedPriority: self.threadPinnedPriority,
             threadIsBlocked: self.threadIsBlocked,
             threadMutedUntilTimestamp: self.threadMutedUntilTimestamp,
             threadOnlyNotifyForMentions: self.threadOnlyNotifyForMentions,
@@ -570,7 +570,7 @@ public extension SessionThreadViewModel {
                     \(thread[.creationDateTimestamp]) AS \(ViewModel.threadCreationDateTimestampKey),
                     
                     (\(SQL("\(thread[.id]) = \(userPublicKey)"))) AS \(ViewModel.threadIsNoteToSelfKey),
-                    \(thread[.isPinned]) AS \(ViewModel.threadIsPinnedKey),
+                    IFNULL(\(thread[.pinnedPriority]), 0) AS \(ViewModel.threadPinnedPriorityKey),
                     \(contact[.isBlocked]) AS \(ViewModel.threadIsBlockedKey),
                     \(thread[.mutedUntilTimestamp]) AS \(ViewModel.threadMutedUntilTimestampKey),
                     \(thread[.onlyNotifyForMentions]) AS \(ViewModel.threadOnlyNotifyForMentionsKey),
@@ -840,7 +840,7 @@ public extension SessionThreadViewModel {
                 ) AS \(ViewModel.threadRequiresApprovalKey),
                 \(thread[.shouldBeVisible]) AS \(ViewModel.threadShouldBeVisibleKey),
         
-                \(thread[.isPinned]) AS \(ViewModel.threadIsPinnedKey),
+                IFNULL(\(thread[.pinnedPriority]), 0) AS \(ViewModel.threadPinnedPriorityKey),
                 \(contact[.isBlocked]) AS \(ViewModel.threadIsBlockedKey),
                 \(thread[.mutedUntilTimestamp]) AS \(ViewModel.threadMutedUntilTimestampKey),
                 \(thread[.onlyNotifyForMentions]) AS \(ViewModel.threadOnlyNotifyForMentionsKey),
@@ -938,7 +938,7 @@ public extension SessionThreadViewModel {
                 
                 (\(SQL("\(thread[.id]) = \(userPublicKey)"))) AS \(ViewModel.threadIsNoteToSelfKey),
                 
-                \(thread[.isPinned]) AS \(ViewModel.threadIsPinnedKey),
+                IFNULL(\(thread[.pinnedPriority]), 0) AS \(ViewModel.threadPinnedPriorityKey),
                 \(contact[.isBlocked]) AS \(ViewModel.threadIsBlockedKey),
                 \(thread[.mutedUntilTimestamp]) AS \(ViewModel.threadMutedUntilTimestampKey),
                 \(thread[.onlyNotifyForMentions]) AS \(ViewModel.threadOnlyNotifyForMentionsKey),
@@ -1106,7 +1106,7 @@ public extension SessionThreadViewModel {
                 \(thread[.creationDateTimestamp]) AS \(ViewModel.threadCreationDateTimestampKey),
                 
                 (\(SQL("\(thread[.id]) = \(userPublicKey)"))) AS \(ViewModel.threadIsNoteToSelfKey),
-                \(thread[.isPinned]) AS \(ViewModel.threadIsPinnedKey),
+                IFNULL(\(thread[.pinnedPriority]), 0) AS \(ViewModel.threadPinnedPriorityKey),
                 
                 \(ViewModel.contactProfileKey).*,
                 \(ViewModel.closedGroupProfileFrontKey).*,
@@ -1243,7 +1243,7 @@ public extension SessionThreadViewModel {
                 \(groupMemberInfoLiteral).\(ViewModel.threadMemberNamesKey),
                 
                 (\(SQL("\(thread[.id]) = \(userPublicKey)"))) AS \(ViewModel.threadIsNoteToSelfKey),
-                \(thread[.isPinned]) AS \(ViewModel.threadIsPinnedKey),
+                IFNULL(\(thread[.pinnedPriority]), 0) AS \(ViewModel.threadPinnedPriorityKey),
                 
                 \(ViewModel.contactProfileKey).*,
                 \(ViewModel.closedGroupProfileFrontKey).*,
@@ -1590,7 +1590,7 @@ public extension SessionThreadViewModel {
                 '' AS \(ViewModel.threadMemberNamesKey),
                 
                 true AS \(ViewModel.threadIsNoteToSelfKey),
-                \(thread[.isPinned]) AS \(ViewModel.threadIsPinnedKey),
+                IFNULL(\(thread[.pinnedPriority]), 0) AS \(ViewModel.threadPinnedPriorityKey),
                 
                 \(ViewModel.contactProfileKey).*,
                 
@@ -1647,7 +1647,7 @@ public extension SessionThreadViewModel {
                 
                 (\(SQL("\(thread[.id]) = \(userPublicKey)"))) AS \(ViewModel.threadIsNoteToSelfKey),
                 
-                \(thread[.isPinned]) AS \(ViewModel.threadIsPinnedKey),
+                IFNULL(\(thread[.pinnedPriority]), 0) AS \(ViewModel.threadPinnedPriorityKey),
                 \(contact[.isBlocked]) AS \(ViewModel.threadIsBlockedKey),
         
                 \(ViewModel.contactProfileKey).*,

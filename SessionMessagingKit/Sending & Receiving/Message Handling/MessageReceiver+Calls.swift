@@ -206,6 +206,7 @@ extension MessageReceiver {
                         sentTimestampMs: nil // Explicitly nil as it's a separate message from above
                     ),
                     to: try Message.Destination.from(db, thread: thread),
+                    namespace: try Message.Destination.from(db, thread: thread).defaultNamespace,
                     interactionId: nil      // Explicitly nil as it's a separate message from above
                 )
         )

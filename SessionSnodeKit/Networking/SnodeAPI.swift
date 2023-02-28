@@ -7,8 +7,6 @@ import GRDB
 import SessionUtilitiesKit
 
 public final class SnodeAPI {
-    public typealias TargetedMessage = (message: SnodeMessage, namespace: Namespace)
-    
     internal static let sodium: Atomic<Sodium> = Atomic(Sodium())
     
     private static var hasLoadedSnodePool: Atomic<Bool> = Atomic(false)
@@ -315,18 +313,14 @@ public final class SnodeAPI {
                             namespace: namespace,
                             associatedWith: publicKey
                         )
-
-                        let maybeLastHash: String? = SnodeReceivedMessageInfo
+                        
+                        result[namespace] = SnodeReceivedMessageInfo
                             .fetchLastNotExpired(
                                 for: snode,
                                 namespace: namespace,
                                 associatedWith: publicKey
                             )?
                             .hash
-
-                        guard let lastHash: String = maybeLastHash else { return }
-
-                        result[namespace] = lastHash
                     }
             }
             .flatMap { namespaceLastHash -> AnyPublisher<[SnodeAPI.Namespace: (info: ResponseInfoType, data: (messages: [SnodeReceivedMessage], lastHash: String?)?)], Error> in
@@ -625,13 +619,13 @@ public final class SnodeAPI {
     }
     
     public static func sendConfigMessages(
-        _ targetedMessages: [TargetedMessage],
-        oldHashes: [String],
+        _ messages: [(message: SnodeMessage, namespace: Namespace)],
+        allObsoleteHashes: [String],
         using dependencies: SSKDependencies = SSKDependencies()
     ) -> AnyPublisher<HTTP.BatchResponse, Error> {
         guard
-            !targetedMessages.isEmpty,
-            let recipient: String = targetedMessages.first?.message.recipient
+            !messages.isEmpty,
+            let recipient: String = messages.first?.message.recipient
         else {
             return Fail(error: SnodeAPIError.generic)
                 .eraseToAnyPublisher()
@@ -644,7 +638,7 @@ public final class SnodeAPI {
         
         let userX25519PublicKey: String = getUserHexEncodedPublicKey()
         let publicKey: String = recipient
-        var requests: [SnodeAPI.BatchRequest.Info] = targetedMessages
+        var requests: [SnodeAPI.BatchRequest.Info] = messages
             .map { message, namespace in
                 // Check if this namespace requires authentication
                 guard namespace.requiresWriteAuthentication else {
@@ -677,13 +671,13 @@ public final class SnodeAPI {
             }
         
         // If we had any previous config messages then we should delete them
-        if !oldHashes.isEmpty {
+        if !allObsoleteHashes.isEmpty {
             requests.append(
                 BatchRequest.Info(
                     request: SnodeRequest(
                         endpoint: .deleteMessages,
                         body: DeleteMessagesRequest(
-                            messageHashes: oldHashes,
+                            messageHashes: allObsoleteHashes,
                             requireSuccessfulDeletion: false,
                             pubkey: userX25519PublicKey,
                             ed25519PublicKey: userED25519KeyPair.publicKey,

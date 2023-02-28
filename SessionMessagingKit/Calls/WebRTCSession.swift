@@ -135,6 +135,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                         db,
                         message: message,
                         to: try Message.Destination.from(db, thread: thread),
+                        namespace: try Message.Destination.from(db, thread: thread).defaultNamespace,
                         interactionId: interactionId
                     )
             )
@@ -194,6 +195,8 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                                         sentTimestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs())
                                     ),
                                     to: try Message.Destination.from(db, thread: thread),
+                                    namespace: try Message.Destination.from(db, thread: thread)
+                                        .defaultNamespace,
                                     interactionId: nil
                                 )
                         }
@@ -257,6 +260,8 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                                             sdps: [ sdp.sdp ]
                                         ),
                                         to: try Message.Destination.from(db, thread: thread),
+                                        namespace: try Message.Destination.from(db, thread: thread)
+                                            .defaultNamespace,
                                         interactionId: nil
                                     )
                             }
@@ -314,6 +319,8 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                                 sdps: candidates.map { $0.sdp }
                             ),
                             to: try Message.Destination.from(db, thread: thread),
+                            namespace: try Message.Destination.from(db, thread: thread)
+                                .defaultNamespace,
                             interactionId: nil
                         )
                     )
@@ -338,6 +345,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                     sdps: []
                 ),
                 to: try Message.Destination.from(db, thread: thread),
+                namespace: try Message.Destination.from(db, thread: thread).defaultNamespace,
                 interactionId: nil
             )
         

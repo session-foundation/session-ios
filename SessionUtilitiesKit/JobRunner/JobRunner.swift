@@ -143,7 +143,7 @@ public final class JobRunner {
         guard canStartJob else { return }
         
         // Start the job runner if needed
-        db.afterNextTransactionNestedOnce(dedupeIdentifier: "JobRunner-Start: \(updatedJob.variant)") { _ in
+        db.afterNextTransactionNestedOnce(dedupeId: "JobRunner-Start: \(updatedJob.variant)") { _ in
             queues.wrappedValue[updatedJob.variant]?.start()
         }
     }
@@ -166,7 +166,7 @@ public final class JobRunner {
         guard canStartJob else { return }
         
         // Start the job runner if needed
-        db.afterNextTransactionNestedOnce(dedupeIdentifier: "JobRunner-Start: \(job.variant)") { _ in
+        db.afterNextTransactionNestedOnce(dedupeId: "JobRunner-Start: \(job.variant)") { _ in
             queues.wrappedValue[job.variant]?.start()
         }
     }

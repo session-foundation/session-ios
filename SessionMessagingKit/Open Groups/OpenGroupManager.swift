@@ -207,7 +207,7 @@ public final class OpenGroupManager {
         roomToken: String,
         server: String,
         publicKey: String,
-        calledFromConfigHandling: Bool = false,
+        calledFromConfigHandling: Bool,
         dependencies: OGMDependencies = OGMDependencies()
     ) -> AnyPublisher<Void, Error> {
         // If we are currently polling for this server and already have a TSGroupThread for this room the do nothing
@@ -231,7 +231,15 @@ public final class OpenGroupManager {
         // Optionally try to insert a new version of the OpenGroup (it will fail if there is already an
         // inactive one but that won't matter as we then activate it
         _ = try? SessionThread.fetchOrCreate(db, id: threadId, variant: .community)
-        _ = try? SessionThread.filter(id: threadId).updateAll(db, SessionThread.Columns.shouldBeVisible.set(to: true))
+        
+        // If we didn't add this open group via config handling then flag it to be visible (if it did
+        // come via config handling then we want to wait until it actually has messages before making
+        // it visible)
+        if !calledFromConfigHandling {
+            _ = try? SessionThread
+                .filter(id: threadId)
+                .updateAll(db, SessionThread.Columns.shouldBeVisible.set(to: true))
+        }
         
         if (try? OpenGroup.exists(db, id: threadId)) == false {
             try? OpenGroup
@@ -241,18 +249,36 @@ public final class OpenGroupManager {
         
         // Set the group to active and reset the sequenceNumber (handle groups which have
         // been deactivated)
-        _ = try? OpenGroup
-            .filter(id: OpenGroup.idFor(roomToken: roomToken, server: targetServer))
-            .updateAll(
-                db,
-                OpenGroup.Columns.isActive.set(to: true),
-                OpenGroup.Columns.sequenceNumber.set(to: 0)
-            )
+        if calledFromConfigHandling {
+            _ = try? OpenGroup
+                .filter(id: OpenGroup.idFor(roomToken: roomToken, server: targetServer))
+                .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                    db,
+                    OpenGroup.Columns.isActive.set(to: true),
+                    OpenGroup.Columns.sequenceNumber.set(to: 0)
+                )
+        }
+        else {
+            _ = try? OpenGroup
+                .filter(id: OpenGroup.idFor(roomToken: roomToken, server: targetServer))
+                .updateAllAndConfig(
+                    db,
+                    OpenGroup.Columns.isActive.set(to: true),
+                    OpenGroup.Columns.sequenceNumber.set(to: 0)
+                )
+        }
         
-        // We want to avoid blocking the db write thread so we dispatch the API call to a different thread
-        //
-        // Note: We don't do this after the db commit as it can fail (resulting in endless loading)
-        return Deferred {
+        /// We want to avoid blocking the db write thread so we return a future which resolves once the db transaction completes
+        /// and dispatches the result to another queue, this means that the caller can respond to errors resulting from attepting to
+        /// join the community
+        return Future<Void, Error> { resolver in
+            db.afterNextTransactionNested { _ in
+                OpenGroupAPI.workQueue.async {
+                    resolver(Result.success(()))
+                }
+            }
+        }
+        .flatMap { _ in
             dependencies.storage
                 .readPublisherFlatMap(receiveOn: OpenGroupAPI.workQueue) { db in
                     // Note: The initial request for room info and it's capabilities should NOT be
@@ -272,9 +298,14 @@ public final class OpenGroupManager {
         .flatMap { response -> Future<Void, Error> in
             Future<Void, Error> { resolver in
                 dependencies.storage.write { db in
-                    // Enqueue a config sync job (have a newly added open group to sync)
+                    // Add the new open group to libSession
                     if !calledFromConfigHandling {
-                        ConfigurationSyncJob.enqueue(db)
+                        try SessionUtil.add(
+                            db,
+                            server: server,
+                            rootToken: roomToken,
+                            publicKey: publicKey
+                        )
                     }
                     
                     // Store the capabilities first
@@ -309,9 +340,19 @@ public final class OpenGroupManager {
         .eraseToAnyPublisher()
     }
 
-    public func delete(_ db: Database, openGroupId: String, dependencies: OGMDependencies = OGMDependencies()) {
+    public func delete(
+        _ db: Database,
+        openGroupId: String,
+        calledFromConfigHandling: Bool,
+        dependencies: OGMDependencies = OGMDependencies()
+    ) {
         let server: String? = try? OpenGroup
             .select(.server)
+            .filter(id: openGroupId)
+            .asRequest(of: String.self)
+            .fetchOne(db)
+        let roomToken: String? = try? OpenGroup
+            .select(.roomToken)
             .filter(id: openGroupId)
             .asRequest(of: String.self)
             .fetchOne(db)
@@ -348,13 +389,17 @@ public final class OpenGroupManager {
             // If it's a session-run room then just set it to inactive
             _ = try? OpenGroup
                 .filter(id: openGroupId)
-                .updateAll(db, OpenGroup.Columns.isActive.set(to: false))
+                .updateAllAndConfig(db, OpenGroup.Columns.isActive.set(to: false))
         }
         
         // Remove the thread and associated data
         _ = try? SessionThread
             .filter(id: openGroupId)
             .deleteAll(db)
+        
+        if !calledFromConfigHandling, let server: String = server, let roomToken: String = roomToken {
+            try? SessionUtil.remove(db, server: server, roomToken: roomToken)
+        }
     }
     
     // MARK: - Response Processing
@@ -405,43 +450,34 @@ public final class OpenGroupManager {
         
         // Only update the database columns which have changed (this is to prevent the UI from triggering
         // updates due to changing database columns to the existing value)
-        let permissions = OpenGroup.Permissions(roomInfo: pollInfo)
-
+        let hasDetails: Bool = (pollInfo.details != nil)
+        let permissions: OpenGroup.Permissions = OpenGroup.Permissions(roomInfo: pollInfo)
+        let changes: [ConfigColumnAssignment] = []
+            .appending(openGroup.publicKey == maybePublicKey ? nil :
+                maybePublicKey.map { OpenGroup.Columns.publicKey.set(to: $0) }
+            )
+            .appending(openGroup.userCount == pollInfo.activeUsers ? nil :
+                OpenGroup.Columns.userCount.set(to: pollInfo.activeUsers)
+            )
+            .appending(openGroup.permissions == permissions ? nil :
+                OpenGroup.Columns.permissions.set(to: permissions)
+            )
+            .appending(!hasDetails || openGroup.name == pollInfo.details?.name ? nil :
+                OpenGroup.Columns.name.set(to: pollInfo.details?.name)
+            )
+            .appending(!hasDetails || openGroup.roomDescription == pollInfo.details?.roomDescription ? nil :
+                OpenGroup.Columns.roomDescription.set(to: pollInfo.details?.roomDescription)
+            )
+            .appending(!hasDetails || openGroup.imageId == pollInfo.details?.imageId ? nil :
+                OpenGroup.Columns.imageId.set(to: pollInfo.details?.imageId)
+            )
+            .appending(!hasDetails || openGroup.infoUpdates == pollInfo.details?.infoUpdates ? nil :
+                OpenGroup.Columns.infoUpdates.set(to: pollInfo.details?.infoUpdates)
+            )
+        
         try OpenGroup
             .filter(id: openGroup.id)
-            .updateAll(
-                db,
-                [
-                    (openGroup.publicKey != maybePublicKey ?
-                        maybePublicKey.map { OpenGroup.Columns.publicKey.set(to: $0) } :
-                        nil
-                    ),
-                    (pollInfo.details != nil && openGroup.name != pollInfo.details?.name ?
-                        (pollInfo.details?.name).map { OpenGroup.Columns.name.set(to: $0) } :
-                        nil
-                    ),
-                    (pollInfo.details != nil && openGroup.roomDescription != pollInfo.details?.roomDescription ?
-                        (pollInfo.details?.roomDescription).map { OpenGroup.Columns.roomDescription.set(to: $0) } :
-                        nil
-                    ),
-                    (pollInfo.details != nil && openGroup.imageId != pollInfo.details?.imageId ?
-                        (pollInfo.details?.imageId).map { OpenGroup.Columns.imageId.set(to: $0) } :
-                        nil
-                    ),
-                    (openGroup.userCount != pollInfo.activeUsers ?
-                        OpenGroup.Columns.userCount.set(to: pollInfo.activeUsers) :
-                        nil
-                    ),
-                    (pollInfo.details != nil && openGroup.infoUpdates != pollInfo.details?.infoUpdates ?
-                        (pollInfo.details?.infoUpdates).map { OpenGroup.Columns.infoUpdates.set(to: $0) } :
-                        nil
-                    ),
-                    (openGroup.permissions != permissions ?
-                        OpenGroup.Columns.permissions.set(to: permissions) :
-                        nil
-                    )
-                ].compactMap { $0 }
-            )
+            .updateAllAndConfig(db, changes)
         
         // Update the admin/moderator group members
         if let roomDetails: OpenGroupAPI.Room = pollInfo.details {
@@ -1119,34 +1155,6 @@ public final class OpenGroupManager {
         publisher.sinkUntilComplete()
         
         return publisher
-    }
-    
-    public static func parseOpenGroup(from string: String) -> (room: String, server: String, publicKey: String)? {
-        guard let url = URL(string: string), let host = url.host ?? given(string.split(separator: "/").first, { String($0) }), let query = url.query else { return nil }
-        // Inputs that should work:
-        // https://sessionopengroup.co/r/main?public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c
-        // https://sessionopengroup.co/main?public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c
-        // http://sessionopengroup.co/r/main?public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c
-        // http://sessionopengroup.co/main?public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c
-        // sessionopengroup.co/main?public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c (does NOT go to HTTPS)
-        // sessionopengroup.co/r/main?public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c (does NOT go to HTTPS)
-        // https://143.198.213.225:443/r/main?public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c
-        // https://143.198.213.225:443/main?public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c
-        // 143.198.213.255:80/main?public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c
-        // 143.198.213.255:80/r/main?public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c
-        let useTLS = (url.scheme == "https")
-        
-        // If there is no scheme then the host is included in the path (so handle that case)
-        let hostFreePath = (url.host != nil || !url.path.starts(with: host) ? url.path : url.path.substring(from: host.count))
-        let updatedPath = (hostFreePath.starts(with: "/r/") ? hostFreePath.substring(from: 2) : hostFreePath)
-        let room = String(updatedPath.dropFirst()) // Drop the leading slash
-        let queryParts = query.split(separator: "=")
-        guard !room.isEmpty && !room.contains("/"), queryParts.count == 2, queryParts[0] == "public_key" else { return nil }
-        let publicKey = String(queryParts[1])
-        guard publicKey.count == 64 && Hex.isValid(publicKey) else { return nil }
-        var server = (useTLS ? "https://" : "http://") + host
-        if let port = url.port { server += ":\(port)" }
-        return (room: room, server: server, publicKey: publicKey)
     }
 }
 

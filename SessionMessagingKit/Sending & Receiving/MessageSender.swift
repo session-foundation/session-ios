@@ -12,9 +12,10 @@ public final class MessageSender {
     
     public struct PreparedSendData {
         let shouldSend: Bool
+        let destination: Message.Destination
+        let namespace: SnodeAPI.Namespace?
         
         let message: Message?
-        let destination: Message.Destination?
         let interactionId: Int64?
         let isSyncMessage: Bool?
         let totalAttachmentsUploaded: Int
@@ -26,7 +27,8 @@ public final class MessageSender {
         private init(
             shouldSend: Bool,
             message: Message?,
-            destination: Message.Destination?,
+            destination: Message.Destination,
+            namespace: SnodeAPI.Namespace?,
             interactionId: Int64?,
             isSyncMessage: Bool?,
             totalAttachmentsUploaded: Int = 0,
@@ -38,6 +40,7 @@ public final class MessageSender {
             
             self.message = message
             self.destination = destination
+            self.namespace = namespace
             self.interactionId = interactionId
             self.isSyncMessage = isSyncMessage
             self.totalAttachmentsUploaded = totalAttachmentsUploaded
@@ -47,25 +50,11 @@ public final class MessageSender {
             self.ciphertext = ciphertext
         }
         
-        // The default constructor creats an instance that doesn't actually send a message
-        fileprivate init() {
-            self.shouldSend = false
-            
-            self.message = nil
-            self.destination = nil
-            self.interactionId = nil
-            self.isSyncMessage = nil
-            self.totalAttachmentsUploaded = 0
-            
-            self.snodeMessage = nil
-            self.plaintext = nil
-            self.ciphertext = nil
-        }
-        
         /// This should be used to send a message to one-to-one or closed group conversations
         fileprivate init(
             message: Message,
             destination: Message.Destination,
+            namespace: SnodeAPI.Namespace,
             interactionId: Int64?,
             isSyncMessage: Bool?,
             snodeMessage: SnodeMessage
@@ -74,6 +63,7 @@ public final class MessageSender {
             
             self.message = message
             self.destination = destination
+            self.namespace = namespace
             self.interactionId = interactionId
             self.isSyncMessage = isSyncMessage
             self.totalAttachmentsUploaded = 0
@@ -94,6 +84,7 @@ public final class MessageSender {
             
             self.message = message
             self.destination = destination
+            self.namespace = nil
             self.interactionId = interactionId
             self.isSyncMessage = false
             self.totalAttachmentsUploaded = 0
@@ -114,6 +105,7 @@ public final class MessageSender {
             
             self.message = message
             self.destination = destination
+            self.namespace = nil
             self.interactionId = interactionId
             self.isSyncMessage = false
             self.totalAttachmentsUploaded = 0
@@ -129,7 +121,8 @@ public final class MessageSender {
             return PreparedSendData(
                 shouldSend: shouldSend,
                 message: message,
-                destination: destination?.with(fileIds: fileIds),
+                destination: destination.with(fileIds: fileIds),
+                namespace: namespace,
                 interactionId: interactionId,
                 isSyncMessage: isSyncMessage,
                 totalAttachmentsUploaded: fileIds.count,
@@ -144,6 +137,7 @@ public final class MessageSender {
         _ db: Database,
         message: Message,
         to destination: Message.Destination,
+        namespace: SnodeAPI.Namespace?,
         interactionId: Int64?,
         isSyncMessage: Bool = false,
         using dependencies: SMKDependencies = SMKDependencies()
@@ -165,6 +159,7 @@ public final class MessageSender {
                     db,
                     message: updatedMessage,
                     to: destination,
+                    namespace: namespace,
                     interactionId: interactionId,
                     userPublicKey: currentUserPublicKey,
                     messageSendTimestamp: messageSendTimestamp,
@@ -199,6 +194,7 @@ public final class MessageSender {
         _ db: Database,
         message: Message,
         to destination: Message.Destination,
+        namespace: SnodeAPI.Namespace?,
         interactionId: Int64?,
         userPublicKey: String,
         messageSendTimestamp: Int64,
@@ -215,7 +211,7 @@ public final class MessageSender {
         }()
         
         // Validate the message
-        guard message.isValid else {
+        guard message.isValid, let namespace: SnodeAPI.Namespace = namespace else {
             throw MessageSender.handleFailedMessageSend(
                 db,
                 message: message,
@@ -225,8 +221,8 @@ public final class MessageSender {
             )
         }
         
-        // Attach the user's profile if needed (no need to do so for 'Note to Self' or sync messages as they
-        // will be managed by the user config handling
+        // Attach the user's profile if needed (no need to do so for 'Note to Self' or sync
+        // messages as they will be managed by the user config handling
         let isSelfSend: Bool = (message.recipient == userPublicKey)
 
         if !isSelfSend, !isSyncMessage, var messageWithProfile: MessageWithProfile = message as? MessageWithProfile {
@@ -356,6 +352,7 @@ public final class MessageSender {
         return PreparedSendData(
             message: message,
             destination: destination,
+            namespace: namespace,
             interactionId: interactionId,
             isSyncMessage: isSyncMessage,
             snodeMessage: snodeMessage
@@ -616,9 +613,6 @@ public final class MessageSender {
             case .contact, .closedGroup: return sendToSnodeDestination(data: preparedSendData, using: dependencies)
             case .openGroup: return sendToOpenGroupDestination(data: preparedSendData, using: dependencies)
             case .openGroupInbox: return sendToOpenGroupInbox(data: preparedSendData, using: dependencies)
-            case .none:
-                return Fail(error: MessageSenderError.invalidMessage)
-                    .eraseToAnyPublisher()
         }
     }
     
@@ -630,7 +624,7 @@ public final class MessageSender {
     ) -> AnyPublisher<Void, Error> {
         guard
             let message: Message = data.message,
-            let destination: Message.Destination = data.destination,
+            let namespace: SnodeAPI.Namespace = data.namespace,
             let isSyncMessage: Bool = data.isSyncMessage,
             let snodeMessage: SnodeMessage = data.snodeMessage
         else {
@@ -641,12 +635,7 @@ public final class MessageSender {
         return SnodeAPI
             .sendMessage(
                 snodeMessage,
-                in: {
-                    switch destination {
-                        case .closedGroup: return .legacyClosedGroup
-                        default: return .`default`
-                    }
-                }()
+                in: namespace
             )
             .subscribe(on: DispatchQueue.global(qos: .default))
             .flatMap { response -> AnyPublisher<Bool, Error> in
@@ -676,7 +665,7 @@ public final class MessageSender {
                         try MessageSender.handleSuccessfulMessageSend(
                             db,
                             message: updatedMessage,
-                            to: destination,
+                            to: data.destination,
                             interactionId: data.interactionId,
                             isSyncMessage: isSyncMessage,
                             using: dependencies
@@ -755,8 +744,7 @@ public final class MessageSender {
     ) -> AnyPublisher<Void, Error> {
         guard
             let message: Message = data.message,
-            let destination: Message.Destination = data.destination,
-            case .openGroup(let roomToken, let server, let whisperTo, let whisperMods, let fileIds) = destination,
+            case .openGroup(let roomToken, let server, let whisperTo, let whisperMods, let fileIds) = data.destination,
             let plaintext: Data = data.plaintext
         else {
             return Fail(error: MessageSenderError.invalidMessage)
@@ -789,7 +777,7 @@ public final class MessageSender {
                     try MessageSender.handleSuccessfulMessageSend(
                         db,
                         message: updatedMessage,
-                        to: destination,
+                        to: data.destination,
                         interactionId: data.interactionId,
                         serverTimestampMs: serverTimestampMs,
                         using: dependencies
@@ -824,8 +812,7 @@ public final class MessageSender {
     ) -> AnyPublisher<Void, Error> {
         guard
             let message: Message = data.message,
-            let destination: Message.Destination = data.destination,
-            case .openGroupInbox(let server, _, let recipientBlindedPublicKey) = destination,
+            case .openGroupInbox(let server, _, let recipientBlindedPublicKey) = data.destination,
             let ciphertext: Data = data.ciphertext
         else {
             return Fail(error: MessageSenderError.invalidMessage)
@@ -854,7 +841,7 @@ public final class MessageSender {
                     try MessageSender.handleSuccessfulMessageSend(
                         db,
                         message: updatedMessage,
-                        to: destination,
+                        to: data.destination,
                         interactionId: data.interactionId,
                         serverTimestampMs: UInt64(floor(responseData.posted * 1000)),
                         using: dependencies

@@ -27,6 +27,29 @@ public extension Database {
         }
     }
     
+    func createIndex<T>(
+        withCustomName customName: String? = nil,
+        on table: T.Type,
+        columns: [T.Columns],
+        options: IndexOptions = [],
+        condition: (any SQLExpressible)? = nil
+    ) throws where T: TableRecord, T: ColumnExpressible {
+        guard !columns.isEmpty else { throw StorageError.invalidData }
+        
+        let indexName: String = (
+            customName ??
+            "\(T.databaseTableName)_on_\(columns.map { $0.name }.joined(separator: "_and_"))"
+        )
+        
+        try create(
+            index: indexName,
+            on: T.databaseTableName,
+            columns: columns.map { $0.name },
+            options: options,
+            condition: condition
+        )
+    }
+    
     func makeFTS5Pattern<T>(rawPattern: String, forTable table: T.Type) throws -> FTS5Pattern where T: TableRecord, T: ColumnExpressible {
         return try makeFTS5Pattern(rawPattern: rawPattern, forTable: table.databaseTableName)
     }
@@ -46,27 +69,27 @@ public extension Database {
         onRollback: @escaping (Database) -> Void = { _ in }
     ) {
         afterNextTransactionNestedOnce(
-            dedupeIdentifier: UUID().uuidString,
+            dedupeId: UUID().uuidString,
             onCommit: onCommit,
             onRollback: onRollback
         )
     }
     
     func afterNextTransactionNestedOnce(
-        dedupeIdentifier: String,
+        dedupeId: String,
         onCommit: @escaping (Database) -> Void,
         onRollback: @escaping (Database) -> Void = { _ in }
     ) {
-        // Only allow a single observer per `dedupeIdentifier` per transaction, this allows us to
+        // Only allow a single observer per `dedupeId` per transaction, this allows us to
         // schedule an action to run at most once per transaction (eg. auto-scheduling a ConfigSyncJob
         // when receiving messages)
-        guard !TransactionHandler.registeredHandlers.wrappedValue.contains(dedupeIdentifier) else {
+        guard !TransactionHandler.registeredHandlers.wrappedValue.contains(dedupeId) else {
             return
         }
         
         add(
             transactionObserver: TransactionHandler(
-                identifier: dedupeIdentifier,
+                identifier: dedupeId,
                 onCommit: onCommit,
                 onRollback: onRollback
             ),

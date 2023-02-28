@@ -80,6 +80,7 @@ extension MessageSender {
             db,
             message: VisibleMessage.from(db, interaction: interaction),
             to: try Message.Destination.from(db, thread: thread),
+            namespace: try Message.Destination.from(db, thread: thread).defaultNamespace,
             interactionId: interactionId
         )
     }
@@ -95,14 +96,8 @@ extension MessageSender {
                 .eraseToAnyPublisher()
         }
         
-        // Ensure we have the rest of the required data
-        guard let destination: Message.Destination = preparedSendData.destination else {
-            return Fail<PreparedSendData, Error>(error: MessageSenderError.invalidMessage)
-                .eraseToAnyPublisher()
-        }
-        
         let threadId: String = {
-            switch destination {
+            switch preparedSendData.destination {
                 case .contact(let publicKey): return publicKey
                 case .closedGroup(let groupPublicKey): return groupPublicKey
                 case .openGroup(let roomToken, let server, _, _, _):

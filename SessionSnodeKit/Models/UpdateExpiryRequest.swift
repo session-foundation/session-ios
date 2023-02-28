@@ -72,10 +72,13 @@ extension SnodeAPI {
         // MARK: - Abstract Methods
         
         override func generateSignature() throws -> [UInt8] {
-            /// Ed25519 signature of `("expire" || expiry || messages[0] || ... || messages[N])`
-            /// where `expiry` is the expiry timestamp expressed as a string.  The signature must be base64
-            /// encoded (json) or bytes (bt).
+            /// Ed25519 signature of `("expire" || ShortenOrExtend || expiry || messages[0] || ...`
+            /// ` || messages[N])` where `expiry` is the expiry timestamp expressed as a string.
+            /// `ShortenOrExtend` is string signature must be base64 "shorten" if the shorten option is given (and true),
+            /// "extend" if `extend` is true, and empty otherwise. The signature must be base64 encoded (json) or bytes (bt).
             let verificationBytes: [UInt8] = SnodeAPI.Endpoint.expire.rawValue.bytes
+                .appending(contentsOf: (shorten == true ? "shorten".bytes : []))
+                .appending(contentsOf: (extend == true ? "extend".bytes : []))
                 .appending(contentsOf: "\(expiryMs)".data(using: .ascii)?.bytes)
                 .appending(contentsOf: messageHashes.joined().bytes)
             

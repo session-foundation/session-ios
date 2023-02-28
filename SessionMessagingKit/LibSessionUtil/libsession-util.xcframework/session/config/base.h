@@ -55,31 +55,50 @@ int16_t config_storage_namespace(const config_object* conf);
 /// config object may be unchanged, complete replaced, or updated and needing a push, depending on
 /// the messages that are merged; the caller should check config_needs_push().
 ///
-/// `configs` is an array of pointers to the start of the strings; `lengths` is an array of string
-/// lengths; `count` is the length of those two arrays.
+/// `msg_hashes` is an array of null-terminated C strings containing the hashes of the configs being
+/// provided.
+/// `configs` is an array of pointers to the start of the (binary) data.
+/// `lengths` is an array of lengths of the binary data
+/// `count` is the length of all three arrays.
 int config_merge(
-        config_object* conf, const unsigned char** configs, const size_t* lengths, size_t count);
+        config_object* conf,
+        const char** msg_hashes,
+        const unsigned char** configs,
+        const size_t* lengths,
+        size_t count);
 
 /// Returns true if this config object contains updated data that has not yet been confirmed stored
 /// on the server.
 bool config_needs_push(const config_object* conf);
 
-/// Obtains the configuration data that needs to be pushed to the server.  A new buffer of the
-/// appropriate size is malloc'd and set to `out` The output is written to a new malloc'ed buffer of
-/// the appropriate size; the buffer and the output length are set in the `out` and `outlen`
-/// parameters.  Note that this is binary data, *not* a null-terminated C string.
+/// Returned struct of config push data.
+typedef struct config_push_data {
+    // The config seqno (to be provided later in `config_confirm_pushed`).
+    seqno_t seqno;
+    // The config message to push (binary data, not null-terminated).
+    unsigned char* config;
+    // The length of `config`
+    size_t config_len;
+    // Array of obsolete message hashes to delete; each element is a null-terminated C string
+    char** obsolete;
+    // length of `obsolete`
+    size_t obsolete_len;
+} config_push_data;
+
+/// Obtains the configuration data that needs to be pushed to the server.
 ///
 /// Generally this call should be guarded by a call to `config_needs_push`, however it can be used
 /// to re-obtain the current serialized config even if no push is needed (for example, if the client
 /// wants to re-submit it after a network error).
 ///
-/// NB: The returned buffer belongs to the caller: that is, the caller *MUST* free() it when done
-/// with it.
-seqno_t config_push(config_object* conf, unsigned char** out, size_t* outlen);
+/// NB: The returned pointer belongs to the caller: that is, the caller *MUST* free() it when
+/// done with it.
+config_push_data* config_push(config_object* conf);
 
-/// Reports that data obtained from `config_push` has been successfully stored on the server.  The
-/// seqno value is the one returned by the config_push call that yielded the config data.
-void config_confirm_pushed(config_object* conf, seqno_t seqno);
+/// Reports that data obtained from `config_push` has been successfully stored on the server with
+/// message hash `msg_hash`.  The seqno value is the one returned by the config_push call that
+/// yielded the config data.
+void config_confirm_pushed(config_object* conf, seqno_t seqno, const char* msg_hash);
 
 /// Returns a binary dump of the current state of the config object.  This dump can be used to
 /// resurrect the object at a later point (e.g. after a restart).  Allocates a new buffer and sets
@@ -95,6 +114,20 @@ void config_dump(config_object* conf, unsigned char** out, size_t* outlen);
 /// Returns true if something has changed since the last call to `dump()` that requires calling
 /// and saving the `config_dump()` data again.
 bool config_needs_dump(const config_object* conf);
+
+/// Struct containing a list of C strings.  Typically where this is returned by this API it must be
+/// freed (via `free()`) when done with it.
+typedef struct config_string_list {
+    char** value; // array of null-terminated C strings
+    size_t len; // length of `value`
+} config_string_list;
+
+/// Obtains the current active hashes.  Note that this will be empty if the current hash is unknown
+/// or not yet determined (for example, because the current state is dirty or because the most
+/// recent push is still pending and we don't know the hash yet).
+///
+/// The returned pointer belongs to the caller and must be freed via `free()` when done with it.
+config_string_list* config_current_hashes(const config_object* conf);
 
 /// Config key management; see the corresponding method docs in base.hpp.  All `key` arguments here
 /// are 32-byte binary buffers (and since fixed-length, there is no keylen argument).
