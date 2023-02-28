@@ -871,7 +871,7 @@ public extension SessionThreadViewModel {
             LEFT JOIN \(OpenGroup.self) ON \(openGroup[.threadId]) = \(thread[.id])
             LEFT JOIN \(ClosedGroup.self) ON \(closedGroup[.threadId]) = \(thread[.id])
             LEFT JOIN \(GroupMember.self) AS \(ViewModel.currentUserIsClosedGroupMemberKey) ON (
-                \(SQL("\(ViewModel.currentUserIsClosedGroupMemberKey).\(groupMemberRoleColumnLiteral) = \(GroupMember.Role.standard)")) AND
+                \(SQL("\(ViewModel.currentUserIsClosedGroupMemberKey).\(groupMemberRoleColumnLiteral) != \(GroupMember.Role.zombie)")) AND
                 \(ViewModel.currentUserIsClosedGroupMemberKey).\(groupMemberGroupIdColumnLiteral) = \(closedGroup[.threadId]) AND
                 \(SQL("\(ViewModel.currentUserIsClosedGroupMemberKey).\(groupMemberProfileIdColumnLiteral) = \(userPublicKey)"))
             )
