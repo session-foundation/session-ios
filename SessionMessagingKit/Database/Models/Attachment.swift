@@ -885,13 +885,16 @@ extension Attachment {
         
         guard
             self.isValid,
-            self.isVisualMedia,
             let thumbnailPath: String = Attachment.originalFilePath(
                 id: cloneId,
                 mimeType: OWSMimeTypeImageJpeg,
                 sourceFilename: thumbnailName
             )
         else {
+            return nil
+        }
+        
+        guard self.isVisualMedia else {
             // Non-media files cannot have thumbnails but may be sent as quotes, in these cases we want
             // to create an attachment in an 'uploaded' state with a hard-coded file id so the messageSend
             // job doesn't try to upload the attachment (we include the original `serverId` as it's
