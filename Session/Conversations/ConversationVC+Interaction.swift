@@ -1604,6 +1604,13 @@ extension ConversationVC:
                 let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId)
             else { return }
             
+            if
+                let quote = try? interaction.quote.fetchOne(db),
+                let quotedInteraction = try? quote.interaction.fetchOne(db)
+            {
+                
+            }
+            
             try MessageSender.send(
                 db,
                 interaction: interaction,
