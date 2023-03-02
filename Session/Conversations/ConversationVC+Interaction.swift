@@ -457,7 +457,7 @@ extension ConversationVC:
                 // Update the thread to be visible
                 _ = try SessionThread
                     .filter(id: threadId)
-                    .updateAll(db, SessionThread.Columns.shouldBeVisible.set(to: true))
+                    .updateAllAndConfig(db, SessionThread.Columns.shouldBeVisible.set(to: true))
                 
                 let authorId: String = {
                     if let blindedId = self?.viewModel.threadData.currentUserBlindedPublicKey {
@@ -588,7 +588,7 @@ extension ConversationVC:
                 // Update the thread to be visible
                 _ = try SessionThread
                     .filter(id: threadId)
-                    .updateAll(db, SessionThread.Columns.shouldBeVisible.set(to: true))
+                    .updateAllAndConfig(db, SessionThread.Columns.shouldBeVisible.set(to: true))
                 
                 // Create the interaction
                 let interaction: Interaction = try Interaction(
@@ -1104,7 +1104,8 @@ extension ConversationVC:
         guard viewModel.threadData.canWrite else { return }
         guard SessionId.Prefix(from: sessionId) == .blinded else {
             Storage.shared.write { db in
-                try SessionThread.fetchOrCreate(db, id: sessionId, variant: .contact)
+                try SessionThread
+                    .fetchOrCreate(db, id: sessionId, variant: .contact, shouldBeVisible: nil)
             }
             
             let conversationVC: ConversationVC = ConversationVC(threadId: sessionId, threadVariant: .contact)
@@ -1130,7 +1131,12 @@ extension ConversationVC:
                 )
             
             return try SessionThread
-                .fetchOrCreate(db, id: (lookup.sessionId ?? lookup.blindedId), variant: .contact)
+                .fetchOrCreate(
+                    db,
+                    id: (lookup.sessionId ?? lookup.blindedId),
+                    variant: .contact,
+                    shouldBeVisible: nil
+                )
                 .id
         }
         
@@ -1308,7 +1314,7 @@ extension ConversationVC:
                 // Update the thread to be visible
                 _ = try SessionThread
                     .filter(id: thread.id)
-                    .updateAll(db, SessionThread.Columns.shouldBeVisible.set(to: true))
+                    .updateAllAndConfig(db, SessionThread.Columns.shouldBeVisible.set(to: true))
                 
                 let pendingReaction: Reaction? = {
                     if remove {

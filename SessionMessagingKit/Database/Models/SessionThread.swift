@@ -146,43 +146,50 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
     }
 }
 
-// MARK: - Mutation
-
-public extension SessionThread {
-    func with(
-        shouldBeVisible: Bool? = nil,
-        pinnedPriority: Int32? = nil
-    ) -> SessionThread {
-        return SessionThread(
-            id: id,
-            variant: variant,
-            creationDateTimestamp: creationDateTimestamp,
-            shouldBeVisible: (shouldBeVisible ?? self.shouldBeVisible),
-            messageDraft: messageDraft,
-            notificationSound: notificationSound,
-            mutedUntilTimestamp: mutedUntilTimestamp,
-            onlyNotifyForMentions: onlyNotifyForMentions,
-            markedAsUnread: markedAsUnread,
-            pinnedPriority: (pinnedPriority ?? self.pinnedPriority)
-        )
-    }
-}
-
 // MARK: - GRDB Interactions
 
 public extension SessionThread {
-    /// Fetches or creates a SessionThread with the specified id and variant
+    /// Fetches or creates a SessionThread with the specified id, variant and visible state
     ///
     /// **Notes:**
     /// - The `variant` will be ignored if an existing thread is found
     /// - This method **will** save the newly created SessionThread to the database
-    static func fetchOrCreate(_ db: Database, id: ID, variant: Variant) throws -> SessionThread {
+    @discardableResult static func fetchOrCreate(
+        _ db: Database,
+        id: ID,
+        variant: Variant,
+        shouldBeVisible: Bool?
+    ) throws -> SessionThread {
         guard let existingThread: SessionThread = try? fetchOne(db, id: id) else {
-            return try SessionThread(id: id, variant: variant)
-                .saved(db)
+            return try SessionThread(
+                id: id,
+                variant: variant,
+                shouldBeVisible: (shouldBeVisible ?? false)
+            ).saved(db)
         }
         
-        return existingThread
+        // If the `shouldBeVisible` state matches then we can finish early
+        guard
+            let desiredVisibility: Bool = shouldBeVisible,
+            existingThread.shouldBeVisible != desiredVisibility
+        else { return existingThread }
+        
+        // Update the `shouldBeVisible` state
+        try SessionThread
+            .filter(id: id)
+            .updateAllAndConfig(
+                db,
+                SessionThread.Columns.shouldBeVisible.set(to: shouldBeVisible)
+            )
+        
+        // Retrieve the updated thread and return it (we don't recursively call this method
+        // just in case something weird happened and the above update didn't work, as that
+        // would result in an infinite loop)
+        return (try fetchOne(db, id: id))
+            .defaulting(
+                to: try SessionThread(id: id, variant: variant, shouldBeVisible: desiredVisibility)
+                    .saved(db)
+            )
     }
     
     func isMessageRequest(_ db: Database, includeNonVisible: Bool = false) -> Bool {
@@ -199,6 +206,7 @@ public extension SessionThread {
         )
     }
     
+    @available(*, unavailable, message: "should not be used until pin re-ordering is built")
     static func refreshPinnedPriorities(_ db: Database, adding threadId: String) throws {
         struct PinnedPriority: TableRecord, ColumnExpressible {
             public typealias Columns = CodingKeys

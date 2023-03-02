@@ -368,6 +368,10 @@ public class HomeViewModel {
     public func delete(threadId: String, threadVariant: SessionThread.Variant) {
         Storage.shared.writeAsync { db in
             switch threadVariant {
+                case .contact:
+                    try SessionUtil
+                        .hide(db, contactIds: [threadId])
+                    
                 case .legacyGroup, .group:
                     MessageSender
                         .leave(db, groupPublicKey: threadId)
@@ -379,8 +383,6 @@ public class HomeViewModel {
                         openGroupId: threadId,
                         calledFromConfigHandling: false
                     )
-                    
-                default: break
             }
             
             _ = try SessionThread

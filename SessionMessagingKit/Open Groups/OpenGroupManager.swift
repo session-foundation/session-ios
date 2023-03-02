@@ -229,17 +229,19 @@ public final class OpenGroupManager {
         let threadId: String = OpenGroup.idFor(roomToken: roomToken, server: targetServer)
         
         // Optionally try to insert a new version of the OpenGroup (it will fail if there is already an
-        // inactive one but that won't matter as we then activate it
-        _ = try? SessionThread.fetchOrCreate(db, id: threadId, variant: .community)
-        
-        // If we didn't add this open group via config handling then flag it to be visible (if it did
-        // come via config handling then we want to wait until it actually has messages before making
-        // it visible)
-        if !calledFromConfigHandling {
-            _ = try? SessionThread
-                .filter(id: threadId)
-                .updateAll(db, SessionThread.Columns.shouldBeVisible.set(to: true))
-        }
+        // inactive one but that won't matter as we then activate it)
+        _ = try? SessionThread
+            .fetchOrCreate(
+                db,
+                id: threadId,
+                variant: .community,
+                /// If we didn't add this open group via config handling then flag it to be visible (if it did come via config handling then
+                /// we want to wait until it actually has messages before making it visible)
+                ///
+                /// **Note:** We **MUST** provide a `nil` value if this method was called from the config handling as updating
+                /// the `shouldVeVisible` state can trigger a config update which could result in an infinite loop in the future
+                shouldBeVisible: (calledFromConfigHandling ? nil : true)
+            )
         
         if (try? OpenGroup.exists(db, id: threadId)) == false {
             try? OpenGroup
@@ -641,10 +643,11 @@ public final class OpenGroupManager {
                     if let messageInfo: MessageReceiveJob.Details.MessageInfo = processedMessage?.messageInfo {
                         try MessageReceiver.handle(
                             db,
+                            threadId: openGroup.id,
+                            threadVariant: .community,
                             message: messageInfo.message,
                             serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
                             associatedWithProto: try SNProtoContent.parseData(messageInfo.serializedProtoData),
-                            openGroupId: openGroup.id,
                             dependencies: dependencies
                         )
                     }
@@ -805,10 +808,11 @@ public final class OpenGroupManager {
                 if let messageInfo: MessageReceiveJob.Details.MessageInfo = processedMessage?.messageInfo {
                     try MessageReceiver.handle(
                         db,
+                        threadId: (lookup.sessionId ?? lookup.blindedId),
+                        threadVariant: .contact,    // Technically not open group messages
                         message: messageInfo.message,
                         serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
                         associatedWithProto: try SNProtoContent.parseData(messageInfo.serializedProtoData),
-                        openGroupId: nil,   // Intentionally nil as they are technically not open group messages
                         dependencies: dependencies
                     )
                 }

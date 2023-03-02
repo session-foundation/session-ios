@@ -5,17 +5,21 @@ import GRDB
 import SessionSnodeKit
 
 extension MessageReceiver {
-    internal static func handleDataExtractionNotification(_ db: Database, message: DataExtractionNotification) throws {
+    internal static func handleDataExtractionNotification(
+        _ db: Database,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        message: DataExtractionNotification
+    ) throws {
         guard
+            threadVariant == .contact,
             let sender: String = message.sender,
-            let messageKind: DataExtractionNotification.Kind = message.kind,
-            let thread: SessionThread = try? SessionThread.fetchOne(db, id: sender),
-            thread.variant == .contact
+            let messageKind: DataExtractionNotification.Kind = message.kind
         else { return }
         
         _ = try Interaction(
             serverHash: message.serverHash,
-            threadId: thread.id,
+            threadId: threadId,
             authorId: sender,
             variant: {
                 switch messageKind {

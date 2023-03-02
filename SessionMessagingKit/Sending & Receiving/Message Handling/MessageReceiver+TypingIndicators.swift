@@ -5,17 +5,19 @@ import GRDB
 import SessionUtilitiesKit
 
 extension MessageReceiver {
-    internal static func handleTypingIndicator(_ db: Database, message: TypingIndicator) throws {
-        guard
-            let senderPublicKey: String = message.sender,
-            let thread: SessionThread = try SessionThread.fetchOne(db, id: senderPublicKey)
-        else { return }
+    internal static func handleTypingIndicator(
+        _ db: Database,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        message: TypingIndicator
+    ) throws {
+        guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else { return }
         
         switch message.kind {
             case .started:
                 let needsToStartTypingIndicator: Bool = TypingIndicators.didStartTypingNeedsToStart(
-                    threadId: thread.id,
-                    threadVariant: thread.variant,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
                     threadIsMessageRequest: thread.isMessageRequest(db),
                     direction: .incoming,
                     timestampMs: message.sentTimestamp.map { Int64($0) }

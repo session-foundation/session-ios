@@ -12,7 +12,8 @@ public struct SessionApp {
     
     public static func presentConversation(for threadId: String, action: ConversationViewModel.Action = .none, animated: Bool) {
         let maybeThreadInfo: (thread: SessionThread, isMessageRequest: Bool)? = Storage.shared.write { db in
-            let thread: SessionThread = try SessionThread.fetchOrCreate(db, id: threadId, variant: .contact)
+            let thread: SessionThread = try SessionThread
+                .fetchOrCreate(db, id: threadId, variant: .contact, shouldBeVisible: nil)
             
             return (thread, thread.isMessageRequest(db))
         }

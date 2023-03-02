@@ -787,7 +787,7 @@ public extension SessionThreadViewModel {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
         
-        return SQL("\(thread[.isPinned]) DESC, IFNULL(\(interaction[.timestampMs]), (\(thread[.creationDateTimestamp]) * 1000)) DESC")
+        return SQL("(IFNULL(\(thread[.pinnedPriority]), 0) > 0) DESC, IFNULL(\(interaction[.timestampMs]), (\(thread[.creationDateTimestamp]) * 1000)) DESC")
     }()
     
     static let messageRequetsOrderSQL: SQL = {

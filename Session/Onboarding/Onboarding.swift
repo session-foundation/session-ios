@@ -151,8 +151,7 @@ enum Onboarding {
 
                 // Create the 'Note to Self' thread (not visible by default)
                 try SessionThread
-                    .fetchOrCreate(db, id: x25519PublicKey, variant: .contact)
-                    .save(db)
+                    .fetchOrCreate(db, id: x25519PublicKey, variant: .contact, shouldBeVisible: false)
             }
             
             // Set hasSyncedInitialConfiguration to true so that when we hit the

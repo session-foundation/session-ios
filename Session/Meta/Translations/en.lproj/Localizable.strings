@@ -613,3 +613,4 @@
 "CONTACT_NICKNAME_PLACEHOLDER" = "Enter a name";
 "MARK_AS_READ" = "Mark Read";
 "MARK_AS_UNREAD" = "Mark Unread";
+"GROUP_CONVERSATION_EMPTY_STATE" = "You have no messages from %@. Send a message to start the conversation!";

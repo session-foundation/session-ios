@@ -57,12 +57,9 @@ enum _012_SharedUtilChanges: Migration {
         
         // MARK: - Shared Data
         
-        let pinnedThreadIds: [String] = try SessionThread
-            .select(SessionThread.Columns.id)
-            .filter(SessionThread.Columns.isPinned)
-            .order(Column.rowID)
-            .asRequest(of: String.self)
+        let allThreads: [String: SessionThread] = try SessionThread
             .fetchAll(db)
+            .reduce(into: [:]) { result, next in result[next.id] = next }
         
         // MARK: - UserProfile Config Dump
         
@@ -71,12 +68,12 @@ enum _012_SharedUtilChanges: Migration {
             secretKey: secretKey,
             cachedData: nil
         )
-        let userProfileConfResult: SessionUtil.ConfResult = try SessionUtil.update(
+        try SessionUtil.update(
             profile: Profile.fetchOrCreateCurrentUser(db),
             in: userProfileConf
         )
         
-        if userProfileConfResult.needsDump {
+        if config_needs_dump(userProfileConf) {
             try SessionUtil
                 .createDump(
                     conf: userProfileConf,
@@ -89,6 +86,10 @@ enum _012_SharedUtilChanges: Migration {
         // MARK: - Contact Config Dump
         
         let contactsData: [ContactInfo] = try Contact
+            .filter(
+                Contact.Columns.isBlocked == true ||
+                allThreads.keys.contains(Contact.Columns.id)
+            )
             .including(optional: Contact.profile)
             .asRequest(of: ContactInfo.self)
             .fetchAll(db)
@@ -98,21 +99,21 @@ enum _012_SharedUtilChanges: Migration {
             secretKey: secretKey,
             cachedData: nil
         )
-        let contactsConfResult: SessionUtil.ConfResult = try SessionUtil.upsert(
+        try SessionUtil.upsert(
             contactData: contactsData
                 .map { data in
-                    (
-                        data.contact.id,
-                        data.contact,
-                        data.profile,
-                        Int32(pinnedThreadIds.firstIndex(of: data.contact.id) ?? 0),
-                        false
+                    SessionUtil.SyncedContactInfo(
+                        id: data.contact.id,
+                        contact: data.contact,
+                        profile: data.profile,
+                        priority: Int32(allThreads[data.contact.id]?.pinnedPriority ?? 0),
+                        hidden: (allThreads[data.contact.id]?.shouldBeVisible == true)
                     )
                 },
             in: contactsConf
         )
         
-        if contactsConfResult.needsDump {
+        if config_needs_dump(contactsConf) {
             try SessionUtil
                 .createDump(
                     conf: contactsConf,
@@ -130,15 +131,15 @@ enum _012_SharedUtilChanges: Migration {
             secretKey: secretKey,
             cachedData: nil
         )
-        let convoInfoVolatileConfResult: SessionUtil.ConfResult = try SessionUtil.upsert(
+        try SessionUtil.upsert(
             convoInfoVolatileChanges: volatileThreadInfo,
             in: convoInfoVolatileConf
         )
         
-        if convoInfoVolatileConfResult.needsDump {
+        if config_needs_dump(convoInfoVolatileConf) {
             try SessionUtil
                 .createDump(
-                    conf: contactsConf,
+                    conf: convoInfoVolatileConf,
                     for: .convoInfoVolatile,
                     publicKey: userPublicKey
                 )?
@@ -155,16 +156,17 @@ enum _012_SharedUtilChanges: Migration {
             secretKey: secretKey,
             cachedData: nil
         )
-        let userGroupConfResult1: SessionUtil.ConfResult = try SessionUtil.upsert(
+        try SessionUtil.upsert(
             legacyGroups: legacyGroupData,
             in: userGroupsConf
         )
-        let userGroupConfResult2: SessionUtil.ConfResult = try SessionUtil.upsert(
-            communities: communityData.map { ($0, nil) },
+        try SessionUtil.upsert(
+            communities: communityData
+                .map { SessionUtil.CommunityInfo(urlInfo: $0) },
             in: userGroupsConf
         )
         
-        if userGroupConfResult1.needsDump || userGroupConfResult2.needsDump {
+        if config_needs_dump(userGroupsConf) {
             try SessionUtil
                 .createDump(
                     conf: userGroupsConf,
@@ -174,33 +176,18 @@ enum _012_SharedUtilChanges: Migration {
                 .save(db)
         }
         
-        // MARK: - Pinned thread priorities
+        // MARK: - Threads
         
-        struct PinnedTeadInfo: Decodable, FetchableRecord {
-            let id: String
-            let creationDateTimestamp: TimeInterval
-            let maxInteractionTimestampMs: Int64?
-            
-            var targetTimestamp: Int64 {
-                (maxInteractionTimestampMs ?? Int64(creationDateTimestamp * 1000))
-            }
+        try SessionUtil
+            .updatingThreads(db, Array(allThreads.values))
+        
+        // MARK: - Syncing
+        
+        // Enqueue a config sync job to ensure the generated configs get synced
+        db.afterNextTransactionNestedOnce(dedupeId: SessionUtil.syncDedupeId(userPublicKey)) { db in
+            ConfigurationSyncJob.enqueue(db, publicKey: userPublicKey)
         }
         
-        // At the time of writing the thread sorting was 'pinned (flag), most recent interaction
-        // timestamp, thread creation timestamp)
-        let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
-        let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
-        let pinnedThreads: [PinnedTeadInfo] = try SessionThread
-            .select(.id, .creationDateTimestamp)
-            .filter(SessionThread.Columns.isPinned == true)
-            .annotated(with: SessionThread.interactions.max(Interaction.Columns.timestampMs))
-            .asRequest(of: PinnedTeadInfo.self)
-            .fetchAll(db)
-            .sorted { lhs, rhs in lhs.targetTimestamp > rhs.targetTimestamp }
-        
-        // Update the pinned thread priorities
-        try SessionUtil
-            .updateThreadPrioritiesIfNeeded(db, [SessionThread.Columns.pinnedPriority.set(to: 0)], [])
         Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
     }
     

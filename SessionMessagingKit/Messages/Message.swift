@@ -8,12 +8,10 @@ import SessionUtilitiesKit
 /// Abstract base class for `VisibleMessage` and `ControlMessage`.
 public class Message: Codable {
     public var id: String?
-    public var threadId: String?
     public var sentTimestamp: UInt64?
     public var receivedTimestamp: UInt64?
     public var recipient: String?
     public var sender: String?
-    public var groupPublicKey: String?
     public var openGroupServerMessageId: UInt64?
     public var serverHash: String?
 
@@ -34,7 +32,6 @@ public class Message: Codable {
     
     public init(
         id: String? = nil,
-        threadId: String? = nil,
         sentTimestamp: UInt64? = nil,
         receivedTimestamp: UInt64? = nil,
         recipient: String? = nil,
@@ -44,12 +41,10 @@ public class Message: Codable {
         serverHash: String? = nil
     ) {
         self.id = id
-        self.threadId = threadId
         self.sentTimestamp = sentTimestamp
         self.receivedTimestamp = receivedTimestamp
         self.recipient = recipient
         self.sender = sender
-        self.groupPublicKey = groupPublicKey
         self.openGroupServerMessageId = openGroupServerMessageId
         self.serverHash = serverHash
     }
@@ -68,14 +63,13 @@ public class Message: Codable {
 // MARK: - Message Parsing/Processing
 
 public typealias ProcessedMessage = (
-    threadId: String?,
+    threadId: String,
+    threadVariant: SessionThread.Variant,
     proto: SNProtoContent,
     messageInfo: MessageReceiveJob.Details.MessageInfo
 )
 
 public extension Message {
-    static let nonThreadMessageId: String = "NON_THREAD_MESSAGE"
-    
     enum Variant: String, Codable {
         case readReceipt
         case typingIndicator
@@ -485,7 +479,7 @@ public extension Message {
         handleClosedGroupKeyUpdateMessages: Bool,
         dependencies: SMKDependencies = SMKDependencies()
     ) throws -> ProcessedMessage? {
-        let (message, proto, threadId) = try MessageReceiver.parse(
+        let (message, proto, threadId, threadVariant) = try MessageReceiver.parse(
             db,
             envelope: envelope,
             serverExpirationTimestamp: serverExpirationTimestamp,
@@ -511,7 +505,12 @@ public extension Message {
                 case let closedGroupControlMessage as ClosedGroupControlMessage:
                     switch closedGroupControlMessage.kind {
                         case .encryptionKeyPair:
-                            try MessageReceiver.handleClosedGroupControlMessage(db, closedGroupControlMessage)
+                            try MessageReceiver.handleClosedGroupControlMessage(
+                                db,
+                                threadId: threadId,
+                                threadVariant: threadVariant,
+                                message: closedGroupControlMessage
+                            )
                             return nil
                             
                         default: break
@@ -540,10 +539,12 @@ public extension Message {
         
         return (
             threadId,
+            threadVariant,
             proto,
             try MessageReceiveJob.Details.MessageInfo(
                 message: message,
                 variant: variant,
+                threadVariant: threadVariant,
                 serverExpirationTimestamp: serverExpirationTimestamp,
                 proto: proto
             )

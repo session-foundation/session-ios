@@ -130,9 +130,11 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
             case is QueryInterfaceRequest<Profile>:
                 return try SessionUtil.updatingProfiles(db, updatedData)
                 
-            case is QueryInterfaceRequest<SessionThread>:
+            case is QueryInterfaceRequest<ClosedGroup>:
                 return updatedData
-            
+                
+            case is QueryInterfaceRequest<SessionThread>:
+                return try SessionUtil.updatingThreads(db, updatedData)
                 
             default: return updatedData
         }

@@ -284,7 +284,7 @@ public class Poller {
                                 return nil
                             }
                         }
-                        .grouped { threadId, _, _ in (threadId ?? Message.nonThreadMessageId) }
+                        .grouped { threadId, _, _, _ in threadId }
                         .forEach { threadId, threadMessages in
                             messageCount += threadMessages.count
                             processedMessages += threadMessages.map { $0.messageInfo.message }

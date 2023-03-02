@@ -76,7 +76,7 @@ internal extension SessionUtil {
     static func update(
         profile: Profile,
         in conf: UnsafeMutablePointer<config_object>?
-    ) throws -> ConfResult {
+    ) throws {
         guard conf != nil else { throw SessionUtilError.nilConfigObject }
         
         // Update the name
@@ -88,35 +88,17 @@ internal extension SessionUtil {
         profilePic.url = profile.profilePictureUrl.toLibSession()
         profilePic.key = profile.profileEncryptionKey.toLibSession()
         user_profile_set_pic(conf, profilePic)
-        
-        return ConfResult(
-            needsPush: config_needs_push(conf),
-            needsDump: config_needs_dump(conf)
-        )
     }
     
-    static func updateNoteToSelfPriority(
+    static func updateNoteToSelf(
         _ db: Database,
         priority: Int32,
-        in atomicConf: Atomic<UnsafeMutablePointer<config_object>?>
+        hidden: Bool,
+        in conf: UnsafeMutablePointer<config_object>?
     ) throws {
-        guard atomicConf.wrappedValue != nil else { throw SessionUtilError.nilConfigObject }
+        guard conf != nil else { throw SessionUtilError.nilConfigObject }
         
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
-        
-        // Since we are doing direct memory manipulation we are using an `Atomic` type which has
-        // blocking access in it's `mutate` closure
-        try atomicConf.mutate { conf in
-            user_profile_set_nts_priority(conf, priority)
-            
-            // If we don't need to dump the data the we can finish early
-            guard config_needs_dump(conf) else { return }
-            
-            try SessionUtil.createDump(
-                conf: conf,
-                for: .userProfile,
-                publicKey: userPublicKey
-            )?.save(db)
-        }
+        user_profile_set_nts_priority(conf, priority)
+        user_profile_set_nts_hidden(conf, hidden)
     }
 }

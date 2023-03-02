@@ -31,7 +31,11 @@ bool community_parse_full_url(
 // may be NULL in which case it is not set (typically both pubkey arguments would be null for cases
 // where you don't care at all about the pubkey).
 bool community_parse_partial_url(
-        const char* full_url, char* base_url, char* room_token, unsigned char* pubkey, bool* has_pubkey);
+        const char* full_url,
+        char* base_url,
+        char* room_token,
+        unsigned char* pubkey,
+        bool* has_pubkey);
 
 // Produces a standard full URL from a given base_url (c string), room token (c string), and pubkey
 // (fixed-length 32 byte buffer).  The full URL is written to `full_url`, which must be at least

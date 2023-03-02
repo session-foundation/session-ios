@@ -714,7 +714,8 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
         
         dependencies.storage.writeAsync { db in
             try selectedUsers.forEach { userId in
-                let thread: SessionThread = try SessionThread.fetchOrCreate(db, id: userId, variant: .contact)
+                let thread: SessionThread = try SessionThread
+                    .fetchOrCreate(db, id: userId, variant: .contact, shouldBeVisible: nil)
                 
                 try LinkPreview(
                     url: communityUrl,

@@ -770,20 +770,13 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                     // Delay the change to give the cell "unswipe" animation some time to complete
                     DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
                         Storage.shared.writeAsync { db in
-                            // If we are unpinning then just clear the value
-                            guard threadViewModel.threadPinnedPriority == 0 else {
-                                try SessionThread
-                                    .filter(id: threadViewModel.threadId)
-                                    .updateAllAndConfig(
-                                        db,
-                                        SessionThread.Columns.pinnedPriority.set(to: 0)
-                                    )
-                                return
-                            }
-                            
-                            // Otherwise we want to reset the priority values for all of the currently
-                            // pinned threads (adding the newly pinned one at the end)
-                            try SessionThread.refreshPinnedPriorities(db, adding: threadViewModel.threadId)
+                            try SessionThread
+                                .filter(id: threadViewModel.threadId)
+                                .updateAllAndConfig(
+                                    db,
+                                    SessionThread.Columns.pinnedPriority
+                                        .set(to: (threadViewModel.threadPinnedPriority == 0 ? 1 : 0))
+                                )
                         }
                     }
                 }

@@ -45,7 +45,8 @@ extension MessageReceiver {
         }
         
         // Prep the unblinded thread
-        let unblindedThread: SessionThread = try SessionThread.fetchOrCreate(db, id: senderId, variant: .contact)
+        let unblindedThread: SessionThread = try SessionThread
+            .fetchOrCreate(db, id: senderId, variant: .contact, shouldBeVisible: nil)
         
         // Need to handle a `MessageRequestResponse` sent to a blinded thread (ie. check if the sender matches
         // the blinded ids of any threads)

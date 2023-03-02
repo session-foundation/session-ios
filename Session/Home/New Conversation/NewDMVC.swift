@@ -233,7 +233,8 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
 
     private func startNewDM(with sessionId: String) {
         let maybeThread: SessionThread? = Storage.shared.write { db in
-            try SessionThread.fetchOrCreate(db, id: sessionId, variant: .contact)
+            try SessionThread
+                .fetchOrCreate(db, id: sessionId, variant: .contact, shouldBeVisible: nil)
         }
         
         guard maybeThread != nil else { return }

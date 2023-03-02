@@ -75,23 +75,14 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         return
                     }
                     
-                    let maybeVariant: SessionThread.Variant? = processedMessage.threadId
-                        .map { threadId in
-                            try? SessionThread
-                                .filter(id: threadId)
-                                .select(.variant)
-                                .asRequest(of: SessionThread.Variant.self)
-                                .fetchOne(db)
-                        }
-                    let isOpenGroup: Bool = (maybeVariant == .community)
-                    
                     switch processedMessage.messageInfo.message {
                         case let visibleMessage as VisibleMessage:
                             let interactionId: Int64 = try MessageReceiver.handleVisibleMessage(
                                 db,
+                                threadId: processedMessage.threadId,
+                                threadVariant: processedMessage.threadVariant,
                                 message: visibleMessage,
-                                associatedWithProto: processedMessage.proto,
-                                openGroupId: (isOpenGroup ? processedMessage.threadId : nil)
+                                associatedWithProto: processedMessage.proto
                             )
                             
                             // Remove the notifications if there is an outgoing messages from a linked device
@@ -111,19 +102,40 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             }
                         
                         case let unsendRequest as UnsendRequest:
-                            try MessageReceiver.handleUnsendRequest(db, message: unsendRequest)
+                            try MessageReceiver.handleUnsendRequest(
+                                db,
+                                threadId: processedMessage.threadId,
+                                threadVariant: processedMessage.threadVariant,
+                                message: unsendRequest
+                            )
                             
                         case let closedGroupControlMessage as ClosedGroupControlMessage:
-                            try MessageReceiver.handleClosedGroupControlMessage(db, closedGroupControlMessage)
+                            try MessageReceiver.handleClosedGroupControlMessage(
+                                db,
+                                threadId: processedMessage.threadId,
+                                threadVariant: processedMessage.threadVariant,
+                                message: closedGroupControlMessage
+                            )
                             
                         case let callMessage as CallMessage:
-                            try MessageReceiver.handleCallMessage(db, message: callMessage)
+                            try MessageReceiver.handleCallMessage(
+                                db,
+                                threadId: processedMessage.threadId,
+                                threadVariant: processedMessage.threadVariant,
+                                message: callMessage
+                            )
                             
                             guard case .preOffer = callMessage.kind else { return self.completeSilenty() }
                             
                             if !db[.areCallsEnabled] {
                                 if let sender: String = callMessage.sender, let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: callMessage, state: .permissionDenied) {
-                                    let thread: SessionThread = try SessionThread.fetchOrCreate(db, id: sender, variant: .contact)
+                                    let thread: SessionThread = try SessionThread
+                                        .fetchOrCreate(
+                                            db,
+                                            id: sender,
+                                            variant: .contact,
+                                            shouldBeVisible: nil
+                                        )
 
                                     Environment.shared?.notificationsManager.wrappedValue?
                                         .notifyUser(
@@ -146,7 +158,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             try SessionUtil.handleConfigMessages(
                                 db,
                                 messages: [sharedConfigMessage],
-                                publicKey: (processedMessage.threadId ?? "")
+                                publicKey: processedMessage.threadId
                             )
                             
                         default: break
@@ -155,8 +167,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     // Perform any required post-handling logic
                     try MessageReceiver.postHandleMessage(
                         db,
-                        message: processedMessage.messageInfo.message,
-                        openGroupId: (isOpenGroup ? processedMessage.threadId : nil)
+                        threadId: processedMessage.threadId,
+                        message: processedMessage.messageInfo.message
                     )
                 }
                 catch {

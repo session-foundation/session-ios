@@ -19,7 +19,7 @@ public enum MessageReceiver {
         isOutgoing: Bool? = nil,
         otherBlindedPublicKey: String? = nil,
         dependencies: SMKDependencies = SMKDependencies()
-    ) throws -> (Message, SNProtoContent, String) {
+    ) throws -> (Message, SNProtoContent, String, SessionThread.Variant) {
         let userPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
         let isOpenGroupMessage: Bool = (openGroupId != nil)
         
@@ -147,7 +147,6 @@ public enum MessageReceiver {
         message.recipient = userPublicKey
         message.sentTimestamp = envelope.timestamp
         message.receivedTimestamp = UInt64(SnodeAPI.currentOffsetTimestampMs())
-        message.groupPublicKey = groupPublicKey
         message.openGroupServerMessageId = openGroupMessageServerId.map { UInt64($0) }
         
         // Validate
@@ -161,28 +160,29 @@ public enum MessageReceiver {
         }
         
         // Extract the proper threadId for the message
-        let threadId: String = {
-            if let groupPublicKey: String = groupPublicKey { return groupPublicKey }
-            if let openGroupId: String = openGroupId { return openGroupId }
+        let (threadId, threadVariant): (String, SessionThread.Variant) = {
+            if let groupPublicKey: String = groupPublicKey { return (groupPublicKey, .legacyGroup) }
+            if let openGroupId: String = openGroupId { return (openGroupId, .community) }
             
             switch message {
-                case let message as VisibleMessage: return (message.syncTarget ?? sender)
-                case let message as ExpirationTimerUpdate: return (message.syncTarget ?? sender)
-                default: return sender
+                case let message as VisibleMessage: return ((message.syncTarget ?? sender), .contact)
+                case let message as ExpirationTimerUpdate: return ((message.syncTarget ?? sender), .contact)
+                default: return (sender, .contact)
             }
         }()
         
-        return (message, proto, threadId)
+        return (message, proto, threadId, threadVariant)
     }
     
     // MARK: - Handling
     
     public static func handle(
         _ db: Database,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
         message: Message,
         serverExpirationTimestamp: TimeInterval?,
         associatedWithProto proto: SNProtoContent,
-        openGroupId: String?,
         dependencies: SMKDependencies = SMKDependencies()
     ) throws {
         switch message {
@@ -194,35 +194,70 @@ public enum MessageReceiver {
                 )
                 
             case let message as TypingIndicator:
-                try MessageReceiver.handleTypingIndicator(db, message: message)
+                try MessageReceiver.handleTypingIndicator(
+                    db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    message: message
+                )
                 
             case let message as ClosedGroupControlMessage:
-                try MessageReceiver.handleClosedGroupControlMessage(db, message)
+                try MessageReceiver.handleClosedGroupControlMessage(
+                    db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    message: message
+                )
                 
             case let message as DataExtractionNotification:
-                try MessageReceiver.handleDataExtractionNotification(db, message: message)
+                try MessageReceiver.handleDataExtractionNotification(
+                    db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    message: message
+                )
                 
             case let message as ExpirationTimerUpdate:
-                try MessageReceiver.handleExpirationTimerUpdate(db, message: message)
+                try MessageReceiver.handleExpirationTimerUpdate(
+                    db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    message: message
+                )
                 
             case let message as ConfigurationMessage:
                 try MessageReceiver.handleConfigurationMessage(db, message: message)
                 
             case let message as UnsendRequest:
-                try MessageReceiver.handleUnsendRequest(db, message: message)
+                try MessageReceiver.handleUnsendRequest(
+                    db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    message: message
+                )
                 
             case let message as CallMessage:
-                try MessageReceiver.handleCallMessage(db, message: message)
+                try MessageReceiver.handleCallMessage(
+                    db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    message: message
+                )
                 
             case let message as MessageRequestResponse:
-                try MessageReceiver.handleMessageRequestResponse(db, message: message, dependencies: dependencies)
+                try MessageReceiver.handleMessageRequestResponse(
+                    db,
+                    message: message,
+                    dependencies: dependencies
+                )
                 
             case let message as VisibleMessage:
                 try MessageReceiver.handleVisibleMessage(
                     db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
                     message: message,
-                    associatedWithProto: proto,
-                    openGroupId: openGroupId
+                    associatedWithProto: proto
                 )
                 
             // SharedConfigMessages should be handled by the 'SharedUtil' instead of this
@@ -232,13 +267,13 @@ public enum MessageReceiver {
         }
         
         // Perform any required post-handling logic
-        try MessageReceiver.postHandleMessage(db, message: message, openGroupId: openGroupId)
+        try MessageReceiver.postHandleMessage(db, threadId: threadId, message: message)
     }
     
     public static func postHandleMessage(
         _ db: Database,
-        message: Message,
-        openGroupId: String?
+        threadId: String,
+        message: Message
     ) throws {
         // When handling any non-typing indicator message we want to make sure the thread becomes
         // visible (the only other spot this flag gets set is when sending messages)
@@ -246,14 +281,12 @@ public enum MessageReceiver {
             case is TypingIndicator: break
                 
             default:
-                guard let threadInfo: (id: String, variant: SessionThread.Variant) = threadInfo(db, message: message, openGroupId: openGroupId) else {
-                    return
-                }
-                
-                _ = try SessionThread
-                    .fetchOrCreate(db, id: threadInfo.id, variant: threadInfo.variant)
-                    .with(shouldBeVisible: true)
-                    .saved(db)
+                try SessionThread
+                    .filter(id: threadId)
+                    .updateAllAndConfig(
+                        db,
+                        SessionThread.Columns.shouldBeVisible.set(to: true)
+                    )
         }
     }
     
@@ -280,37 +313,5 @@ public enum MessageReceiver {
         for reaction in openGroupReactions {
             try reaction.with(interactionId: interactionId).insert(db)
         }
-    }
-    
-    // MARK: - Convenience
-    
-    internal static func threadInfo(_ db: Database, message: Message, openGroupId: String?) -> (id: String, variant: SessionThread.Variant)? {
-        if let openGroupId: String = openGroupId {
-            // Note: We don't want to create a thread for an open group if it doesn't exist
-            if (try? SessionThread.exists(db, id: openGroupId)) != true { return nil }
-            
-            return (openGroupId, .community)
-        }
-        
-        if let groupPublicKey: String = message.groupPublicKey {
-            // Note: We don't want to create a thread for a closed group if it doesn't exist
-            if (try? SessionThread.exists(db, id: groupPublicKey)) != true { return nil }
-            
-            return (groupPublicKey, .legacyGroup)
-        }
-        
-        // Extract the 'syncTarget' value if there is one
-        let maybeSyncTarget: String?
-        
-        switch message {
-            case let message as VisibleMessage: maybeSyncTarget = message.syncTarget
-            case let message as ExpirationTimerUpdate: maybeSyncTarget = message.syncTarget
-            default: maybeSyncTarget = nil
-        }
-        
-        // Note: We don't want to create a thread for a closed group if it doesn't exist
-        guard let contactId: String = (maybeSyncTarget ?? message.sender) else { return nil }
-        
-        return (contactId, .contact)
     }
 }

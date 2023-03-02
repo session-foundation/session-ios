@@ -108,7 +108,8 @@ enum MockDataGenerator {
         logProgress("", "Start")
         
         // First create the thread used to indicate that the mock data has been generated
-        _ = try? SessionThread.fetchOrCreate(db, id: "MockDatabaseThread", variant: .contact)
+        _ = try? SessionThread
+            .fetchOrCreate(db, id: "MockDatabaseThread", variant: .contact, shouldBeVisible: false)
         
         // MARK: - -- DM Thread
         
@@ -133,9 +134,12 @@ enum MockDataGenerator {
                 
                 // Generate the thread
                 let thread: SessionThread = try! SessionThread
-                    .fetchOrCreate(db, id: randomSessionId, variant: .contact)
-                    .with(shouldBeVisible: true)
-                    .saved(db)
+                    .fetchOrCreate(
+                        db,
+                        id: randomSessionId,
+                        variant: .contact,
+                        shouldBeVisible: true
+                    )
                 
                 // Generate the contact
                 let contact: Contact = try! Contact(
@@ -241,9 +245,12 @@ enum MockDataGenerator {
                 }
                 
                 let thread: SessionThread = try! SessionThread
-                    .fetchOrCreate(db, id: randomGroupPublicKey, variant: .legacyGroup)
-                    .with(shouldBeVisible: true)
-                    .saved(db)
+                    .fetchOrCreate(
+                        db,
+                        id: randomGroupPublicKey,
+                        variant: .legacyGroup,
+                        shouldBeVisible: true
+                    )
                 _ = try! ClosedGroup(
                     threadId: randomGroupPublicKey,
                     name: groupName,
@@ -367,9 +374,12 @@ enum MockDataGenerator {
                 
                 // Create the open group model and the thread
                 let thread: SessionThread = try! SessionThread
-                    .fetchOrCreate(db, id: randomGroupPublicKey, variant: .community)
-                    .with(shouldBeVisible: true)
-                    .saved(db)
+                    .fetchOrCreate(
+                        db,
+                        id: randomGroupPublicKey,
+                        variant: .community,
+                        shouldBeVisible: true
+                    )
                 _ = try! OpenGroup(
                     server: serverName,
                     roomToken: roomName,

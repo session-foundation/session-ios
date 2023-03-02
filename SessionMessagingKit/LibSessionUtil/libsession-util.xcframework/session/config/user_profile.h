@@ -56,6 +56,12 @@ int user_profile_get_nts_priority(const config_object* conf);
 // Sets the current note-to-self priority level. Should be >= 0 (negatives will be set to 0).
 void user_profile_set_nts_priority(config_object* conf, int priority);
 
+// Gets the current note-to-self priority level. Will always be >= 0.
+bool user_profile_get_nts_hidden(const config_object* conf);
+
+// Sets the current note-to-self priority level. Should be >= 0 (negatives will be set to 0).
+void user_profile_set_nts_hidden(config_object* conf, bool hidden);
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif

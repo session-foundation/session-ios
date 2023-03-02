@@ -157,9 +157,6 @@ public enum MessageSendJob: JobExecutor {
         // Store the sentTimestamp from the message in case it fails due to a clockOutOfSync error
         let originalSentTimestamp: UInt64? = details.message.sentTimestamp
         
-        // Add the threadId to the message if there isn't one set
-        details.message.threadId = (details.message.threadId ?? job.threadId)
-        
         /// Perform the actual message sending
         ///
         /// **Note:** No need to upload attachments as part of this process as the above logic splits that out into it's own job

@@ -158,16 +158,22 @@ internal extension SessionUtil {
         // If there are no newer local last read timestamps then just return the mergeResult
         guard !newerLocalChanges.isEmpty else { return }
         
-        try upsert(
-            convoInfoVolatileChanges: newerLocalChanges,
-            in: conf
-        )
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .convoInfoVolatile,
+            publicKey: getUserHexEncodedPublicKey(db)
+        ) { conf in
+            try upsert(
+                convoInfoVolatileChanges: newerLocalChanges,
+                in: conf
+            )
+        }
     }
     
-    @discardableResult static func upsert(
+    static func upsert(
         convoInfoVolatileChanges: [VolatileThreadInfo],
         in conf: UnsafeMutablePointer<config_object>?
-    ) throws -> ConfResult {
+    ) throws {
         guard conf != nil else { throw SessionUtilError.nilConfigObject }
         
         convoInfoVolatileChanges.forEach { threadInfo in
@@ -240,30 +246,23 @@ internal extension SessionUtil {
                     }
                     convo_info_volatile_set_community(conf, &community)
                     
-                case .group: return   // TODO: Need to add when the type is added to the lib.
+                case .group: return   // TODO: Need to add when the type is added to the lib
             }
         }
-        
-        return ConfResult(
-            needsPush: config_needs_push(conf),
-            needsDump: config_needs_dump(conf)
-        )
     }
 }
 
 // MARK: - Convenience
 
 internal extension SessionUtil {
-    @discardableResult static func updatingThreadsConvoInfoVolatile<T>(_ db: Database, _ updated: [T]) throws -> [T] {
-        guard let updatedThreads: [SessionThread] = updated as? [SessionThread] else {
-            throw StorageError.generic
-        }
-        
+    static func updateMarkedAsUnreadState(
+        _ db: Database,
+        threads: [SessionThread]
+    ) throws {
         // If we have no updated threads then no need to continue
-        guard !updatedThreads.isEmpty else { return updated }
-        
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
-        let changes: [VolatileThreadInfo] = try updatedThreads.map { thread in
+        guard !threads.isEmpty else { return }
+
+        let changes: [VolatileThreadInfo] = try threads.map { thread in
             VolatileThreadInfo(
                 threadId: thread.id,
                 variant: thread.variant,
@@ -273,36 +272,17 @@ internal extension SessionUtil {
                 changes: [.markedAsUnread(thread.markedAsUnread ?? false)]
             )
         }
-        
-        do {
-            try SessionUtil
-                .config(
-                    for: .convoInfoVolatile,
-                    publicKey: userPublicKey
-                )
-                .mutate { conf in
-                    guard conf != nil else { throw SessionUtilError.nilConfigObject }
-                    
-                    let result: ConfResult = try upsert(
-                        convoInfoVolatileChanges: changes,
-                        in: conf
-                    )
-                    
-                    // If we don't need to dump the data the we can finish early
-                    guard result.needsDump else { return }
-                    
-                    try SessionUtil.createDump(
-                        conf: conf,
-                        for: .convoInfoVolatile,
-                        publicKey: userPublicKey
-                    )?.save(db)
-                }
+
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .convoInfoVolatile,
+            publicKey: getUserHexEncodedPublicKey(db)
+        ) { conf in
+            try upsert(
+                convoInfoVolatileChanges: changes,
+                in: conf
+            )
         }
-        catch {
-            SNLog("[libSession-util] Failed to dump updated data")
-        }
-        
-        return updated
     }
     
     static func syncThreadLastReadIfNeeded(
@@ -311,7 +291,6 @@ internal extension SessionUtil {
         threadVariant: SessionThread.Variant,
         lastReadTimestampMs: Int64
     ) throws {
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
         let change: VolatileThreadInfo = VolatileThreadInfo(
             threadId: threadId,
             variant: threadVariant,
@@ -321,36 +300,15 @@ internal extension SessionUtil {
             changes: [.lastReadTimestampMs(lastReadTimestampMs)]
         )
         
-        let needsPush: Bool = try SessionUtil
-            .config(
-                for: .convoInfoVolatile,
-                publicKey: userPublicKey
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .convoInfoVolatile,
+            publicKey: getUserHexEncodedPublicKey(db)
+        ) { conf in
+            try upsert(
+                convoInfoVolatileChanges: [change],
+                in: conf
             )
-            .mutate { conf in
-                guard conf != nil else { throw SessionUtilError.nilConfigObject }
-                
-                let result: ConfResult = try upsert(
-                    convoInfoVolatileChanges: [change],
-                    in: conf
-                )
-                
-                // If we don't need to dump the data the we can finish early
-                guard result.needsDump else { return result.needsPush }
-                
-                try SessionUtil.createDump(
-                    conf: conf,
-                    for: .contacts,
-                    publicKey: userPublicKey
-                )?.save(db)
-                
-                return result.needsPush
-            }
-        
-        // If we need to push then enqueue a 'ConfigurationSyncJob'
-        guard needsPush else { return }
-        
-        db.afterNextTransactionNestedOnce(dedupeId: SessionUtil.syncDedupeId(userPublicKey)) { db in
-            ConfigurationSyncJob.enqueue(db, publicKey: userPublicKey)
         }
     }
     
@@ -361,51 +319,50 @@ internal extension SessionUtil {
         userPublicKey: String,
         openGroup: OpenGroup?
     ) -> Bool {
-        let atomicConf: Atomic<UnsafeMutablePointer<config_object>?> = SessionUtil.config(
-            for: .convoInfoVolatile,
-            publicKey: userPublicKey
-        )
-        
-        // If we don't have a config then just assume it's unread
-        guard atomicConf.wrappedValue != nil else { return false }
-        
-        // Since we are doing direct memory manipulation we are using an `Atomic` type which has
-        // blocking access in it's `mutate` closure
-        return atomicConf.mutate { conf in
-            switch threadVariant {
-                case .contact:
-                    var cThreadId: [CChar] = threadId.cArray
-                    var oneToOne: convo_info_volatile_1to1 = convo_info_volatile_1to1()
-                    guard convo_info_volatile_get_1to1(conf, &oneToOne, &cThreadId) else { return false }
-                    
-                    return (oneToOne.last_read > timestampMs)
-                    
-                case .legacyGroup:
-                    var cThreadId: [CChar] = threadId.cArray
-                    var legacyGroup: convo_info_volatile_legacy_group = convo_info_volatile_legacy_group()
-                    
-                    guard convo_info_volatile_get_legacy_group(conf, &legacyGroup, &cThreadId) else {
-                        return false
-                    }
-                    
-                    return (legacyGroup.last_read > timestampMs)
-                    
-                case .community:
-                    guard let openGroup: OpenGroup = openGroup else { return false }
-                    
-                    var cBaseUrl: [CChar] = openGroup.server.cArray
-                    var cRoomToken: [CChar] = openGroup.roomToken.cArray
-                    var convoCommunity: convo_info_volatile_community = convo_info_volatile_community()
-                    
-                    guard convo_info_volatile_get_community(conf, &convoCommunity, &cBaseUrl, &cRoomToken) else {
-                        return false
-                    }
-                    
-                    return (convoCommunity.last_read > timestampMs)
-                    
-                case .group: return false // TODO: Need to add when the type is added to the lib
+        return SessionUtil
+            .config(
+                for: .convoInfoVolatile,
+                publicKey: userPublicKey
+            )
+            .wrappedValue
+            .map { conf in
+                switch threadVariant {
+                    case .contact:
+                        var cThreadId: [CChar] = threadId.cArray
+                        var oneToOne: convo_info_volatile_1to1 = convo_info_volatile_1to1()
+                        guard convo_info_volatile_get_1to1(conf, &oneToOne, &cThreadId) else {
+                            return false
+                        }
+                        
+                        return (oneToOne.last_read > timestampMs)
+                        
+                    case .legacyGroup:
+                        var cThreadId: [CChar] = threadId.cArray
+                        var legacyGroup: convo_info_volatile_legacy_group = convo_info_volatile_legacy_group()
+                        
+                        guard convo_info_volatile_get_legacy_group(conf, &legacyGroup, &cThreadId) else {
+                            return false
+                        }
+                        
+                        return (legacyGroup.last_read > timestampMs)
+                        
+                    case .community:
+                        guard let openGroup: OpenGroup = openGroup else { return false }
+                        
+                        var cBaseUrl: [CChar] = openGroup.server.cArray
+                        var cRoomToken: [CChar] = openGroup.roomToken.cArray
+                        var convoCommunity: convo_info_volatile_community = convo_info_volatile_community()
+                        
+                        guard convo_info_volatile_get_community(conf, &convoCommunity, &cBaseUrl, &cRoomToken) else {
+                            return false
+                        }
+                        
+                        return (convoCommunity.last_read > timestampMs)
+                        
+                    case .group: return false // TODO: Need to add when the type is added to the lib
+                }
             }
-        }
+            .defaulting(to: false) // If we don't have a config then just assume it's unread
     }
 }
 

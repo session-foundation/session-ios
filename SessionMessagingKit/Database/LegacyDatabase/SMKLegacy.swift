@@ -179,12 +179,10 @@ public enum SMKLegacy {
         internal func toNonLegacy(_ instance: Message? = nil) throws -> Message {
             let result: Message = (instance ?? Message())
             result.id = self.id
-            result.threadId = self.threadID
             result.sentTimestamp = self.sentTimestamp
             result.receivedTimestamp = self.receivedTimestamp
             result.recipient = self.recipient
             result.sender = self.sender
-            result.groupPublicKey = self.groupPublicKey
             result.openGroupServerMessageId = self.openGroupServerMessageID
             result.serverHash = self.serverHash
             

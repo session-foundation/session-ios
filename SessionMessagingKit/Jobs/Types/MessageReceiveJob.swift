@@ -17,6 +17,7 @@ public enum MessageReceiveJob: JobExecutor {
         deferred: @escaping (Job) -> ()
     ) {
         guard
+            let threadId: String = job.threadId,
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
         else {
@@ -59,10 +60,11 @@ public enum MessageReceiveJob: JobExecutor {
                 do {
                     try MessageReceiver.handle(
                         db,
+                        threadId: threadId,
+                        threadVariant: messageInfo.threadVariant,
                         message: messageInfo.message,
                         serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                        associatedWithProto: protoContent,
-                        openGroupId: nil
+                        associatedWithProto: protoContent
                     )
                 }
                 catch {
@@ -131,23 +133,27 @@ extension MessageReceiveJob {
             private enum CodingKeys: String, CodingKey {
                 case message
                 case variant
+                case threadVariant
                 case serverExpirationTimestamp
                 case serializedProtoData
             }
             
             public let message: Message
             public let variant: Message.Variant
+            public let threadVariant: SessionThread.Variant
             public let serverExpirationTimestamp: TimeInterval?
             public let serializedProtoData: Data
             
             public init(
                 message: Message,
                 variant: Message.Variant,
+                threadVariant: SessionThread.Variant,
                 serverExpirationTimestamp: TimeInterval?,
                 proto: SNProtoContent
             ) throws {
                 self.message = message
                 self.variant = variant
+                self.threadVariant = threadVariant
                 self.serverExpirationTimestamp = serverExpirationTimestamp
                 self.serializedProtoData = try proto.serializedData()
             }
@@ -155,11 +161,13 @@ extension MessageReceiveJob {
             private init(
                 message: Message,
                 variant: Message.Variant,
+                threadVariant: SessionThread.Variant,
                 serverExpirationTimestamp: TimeInterval?,
                 serializedProtoData: Data
             ) {
                 self.message = message
                 self.variant = variant
+                self.threadVariant = threadVariant
                 self.serverExpirationTimestamp = serverExpirationTimestamp
                 self.serializedProtoData = serializedProtoData
             }
@@ -177,6 +185,24 @@ extension MessageReceiveJob {
                 self = MessageInfo(
                     message: try variant.decode(from: container, forKey: .message),
                     variant: variant,
+                    threadVariant: (try? container.decode(SessionThread.Variant.self, forKey: .threadVariant))
+                        .defaulting(to: {
+                            /// We used to store a 'groupPublicKey' value within the 'Message' type which was used to
+                            /// determine the thread variant, now we just encode the variant directly but there may be
+                            /// some legacy jobs which still have `groupPublicKey` so we have this mechanism
+                            ///
+                            /// **Note:** This can probably be removed a couple of releases after the user config
+                            /// update release (ie. after June 2023)
+                            class LegacyGroupPubkey: Codable {
+                                let groupPublicKey: String?
+                            }
+                            
+                            if (try? container.decode(LegacyGroupPubkey.self, forKey: .message))?.groupPublicKey != nil {
+                                return .legacyGroup
+                            }
+                            
+                            return .contact
+                        }()),
                     serverExpirationTimestamp: try? container.decode(TimeInterval.self, forKey: .serverExpirationTimestamp),
                     serializedProtoData: try container.decode(Data.self, forKey: .serializedProtoData)
                 )
@@ -192,6 +218,7 @@ extension MessageReceiveJob {
 
                 try container.encode(message, forKey: .message)
                 try container.encode(variant, forKey: .variant)
+                try container.encode(threadVariant, forKey: .threadVariant)
                 try container.encodeIfPresent(serverExpirationTimestamp, forKey: .serverExpirationTimestamp)
                 try container.encode(serializedProtoData, forKey: .serializedProtoData)
             }

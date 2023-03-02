@@ -8,9 +8,10 @@ import SessionUtilitiesKit
 extension MessageReceiver {
     @discardableResult public static func handleVisibleMessage(
         _ db: Database,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
         message: VisibleMessage,
         associatedWithProto proto: SNProtoContent,
-        openGroupId: String?,
         dependencies: Dependencies = Dependencies()
     ) throws -> Int64 {
         guard let sender: String = message.sender, let dataMessage = proto.dataMessage else {
@@ -53,8 +54,12 @@ extension MessageReceiver {
         // Store the message variant so we can run variant-specific behaviours
         let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
         let thread: SessionThread = try SessionThread
-            .fetchOrCreate(db, id: threadInfo.id, variant: threadInfo.variant)
-        let maybeOpenGroup: OpenGroup? = openGroupId.map { try? OpenGroup.fetchOne(db, id: $0) }
+            .fetchOrCreate(db, id: threadId, variant: threadVariant, shouldBeVisible: nil)
+        let maybeOpenGroup: OpenGroup? = {
+            guard threadVariant == .community else { return nil }
+            
+            return try? OpenGroup.fetchOne(db, id: threadId)
+        }()
         let variant: Interaction.Variant = {
             guard
                 let senderSessionId: SessionId = SessionId(from: sender),
@@ -94,7 +99,14 @@ extension MessageReceiver {
         }()
         
         // Handle emoji reacts first (otherwise it's essentially an invalid message)
-        if let interactionId: Int64 = try handleEmojiReactIfNeeded(db, message: message, associatedWithProto: proto, sender: sender, messageSentTimestamp: messageSentTimestamp, openGroupId: openGroupId, thread: thread) {
+        if let interactionId: Int64 = try handleEmojiReactIfNeeded(
+            db,
+            thread: thread,
+            message: message,
+            associatedWithProto: proto,
+            sender: sender,
+            messageSentTimestamp: messageSentTimestamp
+        ) {
             return interactionId
         }
         
@@ -314,12 +326,11 @@ extension MessageReceiver {
     
     private static func handleEmojiReactIfNeeded(
         _ db: Database,
+        thread: SessionThread,
         message: VisibleMessage,
         associatedWithProto proto: SNProtoContent,
         sender: String,
-        messageSentTimestamp: TimeInterval,
-        openGroupId: String?,
-        thread: SessionThread
+        messageSentTimestamp: TimeInterval
     ) throws -> Int64? {
         guard
             let reaction: VisibleMessage.VMReaction = message.reaction,
@@ -347,7 +358,7 @@ extension MessageReceiver {
         
         switch reaction.kind {
             case .react:
-                let reaction = Reaction(
+                let reaction: Reaction = try Reaction(
                     interactionId: interactionId,
                     serverHash: message.serverHash,
                     timestampMs: Int64(messageSentTimestamp * 1000),
@@ -355,8 +366,8 @@ extension MessageReceiver {
                     emoji: reaction.emoji,
                     count: 1,
                     sortId: sortId
-                )
-                try reaction.insert(db)
+                ).inserted(db)
+                
                 if sender != getUserHexEncodedPublicKey(db) {
                     Environment.shared?.notificationsManager.wrappedValue?
                         .notifyUser(

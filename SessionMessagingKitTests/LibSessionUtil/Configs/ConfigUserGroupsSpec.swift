@@ -206,12 +206,13 @@ class ConfigUserGroupsSpec {
                 .to(equal("00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"))
 
             // The new data doesn't get stored until we call this:
-            user_groups_set_legacy_group(conf, legacyGroup2)
+            user_groups_set_free_legacy_group(conf, legacyGroup2)
             
             let legacyGroup3: UnsafeMutablePointer<ugroups_legacy_group_info>? = user_groups_get_legacy_group(conf, &cDefinitelyRealId)
             expect(legacyGroup3?.pointee).toNot(beNil())
             expect(config_needs_push(conf)).to(beTrue())
             expect(config_needs_dump(conf)).to(beTrue())
+            ugroups_legacy_group_free(legacyGroup3)
             
             let communityPubkey: String = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
             var cCommunityPubkey: [UInt8] = Data(hex: communityPubkey).cArray
@@ -307,6 +308,7 @@ class ConfigUserGroupsSpec {
             }
             
             ugroups_legacy_members_free(membersIt3)
+            ugroups_legacy_group_free(legacyGroup4)
             
             expect(membersSeen3).to(equal([
                 "050000000000000000000000000000000000000000000000000000000000000000": false,
@@ -436,7 +438,7 @@ class ConfigUserGroupsSpec {
             expect(config_needs_dump(conf2)).to(beFalse())
             pushData9.deallocate()
             
-            user_groups_set_legacy_group(conf2, legacyGroup5)
+            user_groups_set_free_legacy_group(conf2, legacyGroup5)
             expect(config_needs_push(conf2)).to(beTrue())
             expect(config_needs_dump(conf2)).to(beTrue())
 

@@ -206,6 +206,35 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         
         return result
     }()
+    
+    private lazy var emptyStateLabel: UILabel = {
+        let text: String = String(
+            format: "GROUP_CONVERSATION_EMPTY_STATE".localized(),
+            self.viewModel.threadData.displayName
+        )
+        
+        let result: UILabel = UILabel()
+        result.accessibilityLabel = "Empty state label"
+        result.translatesAutoresizingMaskIntoConstraints = false
+        result.font = .systemFont(ofSize: Values.verySmallFontSize)
+        result.attributedText = NSAttributedString(string: text)
+            .adding(
+                attributes: [.font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize)],
+                range: text.range(of: self.viewModel.threadData.displayName)
+                    .map { NSRange($0, in: text) }
+                    .defaulting(to: NSRange(location: 0, length: 0))
+            )
+        result.themeTextColor = .textSecondary
+        result.textAlignment = .center
+        result.lineBreakMode = .byWordWrapping
+        result.numberOfLines = 0
+        result.isHidden = (
+            self.viewModel.threadData.threadVariant != .legacyGroup &&
+            self.viewModel.threadData.threadVariant != .group
+        )
+
+        return result
+    }()
 
     lazy var footerControlsStackView: UIStackView = {
         let result: UIStackView = UIStackView()
@@ -367,8 +396,13 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
 
         // Message requests view & scroll to bottom
         view.addSubview(scrollButton)
+        view.addSubview(emptyStateLabel)
         view.addSubview(messageRequestBackgroundView)
         view.addSubview(messageRequestStackView)
+        
+        emptyStateLabel.pin(.top, to: .top, of: view, withInset: Values.largeSpacing)
+        emptyStateLabel.pin(.leading, to: .leading, of: view, withInset: Values.largeSpacing)
+        emptyStateLabel.pin(.trailing, to: .trailing, of: view, withInset: -Values.largeSpacing)
 
         messageRequestStackView.addArrangedSubview(messageRequestBlockButton)
         messageRequestStackView.addArrangedSubview(messageRequestDescriptionContainerView)
@@ -376,7 +410,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         messageRequestDescriptionContainerView.addSubview(messageRequestDescriptionLabel)
         messageRequestActionStackView.addArrangedSubview(messageRequestAcceptButton)
         messageRequestActionStackView.addArrangedSubview(messageRequestDeleteButton)
-
+        
         scrollButton.pin(.trailing, to: .trailing, of: view, withInset: -20)
         messageRequestStackView.pin(.leading, to: .leading, of: view, withInset: 16)
         messageRequestStackView.pin(.trailing, to: .trailing, of: view, withInset: -16)
@@ -618,6 +652,19 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                 onlyNotifyForMentions: (updatedThreadData.threadOnlyNotifyForMentions == true),
                 userCount: updatedThreadData.userCount
             )
+            
+            // Update the empty state
+            let text: String = String(
+                format: "GROUP_CONVERSATION_EMPTY_STATE".localized(),
+                updatedThreadData.displayName
+            )
+            emptyStateLabel.attributedText = NSAttributedString(string: text)
+                .adding(
+                    attributes: [.font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize)],
+                    range: text.range(of: updatedThreadData.displayName)
+                        .map { NSRange($0, in: text) }
+                        .defaulting(to: NSRange(location: 0, length: 0))
+                )
         }
         
         if
@@ -718,6 +765,19 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                 self.hasLoadedInitialInteractionData = true
                 self.viewModel.updateInteractionData(updatedData)
                 
+                // Update the empty state
+                let hasMessages: Bool = (updatedData
+                    .filter { $0.model == .messages }
+                    .first?
+                    .elements
+                    .isEmpty == false)
+                self.emptyStateLabel.isHidden = (
+                    hasMessages || (
+                        self.viewModel.threadData.threadVariant != .legacyGroup &&
+                        self.viewModel.threadData.threadVariant != .group
+                    )
+                )
+                
                 UIView.performWithoutAnimation {
                     self.tableView.reloadData()
                     self.performInitialScrollIfNeeded()
@@ -725,6 +785,14 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             }
             return
         }
+        
+        // Update the empty state
+        self.emptyStateLabel.isHidden = (
+            !updatedData.isEmpty || (
+                self.viewModel.threadData.threadVariant != .legacyGroup &&
+                self.viewModel.threadData.threadVariant != .group
+            )
+        )
         
         // Update the ReactionListSheet (if one exists)
         if let messageUpdates: [MessageViewModel] = updatedData.first(where: { $0.model == .messages })?.elements {

@@ -15,7 +15,7 @@ extension MessageSender {
         _ db: Database,
         name: String,
         members: Set<String>
-    ) -> AnyPublisher<SessionThread, Error> {
+    ) throws -> AnyPublisher<SessionThread, Error> {
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         var members: Set<String> = members
         
@@ -30,89 +30,85 @@ extension MessageSender {
         
         // Create the group
         members.insert(userPublicKey) // Ensure the current user is included in the member list
-        let membersAsData = members.map { Data(hex: $0) }
-        let admins = [ userPublicKey ]
-        let adminsAsData = admins.map { Data(hex: $0) }
+        let membersAsData: [Data] = members.map { Data(hex: $0) }
+        let admins: Set<String> = [ userPublicKey ]
+        let adminsAsData: [Data] = admins.map { Data(hex: $0) }
         let formationTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
-        let thread: SessionThread
-        let memberSendData: [MessageSender.PreparedSendData]
         
-        do {
-            // Create the relevant objects in the database
-            thread = try SessionThread
-                .fetchOrCreate(db, id: groupPublicKey, variant: .legacyGroup)
-            try ClosedGroup(
-                threadId: groupPublicKey,
-                name: name,
-                formationTimestamp: formationTimestamp
+        // Create the relevant objects in the database
+        let thread: SessionThread = try SessionThread
+            .fetchOrCreate(db, id: groupPublicKey, variant: .legacyGroup, shouldBeVisible: true)
+        try ClosedGroup(
+            threadId: groupPublicKey,
+            name: name,
+            formationTimestamp: formationTimestamp
+        ).insert(db)
+        
+        // Store the key pair
+        let latestKeyPairReceivedTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
+        try ClosedGroupKeyPair(
+            threadId: groupPublicKey,
+            publicKey: encryptionKeyPair.publicKey,
+            secretKey: encryptionKeyPair.privateKey,
+            receivedTimestamp: latestKeyPairReceivedTimestamp
+        ).insert(db)
+        
+        // Create the member objects
+        try admins.forEach { adminId in
+            try GroupMember(
+                groupId: groupPublicKey,
+                profileId: adminId,
+                role: .admin,
+                isHidden: false
             ).insert(db)
-            
-            // Store the key pair
-            try ClosedGroupKeyPair(
-                threadId: groupPublicKey,
-                publicKey: encryptionKeyPair.publicKey,
-                secretKey: encryptionKeyPair.privateKey,
-                receivedTimestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
+        }
+        
+        try members.forEach { memberId in
+            try GroupMember(
+                groupId: groupPublicKey,
+                profileId: memberId,
+                role: .standard,
+                isHidden: false
             ).insert(db)
-            
-            // Create the member objects
-            try admins.forEach { adminId in
-                try GroupMember(
-                    groupId: groupPublicKey,
-                    profileId: adminId,
-                    role: .admin,
-                    isHidden: false
-                ).insert(db)
-            }
-            
-            try members.forEach { memberId in
-                try GroupMember(
-                    groupId: groupPublicKey,
-                    profileId: memberId,
-                    role: .standard,
-                    isHidden: false
-                ).insert(db)
-            }
-            
-            // Notify the user
-            //
-            // Note: Intentionally don't want a 'serverHash' for closed group creation
-            _ = try Interaction(
-                threadId: thread.id,
-                authorId: userPublicKey,
-                variant: .infoClosedGroupCreated,
-                timestampMs: SnodeAPI.currentOffsetTimestampMs()
-            ).inserted(db)
-            
-            memberSendData = try members
-                .map { memberId -> MessageSender.PreparedSendData in
-                    try MessageSender.preparedSendData(
-                        db,
-                        message: ClosedGroupControlMessage(
-                            kind: .new(
-                                publicKey: Data(hex: groupPublicKey),
-                                name: name,
-                                encryptionKeyPair: Box.KeyPair(
-                                    publicKey: encryptionKeyPair.publicKey.bytes,
-                                    secretKey: encryptionKeyPair.privateKey.bytes
-                                ),
-                                members: membersAsData,
-                                admins: adminsAsData,
-                                expirationTimer: 0
+        }
+        
+        // Update libSession
+        try SessionUtil.add(
+            db,
+            groupPublicKey: groupPublicKey,
+            name: name,
+            latestKeyPairPublicKey: encryptionKeyPair.publicKey,
+            latestKeyPairSecretKey: encryptionKeyPair.privateKey,
+            latestKeyPairReceivedTimestamp: latestKeyPairReceivedTimestamp,
+            members: members,
+            admins: admins
+        )
+        
+        let memberSendData: [MessageSender.PreparedSendData] = try members
+            .map { memberId -> MessageSender.PreparedSendData in
+                try MessageSender.preparedSendData(
+                    db,
+                    message: ClosedGroupControlMessage(
+                        kind: .new(
+                            publicKey: Data(hex: groupPublicKey),
+                            name: name,
+                            encryptionKeyPair: Box.KeyPair(
+                                publicKey: encryptionKeyPair.publicKey.bytes,
+                                secretKey: encryptionKeyPair.privateKey.bytes
                             ),
-                            // Note: We set this here to ensure the value matches
-                            // the 'ClosedGroup' object we created
-                            sentTimestampMs: UInt64(floor(formationTimestamp * 1000))
+                            members: membersAsData,
+                            admins: adminsAsData,
+                            expirationTimer: 0
                         ),
-                        to: .contact(publicKey: memberId),
-                        interactionId: nil
-                    )
-                }
-        }
-        catch {
-            return Fail(error: error)
-                .eraseToAnyPublisher()
-        }
+                        // Note: We set this here to ensure the value matches
+                        // the 'ClosedGroup' object we created
+                        sentTimestampMs: UInt64(floor(formationTimestamp * 1000))
+                    ),
+                    to: .contact(publicKey: memberId),
+                    namespace: Message.Destination.contact(publicKey: memberId).defaultNamespace,
+                    interactionId: nil
+                )
+            }
         
         return Publishers
             .MergeMany(
@@ -207,6 +203,7 @@ extension MessageSender {
                         )
                     ),
                     to: try Message.Destination.from(db, thread: thread),
+                    namespace: try Message.Destination.from(db, thread: thread).defaultNamespace,
                     interactionId: nil
                 )
         }
@@ -224,6 +221,21 @@ extension MessageSender {
                     Storage.shared.write { db in
                         try newKeyPair.insert(db)
                     }
+                    
+                    // Update libSession
+                    try? SessionUtil.update(
+                        db,
+                        groupPublicKey: closedGroup.threadId,
+                        latestKeyPair: newKeyPair,
+                        members: allGroupMembers
+                            .filter { $0.role == .standard || $0.role == .zombie }
+                            .map { $0.profileId }
+                            .asSet(),
+                        admins: allGroupMembers
+                            .filter { $0.role == .admin }
+                            .map { $0.profileId }
+                            .asSet()
+                    )
                     
                     distributingKeyPairs.mutate {
                         if let index = ($0[closedGroup.id] ?? []).firstIndex(of: newKeyPair) {
@@ -283,6 +295,13 @@ extension MessageSender {
                     message: ClosedGroupControlMessage(kind: .nameChange(name: name)),
                     interactionId: interactionId,
                     in: thread
+                )
+                
+                // Update libSession
+                try? SessionUtil.update(
+                    db,
+                    groupPublicKey: closedGroup.threadId,
+                    name: name
                 )
             }
         }
@@ -386,6 +405,20 @@ extension MessageSender {
         
         guard let interactionId: Int64 = interaction.id else { throw StorageError.objectNotSaved }
         
+        // Update libSession
+        try? SessionUtil.update(
+            db,
+            groupPublicKey: closedGroup.threadId,
+            members: allGroupMembers
+                .filter { $0.role == .standard || $0.role == .zombie }
+                .map { $0.profileId }
+                .asSet(),
+            admins: allGroupMembers
+                .filter { $0.role == .admin }
+                .map { $0.profileId }
+                .asSet()
+        )
+        
         // Send the update to the group
         try MessageSender.send(
             db,
@@ -399,7 +432,7 @@ extension MessageSender {
         try addedMembers.forEach { member in
             // Send updates to the new members individually
             let thread: SessionThread = try SessionThread
-                .fetchOrCreate(db, id: member, variant: .contact)
+                .fetchOrCreate(db, id: member, variant: .contact, shouldBeVisible: nil)
             
             try MessageSender.send(
                 db,
@@ -505,6 +538,7 @@ extension MessageSender {
                             )
                         ),
                         to: try Message.Destination.from(db, thread: thread),
+                        namespace: try Message.Destination.from(db, thread: thread).defaultNamespace,
                         interactionId: interactionId
                     )
             )
@@ -571,6 +605,7 @@ extension MessageSender {
                         kind: .memberLeft
                     ),
                     to: try Message.Destination.from(db, thread: thread),
+                    namespace: try Message.Destination.from(db, thread: thread).defaultNamespace,
                     interactionId: interactionId
                 )
             
@@ -594,6 +629,12 @@ extension MessageSender {
             }
         }
         catch {
+            try? ClosedGroup.removeKeysAndUnsubscribe(
+                db,
+                threadId: groupPublicKey,
+                removeGroupData: false,
+                calledFromConfigHandling: false
+            )
             return Fail(error: error)
                 .eraseToAnyPublisher()
         }
@@ -651,7 +692,7 @@ extension MessageSender {
             ).build()
             let plaintext = try proto.serializedData()
             let thread: SessionThread = try SessionThread
-                .fetchOrCreate(db, id: publicKey, variant: .contact)
+                .fetchOrCreate(db, id: publicKey, variant: .contact, shouldBeVisible: nil)
             let ciphertext = try MessageSender.encryptWithSessionProtocol(
                 db,
                 plaintext: plaintext,

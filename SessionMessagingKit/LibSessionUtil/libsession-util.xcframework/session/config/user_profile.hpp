@@ -16,6 +16,8 @@ namespace session::config {
 /// q - user profile decryption key (binary)
 /// + - the priority value for the "Note to Self" pseudo-conversation (higher = higher in the
 ///     conversation list).  Omitted when 0.
+/// h - the "hidden" value for the "Note to Self" pseudo-conversation (true = hide).  Omitted when
+///     false.
 
 class UserProfile final : public ConfigBase {
 
@@ -55,11 +57,18 @@ class UserProfile final : public ConfigBase {
     void set_profile_pic(std::string_view url, ustring_view key);
     void set_profile_pic(profile_pic pic);
 
-    /// Gets/sets the Note-to-self conversation priority.  Will always be >= 0.
+    /// Gets the Note-to-self conversation priority.  Will always be >= 0.
     int get_nts_priority() const;
 
     /// Sets the Note-to-self conversation priority. Should be >= 0 (negatives will be set to 0).
     void set_nts_priority(int priority);
+
+    /// Gets the Note-to-self hidden flag; true means the Note-to-self "conversation" should be
+    /// hidden from the conversation list.
+    bool get_nts_hidden() const;
+
+    /// Sets or clears the `hidden` flag that hides the Note-to-self from the conversation list.
+    void set_nts_hidden(bool hidden);
 };
 
 }  // namespace session::config

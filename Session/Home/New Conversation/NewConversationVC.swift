@@ -179,7 +179,8 @@ final class NewConversationVC: BaseVC, ThemedNavigation, UITableViewDelegate, UI
         
         let sessionId = newConversationViewModel.sectionData[indexPath.section].contacts[indexPath.row].id
         let maybeThread: SessionThread? = Storage.shared.write { db in
-            try SessionThread.fetchOrCreate(db, id: sessionId, variant: .contact)
+            try SessionThread
+                .fetchOrCreate(db, id: sessionId, variant: .contact, shouldBeVisible: nil)
         }
         
         guard maybeThread != nil else { return }

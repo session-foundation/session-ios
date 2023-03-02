@@ -139,7 +139,8 @@ final class QRCodeVC : BaseVC, UIPageViewControllerDataSource, UIPageViewControl
         }
         else {
             let maybeThread: SessionThread? = Storage.shared.write { db in
-                try SessionThread.fetchOrCreate(db, id: hexEncodedPublicKey, variant: .contact)
+                try SessionThread
+                    .fetchOrCreate(db, id: hexEncodedPublicKey, variant: .contact, shouldBeVisible: nil)
             }
             
             guard maybeThread != nil else { return }
