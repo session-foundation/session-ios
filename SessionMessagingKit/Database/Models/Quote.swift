@@ -76,6 +76,26 @@ public struct Quote: Codable, Equatable, Hashable, FetchableRecord, PersistableR
     }
 }
 
+// MARK: - Mutation
+
+public extension Quote {
+    func with(
+        interactionId: Int64? = nil,
+        authorId: String? = nil,
+        timestampMs: Int64? = nil,
+        body: String? = nil,
+        attachmentId: String? = nil
+    ) -> Quote {
+        return Quote(
+            interactionId: interactionId ?? self.interactionId,
+            authorId: authorId ?? self.authorId,
+            timestampMs: timestampMs ?? self.timestampMs,
+            body: body ?? self.body,
+            attachmentId: attachmentId ?? self.attachmentId
+        )
+    }
+}
+
 // MARK: - Protobuf
 
 public extension Quote {

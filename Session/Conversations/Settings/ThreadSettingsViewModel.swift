@@ -221,6 +221,10 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                 ) &&
                 threadViewModel.currentUserIsClosedGroupMember == true
             )
+            let currentUserIsClosedGroupAdmin: Bool = (
+                threadVariant == .closedGroup &&
+                threadViewModel.currentUserIsClosedGroupAdmin == true
+            )
             let editIcon: UIImage? = UIImage(named: "icon_edit")
             
             return [
@@ -486,7 +490,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 ),
                                 confirmationInfo: ConfirmationModal.Info(
                                     title: "CONFIRM_LEAVE_GROUP_TITLE".localized(),
-                                    explanation: (currentUserIsClosedGroupMember ?
+                                    explanation: (currentUserIsClosedGroupAdmin ?
                                         "Because you are the creator of this group it will be deleted for everyone. This cannot be undone." :
                                         "CONFIRM_LEAVE_GROUP_DESCRIPTION".localized()
                                     ),
@@ -785,9 +789,9 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 nil
                             ),
                             accessibilityLabel: oldBlockedState == false ? "User blocked" : "Confirm unblock",
-                            accessibilityId: "OK",
+                            accessibilityId: "Test_name",
                             cancelTitle: "BUTTON_OK".localized(),
-                            cancelAccessibilityLabel: "OK",
+                            cancelAccessibilityLabel: "OK_BUTTON",
                             cancelStyle: .alert_text
                         )
                     )

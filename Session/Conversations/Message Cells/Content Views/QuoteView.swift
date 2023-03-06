@@ -144,7 +144,7 @@ final class QuoteView: UIView {
                         .messageBubble_outgoingText :
                         .messageBubble_incomingText
                     )
-                    case .draft: return .messageBubble_outgoingText
+                    case .draft: return .textPrimary
                 }
             }()
             imageView.contentMode = .center
@@ -156,10 +156,7 @@ final class QuoteView: UIView {
             mainStackView.addArrangedSubview(imageView)
             
             if (body ?? "").isEmpty {
-                body = (attachment.isImage ?
-                    "Image" :
-                    (isAudio ? "Audio" : "Document")
-                )
+                body = attachment.shortDescription
             }
             
             // Generate the thumbnail if needed
@@ -223,10 +220,10 @@ final class QuoteView: UIView {
                 }
                 .defaulting(
                     to: attachment.map {
-                        NSAttributedString(string: MIMETypeUtil.isAudio($0.contentType) ? "Audio" : "Document")
+                        NSAttributedString(string: $0.shortDescription, attributes: [ .foregroundColor: textColor ])
                     }
                 )
-                .defaulting(to: NSAttributedString(string: "Document"))
+                .defaulting(to: NSAttributedString(string: "QUOTED_MESSAGE_NOT_FOUND".localized(), attributes: [ .foregroundColor: textColor ]))
         }
         
         // Label stack view
