@@ -1617,6 +1617,10 @@ extension ConversationVC:
                 ).update(db)
             }
             
+            // Remove message sending jobs for the same interaction in database
+            // Prevent the same message being sent twice
+            try Job.filter(Job.Columns.interactionId == interaction.id).deleteAll(db)
+            
             try MessageSender.send(
                 db,
                 interaction: interaction,
