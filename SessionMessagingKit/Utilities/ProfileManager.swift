@@ -558,23 +558,25 @@ public struct ProfileManager {
                     profileChanges.append(Profile.Columns.profilePictureFileName.set(to: nil))
                     
                 case .updateTo(let url, let key, let fileName):
-                    if
-                        (
-                            url != profile.profilePictureUrl ||
-                            key != profile.profileEncryptionKey
-                        ) &&
-                        key.count == ProfileManager.avatarAES256KeyByteLength &&
-                        key != profile.profileEncryptionKey
-                    {
+                    if url != profile.profilePictureUrl {
                         profileChanges.append(Profile.Columns.profilePictureUrl.set(to: url))
-                        profileChanges.append(Profile.Columns.profileEncryptionKey.set(to: key))
                         avatarNeedsDownload = true
                         targetAvatarUrl = url
+                    }
+                    
+                    if key != profile.profileEncryptionKey && key.count == ProfileManager.avatarAES256KeyByteLength {
+                        profileChanges.append(Profile.Columns.profileEncryptionKey.set(to: key))
                     }
                     
                     // Profile filename (this isn't synchronized between devices)
                     if let fileName: String = fileName {
                         profileChanges.append(Profile.Columns.profilePictureFileName.set(to: fileName))
+                        
+                        // If we have already downloaded the image then no need to download it again
+                        avatarNeedsDownload = (
+                            avatarNeedsDownload &&
+                            !ProfileManager.hasProfileImageData(with: fileName)
+                        )
                     }
             }
         }

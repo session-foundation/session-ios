@@ -259,33 +259,33 @@ enum MockDataGenerator {
                 .saved(db)
                 
                 members.forEach { memberId in
-                    _ = try! GroupMember(
+                    try! GroupMember(
                         groupId: randomGroupPublicKey,
                         profileId: memberId,
                         role: .standard,
                         isHidden: false
                     )
-                    .saved(db)
+                    .save(db)
                 }
                 [members.randomElement(using: &cgThreadRandomGenerator) ?? userSessionId].forEach { adminId in
-                    _ = try! GroupMember(
+                    try! GroupMember(
                         groupId: randomGroupPublicKey,
                         profileId: adminId,
                         role: .admin,
                         isHidden: false
                     )
-                    .saved(db)
+                    .save(db)
                 }
                 
                 // Add the group to the user's set of public keys to poll for and store the key pair
                 let encryptionKeyPair = Curve25519.generateKeyPair()
-                _ = try! ClosedGroupKeyPair(
+                try! ClosedGroupKeyPair(
                     threadId: randomGroupPublicKey,
                     publicKey: encryptionKeyPair.publicKey,
                     secretKey: encryptionKeyPair.privateKey,
                     receivedTimestamp: timestampNow
                 )
-                .saved(db)
+                .save(db)
                 
                 // Generate the message history (Note: Unapproved message requests will only include incoming messages)
                 logProgress("Closed Group Thread \(threadIndex)", "Generate \(numMessages) Messages")

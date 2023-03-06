@@ -445,6 +445,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                         SessionTableViewController(
                                             viewModel: ThreadDisappearingMessagesSettingsViewModel(
                                                 threadId: threadId,
+                                                threadVariant: threadVariant,
                                                 config: disappearingMessagesConfig
                                             )
                                         )

@@ -454,10 +454,12 @@ extension ConversationVC:
                 // Let the viewModel know we are about to send a message
                 self?.viewModel.sentMessageBeforeUpdate = true
                 
-                // Update the thread to be visible
-                _ = try SessionThread
-                    .filter(id: threadId)
-                    .updateAllAndConfig(db, SessionThread.Columns.shouldBeVisible.set(to: true))
+                // Update the thread to be visible (if it isn't already)
+                if !thread.shouldBeVisible {
+                    _ = try SessionThread
+                        .filter(id: threadId)
+                        .updateAllAndConfig(db, SessionThread.Columns.shouldBeVisible.set(to: true))
+                }
                 
                 let authorId: String = {
                     if let blindedId = self?.viewModel.threadData.currentUserBlindedPublicKey {
@@ -585,10 +587,12 @@ extension ConversationVC:
                 // Let the viewModel know we are about to send a message
                 self?.viewModel.sentMessageBeforeUpdate = true
                 
-                // Update the thread to be visible
-                _ = try SessionThread
-                    .filter(id: threadId)
-                    .updateAllAndConfig(db, SessionThread.Columns.shouldBeVisible.set(to: true))
+                // Update the thread to be visible (if it isn't already)
+                if !thread.shouldBeVisible {
+                    _ = try SessionThread
+                        .filter(id: threadId)
+                        .updateAllAndConfig(db, SessionThread.Columns.shouldBeVisible.set(to: true))
+                }
                 
                 // Create the interaction
                 let interaction: Interaction = try Interaction(
@@ -1301,7 +1305,7 @@ extension ConversationVC:
                 .suffix(19))
                 .appending(sentTimestamp)
         }
-        // TODO: Need to test emoji reacts for both open groups and one-to-one to make sure this isn't broken
+        
         // Perform the sending logic
         Storage.shared
             .writePublisherFlatMap(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db -> AnyPublisher<MessageSender.PreparedSendData?, Error> in
@@ -1311,10 +1315,12 @@ extension ConversationVC:
                         .eraseToAnyPublisher()
                 }
                 
-                // Update the thread to be visible
-                _ = try SessionThread
-                    .filter(id: thread.id)
-                    .updateAllAndConfig(db, SessionThread.Columns.shouldBeVisible.set(to: true))
+                // Update the thread to be visible (if it isn't already)
+                if !thread.shouldBeVisible {
+                    _ = try SessionThread
+                        .filter(id: thread.id)
+                        .updateAllAndConfig(db, SessionThread.Columns.shouldBeVisible.set(to: true))
+                }
                 
                 let pendingReaction: Reaction? = {
                     if remove {

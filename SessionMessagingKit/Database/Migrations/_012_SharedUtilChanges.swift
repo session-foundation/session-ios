@@ -1,12 +1,12 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import CryptoKit
 import GRDB
 import SessionUtil
 import SessionUtilitiesKit
 
-/// This migration recreates the interaction FTS table and adds the threadId so we can do a performant in-conversation
-/// searh (currently it's much slower than the global search)
+/// This migration makes the neccessary changes to support the updated user config syncing system
 enum _012_SharedUtilChanges: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "SharedUtilChanges"
@@ -20,10 +20,123 @@ enum _012_SharedUtilChanges: Migration {
             t.add(.pinnedPriority, .integer)
         }
         
-        // Add an index for the 'ClosedGroupKeyPair' so we can lookup existing keys
+        // SQLite doesn't support adding a new primary key after creation so we need to create a new table with
+        // the setup we want, copy data from the old table over, drop the old table and rename the new table
+        struct TmpGroupMember: Codable, TableRecord, FetchableRecord, PersistableRecord, ColumnExpressible {
+            static var databaseTableName: String { "tmpGroupMember" }
+            
+            public typealias Columns = CodingKeys
+            public enum CodingKeys: String, CodingKey, ColumnExpression {
+                case groupId
+                case profileId
+                case role
+                case isHidden
+            }
+
+            public let groupId: String
+            public let profileId: String
+            public let role: GroupMember.Role
+            public let isHidden: Bool
+        }
+        
+        try db.create(table: TmpGroupMember.self) { t in
+            // Note: Since we don't know whether this will be stored against a 'ClosedGroup' or
+            // an 'OpenGroup' we add the foreign key constraint against the thread itself (which
+            // shares the same 'id' as the 'groupId') so we can cascade delete automatically
+            t.column(.groupId, .text)
+                .notNull()
+                .indexed()                                            // Quicker querying
+                .references(SessionThread.self, onDelete: .cascade)   // Delete if Thread deleted
+            t.column(.profileId, .text)
+                .notNull()
+                .indexed()                                            // Quicker querying
+            t.column(.role, .integer).notNull()
+            t.column(.isHidden, .boolean)
+                .notNull()
+                .defaults(to: false)
+            
+            t.primaryKey([.groupId, .profileId, .role])
+        }
+        
+        // Retrieve the non-duplicate group member entries from the old table
+        let nonDuplicateGroupMembers: [TmpGroupMember] = try GroupMember
+            .select(.groupId, .profileId, .role, .isHidden)
+            .group(GroupMember.Columns.groupId, GroupMember.Columns.profileId, GroupMember.Columns.role)
+            .asRequest(of: TmpGroupMember.self)
+            .fetchAll(db)
+        
+        // Insert into the new table, drop the old table and rename the new table to be the old one
+        try nonDuplicateGroupMembers.forEach { try $0.save(db) }
+        try db.drop(table: GroupMember.self)
+        try db.rename(table: TmpGroupMember.databaseTableName, to: GroupMember.databaseTableName)
+        
+        // SQLite doesn't support removing unique constraints so we need to create a new table with
+        // the setup we want, copy data from the old table over, drop the old table and rename the new table
+        struct TmpClosedGroupKeyPair: Codable, TableRecord, FetchableRecord, PersistableRecord, ColumnExpressible {
+            static var databaseTableName: String { "tmpClosedGroupKeyPair" }
+            
+            public typealias Columns = CodingKeys
+            public enum CodingKeys: String, CodingKey, ColumnExpression {
+                case threadId
+                case publicKey
+                case secretKey
+                case receivedTimestamp
+                case threadKeyPairHash
+            }
+            
+            public let threadId: String
+            public let publicKey: Data
+            public let secretKey: Data
+            public let receivedTimestamp: TimeInterval
+            public let threadKeyPairHash: String
+        }
+        
+        try db.alter(table: ClosedGroupKeyPair.self) { t in
+            t.add(.threadKeyPairHash, .text).defaults(to: "")
+        }
+        try db.create(table: TmpClosedGroupKeyPair.self) { t in
+            t.column(.threadId, .text)
+                .notNull()
+                .indexed()                                            // Quicker querying
+                .references(ClosedGroup.self, onDelete: .cascade)     // Delete if ClosedGroup deleted
+            t.column(.publicKey, .blob).notNull()
+            t.column(.secretKey, .blob).notNull()
+            t.column(.receivedTimestamp, .double)
+                .notNull()
+                .indexed()                                            // Quicker querying
+            t.column(.threadKeyPairHash, .integer)
+                .notNull()
+                .unique()
+                .indexed()
+        }
+        // Insert into the new table, drop the old table and rename the new table to be the old one
+        try ClosedGroupKeyPair
+            .fetchAll(db)
+            .map { keyPair in
+                ClosedGroupKeyPair(
+                    threadId: keyPair.threadId,
+                    publicKey: keyPair.publicKey,
+                    secretKey: keyPair.secretKey,
+                    receivedTimestamp: keyPair.receivedTimestamp
+                )
+            }
+            .map { keyPair in
+                TmpClosedGroupKeyPair(
+                    threadId: keyPair.threadId,
+                    publicKey: keyPair.publicKey,
+                    secretKey: keyPair.secretKey,
+                    receivedTimestamp: keyPair.receivedTimestamp,
+                    threadKeyPairHash: keyPair.threadKeyPairHash
+                )
+            }
+            .forEach { try? $0.insert(db) } // Ignore duplicate values
+        try db.drop(table: ClosedGroupKeyPair.self)
+        try db.rename(table: TmpClosedGroupKeyPair.databaseTableName, to: ClosedGroupKeyPair.databaseTableName)
+        
+        // Add an index for the 'ClosedGroupKeyPair' so we can lookup existing keys more easily
         try db.createIndex(
             on: ClosedGroupKeyPair.self,
-            columns: [.threadId, .publicKey, .secretKey]
+            columns: [.threadId, .threadKeyPairHash]
         )
         
         // New table for storing the latest config dump for each type
@@ -50,170 +163,11 @@ enum _012_SharedUtilChanges: Migration {
         // If we don't have an ed25519 key then no need to create cached dump data
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         
-        guard let secretKey: [UInt8] = Identity.fetchUserEd25519KeyPair(db)?.secretKey else {
-            Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
-            return
-        }
-        
-        // MARK: - Shared Data
-        
-        let allThreads: [String: SessionThread] = try SessionThread
-            .fetchAll(db)
-            .reduce(into: [:]) { result, next in result[next.id] = next }
-        
-        // MARK: - UserProfile Config Dump
-        
-        let userProfileConf: UnsafeMutablePointer<config_object>? = try SessionUtil.loadState(
-            for: .userProfile,
-            secretKey: secretKey,
-            cachedData: nil
-        )
-        try SessionUtil.update(
-            profile: Profile.fetchOrCreateCurrentUser(db),
-            in: userProfileConf
-        )
-        
-        if config_needs_dump(userProfileConf) {
-            try SessionUtil
-                .createDump(
-                    conf: userProfileConf,
-                    for: .userProfile,
-                    publicKey: userPublicKey
-                )?
-                .save(db)
-        }
-        
-        // MARK: - Contact Config Dump
-        
-        let contactsData: [ContactInfo] = try Contact
-            .filter(
-                Contact.Columns.isBlocked == true ||
-                allThreads.keys.contains(Contact.Columns.id)
-            )
-            .including(optional: Contact.profile)
-            .asRequest(of: ContactInfo.self)
-            .fetchAll(db)
-        
-        let contactsConf: UnsafeMutablePointer<config_object>? = try SessionUtil.loadState(
-            for: .contacts,
-            secretKey: secretKey,
-            cachedData: nil
-        )
-        try SessionUtil.upsert(
-            contactData: contactsData
-                .map { data in
-                    SessionUtil.SyncedContactInfo(
-                        id: data.contact.id,
-                        contact: data.contact,
-                        profile: data.profile,
-                        priority: Int32(allThreads[data.contact.id]?.pinnedPriority ?? 0),
-                        hidden: (allThreads[data.contact.id]?.shouldBeVisible == true)
-                    )
-                },
-            in: contactsConf
-        )
-        
-        if config_needs_dump(contactsConf) {
-            try SessionUtil
-                .createDump(
-                    conf: contactsConf,
-                    for: .contacts,
-                    publicKey: userPublicKey
-                )?
-                .save(db)
-        }
-        
-        // MARK: - ConvoInfoVolatile Config Dump
-        
-        let volatileThreadInfo: [SessionUtil.VolatileThreadInfo] = SessionUtil.VolatileThreadInfo.fetchAll(db)
-        let convoInfoVolatileConf: UnsafeMutablePointer<config_object>? = try SessionUtil.loadState(
-            for: .convoInfoVolatile,
-            secretKey: secretKey,
-            cachedData: nil
-        )
-        try SessionUtil.upsert(
-            convoInfoVolatileChanges: volatileThreadInfo,
-            in: convoInfoVolatileConf
-        )
-        
-        if config_needs_dump(convoInfoVolatileConf) {
-            try SessionUtil
-                .createDump(
-                    conf: convoInfoVolatileConf,
-                    for: .convoInfoVolatile,
-                    publicKey: userPublicKey
-                )?
-                .save(db)
-        }
-        
-        // MARK: - UserGroups Config Dump
-        
-        let legacyGroupData: [SessionUtil.LegacyGroupInfo] = try SessionUtil.LegacyGroupInfo.fetchAll(db)
-        let communityData: [SessionUtil.OpenGroupUrlInfo] = try SessionUtil.OpenGroupUrlInfo.fetchAll(db)
-        
-        let userGroupsConf: UnsafeMutablePointer<config_object>? = try SessionUtil.loadState(
-            for: .userGroups,
-            secretKey: secretKey,
-            cachedData: nil
-        )
-        try SessionUtil.upsert(
-            legacyGroups: legacyGroupData,
-            in: userGroupsConf
-        )
-        try SessionUtil.upsert(
-            communities: communityData
-                .map { SessionUtil.CommunityInfo(urlInfo: $0) },
-            in: userGroupsConf
-        )
-        
-        if config_needs_dump(userGroupsConf) {
-            try SessionUtil
-                .createDump(
-                    conf: userGroupsConf,
-                    for: .userGroups,
-                    publicKey: userPublicKey
-                )?
-                .save(db)
-        }
-        
-        // MARK: - Threads
-        
-        try SessionUtil
-            .updatingThreads(db, Array(allThreads.values))
-        
-        // MARK: - Syncing
-        
-        // Enqueue a config sync job to ensure the generated configs get synced
-        db.afterNextTransactionNestedOnce(dedupeId: SessionUtil.syncDedupeId(userPublicKey)) { db in
-            ConfigurationSyncJob.enqueue(db, publicKey: userPublicKey)
-        }
+        // There was previously a bug which allowed users to fully delete the 'Note to Self'
+        // conversation but we don't want that, so create it again if it doesn't exists
+        try SessionThread
+            .fetchOrCreate(db, id: userPublicKey, variant: .contact, shouldBeVisible: false)
         
         Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
-    }
-    
-    // MARK: Fetchable Types
-    
-    struct ContactInfo: FetchableRecord, Decodable, ColumnExpressible {
-        typealias Columns = CodingKeys
-        enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
-            case contact
-            case profile
-        }
-        
-        let contact: Contact
-        let profile: Profile?
-    }
-    
-    struct GroupInfo: FetchableRecord, Decodable, ColumnExpressible {
-        typealias Columns = CodingKeys
-        enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
-            case closedGroup
-            case disappearingMessagesConfiguration
-            case groupMembers
-        }
-        
-        let closedGroup: ClosedGroup
-        let disappearingMessagesConfiguration: DisappearingMessagesConfiguration?
-        let groupMembers: [GroupMember]
     }
 }

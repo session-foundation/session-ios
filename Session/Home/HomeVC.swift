@@ -731,7 +731,7 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                             cancelStyle: .alert_text,
                             dismissOnConfirm: true,
                             onConfirm: { [weak self] _ in
-                                self?.viewModel.delete(
+                                self?.viewModel.deleteOrLeave(
                                     threadId: threadViewModel.threadId,
                                     threadVariant: threadViewModel.threadVariant
                                 )

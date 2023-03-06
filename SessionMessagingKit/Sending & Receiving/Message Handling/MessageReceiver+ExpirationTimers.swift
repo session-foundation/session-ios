@@ -35,6 +35,19 @@ extension MessageReceiver {
                 )
             )
         
+        // Legacy closed groups need to update the SessionUtil
+        switch threadVariant {
+            case .legacyGroup:
+                try SessionUtil
+                    .update(
+                        db,
+                        groupPublicKey: threadId,
+                        disappearingConfig: config
+                    )
+                
+            default: break
+        }
+        
         // Add an info message for the user
         _ = try Interaction(
             serverHash: nil, // Intentionally null so sync messages are seen as duplicates

@@ -158,16 +158,10 @@ internal extension SessionUtil {
         // If there are no newer local last read timestamps then just return the mergeResult
         guard !newerLocalChanges.isEmpty else { return }
         
-        try SessionUtil.performAndPushChange(
-            db,
-            for: .convoInfoVolatile,
-            publicKey: getUserHexEncodedPublicKey(db)
-        ) { conf in
-            try upsert(
-                convoInfoVolatileChanges: newerLocalChanges,
-                in: conf
-            )
-        }
+        try upsert(
+            convoInfoVolatileChanges: newerLocalChanges,
+            in: conf
+        )
     }
     
     static func upsert(
@@ -176,7 +170,21 @@ internal extension SessionUtil {
     ) throws {
         guard conf != nil else { throw SessionUtilError.nilConfigObject }
         
-        convoInfoVolatileChanges.forEach { threadInfo in
+        // Exclude any invalid thread info
+        let validChanges: [VolatileThreadInfo] = convoInfoVolatileChanges
+            .filter { info in
+                switch info.variant {
+                    case .contact:
+                        // FIXME: libSession V1 doesn't sync volatileThreadInfo for blinded message requests
+                        guard SessionId(from: info.threadId)?.prefix == .standard else { return false }
+                        
+                        return true
+                        
+                    default: return true
+                }
+            }
+        
+        validChanges.forEach { threadInfo in
             var cThreadId: [CChar] = threadInfo.threadId.cArray
             
             switch threadInfo.variant {
@@ -250,11 +258,7 @@ internal extension SessionUtil {
             }
         }
     }
-}
-
-// MARK: - Convenience
-
-internal extension SessionUtil {
+    
     static func updateMarkedAsUnreadState(
         _ db: Database,
         threads: [SessionThread]
@@ -284,13 +288,20 @@ internal extension SessionUtil {
             )
         }
     }
-    
+}
+
+// MARK: - External Outgoing Changes
+
+public extension SessionUtil {
     static func syncThreadLastReadIfNeeded(
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
         lastReadTimestampMs: Int64
     ) throws {
+        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
+        guard Features.useSharedUtilForUserConfig else { return }
+        
         let change: VolatileThreadInfo = VolatileThreadInfo(
             threadId: threadId,
             variant: threadVariant,

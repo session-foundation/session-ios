@@ -488,43 +488,43 @@ public final class OpenGroupManager {
                 .deleteAll(db)
             
             try roomDetails.admins.forEach { adminId in
-                _ = try GroupMember(
+                try GroupMember(
                     groupId: threadId,
                     profileId: adminId,
                     role: .admin,
                     isHidden: false
-                ).saved(db)
+                ).save(db)
             }
             
             try roomDetails.hiddenAdmins
                 .defaulting(to: [])
                 .forEach { adminId in
-                    _ = try GroupMember(
+                    try GroupMember(
                         groupId: threadId,
                         profileId: adminId,
                         role: .admin,
                         isHidden: true
-                    ).saved(db)
+                    ).save(db)
                 }
             
             try roomDetails.moderators.forEach { moderatorId in
-                _ = try GroupMember(
+                try GroupMember(
                     groupId: threadId,
                     profileId: moderatorId,
                     role: .moderator,
                     isHidden: false
-                ).saved(db)
+                ).save(db)
             }
             
             try roomDetails.hiddenModerators
                 .defaulting(to: [])
                 .forEach { moderatorId in
-                    _ = try GroupMember(
+                    try GroupMember(
                         groupId: threadId,
                         profileId: moderatorId,
                         role: .moderator,
                         isHidden: true
-                    ).saved(db)
+                    ).save(db)
                 }
         }
         

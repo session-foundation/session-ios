@@ -30,6 +30,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
     
     private let dependencies: Dependencies
     private let threadId: String
+    private let threadVariant: SessionThread.Variant
     private let config: DisappearingMessagesConfiguration
     private var storedSelection: TimeInterval
     private var currentSelection: CurrentValueSubject<TimeInterval, Never>
@@ -39,10 +40,12 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
     init(
         dependencies: Dependencies = Dependencies(),
         threadId: String,
+        threadVariant: SessionThread.Variant,
         config: DisappearingMessagesConfiguration
     ) {
         self.dependencies = dependencies
         self.threadId = threadId
+        self.threadVariant = threadVariant
         self.config = config
         self.storedSelection = (config.isEnabled ? config.durationSeconds : 0)
         self.currentSelection = CurrentValueSubject(self.storedSelection)
@@ -134,6 +137,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
     
     private func saveChanges() {
         let threadId: String = self.threadId
+        let threadVariant: SessionThread.Variant = self.threadVariant
         let currentSelection: TimeInterval = self.currentSelection.value
         let updatedConfig: DisappearingMessagesConfiguration = self.config
             .with(
@@ -175,6 +179,19 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                 interactionId: interaction.id,
                 in: thread
             )
+            
+            // Legacy closed groups
+            switch threadVariant {
+                case .legacyGroup:
+                    try SessionUtil
+                        .update(
+                            db,
+                            groupPublicKey: threadId,
+                            disappearingConfig: updatedConfig
+                        )
+                    
+                default: break
+            }
         }
     }
 }

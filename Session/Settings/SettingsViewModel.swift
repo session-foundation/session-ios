@@ -610,8 +610,6 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
         DispatchQueue.main.async {
             button.isUserInteractionEnabled = false
             
-            
-            
             UIView.transition(
                 with: button,
                 duration: 0.25,

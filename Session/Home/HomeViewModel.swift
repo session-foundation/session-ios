@@ -4,6 +4,7 @@ import Foundation
 import GRDB
 import DifferenceKit
 import SignalUtilitiesKit
+import SessionMessagingKit
 import SessionUtilitiesKit
 
 public class HomeViewModel {
@@ -365,10 +366,27 @@ public class HomeViewModel {
         threadViewModel.markAsUnread()
     }
     
-    public func delete(threadId: String, threadVariant: SessionThread.Variant) {
+    public func deleteOrLeave(threadId: String, threadVariant: SessionThread.Variant) {
         Storage.shared.writeAsync { db in
             switch threadVariant {
                 case .contact:
+                    // We need to custom handle the 'Note to Self' conversation (it should just be
+                    // hidden rather than deleted
+                    guard threadId != getUserHexEncodedPublicKey(db) else {
+                        _ = try Interaction
+                            .filter(Interaction.Columns.threadId == threadId)
+                            .deleteAll(db)
+                        
+                        _ = try SessionThread
+                            .filter(id: threadId)
+                            .updateAllAndConfig(
+                                db,
+                                SessionThread.Columns.shouldBeVisible.set(to: false)
+                            )
+                        
+                        return
+                    }
+                    
                     try SessionUtil
                         .hide(db, contactIds: [threadId])
                     

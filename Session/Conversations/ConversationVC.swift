@@ -528,6 +528,25 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         mediaCache.removeAllObjects()
         hasReloadedThreadDataAfterDisappearance = false
         viewIsDisappearing = false
+        
+        // If the user just created this thread but didn't send a message then we want to delete the
+        // "shadow" thread since it's not actually in use (this is to prevent it from taking up database
+        // space or unintentionally getting synced via libSession in the future)
+        let threadId: String = viewModel.threadData.threadId
+        
+        if
+            viewModel.threadData.threadShouldBeVisible == false &&
+            !SessionUtil.conversationExistsInConfig(
+                threadId: threadId,
+                threadVariant: viewModel.threadData.threadVariant
+            )
+        {
+            Storage.shared.writeAsync { db in
+                _ = try SessionThread
+                    .filter(id: threadId)
+                    .deleteAll(db)
+            }
+        }
     }
     
     @objc func applicationDidBecomeActive(_ notification: Notification) {

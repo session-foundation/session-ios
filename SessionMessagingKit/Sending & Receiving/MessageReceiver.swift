@@ -281,6 +281,17 @@ public enum MessageReceiver {
             case is TypingIndicator: break
                 
             default:
+                // Only update the `shouldBeVisible` flag if the thread is currently not visible
+                // as we don't want to trigger a config update if not needed
+                let isCurrentlyVisible: Bool = try SessionThread
+                    .filter(id: threadId)
+                    .select(.shouldBeVisible)
+                    .asRequest(of: Bool.self)
+                    .fetchOne(db)
+                    .defaulting(to: false)
+                
+                guard !isCurrentlyVisible else { return }
+                
                 try SessionThread
                     .filter(id: threadId)
                     .updateAllAndConfig(

@@ -1,4 +1,4 @@
-// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import GRDB
@@ -27,7 +27,8 @@ internal extension SessionUtil {
             String: (
                 contact: Contact,
                 profile: Profile,
-                isHiddenConversation: Bool
+                shouldBeVisible: Bool,
+                priority: Int32
             )
         ]
         
@@ -66,7 +67,8 @@ internal extension SessionUtil {
             contactData[contactId] = (
                 contactResult,
                 profileResult,
-                contact.hidden
+                (contact.hidden == false),
+                contact.priority
             )
             contacts_iterator_advance(contactIterator)
         }
@@ -148,33 +150,40 @@ internal extension SessionUtil {
                 
                 /// If the contact's `hidden` flag doesn't match the visibility of their conversation then create/delete the
                 /// associated contact conversation accordingly
-                let threadExists: Bool = try SessionThread.exists(db, id: contact.id)
-                let threadIsVisible: Bool = try SessionThread
-                    .filter(id: contact.id)
-                    .select(.shouldBeVisible)
-                    .asRequest(of: Bool.self)
+                let threadInfo: PriorityVisibilityInfo? = try? SessionThread
+                    .select(.id, .variant, .pinnedPriority, .shouldBeVisible)
+                    .asRequest(of: PriorityVisibilityInfo.self)
                     .fetchOne(db)
-                    .defaulting(to: false)
+                let threadExists: Bool = (threadInfo != nil)
+                let threadIsVisible: Bool = (threadInfo?.shouldBeVisible ?? false)
                 
-                switch (data.isHiddenConversation, threadExists, threadIsVisible) {
-                    case (true, true, _):
+                switch (data.shouldBeVisible, threadExists, threadIsVisible) {
+                    case (false, true, _):
                         try SessionThread
                             .filter(id: contact.id)
                             .deleteAll(db)
                         
-                    case (false, false, _):
+                    case (true, false, _):
                         try SessionThread(
                             id: contact.id,
                             variant: .contact,
-                            shouldBeVisible: true
+                            shouldBeVisible: true,
+                            pinnedPriority: data.priority
                         ).save(db)
                         
-                    case (false, true, false):
+                    case (true, true, false):
+                        let changes: [ConfigColumnAssignment] = [
+                            SessionThread.Columns.shouldBeVisible.set(to: data.shouldBeVisible),
+                            (threadInfo?.pinnedPriority == data.priority ? nil :
+                                SessionThread.Columns.pinnedPriority.set(to: data.priority)
+                            )
+                        ].compactMap { $0 }
+                        
                         try SessionThread
                             .filter(id: contact.id)
                             .updateAll( // Handling a config update so don't use `updateAllAndConfig`
                                 db,
-                                SessionThread.Columns.shouldBeVisible.set(to: !data.isHiddenConversation)
+                                changes
                             )
                         
                     default: break
@@ -253,26 +262,7 @@ internal extension SessionUtil {
     }
 }
 
-// MARK: - External Outgoing Changes
-
-public extension SessionUtil {
-    static func hide(_ db: Database, contactIds: [String]) throws {
-        try SessionUtil.performAndPushChange(
-            db,
-            for: .contacts,
-            publicKey: getUserHexEncodedPublicKey(db)
-        ) { conf in
-            // Mark the contacts as hidden
-            try SessionUtil.upsert(
-                contactData: contactIds
-                    .map { SyncedContactInfo(id: $0, hidden: true) },
-                in: conf
-            )
-        }
-    }
-}
-
-// MARK: - Convenience
+// MARK: - Outgoing Changes
 
 internal extension SessionUtil {
     static func updatingContacts<T>(_ db: Database, _ updated: [T]) throws -> [T] {
@@ -285,48 +275,43 @@ internal extension SessionUtil {
         // If we only updated the current user contact then no need to continue
         guard !targetContacts.isEmpty else { return updated }
         
-        do {
-            try SessionUtil.performAndPushChange(
-                db,
-                for: .contacts,
-                publicKey: userPublicKey
-            ) { conf in
-                // When inserting new contacts (or contacts with invalid profile data) we want
-                // to add any valid profile information we have so identify if any of the updated
-                // contacts are new/invalid, and if so, fetch any profile data we have for them
-                let newContactIds: [String] = targetContacts
-                    .compactMap { contactData -> String? in
-                        var cContactId: [CChar] = contactData.id.cArray
-                        var contact: contacts_contact = contacts_contact()
-                        
-                        guard
-                            contacts_get(conf, &contact, &cContactId),
-                            String(libSessionVal: contact.name, nullIfEmpty: true) != nil
-                        else { return contactData.id }
-                        
-                        return nil
-                    }
-                let newProfiles: [String: Profile] = try Profile
-                    .fetchAll(db, ids: newContactIds)
-                    .reduce(into: [:]) { result, next in result[next.id] = next }
-                
-                // Upsert the updated contact data
-                try SessionUtil
-                    .upsert(
-                        contactData: targetContacts
-                            .map { contact in
-                                SyncedContactInfo(
-                                    id: contact.id,
-                                    contact: contact,
-                                    profile: newProfiles[contact.id]
-                                )
-                            },
-                        in: conf
-                    )
-            }
-        }
-        catch {
-            SNLog("[libSession-util] Failed to dump updated data")
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .contacts,
+            publicKey: userPublicKey
+        ) { conf in
+            // When inserting new contacts (or contacts with invalid profile data) we want
+            // to add any valid profile information we have so identify if any of the updated
+            // contacts are new/invalid, and if so, fetch any profile data we have for them
+            let newContactIds: [String] = targetContacts
+                .compactMap { contactData -> String? in
+                    var cContactId: [CChar] = contactData.id.cArray
+                    var contact: contacts_contact = contacts_contact()
+                    
+                    guard
+                        contacts_get(conf, &contact, &cContactId),
+                        String(libSessionVal: contact.name, nullIfEmpty: true) != nil
+                    else { return contactData.id }
+                    
+                    return nil
+                }
+            let newProfiles: [String: Profile] = try Profile
+                .fetchAll(db, ids: newContactIds)
+                .reduce(into: [:]) { result, next in result[next.id] = next }
+            
+            // Upsert the updated contact data
+            try SessionUtil
+                .upsert(
+                    contactData: targetContacts
+                        .map { contact in
+                            SyncedContactInfo(
+                                id: contact.id,
+                                contact: contact,
+                                profile: newProfiles[contact.id]
+                            )
+                        },
+                    in: conf
+                )
         }
         
         return updated
@@ -357,39 +342,72 @@ internal extension SessionUtil {
                 existingContactIds.contains($0.id)
             }
         
-        do {
-            // Update the user profile first (if needed)
-            if let updatedUserProfile: Profile = updatedProfiles.first(where: { $0.id == userPublicKey }) {
-                try SessionUtil.performAndPushChange(
-                    db,
-                    for: .userProfile,
-                    publicKey: userPublicKey
-                ) { conf in
-                    try SessionUtil.update(
-                        profile: updatedUserProfile,
-                        in: conf
-                    )
-                }
-            }
-            
+        // Update the user profile first (if needed)
+        if let updatedUserProfile: Profile = updatedProfiles.first(where: { $0.id == userPublicKey }) {
             try SessionUtil.performAndPushChange(
                 db,
-                for: .contacts,
+                for: .userProfile,
                 publicKey: userPublicKey
             ) { conf in
-                try SessionUtil
-                    .upsert(
-                        contactData: targetProfiles
-                            .map { SyncedContactInfo(id: $0.id, profile: $0) },
-                        in: conf
-                    )
+                try SessionUtil.update(
+                    profile: updatedUserProfile,
+                    in: conf
+                )
             }
         }
-        catch {
-            SNLog("[libSession-util] Failed to dump updated data")
+        
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .contacts,
+            publicKey: userPublicKey
+        ) { conf in
+            try SessionUtil
+                .upsert(
+                    contactData: targetProfiles
+                        .map { SyncedContactInfo(id: $0.id, profile: $0) },
+                    in: conf
+                )
         }
         
         return updated
+    }
+}
+
+// MARK: - External Outgoing Changes
+
+public extension SessionUtil {
+    static func hide(_ db: Database, contactIds: [String]) throws {
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .contacts,
+            publicKey: getUserHexEncodedPublicKey(db)
+        ) { conf in
+            // Mark the contacts as hidden
+            try SessionUtil.upsert(
+                contactData: contactIds
+                    .map { SyncedContactInfo(id: $0, hidden: true) },
+                in: conf
+            )
+        }
+    }
+    
+    static func remove(_ db: Database, contactIds: [String]) throws {
+        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
+        guard Features.useSharedUtilForUserConfig else { return }
+        guard !contactIds.isEmpty else { return }
+        
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .contacts,
+            publicKey: getUserHexEncodedPublicKey(db)
+        ) { conf in
+            contactIds.forEach { sessionId in
+                var cSessionId: [CChar] = sessionId.cArray
+                
+                // Don't care if the contact doesn't exist
+                contacts_erase(conf, &cSessionId)
+            }
+        }
     }
 }
 
@@ -400,21 +418,21 @@ extension SessionUtil {
         let id: String
         let contact: Contact?
         let profile: Profile?
-        let priority: Int32?
         let hidden: Bool?
+        let priority: Int32?
         
         init(
             id: String,
             contact: Contact? = nil,
             profile: Profile? = nil,
-            priority: Int32? = nil,
-            hidden: Bool? = nil
+            hidden: Bool? = nil,
+            priority: Int32? = nil
         ) {
             self.id = id
             self.contact = contact
             self.profile = profile
-            self.priority = priority
             self.hidden = hidden
+            self.priority = priority
         }
     }
 }

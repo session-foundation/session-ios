@@ -65,7 +65,8 @@ extension MessageReceiver {
         // Loop through all blinded threads and extract any interactions relating to the user accepting
         // the message request
         try pendingBlindedIdLookups.forEach { blindedIdLookup in
-            // If the sessionId matches the blindedId then this thread needs to be converted to an un-blinded thread
+            // If the sessionId matches the blindedId then this thread needs to be converted to an
+            // un-blinded thread
             guard
                 dependencies.sodium.sessionId(
                     senderId,
@@ -110,6 +111,9 @@ extension MessageReceiver {
             _ = try? Contact
                 .filter(ids: blindedContactIds)
                 .deleteAll(db)
+            
+            try? SessionUtil
+                .remove(db, contactIds: blindedContactIds)
             
             try updateContactApprovalStatusIfNeeded(
                 db,

@@ -25,7 +25,6 @@ internal extension SessionUtil {
         
         var communities: [PrioritisedData<OpenGroupUrlInfo>] = []
         var legacyGroups: [LegacyGroupInfo] = []
-        var groups: [PrioritisedData<String>] = []
         var community: ugroups_community_info = ugroups_community_info()
         var legacyGroup: ugroups_legacy_group_info = ugroups_legacy_group_info()
         let groupsIterator: OpaquePointer = user_groups_iterator_new(conf)
@@ -85,18 +84,28 @@ internal extension SessionUtil {
                             .defaultWith(groupId)
                             .with(
                                 isEnabled: (legacyGroup.disappearing_timer > 0),
-                                durationSeconds: (legacyGroup.disappearing_timer == 0 ? nil :
-                                    TimeInterval(legacyGroup.disappearing_timer)
-                                )
+                                durationSeconds: TimeInterval(legacyGroup.disappearing_timer)
                             ),
-                        groupMembers: members.map { memberId, admin in
-                            GroupMember(
-                                groupId: groupId,
-                                profileId: memberId,
-                                role: (admin ? .admin : .standard),
-                                isHidden: false
-                            )
-                        },
+                        groupMembers: members
+                            .filter { _, isAdmin in !isAdmin }
+                            .map { memberId, admin in
+                                GroupMember(
+                                    groupId: groupId,
+                                    profileId: memberId,
+                                    role: .standard,
+                                    isHidden: false
+                                )
+                            },
+                        groupAdmins: members
+                            .filter { _, isAdmin in isAdmin }
+                            .map { memberId, admin in
+                                GroupMember(
+                                    groupId: groupId,
+                                    profileId: memberId,
+                                    role: .admin,
+                                    isHidden: false
+                                )
+                            },
                         hidden: legacyGroup.hidden,
                         priority: legacyGroup.priority
                     )
@@ -111,7 +120,7 @@ internal extension SessionUtil {
         user_groups_iterator_free(groupsIterator) // Need to free the iterator
         
         // If we don't have any conversations then no need to continue
-        guard !communities.isEmpty || !legacyGroups.isEmpty || !groups.isEmpty else { return }
+        guard !communities.isEmpty || !legacyGroups.isEmpty else { return }
         
         // Extract all community/legacyGroup/group thread priorities
         let existingThreadInfo: [String: PriorityVisibilityInfo] = (try? SessionThread
@@ -187,7 +196,8 @@ internal extension SessionUtil {
             guard
                 let name: String = group.name,
                 let lastKeyPair: ClosedGroupKeyPair = group.lastKeyPair,
-                let members: [GroupMember] = group.groupMembers
+                let members: [GroupMember] = group.groupMembers,
+                let updatedAdmins: [GroupMember] = group.groupAdmins
             else { return }
             
             if !existingLegacyGroupIds.contains(group.id) {
@@ -201,13 +211,12 @@ internal extension SessionUtil {
                         secretKey: lastKeyPair.secretKey.bytes
                     ),
                     members: members
-                        .filter { $0.role == .standard }
+                        .appending(contentsOf: updatedAdmins)  // Admins should also have 'standard' member entries
                         .map { $0.profileId },
-                    admins: members
-                        .filter { $0.role == .admin }
-                        .map { $0.profileId },
+                    admins: updatedAdmins.map { $0.profileId },
                     expirationTimer: UInt32(group.disappearingConfig?.durationSeconds ?? 0),
-                    messageSentTimestamp: UInt64(latestConfigUpdateSentTimestamp * 1000)
+                    messageSentTimestamp: UInt64(latestConfigUpdateSentTimestamp * 1000),
+                    calledFromConfigHandling: true
                 )
             }
             else {
@@ -223,11 +232,7 @@ internal extension SessionUtil {
                 
                 // Add the lastKey if it doesn't already exist
                 let keyPairExists: Bool = ClosedGroupKeyPair
-                    .filter(
-                        ClosedGroupKeyPair.Columns.threadId == lastKeyPair.threadId &&
-                        ClosedGroupKeyPair.Columns.publicKey == lastKeyPair.publicKey &&
-                        ClosedGroupKeyPair.Columns.secretKey == lastKeyPair.secretKey
-                    )
+                    .filter(ClosedGroupKeyPair.Columns.threadKeyPairHash == lastKeyPair.threadKeyPairHash)
                     .isNotEmpty(db)
                 
                 if !keyPairExists {
@@ -245,27 +250,70 @@ internal extension SessionUtil {
                     .saved(db)
                 
                 // Update the members
-                // TODO: This
-                // TODO: Going to need to decide whether we want to update the 'GroupMember' records in the database based on this config message changing
-//                let members: [String]
-//                let admins: [String]
+                let updatedMembers: [GroupMember] = members
+                    .appending(
+                        contentsOf: updatedAdmins.map { admin in
+                            GroupMember(
+                                groupId: admin.groupId,
+                                profileId: admin.profileId,
+                                role: .standard,
+                                isHidden: false
+                            )
+                        }
+                    )
+                
+                if
+                    let existingMembers: [GroupMember] = existingLegacyGroupMembers[group.id]?
+                        .filter({ $0.role == .standard || $0.role == .zombie }),
+                    existingMembers != updatedMembers
+                {
+                    // Add in any new members and remove any removed members
+                    try updatedMembers.forEach { try $0.save(db) }
+                    try existingMembers
+                        .filter { !updatedMembers.contains($0) }
+                        .forEach { member in
+                            try GroupMember
+                                .filter(
+                                    GroupMember.Columns.groupId == group.id &&
+                                    GroupMember.Columns.profileId == member.profileId && (
+                                        GroupMember.Columns.role == GroupMember.Role.standard ||
+                                        GroupMember.Columns.role == GroupMember.Role.zombie
+                                    )
+                                )
+                                .deleteAll(db)
+                        }
+                }
+
+                if
+                    let existingAdmins: [GroupMember] = existingLegacyGroupMembers[group.id]?
+                        .filter({ $0.role == .admin }),
+                    existingAdmins != updatedAdmins
+                {
+                    // Add in any new admins and remove any removed admins
+                    try updatedAdmins.forEach { try $0.save(db) }
+                    try existingAdmins
+                        .filter { !updatedAdmins.contains($0) }
+                        .forEach { member in
+                            try GroupMember
+                                .filter(
+                                    GroupMember.Columns.groupId == group.id &&
+                                    GroupMember.Columns.profileId == member.profileId &&
+                                    GroupMember.Columns.role == GroupMember.Role.admin
+                                )
+                                .deleteAll(db)
+                        }
+                }
             }
             
-            // Make any thread-specific changes
-            var threadChanges: [ConfigColumnAssignment] = []
-            // Set the visibility if it's changed
-            if existingThreadInfo[group.id]?.shouldBeVisible != (group.hidden == false) {
-                threadChanges.append(
+            // Make any thread-specific changes if needed
+            let threadChanges: [ConfigColumnAssignment] = [
+                (existingThreadInfo[group.id]?.shouldBeVisible == (group.hidden == false) ? nil :
                     SessionThread.Columns.shouldBeVisible.set(to: (group.hidden == false))
-                )
-            }
-            
-            // Set the priority if it's changed
-            if existingThreadInfo[group.id]?.pinnedPriority != group.priority {
-                threadChanges.append(
+                ),
+                (existingThreadInfo[group.id]?.pinnedPriority == group.priority ? nil :
                     SessionThread.Columns.pinnedPriority.set(to: group.priority)
                 )
-            }
+            ].compactMap { $0 }
             
             if !threadChanges.isEmpty {
                 _ = try? SessionThread
@@ -321,6 +369,7 @@ internal extension SessionUtil {
                 if let lastKeyPair: ClosedGroupKeyPair = legacyGroup.lastKeyPair {
                     userGroup.pointee.enc_pubkey = lastKeyPair.publicKey.toLibSession()
                     userGroup.pointee.enc_seckey = lastKeyPair.secretKey.toLibSession()
+                    userGroup.pointee.have_enc_keys = true
                     
                     // Store the updated group (needs to happen before variables go out of scope)
                     user_groups_set_legacy_group(conf, userGroup)
@@ -328,7 +377,6 @@ internal extension SessionUtil {
                 
                 // Assign all properties to match the updated disappearing messages config (if there is one)
                 if let updatedConfig: DisappearingMessagesConfiguration = legacyGroup.disappearingConfig {
-                    // TODO: double check the 'isEnabled' flag
                     userGroup.pointee.disappearing_timer = (!updatedConfig.isEnabled ? 0 :
                         Int64(floor(updatedConfig.durationSeconds))
                     )
@@ -393,6 +441,9 @@ public extension SessionUtil {
         rootToken: String,
         publicKey: String
     ) throws {
+        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
+        guard Features.useSharedUtilForUserConfig else { return }
+        
         try SessionUtil.performAndPushChange(
             db,
             for: .userGroups,
@@ -415,6 +466,9 @@ public extension SessionUtil {
     }
     
     static func remove(_ db: Database, server: String, roomToken: String) throws {
+        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
+        guard Features.useSharedUtilForUserConfig else { return }
+        
         try SessionUtil.performAndPushChange(
             db,
             for: .userGroups,
@@ -437,9 +491,13 @@ public extension SessionUtil {
         latestKeyPairPublicKey: Data,
         latestKeyPairSecretKey: Data,
         latestKeyPairReceivedTimestamp: TimeInterval,
+        disappearingConfig: DisappearingMessagesConfiguration,
         members: Set<String>,
         admins: Set<String>
     ) throws {
+        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
+        guard Features.useSharedUtilForUserConfig else { return }
+        
         try SessionUtil.performAndPushChange(
             db,
             for: .userGroups,
@@ -456,6 +514,7 @@ public extension SessionUtil {
                             secretKey: latestKeyPairSecretKey,
                             receivedTimestamp: latestKeyPairReceivedTimestamp
                         ),
+                        disappearingConfig: disappearingConfig,
                         groupMembers: members
                             .map { memberId in
                                 GroupMember(
@@ -486,9 +545,13 @@ public extension SessionUtil {
         groupPublicKey: String,
         name: String? = nil,
         latestKeyPair: ClosedGroupKeyPair? = nil,
+        disappearingConfig: DisappearingMessagesConfiguration? = nil,
         members: Set<String>? = nil,
         admins: Set<String>? = nil
     ) throws {
+        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
+        guard Features.useSharedUtilForUserConfig else { return }
+        
         try SessionUtil.performAndPushChange(
             db,
             for: .userGroups,
@@ -500,6 +563,7 @@ public extension SessionUtil {
                         id: groupPublicKey,
                         name: name,
                         lastKeyPair: latestKeyPair,
+                        disappearingConfig: disappearingConfig,
                         groupMembers: members?
                             .map { memberId in
                                 GroupMember(
@@ -526,6 +590,8 @@ public extension SessionUtil {
     }
     
     static func hide(_ db: Database, legacyGroupIds: [String]) throws {
+        guard !legacyGroupIds.isEmpty else { return }
+        
         try SessionUtil.performAndPushChange(
             db,
             for: .userGroups,
@@ -544,6 +610,10 @@ public extension SessionUtil {
     }
     
     static func remove(_ db: Database, legacyGroupIds: [String]) throws {
+        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
+        guard Features.useSharedUtilForUserConfig else { return }
+        guard !legacyGroupIds.isEmpty else { return }
+        
         try SessionUtil.performAndPushChange(
             db,
             for: .userGroups,
@@ -561,9 +631,13 @@ public extension SessionUtil {
     // MARK: -- Group Changes
     
     static func hide(_ db: Database, groupIds: [String]) throws {
+        guard !groupIds.isEmpty else { return }
     }
     
     static func remove(_ db: Database, groupIds: [String]) throws {
+        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
+        guard Features.useSharedUtilForUserConfig else { return }
+        guard !groupIds.isEmpty else { return }
     }
 }
 

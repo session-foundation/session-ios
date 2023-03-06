@@ -46,9 +46,20 @@ extension MessageReceiver {
             )
         }
         
-        // Get or create thread
-        guard let threadInfo: (id: String, variant: SessionThread.Variant) = MessageReceiver.threadInfo(db, message: message, openGroupId: openGroupId) else {
-            throw MessageReceiverError.noThread
+        switch threadVariant {
+            case .contact: break // Always continue
+            
+            case .community:
+                // Only process visible messages for communities if they have an existing thread
+                guard (try? SessionThread.exists(db, id: threadId)) == true else {
+                    throw MessageReceiverError.noThread
+                }
+                        
+            case .legacyGroup, .group:
+                // Only process visible messages for groups if they have a ClosedGroup record
+                guard (try? ClosedGroup.exists(db, id: threadId)) == true else {
+                    throw MessageReceiverError.noThread
+                }
         }
         
         // Store the message variant so we can run variant-specific behaviours

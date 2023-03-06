@@ -29,7 +29,10 @@ extension ColumnExpression {
 
 // MARK: - QueryInterfaceRequest
 
-public extension QueryInterfaceRequest {
+public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & TableRecord {
+    
+    // MARK: -- updateAll
+    
     @discardableResult
     func updateAll(
         _ db: Database,
@@ -61,30 +64,16 @@ public extension QueryInterfaceRequest {
     ) throws -> Int {
         let targetAssignments: [ColumnAssignment] = assignments.map { $0.assignment }
         
-        // Before we do anything make sure the changes actually do need to be sunced
+        // Before we do anything custom make sure the changes actually do need to be synced
         guard SessionUtil.assignmentsRequireConfigUpdate(assignments) else {
             return try self.updateAll(db, targetAssignments)
         }
         
-        switch self {
-            case let contactRequest as QueryInterfaceRequest<Contact>:
-                return try contactRequest.updateAndFetchAllAndUpdateConfig(db, assignments).count
-
-            case let profileRequest as QueryInterfaceRequest<Profile>:
-                return try profileRequest.updateAndFetchAllAndUpdateConfig(db, assignments).count
-                
-            case let threadRequest as QueryInterfaceRequest<SessionThread>:
-                return try threadRequest.updateAndFetchAllAndUpdateConfig(db, assignments).count
-                
-            case let threadRequest as QueryInterfaceRequest<ClosedGroup>:
-                return try threadRequest.updateAndFetchAllAndUpdateConfig(db, assignments).count
-            
-            default: return try self.updateAll(db, targetAssignments)
-        }
+        return try self.updateAndFetchAllAndUpdateConfig(db, assignments).count
     }
-}
-
-public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & TableRecord {
+    
+    // MARK: -- updateAndFetchAll
+    
     @discardableResult
     func updateAndFetchAllAndUpdateConfig(
         _ db: Database,
@@ -120,18 +109,12 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
         }
         
         // Update the config dump state where needed
-        
-        try SessionUtil.updateThreadPrioritiesIfNeeded(db, assignments, updatedData)
-        
         switch self {
             case is QueryInterfaceRequest<Contact>:
                 return try SessionUtil.updatingContacts(db, updatedData)
                 
             case is QueryInterfaceRequest<Profile>:
                 return try SessionUtil.updatingProfiles(db, updatedData)
-                
-            case is QueryInterfaceRequest<ClosedGroup>:
-                return updatedData
                 
             case is QueryInterfaceRequest<SessionThread>:
                 return try SessionUtil.updatingThreads(db, updatedData)

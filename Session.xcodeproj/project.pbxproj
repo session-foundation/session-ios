@@ -708,6 +708,7 @@
 		FD7728982849E8110018502F /* UITableView+ReusableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7728972849E8110018502F /* UITableView+ReusableView.swift */; };
 		FD77289A284AF1BD0018502F /* Sodium+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD772899284AF1BD0018502F /* Sodium+Utilities.swift */; };
 		FD77289E284EF1C50018502F /* Sodium+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD77289D284EF1C50018502F /* Sodium+Utilities.swift */; };
+		FD778B6429B189FF001BAC6B /* _013_GenerateInitialUserConfigDumps.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD778B6329B189FF001BAC6B /* _013_GenerateInitialUserConfigDumps.swift */; };
 		FD83B9B327CF200A005E1583 /* SessionUtilitiesKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A679255388CC00C340D1 /* SessionUtilitiesKit.framework */; platformFilter = ios; };
 		FD83B9BB27CF20AF005E1583 /* SessionIdSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD83B9BA27CF20AF005E1583 /* SessionIdSpec.swift */; };
 		FD83B9BF27CF2294005E1583 /* TestConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD83B9BD27CF2243005E1583 /* TestConstants.swift */; };
@@ -1835,6 +1836,7 @@
 		FD7728972849E8110018502F /* UITableView+ReusableView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "UITableView+ReusableView.swift"; sourceTree = "<group>"; };
 		FD772899284AF1BD0018502F /* Sodium+Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Sodium+Utilities.swift"; sourceTree = "<group>"; };
 		FD77289D284EF1C50018502F /* Sodium+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sodium+Utilities.swift"; sourceTree = "<group>"; };
+		FD778B6329B189FF001BAC6B /* _013_GenerateInitialUserConfigDumps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _013_GenerateInitialUserConfigDumps.swift; sourceTree = "<group>"; };
 		FD83B9AF27CF200A005E1583 /* SessionUtilitiesKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SessionUtilitiesKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FD83B9BA27CF20AF005E1583 /* SessionIdSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionIdSpec.swift; sourceTree = "<group>"; };
 		FD83B9BD27CF2243005E1583 /* TestConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestConstants.swift; sourceTree = "<group>"; };
@@ -3629,6 +3631,7 @@
 				FD7115F128C6CB3900B47552 /* _010_AddThreadIdToFTS.swift */,
 				FD432431299C6933008A0213 /* _011_AddPendingReadReceipts.swift */,
 				FD8ECF7C2934293A00C0D1BB /* _012_SharedUtilChanges.swift */,
+				FD778B6329B189FF001BAC6B /* _013_GenerateInitialUserConfigDumps.swift */,
 			);
 			path = Migrations;
 			sourceTree = "<group>";
@@ -5791,6 +5794,7 @@
 				FD09796E27FA6D0000936362 /* Contact.swift in Sources */,
 				C38D5E8D2575011E00B6A65C /* MessageSender+ClosedGroups.swift in Sources */,
 				FD5C72F7284F0E560029977D /* MessageReceiver+ReadReceipts.swift in Sources */,
+				FD778B6429B189FF001BAC6B /* _013_GenerateInitialUserConfigDumps.swift in Sources */,
 				C32C598A256D0664003C73A2 /* SNProtoEnvelope+Conversion.swift in Sources */,
 				FDC438CB27BB7DB100C60D73 /* UpdateMessageRequest.swift in Sources */,
 				FD8ECF7F2934298100C0D1BB /* SharedConfigDump.swift in Sources */,

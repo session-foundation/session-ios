@@ -49,6 +49,9 @@ public enum SessionUtil {
     /// Returns `true` if there is a config which needs to be pushed, but returns `false` if the configs are all up to date or haven't been
     /// loaded yet (eg. fresh install)
     public static var needsSync: Bool {
+        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
+        guard Features.useSharedUtilForUserConfig else { return false }
+        
         return configStore
             .wrappedValue
             .contains { _, atomicConf in
@@ -63,15 +66,30 @@ public enum SessionUtil {
     // MARK: - Loading
     
     public static func loadState(
+        _ db: Database? = nil,
         userPublicKey: String,
         ed25519SecretKey: [UInt8]?
     ) {
-        guard let secretKey: [UInt8] = ed25519SecretKey else { return }
+        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
+        guard Features.useSharedUtilForUserConfig else { return }
+        
+        // Ensure we have the ed25519 key and that we haven't already loaded the state before
+        // we continue
+        guard
+            let secretKey: [UInt8] = ed25519SecretKey,
+            SessionUtil.configStore.wrappedValue.isEmpty
+        else { return }
+        
+        // If we weren't given a database instance then get one
+        guard let db: Database = db else {
+            Storage.shared.read { db in
+                SessionUtil.loadState(db, userPublicKey: userPublicKey, ed25519SecretKey: secretKey)
+            }
+            return
+        }
         
         // Retrieve the existing dumps from the database
-        let existingDumps: Set<ConfigDump> = Storage.shared
-            .read { db in try ConfigDump.fetchSet(db) }
-            .defaulting(to: [])
+        let existingDumps: Set<ConfigDump> = ((try? ConfigDump.fetchSet(db)) ?? [])
         let existingDumpVariants: Set<ConfigDump.Variant> = existingDumps
             .map { $0.variant }
             .asSet()
@@ -103,7 +121,7 @@ public enum SessionUtil {
         }
     }
     
-    internal static func loadState(
+    private static func loadState(
         for variant: ConfigDump.Variant,
         secretKey ed25519SecretKey: [UInt8],
         cachedData: Data?
@@ -265,6 +283,9 @@ public enum SessionUtil {
     }
     
     public static func configHashes(for publicKey: String) -> [String] {
+        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
+        guard Features.useSharedUtilForUserConfig else { return [] }
+        
         return Storage.shared
             .read { db -> [String] in
                 guard Identity.userExists(db) else { return [] }
@@ -342,36 +363,42 @@ public enum SessionUtil {
                         mergeData.forEach { $0?.deallocate() }
                         
                         // Apply the updated states to the database
-                        switch next.key {
-                            case .userProfile:
-                                try SessionUtil.handleUserProfileUpdate(
-                                    db,
-                                    in: conf,
-                                    mergeNeedsDump: config_needs_dump(conf),
-                                    latestConfigUpdateSentTimestamp: messageSentTimestamp
-                                )
-                                
-                            case .contacts:
-                                try SessionUtil.handleContactsUpdate(
-                                    db,
-                                    in: conf,
-                                    mergeNeedsDump: config_needs_dump(conf)
-                                )
-                                
-                            case .convoInfoVolatile:
-                                try SessionUtil.handleConvoInfoVolatileUpdate(
-                                    db,
-                                    in: conf,
-                                    mergeNeedsDump: config_needs_dump(conf)
-                                )
-                                
-                            case .userGroups:
-                                try SessionUtil.handleGroupsUpdate(
-                                    db,
-                                    in: conf,
-                                    mergeNeedsDump: config_needs_dump(conf),
-                                    latestConfigUpdateSentTimestamp: messageSentTimestamp
-                                )
+                        do {
+                            switch next.key {
+                                case .userProfile:
+                                    try SessionUtil.handleUserProfileUpdate(
+                                        db,
+                                        in: conf,
+                                        mergeNeedsDump: config_needs_dump(conf),
+                                        latestConfigUpdateSentTimestamp: messageSentTimestamp
+                                    )
+                                    
+                                case .contacts:
+                                    try SessionUtil.handleContactsUpdate(
+                                        db,
+                                        in: conf,
+                                        mergeNeedsDump: config_needs_dump(conf)
+                                    )
+                                    
+                                case .convoInfoVolatile:
+                                    try SessionUtil.handleConvoInfoVolatileUpdate(
+                                        db,
+                                        in: conf,
+                                        mergeNeedsDump: config_needs_dump(conf)
+                                    )
+                                    
+                                case .userGroups:
+                                    try SessionUtil.handleGroupsUpdate(
+                                        db,
+                                        in: conf,
+                                        mergeNeedsDump: config_needs_dump(conf),
+                                        latestConfigUpdateSentTimestamp: messageSentTimestamp
+                                    )
+                            }
+                        }
+                        catch {
+                            SNLog("[libSession] Failed to process merge of \(next.key) config data")
+                            throw error
                         }
                         
                         // Need to check if the config needs to be dumped (this might have changed

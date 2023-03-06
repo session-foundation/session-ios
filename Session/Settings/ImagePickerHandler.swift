@@ -38,10 +38,8 @@ class ImagePickerHandler: NSObject, UIImagePickerControllerDelegate & UINavigati
             // Check if the user selected an animated image (if so then don't crop, just
             // set the avatar directly
             guard
-                let type: Any = try? imageUrl.resourceValues(forKeys: [.typeIdentifierKey])
-                    .allValues
-                    .first,
-                let typeString: String = type as? String,
+                let type: URLResourceValues = try? imageUrl.resourceValues(forKeys: [.typeIdentifierKey]),
+                let typeString: String = type.typeIdentifier,
                 MIMETypeUtil.supportedAnimatedImageUTITypes().contains(typeString)
             else {
                 let viewController: CropScaleImageViewController = CropScaleImageViewController(

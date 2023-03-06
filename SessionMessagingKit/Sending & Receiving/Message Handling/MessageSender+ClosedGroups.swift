@@ -60,7 +60,7 @@ extension MessageSender {
                 profileId: adminId,
                 role: .admin,
                 isHidden: false
-            ).insert(db)
+            ).save(db)
         }
         
         try members.forEach { memberId in
@@ -69,7 +69,7 @@ extension MessageSender {
                 profileId: memberId,
                 role: .standard,
                 isHidden: false
-            ).insert(db)
+            ).save(db)
         }
         
         // Update libSession
@@ -80,6 +80,7 @@ extension MessageSender {
             latestKeyPairPublicKey: encryptionKeyPair.publicKey,
             latestKeyPairSecretKey: encryptionKeyPair.privateKey,
             latestKeyPairReceivedTimestamp: latestKeyPairReceivedTimestamp,
+            disappearingConfig: DisappearingMessagesConfiguration.defaultWith(groupPublicKey),
             members: members,
             admins: admins
         )
@@ -462,7 +463,7 @@ extension MessageSender {
                 profileId: member,
                 role: .standard,
                 isHidden: false
-            ).insert(db)
+            ).save(db)
         }
     }
 
@@ -629,12 +630,18 @@ extension MessageSender {
             }
         }
         catch {
-            try? ClosedGroup.removeKeysAndUnsubscribe(
-                db,
-                threadId: groupPublicKey,
-                removeGroupData: false,
-                calledFromConfigHandling: false
-            )
+            switch error {
+                case MessageSenderError.noKeyPair, MessageSenderError.encryptionFailed:
+                    try? ClosedGroup.removeKeysAndUnsubscribe(
+                        db,
+                        threadId: groupPublicKey,
+                        removeGroupData: false,
+                        calledFromConfigHandling: false
+                    )
+                    
+                default: break
+            }
+            
             return Fail(error: error)
                 .eraseToAnyPublisher()
         }

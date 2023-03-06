@@ -27,6 +27,10 @@ public extension Database {
         }
     }
     
+    func drop<T>(table: T.Type) throws where T: TableRecord {
+        try drop(table: T.databaseTableName)
+    }
+    
     func createIndex<T>(
         withCustomName customName: String? = nil,
         on table: T.Type,

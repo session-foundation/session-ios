@@ -1,4 +1,4 @@
-// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import GRDB
@@ -44,7 +44,7 @@ internal extension SessionUtil {
                 return .updateTo(
                     url: profilePictureUrl,
                     key: Data(
-                        libSessionVal: profilePic.url,
+                        libSessionVal: profilePic.key,
                         count: ProfileManager.avatarAES256KeyByteLength
                     ),
                     fileName: nil
@@ -53,6 +53,52 @@ internal extension SessionUtil {
             sentTimestamp: latestConfigUpdateSentTimestamp,
             calledFromConfigHandling: true
         )
+        
+        // Update the 'Note to Self' visibility and priority
+        let threadInfo: PriorityVisibilityInfo? = try? SessionThread
+            .filter(id: userPublicKey)
+            .select(.id, .variant, .pinnedPriority, .shouldBeVisible)
+            .asRequest(of: PriorityVisibilityInfo.self)
+            .fetchOne(db)
+        let targetPriority: Int32 = user_profile_get_nts_priority(conf)
+        let targetHiddenState: Bool = user_profile_get_nts_hidden(conf)
+        
+        // Create the 'Note to Self' thread if it doesn't exist
+        if let threadInfo: PriorityVisibilityInfo = threadInfo {
+            let threadChanges: [ConfigColumnAssignment] = [
+                (threadInfo.shouldBeVisible == (targetHiddenState == false) ? nil :
+                    SessionThread.Columns.shouldBeVisible.set(to: (targetHiddenState == false))
+                ),
+                (threadInfo.pinnedPriority == targetPriority ? nil :
+                    SessionThread.Columns.pinnedPriority.set(to: targetPriority)
+                )
+            ].compactMap { $0 }
+            
+            if !threadChanges.isEmpty {
+                try SessionThread
+                    .filter(id: userPublicKey)
+                    .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                        db,
+                        threadChanges
+                    )
+            }
+        }
+        else {
+            try SessionThread
+                .fetchOrCreate(
+                    db,
+                    id: userPublicKey,
+                    variant: .contact,
+                    shouldBeVisible: (targetHiddenState == false)
+                )
+            
+            try SessionThread
+                .filter(id: userPublicKey)
+                .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                    db,
+                    SessionThread.Columns.pinnedPriority.set(to: targetPriority)
+                )
+        }
         
         // Create a contact for the current user if needed (also force-approve the current user
         // in case the account got into a weird state or restored directly from a migration)
@@ -91,14 +137,18 @@ internal extension SessionUtil {
     }
     
     static func updateNoteToSelf(
-        _ db: Database,
-        priority: Int32,
-        hidden: Bool,
+        hidden: Bool? = nil,
+        priority: Int32? = nil,
         in conf: UnsafeMutablePointer<config_object>?
     ) throws {
         guard conf != nil else { throw SessionUtilError.nilConfigObject }
         
-        user_profile_set_nts_priority(conf, priority)
-        user_profile_set_nts_hidden(conf, hidden)
+        if let hidden: Bool = hidden {
+            user_profile_set_nts_hidden(conf, hidden)
+        }
+        
+        if let priority: Int32 = priority {
+            user_profile_set_nts_priority(conf, priority)
+        }
     }
 }
