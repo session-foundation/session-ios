@@ -54,6 +54,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     private lazy var attachmentsButton: ExpandingAttachmentsButton = {
         let result = ExpandingAttachmentsButton(delegate: delegate)
         result.accessibilityLabel = "Attachments button"
+        result.accessibilityIdentifier = "Attachments button"
         result.isAccessibilityElement = true
         
         return result
@@ -62,6 +63,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     private lazy var voiceMessageButton: InputViewButton = {
         let result = InputViewButton(icon: #imageLiteral(resourceName: "Microphone"), delegate: self)
         result.accessibilityLabel = "New voice message"
+        result.accessibilityIdentifier = "New voice message"
         result.isAccessibilityElement = true
         
         return result
@@ -70,6 +72,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     private lazy var sendButton: InputViewButton = {
         let result = InputViewButton(icon: #imageLiteral(resourceName: "ArrowUp"), isSendButton: true, delegate: self)
         result.isHidden = true
+        result.accessibilityIdentifier = "Send message button"
         result.accessibilityLabel = "Send message button"
         result.isAccessibilityElement = true
         
@@ -87,6 +90,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     private lazy var mentionsViewContainer: UIView = {
         let result: UIView = UIView()
         result.accessibilityLabel = "Mentions list"
+        result.accessibilityIdentifier = "Mentions list"
         result.isAccessibilityElement = true
         result.alpha = 0
         
@@ -119,6 +123,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         let maxWidth = UIScreen.main.bounds.width - 2 * InputViewButton.expandedSize - 2 * Values.smallSpacing - 2 * (Values.mediumSpacing - adjustment)
         let result = InputTextView(delegate: self, maxWidth: maxWidth)
         result.accessibilityLabel = "Message input box"
+        result.accessibilityIdentifier = "Message input box"
         result.isAccessibilityElement = true
         
         return result

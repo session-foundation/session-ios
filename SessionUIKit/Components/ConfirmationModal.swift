@@ -22,7 +22,7 @@ public class ConfirmationModal: Modal {
         let explanation: String?
         let attributedExplanation: NSAttributedString?
         let accessibilityLabel: String?
-        let accessibilityId: String?
+        let accessibilityIdentifier: String?
         public let stateToShow: State
         let confirmTitle: String?
         let confirmAccessibilityLabel: String?
@@ -57,7 +57,7 @@ public class ConfirmationModal: Modal {
             self.explanation = explanation
             self.attributedExplanation = attributedExplanation
             self.accessibilityLabel = accessibilityLabel
-            self.accessibilityId = accessibilityId
+            self.accessibilityIdentifier = accessibilityId
             self.stateToShow = stateToShow
             self.confirmTitle = confirmTitle
             self.confirmAccessibilityLabel = confirmAccessibilityLabel
@@ -241,8 +241,8 @@ public class ConfirmationModal: Modal {
         cancelButton.setTitle(info.cancelTitle, for: .normal)
         cancelButton.setThemeTitleColor(info.cancelStyle, for: .normal)
         
-        self.accessibilityLabel = info.accessibilityLabel
-        self.contentView.accessibilityIdentifier = info.accessibilityId
+        self.contentView.accessibilityLabel = info.accessibilityLabel
+        self.contentView.accessibilityIdentifier = info.accessibilityIdentifier
     }
     
     required init?(coder: NSCoder) {
