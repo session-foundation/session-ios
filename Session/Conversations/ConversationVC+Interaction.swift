@@ -1606,9 +1606,15 @@ extension ConversationVC:
             
             if
                 let quote = try? interaction.quote.fetchOne(db),
-                let quotedInteraction = try? quote.interaction.fetchOne(db)
+                let quotedAttachment = try? quote.attachment.fetchOne(db),
+                quotedAttachment.isVisualMedia,
+                quotedAttachment.downloadUrl == Attachment.nonMediaQuoteFileId,
+                let quotedInteraction = try? quote.originalInteraction.fetchOne(db)
             {
-                
+                let attachment = try? quotedInteraction.attachments.fetchAll(db).first
+                try quote.with(
+                    attachmentId: attachment?.cloneAsQuoteThumbnail()?.inserted(db).id
+                ).update(db)
             }
             
             try MessageSender.send(
