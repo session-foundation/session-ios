@@ -1604,6 +1604,23 @@ extension ConversationVC:
                 let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId)
             else { return }
             
+            if
+                let quote = try? interaction.quote.fetchOne(db),
+                let quotedAttachment = try? quote.attachment.fetchOne(db),
+                quotedAttachment.isVisualMedia,
+                quotedAttachment.downloadUrl == Attachment.nonMediaQuoteFileId,
+                let quotedInteraction = try? quote.originalInteraction.fetchOne(db)
+            {
+                let attachment = try? quotedInteraction.attachments.fetchAll(db).first
+                try quote.with(
+                    attachmentId: attachment?.cloneAsQuoteThumbnail()?.inserted(db).id
+                ).update(db)
+            }
+            
+            // Remove message sending jobs for the same interaction in database
+            // Prevent the same message being sent twice
+            try Job.filter(Job.Columns.interactionId == interaction.id).deleteAll(db)
+            
             try MessageSender.send(
                 db,
                 interaction: interaction,

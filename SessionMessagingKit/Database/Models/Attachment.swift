@@ -787,6 +787,13 @@ extension Attachment {
     public var isText: Bool { MIMETypeUtil.isText(contentType) }
     public var isMicrosoftDoc: Bool { MIMETypeUtil.isMicrosoftDoc(contentType) }
     
+    public var shortDescription: String {
+        if isImage { return "Image" }
+        if isAudio { return "Audio" }
+        if isVideo { return "Video" }
+        return "Document"
+    }
+    
     public func readDataFromFile() throws -> Data? {
         guard let filePath: String = self.originalFilePath else {
             return nil
