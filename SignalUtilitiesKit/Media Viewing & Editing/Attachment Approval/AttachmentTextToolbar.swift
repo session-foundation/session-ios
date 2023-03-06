@@ -58,6 +58,8 @@ class AttachmentTextToolbar: UIView, UITextViewDelegate {
         self.themeBackgroundColor = .clear
 
         textView.delegate = self
+        textView.accessibilityIdentifier = "Text input box"
+        textView.isAccessibilityElement = true
 
         let sendTitle = NSLocalizedString("ATTACHMENT_APPROVAL_SEND_BUTTON", comment: "Label for 'send' button in the 'attachment approval' dialog.")
         sendButton.setTitle(sendTitle, for: .normal)
@@ -66,6 +68,8 @@ class AttachmentTextToolbar: UIView, UITextViewDelegate {
         sendButton.titleLabel?.font = .boldSystemFont(ofSize: Values.mediumFontSize)
         sendButton.titleLabel?.textAlignment = .center
         sendButton.themeTintColor = .textPrimary
+        sendButton.accessibilityIdentifier = "Send button"
+        sendButton.isAccessibilityElement = true
 
         // Increase hit area of send button
         sendButton.contentEdgeInsets = UIEdgeInsets(top: 6, left: 8, bottom: 6, right: 8)

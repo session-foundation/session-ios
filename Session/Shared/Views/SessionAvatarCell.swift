@@ -63,6 +63,7 @@ class SessionAvatarCell: UITableViewCell {
     fileprivate let displayNameContainer: UIView = {
         let view: UIView = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
+        view.accessibilityIdentifier = "Username"
         view.accessibilityLabel = "Username"
         view.isAccessibilityElement = true
         
@@ -266,6 +267,7 @@ class SessionAvatarCell: UITableViewCell {
         }
         let completion: (Bool) -> Void = { [weak self] complete in
             self?.displayNameTextField.text = self?.originalInputValue
+            self?.displayNameContainer.accessibilityLabel = self?.displayNameLabel.text
         }
         
         if animated {
