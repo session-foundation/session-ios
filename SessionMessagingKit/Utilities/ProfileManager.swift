@@ -34,6 +34,7 @@ public struct ProfileManager {
     // Before encrypting and submitting we NULL pad the name data to this length.
     private static let nameDataLength: UInt = 64
     public static let maxAvatarDiameter: CGFloat = 640
+    private static let maxAvatarBytes: UInt = (5 * 1000 * 1000)
     public static let avatarAES256KeyByteLength: Int = 32
     private static let avatarNonceLength: Int = 12
     private static let avatarTagLength: Int = 16
@@ -370,7 +371,6 @@ public struct ProfileManager {
             // If the profile avatar was updated or removed then encrypt with a new profile key
             // to ensure that other users know that our profile picture was updated
             let newProfileKey: Data
-            let maxAvatarBytes: UInt = (5 * 1000 * 1000)
             let avatarImageData: Data?
             
             do {

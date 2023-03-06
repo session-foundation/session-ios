@@ -861,6 +861,7 @@ public extension SessionThreadViewModel {
                 \(openGroup[.permissions]) AS \(ViewModel.openGroupPermissionsKey),
         
                 \(Interaction.self).\(ViewModel.interactionIdKey),
+                \(Interaction.self).\(ViewModel.interactionTimestampMsKey),
             
                 \(SQL("\(userPublicKey)")) AS \(ViewModel.currentUserPublicKeyKey)
             
@@ -871,7 +872,7 @@ public extension SessionThreadViewModel {
                 SELECT
                     \(interaction[.id]) AS \(ViewModel.interactionIdKey),
                     \(interaction[.threadId]),
-                    MAX(\(interaction[.timestampMs])),
+                    MAX(\(interaction[.timestampMs])) AS \(ViewModel.interactionTimestampMsKey),
                     
                     SUM(\(interaction[.wasRead]) = false) AS \(ViewModel.threadUnreadCountKey)
                 

@@ -522,10 +522,7 @@ extension MessageReceiver {
                         didAdminLeave || // If the admin leaves the group is disbanded
                         member.profileId == sender
                     }
-                let updatedMemberIds: Set<String> = members
-                    .map { $0.profileId }
-                    .asSet()
-                    .subtracting(membersToRemove.map { $0.profileId })
+                let memberIdsToRemove: [String] = members.map { $0.profileId }
                 
                 // Update libSession
                 try? SessionUtil.update(
@@ -547,7 +544,7 @@ extension MessageReceiver {
                 // Delete the members to remove
                 try GroupMember
                     .filter(GroupMember.Columns.groupId == threadId)
-                    .filter(updatedMemberIds.contains(GroupMember.Columns.profileId))
+                    .filter(memberIdsToRemove.contains(GroupMember.Columns.profileId))
                     .deleteAll(db)
                 
                 if didAdminLeave || sender == userPublicKey {

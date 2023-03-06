@@ -986,7 +986,7 @@ public final class MessageSender {
         )
     }
 
-    @discardableResult private static func handleFailedMessageSend(
+    @discardableResult internal static func handleFailedMessageSend(
         _ db: Database,
         message: Message,
         with error: MessageSenderError,

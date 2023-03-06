@@ -168,7 +168,8 @@ public enum MessageSendJob: JobExecutor {
                     message: details.message,
                     to: details.destination,
                     namespace: details.destination.defaultNamespace,
-                    interactionId: job.interactionId
+                    interactionId: job.interactionId,
+                    isSyncMessage: details.isSyncMessage
                 )
             }
             .map { sendData in sendData.with(fileIds: messageFileIds) }
@@ -227,7 +228,7 @@ extension MessageSendJob {
         
         public let destination: Message.Destination
         public let message: Message
-        public let isSyncMessage: Bool?
+        public let isSyncMessage: Bool
         public let variant: Message.Variant?
         
         // MARK: - Initialization
@@ -235,7 +236,7 @@ extension MessageSendJob {
         public init(
             destination: Message.Destination,
             message: Message,
-            isSyncMessage: Bool? = nil
+            isSyncMessage: Bool = false
         ) {
             self.destination = destination
             self.message = message
@@ -256,7 +257,7 @@ extension MessageSendJob {
             self = Details(
                 destination: try container.decode(Message.Destination.self, forKey: .destination),
                 message: try variant.decode(from: container, forKey: .message),
-                isSyncMessage: try? container.decode(Bool.self, forKey: .isSyncMessage)
+                isSyncMessage: ((try? container.decode(Bool.self, forKey: .isSyncMessage)) ?? false)
             )
         }
         
@@ -270,7 +271,7 @@ extension MessageSendJob {
 
             try container.encode(destination, forKey: .destination)
             try container.encode(message, forKey: .message)
-            try container.encodeIfPresent(isSyncMessage, forKey: .isSyncMessage)
+            try container.encode(isSyncMessage, forKey: .isSyncMessage)
             try container.encode(variant, forKey: .variant)
         }
     }
