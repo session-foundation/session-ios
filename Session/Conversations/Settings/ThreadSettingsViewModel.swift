@@ -222,7 +222,10 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                 threadViewModel.currentUserIsClosedGroupMember == true
             )
             let currentUserIsClosedGroupAdmin: Bool = (
-                threadVariant == .closedGroup &&
+                (
+                    threadVariant == .legacyGroup ||
+                    threadVariant == .group
+                ) &&
                 threadViewModel.currentUserIsClosedGroupAdmin == true
             )
             let editIcon: UIImage? = UIImage(named: "icon_edit")

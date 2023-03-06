@@ -44,6 +44,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 viewModel = ThreadDisappearingMessagesSettingsViewModel(
                     dependencies: dependencies,
                     threadId: "TestId",
+                    threadVariant: .contact,
                     config: DisappearingMessagesConfiguration.defaultWith("TestId")
                 )
                 cancellables.append(
@@ -126,6 +127,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 viewModel = ThreadDisappearingMessagesSettingsViewModel(
                     dependencies: dependencies,
                     threadId: "TestId",
+                    threadVariant: .contact,
                     config: config
                 )
                 cancellables.append(
