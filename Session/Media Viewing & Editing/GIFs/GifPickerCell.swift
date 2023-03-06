@@ -218,6 +218,7 @@ class GifPickerCell: UICollectionViewCell {
             return
         }
         imageView.image = image
+        imageView.accessibilityIdentifier = "gif cell"
         self.themeBackgroundColor = nil
 
         if self.isCellSelected {
