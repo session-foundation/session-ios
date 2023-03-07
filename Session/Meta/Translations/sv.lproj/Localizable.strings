@@ -616,3 +616,6 @@
 "leave_group_confirmation_alert_title" = "Leave Group";
 "leave_community_confirmation_alert_title" = "Leave Community";
 "leave_community_confirmation_alert_message" = "Are you sure you want to leave %@?";
+"group_you_leaving" = "Leaving...";
+"group_leave_error" = "Failed to leave Group!";
+"group_unable_to_leave" = "Unable to leave the Group, please try again";

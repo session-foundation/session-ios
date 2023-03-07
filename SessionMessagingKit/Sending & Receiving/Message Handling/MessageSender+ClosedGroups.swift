@@ -493,7 +493,7 @@ extension MessageSender {
         let interaction: Interaction = try Interaction(
             threadId: thread.id,
             authorId: userPublicKey,
-            variant: .infoClosedGroupCurrentUserLeft,
+            variant: .infoClosedGroupCurrentUserLeaving,
             body: ClosedGroupControlMessage.Kind
                 .memberLeft
                 .infoMessage(db, sender: userPublicKey),
@@ -529,6 +529,7 @@ extension MessageSender {
                         publicKey: userPublicKey
                     )
                 }
+                interaction.with()
             }
             .map { _ in }
         

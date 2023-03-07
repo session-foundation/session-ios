@@ -73,6 +73,8 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         case infoClosedGroupCreated = 1000
         case infoClosedGroupUpdated
         case infoClosedGroupCurrentUserLeft
+        case infoClosedGroupCurrentUserLeaving
+        case infoClosedGroupCurrentUserErrorLeaving
         
         case infoDisappearingMessagesUpdate = 2000
         
@@ -87,7 +89,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         
         public var isInfoMessage: Bool {
             switch self {
-                case .infoClosedGroupCreated, .infoClosedGroupUpdated, .infoClosedGroupCurrentUserLeft,
+            case .infoClosedGroupCreated, .infoClosedGroupUpdated, .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving,
                     .infoDisappearingMessagesUpdate, .infoScreenshotNotification, .infoMediaSavedNotification,
                     .infoMessageRequestAccepted, .infoCall:
                     return true
@@ -106,7 +108,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
                 
                 case .standardOutgoing, .standardIncomingDeleted: return false
                 
-                case .infoClosedGroupCreated, .infoClosedGroupUpdated, .infoClosedGroupCurrentUserLeft,
+                case .infoClosedGroupCreated, .infoClosedGroupUpdated, .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving,
                     .infoDisappearingMessagesUpdate, .infoScreenshotNotification, .infoMediaSavedNotification,
                     .infoMessageRequestAccepted:
                     return false
@@ -846,6 +848,8 @@ public extension Interaction {
                 
             case .infoClosedGroupCreated: return "GROUP_CREATED".localized()
             case .infoClosedGroupCurrentUserLeft: return "GROUP_YOU_LEFT".localized()
+            case .infoClosedGroupCurrentUserLeaving: return "group_you_leaving".localized()
+            case .infoClosedGroupCurrentUserErrorLeaving: return "group_leave_error".localized()
             case .infoClosedGroupUpdated: return (body ?? "GROUP_UPDATED".localized())
             case .infoMessageRequestAccepted: return (body ?? "MESSAGE_REQUESTS_ACCEPTED".localized())
             

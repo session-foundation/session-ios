@@ -151,7 +151,8 @@ internal extension ControlMessageProcessRecord {
                 .infoClosedGroupCreated:
                 return nil
                 
-            case .infoClosedGroupUpdated, .infoClosedGroupCurrentUserLeft:
+            case .infoClosedGroupUpdated, .infoClosedGroupCurrentUserLeft,
+                .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving:
                 self.variant = .closedGroupControlMessage
             
             case .infoDisappearingMessagesUpdate:
