@@ -307,17 +307,26 @@ public class HomeViewModel {
                 case .closedGroup:
                     try MessageSender
                         .leave(db, groupPublicKey: threadId)
+                        .done {
+                            Storage.shared.writeAsync { db in
+                                _ = try SessionThread
+                                    .filter(id: threadId)
+                                    .deleteAll(db)
+                            }
+                        }
+                        .catch { _ in 
+                            
+                        }
                         .retainUntilComplete()
                     
                 case .openGroup:
                     OpenGroupManager.shared.delete(db, openGroupId: threadId)
+                    _ = try SessionThread
+                        .filter(id: threadId)
+                        .deleteAll(db)
                     
                 default: break
             }
-            
-            _ = try SessionThread
-                .filter(id: threadId)
-                .deleteAll(db)
         }
     }
 }
