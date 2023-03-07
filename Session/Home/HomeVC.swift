@@ -630,8 +630,8 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                 let hasUnread: Bool = (threadViewModel.threadUnreadCount ?? 0) > 0
                 let mark: UIContextualAction = UIContextualAction(
                     title: ((hasUnread) ? "mark_read_button_text".localized() : "mark_unread_button_text".localized()),
-                    icon: ((hasUnread) ? UIImage(named: "icon_mark_read") : UIImage(named: "icon_mark_unread")),
-                    iconHeight: Values.mediumFontSize,
+                    icon: ((hasUnread) ? UIImage(systemName: "envelope.open") : UIImage(systemName: "envelope.badge")),
+                    iconHeight: Values.smallFontSize,
                     themeTintColor: .textPrimary,
                     themeBackgroundColor: .conversationButton_swipeDestructive,
                     side: .trailing,
@@ -689,7 +689,7 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
 
                 let pin: UIContextualAction = UIContextualAction(
                     title: (threadViewModel.threadIsPinned ? "UNPIN_BUTTON_TEXT".localized() : "PIN_BUTTON_TEXT".localized()),
-                    icon: UIImage(named: "icon_pin"),
+                    icon: UIImage(systemName: "pin"),
                     iconHeight: Values.mediumFontSize,
                     themeTintColor: .textPrimary,
                     themeBackgroundColor: .conversationButton_swipeDestructive,
@@ -716,7 +716,7 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
             
                 let mute: UIContextualAction = UIContextualAction(
                     title: ((threadViewModel.threadMutedUntilTimestamp != nil) ? "unmute_button_text".localized() : "mute_button_text".localized()),
-                    icon: UIImage(named: "icon_mute"),
+                    icon: UIImage(systemName: "speaker.slash"),
                     iconHeight: Values.mediumFontSize,
                     themeTintColor: .textPrimary,
                     themeBackgroundColor: .conversationButton_swipeDestructive,
@@ -759,8 +759,8 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                     case .contact:
                         let delete: UIContextualAction = UIContextualAction(
                             title: "TXT_DELETE_TITLE".localized(),
-                            icon: UIImage(named: "icon_bin"),
-                            iconHeight: Values.smallFontSize,
+                            icon: UIImage(named: "icon_bin")?.resizedImage(to: CGSize(width: Values.mediumFontSize, height: Values.mediumFontSize)),
+                            iconHeight: Values.mediumFontSize,
                             themeTintColor: .textPrimary,
                             themeBackgroundColor: .conversationButton_swipeDestructive,
                             side: .trailing,
@@ -801,7 +801,7 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                     case .openGroup, .closedGroup:
                         let leave: UIContextualAction = UIContextualAction(
                             title: "LEAVE_BUTTON_TITLE".localized(),
-                            icon: UIImage(named: "icon_leave"),
+                            icon: UIImage(systemName: "rectangle.portrait.and.arrow.right"),
                             iconHeight: Values.mediumFontSize,
                             themeTintColor: .textPrimary,
                             themeBackgroundColor: .conversationButton_swipeDestructive,
