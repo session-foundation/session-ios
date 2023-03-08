@@ -307,15 +307,12 @@ public class HomeViewModel {
                 case .closedGroup:
                     try MessageSender
                         .leave(db, groupPublicKey: threadId)
-                        .done {
+                        .done { _ in
                             Storage.shared.writeAsync { db in
                                 _ = try SessionThread
                                     .filter(id: threadId)
                                     .deleteAll(db)
                             }
-                        }
-                        .catch { _ in 
-                            
                         }
                         .retainUntilComplete()
                     

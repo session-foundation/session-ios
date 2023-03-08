@@ -478,7 +478,7 @@ extension MessageSender {
     /// unregisters from push notifications.
     ///
     /// The returned promise is fulfilled when the `MEMBER_LEFT` message has been sent to the group.
-    public static func leave(_ db: Database, groupPublicKey: String) throws -> Promise<Void> {
+    public static func leave(_ db: Database, groupPublicKey: String) throws -> Promise<Int64> {
         guard let thread: SessionThread = try? SessionThread.fetchOne(db, id: groupPublicKey) else {
             SNLog("Can't leave nonexistent closed group.")
             return Promise(error: MessageSenderError.noThread)
@@ -493,10 +493,8 @@ extension MessageSender {
         let interaction: Interaction = try Interaction(
             threadId: thread.id,
             authorId: userPublicKey,
-            variant: .infoClosedGroupCurrentUserLeaving,
-            body: ClosedGroupControlMessage.Kind
-                .memberLeft
-                .infoMessage(db, sender: userPublicKey),
+            variant: .infoClosedGroupCurrentUserLeft,
+            body: "group_you_leaving".localized(),
             timestampMs: SnodeAPI.currentOffsetTimestampMs()
         ).inserted(db)
         
@@ -528,10 +526,19 @@ extension MessageSender {
                         for: groupPublicKey,
                         publicKey: userPublicKey
                     )
+                    
+                    try interaction.with(
+                        body: ClosedGroupControlMessage.Kind
+                            .memberLeft
+                            .infoMessage(db, sender: userPublicKey)
+                    ).update(db)
                 }
-                interaction.with()
+                
             }
-            .map { _ in }
+            .map { _ in
+                return interactionId
+            }
+            
         
         // Update the group (if the admin leaves the group is disbanded)
         let wasAdminUser: Bool = try GroupMember
