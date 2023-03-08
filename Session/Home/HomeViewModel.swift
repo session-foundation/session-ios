@@ -307,11 +307,17 @@ public class HomeViewModel {
                 case .closedGroup:
                     try MessageSender
                         .leave(db, groupPublicKey: threadId)
-                        .done { _ in
+                        .done { (interactionId, error) in
                             Storage.shared.writeAsync { db in
-                                _ = try SessionThread
-                                    .filter(id: threadId)
-                                    .deleteAll(db)
+                                if let _ = error {
+                                    try Interaction
+                                        .filter(id: interactionId)
+                                        .updateAll(db, Interaction.Columns.body.set(to: "group_leave_error".localized()))
+                                } else {
+                                    _ = try SessionThread
+                                        .filter(id: threadId)
+                                        .deleteAll(db)
+                                }
                             }
                         }
                         .retainUntilComplete()

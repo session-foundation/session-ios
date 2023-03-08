@@ -478,7 +478,7 @@ extension MessageSender {
     /// unregisters from push notifications.
     ///
     /// The returned promise is fulfilled when the `MEMBER_LEFT` message has been sent to the group.
-    public static func leave(_ db: Database, groupPublicKey: String) throws -> Promise<Int64> {
+    public static func leave(_ db: Database, groupPublicKey: String) throws -> Promise<(Int64, Error?)> {
         guard let thread: SessionThread = try? SessionThread.fetchOne(db, id: groupPublicKey) else {
             SNLog("Can't leave nonexistent closed group.")
             return Promise(error: MessageSenderError.noThread)
@@ -503,42 +503,47 @@ extension MessageSender {
         }
         
         // Send the update to the group
-        let promise = try MessageSender
-            .sendNonDurably(
-                db,
-                message: ClosedGroupControlMessage(
-                    kind: .memberLeft
-                ),
-                interactionId: interactionId,
-                in: thread
-            )
-            .done {
-                // Remove the group from the database and unsubscribe from PNs
-                ClosedGroupPoller.shared.stopPolling(for: groupPublicKey)
-                
-                Storage.shared.write { db in
-                    try closedGroup
-                        .keyPairs
-                        .deleteAll(db)
+        let (promise, seal) = Promise<(Int64, Error?)>.pending()
+        do {
+            try MessageSender
+                .sendNonDurably(
+                    db,
+                    message: ClosedGroupControlMessage(
+                        kind: .memberLeft
+                    ),
+                    interactionId: interactionId,
+                    in: thread
+                )
+                .done {
+                    // Remove the group from the database and unsubscribe from PNs
+                    ClosedGroupPoller.shared.stopPolling(for: groupPublicKey)
                     
-                    let _ = PushNotificationAPI.performOperation(
-                        .unsubscribe,
-                        for: groupPublicKey,
-                        publicKey: userPublicKey
-                    )
-                    
-                    try interaction.with(
-                        body: ClosedGroupControlMessage.Kind
-                            .memberLeft
-                            .infoMessage(db, sender: userPublicKey)
-                    ).update(db)
+                    Storage.shared.write { db in
+                        try closedGroup
+                            .keyPairs
+                            .deleteAll(db)
+                        
+                        let _ = PushNotificationAPI.performOperation(
+                            .unsubscribe,
+                            for: groupPublicKey,
+                            publicKey: userPublicKey
+                        )
+                        
+                        try interaction.with(
+                            body: ClosedGroupControlMessage.Kind
+                                .memberLeft
+                                .infoMessage(db, sender: userPublicKey)
+                        ).update(db)
+                    }
+                    seal.fulfill((interactionId, nil))
                 }
-                
-            }
-            .map { _ in
-                return interactionId
-            }
-            
+                .catch { error in
+                    seal.fulfill((interactionId, error))
+                }
+        }
+        catch {
+            seal.fulfill((interactionId, error))
+        }
         
         // Update the group (if the admin leaves the group is disbanded)
         let wasAdminUser: Bool = try GroupMember
