@@ -493,7 +493,7 @@ public final class FullConversationCell: UITableViewCell {
         
         if
             (cellViewModel.threadVariant == .closedGroup || cellViewModel.threadVariant == .openGroup) &&
-            (![Interaction.Variant.infoClosedGroupCurrentUserErrorLeaving, Interaction.Variant.infoClosedGroupCurrentUserLeaving].contains(cellViewModel.interactionVariant))
+            (cellViewModel.interactionVariant?.isGroupControlMessage == false)
         {
             let authorName: String = cellViewModel.authorName(for: cellViewModel.threadVariant)
             

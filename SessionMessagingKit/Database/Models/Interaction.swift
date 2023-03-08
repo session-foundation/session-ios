@@ -89,13 +89,23 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         
         public var isInfoMessage: Bool {
             switch self {
-            case .infoClosedGroupCreated, .infoClosedGroupUpdated,
+                case .infoClosedGroupCreated, .infoClosedGroupUpdated,
                     .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving,
                     .infoDisappearingMessagesUpdate, .infoScreenshotNotification, .infoMediaSavedNotification,
                     .infoMessageRequestAccepted, .infoCall:
                     return true
                     
                 case .standardIncoming, .standardOutgoing, .standardIncomingDeleted:
+                    return false
+            }
+        }
+        
+        public var isGroupControlMessage: Bool {
+            switch self {
+                case .infoClosedGroupCreated, .infoClosedGroupUpdated,
+                    .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving:
+                    return true
+                default:
                     return false
             }
         }
