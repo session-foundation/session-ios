@@ -1643,7 +1643,19 @@ extension ConversationVC:
                 quotedAttachment.downloadUrl == Attachment.nonMediaQuoteFileId,
                 let quotedInteraction = try? quote.originalInteraction.fetchOne(db)
             {
-                let attachment = try? quotedInteraction.attachments.fetchAll(db).first
+                let attachment: Attachment? = {
+                    if let attachment = try? quotedInteraction.attachments.fetchOne(db) {
+                        return attachment
+                    }
+                    if
+                        let linkPreview = try? quotedInteraction.linkPreview.fetchOne(db),
+                        let linkPreviewAttachment = try? linkPreview.attachment.fetchOne(db)
+                    {
+                        return linkPreviewAttachment
+                    }
+                       
+                    return nil
+                }()
                 try quote.with(
                     attachmentId: attachment?.cloneAsQuoteThumbnail()?.inserted(db).id
                 ).update(db)

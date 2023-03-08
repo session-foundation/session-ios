@@ -883,9 +883,10 @@ extension Attachment {
         let cloneId: String = UUID().uuidString
         let thumbnailName: String = "quoted-thumbnail-\(sourceFilename ?? "null")"
         
+        guard self.isVisualMedia else { return nil }
+        
         guard
             self.isValid,
-            self.isVisualMedia,
             let thumbnailPath: String = Attachment.originalFilePath(
                 id: cloneId,
                 mimeType: OWSMimeTypeImageJpeg,
