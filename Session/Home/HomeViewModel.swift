@@ -312,7 +312,13 @@ public class HomeViewModel {
                                 if let _ = error {
                                     try Interaction
                                         .filter(id: interactionId)
-                                        .updateAll(db, Interaction.Columns.body.set(to: "group_leave_error".localized()))
+                                        .updateAll(
+                                            db,
+                                            [
+                                                Interaction.Columns.variant.set(to: Interaction.Variant.infoClosedGroupCurrentUserErrorLeaving),
+                                                Interaction.Columns.body.set(to: "group_unable_to_leave".localized())
+                                            ]
+                                        )
                                 } else {
                                     _ = try SessionThread
                                         .filter(id: threadId)

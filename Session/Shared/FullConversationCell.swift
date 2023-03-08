@@ -384,12 +384,32 @@ public final class FullConversationCell: UITableViewCell {
             typingIndicatorView.stopAnimation()
             
             ThemeManager.onThemeChange(observer: snippetLabel) { [weak self, weak snippetLabel] theme, _ in
-                guard let textColor: UIColor = theme.color(for: .textPrimary) else { return }
-                
-                snippetLabel?.attributedText = self?.getSnippet(
-                    cellViewModel: cellViewModel,
-                    textColor: textColor
-                )
+                if cellViewModel.interactionVariant == .infoClosedGroupCurrentUserLeaving {
+                    guard let textColor: UIColor = theme.color(for: .textSecondary) else { return }
+                    
+                    self?.displayNameLabel.themeTextColor = .textSecondary
+                    
+                    snippetLabel?.attributedText = self?.getSnippet(
+                        cellViewModel: cellViewModel,
+                        textColor: textColor
+                    )
+                } else if cellViewModel.interactionVariant == .infoClosedGroupCurrentUserErrorLeaving {
+                    guard let textColor: UIColor = theme.color(for: .danger) else { return }
+                    
+                    snippetLabel?.attributedText = self?.getSnippet(
+                        cellViewModel: cellViewModel,
+                        textColor: textColor
+                    )
+                } else {
+                    guard let textColor: UIColor = theme.color(for: .textPrimary) else { return }
+                    
+                    self?.displayNameLabel.themeTextColor = .textPrimary
+                    
+                    snippetLabel?.attributedText = self?.getSnippet(
+                        cellViewModel: cellViewModel,
+                        textColor: textColor
+                    )
+                }
             }
         }
         
@@ -471,7 +491,10 @@ public final class FullConversationCell: UITableViewCell {
             ))
         }
         
-        if cellViewModel.threadVariant == .closedGroup || cellViewModel.threadVariant == .openGroup {
+        if
+            (cellViewModel.threadVariant == .closedGroup || cellViewModel.threadVariant == .openGroup) &&
+            (![Interaction.Variant.infoClosedGroupCurrentUserErrorLeaving, Interaction.Variant.infoClosedGroupCurrentUserLeaving].contains(cellViewModel.interactionVariant))
+        {
             let authorName: String = cellViewModel.authorName(for: cellViewModel.threadVariant)
             
             result.append(NSAttributedString(
@@ -480,17 +503,22 @@ public final class FullConversationCell: UITableViewCell {
             ))
         }
         
+        let previewText: String = {
+            if cellViewModel.interactionVariant == .infoClosedGroupCurrentUserErrorLeaving { return "group_leave_error".localized() }
+            return Interaction.previewText(
+                variant: (cellViewModel.interactionVariant ?? .standardIncoming),
+                body: cellViewModel.interactionBody,
+                threadContactDisplayName: cellViewModel.threadContactName(),
+                authorDisplayName: cellViewModel.authorName(for: cellViewModel.threadVariant),
+                attachmentDescriptionInfo: cellViewModel.interactionAttachmentDescriptionInfo,
+                attachmentCount: cellViewModel.interactionAttachmentCount,
+                isOpenGroupInvitation: (cellViewModel.interactionIsOpenGroupInvitation == true)
+            )
+        }()
+        
         result.append(NSAttributedString(
             string: MentionUtilities.highlightMentionsNoAttributes(
-                in: Interaction.previewText(
-                    variant: (cellViewModel.interactionVariant ?? .standardIncoming),
-                    body: cellViewModel.interactionBody,
-                    threadContactDisplayName: cellViewModel.threadContactName(),
-                    authorDisplayName: cellViewModel.authorName(for: cellViewModel.threadVariant),
-                    attachmentDescriptionInfo: cellViewModel.interactionAttachmentDescriptionInfo,
-                    attachmentCount: cellViewModel.interactionAttachmentCount,
-                    isOpenGroupInvitation: (cellViewModel.interactionIsOpenGroupInvitation == true)
-                ),
+                in: previewText,
                 threadVariant: cellViewModel.threadVariant,
                 currentUserPublicKey: cellViewModel.currentUserPublicKey,
                 currentUserBlindedPublicKey: cellViewModel.currentUserBlindedPublicKey

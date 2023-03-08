@@ -493,7 +493,7 @@ extension MessageSender {
         let interaction: Interaction = try Interaction(
             threadId: thread.id,
             authorId: userPublicKey,
-            variant: .infoClosedGroupCurrentUserLeft,
+            variant: .infoClosedGroupCurrentUserLeaving,
             body: "group_you_leaving".localized(),
             timestampMs: SnodeAPI.currentOffsetTimestampMs()
         ).inserted(db)
@@ -530,9 +530,8 @@ extension MessageSender {
                         )
                         
                         try interaction.with(
-                            body: ClosedGroupControlMessage.Kind
-                                .memberLeft
-                                .infoMessage(db, sender: userPublicKey)
+                            variant: .infoClosedGroupCurrentUserLeft,
+                            body: "GROUP_YOU_LEFT".localized()
                         ).update(db)
                     }
                     seal.fulfill((interactionId, nil))
