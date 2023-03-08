@@ -160,8 +160,9 @@ final class RegisterVC : BaseVC {
     }
     
     // MARK: Updating
+    
     private func updateSeed() {
-        seed = Data.getSecureRandomData(ofSize: 16)!
+        seed = try! Randomness.generateRandomBytes(numberBytes: 16)
     }
     
     private func updateKeyPair() {

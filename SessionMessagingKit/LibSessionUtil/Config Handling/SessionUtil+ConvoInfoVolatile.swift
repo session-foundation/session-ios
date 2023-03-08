@@ -129,7 +129,7 @@ internal extension SessionUtil {
                 // update the cached config state accordingly
                 guard
                     let lastReadTimestampMs: Int64 = threadInfo.changes.lastReadTimestampMs,
-                    lastReadTimestampMs > (localThreadInfo?.changes.lastReadTimestampMs ?? 0)
+                    lastReadTimestampMs >= (localThreadInfo?.changes.lastReadTimestampMs ?? 0)
                 else {
                     // We only want to return the 'lastReadTimestampMs' change, since the local state
                     // should win in that case, so ignore all others
@@ -299,25 +299,22 @@ public extension SessionUtil {
         threadVariant: SessionThread.Variant,
         lastReadTimestampMs: Int64
     ) throws {
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard Features.useSharedUtilForUserConfig else { return }
-        
-        let change: VolatileThreadInfo = VolatileThreadInfo(
-            threadId: threadId,
-            variant: threadVariant,
-            openGroupUrlInfo: (threadVariant != .community ? nil :
-                try OpenGroupUrlInfo.fetchOne(db, id: threadId)
-            ),
-            changes: [.lastReadTimestampMs(lastReadTimestampMs)]
-        )
-        
         try SessionUtil.performAndPushChange(
             db,
             for: .convoInfoVolatile,
             publicKey: getUserHexEncodedPublicKey(db)
         ) { conf in
             try upsert(
-                convoInfoVolatileChanges: [change],
+                convoInfoVolatileChanges: [
+                    VolatileThreadInfo(
+                        threadId: threadId,
+                        variant: threadVariant,
+                        openGroupUrlInfo: (threadVariant != .community ? nil :
+                            try OpenGroupUrlInfo.fetchOne(db, id: threadId)
+                        ),
+                        changes: [.lastReadTimestampMs(lastReadTimestampMs)]
+                    )
+                ],
                 in: conf
             )
         }

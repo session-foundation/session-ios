@@ -632,50 +632,20 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
     
     func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         let section: HomeViewModel.SectionModel = self.viewModel.threadData[indexPath.section]
-        let unswipeAnimationDelay: DispatchTimeInterval = .milliseconds(500)
         
         switch section.model {
             case .threads:
-                let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
-                let isUnread: Bool = (
-                    threadViewModel.threadWasMarkedUnread == true ||
-                    (threadViewModel.threadUnreadCount ?? 0) > 0
-                )
-                let changeReadStatus: UIContextualAction = UIContextualAction(
-                    title: (isUnread ?
-                        "MARK_AS_READ".localized() :
-                        "MARK_AS_UNREAD".localized()
-                    ),
-                    icon: (isUnread ?
-                        UIImage(systemName: "envelope.open") :
-                        UIImage(systemName: "envelope.badge")
-                    ),
-                    themeTintColor: .textPrimary,
-                    themeBackgroundColor: .conversationButton_swipeRead,
-                    side: .leading,
-                    actionIndex: 0,
-                    indexPath: indexPath,
-                    tableView: tableView
-                ) { [weak self] _, _, completionHandler  in
-                    // Delay the change to give the cell "unswipe" animation some time to complete
-                    DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
-                        switch isUnread {
-                            case true:
-                                self?.viewModel.markAsRead(
-                                    threadViewModel: threadViewModel,
-                                    target: .threadAndInteractions(
-                                        interactionsBeforeInclusive: threadViewModel.interactionId
-                                    )
-                                )
-                                
-                            case false:
-                                self?.viewModel.markAsUnread(threadViewModel: threadViewModel)
-                        }
-                    }
-                    completionHandler(true)
+                // Cannot properly sync outgoing blinded message requests so don't provide the option
+                guard SessionId(from: section.elements[indexPath.row].threadId)?.prefix == .standard else {
+                    return nil
                 }
                 
-                return UISwipeActionsConfiguration(actions: [changeReadStatus])
+                return generateSwipeActions(
+                    [.toggleReadStatus],
+                    for: .leading,
+                    indexPath: indexPath,
+                    tableView: tableView
+                )
                 
             default: return nil
         }
@@ -683,150 +653,253 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
     
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         let section: HomeViewModel.SectionModel = self.viewModel.threadData[indexPath.section]
-        let unswipeAnimationDelay: DispatchTimeInterval = .milliseconds(500)
         
         switch section.model {
             case .messageRequests:
-                let hide: UIContextualAction = UIContextualAction(
-                    title: "TXT_HIDE_TITLE".localized(),
-                    icon: UIImage(systemName: "eye.slash"),
-                    themeTintColor: .textPrimary,
-                    themeBackgroundColor: .conversationButton_swipeDestructive,
-                    side: .trailing,
-                    actionIndex: 0,
-                    indexPath: indexPath,
-                    tableView: tableView
-                ) { _, _, completionHandler  in
-                    Storage.shared.write { db in db[.hasHiddenMessageRequests] = true }
-                    completionHandler(true)
-                }
-                
-                return UISwipeActionsConfiguration(actions: [hide])
+                return generateSwipeActions([.hide], for: .trailing, indexPath: indexPath, tableView: tableView)
                 
             case .threads:
                 let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
+                let sessionIdPrefix: SessionId.Prefix? = SessionId(from: threadViewModel.threadId)?.prefix
+                
+                // Cannot properly sync outgoing blinded message requests and can only block contact
+                // threads so only provide these options if valid
                 let shouldHaveBlockAction: Bool = (
                     threadViewModel.threadVariant == .contact &&
-                    !threadViewModel.threadIsNoteToSelf
+                    !threadViewModel.threadIsNoteToSelf &&
+                    sessionIdPrefix != .blinded
                 )
-                let delete: UIContextualAction = UIContextualAction(
-                    title: "TXT_DELETE_TITLE".localized(),
-                    icon: UIImage(named: "icon_bin"),
-                    themeTintColor: .textPrimary,
-                    themeBackgroundColor: .conversationButton_swipeDestructive,
-                    side: .trailing,
-                    actionIndex: 2,
-                    indexPath: indexPath,
-                    tableView: tableView
-                ) { [weak self] _, _, completionHandler in
-                    let confirmationModal: ConfirmationModal = ConfirmationModal(
-                        info: ConfirmationModal.Info(
-                            title: "CONVERSATION_DELETE_CONFIRMATION_ALERT_TITLE".localized(),
-                            explanation: (threadViewModel.currentUserIsClosedGroupAdmin == true ?
-                                "admin_group_leave_warning".localized() :
-                                "CONVERSATION_DELETE_CONFIRMATION_ALERT_MESSAGE".localized()
-                            ),
-                            confirmTitle: "TXT_DELETE_TITLE".localized(),
-                            confirmStyle: .danger,
-                            cancelStyle: .alert_text,
-                            dismissOnConfirm: true,
-                            onConfirm: { [weak self] _ in
-                                self?.viewModel.deleteOrLeave(
-                                    threadId: threadViewModel.threadId,
-                                    threadVariant: threadViewModel.threadVariant
-                                )
-                                self?.dismiss(animated: true, completion: nil)
-                                
-                                completionHandler(true)
-                            },
-                            afterClosed: { completionHandler(false) }
-                        )
-                    )
-                    
-                    self?.present(confirmationModal, animated: true, completion: nil)
-                }
-
-                let pin: UIContextualAction = UIContextualAction(
-                    title: (threadViewModel.threadPinnedPriority > 0 ?
-                        "UNPIN_BUTTON_TEXT".localized() :
-                        "PIN_BUTTON_TEXT".localized()
-                    ),
-                    icon: (threadViewModel.threadPinnedPriority > 0 ?
-                        UIImage(systemName: "pin.slash") :
-                        UIImage(systemName: "pin")
-                    ),
-                    themeTintColor: .textPrimary,
-                    themeBackgroundColor: .conversationButton_swipeTertiary,
-                    side: .trailing,
-                    actionIndex: (shouldHaveBlockAction ? 0 : 1),
-                    indexPath: indexPath,
-                    tableView: tableView
-                ) { _, _, completionHandler in
-                    (tableView.cellForRow(at: indexPath) as? FullConversationCell)?.optimisticUpdate(
-                        isPinned: !(threadViewModel.threadPinnedPriority > 0)
-                    )
-                    completionHandler(true)
-                    
-                    // Delay the change to give the cell "unswipe" animation some time to complete
-                    DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
-                        Storage.shared.writeAsync { db in
-                            try SessionThread
-                                .filter(id: threadViewModel.threadId)
-                                .updateAllAndConfig(
-                                    db,
-                                    SessionThread.Columns.pinnedPriority
-                                        .set(to: (threadViewModel.threadPinnedPriority == 0 ? 1 : 0))
-                                )
-                        }
-                    }
-                }
                 
-                guard shouldHaveBlockAction else {
-                    return UISwipeActionsConfiguration(actions: [ delete, pin ])
-                }
-
-                let block: UIContextualAction = UIContextualAction(
-                    title: (threadViewModel.threadIsBlocked == true ?
-                        "BLOCK_LIST_UNBLOCK_BUTTON".localized() :
-                        "BLOCK_LIST_BLOCK_BUTTON".localized()
-                    ),
-                    icon: UIImage(named: "table_ic_block"),
-                    themeTintColor: .textPrimary,
-                    themeBackgroundColor: .conversationButton_swipeSecondary,
-                    side: .trailing,
-                    actionIndex: 1,
+                return generateSwipeActions(
+                    [
+                        (sessionIdPrefix == .blinded ? nil : .pin),
+                        (!shouldHaveBlockAction ? nil : .block),
+                        .delete
+                    ].compactMap { $0 },
+                    for: .trailing,
                     indexPath: indexPath,
                     tableView: tableView
-                ) { _, _, completionHandler in
-                    (tableView.cellForRow(at: indexPath) as? FullConversationCell)?.optimisticUpdate(
-                        isBlocked: (threadViewModel.threadIsBlocked == false)
-                    )
-                    completionHandler(true)
-                    
-                    // Delay the change to give the cell "unswipe" animation some time to complete
-                    DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
-                        Storage.shared
-                            .writePublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
-                                try Contact
-                                    .filter(id: threadViewModel.threadId)
-                                    .updateAllAndConfig(
-                                        db,
-                                        Contact.Columns.isBlocked.set(
-                                            to: (threadViewModel.threadIsBlocked == false ?
-                                                true:
-                                                false
-                                            )
-                                        )
-                                    )
-                            }
-                            .sinkUntilComplete()
-                    }
-                }
-                
-                return UISwipeActionsConfiguration(actions: [ delete, block, pin ])
+                )
                 
             default: return nil
         }
+    }
+    
+    // MARK: - Swipe action generation
+    
+    private enum SwipeAction {
+        case toggleReadStatus
+        case hide
+        case pin
+        case block
+        case delete
+    }
+    
+    private func generateSwipeActions(
+        _ actions: [SwipeAction],
+        for side: UIContextualAction.Side,
+        indexPath: IndexPath,
+        tableView: UITableView
+    ) -> UISwipeActionsConfiguration? {
+        guard !actions.isEmpty else { return nil }
+        
+        let section: HomeViewModel.SectionModel = self.viewModel.threadData[indexPath.section]
+        let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
+        let unswipeAnimationDelay: DispatchTimeInterval = .milliseconds(500)
+        
+        // Note: for some reason the `UISwipeActionsConfiguration` expects actions to be left-to-right
+        // for leading actions, but right-to-left for trailing actions...
+        let targetActions: [SwipeAction] = (side == .trailing ? actions.reversed() : actions)
+        
+        return UISwipeActionsConfiguration(
+            actions: targetActions
+                .enumerated()
+                .map { index, action -> UIContextualAction in
+                    // Even though we have to reverse the actions above, the indexes in the view hierarchy
+                    // are in the expected order
+                    let targetIndex: Int = (side == .trailing ? (targetActions.count - index) : index)
+                    
+                    switch action {
+                        // MARK: -- toggleReadStatus
+                            
+                        case .toggleReadStatus:
+                            let isUnread: Bool = (
+                                threadViewModel.threadWasMarkedUnread == true ||
+                                (threadViewModel.threadUnreadCount ?? 0) > 0
+                            )
+                            
+                            return UIContextualAction(
+                                title: (isUnread ?
+                                    "MARK_AS_READ".localized() :
+                                    "MARK_AS_UNREAD".localized()
+                                ),
+                                icon: (isUnread ?
+                                    UIImage(systemName: "envelope.open") :
+                                    UIImage(systemName: "envelope.badge")
+                                ),
+                                themeTintColor: .white,
+                                themeBackgroundColor: .conversationButton_swipeRead,
+                                side: side,
+                                actionIndex: targetIndex,
+                                indexPath: indexPath,
+                                tableView: tableView
+                            ) { [weak self] _, _, completionHandler  in
+                                // Delay the change to give the cell "unswipe" animation some time to complete
+                                DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
+                                    switch isUnread {
+                                        case true:
+                                            self?.viewModel.markAsRead(
+                                                threadViewModel: threadViewModel,
+                                                target: .threadAndInteractions(
+                                                    interactionsBeforeInclusive: threadViewModel.interactionId
+                                                )
+                                            )
+                                            
+                                        case false:
+                                            self?.viewModel.markAsUnread(threadViewModel: threadViewModel)
+                                    }
+                                }
+                                completionHandler(true)
+                            }
+                            
+                        // MARK: -- hide
+                            
+                        case .hide:
+                            return UIContextualAction(
+                                title: "TXT_HIDE_TITLE".localized(),
+                                icon: UIImage(systemName: "eye.slash"),
+                                themeTintColor: .white,
+                                themeBackgroundColor: .conversationButton_swipeDestructive,
+                                side: side,
+                                actionIndex: targetIndex,
+                                indexPath: indexPath,
+                                tableView: tableView
+                            ) { _, _, completionHandler  in
+                                Storage.shared.write { db in db[.hasHiddenMessageRequests] = true }
+                                completionHandler(true)
+                            }
+                            
+                        // MARK: -- pin
+                            
+                        case .pin:
+                            return UIContextualAction(
+                                title: (threadViewModel.threadPinnedPriority > 0 ?
+                                    "UNPIN_BUTTON_TEXT".localized() :
+                                    "PIN_BUTTON_TEXT".localized()
+                                ),
+                                icon: (threadViewModel.threadPinnedPriority > 0 ?
+                                    UIImage(systemName: "pin.slash") :
+                                    UIImage(systemName: "pin")
+                                ),
+                                themeTintColor: .white,
+                                themeBackgroundColor: .conversationButton_swipeTertiary,
+                                side: side,
+                                actionIndex: targetIndex,
+                                indexPath: indexPath,
+                                tableView: tableView
+                            ) { _, _, completionHandler in
+                                (tableView.cellForRow(at: indexPath) as? FullConversationCell)?.optimisticUpdate(
+                                    isPinned: !(threadViewModel.threadPinnedPriority > 0)
+                                )
+                                completionHandler(true)
+                                
+                                // Delay the change to give the cell "unswipe" animation some time to complete
+                                DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
+                                    Storage.shared.writeAsync { db in
+                                        try SessionThread
+                                            .filter(id: threadViewModel.threadId)
+                                            .updateAllAndConfig(
+                                                db,
+                                                SessionThread.Columns.pinnedPriority
+                                                    .set(to: (threadViewModel.threadPinnedPriority == 0 ? 1 : 0))
+                                            )
+                                    }
+                                }
+                            }
+                            
+                        // MARK: -- block
+                            
+                        case .block:
+                            return UIContextualAction(
+                                title: (threadViewModel.threadIsBlocked == true ?
+                                    "BLOCK_LIST_UNBLOCK_BUTTON".localized() :
+                                    "BLOCK_LIST_BLOCK_BUTTON".localized()
+                                ),
+                                icon: UIImage(named: "table_ic_block"),
+                                themeTintColor: .white,
+                                themeBackgroundColor: .conversationButton_swipeSecondary,
+                                side: .trailing,
+                                actionIndex: 1,
+                                indexPath: indexPath,
+                                tableView: tableView
+                            ) { _, _, completionHandler in
+                                (tableView.cellForRow(at: indexPath) as? FullConversationCell)?.optimisticUpdate(
+                                    isBlocked: (threadViewModel.threadIsBlocked == false)
+                                )
+                                completionHandler(true)
+                                
+                                // Delay the change to give the cell "unswipe" animation some time to complete
+                                DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
+                                    Storage.shared
+                                        .writePublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
+                                            try Contact
+                                                .filter(id: threadViewModel.threadId)
+                                                .updateAllAndConfig(
+                                                    db,
+                                                    Contact.Columns.isBlocked.set(
+                                                        to: (threadViewModel.threadIsBlocked == false ?
+                                                            true:
+                                                            false
+                                                        )
+                                                    )
+                                                )
+                                        }
+                                        .sinkUntilComplete()
+                                }
+                            }
+                            
+                        // MARK: -- delete
+                            
+                        case .delete:
+                            return UIContextualAction(
+                                title: "TXT_DELETE_TITLE".localized(),
+                                icon: UIImage(named: "icon_bin"),
+                                themeTintColor: .white,
+                                themeBackgroundColor: .conversationButton_swipeDestructive,
+                                side: side,
+                                actionIndex: targetIndex,
+                                indexPath: indexPath,
+                                tableView: tableView
+                            ) { [weak self] _, _, completionHandler in
+                                let confirmationModal: ConfirmationModal = ConfirmationModal(
+                                    info: ConfirmationModal.Info(
+                                        title: "CONVERSATION_DELETE_CONFIRMATION_ALERT_TITLE".localized(),
+                                        explanation: (threadViewModel.currentUserIsClosedGroupAdmin == true ?
+                                            "admin_group_leave_warning".localized() :
+                                            "CONVERSATION_DELETE_CONFIRMATION_ALERT_MESSAGE".localized()
+                                        ),
+                                        confirmTitle: "TXT_DELETE_TITLE".localized(),
+                                        confirmStyle: .danger,
+                                        cancelStyle: .alert_text,
+                                        dismissOnConfirm: true,
+                                        onConfirm: { [weak self] _ in
+                                            self?.viewModel.deleteOrLeave(
+                                                threadId: threadViewModel.threadId,
+                                                threadVariant: threadViewModel.threadVariant
+                                            )
+                                            self?.dismiss(animated: true, completion: nil)
+                                            
+                                            completionHandler(true)
+                                        },
+                                        afterClosed: { completionHandler(false) }
+                                    )
+                                )
+                                
+                                self?.present(confirmationModal, animated: true, completion: nil)
+                            }
+                    }
+                }
+        )
     }
     
     // MARK: - Interaction

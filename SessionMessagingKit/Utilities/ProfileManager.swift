@@ -32,7 +32,6 @@ public struct ProfileManager {
     
     // The max bytes for a user's profile name, encoded in UTF8.
     // Before encrypting and submitting we NULL pad the name data to this length.
-    private static let nameDataLength: UInt = 64
     public static let maxAvatarDiameter: CGFloat = 640
     private static let maxAvatarBytes: UInt = (5 * 1000 * 1000)
     public static let avatarAES256KeyByteLength: Int = 32
@@ -45,7 +44,11 @@ public struct ProfileManager {
     // MARK: - Functions
     
     public static func isToLong(profileName: String) -> Bool {
-        return ((profileName.data(using: .utf8)?.count ?? 0) > nameDataLength)
+        return (profileName.utf8CString.count > SessionUtil.libSessionMaxNameByteLength)
+    }
+    
+    public static func isToLong(profileUrl: String) -> Bool {
+        return (profileUrl.utf8CString.count > SessionUtil.libSessionMaxProfileUrlByteLength)
     }
     
     public static func profileAvatar(_ db: Database? = nil, id: String) -> Data? {

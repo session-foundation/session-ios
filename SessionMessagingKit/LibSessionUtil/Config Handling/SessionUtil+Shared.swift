@@ -33,6 +33,9 @@ internal extension SessionUtil {
         publicKey: String,
         change: (UnsafeMutablePointer<config_object>?) throws -> ()
     ) throws {
+        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
+        guard Features.useSharedUtilForUserConfig else { return }
+        
         // Since we are doing direct memory manipulation we are using an `Atomic`
         // type which has blocking access in it's `mutate` closure
         let needsPush: Bool
@@ -172,7 +175,6 @@ internal extension SessionUtil {
                                 .map { thread in
                                     LegacyGroupInfo(
                                         id: thread.id,
-                                        hidden: !thread.shouldBeVisible,
                                         priority: thread.pinnedPriority
                                             .map { Int32($0 == 0 ? 0 : max($0, 1)) }
                                             .defaulting(to: 0)

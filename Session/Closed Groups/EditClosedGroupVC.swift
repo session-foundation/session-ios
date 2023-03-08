@@ -346,7 +346,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         guard !updatedName.isEmpty else {
             return showError(title: "vc_create_closed_group_group_name_missing_error".localized())
         }
-        guard updatedName.count < 64 else {
+        guard updatedName.utf8CString.count < SessionUtil.libSessionMaxGroupNameByteLength else {
             return showError(title: "vc_create_closed_group_group_name_too_long_error".localized())
         }
         

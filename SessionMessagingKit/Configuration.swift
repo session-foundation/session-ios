@@ -28,7 +28,7 @@ public enum SNMessagingKit { // Just to make the external API nice
                 ],  // Add job priorities
                 [
                     _011_AddPendingReadReceipts.self,
-                    _012_SharedUtilChanges.self,
+                    _012_SessionUtilChanges.self,
                     // Wait until the feature is turned on before doing the migration that generates
                     // the config dump data
                     (Features.useSharedUtilForUserConfig ?

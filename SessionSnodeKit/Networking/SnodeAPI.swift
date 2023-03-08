@@ -305,7 +305,7 @@ public final class SnodeAPI {
             .map { _ -> [SnodeAPI.Namespace: String] in
                 namespaces
                     .reduce(into: [:]) { result, namespace in
-                        guard namespace.shouldDedupeMessages else { return }
+                        guard namespace.shouldFetchSinceLastHash else { return }
                         
                         // Prune expired message hashes for this namespace on this service node
                         SnodeReceivedMessageInfo.pruneExpiredMessageHashInfo(
@@ -472,7 +472,7 @@ public final class SnodeAPI {
         }
         .tryFlatMap { lastHash -> AnyPublisher<(info: ResponseInfoType, data: GetMessagesResponse?, lastHash: String?), Error> in
             
-            guard namespace.requiresWriteAuthentication else {
+            guard namespace.requiresReadAuthentication else {
                 return SnodeAPI
                     .send(
                         request: SnodeRequest(

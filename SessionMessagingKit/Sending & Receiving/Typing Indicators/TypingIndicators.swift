@@ -15,6 +15,7 @@ public class TypingIndicators {
     
     private class Indicator {
         fileprivate let threadId: String
+        fileprivate let threadVariant: SessionThread.Variant
         fileprivate let direction: Direction
         fileprivate let timestampMs: Int64
         
@@ -45,6 +46,7 @@ public class TypingIndicators {
             else { return nil }
             
             self.threadId = threadId
+            self.threadVariant = threadVariant
             self.direction = direction
             self.timestampMs = (timestampMs ?? SnodeAPI.currentOffsetTimestampMs())
         }
@@ -75,15 +77,12 @@ public class TypingIndicators {
             
             switch direction {
                 case .outgoing:
-                    guard let thread: SessionThread = try? SessionThread.fetchOne(db, id: self.threadId) else {
-                        return
-                    }
-                    
                     try? MessageSender.send(
                         db,
                         message: TypingIndicator(kind: .stopped),
                         interactionId: nil,
-                        in: thread
+                        threadId: threadId,
+                        threadVariant: threadVariant
                     )
                     
                 case .incoming:
@@ -111,15 +110,12 @@ public class TypingIndicators {
         
         private func scheduleRefreshCallback(_ db: Database, shouldSend: Bool = true) {
             if shouldSend {
-                guard let thread: SessionThread = try? SessionThread.fetchOne(db, id: self.threadId) else {
-                    return
-                }
-                
                 try? MessageSender.send(
                     db,
                     message: TypingIndicator(kind: .started),
                     interactionId: nil,
-                    in: thread
+                    threadId: threadId,
+                    threadVariant: threadVariant
                 )
             }
             

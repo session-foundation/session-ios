@@ -566,7 +566,8 @@ class NotificationActionHandler {
                 return try MessageSender.preparedSendData(
                     db,
                     interaction: interaction,
-                    in: thread
+                    threadId: thread.id,
+                    threadVariant: thread.variant
                 )
             }
             .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }

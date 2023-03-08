@@ -5,6 +5,16 @@ import GRDB
 import SessionUtil
 import SessionUtilitiesKit
 
+// MARK: - Size Restrictions
+
+public extension SessionUtil {
+    static var libSessionMaxNameByteLength: Int { CONTACT_MAX_NAME_LENGTH }
+    static var libSessionMaxNicknameByteLength: Int { CONTACT_MAX_NAME_LENGTH }
+    static var libSessionMaxProfileUrlByteLength: Int { PROFILE_PIC_MAX_URL_LENGTH }
+}
+
+// MARK: - Contacts Handling
+
 internal extension SessionUtil {
     static let columnsRelatedToContacts: [ColumnExpression] = [
         Contact.Columns.isApproved,
@@ -155,15 +165,14 @@ internal extension SessionUtil {
                     .asRequest(of: PriorityVisibilityInfo.self)
                     .fetchOne(db)
                 let threadExists: Bool = (threadInfo != nil)
-                let threadIsVisible: Bool = (threadInfo?.shouldBeVisible ?? false)
                 
-                switch (data.shouldBeVisible, threadExists, threadIsVisible) {
-                    case (false, true, _):
+                switch (data.shouldBeVisible, threadExists) {
+                    case (false, true):
                         try SessionThread
                             .filter(id: contact.id)
                             .deleteAll(db)
                         
-                    case (true, false, _):
+                    case (true, false):
                         try SessionThread(
                             id: contact.id,
                             variant: .contact,
@@ -171,9 +180,11 @@ internal extension SessionUtil {
                             pinnedPriority: data.priority
                         ).save(db)
                         
-                    case (true, true, false):
+                    case (true, true):
                         let changes: [ConfigColumnAssignment] = [
-                            SessionThread.Columns.shouldBeVisible.set(to: data.shouldBeVisible),
+                            (threadInfo?.shouldBeVisible == data.shouldBeVisible ? nil :
+                                SessionThread.Columns.shouldBeVisible.set(to: data.shouldBeVisible)
+                            ),
                             (threadInfo?.pinnedPriority == data.priority ? nil :
                                 SessionThread.Columns.pinnedPriority.set(to: data.priority)
                             )
@@ -186,9 +197,33 @@ internal extension SessionUtil {
                                 changes
                             )
                         
-                    default: break
+                    case (false, false): break
                 }
             }
+        
+        // Delete any contact records which have been removed
+        let syncedContactIds: [String] = targetContactData
+            .map { $0.key }
+            .appending(userPublicKey)
+        let contactIdsToRemove: [String] = try Contact
+            .filter(!syncedContactIds.contains(Contact.Columns.id))
+            .select(.id)
+            .asRequest(of: String.self)
+            .fetchAll(db)
+        
+        if !contactIdsToRemove.isEmpty {
+            try Contact
+                .filter(ids: contactIdsToRemove)
+                .deleteAll(db)
+            
+            // Also need to remove any 'nickname' values since they are associated to contact data
+            try Profile
+                .filter(ids: contactIdsToRemove)
+                .updateAll(
+                    db,
+                    Profile.Columns.nickname.set(to: nil)
+                )
+        }
     }
     
     // MARK: - Outgoing Changes
@@ -199,10 +234,14 @@ internal extension SessionUtil {
     ) throws {
         guard conf != nil else { throw SessionUtilError.nilConfigObject }
         
-        // The current users contact data doesn't need to sync so exclude it
+        // The current users contact data doesn't need to sync so exclude it, we also don't want to sync
+        // blinded message requests so exclude those as well
         let userPublicKey: String = getUserHexEncodedPublicKey()
         let targetContacts: [SyncedContactInfo] = contactData
-            .filter { $0.id != userPublicKey }
+            .filter {
+                $0.id != userPublicKey &&
+                SessionId(from: $0.id)?.prefix == .standard
+            }
         
         // If we only updated the current user contact then no need to continue
         guard !targetContacts.isEmpty else { return }        
@@ -268,9 +307,14 @@ internal extension SessionUtil {
     static func updatingContacts<T>(_ db: Database, _ updated: [T]) throws -> [T] {
         guard let updatedContacts: [Contact] = updated as? [Contact] else { throw StorageError.generic }
         
-        // The current users contact data doesn't need to sync so exclude it
+        // The current users contact data doesn't need to sync so exclude it, we also don't want to sync
+        // blinded message requests so exclude those as well
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
-        let targetContacts: [Contact] = updatedContacts.filter { $0.id != userPublicKey }
+        let targetContacts: [Contact] = updatedContacts
+            .filter {
+                $0.id != userPublicKey &&
+                SessionId(from: $0.id)?.prefix == .standard
+            }
         
         // If we only updated the current user contact then no need to continue
         guard !targetContacts.isEmpty else { return updated }
@@ -339,6 +383,7 @@ internal extension SessionUtil {
         let targetProfiles: [Profile] = updatedProfiles
             .filter {
                 $0.id != userPublicKey &&
+                SessionId(from: $0.id)?.prefix == .standard &&
                 existingContactIds.contains($0.id)
             }
         
@@ -392,8 +437,6 @@ public extension SessionUtil {
     }
     
     static func remove(_ db: Database, contactIds: [String]) throws {
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard Features.useSharedUtilForUserConfig else { return }
         guard !contactIds.isEmpty else { return }
         
         try SessionUtil.performAndPushChange(

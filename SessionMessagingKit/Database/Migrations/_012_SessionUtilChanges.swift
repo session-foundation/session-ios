@@ -7,9 +7,9 @@ import SessionUtil
 import SessionUtilitiesKit
 
 /// This migration makes the neccessary changes to support the updated user config syncing system
-enum _012_SharedUtilChanges: Migration {
+enum _012_SessionUtilChanges: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
-    static let identifier: String = "SharedUtilChanges"
+    static let identifier: String = "SessionUtilChanges"
     static let needsConfigSync: Bool = true
     static let minExpectedRunDuration: TimeInterval = 0.1
     
@@ -163,10 +163,24 @@ enum _012_SharedUtilChanges: Migration {
         // If we don't have an ed25519 key then no need to create cached dump data
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         
-        // There was previously a bug which allowed users to fully delete the 'Note to Self'
-        // conversation but we don't want that, so create it again if it doesn't exists
+        // Remove any hidden threads to avoid syncing them (they are basically shadow threads created
+        // by starting a conversation but not sending a message so can just be cleared out)
         try SessionThread
-            .fetchOrCreate(db, id: userPublicKey, variant: .contact, shouldBeVisible: false)
+            .filter(
+                SessionThread.Columns.shouldBeVisible == false &&
+                SessionThread.Columns.id != userPublicKey
+            )
+            .deleteAll(db)
+        
+        /// There was previously a bug which allowed users to fully delete the 'Note to Self' conversation but we don't want that, so
+        /// create it again if it doesn't exists
+        ///
+        /// **Note:** Since migrations are run when running tests creating a random SessionThread will result in unexpected thread
+        /// counts so don't do this when running tests (this logic is the same as in `MainAppContext.isRunningTests`
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
+            try SessionThread
+                .fetchOrCreate(db, id: userPublicKey, variant: .contact, shouldBeVisible: false)
+        }
         
         Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
     }

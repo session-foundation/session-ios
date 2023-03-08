@@ -614,3 +614,4 @@
 "MARK_AS_READ" = "Mark Read";
 "MARK_AS_UNREAD" = "Mark Unread";
 "GROUP_CONVERSATION_EMPTY_STATE" = "You have no messages from %@. Send a message to start the conversation!";
+"USER_CONFIG_OUTDATED_WARNING" = "Some of your devices are using outdated versions. Syncing may be unreliable until they are updated.";

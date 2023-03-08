@@ -173,8 +173,35 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
     fileprivate func startNewDMIfPossible(with onsNameOrPublicKey: String) {
         let maybeSessionId: SessionId? = SessionId(from: onsNameOrPublicKey)
         
-        if KeyPair.isValidHexEncodedPublicKey(candidate: onsNameOrPublicKey) && maybeSessionId?.prefix == .standard {
-            startNewDM(with: onsNameOrPublicKey)
+        if KeyPair.isValidHexEncodedPublicKey(candidate: onsNameOrPublicKey) {
+            switch maybeSessionId?.prefix {
+                case .standard:
+                    startNewDM(with: onsNameOrPublicKey)
+                    
+                case .blinded:
+                    let modal: ConfirmationModal = ConfirmationModal(
+                        targetView: self.view,
+                        info: ConfirmationModal.Info(
+                            title: "ALERT_ERROR_TITLE".localized(),
+                            explanation: "DM_ERROR_DIRECT_BLINDED_ID".localized(),
+                            cancelTitle: "BUTTON_OK".localized(),
+                            cancelStyle: .alert_text
+                        )
+                    )
+                    self.present(modal, animated: true)
+                    
+                default:
+                    let modal: ConfirmationModal = ConfirmationModal(
+                        targetView: self.view,
+                        info: ConfirmationModal.Info(
+                            title: "ALERT_ERROR_TITLE".localized(),
+                            explanation: "DM_ERROR_INVALID".localized(),
+                            cancelTitle: "BUTTON_OK".localized(),
+                            cancelStyle: .alert_text
+                        )
+                    )
+                    self.present(modal, animated: true)
+            }
             return
         }
         
@@ -198,22 +225,12 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
                                             default: break
                                         }
                                     }
-                                    let message: String = {
-                                        if let messageOrNil: String = messageOrNil {
-                                            return messageOrNil
-                                        }
-                                        
-                                        return (maybeSessionId?.prefix == .blinded ?
-                                            "DM_ERROR_DIRECT_BLINDED_ID".localized() :
-                                            "DM_ERROR_INVALID".localized()
-                                        )
-                                    }()
                                     
                                     let modal: ConfirmationModal = ConfirmationModal(
                                         targetView: self?.view,
                                         info: ConfirmationModal.Info(
                                             title: "ALERT_ERROR_TITLE".localized(),
-                                            explanation: message,
+                                            explanation: (messageOrNil ?? "DM_ERROR_INVALID".localized()),
                                             cancelTitle: "BUTTON_OK".localized(),
                                             cancelStyle: .alert_text
                                         )

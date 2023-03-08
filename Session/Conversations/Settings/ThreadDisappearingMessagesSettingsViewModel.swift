@@ -148,10 +148,6 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
         guard self.config != updatedConfig else { return }
         
         dependencies.storage.writeAsync { db in
-            guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
-                return
-            }
-            
             let config: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
                 .fetchOne(db, id: threadId)
                 .defaulting(to: DisappearingMessagesConfiguration.defaultWith(threadId))
@@ -177,7 +173,8 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                     duration: UInt32(floor(updatedConfig.isEnabled ? updatedConfig.durationSeconds : 0))
                 ),
                 interactionId: interaction.id,
-                in: thread
+                threadId: threadId,
+                threadVariant: threadVariant
             )
             
             // Legacy closed groups

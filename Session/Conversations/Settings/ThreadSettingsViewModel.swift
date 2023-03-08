@@ -750,7 +750,8 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                 try MessageSender.send(
                     db,
                     interaction: interaction,
-                    in: thread
+                    threadId: thread.id,
+                    threadVariant: thread.variant
                 )
             }
         }

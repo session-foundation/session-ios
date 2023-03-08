@@ -517,24 +517,22 @@ extension MessageReceiver {
                     member.role == .admin && member.profileId == sender
                 })
                 let members: [GroupMember] = allMembers.filter { $0.role == .standard }
-                let membersToRemove: [GroupMember] = members
+                let memberIdsToRemove: [String] = members
                     .filter { member in
                         didAdminLeave || // If the admin leaves the group is disbanded
                         member.profileId == sender
                     }
-                let memberIdsToRemove: [String] = members.map { $0.profileId }
+                    .map { $0.profileId }
                 
                 // Update libSession
                 try? SessionUtil.update(
                     db,
                     groupPublicKey: threadId,
                     members: allMembers
-                        .filter {
-                            ($0.role == .standard || $0.role == .zombie) &&
-                            !membersToRemove.contains($0)
-                        }
+                        .filter { $0.role == .standard || $0.role == .zombie }
                         .map { $0.profileId }
-                        .asSet(),
+                        .asSet()
+                        .subtracting(memberIdsToRemove),
                     admins: allMembers
                         .filter { $0.role == .admin }
                         .map { $0.profileId }

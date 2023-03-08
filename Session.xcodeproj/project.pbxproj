@@ -449,7 +449,6 @@
 		C3C2A74D2553A39700C340D1 /* VisibleMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2A74C2553A39700C340D1 /* VisibleMessage.swift */; };
 		C3C2A75F2553A3C500C340D1 /* VisibleMessage+LinkPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2A75E2553A3C500C340D1 /* VisibleMessage+LinkPreview.swift */; };
 		C3C2A7852553AAF300C340D1 /* SessionProtos.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2A7832553AAF300C340D1 /* SessionProtos.pb.swift */; };
-		C3C2ABD22553C6C900C340D1 /* Data+SecureRandom.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2ABD12553C6C900C340D1 /* Data+SecureRandom.swift */; };
 		C3C2AC2E2553CBEB00C340D1 /* String+Trimming.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2AC2D2553CBEB00C340D1 /* String+Trimming.swift */; };
 		C3CA3AA2255CDADA00F4C6D4 /* english.txt in Resources */ = {isa = PBXBuildFile; fileRef = C3CA3AA1255CDADA00F4C6D4 /* english.txt */; };
 		C3CA3AB4255CDAE600F4C6D4 /* japanese.txt in Resources */ = {isa = PBXBuildFile; fileRef = C3CA3AB3255CDAE600F4C6D4 /* japanese.txt */; };
@@ -522,6 +521,8 @@
 		FD09C5E828264937000CE219 /* MediaDetailViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD09C5E728264937000CE219 /* MediaDetailViewController.swift */; };
 		FD09C5EA282A1BB2000CE219 /* ThreadTypingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD09C5E9282A1BB2000CE219 /* ThreadTypingIndicator.swift */; };
 		FD09C5EC282B8F18000CE219 /* AttachmentError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD09C5EB282B8F17000CE219 /* AttachmentError.swift */; };
+		FD0B77B029B69A65009169BA /* TopBannerController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0B77AF29B69A65009169BA /* TopBannerController.swift */; };
+		FD0B77B229B82B7A009169BA /* ArrayUtilitiesSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0B77B129B82B7A009169BA /* ArrayUtilitiesSpec.swift */; };
 		FD17D79927F40AB800122BE0 /* _003_YDBToGRDBMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D79827F40AB800122BE0 /* _003_YDBToGRDBMigration.swift */; };
 		FD17D79C27F40B2E00122BE0 /* SMKLegacy.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D79B27F40B2E00122BE0 /* SMKLegacy.swift */; };
 		FD17D7A027F40CC800122BE0 /* _001_InitialSetupMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D79F27F40CC800122BE0 /* _001_InitialSetupMigration.swift */; };
@@ -737,7 +738,7 @@
 		FD87DD0428B8727D00AF0F98 /* Configuration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD87DD0328B8727D00AF0F98 /* Configuration.swift */; };
 		FD8ECF7929340F7200C0D1BB /* libsession-util.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = FD8ECF7829340F7100C0D1BB /* libsession-util.xcframework */; };
 		FD8ECF7B29340FFD00C0D1BB /* SessionUtil.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF7A29340FFD00C0D1BB /* SessionUtil.swift */; };
-		FD8ECF7D2934293A00C0D1BB /* _012_SharedUtilChanges.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF7C2934293A00C0D1BB /* _012_SharedUtilChanges.swift */; };
+		FD8ECF7D2934293A00C0D1BB /* _012_SessionUtilChanges.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF7C2934293A00C0D1BB /* _012_SessionUtilChanges.swift */; };
 		FD8ECF7F2934298100C0D1BB /* SharedConfigDump.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF7E2934298100C0D1BB /* SharedConfigDump.swift */; };
 		FD8ECF822934387A00C0D1BB /* ConfigUserProfileSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF812934387A00C0D1BB /* ConfigUserProfileSpec.swift */; };
 		FD8ECF892935AB7200C0D1BB /* SessionUtilError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF882935AB7200C0D1BB /* SessionUtilError.swift */; };
@@ -1622,7 +1623,6 @@
 		C3C2A7702553A41E00C340D1 /* ControlMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControlMessage.swift; sourceTree = "<group>"; };
 		C3C2A7822553AAF200C340D1 /* SNProto.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SNProto.swift; sourceTree = "<group>"; };
 		C3C2A7832553AAF300C340D1 /* SessionProtos.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SessionProtos.pb.swift; sourceTree = "<group>"; };
-		C3C2ABD12553C6C900C340D1 /* Data+SecureRandom.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Data+SecureRandom.swift"; sourceTree = "<group>"; };
 		C3C2AC2D2553CBEB00C340D1 /* String+Trimming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Trimming.swift"; sourceTree = "<group>"; };
 		C3C3CF8824D8EED300E1CCE7 /* TextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextView.swift; sourceTree = "<group>"; };
 		C3CA3AA1255CDADA00F4C6D4 /* english.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = english.txt; sourceTree = "<group>"; };
@@ -1693,6 +1693,8 @@
 		FD09C5E728264937000CE219 /* MediaDetailViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaDetailViewController.swift; sourceTree = "<group>"; };
 		FD09C5E9282A1BB2000CE219 /* ThreadTypingIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadTypingIndicator.swift; sourceTree = "<group>"; };
 		FD09C5EB282B8F17000CE219 /* AttachmentError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentError.swift; sourceTree = "<group>"; };
+		FD0B77AF29B69A65009169BA /* TopBannerController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopBannerController.swift; sourceTree = "<group>"; };
+		FD0B77B129B82B7A009169BA /* ArrayUtilitiesSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArrayUtilitiesSpec.swift; sourceTree = "<group>"; };
 		FD17D79527F3E04600122BE0 /* _001_InitialSetupMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _001_InitialSetupMigration.swift; sourceTree = "<group>"; };
 		FD17D79827F40AB800122BE0 /* _003_YDBToGRDBMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _003_YDBToGRDBMigration.swift; sourceTree = "<group>"; };
 		FD17D79B27F40B2E00122BE0 /* SMKLegacy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMKLegacy.swift; sourceTree = "<group>"; };
@@ -1867,7 +1869,7 @@
 		FD87DD0328B8727D00AF0F98 /* Configuration.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Configuration.swift; sourceTree = "<group>"; };
 		FD8ECF7829340F7100C0D1BB /* libsession-util.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = "libsession-util.xcframework"; sourceTree = "<group>"; };
 		FD8ECF7A29340FFD00C0D1BB /* SessionUtil.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionUtil.swift; sourceTree = "<group>"; };
-		FD8ECF7C2934293A00C0D1BB /* _012_SharedUtilChanges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _012_SharedUtilChanges.swift; sourceTree = "<group>"; };
+		FD8ECF7C2934293A00C0D1BB /* _012_SessionUtilChanges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _012_SessionUtilChanges.swift; sourceTree = "<group>"; };
 		FD8ECF7E2934298100C0D1BB /* SharedConfigDump.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedConfigDump.swift; sourceTree = "<group>"; };
 		FD8ECF812934387A00C0D1BB /* ConfigUserProfileSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigUserProfileSpec.swift; sourceTree = "<group>"; };
 		FD8ECF882935AB7200C0D1BB /* SessionUtilError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionUtilError.swift; sourceTree = "<group>"; };
@@ -2541,7 +2543,6 @@
 			isa = PBXGroup;
 			children = (
 				FDE658A029418C7900A33BC1 /* CryptoKit+Utilities.swift */,
-				C3C2ABD12553C6C900C340D1 /* Data+SecureRandom.swift */,
 				B88FA7FA26114EA70049422F /* Hex.swift */,
 				FDE658A229418E2F00A33BC1 /* KeyPair.swift */,
 				C3A71F882558BA9F0043A11F /* Mnemonic.swift */,
@@ -2928,6 +2929,7 @@
 				B86BD08323399ACF000F5AE3 /* Modal.swift */,
 				FD52090628B49738006098F6 /* ConfirmationModal.swift */,
 				FD71165A28E6DDBC00B47552 /* StyledNavigationController.swift */,
+				FD0B77AF29B69A65009169BA /* TopBannerController.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -3630,7 +3632,7 @@
 				7BAA7B6528D2DE4700AE1489 /* _009_OpenGroupPermission.swift */,
 				FD7115F128C6CB3900B47552 /* _010_AddThreadIdToFTS.swift */,
 				FD432431299C6933008A0213 /* _011_AddPendingReadReceipts.swift */,
-				FD8ECF7C2934293A00C0D1BB /* _012_SharedUtilChanges.swift */,
+				FD8ECF7C2934293A00C0D1BB /* _012_SessionUtilChanges.swift */,
 				FD778B6329B189FF001BAC6B /* _013_GenerateInitialUserConfigDumps.swift */,
 			);
 			path = Migrations;
@@ -4013,6 +4015,7 @@
 		FD83B9B927CF20A5005E1583 /* General */ = {
 			isa = PBXGroup;
 			children = (
+				FD0B77B129B82B7A009169BA /* ArrayUtilitiesSpec.swift */,
 				FD83B9BA27CF20AF005E1583 /* SessionIdSpec.swift */,
 			);
 			path = General;
@@ -5363,6 +5366,7 @@
 				FD37EA0128A60473003AE748 /* UIKit+Theme.swift in Sources */,
 				FD37E9CF28A1EB1B003AE748 /* Theme.swift in Sources */,
 				C331FFB92558FA8D00070591 /* UIView+Constraints.swift in Sources */,
+				FD0B77B029B69A65009169BA /* TopBannerController.swift in Sources */,
 				FD37E9F628A5F106003AE748 /* Configuration.swift in Sources */,
 				FDBB25E72988BBBE00F1508E /* UIContextualAction+Theming.swift in Sources */,
 				C331FFE02558FB0000070591 /* SearchBar.swift in Sources */,
@@ -5555,7 +5559,6 @@
 				FDBB25E32988B13800F1508E /* _004_AddJobPriority.swift in Sources */,
 				C352A36D2557858E00338F3E /* NSTimer+Proxying.m in Sources */,
 				7B7CB192271508AD0079FF93 /* CallRingTonePlayer.swift in Sources */,
-				C3C2ABD22553C6C900C340D1 /* Data+SecureRandom.swift in Sources */,
 				FD848B8B283DC509000E298B /* PagedDatabaseObserver.swift in Sources */,
 				B8856E09256F1676001CE70E /* UIDevice+featureSupport.swift in Sources */,
 				B8856DEF256F161F001CE70E /* NSString+SSK.m in Sources */,
@@ -5749,7 +5752,7 @@
 				FD43EE9F297E2EE0009C87C5 /* SessionUtil+ConvoInfoVolatile.swift in Sources */,
 				B8EB20EE2640F28000773E52 /* VisibleMessage+OpenGroupInvitation.swift in Sources */,
 				FDF8487F29405994007DCAE5 /* HTTPHeader+OpenGroup.swift in Sources */,
-				FD8ECF7D2934293A00C0D1BB /* _012_SharedUtilChanges.swift in Sources */,
+				FD8ECF7D2934293A00C0D1BB /* _012_SessionUtilChanges.swift in Sources */,
 				FD17D7A227F40F0500122BE0 /* _001_InitialSetupMigration.swift in Sources */,
 				FD245C5D2850660F00B966DD /* OWSAudioPlayer.m in Sources */,
 				FDF0B7582807F368004C14C5 /* MessageReceiverError.swift in Sources */,
@@ -6073,6 +6076,7 @@
 				FD2AAAEE28ED3E1100A49611 /* MockGeneralCache.swift in Sources */,
 				FD9B30F3293EA0BF008DEE3E /* BatchResponseSpec.swift in Sources */,
 				FD37EA1528AB42CB003AE748 /* IdentitySpec.swift in Sources */,
+				FD0B77B229B82B7A009169BA /* ArrayUtilitiesSpec.swift in Sources */,
 				FD1A94FE2900D2EA000D73D3 /* PersistableRecordUtilitiesSpec.swift in Sources */,
 				FDC290AA27D9B6FD005DAE71 /* Mock.swift in Sources */,
 			);

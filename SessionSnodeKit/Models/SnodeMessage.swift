@@ -9,7 +9,6 @@ public final class SnodeMessage: Codable {
         case data
         case ttl
         case timestampMs = "timestamp"
-        case nonce
     }
     
     /// The hex encoded public key of the recipient.
@@ -57,6 +56,5 @@ extension SnodeMessage {
         try container.encode(data, forKey: .data)
         try container.encode(ttl, forKey: .ttl)
         try container.encode(timestampMs, forKey: .timestampMs)
-        try container.encode("", forKey: .nonce)
     }
 }

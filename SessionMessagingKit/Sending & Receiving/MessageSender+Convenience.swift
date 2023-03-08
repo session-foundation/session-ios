@@ -9,7 +9,13 @@ extension MessageSender {
     
     // MARK: - Durable
     
-    public static func send(_ db: Database, interaction: Interaction, in thread: SessionThread, isSyncMessage: Bool = false) throws {
+    public static func send(
+        _ db: Database,
+        interaction: Interaction,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        isSyncMessage: Bool = false
+    ) throws {
         // Only 'VisibleMessage' types can be sent via this method
         guard interaction.variant == .standardOutgoing else { throw MessageSenderError.invalidMessage }
         guard let interactionId: Int64 = interaction.id else { throw StorageError.objectNotSaved }
@@ -17,25 +23,39 @@ extension MessageSender {
         send(
             db,
             message: VisibleMessage.from(db, interaction: interaction),
-            threadId: thread.id,
+            threadId: threadId,
             interactionId: interactionId,
-            to: try Message.Destination.from(db, thread: thread),
+            to: try Message.Destination.from(db, threadId: threadId, threadVariant: threadVariant),
             isSyncMessage: isSyncMessage
         )
     }
     
-    public static func send(_ db: Database, message: Message, interactionId: Int64?, in thread: SessionThread, isSyncMessage: Bool = false) throws {
+    public static func send(
+        _ db: Database,
+        message: Message,
+        interactionId: Int64?,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        isSyncMessage: Bool = false
+    ) throws {
         send(
             db,
             message: message,
-            threadId: thread.id,
+            threadId: threadId,
             interactionId: interactionId,
-            to: try Message.Destination.from(db, thread: thread),
+            to: try Message.Destination.from(db, threadId: threadId, threadVariant: threadVariant),
             isSyncMessage: isSyncMessage
         )
     }
     
-    public static func send(_ db: Database, message: Message, threadId: String?, interactionId: Int64?, to destination: Message.Destination, isSyncMessage: Bool = false) {
+    public static func send(
+        _ db: Database,
+        message: Message,
+        threadId: String?,
+        interactionId: Int64?,
+        to destination: Message.Destination,
+        isSyncMessage: Bool = false
+    ) {
         // If it's a sync message then we need to make some slight tweaks before sending so use the proper
         // sync message sending process instead of the standard process
         guard !isSyncMessage else {
@@ -70,17 +90,20 @@ extension MessageSender {
     public static func preparedSendData(
         _ db: Database,
         interaction: Interaction,
-        in thread: SessionThread
+        threadId: String,
+        threadVariant: SessionThread.Variant
     ) throws -> PreparedSendData {
         // Only 'VisibleMessage' types can be sent via this method
         guard interaction.variant == .standardOutgoing else { throw MessageSenderError.invalidMessage }
         guard let interactionId: Int64 = interaction.id else { throw StorageError.objectNotSaved }
-        
+
         return try MessageSender.preparedSendData(
             db,
             message: VisibleMessage.from(db, interaction: interaction),
-            to: try Message.Destination.from(db, thread: thread),
-            namespace: try Message.Destination.from(db, thread: thread).defaultNamespace,
+            to: try Message.Destination.from(db, threadId: threadId, threadVariant: threadVariant),
+            namespace: try Message.Destination
+                .from(db, threadId: threadId, threadVariant: threadVariant)
+                .defaultNamespace,
             interactionId: interactionId
         )
     }

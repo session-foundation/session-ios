@@ -152,8 +152,7 @@ extension MessageSender {
         targetMembers: Set<String>,
         userPublicKey: String,
         allGroupMembers: [GroupMember],
-        closedGroup: ClosedGroup,
-        thread: SessionThread
+        closedGroup: ClosedGroup
     ) -> AnyPublisher<Void, Error> {
         guard allGroupMembers.contains(where: { $0.role == .admin && $0.profileId == userPublicKey }) else {
             return Fail(error: MessageSenderError.invalidClosedGroupUpdate)
@@ -203,8 +202,11 @@ extension MessageSender {
                             }
                         )
                     ),
-                    to: try Message.Destination.from(db, thread: thread),
-                    namespace: try Message.Destination.from(db, thread: thread).defaultNamespace,
+                    to: try Message.Destination
+                        .from(db, threadId: closedGroup.threadId, threadVariant: .legacyGroup),
+                    namespace: try Message.Destination
+                        .from(db, threadId: closedGroup.threadId, threadVariant: .legacyGroup)
+                        .defaultNamespace,
                     interactionId: nil
                 )
         }
@@ -257,12 +259,12 @@ extension MessageSender {
         name: String
     ) -> AnyPublisher<Void, Error> {
         // Get the group, check preconditions & prepare
-        guard let thread: SessionThread = try? SessionThread.fetchOne(db, id: groupPublicKey) else {
+        guard (try? SessionThread.exists(db, id: groupPublicKey)) == true else {
             SNLog("Can't update nonexistent closed group.")
             return Fail(error: MessageSenderError.noThread)
                 .eraseToAnyPublisher()
         }
-        guard let closedGroup: ClosedGroup = try? thread.closedGroup.fetchOne(db) else {
+        guard let closedGroup: ClosedGroup = try? ClosedGroup.fetchOne(db, id: groupPublicKey) else {
             return Fail(error: MessageSenderError.invalidClosedGroupUpdate)
                 .eraseToAnyPublisher()
         }
@@ -279,7 +281,7 @@ extension MessageSender {
                 
                 // Notify the user
                 let interaction: Interaction = try Interaction(
-                    threadId: thread.id,
+                    threadId: groupPublicKey,
                     authorId: userPublicKey,
                     variant: .infoClosedGroupUpdated,
                     body: ClosedGroupControlMessage.Kind
@@ -295,7 +297,8 @@ extension MessageSender {
                     db,
                     message: ClosedGroupControlMessage(kind: .nameChange(name: name)),
                     interactionId: interactionId,
-                    in: thread
+                    threadId: groupPublicKey,
+                    threadVariant: .legacyGroup
                 )
                 
                 // Update libSession
@@ -330,8 +333,7 @@ extension MessageSender {
                     addedMembers: addedMembers,
                     userPublicKey: userPublicKey,
                     allGroupMembers: allGroupMembers,
-                    closedGroup: closedGroup,
-                    thread: thread
+                    closedGroup: closedGroup
                 )
             }
             catch {
@@ -350,8 +352,7 @@ extension MessageSender {
                     removedMembers: removedMembers,
                     userPublicKey: userPublicKey,
                     allGroupMembers: allGroupMembers,
-                    closedGroup: closedGroup,
-                    thread: thread
+                    closedGroup: closedGroup
                 )
             }
             catch {
@@ -373,10 +374,9 @@ extension MessageSender {
         addedMembers: Set<String>,
         userPublicKey: String,
         allGroupMembers: [GroupMember],
-        closedGroup: ClosedGroup,
-        thread: SessionThread
+        closedGroup: ClosedGroup
     ) throws {
-        guard let disappearingMessagesConfig: DisappearingMessagesConfiguration = try thread.disappearingMessagesConfiguration.fetchOne(db) else {
+        guard let disappearingMessagesConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration.fetchOne(db, id: closedGroup.threadId) else {
             throw StorageError.objectNotFound
         }
         guard let encryptionKeyPair: ClosedGroupKeyPair = try closedGroup.fetchLatestKeyPair(db) else {
@@ -395,7 +395,7 @@ extension MessageSender {
         
         // Notify the user
         let interaction: Interaction = try Interaction(
-            threadId: thread.id,
+            threadId: closedGroup.threadId,
             authorId: userPublicKey,
             variant: .infoClosedGroupUpdated,
             body: ClosedGroupControlMessage.Kind
@@ -413,7 +413,8 @@ extension MessageSender {
             members: allGroupMembers
                 .filter { $0.role == .standard || $0.role == .zombie }
                 .map { $0.profileId }
-                .asSet(),
+                .asSet()
+                .union(addedMembers),
             admins: allGroupMembers
                 .filter { $0.role == .admin }
                 .map { $0.profileId }
@@ -427,13 +428,13 @@ extension MessageSender {
                 kind: .membersAdded(members: addedMembers.map { Data(hex: $0) })
             ),
             interactionId: interactionId,
-            in: thread
+            threadId: closedGroup.threadId,
+            threadVariant: .legacyGroup
         )
         
         try addedMembers.forEach { member in
             // Send updates to the new members individually
-            let thread: SessionThread = try SessionThread
-                .fetchOrCreate(db, id: member, variant: .contact, shouldBeVisible: nil)
+            try SessionThread.fetchOrCreate(db, id: member, variant: .contact, shouldBeVisible: nil)
             
             try MessageSender.send(
                 db,
@@ -454,7 +455,8 @@ extension MessageSender {
                     )
                 ),
                 interactionId: nil,
-                in: thread
+                threadId: closedGroup.threadId,
+                threadVariant: .legacyGroup
             )
             
             // Add the users to the group
@@ -478,8 +480,7 @@ extension MessageSender {
         removedMembers: Set<String>,
         userPublicKey: String,
         allGroupMembers: [GroupMember],
-        closedGroup: ClosedGroup,
-        thread: SessionThread
+        closedGroup: ClosedGroup
     ) throws -> AnyPublisher<Void, Error> {
         guard !removedMembers.contains(userPublicKey) else {
             SNLog("Invalid closed group update.")
@@ -500,7 +501,7 @@ extension MessageSender {
         
         // Update zombie & member list
         try GroupMember
-            .filter(GroupMember.Columns.groupId == thread.id)
+            .filter(GroupMember.Columns.groupId == closedGroup.threadId)
             .filter(removedMembers.contains(GroupMember.Columns.profileId))
             .filter([ GroupMember.Role.standard, GroupMember.Role.zombie ].contains(GroupMember.Columns.role))
             .deleteAll(db)
@@ -510,7 +511,7 @@ extension MessageSender {
         // Notify the user if needed (not if only zombie members were removed)
         if !removedMembers.subtracting(groupZombieIds).isEmpty {
             let interaction: Interaction = try Interaction(
-                threadId: thread.id,
+                threadId: closedGroup.threadId,
                 authorId: userPublicKey,
                 variant: .infoClosedGroupUpdated,
                 body: ClosedGroupControlMessage.Kind
@@ -538,8 +539,11 @@ extension MessageSender {
                                 members: removedMembers.map { Data(hex: $0) }
                             )
                         ),
-                        to: try Message.Destination.from(db, thread: thread),
-                        namespace: try Message.Destination.from(db, thread: thread).defaultNamespace,
+                        to: try Message.Destination
+                            .from(db, threadId: closedGroup.threadId, threadVariant: .legacyGroup),
+                        namespace: try Message.Destination
+                            .from(db, threadId: closedGroup.threadId, threadVariant: .legacyGroup)
+                            .defaultNamespace,
                         interactionId: interactionId
                     )
             )
@@ -549,8 +553,7 @@ extension MessageSender {
                     targetMembers: members,
                     userPublicKey: userPublicKey,
                     allGroupMembers: allGroupMembers,
-                    closedGroup: closedGroup,
-                    thread: thread
+                    closedGroup: closedGroup
                 )
             }
             .eraseToAnyPublisher()
@@ -605,8 +608,10 @@ extension MessageSender {
                     message: ClosedGroupControlMessage(
                         kind: .memberLeft
                     ),
-                    to: try Message.Destination.from(db, thread: thread),
-                    namespace: try Message.Destination.from(db, thread: thread).defaultNamespace,
+                    to: try Message.Destination.from(db, threadId: groupPublicKey, threadVariant: .legacyGroup),
+                    namespace: try Message.Destination
+                        .from(db, threadId: groupPublicKey, threadVariant: .legacyGroup)
+                        .defaultNamespace,
                     interactionId: interactionId
                 )
             
@@ -631,6 +636,9 @@ extension MessageSender {
         }
         catch {
             switch error {
+                // There are some cases where the keys for a ClosedGroup can be lost or become invalid, in
+                // those cases we don't want to prevent the user from being able to leave a group so catch
+                // them and just remove the group from the users devices
                 case MessageSenderError.noKeyPair, MessageSenderError.encryptionFailed:
                     try? ClosedGroup.removeKeysAndUnsubscribe(
                         db,
@@ -638,6 +646,9 @@ extension MessageSender {
                         removeGroupData: false,
                         calledFromConfigHandling: false
                     )
+                    return Just(())
+                        .setFailureType(to: Error.self)
+                        .eraseToAnyPublisher()
                     
                 default: break
             }
@@ -721,7 +732,8 @@ extension MessageSender {
                     )
                 ),
                 interactionId: nil,
-                in: thread
+                threadId: thread.id,
+                threadVariant: thread.variant
             )
         }
         catch {}

@@ -3,12 +3,13 @@
 import Foundation
 import GRDB
 import Sodium
+import SessionUIKit
 import SessionUtilitiesKit
 
 extension MessageReceiver {
-    internal static func handleConfigurationMessage(_ db: Database, message: ConfigurationMessage) throws {
+    internal static func handleLegacyConfigurationMessage(_ db: Database, message: ConfigurationMessage) throws {
         guard !Features.useSharedUtilForUserConfig else {
-            // TODO: Show warning prompt for X days
+            TopBannerController.show(warning: .outdatedUserConfig)
             return
         }
         

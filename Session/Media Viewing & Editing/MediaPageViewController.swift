@@ -530,11 +530,10 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                 self.viewModel.threadVariant == .contact
             else { return }
             
+            let threadId: String = self.viewModel.threadId
+            let threadVariant: SessionThread.Variant = self.viewModel.threadVariant
+            
             Storage.shared.write { db in
-                guard let thread: SessionThread = try SessionThread.fetchOne(db, id: self.viewModel.threadId) else {
-                    return
-                }
-                
                 try MessageSender.send(
                     db,
                     message: DataExtractionNotification(
@@ -543,7 +542,8 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                         )
                     ),
                     interactionId: nil, // Show no interaction for the current user
-                    in: thread
+                    threadId: threadId,
+                    threadVariant: threadVariant
                 )
             }
         }

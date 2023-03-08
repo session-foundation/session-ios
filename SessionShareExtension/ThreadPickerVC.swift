@@ -190,9 +190,13 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             
             Storage.shared
                 .writePublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db -> MessageSender.PreparedSendData in
-                    guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
-                        throw MessageSenderError.noThread
-                    }
+                    guard
+                        let threadVariant: SessionThread.Variant = try SessionThread
+                            .filter(id: threadId)
+                            .select(.variant)
+                            .asRequest(of: SessionThread.Variant.self)
+                            .fetchOne(db)
+                    else { throw MessageSenderError.noThread }
                     
                     // Create the interaction
                     let interaction: Interaction = try Interaction(
@@ -245,7 +249,8 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         .preparedSendData(
                             db,
                             interaction: interaction,
-                            in: thread
+                            threadId: threadId,
+                            threadVariant: threadVariant
                         )
                 }
                 .flatMap {

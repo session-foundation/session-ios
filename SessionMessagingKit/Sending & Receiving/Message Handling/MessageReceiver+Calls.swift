@@ -220,8 +220,10 @@ extension MessageReceiver {
                         sdps: [],
                         sentTimestampMs: nil // Explicitly nil as it's a separate message from above
                     ),
-                    to: try Message.Destination.from(db, thread: thread),
-                    namespace: try Message.Destination.from(db, thread: thread).defaultNamespace,
+                    to: try Message.Destination.from(db, threadId: thread.id, threadVariant: thread.variant),
+                    namespace: try Message.Destination
+                        .from(db, threadId: thread.id, threadVariant: thread.variant)
+                        .defaultNamespace,
                     interactionId: nil      // Explicitly nil as it's a separate message from above
                 )
         )

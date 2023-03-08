@@ -28,30 +28,31 @@ public extension Message {
         
         public static func from(
             _ db: Database,
-            thread: SessionThread,
+            threadId: String,
+            threadVariant: SessionThread.Variant,
             fileIds: [String]? = nil
         ) throws -> Message.Destination {
-            switch thread.variant {
+            switch threadVariant {
                 case .contact:
-                    if SessionId.Prefix(from: thread.id) == .blinded {
-                        guard let lookup: BlindedIdLookup = try? BlindedIdLookup.fetchOne(db, id: thread.id) else {
+                    if SessionId.Prefix(from: threadId) == .blinded {
+                        guard let lookup: BlindedIdLookup = try? BlindedIdLookup.fetchOne(db, id: threadId) else {
                             preconditionFailure("Attempting to send message to blinded id without the Open Group information")
                         }
                         
                         return .openGroupInbox(
                             server: lookup.openGroupServer,
                             openGroupPublicKey: lookup.openGroupPublicKey,
-                            blindedPublicKey: thread.id
+                            blindedPublicKey: threadId
                         )
                     }
                     
-                    return .contact(publicKey: thread.id)
+                    return .contact(publicKey: threadId)
                 
                 case .legacyGroup, .group:
-                    return .closedGroup(groupPublicKey: thread.id)
+                    return .closedGroup(groupPublicKey: threadId)
                 
                 case .community:
-                    guard let openGroup: OpenGroup = try thread.openGroup.fetchOne(db) else {
+                    guard let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId) else {
                         throw StorageError.objectNotFound
                     }
                     

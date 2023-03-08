@@ -205,7 +205,16 @@ public extension Message {
             
             // Ensure we actually want to de-dupe messages for this namespace, otherwise just
             // succeed early
-            guard rawMessage.namespace.shouldDedupeMessages else { return processedMessage }
+            guard rawMessage.namespace.shouldDedupeMessages else {
+                // If we want to track the last hash then upsert the raw message info (don't
+                // want to fail if it already exsits because we don't want to dedupe messages
+                // in this namespace)
+                if rawMessage.namespace.shouldFetchSinceLastHash {
+                    _ = try rawMessage.info.saved(db)
+                }
+                
+                return processedMessage
+            }
             
             // Retrieve the number of entries we have for the hash of this message
             let numExistingHashes: Int = (try? SnodeReceivedMessageInfo

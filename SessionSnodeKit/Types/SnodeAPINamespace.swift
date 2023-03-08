@@ -18,6 +18,7 @@ public extension SnodeAPI {
         
         var requiresReadAuthentication: Bool {
             switch self {
+                // Legacy closed groups don't support authenticated retrieval
                 case .legacyClosedGroup: return false
                 default: return true
             }
@@ -25,11 +26,16 @@ public extension SnodeAPI {
         
         var requiresWriteAuthentication: Bool {
             switch self {
-                // Not in use until we can batch delete and store config messages
-                case .default, .legacyClosedGroup: return false
+                // Legacy closed groups don't support authenticated storage
+                case .legacyClosedGroup: return false
                 default: return true
             }
         }
+        
+        /// This flag indicates whether we should provide a `lastHash` when retrieving messages from the specified
+        /// namespace, when `true` we will only receive messages added since the provided `lastHash`, otherwise
+        /// we will retrieve **all** messages from the namespace
+        public var shouldFetchSinceLastHash: Bool { true }
         
         /// This flag indicates whether we should dedupe messages from the specified namespace, when `true` we will
         /// store a `SnodeReceivedMessageInfo` record for the message and check for a matching record whenever

@@ -226,7 +226,7 @@ public enum MessageReceiver {
                 )
                 
             case let message as ConfigurationMessage:
-                try MessageReceiver.handleConfigurationMessage(db, message: message)
+                try MessageReceiver.handleLegacyConfigurationMessage(db, message: message)
                 
             case let message as UnsendRequest:
                 try MessageReceiver.handleUnsendRequest(

@@ -404,18 +404,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
         
         self.hasInitialRootViewController = true
-        self.window?.rootViewController = StyledNavigationController(
-            rootViewController: {
-                guard Identity.userExists() else { return LandingVC() }
-                guard !Profile.fetchOrCreateCurrentUser().name.isEmpty else {
-                    // If we have no display name then collect one (this can happen if the
-                    // app crashed during onboarding which would leave the user in an invalid
-                    // state with no display name)
-                    return DisplayNameVC(flow: .register)
-                }
-                
-                return HomeVC()
-            }()
+        self.window?.rootViewController = TopBannerController(
+            child: StyledNavigationController(
+                rootViewController: {
+                    guard Identity.userExists() else { return LandingVC() }
+                    guard !Profile.fetchOrCreateCurrentUser().name.isEmpty else {
+                        // If we have no display name then collect one (this can happen if the
+                        // app crashed during onboarding which would leave the user in an invalid
+                        // state with no display name)
+                        return DisplayNameVC(flow: .register)
+                    }
+                    
+                    return HomeVC()
+                }()
+            ),
+            cachedWarning: UserDefaults.sharedLokiProject?[.topBannerWarningToShow]
+                .map { rawValue in TopBannerController.Warning(rawValue: rawValue) }
         )
         UIViewController.attemptRotationToDeviceOrientation()
         

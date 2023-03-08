@@ -55,10 +55,18 @@ enum _013_GenerateInitialUserConfigDumps: Migration {
         try SessionUtil
             .config(for: .contacts, publicKey: userPublicKey)
             .mutate { conf in
+                // Exclude community, group and outgoing blinded message requests
+                let validContactIds: [String] = allThreads
+                    .values
+                    .filter { thread in
+                        thread.variant == .contact &&
+                        SessionId(from: thread.id)?.prefix == .standard
+                    }
+                    .map { $0.id }
                 let contactsData: [ContactInfo] = try Contact
                     .filter(
                         Contact.Columns.isBlocked == true ||
-                        allThreads.keys.contains(Contact.Columns.id)
+                        validContactIds.contains(Contact.Columns.id)
                     )
                     .including(optional: Contact.profile)
                     .asRequest(of: ContactInfo.self)

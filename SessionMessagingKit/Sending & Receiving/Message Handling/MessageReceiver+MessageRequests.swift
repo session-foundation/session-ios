@@ -112,9 +112,6 @@ extension MessageReceiver {
                 .filter(ids: blindedContactIds)
                 .deleteAll(db)
             
-            try? SessionUtil
-                .remove(db, contactIds: blindedContactIds)
-            
             try updateContactApprovalStatusIfNeeded(
                 db,
                 senderSessionId: userPublicKey,

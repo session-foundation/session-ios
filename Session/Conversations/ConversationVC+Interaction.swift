@@ -431,6 +431,7 @@ extension ConversationVC:
         // use it to determine if the user is creating a new thread and update the 'isApproved'
         // flags appropriately
         let threadId: String = self.viewModel.threadData.threadId
+        let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         let oldThreadShouldBeVisible: Bool = (self.viewModel.threadData.threadShouldBeVisible == true)
         let sentTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
         let linkPreviewDraft: LinkPreviewDraft? = snInputView.linkPreviewInfo?.draft
@@ -447,15 +448,11 @@ extension ConversationVC:
         // Send the message
         Storage.shared
             .writePublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { [weak self] db in
-                guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
-                    return
-                }
-                
                 // Let the viewModel know we are about to send a message
                 self?.viewModel.sentMessageBeforeUpdate = true
                 
                 // Update the thread to be visible (if it isn't already)
-                if !thread.shouldBeVisible {
+                if self?.viewModel.threadData.threadShouldBeVisible == false {
                     _ = try SessionThread
                         .filter(id: threadId)
                         .updateAllAndConfig(db, SessionThread.Columns.shouldBeVisible.set(to: true))
@@ -515,7 +512,8 @@ extension ConversationVC:
                 try MessageSender.send(
                     db,
                     interaction: interaction,
-                    in: thread
+                    threadId: threadId,
+                    threadVariant: threadVariant
                 )
             }
             .sinkUntilComplete(
@@ -566,6 +564,7 @@ extension ConversationVC:
         // use it to determine if the user is creating a new thread and update the 'isApproved'
         // flags appropriately
         let threadId: String = self.viewModel.threadData.threadId
+        let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         let oldThreadShouldBeVisible: Bool = (self.viewModel.threadData.threadShouldBeVisible == true)
         let sentTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
 
@@ -580,15 +579,11 @@ extension ConversationVC:
         // Send the message
         Storage.shared
             .writePublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { [weak self] db in
-                guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
-                    return
-                }
-                
                 // Let the viewModel know we are about to send a message
                 self?.viewModel.sentMessageBeforeUpdate = true
                 
                 // Update the thread to be visible (if it isn't already)
-                if !thread.shouldBeVisible {
+                if self?.viewModel.threadData.threadShouldBeVisible == false {
                     _ = try SessionThread
                         .filter(id: threadId)
                         .updateAllAndConfig(db, SessionThread.Columns.shouldBeVisible.set(to: true))
@@ -621,13 +616,13 @@ extension ConversationVC:
                     for: interactionId
                 )
                 
-                // Prepare the message send data
-                try MessageSender
-                    .send(
-                        db,
-                        interaction: interaction,
-                        in: thread
-                    )
+                // Send the message
+                try MessageSender.send(
+                    db,
+                    interaction: interaction,
+                    threadId: threadId,
+                    threadVariant: threadVariant
+                )
             }
             .sinkUntilComplete(
                 receiveCompletion: { [weak self] _ in
@@ -1308,17 +1303,11 @@ extension ConversationVC:
         
         // Perform the sending logic
         Storage.shared
-            .writePublisherFlatMap(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db -> AnyPublisher<MessageSender.PreparedSendData?, Error> in
-                guard let thread: SessionThread = try SessionThread.fetchOne(db, id: cellViewModel.threadId) else {
-                    return Just(nil)
-                        .setFailureType(to: Error.self)
-                        .eraseToAnyPublisher()
-                }
-                
+            .writePublisherFlatMap(receiveOn: DispatchQueue.global(qos: .userInitiated)) { [weak self] db -> AnyPublisher<MessageSender.PreparedSendData?, Error> in
                 // Update the thread to be visible (if it isn't already)
-                if !thread.shouldBeVisible {
+                if self?.viewModel.threadData.threadShouldBeVisible == false {
                     _ = try SessionThread
-                        .filter(id: thread.id)
+                        .filter(id: cellViewModel.threadId)
                         .updateAllAndConfig(db, SessionThread.Columns.shouldBeVisible.set(to: true))
                 }
                 
@@ -1386,8 +1375,11 @@ extension ConversationVC:
                                 kind: (remove ? .remove : .react)
                             )
                         ),
-                        to: try Message.Destination.from(db, thread: thread),
-                        namespace: try Message.Destination.from(db, thread: thread).defaultNamespace,
+                        to: try Message.Destination
+                            .from(db, threadId: cellViewModel.threadId, threadVariant: cellViewModel.threadVariant),
+                        namespace: try Message.Destination
+                            .from(db, threadId: cellViewModel.threadId, threadVariant: cellViewModel.threadVariant)
+                            .defaultNamespace,
                         interactionId: cellViewModel.id
                     )
                     
@@ -1640,8 +1632,8 @@ extension ConversationVC:
         Storage.shared.writeAsync { [weak self] db in
             guard
                 let threadId: String = self?.viewModel.threadData.threadId,
-                let interaction: Interaction = try? Interaction.fetchOne(db, id: cellViewModel.id),
-                let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId)
+                let threadVariant: SessionThread.Variant = self?.viewModel.threadData.threadVariant,
+                let interaction: Interaction = try? Interaction.fetchOne(db, id: cellViewModel.id)
             else { return }
             
             if
@@ -1664,7 +1656,8 @@ extension ConversationVC:
             try MessageSender.send(
                 db,
                 interaction: interaction,
-                in: thread,
+                threadId: threadId,
+                threadVariant: threadVariant,
                 isSyncMessage: (cellViewModel.state == .failedToSync)
             )
         }
@@ -1749,7 +1742,6 @@ extension ConversationVC:
             case .standardOutgoing, .standardIncoming: break
         }
         
-        let threadId: String = self.viewModel.threadData.threadId
         let threadName: String = self.viewModel.threadData.displayName
         let userPublicKey: String = getUserHexEncodedPublicKey()
         
@@ -1800,7 +1792,7 @@ extension ConversationVC:
                             .filter(id: cellViewModel.id)
                             .asRequest(of: Int64.self)
                             .fetchOne(db),
-                        try OpenGroup.fetchOne(db, id: threadId)
+                        try OpenGroup.fetchOne(db, id: cellViewModel.threadId)
                     )
                 }
                 
@@ -1915,7 +1907,7 @@ extension ConversationVC:
                             .send(
                                 db,
                                 message: unsendRequest,
-                                threadId: threadId,
+                                threadId: cellViewModel.threadId,
                                 interactionId: nil,
                                 to: .contact(publicKey: userPublicKey)
                             )
@@ -1938,7 +1930,7 @@ extension ConversationVC:
                             .send(
                                 db,
                                 message: unsendRequest,
-                                threadId: threadId,
+                                threadId: cellViewModel.threadId,
                                 interactionId: nil,
                                 to: .contact(publicKey: userPublicKey)
                             )
@@ -1964,23 +1956,20 @@ extension ConversationVC:
                         from: self,
                         request: SnodeAPI
                             .deleteMessages(
-                                publicKey: threadId,
+                                publicKey: cellViewModel.threadId,
                                 serverHashes: [serverHash]
                             )
                             .map { _ in () }
                             .eraseToAnyPublisher()
                     ) { [weak self] in
                         Storage.shared.writeAsync { db in
-                            guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
-                                return
-                            }
-                            
                             try MessageSender
                                 .send(
                                     db,
                                     message: unsendRequest,
                                     interactionId: nil,
-                                    in: thread
+                                    threadId: cellViewModel.threadId,
+                                    threadVariant: cellViewModel.threadVariant
                                 )
                         }
                         
@@ -2042,17 +2031,17 @@ extension ConversationVC:
         }
         
         let threadId: String = self.viewModel.threadData.threadId
+        let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         
         Storage.shared.writeAsync { db in
-            guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else { return }
-            
             try MessageSender.send(
                 db,
                 message: DataExtractionNotification(
                     kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs))
                 ),
                 interactionId: nil,
-                in: thread
+                threadId: threadId,
+                threadVariant: threadVariant
             )
         }
     }
@@ -2310,17 +2299,17 @@ extension ConversationVC:
         guard self.viewModel.threadData.threadVariant == .contact else { return }
         
         let threadId: String = self.viewModel.threadData.threadId
+        let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         
         Storage.shared.writeAsync { db in
-            guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else { return }
-            
             try MessageSender.send(
                 db,
                 message: DataExtractionNotification(
                     kind: .screenshot
                 ),
                 interactionId: nil,
-                in: thread
+                threadId: threadId,
+                threadVariant: threadVariant
             )
         }
     }
@@ -2380,17 +2369,9 @@ extension ConversationVC {
         // (it'll be updated with correct profile info if they accept the message request so this
         // shouldn't cause weird behaviours)
         guard
-            let approvalData: (contact: Contact, thread: SessionThread?) = Storage.shared.read({ db in
-                return (
-                    Contact.fetchOrCreate(db, id: threadId),
-                    try SessionThread.fetchOne(db, id: threadId)
-                )
-            }),
-            let thread: SessionThread = approvalData.thread,
-            !approvalData.contact.isApproved
-        else {
-            return
-        }
+            let contact: Contact = Storage.shared.read({ db in Contact.fetchOrCreate(db, id: threadId) }),
+            !contact.isApproved
+        else { return }
         
         Storage.shared
             .writePublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
@@ -2405,19 +2386,20 @@ extension ConversationVC {
                             sentTimestampMs: UInt64(timestampMs)
                         ),
                         interactionId: nil,
-                        in: thread
+                        threadId: threadId,
+                        threadVariant: threadVariant
                     )
                 }
                 
                 // Default 'didApproveMe' to true for the person approving the message request
-                try approvalData.contact.save(db)
+                try contact.save(db)
                 try Contact
-                    .filter(id: approvalData.contact.id)
+                    .filter(id: contact.id)
                     .updateAllAndConfig(
                         db,
                         Contact.Columns.isApproved.set(to: true),
                         Contact.Columns.didApproveMe
-                            .set(to: approvalData.contact.didApproveMe || !isNewThread)
+                            .set(to: contact.didApproveMe || !isNewThread)
                     )
             }
             .sinkUntilComplete(

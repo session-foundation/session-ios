@@ -233,7 +233,7 @@ public enum SessionUtil {
                             bytes: cPushData.pointee.config,
                             count: cPushData.pointee.config_len
                         )
-                        let hashesToRemove: [String] = [String](
+                        let obsoleteHashes: [String] = [String](
                             pointer: cPushData.pointee.obsolete,
                             count: cPushData.pointee.obsolete_len,
                             defaultValue: []
@@ -248,7 +248,7 @@ public enum SessionUtil {
                                 data: pushData
                             ),
                             namespace: variant.namespace,
-                            obsoleteHashes: hashesToRemove
+                            obsoleteHashes: obsoleteHashes
                         )
                     }
             }

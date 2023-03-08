@@ -6,7 +6,18 @@ import Sodium
 import SessionUtil
 import SessionUtilitiesKit
 import SessionSnodeKit
-// TODO: Expose 'GROUP_NAME_MAX_LENGTH', 'COMMUNITY_URL_MAX_LENGTH' & 'COMMUNITY_ROOM_MAX_LENGTH'
+
+// MARK: - Size Restrictions
+
+public extension SessionUtil {
+    static var libSessionMaxGroupNameByteLength: Int { GROUP_NAME_MAX_LENGTH }
+    static var libSessionMaxGroupBaseUrlByteLength: Int { COMMUNITY_BASE_URL_MAX_LENGTH }
+    static var libSessionMaxGroupFullUrlByteLength: Int { COMMUNITY_FULL_URL_MAX_LENGTH }
+    static var libSessionMaxCommunityRoomByteLength: Int { COMMUNITY_ROOM_MAX_LENGTH }
+}
+
+// MARK: - UserGroups Handling
+
 internal extension SessionUtil {
     static let columnsRelatedToUserGroups: [ColumnExpression] = [
         ClosedGroup.Columns.name
@@ -51,18 +62,7 @@ internal extension SessionUtil {
             }
             else if user_groups_it_is_legacy_group(groupsIterator, &legacyGroup) {
                 let groupId: String = String(libSessionVal: legacyGroup.session_id)
-                let membersIt: OpaquePointer = ugroups_legacy_members_begin(&legacyGroup)
-                var members: [String: Bool] = [:]
-                var maybeMemberSessionId: UnsafePointer<CChar>? = nil
-                var memberAdmin: Bool = false
-                
-                while ugroups_legacy_members_next(membersIt, &maybeMemberSessionId, &memberAdmin) {
-                    guard let memberSessionId: UnsafePointer<CChar> = maybeMemberSessionId else {
-                        continue
-                    }
-                    
-                    members[String(cString: memberSessionId)] = memberAdmin
-                }
+                let members: [String: Bool] = SessionUtil.memberInfo(in: &legacyGroup)
                 
                 legacyGroups.append(
                     LegacyGroupInfo(
@@ -106,7 +106,6 @@ internal extension SessionUtil {
                                     isHidden: false
                                 )
                             },
-                        hidden: legacyGroup.hidden,
                         priority: legacyGroup.priority
                     )
                 )
@@ -306,21 +305,12 @@ internal extension SessionUtil {
             }
             
             // Make any thread-specific changes if needed
-            let threadChanges: [ConfigColumnAssignment] = [
-                (existingThreadInfo[group.id]?.shouldBeVisible == (group.hidden == false) ? nil :
-                    SessionThread.Columns.shouldBeVisible.set(to: (group.hidden == false))
-                ),
-                (existingThreadInfo[group.id]?.pinnedPriority == group.priority ? nil :
-                    SessionThread.Columns.pinnedPriority.set(to: group.priority)
-                )
-            ].compactMap { $0 }
-            
-            if !threadChanges.isEmpty {
+            if existingThreadInfo[group.id]?.pinnedPriority != group.priority {
                 _ = try? SessionThread
                     .filter(id: group.id)
                     .updateAll( // Handling a config update so don't use `updateAllAndConfig`
                         db,
-                        threadChanges
+                        SessionThread.Columns.pinnedPriority.set(to: group.priority)
                     )
             }
         }
@@ -340,6 +330,23 @@ internal extension SessionUtil {
         
         // MARK: -- Handle Group Changes
         // TODO: Add this
+    }
+    
+    fileprivate static func memberInfo(in legacyGroup: UnsafeMutablePointer<ugroups_legacy_group_info>) -> [String: Bool] {
+        let membersIt: OpaquePointer = ugroups_legacy_members_begin(legacyGroup)
+        var members: [String: Bool] = [:]
+        var maybeMemberSessionId: UnsafePointer<CChar>? = nil
+        var memberAdmin: Bool = false
+
+        while ugroups_legacy_members_next(membersIt, &maybeMemberSessionId, &memberAdmin) {
+            guard let memberSessionId: UnsafePointer<CChar> = maybeMemberSessionId else {
+                continue
+            }
+
+            members[String(cString: memberSessionId)] = memberAdmin
+        }
+        
+        return members
     }
     
     // MARK: - Outgoing Changes
@@ -384,19 +391,54 @@ internal extension SessionUtil {
                     user_groups_set_legacy_group(conf, userGroup)
                 }
                 
-                // Add the group members and admins
-                legacyGroup.groupMembers?.forEach { member in
-                    var cProfileId: [CChar] = member.profileId.cArray
-                    ugroups_legacy_member_add(userGroup, &cProfileId, false)
+                // Add/Remove the group members and admins
+                let existingMembers: [String: Bool] = {
+                    guard legacyGroup.groupMembers != nil || legacyGroup.groupAdmins != nil else { return [:] }
+                    
+                    return SessionUtil.memberInfo(in: userGroup)
+                }()
+                
+                if let groupMembers: [GroupMember] = legacyGroup.groupMembers {
+                    let memberIds: Set<String> = groupMembers.map { $0.profileId }.asSet()
+                    let existingMemberIds: Set<String> = Array(existingMembers
+                        .filter { _, isAdmin in !isAdmin }
+                        .keys)
+                        .asSet()
+                    let membersIdsToAdd: Set<String> = memberIds.subtracting(existingMemberIds)
+                    let membersIdsToRemove: Set<String> = existingMemberIds.subtracting(memberIds)
+                    
+                    membersIdsToAdd.forEach { memberId in
+                        var cProfileId: [CChar] = memberId.cArray
+                        ugroups_legacy_member_add(userGroup, &cProfileId, false)
+                    }
+                    
+                    membersIdsToRemove.forEach { memberId in
+                        var cProfileId: [CChar] = memberId.cArray
+                        ugroups_legacy_member_remove(userGroup, &cProfileId)
+                    }
                 }
                 
-                legacyGroup.groupAdmins?.forEach { member in
-                    var cProfileId: [CChar] = member.profileId.cArray
-                    ugroups_legacy_member_add(userGroup, &cProfileId, true)
+                if let groupAdmins: [GroupMember] = legacyGroup.groupAdmins {
+                    let adminIds: Set<String> = groupAdmins.map { $0.profileId }.asSet()
+                    let existingAdminIds: Set<String> = Array(existingMembers
+                        .filter { _, isAdmin in isAdmin }
+                        .keys)
+                        .asSet()
+                    let adminIdsToAdd: Set<String> = adminIds.subtracting(existingAdminIds)
+                    let adminIdsToRemove: Set<String> = existingAdminIds.subtracting(adminIds)
+                    
+                    adminIdsToAdd.forEach { adminId in
+                        var cProfileId: [CChar] = adminId.cArray
+                        ugroups_legacy_member_add(userGroup, &cProfileId, true)
+                    }
+                    
+                    adminIdsToRemove.forEach { adminId in
+                        var cProfileId: [CChar] = adminId.cArray
+                        ugroups_legacy_member_remove(userGroup, &cProfileId)
+                    }
                 }
                 
                 // Store the updated group (can't be sure if we made any changes above)
-                userGroup.pointee.hidden = (legacyGroup.hidden ?? userGroup.pointee.hidden)
                 userGroup.pointee.priority = (legacyGroup.priority ?? userGroup.pointee.priority)
                 
                 // Note: Need to free the legacy group pointer
@@ -441,9 +483,6 @@ public extension SessionUtil {
         rootToken: String,
         publicKey: String
     ) throws {
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard Features.useSharedUtilForUserConfig else { return }
-        
         try SessionUtil.performAndPushChange(
             db,
             for: .userGroups,
@@ -466,9 +505,6 @@ public extension SessionUtil {
     }
     
     static func remove(_ db: Database, server: String, roomToken: String) throws {
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard Features.useSharedUtilForUserConfig else { return }
-        
         try SessionUtil.performAndPushChange(
             db,
             for: .userGroups,
@@ -495,9 +531,6 @@ public extension SessionUtil {
         members: Set<String>,
         admins: Set<String>
     ) throws {
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard Features.useSharedUtilForUserConfig else { return }
-        
         try SessionUtil.performAndPushChange(
             db,
             for: .userGroups,
@@ -549,9 +582,6 @@ public extension SessionUtil {
         members: Set<String>? = nil,
         admins: Set<String>? = nil
     ) throws {
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard Features.useSharedUtilForUserConfig else { return }
-        
         try SessionUtil.performAndPushChange(
             db,
             for: .userGroups,
@@ -589,29 +619,7 @@ public extension SessionUtil {
         }
     }
     
-    static func hide(_ db: Database, legacyGroupIds: [String]) throws {
-        guard !legacyGroupIds.isEmpty else { return }
-        
-        try SessionUtil.performAndPushChange(
-            db,
-            for: .userGroups,
-            publicKey: getUserHexEncodedPublicKey(db)
-        ) { conf in
-            try SessionUtil.upsert(
-                legacyGroups: legacyGroupIds.map { groupId in
-                    LegacyGroupInfo(
-                        id: groupId,
-                        hidden: true
-                    )
-                },
-                in: conf
-            )
-        }
-    }
-    
     static func remove(_ db: Database, legacyGroupIds: [String]) throws {
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard Features.useSharedUtilForUserConfig else { return }
         guard !legacyGroupIds.isEmpty else { return }
         
         try SessionUtil.performAndPushChange(
@@ -630,13 +638,7 @@ public extension SessionUtil {
     
     // MARK: -- Group Changes
     
-    static func hide(_ db: Database, groupIds: [String]) throws {
-        guard !groupIds.isEmpty else { return }
-    }
-    
     static func remove(_ db: Database, groupIds: [String]) throws {
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard Features.useSharedUtilForUserConfig else { return }
         guard !groupIds.isEmpty else { return }
     }
 }
@@ -653,7 +655,6 @@ extension SessionUtil {
             case disappearingConfig
             case groupMembers
             case groupAdmins
-            case hidden
             case priority
         }
         
@@ -665,7 +666,6 @@ extension SessionUtil {
         let disappearingConfig: DisappearingMessagesConfiguration?
         let groupMembers: [GroupMember]?
         let groupAdmins: [GroupMember]?
-        let hidden: Bool?
         let priority: Int32?
         
         init(
@@ -675,7 +675,6 @@ extension SessionUtil {
             disappearingConfig: DisappearingMessagesConfiguration? = nil,
             groupMembers: [GroupMember]? = nil,
             groupAdmins: [GroupMember]? = nil,
-            hidden: Bool? = nil,
             priority: Int32? = nil
         ) {
             self.threadId = id
@@ -684,7 +683,6 @@ extension SessionUtil {
             self.disappearingConfig = disappearingConfig
             self.groupMembers = groupMembers
             self.groupAdmins = groupAdmins
-            self.hidden = hidden
             self.priority = priority
         }
         
