@@ -258,7 +258,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         let delete: UIContextualAction = UIContextualAction(
             title: "GROUP_ACTION_REMOVE".localized(),
             icon: UIImage(named: "icon_bin"),
-            themeTintColor: .textPrimary,
+            themeTintColor: .white,
             themeBackgroundColor: .conversationButton_swipeDestructive,
             side: .trailing,
             actionIndex: 0,

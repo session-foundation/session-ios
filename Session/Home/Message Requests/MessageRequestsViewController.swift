@@ -408,7 +408,7 @@ class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDat
                 let delete: UIContextualAction = UIContextualAction(
                     title: "TXT_DELETE_TITLE".localized(),
                     icon: UIImage(named: "icon_bin"),
-                    themeTintColor: .textPrimary,
+                    themeTintColor: .white,
                     themeBackgroundColor: .conversationButton_swipeDestructive,
                     side: .trailing,
                     actionIndex: (threadVariant == .contact ? 1 : 0),
@@ -428,8 +428,8 @@ class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDat
                         let block: UIContextualAction = UIContextualAction(
                             title: "BLOCK_LIST_BLOCK_BUTTON".localized(),
                             icon: UIImage(named: "table_ic_block"),
-                            themeTintColor: .textPrimary,
-                            themeBackgroundColor: .conversationButton_swipeDestructive,
+                            themeTintColor: .white,
+                            themeBackgroundColor: .conversationButton_swipeSecondary,
                             side: .trailing,
                             actionIndex: 0,
                             indexPath: indexPath,

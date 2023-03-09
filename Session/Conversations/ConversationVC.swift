@@ -162,6 +162,8 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         result.register(view: InfoMessageCell.self)
         result.register(view: TypingIndicatorCell.self)
         result.register(view: CallMessageCell.self)
+        result.estimatedSectionHeaderHeight = ConversationVC.loadingHeaderHeight
+        result.sectionFooterHeight = 0
         result.dataSource = self
         result.delegate = self
 
@@ -209,7 +211,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     
     private lazy var emptyStateLabel: UILabel = {
         let text: String = String(
-            format: "GROUP_CONVERSATION_EMPTY_STATE".localized(),
+            format: "CONVERSATION_EMPTY_STATE".localized(),
             self.viewModel.threadData.displayName
         )
         
@@ -228,10 +230,6 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         result.textAlignment = .center
         result.lineBreakMode = .byWordWrapping
         result.numberOfLines = 0
-        result.isHidden = (
-            self.viewModel.threadData.threadVariant != .legacyGroup &&
-            self.viewModel.threadData.threadVariant != .group
-        )
 
         return result
     }()
@@ -401,8 +399,8 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         view.addSubview(messageRequestStackView)
         
         emptyStateLabel.pin(.top, to: .top, of: view, withInset: Values.largeSpacing)
-        emptyStateLabel.pin(.leading, to: .leading, of: view, withInset: Values.largeSpacing)
-        emptyStateLabel.pin(.trailing, to: .trailing, of: view, withInset: -Values.largeSpacing)
+        emptyStateLabel.pin(.leading, to: .leading, of: view, withInset: Values.veryLargeSpacing)
+        emptyStateLabel.pin(.trailing, to: .trailing, of: view, withInset: -Values.veryLargeSpacing)
 
         messageRequestStackView.addArrangedSubview(messageRequestBlockButton)
         messageRequestStackView.addArrangedSubview(messageRequestDescriptionContainerView)
@@ -620,7 +618,9 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                     // PagedDatabaseObserver won't have them so we need to force a re-fetch of the current
                     // data to ensure everything is up to date
                     if didReturnFromBackground {
-                        self?.viewModel.pagedDataObserver?.reload()
+                        DispatchQueue.global(qos: .background).async {
+                            self?.viewModel.pagedDataObserver?.reload()
+                        }
                     }
                 }
             }
@@ -674,7 +674,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             
             // Update the empty state
             let text: String = String(
-                format: "GROUP_CONVERSATION_EMPTY_STATE".localized(),
+                format: "CONVERSATION_EMPTY_STATE".localized(),
                 updatedThreadData.displayName
             )
             emptyStateLabel.attributedText = NSAttributedString(string: text)
@@ -775,6 +775,13 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         changeset: StagedChangeset<[ConversationViewModel.SectionModel]>,
         initialLoad: Bool = false
     ) {
+        // Determine if we have any messages for the empty state
+        let hasMessages: Bool = (updatedData
+            .filter { $0.model == .messages }
+            .first?
+            .elements
+            .isEmpty == false)
+        
         // Ensure the first load or a load when returning from a child screen runs without
         // animations (if we don't do this the cells will animate in from a frame of
         // CGRect.zero or have a buggy transition)
@@ -785,17 +792,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                 self.viewModel.updateInteractionData(updatedData)
                 
                 // Update the empty state
-                let hasMessages: Bool = (updatedData
-                    .filter { $0.model == .messages }
-                    .first?
-                    .elements
-                    .isEmpty == false)
-                self.emptyStateLabel.isHidden = (
-                    hasMessages || (
-                        self.viewModel.threadData.threadVariant != .legacyGroup &&
-                        self.viewModel.threadData.threadVariant != .group
-                    )
-                )
+                self.emptyStateLabel.isHidden = hasMessages
                 
                 UIView.performWithoutAnimation {
                     self.tableView.reloadData()
@@ -806,12 +803,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         }
         
         // Update the empty state
-        self.emptyStateLabel.isHidden = (
-            !updatedData.isEmpty || (
-                self.viewModel.threadData.threadVariant != .legacyGroup &&
-                self.viewModel.threadData.threadVariant != .group
-            )
-        )
+        self.emptyStateLabel.isHidden = hasMessages
         
         // Update the ReactionListSheet (if one exists)
         if let messageUpdates: [MessageViewModel] = updatedData.first(where: { $0.model == .messages })?.elements {
@@ -1428,14 +1420,6 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     }
     
     // MARK: - UITableViewDelegate
-
-    func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {
-        return UITableView.automaticDimension
-    }
-
-    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        return UITableView.automaticDimension
-    }
     
     func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
         let section: ConversationViewModel.SectionModel = viewModel.interactionData[section]
@@ -1505,15 +1489,6 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                 isAnimated: true
             )
             return
-        }
-        
-        // Note: In this case we need to force a tableView layout to ensure updating the
-        // scroll position has the correct offset (otherwise there are some cases where
-        // the screen will jump up - eg. when sending a reply while the soft keyboard
-        // is visible)
-        UIView.performWithoutAnimation {
-            self.tableView.setNeedsLayout()
-            self.tableView.layoutIfNeeded()
         }
         
         let targetIndexPath: IndexPath = IndexPath(
@@ -1760,12 +1735,6 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                 }
             }
             return
-        }
-        
-        // Note: If the tableView needs to layout then we should do it first without an animation
-        // to prevent an annoying issue where the screen jumps slightly after the scroll completes
-        UIView.performWithoutAnimation {
-            self.tableView.layoutIfNeeded()
         }
         
         let targetIndexPath: IndexPath = IndexPath(

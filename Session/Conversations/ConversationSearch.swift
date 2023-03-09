@@ -317,6 +317,7 @@ public final class SearchResultsBar: UIView {
             label.text = ""
             downButton.isEnabled = false
             upButton.isEnabled = false
+            stopLoading()
             return
         }
 

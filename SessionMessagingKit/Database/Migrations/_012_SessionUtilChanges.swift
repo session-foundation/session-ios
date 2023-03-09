@@ -160,6 +160,18 @@ enum _012_SessionUtilChanges: Migration {
                 SessionThread.Columns.pinnedPriority.set(to: 1)
             )
         
+        // There seems to have been an issue where the interaction FTS table might have been dropped
+        // so if it has we should recreate it
+        if try db.tableExists(Interaction.fullTextSearchTableName) == false {
+            try db.create(virtualTable: Interaction.fullTextSearchTableName, using: FTS5()) { t in
+                t.synchronize(withTable: Interaction.databaseTableName)
+                t.tokenizer = _001_InitialSetupMigration.fullTextSearchTokenizer
+
+                t.column(Interaction.Columns.body.name)
+                t.column(Interaction.Columns.threadId.name)
+            }
+        }
+        
         // If we don't have an ed25519 key then no need to create cached dump data
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         
