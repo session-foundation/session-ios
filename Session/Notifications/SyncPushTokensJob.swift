@@ -72,10 +72,7 @@ public enum SyncPushTokensJob: JobExecutor {
         PushRegistrationManager.shared.requestPushTokens()
             .subscribe(on: queue)
             .flatMap { (pushToken: String, voipToken: String) -> AnyPublisher<Void, Error> in
-                let lastPushToken: String? = Storage.shared[.lastRecordedPushToken]
-                let lastVoipToken: String? = Storage.shared[.lastRecordedVoipToken]
-
-                return Deferred {
+                Deferred {
                     Future<Void, Error> { resolver in
                         SyncPushTokensJob.registerForPushNotifications(
                             pushToken: pushToken,

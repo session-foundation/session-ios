@@ -826,11 +826,16 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             self.viewModel.updateInteractionData(updatedData)
             self.tableView.reloadData()
             
-            // Note: The scroll button alpha won't get set correctly in this case so we forcibly set it to
-            // have an alpha of 0 to stop it appearing buggy
-            self.scrollToBottom(isAnimated: false)
-            self.scrollButton.alpha = 0
-            self.unreadCountView.alpha = scrollButton.alpha
+            // We need to dispatch to the next run loop because it seems trying to scroll immediately after
+            // triggering a 'reloadData' doesn't work
+            DispatchQueue.main.async { [weak self] in
+                self?.scrollToBottom(isAnimated: false)
+                
+                // Note: The scroll button alpha won't get set correctly in this case so we forcibly set it to
+                // have an alpha of 0 to stop it appearing buggy
+                self?.scrollButton.alpha = 0
+                self?.unreadCountView.alpha = 0
+            }
             return
         }
         

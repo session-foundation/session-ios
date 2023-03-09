@@ -288,6 +288,52 @@ internal extension SessionUtil {
             )
         }
     }
+    
+    static func remove(_ db: Database, volatileContactIds: [String]) throws {
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .convoInfoVolatile,
+            publicKey: getUserHexEncodedPublicKey(db)
+        ) { conf in
+            volatileContactIds.forEach { contactId in
+                var cSessionId: [CChar] = contactId.cArray
+                
+                // Don't care if the data doesn't exist
+                convo_info_volatile_erase_1to1(conf, &cSessionId)
+            }
+        }
+    }
+    
+    static func remove(_ db: Database, volatileLegacyGroupIds: [String]) throws {
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .convoInfoVolatile,
+            publicKey: getUserHexEncodedPublicKey(db)
+        ) { conf in
+            volatileLegacyGroupIds.forEach { legacyGroupId in
+                var cLegacyGroupId: [CChar] = legacyGroupId.cArray
+                
+                // Don't care if the data doesn't exist
+                convo_info_volatile_erase_legacy_group(conf, &cLegacyGroupId)
+            }
+        }
+    }
+    
+    static func remove(_ db: Database, volatileCommunityInfo: [OpenGroupUrlInfo]) throws {
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .convoInfoVolatile,
+            publicKey: getUserHexEncodedPublicKey(db)
+        ) { conf in
+            volatileCommunityInfo.forEach { urlInfo in
+                var cBaseUrl: [CChar] = urlInfo.server.cArray
+                var cRoom: [CChar] = urlInfo.roomToken.cArray
+                
+                // Don't care if the data doesn't exist
+                convo_info_volatile_erase_community(conf, &cBaseUrl, &cRoom)
+            }
+        }
+    }
 }
 
 // MARK: - External Outgoing Changes

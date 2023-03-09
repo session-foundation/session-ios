@@ -223,6 +223,8 @@ internal extension SessionUtil {
                     db,
                     Profile.Columns.nickname.set(to: nil)
                 )
+            
+            try SessionUtil.remove(db, volatileContactIds: contactIdsToRemove)
         }
     }
     

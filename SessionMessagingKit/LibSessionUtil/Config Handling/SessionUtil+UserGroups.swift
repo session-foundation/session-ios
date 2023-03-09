@@ -516,6 +516,19 @@ public extension SessionUtil {
             // Don't care if the community doesn't exist
             user_groups_erase_community(conf, &cBaseUrl, &cRoom)
         }
+        
+        // Remove the volatile info as well
+        try SessionUtil.remove(
+            db,
+            volatileCommunityInfo: [
+                OpenGroupUrlInfo(
+                    threadId: OpenGroup.idFor(roomToken: roomToken, server: server),
+                    server: server,
+                    roomToken: roomToken,
+                    publicKey: ""
+                )
+            ]
+        )
     }
     
     // MARK: -- Legacy Group Changes
@@ -634,6 +647,9 @@ public extension SessionUtil {
                 user_groups_erase_legacy_group(conf, &cGroupId)
             }
         }
+        
+        // Remove the volatile info as well
+        try SessionUtil.remove(db, volatileLegacyGroupIds: legacyGroupIds)
     }
     
     // MARK: -- Group Changes
