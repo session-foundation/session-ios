@@ -94,7 +94,7 @@ public extension Identity {
         return try? Identity.fetchOne(db, id: .x25519PrivateKey)?.data
     }
     
-    static func fetchUserKeyPair(_ db: Database? = nil) -> Box.KeyPair? {
+    static func fetchUserKeyPair(_ db: Database? = nil) -> KeyPair? {
         guard let db: Database = db else {
             return Storage.shared.read { db in fetchUserKeyPair(db) }
         }
@@ -103,13 +103,13 @@ public extension Identity {
             let privateKey: Data = fetchUserPrivateKey(db)
         else { return nil }
         
-        return Box.KeyPair(
+        return KeyPair(
             publicKey: publicKey.bytes,
             secretKey: privateKey.bytes
         )
     }
     
-    static func fetchUserEd25519KeyPair(_ db: Database? = nil) -> Box.KeyPair? {
+    static func fetchUserEd25519KeyPair(_ db: Database? = nil) -> KeyPair? {
         guard let db: Database = db else {
             return Storage.shared.read { db in fetchUserEd25519KeyPair(db) }
         }
@@ -118,7 +118,7 @@ public extension Identity {
             let secretKey: Data = try? Identity.fetchOne(db, id: .ed25519SecretKey)?.data
         else { return nil }
         
-        return Box.KeyPair(
+        return KeyPair(
             publicKey: publicKey.bytes,
             secretKey: secretKey.bytes
         )

@@ -245,7 +245,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         )
                     }
                     .thenReturn(
-                        Box.KeyPair(
+                        KeyPair(
                             publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
                             secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
                         )
@@ -2931,7 +2931,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 )
                             }
                             .thenReturn(
-                                Box.KeyPair(
+                                KeyPair(
                                     publicKey: Data.data(fromHex: otherKey)!.bytes,
                                     secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
                                 )
@@ -3029,7 +3029,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 )
                             }
                             .thenReturn(
-                                Box.KeyPair(
+                                KeyPair(
                                     publicKey: Data.data(fromHex: otherKey)!.bytes,
                                     secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
                                 )
@@ -3108,7 +3108,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 )
                             }
                             .thenReturn(
-                                Box.KeyPair(
+                                KeyPair(
                                     publicKey: Data.data(fromHex: otherKey)!.bytes,
                                     secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
                                 )
@@ -3136,7 +3136,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 )
                             }
                             .thenReturn(
-                                Box.KeyPair(
+                                KeyPair(
                                     publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
                                     secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
                                 )
@@ -3175,7 +3175,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 )
                             }
                             .thenReturn(
-                                Box.KeyPair(
+                                KeyPair(
                                     publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
                                     secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
                                 )

@@ -501,7 +501,7 @@ public enum SMKLegacy {
                                 return .new(
                                     publicKey: publicKey,
                                     name: name,
-                                    encryptionKeyPair: Box.KeyPair(
+                                    encryptionKeyPair: KeyPair(
                                         publicKey: encryptionKeyPair.publicKey.bytes,
                                         secretKey: encryptionKeyPair.privateKey.bytes
                                     ),

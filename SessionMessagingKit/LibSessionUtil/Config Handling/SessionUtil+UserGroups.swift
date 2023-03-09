@@ -205,7 +205,7 @@ internal extension SessionUtil {
                     db,
                     groupPublicKey: group.id,
                     name: name,
-                    encryptionKeyPair: Box.KeyPair(
+                    encryptionKeyPair: KeyPair(
                         publicKey: lastKeyPair.publicKey.bytes,
                         secretKey: lastKeyPair.secretKey.bytes
                     ),

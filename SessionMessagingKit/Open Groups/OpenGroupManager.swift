@@ -945,7 +945,7 @@ public final class OpenGroupManager {
                         fallthrough
                         
                     case .unblinded:
-                        guard let userEdKeyPair: Box.KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
+                        guard let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
                             return false
                         }
                         guard sessionId.prefix != .unblinded || publicKey == SessionId(.unblinded, publicKey: userEdKeyPair.publicKey).hexString else {
@@ -955,13 +955,13 @@ public final class OpenGroupManager {
                         
                     case .blinded:
                         guard
-                            let userEdKeyPair: Box.KeyPair = Identity.fetchUserEd25519KeyPair(db),
+                            let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
                             let openGroupPublicKey: String = try? OpenGroup
                                 .select(.publicKey)
                                 .filter(id: groupId)
                                 .asRequest(of: String.self)
                                 .fetchOne(db),
-                            let blindedKeyPair: Box.KeyPair = dependencies.sodium.blindedKeyPair(
+                            let blindedKeyPair: KeyPair = dependencies.sodium.blindedKeyPair(
                                 serverPublicKey: openGroupPublicKey,
                                 edKeyPair: userEdKeyPair,
                                 genericHash: dependencies.genericHash

@@ -12,7 +12,7 @@ extension MessageSender {
         for recipientHexEncodedX25519PublicKey: String,
         using dependencies: SMKDependencies = SMKDependencies()
     ) throws -> Data {
-        guard let userEd25519KeyPair: Box.KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
+        guard let userEd25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
             throw MessageSenderError.noUserED25519KeyPair
         }
         
@@ -41,7 +41,7 @@ extension MessageSender {
         guard SessionId.Prefix(from: recipientBlindedId) == .blinded else {
             throw MessageSenderError.signingFailed
         }
-        guard let userEd25519KeyPair: Box.KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
+        guard let userEd25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
             throw MessageSenderError.noUserED25519KeyPair
         }
         guard let blindedKeyPair = dependencies.sodium.blindedKeyPair(serverPublicKey: openGroupPublicKey, edKeyPair: userEd25519KeyPair, genericHash: dependencies.genericHash) else {

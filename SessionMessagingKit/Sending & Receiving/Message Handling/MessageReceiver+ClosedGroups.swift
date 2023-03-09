@@ -88,7 +88,7 @@ extension MessageReceiver {
         _ db: Database,
         groupPublicKey: String,
         name: String,
-        encryptionKeyPair: Box.KeyPair,
+        encryptionKeyPair: KeyPair,
         members: [String],
         admins: [String],
         expirationTimer: UInt32,
@@ -210,7 +210,7 @@ extension MessageReceiver {
         
         let groupPublicKey: String = (explicitGroupPublicKey?.toHexString() ?? threadId)
         
-        guard let userKeyPair: Box.KeyPair = Identity.fetchUserKeyPair(db) else {
+        guard let userKeyPair: KeyPair = Identity.fetchUserKeyPair(db) else {
             return SNLog("Couldn't find user X25519 key pair.")
         }
         guard let closedGroup: ClosedGroup = try? ClosedGroup.fetchOne(db, id: groupPublicKey) else {

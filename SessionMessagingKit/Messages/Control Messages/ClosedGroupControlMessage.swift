@@ -36,7 +36,7 @@ public final class ClosedGroupControlMessage: ControlMessage {
             case wrappers
         }
         
-        case new(publicKey: Data, name: String, encryptionKeyPair: Box.KeyPair, members: [Data], admins: [Data], expirationTimer: UInt32)
+        case new(publicKey: Data, name: String, encryptionKeyPair: KeyPair, members: [Data], admins: [Data], expirationTimer: UInt32)
 
         /// An encryption key pair encrypted for each member individually.
         ///
@@ -68,7 +68,7 @@ public final class ClosedGroupControlMessage: ControlMessage {
             let newDescription: String = Kind.new(
                 publicKey: Data(),
                 name: "",
-                encryptionKeyPair: Box.KeyPair(publicKey: [], secretKey: []),
+                encryptionKeyPair: KeyPair(publicKey: [], secretKey: []),
                 members: [],
                 admins: [],
                 expirationTimer: 0
@@ -79,7 +79,7 @@ public final class ClosedGroupControlMessage: ControlMessage {
                     self = .new(
                         publicKey: try container.decode(Data.self, forKey: .publicKey),
                         name: try container.decode(String.self, forKey: .name),
-                        encryptionKeyPair: Box.KeyPair(
+                        encryptionKeyPair: KeyPair(
                             publicKey: try container.decode([UInt8].self, forKey: .encryptionPublicKey),
                             secretKey: try container.decode([UInt8].self, forKey: .encryptionSecretKey)
                         ),
@@ -252,7 +252,7 @@ public final class ClosedGroupControlMessage: ControlMessage {
                     kind: .new(
                         publicKey: publicKey,
                         name: name,
-                        encryptionKeyPair: Box.KeyPair(
+                        encryptionKeyPair: KeyPair(
                             publicKey: encryptionKeyPairAsProto.publicKey.removingIdPrefixIfNeeded().bytes,
                             secretKey: encryptionKeyPairAsProto.privateKey.bytes
                         ),

@@ -782,8 +782,8 @@ public extension Interaction {
             let sodium: Sodium = Sodium()
             
             if
-                let userEd25519KeyPair: Box.KeyPair = Identity.fetchUserEd25519KeyPair(db),
-                let blindedKeyPair: Box.KeyPair = sodium.blindedKeyPair(
+                let userEd25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
+                let blindedKeyPair: KeyPair = sodium.blindedKeyPair(
                     serverPublicKey: openGroup.publicKey,
                     edKeyPair: userEd25519KeyPair,
                     genericHash: sodium.genericHash

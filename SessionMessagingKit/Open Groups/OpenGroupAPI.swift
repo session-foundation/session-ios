@@ -1349,7 +1349,7 @@ public enum OpenGroupAPI {
         )
     ) -> (publicKey: String, signature: Bytes)? {
         guard
-            let userEdKeyPair: Box.KeyPair = Identity.fetchUserEd25519KeyPair(db),
+            let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
             let serverPublicKey: String = try? OpenGroup
                 .select(.publicKey)
                 .filter(OpenGroup.Columns.server == serverName.lowercased())
@@ -1366,7 +1366,7 @@ public enum OpenGroupAPI {
 
         // If we have no capabilities or if the server supports blinded keys then sign using the blinded key
         if forceBlinded || capabilities.isEmpty || capabilities.contains(.blind) {
-            guard let blindedKeyPair: Box.KeyPair = dependencies.sodium.blindedKeyPair(serverPublicKey: serverPublicKey, edKeyPair: userEdKeyPair, genericHash: dependencies.genericHash) else {
+            guard let blindedKeyPair: KeyPair = dependencies.sodium.blindedKeyPair(serverPublicKey: serverPublicKey, edKeyPair: userEdKeyPair, genericHash: dependencies.genericHash) else {
                 return nil
             }
 
@@ -1394,7 +1394,7 @@ public enum OpenGroupAPI {
                 
             // Default to using the 'standard' key
             default:
-                guard let userKeyPair: Box.KeyPair = Identity.fetchUserKeyPair(db) else { return nil }
+                guard let userKeyPair: KeyPair = Identity.fetchUserKeyPair(db) else { return nil }
                 guard let signatureResult: Bytes = try? dependencies.ed25519.sign(data: messageBytes, keyPair: userKeyPair) else {
                     return nil
                 }

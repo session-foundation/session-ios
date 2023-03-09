@@ -39,7 +39,7 @@ public enum MessageReceiver {
                     // Default to 'standard' as the old code didn't seem to require an `envelope.source`
                     switch (SessionId.Prefix(from: envelope.source) ?? .standard) {
                         case .standard, .unblinded:
-                            guard let userX25519KeyPair: Box.KeyPair = Identity.fetchUserKeyPair(db) else {
+                            guard let userX25519KeyPair: KeyPair = Identity.fetchUserKeyPair(db) else {
                                 throw MessageReceiverError.noUserX25519KeyPair
                             }
                             
@@ -52,7 +52,7 @@ public enum MessageReceiver {
                             guard let openGroupServerPublicKey: String = openGroupServerPublicKey else {
                                 throw MessageReceiverError.invalidGroupPublicKey
                             }
-                            guard let userEd25519KeyPair: Box.KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
+                            guard let userEd25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
                                 throw MessageReceiverError.noUserED25519KeyPair
                             }
                             
@@ -93,7 +93,7 @@ public enum MessageReceiver {
                         do {
                             return try decryptWithSessionProtocol(
                                 ciphertext: ciphertext,
-                                using: Box.KeyPair(
+                                using: KeyPair(
                                     publicKey: keyPair.publicKey.bytes,
                                     secretKey: keyPair.secretKey.bytes
                                 )

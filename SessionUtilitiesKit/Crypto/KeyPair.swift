@@ -2,7 +2,7 @@
 
 import Foundation
 
-public struct KeyPair {
+public struct KeyPair: Equatable {
     public let publicKey: [UInt8]
     public let secretKey: [UInt8]
     

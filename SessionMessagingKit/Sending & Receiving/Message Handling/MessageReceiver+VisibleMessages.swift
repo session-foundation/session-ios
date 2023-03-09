@@ -88,8 +88,8 @@ extension MessageReceiver {
                     let sodium: Sodium = Sodium()
                     
                     guard
-                        let userEdKeyPair: Box.KeyPair = Identity.fetchUserEd25519KeyPair(db),
-                        let blindedKeyPair: Box.KeyPair = sodium.blindedKeyPair(
+                        let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
+                        let blindedKeyPair: KeyPair = sodium.blindedKeyPair(
                             serverPublicKey: openGroup.publicKey,
                             edKeyPair: userEdKeyPair,
                             genericHash: sodium.genericHash

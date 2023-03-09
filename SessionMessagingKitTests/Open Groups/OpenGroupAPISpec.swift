@@ -89,7 +89,7 @@ class OpenGroupAPISpec: QuickSpec {
                 mockSodium
                     .when { $0.blindedKeyPair(serverPublicKey: any(), edKeyPair: any(), genericHash: mockGenericHash) }
                     .thenReturn(
-                        Box.KeyPair(
+                        KeyPair(
                             publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
                             secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
                         )

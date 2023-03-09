@@ -739,7 +739,7 @@
 		FD8ECF7929340F7200C0D1BB /* libsession-util.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = FD8ECF7829340F7100C0D1BB /* libsession-util.xcframework */; };
 		FD8ECF7B29340FFD00C0D1BB /* SessionUtil.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF7A29340FFD00C0D1BB /* SessionUtil.swift */; };
 		FD8ECF7D2934293A00C0D1BB /* _012_SessionUtilChanges.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF7C2934293A00C0D1BB /* _012_SessionUtilChanges.swift */; };
-		FD8ECF7F2934298100C0D1BB /* SharedConfigDump.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF7E2934298100C0D1BB /* SharedConfigDump.swift */; };
+		FD8ECF7F2934298100C0D1BB /* ConfigDump.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF7E2934298100C0D1BB /* ConfigDump.swift */; };
 		FD8ECF822934387A00C0D1BB /* ConfigUserProfileSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF812934387A00C0D1BB /* ConfigUserProfileSpec.swift */; };
 		FD8ECF892935AB7200C0D1BB /* SessionUtilError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF882935AB7200C0D1BB /* SessionUtilError.swift */; };
 		FD8ECF8B2935DB4B00C0D1BB /* SharedConfigMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF8A2935DB4B00C0D1BB /* SharedConfigMessage.swift */; };
@@ -1870,7 +1870,7 @@
 		FD8ECF7829340F7100C0D1BB /* libsession-util.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = "libsession-util.xcframework"; sourceTree = "<group>"; };
 		FD8ECF7A29340FFD00C0D1BB /* SessionUtil.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionUtil.swift; sourceTree = "<group>"; };
 		FD8ECF7C2934293A00C0D1BB /* _012_SessionUtilChanges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _012_SessionUtilChanges.swift; sourceTree = "<group>"; };
-		FD8ECF7E2934298100C0D1BB /* SharedConfigDump.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedConfigDump.swift; sourceTree = "<group>"; };
+		FD8ECF7E2934298100C0D1BB /* ConfigDump.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigDump.swift; sourceTree = "<group>"; };
 		FD8ECF812934387A00C0D1BB /* ConfigUserProfileSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigUserProfileSpec.swift; sourceTree = "<group>"; };
 		FD8ECF882935AB7200C0D1BB /* SessionUtilError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionUtilError.swift; sourceTree = "<group>"; };
 		FD8ECF8A2935DB4B00C0D1BB /* SharedConfigMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedConfigMessage.swift; sourceTree = "<group>"; };
@@ -3612,7 +3612,7 @@
 				FDE77F6A280FEB28002CFC5D /* ControlMessageProcessRecord.swift */,
 				FD5C7308285007920029977D /* BlindedIdLookup.swift */,
 				FD09B7E6288670FD00ED0B66 /* Reaction.swift */,
-				FD8ECF7E2934298100C0D1BB /* SharedConfigDump.swift */,
+				FD8ECF7E2934298100C0D1BB /* ConfigDump.swift */,
 				FD432433299C6985008A0213 /* PendingReadReceipt.swift */,
 			);
 			path = Models;
@@ -5800,7 +5800,7 @@
 				FD778B6429B189FF001BAC6B /* _013_GenerateInitialUserConfigDumps.swift in Sources */,
 				C32C598A256D0664003C73A2 /* SNProtoEnvelope+Conversion.swift in Sources */,
 				FDC438CB27BB7DB100C60D73 /* UpdateMessageRequest.swift in Sources */,
-				FD8ECF7F2934298100C0D1BB /* SharedConfigDump.swift in Sources */,
+				FD8ECF7F2934298100C0D1BB /* ConfigDump.swift in Sources */,
 				FDA1E83B29A5F2D500C5C3BD /* SessionUtil+Shared.swift in Sources */,
 				C352A2FF25574B6300338F3E /* MessageSendJob.swift in Sources */,
 				FDC438C327BB512200C60D73 /* SodiumProtocols.swift in Sources */,

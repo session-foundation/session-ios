@@ -264,7 +264,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
                             )
                         }
                         .thenReturn(
-                            Box.KeyPair(
+                            KeyPair(
                                 publicKey: Data(hex: TestConstants.edPublicKey).bytes,
                                 secretKey: Data(hex: TestConstants.edSecretKey).bytes
                             )

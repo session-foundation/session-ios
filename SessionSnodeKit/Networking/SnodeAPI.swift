@@ -494,7 +494,7 @@ public final class SnodeAPI {
                     .eraseToAnyPublisher()
             }
             
-            guard let userED25519KeyPair: Box.KeyPair = Storage.shared.read({ db in Identity.fetchUserEd25519KeyPair(db) }) else {
+            guard let userED25519KeyPair: KeyPair = Storage.shared.read({ db in Identity.fetchUserEd25519KeyPair(db) }) else {
                 throw SnodeAPIError.noKeyPair
             }
             
@@ -573,7 +573,7 @@ public final class SnodeAPI {
                     .eraseToAnyPublisher()
             }
                     
-            guard let userED25519KeyPair: Box.KeyPair = Storage.shared.read({ db in Identity.fetchUserEd25519KeyPair(db) }) else {
+            guard let userED25519KeyPair: KeyPair = Storage.shared.read({ db in Identity.fetchUserEd25519KeyPair(db) }) else {
                 throw SnodeAPIError.noKeyPair
             }
             

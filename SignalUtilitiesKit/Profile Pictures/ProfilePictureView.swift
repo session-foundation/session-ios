@@ -132,7 +132,7 @@ public final class ProfilePictureView: UIView {
         additionalProfilePlaceholderImageView.pin(.right, to: .right, of: additionalImageContainerView)
         additionalProfilePlaceholderImageView.pin(.bottom, to: .bottom, of: additionalImageContainerView, withInset: 5)
     }
-// TODO: Update this to be more explicit? (or add a helper method? current code requires duplicate logic around deciding what properties should be set in what cases)
+    
     private func prepareForReuse() {
         imageView.contentMode = .scaleAspectFill
         imageView.isHidden = true

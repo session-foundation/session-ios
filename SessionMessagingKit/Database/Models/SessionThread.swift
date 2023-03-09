@@ -383,7 +383,7 @@ public extension SessionThread {
     ) -> String? {
         guard
             threadVariant == .community,
-            let blindingInfo: (edkeyPair: Box.KeyPair?, publicKey: String?, capabilities: Set<Capability.Variant>) = Storage.shared.read({ db in
+            let blindingInfo: (edkeyPair: KeyPair?, publicKey: String?, capabilities: Set<Capability.Variant>) = Storage.shared.read({ db in
                 struct OpenGroupInfo: Decodable, FetchableRecord {
                     let publicKey: String?
                     let server: String?
@@ -405,14 +405,14 @@ public extension SessionThread {
                     .defaulting(to: [])
                 )
             }),
-            let userEdKeyPair: Box.KeyPair = blindingInfo.edkeyPair,
+            let userEdKeyPair: KeyPair = blindingInfo.edkeyPair,
             let publicKey: String = blindingInfo.publicKey,
             blindingInfo.capabilities.isEmpty || blindingInfo.capabilities.contains(.blind)
         else { return nil }
         
         let sodium: Sodium = Sodium()
         
-        let blindedKeyPair: Box.KeyPair? = sodium.blindedKeyPair(
+        let blindedKeyPair: KeyPair? = sodium.blindedKeyPair(
             serverPublicKey: publicKey,
             edKeyPair: userEdKeyPair,
             genericHash: sodium.getGenericHash()

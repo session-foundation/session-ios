@@ -93,7 +93,7 @@ extension MessageSender {
                         kind: .new(
                             publicKey: Data(hex: groupPublicKey),
                             name: name,
-                            encryptionKeyPair: Box.KeyPair(
+                            encryptionKeyPair: KeyPair(
                                 publicKey: encryptionKeyPair.publicKey.bytes,
                                 secretKey: encryptionKeyPair.privateKey.bytes
                             ),
@@ -442,7 +442,7 @@ extension MessageSender {
                     kind: .new(
                         publicKey: Data(hex: closedGroup.id),
                         name: closedGroup.name,
-                        encryptionKeyPair: Box.KeyPair(
+                        encryptionKeyPair: KeyPair(
                             publicKey: encryptionKeyPair.publicKey.bytes,
                             secretKey: encryptionKeyPair.secretKey.bytes
                         ),

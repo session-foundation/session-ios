@@ -177,7 +177,7 @@ extension MessageReceiver {
                 try message.closedGroups.forEach { closedGroup in
                     guard !existingClosedGroupsIds.contains(closedGroup.publicKey) else { return }
                     
-                    let keyPair: Box.KeyPair = Box.KeyPair(
+                    let keyPair: KeyPair = KeyPair(
                         publicKey: closedGroup.encryptionKeyPublicKey.bytes,
                         secretKey: closedGroup.encryptionKeySecretKey.bytes
                     )

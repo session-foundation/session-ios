@@ -388,7 +388,7 @@ public final class MessageSender {
         // error in a non-retryable way
         guard
             let openGroup: OpenGroup = try? OpenGroup.fetchOne(db, id: threadId),
-            let userEdKeyPair: Box.KeyPair = Identity.fetchUserEd25519KeyPair(db),
+            let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
             case .openGroup(_, let server, _, _, _) = destination
         else {
             throw MessageSenderError.invalidMessage
@@ -407,7 +407,7 @@ public final class MessageSender {
             guard capabilities.isEmpty || capabilities.contains(.blind) else {
                 return SessionId(.unblinded, publicKey: userEdKeyPair.publicKey).hexString
             }
-            guard let blindedKeyPair: Box.KeyPair = dependencies.sodium.blindedKeyPair(serverPublicKey: openGroup.publicKey, edKeyPair: userEdKeyPair, genericHash: dependencies.genericHash) else {
+            guard let blindedKeyPair: KeyPair = dependencies.sodium.blindedKeyPair(serverPublicKey: openGroup.publicKey, edKeyPair: userEdKeyPair, genericHash: dependencies.genericHash) else {
                 preconditionFailure()
             }
             
