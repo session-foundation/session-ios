@@ -110,6 +110,15 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
             }
         }
         
+        public var isGroupLeavingStatus: Bool {
+            switch self {
+                case .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving:
+                    return true
+                default:
+                    return false
+            }
+        }
+        
         /// This flag controls whether the `wasRead` flag is automatically set to true based on the message variant (as a result it they will
         /// or won't affect the unread count)
         fileprivate var canBeUnread: Bool {
