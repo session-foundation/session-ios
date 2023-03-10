@@ -529,10 +529,15 @@ extension MessageSender {
                             publicKey: userPublicKey
                         )
                         
-                        try interaction.with(
-                            variant: .infoClosedGroupCurrentUserLeft,
-                            body: "GROUP_YOU_LEFT".localized()
-                        ).update(db)
+                        try Interaction
+                            .filter(id: interactionId)
+                            .updateAll(
+                                db,
+                                [
+                                    Interaction.Columns.variant.set(to: Interaction.Variant.infoClosedGroupCurrentUserLeft),
+                                    Interaction.Columns.body.set(to: "GROUP_YOU_LEFT".localized())
+                                ]
+                            )
                         
                         // Update the group (if the admin leaves the group is disbanded)
                         let wasAdminUser: Bool = try GroupMember

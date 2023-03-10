@@ -422,7 +422,6 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
 
 public extension Interaction {
     func with(
-        variant: Variant? = nil,
         serverHash: String? = nil,
         authorId: String? = nil,
         body: String? = nil,
@@ -439,7 +438,7 @@ public extension Interaction {
             messageUuid: self.messageUuid,
             threadId: self.threadId,
             authorId: (authorId ?? self.authorId),
-            variant: (variant ?? self.variant),
+            variant: self.variant,
             body: (body ?? self.body),
             timestampMs: (timestampMs ?? self.timestampMs),
             receivedAtTimestampMs: self.receivedAtTimestampMs,
