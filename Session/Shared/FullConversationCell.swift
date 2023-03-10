@@ -396,6 +396,8 @@ public final class FullConversationCell: UITableViewCell {
                 } else if cellViewModel.interactionVariant == .infoClosedGroupCurrentUserErrorLeaving {
                     guard let textColor: UIColor = theme.color(for: .danger) else { return }
                     
+                    self?.displayNameLabel.themeTextColor = .textPrimary
+                    
                     snippetLabel?.attributedText = self?.getSnippet(
                         cellViewModel: cellViewModel,
                         textColor: textColor
