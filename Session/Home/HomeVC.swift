@@ -627,7 +627,7 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                 return nil
             case .threads:
                 let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
-                if threadViewModel.interactionVariant?.isGroupLeavingStatus == true { return nil }
+                guard threadViewModel.interactionVariant?.isGroupLeavingStatus != true else { return nil }
                 let hasUnread: Bool = (threadViewModel.threadUnreadCount ?? 0) > 0
                 let mark: UIContextualAction = UIContextualAction(
                     title: ((hasUnread) ? "mark_read_button_text".localized() : "mark_unread_button_text".localized()),
@@ -687,7 +687,7 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                 
             case .threads:
                 let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
-                if threadViewModel.interactionVariant?.isGroupLeavingStatus == true { return nil }
+                guard threadViewModel.interactionVariant != .infoClosedGroupCurrentUserLeaving else { return nil }
 
                 let pin: UIContextualAction = UIContextualAction(
                     title: (threadViewModel.threadIsPinned ? "UNPIN_BUTTON_TEXT".localized() : "PIN_BUTTON_TEXT".localized()),
