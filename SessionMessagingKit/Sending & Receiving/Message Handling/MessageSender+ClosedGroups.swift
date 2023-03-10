@@ -533,6 +533,25 @@ extension MessageSender {
                             variant: .infoClosedGroupCurrentUserLeft,
                             body: "GROUP_YOU_LEFT".localized()
                         ).update(db)
+                        
+                        // Update the group (if the admin leaves the group is disbanded)
+                        let wasAdminUser: Bool = try GroupMember
+                            .filter(GroupMember.Columns.groupId == thread.id)
+                            .filter(GroupMember.Columns.profileId == userPublicKey)
+                            .filter(GroupMember.Columns.role == GroupMember.Role.admin)
+                            .isNotEmpty(db)
+                        
+                        if wasAdminUser {
+                            try GroupMember
+                                .filter(GroupMember.Columns.groupId == thread.id)
+                                .deleteAll(db)
+                        }
+                        else {
+                            try GroupMember
+                                .filter(GroupMember.Columns.groupId == thread.id)
+                                .filter(GroupMember.Columns.profileId == userPublicKey)
+                                .deleteAll(db)
+                        }
                     }
                     seal.fulfill((interactionId, nil))
                 }
@@ -542,25 +561,6 @@ extension MessageSender {
         }
         catch {
             seal.fulfill((interactionId, error))
-        }
-        
-        // Update the group (if the admin leaves the group is disbanded)
-        let wasAdminUser: Bool = try GroupMember
-            .filter(GroupMember.Columns.groupId == thread.id)
-            .filter(GroupMember.Columns.profileId == userPublicKey)
-            .filter(GroupMember.Columns.role == GroupMember.Role.admin)
-            .isNotEmpty(db)
-        
-        if wasAdminUser {
-            try GroupMember
-                .filter(GroupMember.Columns.groupId == thread.id)
-                .deleteAll(db)
-        }
-        else {
-            try GroupMember
-                .filter(GroupMember.Columns.groupId == thread.id)
-                .filter(GroupMember.Columns.profileId == userPublicKey)
-                .deleteAll(db)
         }
         
         // Return
