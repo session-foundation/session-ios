@@ -93,6 +93,12 @@ public enum GroupLeavingJob: JobExecutor {
                         .filter(GroupMember.Columns.profileId == userPublicKey)
                         .deleteAll(db)
                 }
+                
+                if details.deleteThreadAfterSuccess {
+                    _ = try SessionThread
+                        .filter(id: thread.id)
+                        .deleteAll(db)
+                }
             }
             success(job, false)
         }
@@ -121,19 +127,23 @@ extension GroupLeavingJob {
         private enum CodingKeys: String, CodingKey {
             case infoMessageInteractionId
             case groupPublicKey
+            case deleteThreadAfterSuccess
         }
         
         public let infoMessageInteractionId: Int64
         public let groupPublicKey: String
+        public let deleteThreadAfterSuccess: Bool
         
         // MARK: - Initialization
         
         public init(
             infoMessageInteractionId: Int64,
-            groupPublicKey: String
+            groupPublicKey: String,
+            deleteThreadAfterSuccess: Bool
         ) {
             self.infoMessageInteractionId = infoMessageInteractionId
             self.groupPublicKey = groupPublicKey
+            self.deleteThreadAfterSuccess = deleteThreadAfterSuccess
         }
         
         // MARK: - Codable
@@ -143,7 +153,8 @@ extension GroupLeavingJob {
             
             self = Details(
                 infoMessageInteractionId: try container.decode(Int64.self, forKey: .infoMessageInteractionId),
-                groupPublicKey: try container.decode(String.self, forKey: .groupPublicKey)
+                groupPublicKey: try container.decode(String.self, forKey: .groupPublicKey),
+                deleteThreadAfterSuccess: try container.decode(Bool.self, forKey: .deleteThreadAfterSuccess)
             )
         }
         
@@ -152,6 +163,7 @@ extension GroupLeavingJob {
 
             try container.encode(infoMessageInteractionId, forKey: .infoMessageInteractionId)
             try container.encode(groupPublicKey, forKey: .groupPublicKey)
+            try container.encode(deleteThreadAfterSuccess, forKey: .deleteThreadAfterSuccess)
         }
     }
 }
