@@ -27,6 +27,90 @@ public enum GroupLeavingJob: JobExecutor {
             return
         }
         
+        guard let thread: SessionThread = Storage.shared.read({ db in try? SessionThread.fetchOne(db, id: details.groupPublicKey)}) else {
+            SNLog("Can't leave nonexistent closed group.")
+            failure(job, MessageSenderError.noThread, false)
+            return
+        }
+        
+        guard let closedGroup: ClosedGroup = Storage.shared.read({ db in try? thread.closedGroup.fetchOne(db)}) else {
+            failure(job, MessageSenderError.invalidClosedGroupUpdate, false)
+            return
+        }
+        
+        Storage.shared.writeAsync { db -> Promise<Void> in
+            try MessageSender.sendNonDurably(
+                db,
+                message: ClosedGroupControlMessage(
+                    kind: .memberLeft
+                ),
+                interactionId: details.infoMessageInteractionId,
+                in: thread
+            )
+        }
+        .done(on: queue) { _ in
+            // Remove the group from the database and unsubscribe from PNs
+            ClosedGroupPoller.shared.stopPolling(for: details.groupPublicKey)
+            
+            Storage.shared.write { db in
+                let userPublicKey: String = getUserHexEncodedPublicKey(db)
+                
+                try closedGroup
+                    .keyPairs
+                    .deleteAll(db)
+                
+                let _ = PushNotificationAPI.performOperation(
+                    .unsubscribe,
+                    for: details.groupPublicKey,
+                    publicKey: userPublicKey
+                )
+                
+                try Interaction
+                    .filter(id: details.infoMessageInteractionId)
+                    .updateAll(
+                        db,
+                        [
+                            Interaction.Columns.variant.set(to: Interaction.Variant.infoClosedGroupCurrentUserLeft),
+                            Interaction.Columns.body.set(to: "GROUP_YOU_LEFT".localized())
+                        ]
+                    )
+                
+                // Update the group (if the admin leaves the group is disbanded)
+                let wasAdminUser: Bool = try GroupMember
+                    .filter(GroupMember.Columns.groupId == thread.id)
+                    .filter(GroupMember.Columns.profileId == userPublicKey)
+                    .filter(GroupMember.Columns.role == GroupMember.Role.admin)
+                    .isNotEmpty(db)
+                
+                if wasAdminUser {
+                    try GroupMember
+                        .filter(GroupMember.Columns.groupId == thread.id)
+                        .deleteAll(db)
+                }
+                else {
+                    try GroupMember
+                        .filter(GroupMember.Columns.groupId == thread.id)
+                        .filter(GroupMember.Columns.profileId == userPublicKey)
+                        .deleteAll(db)
+                }
+            }
+            success(job, false)
+        }
+        .catch(on: queue) { error in
+            Storage.shared.write { db in
+                try Interaction
+                    .filter(id: details.infoMessageInteractionId)
+                    .updateAll(
+                        db,
+                        [
+                            Interaction.Columns.variant.set(to: Interaction.Variant.infoClosedGroupCurrentUserErrorLeaving),
+                            Interaction.Columns.body.set(to: "group_unable_to_leave".localized())
+                        ]
+                    )
+            }
+        }
+        .retainUntilComplete()
+        
     }
 }
 
