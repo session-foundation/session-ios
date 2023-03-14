@@ -451,11 +451,12 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
             Storage.shared
                 .writeAsync { db in
                     if !updatedMemberIds.contains(userPublicKey) {
-                        return try MessageSender
-                            .leave(db, groupPublicKey: threadId)
-                            .map { (_, error) in
-                                if let error: Error = error { throw error }
-                            }
+                        try MessageSender.leave(
+                            db,
+                            groupPublicKey: threadId,
+                            deleteThread: false
+                        )
+                        return Promise.value(())
                     }
                     
                     return try MessageSender.update(

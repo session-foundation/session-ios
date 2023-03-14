@@ -305,28 +305,11 @@ public class HomeViewModel {
         Storage.shared.writeAsync { db in
             switch threadVariant {
                 case .closedGroup:
-                    try MessageSender
-                        .leave(db, groupPublicKey: threadId)
-                        .done { (interactionId, error) in
-                            Storage.shared.writeAsync { db in
-                                if let _ = error {
-                                    try Interaction
-                                        .filter(id: interactionId)
-                                        .updateAll(
-                                            db,
-                                            [
-                                                Interaction.Columns.variant.set(to: Interaction.Variant.infoClosedGroupCurrentUserErrorLeaving),
-                                                Interaction.Columns.body.set(to: "group_unable_to_leave".localized())
-                                            ]
-                                        )
-                                } else {
-                                    _ = try SessionThread
-                                        .filter(id: threadId)
-                                        .deleteAll(db)
-                                }
-                            }
-                        }
-                        .retainUntilComplete()
+                    try MessageSender.leave(
+                        db,
+                        groupPublicKey: threadId,
+                        deleteThread: true
+                    )
                     
                 case .openGroup:
                     OpenGroupManager.shared.delete(db, openGroupId: threadId)

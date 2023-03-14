@@ -21,7 +21,8 @@ public enum GroupLeavingJob: JobExecutor {
     {
         guard
             let detailsData: Data = job.details,
-            let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
+            let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData),
+            let interactionId: Int64 = job.interactionId
         else {
             failure(job, JobRunnerError.missingRequiredDetails, false)
             return
@@ -44,7 +45,7 @@ public enum GroupLeavingJob: JobExecutor {
                 message: ClosedGroupControlMessage(
                     kind: .memberLeft
                 ),
-                interactionId: details.infoMessageInteractionId,
+                interactionId: interactionId,
                 in: thread
             )
         }
@@ -66,7 +67,7 @@ public enum GroupLeavingJob: JobExecutor {
                 )
                 
                 try Interaction
-                    .filter(id: details.infoMessageInteractionId)
+                    .filter(id: interactionId)
                     .updateAll(
                         db,
                         [
@@ -94,7 +95,7 @@ public enum GroupLeavingJob: JobExecutor {
                         .deleteAll(db)
                 }
                 
-                if details.deleteThreadAfterSuccess {
+                if details.deleteThread {
                     _ = try SessionThread
                         .filter(id: thread.id)
                         .deleteAll(db)
@@ -105,7 +106,7 @@ public enum GroupLeavingJob: JobExecutor {
         .catch(on: queue) { error in
             Storage.shared.write { db in
                 try Interaction
-                    .filter(id: details.infoMessageInteractionId)
+                    .filter(id: job.interactionId)
                     .updateAll(
                         db,
                         [
@@ -125,25 +126,21 @@ public enum GroupLeavingJob: JobExecutor {
 extension GroupLeavingJob {
     public struct Details: Codable {
         private enum CodingKeys: String, CodingKey {
-            case infoMessageInteractionId
             case groupPublicKey
-            case deleteThreadAfterSuccess
+            case deleteThread
         }
         
-        public let infoMessageInteractionId: Int64
         public let groupPublicKey: String
-        public let deleteThreadAfterSuccess: Bool
+        public let deleteThread: Bool
         
         // MARK: - Initialization
         
         public init(
-            infoMessageInteractionId: Int64,
             groupPublicKey: String,
-            deleteThreadAfterSuccess: Bool
+            deleteThread: Bool
         ) {
-            self.infoMessageInteractionId = infoMessageInteractionId
             self.groupPublicKey = groupPublicKey
-            self.deleteThreadAfterSuccess = deleteThreadAfterSuccess
+            self.deleteThread = deleteThread
         }
         
         // MARK: - Codable
@@ -152,18 +149,16 @@ extension GroupLeavingJob {
             let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
             
             self = Details(
-                infoMessageInteractionId: try container.decode(Int64.self, forKey: .infoMessageInteractionId),
                 groupPublicKey: try container.decode(String.self, forKey: .groupPublicKey),
-                deleteThreadAfterSuccess: try container.decode(Bool.self, forKey: .deleteThreadAfterSuccess)
+                deleteThread: try container.decode(Bool.self, forKey: .deleteThread)
             )
         }
         
         public func encode(to encoder: Encoder) throws {
             var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
 
-            try container.encode(infoMessageInteractionId, forKey: .infoMessageInteractionId)
             try container.encode(groupPublicKey, forKey: .groupPublicKey)
-            try container.encode(deleteThreadAfterSuccess, forKey: .deleteThreadAfterSuccess)
+            try container.encode(deleteThread, forKey: .deleteThread)
         }
     }
 }

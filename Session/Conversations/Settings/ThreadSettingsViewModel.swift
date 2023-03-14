@@ -405,7 +405,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 ),
                                 onTap: { [weak self] in
                                     dependencies.storage.writeAsync { db in
-                                        try MessageSender.leave(db, groupPublicKey: threadId)
+                                        try MessageSender.leave(db, groupPublicKey: threadId, deleteThread: false)
                                     }
                                 }
                             )
