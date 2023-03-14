@@ -4,8 +4,7 @@ import Foundation
 import GRDB
 import SessionUtilitiesKit
 
-/// This migration adds a table to track pending read receipts (it's possible to receive a read receipt message before getting the original
-/// message due to how one-to-one conversations work, by storing pending read receipts we should be able to prevent this case)
+/// This migration adds the FTS table back for internal test users whose FTS table was removed unintentionally
 enum _012_AddFTSIfNeeded: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "AddFTSIfNeeded"
