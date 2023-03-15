@@ -275,6 +275,7 @@ public class SessionCell: UITableViewCell {
         shouldHighlightTitle = true
         accessibilityIdentifier = nil
         accessibilityLabel = nil
+        isAccessibilityElement = false
         originalInputValue = nil
         titleExtraView?.removeFromSuperview()
         titleExtraView = nil
@@ -319,6 +320,7 @@ public class SessionCell: UITableViewCell {
         subtitleExtraView = info.subtitle?.extraViewGenerator?()
         accessibilityIdentifier = info.accessibility?.identifier
         accessibilityLabel = info.accessibility?.label
+        isAccessibilityElement = true
         originalInputValue = info.title?.text
         
         // Convenience Flags

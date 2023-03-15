@@ -196,6 +196,7 @@ extension SessionCell {
             result.themeBackgroundColor = .clear
             result.searchTextField.themeBackgroundColor = .backgroundSecondary
             result.delegate = self
+            result.isHidden = true
             
             return result
         }()
