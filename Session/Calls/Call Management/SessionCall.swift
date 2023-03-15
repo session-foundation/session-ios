@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
-import Foundation
+import UIKit
+import YYImage
 import Combine
 import CallKit
 import GRDB
@@ -25,6 +26,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     
     let contactName: String
     let profilePicture: UIImage
+    let animatedProfilePicture: YYImage?
     
     // MARK: - Control
     
@@ -151,10 +153,18 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         self.webRTCSession = WebRTCSession.current ?? WebRTCSession(for: sessionId, with: uuid)
         self.isOutgoing = outgoing
         
+        let avatarData: Data? = ProfileManager.profileAvatar(db, id: sessionId)
         self.contactName = Profile.displayName(db, id: sessionId, threadVariant: .contact)
-        self.profilePicture = ProfileManager.profileAvatar(db, id: sessionId)
+        self.profilePicture = avatarData
             .map { UIImage(data: $0) }
             .defaulting(to: Identicon.generatePlaceholderIcon(seed: sessionId, text: self.contactName, size: 300))
+        self.animatedProfilePicture = avatarData
+            .map { data in
+                switch data.guessedImageFormat {
+                    case .gif, .webp: return YYImage(data: data)
+                    default: return nil
+                }
+            }
         
         WebRTCSession.current = self.webRTCSession
         self.webRTCSession.delegate = self

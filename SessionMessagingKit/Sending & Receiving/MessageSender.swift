@@ -651,6 +651,8 @@ public final class MessageSender {
                     switch updatedMessage {
                         case is VisibleMessage, is UnsendRequest: return !isSyncMessage
                         case let callMessage as CallMessage:
+                            // Note: Other 'CallMessage' types are too big to send as push notifications
+                            // so only send the 'preOffer' message as a notification
                             switch callMessage.kind {
                                 case .preOffer: return true
                                 default: return false

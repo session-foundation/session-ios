@@ -551,7 +551,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         startObservingChanges(didReturnFromBackground: true)
         recoverInputView()
         
-        if !isShowingSearchUI {
+        if !isShowingSearchUI && self.presentedViewController == nil {
             if !self.isFirstResponder {
                 self.becomeFirstResponder()
             }

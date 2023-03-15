@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import YYImage
 import MediaPlayer
 import WebRTC
 import SessionUIKit
@@ -8,6 +9,8 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 
 final class CallVC: UIViewController, VideoPreviewDelegate {
+    private static let avatarRadius: CGFloat = (isIPhone6OrSmaller ? 100 : 120)
+    
     let call: SessionCall
     var latestKnownAudioOutputDeviceName: String?
     var durationTimer: Timer?
@@ -63,13 +66,25 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
     
     private lazy var profilePictureView: UIImageView = {
         let result = UIImageView()
-        let radius: CGFloat = isIPhone6OrSmaller ? 100 : 120
         result.image = self.call.profilePicture
-        result.set(.width, to: radius * 2)
-        result.set(.height, to: radius * 2)
-        result.layer.cornerRadius = radius
+        result.set(.width, to: CallVC.avatarRadius * 2)
+        result.set(.height, to: CallVC.avatarRadius * 2)
+        result.layer.cornerRadius = CallVC.avatarRadius
         result.layer.masksToBounds = true
         result.contentMode = .scaleAspectFill
+        
+        return result
+    }()
+    
+    private lazy var animatedImageView: YYAnimatedImageView = {
+        let result: YYAnimatedImageView = YYAnimatedImageView()
+        result.image = self.call.animatedProfilePicture
+        result.set(.width, to: CallVC.avatarRadius * 2)
+        result.set(.height, to: CallVC.avatarRadius * 2)
+        result.layer.cornerRadius = CallVC.avatarRadius
+        result.layer.masksToBounds = true
+        result.contentMode = .scaleAspectFill
+        result.isHidden = (self.call.animatedProfilePicture == nil)
         
         return result
     }()
@@ -416,7 +431,9 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         profilePictureContainer.pin(.bottom, to: .top, of: operationPanel)
         profilePictureContainer.pin([ UIView.HorizontalEdge.left, UIView.HorizontalEdge.right ], to: view)
         profilePictureContainer.addSubview(profilePictureView)
+        profilePictureContainer.addSubview(animatedImageView)
         profilePictureView.center(in: profilePictureContainer)
+        animatedImageView.center(in: profilePictureContainer)
         
         // Call info label
         let callInfoLabelContainer = UIView()
