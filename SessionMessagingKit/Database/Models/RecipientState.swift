@@ -40,6 +40,8 @@ public struct RecipientState: Codable, Equatable, FetchableRecord, PersistableRe
         case failed
         case skipped
         case sent
+        case failedToSync   // One-to-one Only
+        case syncing        // One-to-one Only
         
         func message(hasAttachments: Bool, hasAtLeastOneReadReceipt: Bool) -> String {
             switch self {
@@ -58,6 +60,9 @@ public struct RecipientState: Codable, Equatable, FetchableRecord, PersistableRe
                     }
                     
                     return "MESSAGE_STATUS_READ".localized()
+                
+                case .failedToSync: return "MESSAGE_DELIVERY_STATUS_FAILED_SYNC".localized()
+                case .syncing: return "MESSAGE_DELIVERY_STATUS_SYNCING".localized()
                     
                 default:
                     owsFailDebug("Message has unexpected status: \(self).")
@@ -96,6 +101,21 @@ public struct RecipientState: Codable, Equatable, FetchableRecord, PersistableRe
                         "MESSAGE_DELIVERY_STATUS_FAILED".localized(),
                         .danger
                     )
+                    
+                case (.failedToSync, _):
+                    return (
+                        UIImage(systemName: "exclamationmark.triangle"),
+                        "MESSAGE_DELIVERY_STATUS_FAILED_SYNC".localized(),
+                        .warning
+                    )
+                    
+                case (.syncing, _):
+                    return (
+                        UIImage(systemName: "ellipsis.circle"),
+                        "MESSAGE_DELIVERY_STATUS_SYNCING".localized(),
+                        .warning
+                    )
+
             }
         }
     }
@@ -146,23 +166,5 @@ public struct RecipientState: Codable, Equatable, FetchableRecord, PersistableRe
         self.state = state
         self.readTimestampMs = readTimestampMs
         self.mostRecentFailureText = mostRecentFailureText
-    }
-}
-
-// MARK: - Mutation
-
-public extension RecipientState {
-    func with(
-        state: State? = nil,
-        readTimestampMs: Int64? = nil,
-        mostRecentFailureText: String? = nil
-    ) -> RecipientState {
-        return RecipientState(
-            interactionId: interactionId,
-            recipientId: recipientId,
-            state: (state ?? self.state),
-            readTimestampMs: (readTimestampMs ?? self.readTimestampMs),
-            mostRecentFailureText: (mostRecentFailureText ?? self.mostRecentFailureText)
-        )
     }
 }

@@ -420,7 +420,7 @@ extension MessageReceiver {
             // Delete the members to remove
             try GroupMember
                 .filter(GroupMember.Columns.groupId == id)
-                .filter(updatedMemberIds.contains(GroupMember.Columns.profileId))
+                .filter(membersToRemove.map{ $0.profileId }.contains(GroupMember.Columns.profileId))
                 .deleteAll(db)
             
             if didAdminLeave || sender == userPublicKey {

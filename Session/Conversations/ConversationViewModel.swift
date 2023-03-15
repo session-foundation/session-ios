@@ -82,7 +82,11 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         // distinct stutter)
         self.pagedDataObserver = self.setupPagedObserver(
             for: threadId,
-            userPublicKey: getUserHexEncodedPublicKey()
+            userPublicKey: getUserHexEncodedPublicKey(),
+            blindedPublicKey: SessionThread.getUserHexEncodedBlindedKey(
+                threadId: threadId,
+                threadVariant: threadVariant
+            )
         )
         
         // Run the initial query on a background thread so we don't block the push transition
@@ -172,7 +176,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         }
     }
     
-    private func setupPagedObserver(for threadId: String, userPublicKey: String) -> PagedDatabaseObserver<Interaction, MessageViewModel> {
+    private func setupPagedObserver(for threadId: String, userPublicKey: String, blindedPublicKey: String?) -> PagedDatabaseObserver<Interaction, MessageViewModel> {
         return PagedDatabaseObserver(
             pagedTable: Interaction.self,
             pageSize: ConversationViewModel.pageSize,
@@ -206,7 +210,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                 ),
                 PagedData.ObservedChanges(
                     table: RecipientState.self,
-                    columns: [.state, .mostRecentFailureText],
+                    columns: [.state, .readTimestampMs, .mostRecentFailureText],
                     joinToPagedType: {
                         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
                         let recipientState: TypedTableAlias<RecipientState> = TypedTableAlias()
@@ -220,6 +224,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             orderSQL: MessageViewModel.orderSQL,
             dataQuery: MessageViewModel.baseQuery(
                 userPublicKey: userPublicKey,
+                blindedPublicKey: blindedPublicKey,
                 orderSQL: MessageViewModel.orderSQL,
                 groupSQL: MessageViewModel.groupSQL
             ),
@@ -303,6 +308,15 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                                     // it's the last element in the 'sortedData' array
                                     index == (sortedData.count - 1) &&
                                     pageInfo.pageOffset == 0
+                                ),
+                                isLastOutgoing: (
+                                    cellViewModel.id == sortedData
+                                        .filter {
+                                            $0.authorId == threadData.currentUserPublicKey ||
+                                            $0.authorId == threadData.currentUserBlindedPublicKey
+                                        }
+                                        .last?
+                                        .id
                                 ),
                                 currentUserBlindedPublicKey: threadData.currentUserBlindedPublicKey
                             )
@@ -449,7 +463,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         self.observableThreadData = self.setupObservableThreadData(for: updatedThreadId)
         self.pagedDataObserver = self.setupPagedObserver(
             for: updatedThreadId,
-            userPublicKey: getUserHexEncodedPublicKey()
+            userPublicKey: getUserHexEncodedPublicKey(),
+            blindedPublicKey: nil
         )
         
         // Try load everything up to the initial visible message, fallback to just the initial page of messages

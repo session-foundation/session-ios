@@ -34,6 +34,17 @@ extension ContextMenuVC {
         }
         
         // MARK: - Actions
+        
+        static func retry(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
+            return Action(
+                icon: UIImage(systemName: "arrow.triangle.2.circlepath"),
+                title: (cellViewModel.state == .failedToSync ?
+                    "context_menu_resync".localized() :
+                    "context_menu_resend".localized()
+                ),
+                accessibilityLabel: (cellViewModel.state == .failedToSync ? "Resync message" : "Resend message")
+            ) { delegate?.retry(cellViewModel) }
+        }
 
         static func reply(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
@@ -46,14 +57,17 @@ extension ContextMenuVC {
         static func copy(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
                 icon: UIImage(named: "ic_copy"),
-                title: "copy".localized()
+                title: "copy".localized(),
+                accessibilityLabel: "Copy text"
             ) { delegate?.copy(cellViewModel) }
         }
 
         static func copySessionID(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
                 icon: UIImage(named: "ic_copy"),
-                title: "vc_conversation_settings_copy_session_id_button_title".localized()
+                title: "vc_conversation_settings_copy_session_id_button_title".localized(),
+                accessibilityLabel: "Copy Session ID"
+                
             ) { delegate?.copySessionID(cellViewModel) }
         }
 
@@ -76,14 +90,16 @@ extension ContextMenuVC {
         static func ban(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
                 icon: UIImage(named: "ic_block"),
-                title: "context_menu_ban_user".localized()
+                title: "context_menu_ban_user".localized(),
+                accessibilityLabel: "Ban user"
             ) { delegate?.ban(cellViewModel) }
         }
         
         static func banAndDeleteAllMessages(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
                 icon: UIImage(named: "ic_block"),
-                title: "context_menu_ban_and_delete_all".localized()
+                title: "context_menu_ban_and_delete_all".localized(),
+                accessibilityLabel: "Ban user and delete"
             ) { delegate?.banAndDeleteAllMessages(cellViewModel) }
         }
         
@@ -96,7 +112,8 @@ extension ContextMenuVC {
         
         static func emojiPlusButton(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
-                isEmojiPlus: true
+                isEmojiPlus: true,
+                accessibilityLabel: "Add emoji"
             ) { delegate?.showFullEmojiKeyboard(cellViewModel) }
         }
         
@@ -127,6 +144,14 @@ extension ContextMenuVC {
             case .standardOutgoing, .standardIncoming: break
         }
         
+        let canRetry: Bool = (
+            cellViewModel.variant == .standardOutgoing && (
+                cellViewModel.state == .failed || (
+                    cellViewModel.threadVariant == .contact &&
+                    cellViewModel.state == .failedToSync
+                )
+            )
+        )
         let canReply: Bool = (
             cellViewModel.variant != .standardOutgoing || (
                 cellViewModel.state != .failed &&
@@ -182,6 +207,7 @@ extension ContextMenuVC {
         }()
         
         let generatedActions: [Action] = [
+            (canRetry ? Action.retry(cellViewModel, delegate) : nil),
             (canReply ? Action.reply(cellViewModel, delegate) : nil),
             (canCopy ? Action.copy(cellViewModel, delegate) : nil),
             (canSave ? Action.save(cellViewModel, delegate) : nil),
@@ -203,6 +229,7 @@ extension ContextMenuVC {
 // MARK: - Delegate
 
 protocol ContextMenuActionDelegate {
+    func retry(_ cellViewModel: MessageViewModel)
     func reply(_ cellViewModel: MessageViewModel)
     func copy(_ cellViewModel: MessageViewModel)
     func copySessionID(_ cellViewModel: MessageViewModel)

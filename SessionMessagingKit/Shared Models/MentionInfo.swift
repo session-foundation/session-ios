@@ -29,75 +29,98 @@ public extension MentionInfo {
         let profile: TypedTableAlias<Profile> = TypedTableAlias()
         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
         let openGroup: TypedTableAlias<OpenGroup> = TypedTableAlias()
+        let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
         
         let prefixLiteral: SQL = SQL(stringLiteral: "\(targetPrefix.rawValue)%")
         let profileFullTextSearch: SQL = SQL(stringLiteral: Profile.fullTextSearchTableName)
         
-        /// **Note:** The `\(MentionInfo.profileKey).*` value **MUST** be first
-        let limitSQL: SQL? = (threadVariant == .openGroup ? SQL("LIMIT 20") : nil)
-        
+        /// The query needs to differ depending on the thread variant because the behaviour should be different:
+        ///
+        /// **Contact:** We should show the profile directly (filtered out if the pattern doesn't match)
+        /// **Closed Group:** We should show all profiles within the group, filtered by the pattern
+        /// **Open Group:** We should show only the 20 most recent profiles which match the pattern
         let request: SQLRequest<MentionInfo> = {
-            guard let pattern: FTS5Pattern = pattern else {
-                let finalLimitSQL: SQL = (limitSQL ?? "")
+            let hasValidPattern: Bool = (pattern != nil && pattern?.rawPattern != "\"\"*")
+            let targetJoin: SQL = {
+                guard hasValidPattern else { return "FROM \(Profile.self)" }
                 
                 return """
-                    SELECT
-                        \(Profile.self).*,
-                        MAX(\(interaction[.timestampMs])),  -- Want the newest interaction (for sorting)
-                        \(SQL("\(threadVariant) AS \(MentionInfo.threadVariantKey)")),
-                        \(openGroup[.server]) AS \(MentionInfo.openGroupServerKey),
-                        \(openGroup[.roomToken]) AS \(MentionInfo.openGroupRoomTokenKey)
-                    
-                    FROM \(Profile.self)
-                    JOIN \(Interaction.self) ON (
-                        \(SQL("\(interaction[.threadId]) = \(threadId)")) AND
-                        \(interaction[.authorId]) = \(profile[.id])
-                    )
-                    LEFT JOIN \(OpenGroup.self) ON \(SQL("\(openGroup[.threadId]) = \(threadId)"))
-                
-                    WHERE (
+                    FROM \(profileFullTextSearch)
+                    JOIN \(Profile.self) ON (
+                        \(Profile.self).rowid = \(profileFullTextSearch).rowid AND
                         \(SQL("\(profile[.id]) != \(userPublicKey)")) AND (
                             \(SQL("\(threadVariant) != \(SessionThread.Variant.openGroup)")) OR
                             \(SQL("\(profile[.id]) LIKE '\(prefixLiteral)'"))
                         )
                     )
-                    GROUP BY \(profile[.id])
-                    ORDER BY \(interaction[.timestampMs].desc)
-                    \(finalLimitSQL)
                 """
-            }
-            
-            // If we do have a search patern then use FTS
-            let matchLiteral: SQL = SQL(stringLiteral: "\(Profile.Columns.nickname.name):\(pattern.rawPattern) OR \(Profile.Columns.name.name):\(pattern.rawPattern)")
-            let finalLimitSQL: SQL = (limitSQL ?? "")
-            
-            return """
-                SELECT
-                    \(Profile.self).*,
-                    MAX(\(interaction[.timestampMs])),  -- Want the newest interaction (for sorting)
-                    \(SQL("\(threadVariant) AS \(MentionInfo.threadVariantKey)")),
-                    \(openGroup[.server]) AS \(MentionInfo.openGroupServerKey),
-                    \(openGroup[.roomToken]) AS \(MentionInfo.openGroupRoomTokenKey)
+            }()
+            let targetWhere: SQL = {
+                guard let pattern: FTS5Pattern = pattern, pattern.rawPattern != "\"\"*" else {
+                    return """
+                        WHERE (
+                            \(SQL("\(profile[.id]) != \(userPublicKey)")) AND (
+                                \(SQL("\(threadVariant) != \(SessionThread.Variant.openGroup)")) OR
+                                \(SQL("\(profile[.id]) LIKE '\(prefixLiteral)'"))
+                            )
+                        )
+                    """
+                }
                 
-                FROM \(profileFullTextSearch)
-                JOIN \(Profile.self) ON (
-                    \(Profile.self).rowid = \(profileFullTextSearch).rowid AND
-                    \(SQL("\(profile[.id]) != \(userPublicKey)")) AND (
-                        \(SQL("\(threadVariant) != \(SessionThread.Variant.openGroup)")) OR
-                        \(SQL("\(profile[.id]) LIKE '\(prefixLiteral)'"))
-                    )
-                )
-                JOIN \(Interaction.self) ON (
-                    \(SQL("\(interaction[.threadId]) = \(threadId)")) AND
-                    \(interaction[.authorId]) = \(profile[.id])
-                )
-                LEFT JOIN \(OpenGroup.self) ON \(SQL("\(openGroup[.threadId]) = \(threadId)"))
+                let matchLiteral: SQL = SQL(stringLiteral: "\(Profile.Columns.nickname.name):\(pattern.rawPattern) OR \(Profile.Columns.name.name):\(pattern.rawPattern)")
+                
+                return "WHERE \(profileFullTextSearch) MATCH '\(matchLiteral)'"
+            }()
             
-                WHERE \(profileFullTextSearch) MATCH '\(matchLiteral)'
-                GROUP BY \(profile[.id])
-                ORDER BY \(interaction[.timestampMs].desc)
-                \(finalLimitSQL)
-            """
+            switch threadVariant {
+                case .contact:
+                    return SQLRequest("""
+                        SELECT
+                            \(Profile.self).*,
+                            \(SQL("\(threadVariant) AS \(MentionInfo.threadVariantKey)"))
+                    
+                        \(targetJoin)
+                        \(targetWhere) AND \(SQL("\(profile[.id]) = \(threadId)"))
+                    """)
+                    
+                case .closedGroup:
+                    return SQLRequest("""
+                        SELECT
+                            \(Profile.self).*,
+                            \(SQL("\(threadVariant) AS \(MentionInfo.threadVariantKey)"))
+                    
+                        \(targetJoin)
+                        JOIN \(GroupMember.self) ON (
+                            \(SQL("\(groupMember[.groupId]) = \(threadId)")) AND
+                            \(groupMember[.profileId]) = \(profile[.id]) AND
+                            \(SQL("\(groupMember[.role]) = \(GroupMember.Role.standard)"))
+                        )
+                        \(targetWhere)
+                        GROUP BY \(profile[.id])
+                        ORDER BY IFNULL(\(profile[.nickname]), \(profile[.name])) ASC
+                    """)
+                    
+                case .openGroup:
+                    return SQLRequest("""
+                        SELECT
+                            \(Profile.self).*,
+                            MAX(\(interaction[.timestampMs])),  -- Want the newest interaction (for sorting)
+                            \(SQL("\(threadVariant) AS \(MentionInfo.threadVariantKey)")),
+                            \(openGroup[.server]) AS \(MentionInfo.openGroupServerKey),
+                            \(openGroup[.roomToken]) AS \(MentionInfo.openGroupRoomTokenKey)
+                    
+                        \(targetJoin)
+                        JOIN \(Interaction.self) ON (
+                            \(SQL("\(interaction[.threadId]) = \(threadId)")) AND
+                            \(interaction[.authorId]) = \(profile[.id])
+                        )
+                        JOIN \(OpenGroup.self) ON \(SQL("\(openGroup[.threadId]) = \(threadId)"))
+                        \(targetWhere)
+                        GROUP BY \(profile[.id])
+                        ORDER BY \(interaction[.timestampMs].desc)
+                        LIMIT 20
+                    """)
+            }
         }()
         
         return request.adapted { db in

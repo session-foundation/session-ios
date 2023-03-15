@@ -6,6 +6,8 @@ import AFNetworking
 import Foundation
 import PromiseKit
 import CoreServices
+import SignalUtilitiesKit
+import SessionUtilitiesKit
 
 // There's no UTI type for webp!
 enum GiphyFormat {
