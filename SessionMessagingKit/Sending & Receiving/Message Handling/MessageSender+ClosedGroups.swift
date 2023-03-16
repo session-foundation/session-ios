@@ -494,7 +494,7 @@ extension MessageSender {
             timestampMs: SnodeAPI.currentOffsetTimestampMs()
         ).inserted(db)
         
-        JobRunner.add(
+        JobRunner.upsert(
             db,
             job: Job(
                 variant: .groupLeaving,

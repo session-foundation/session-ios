@@ -8,7 +8,7 @@ import SessionUtilitiesKit
 import SessionSnodeKit
 
 public enum GroupLeavingJob: JobExecutor {
-    public static var maxFailureCount: Int = -1
+    public static var maxFailureCount: Int = 0
     public static var requiresThreadId: Bool = true
     public static var requiresInteractionId: Bool = true
     
@@ -19,6 +19,7 @@ public enum GroupLeavingJob: JobExecutor {
         failure: @escaping (SessionUtilitiesKit.Job, Error?, Bool) -> (),
         deferred: @escaping (SessionUtilitiesKit.Job) -> ())
     {
+        print("Ryan Test: Group leaving job running")
         guard
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData),
@@ -53,7 +54,7 @@ public enum GroupLeavingJob: JobExecutor {
             // Remove the group from the database and unsubscribe from PNs
             ClosedGroupPoller.shared.stopPolling(for: details.groupPublicKey)
             
-            Storage.shared.write { db in
+            Storage.shared.writeAsync { db in
                 let userPublicKey: String = getUserHexEncodedPublicKey(db)
                 
                 try closedGroup
@@ -104,7 +105,7 @@ public enum GroupLeavingJob: JobExecutor {
             success(job, false)
         }
         .catch(on: queue) { error in
-            Storage.shared.write { db in
+            Storage.shared.writeAsync { db in
                 try Interaction
                     .filter(id: job.interactionId)
                     .updateAll(
@@ -115,6 +116,7 @@ public enum GroupLeavingJob: JobExecutor {
                         ]
                     )
             }
+            success(job, false)
         }
         .retainUntilComplete()
         
