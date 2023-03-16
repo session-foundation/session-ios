@@ -7,6 +7,7 @@ import PhotosUI
 import Sodium
 import PromiseKit
 import GRDB
+import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
@@ -200,6 +201,30 @@ extension ConversationVC:
     // MARK: - ExpandingAttachmentsButtonDelegate
 
     func handleGIFButtonTapped() {
+        guard Storage.shared[.isGiphyEnabled] else {
+            let modal: ConfirmationModal = ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "GIPHY_PERMISSION_TITLE".localized(),
+                    explanation: "GIPHY_PERMISSION_MESSAGE".localized(),
+                    confirmTitle: "continue_2".localized()
+                ) { [weak self] _ in
+                    Storage.shared.writeAsync(
+                        updates: { db in
+                            db[.isGiphyEnabled] = true
+                        },
+                        completion: { _, _ in
+                            DispatchQueue.main.async {
+                                self?.handleGIFButtonTapped()
+                            }
+                        }
+                    )
+                }
+            )
+            
+            present(modal, animated: true, completion: nil)
+            return
+        }
+        
         let gifVC = GifPickerViewController()
         gifVC.delegate = self
         
@@ -436,10 +461,17 @@ extension ConversationVC:
                     .filter(id: threadId)
                     .updateAll(db, SessionThread.Columns.shouldBeVisible.set(to: true))
                 
+                let authorId: String = {
+                    if let blindedId = self?.viewModel.threadData.currentUserBlindedPublicKey {
+                        return blindedId
+                    }
+                    return self?.viewModel.threadData.currentUserPublicKey ?? getUserHexEncodedPublicKey(db)
+                }()
+                
                 // Create the interaction
                 let interaction: Interaction = try Interaction(
                     threadId: threadId,
-                    authorId: getUserHexEncodedPublicKey(db),
+                    authorId: authorId,
                     variant: .standardOutgoing,
                     body: text,
                     timestampMs: sentTimestampMs,
@@ -829,7 +861,7 @@ extension ConversationVC:
     }
 
     func handleItemTapped(_ cellViewModel: MessageViewModel, gestureRecognizer: UITapGestureRecognizer) {
-        guard cellViewModel.variant != .standardOutgoing || cellViewModel.state != .failed else {
+        guard cellViewModel.variant != .standardOutgoing || (cellViewModel.state != .failed && cellViewModel.state != .failedToSync) else {
             // Show the failed message sheet
             showFailedMessageSheet(for: cellViewModel)
             return
@@ -1451,30 +1483,34 @@ extension ConversationVC:
     // MARK: --action handling
     
     func showFailedMessageSheet(for cellViewModel: MessageViewModel) {
-        let sheet = UIAlertController(title: cellViewModel.mostRecentFailureText, message: nil, preferredStyle: .actionSheet)
-        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
-        sheet.addAction(UIAlertAction(title: "Delete", style: .destructive, handler: { _ in
-            Storage.shared.writeAsync { db in
-                try Interaction
-                    .filter(id: cellViewModel.id)
-                    .deleteAll(db)
-            }
-        }))
-        sheet.addAction(UIAlertAction(title: "Resend", style: .default, handler: { _ in
-            Storage.shared.writeAsync { [weak self] db in
-                guard
-                    let threadId: String = self?.viewModel.threadData.threadId,
-                    let interaction: Interaction = try? Interaction.fetchOne(db, id: cellViewModel.id),
-                    let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId)
-                else { return }
-                
-                try MessageSender.send(
-                    db,
-                    interaction: interaction,
-                    in: thread
-                )
-            }
-        }))
+        let sheet = UIAlertController(
+            title: (cellViewModel.state == .failedToSync ?
+                "MESSAGE_DELIVERY_FAILED_SYNC_TITLE".localized() :
+                "MESSAGE_DELIVERY_FAILED_TITLE".localized()
+            ),
+            message: cellViewModel.mostRecentFailureText,
+            preferredStyle: .actionSheet
+        )
+        sheet.addAction(UIAlertAction(title: "TXT_CANCEL_TITLE".localized(), style: .cancel, handler: nil))
+        
+        if cellViewModel.state != .failedToSync {
+            sheet.addAction(UIAlertAction(title: "TXT_DELETE_TITLE".localized(), style: .destructive, handler: { _ in
+                Storage.shared.writeAsync { db in
+                    try Interaction
+                        .filter(id: cellViewModel.id)
+                        .deleteAll(db)
+                }
+            }))
+        }
+        
+        sheet.addAction(UIAlertAction(
+            title: (cellViewModel.state == .failedToSync ?
+                "context_menu_resync".localized() :
+                "context_menu_resend".localized()
+            ),
+            style: .default,
+            handler: { [weak self] _ in self?.retry(cellViewModel) }
+        ))
         
         // HACK: Extracting this info from the error string is pretty dodgy
         let prefix: String = "HTTP request failed at destination (Service node "
@@ -1490,6 +1526,7 @@ extension ConversationVC:
             }
         }
         
+        Modal.setupForIPadIfNeeded(sheet, targetView: self.view)
         present(sheet, animated: true, completion: nil)
     }
     
@@ -1558,6 +1595,52 @@ extension ConversationVC:
     }
     
     // MARK: - ContextMenuActionDelegate
+    
+    func retry(_ cellViewModel: MessageViewModel) {
+        Storage.shared.writeAsync { [weak self] db in
+            guard
+                let threadId: String = self?.viewModel.threadData.threadId,
+                let interaction: Interaction = try? Interaction.fetchOne(db, id: cellViewModel.id),
+                let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId)
+            else { return }
+            
+            if
+                let quote = try? interaction.quote.fetchOne(db),
+                let quotedAttachment = try? quote.attachment.fetchOne(db),
+                quotedAttachment.isVisualMedia,
+                quotedAttachment.downloadUrl == Attachment.nonMediaQuoteFileId,
+                let quotedInteraction = try? quote.originalInteraction.fetchOne(db)
+            {
+                let attachment: Attachment? = {
+                    if let attachment = try? quotedInteraction.attachments.fetchOne(db) {
+                        return attachment
+                    }
+                    if
+                        let linkPreview = try? quotedInteraction.linkPreview.fetchOne(db),
+                        let linkPreviewAttachment = try? linkPreview.attachment.fetchOne(db)
+                    {
+                        return linkPreviewAttachment
+                    }
+                       
+                    return nil
+                }()
+                try quote.with(
+                    attachmentId: attachment?.cloneAsQuoteThumbnail()?.inserted(db).id
+                ).update(db)
+            }
+            
+            // Remove message sending jobs for the same interaction in database
+            // Prevent the same message being sent twice
+            try Job.filter(Job.Columns.interactionId == interaction.id).deleteAll(db)
+            
+            try MessageSender.send(
+                db,
+                interaction: interaction,
+                in: thread,
+                isSyncMessage: (cellViewModel.state == .failedToSync)
+            )
+        }
+    }
 
     func reply(_ cellViewModel: MessageViewModel) {
         let maybeQuoteDraft: QuotedReplyModel? = QuotedReplyModel.quotedReplyForSending(
@@ -1808,7 +1891,11 @@ extension ConversationVC:
                 }
                 
                 let actionSheet: UIAlertController = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
-                actionSheet.addAction(UIAlertAction(title: "delete_message_for_me".localized(), style: .destructive) { [weak self] _ in
+                actionSheet.addAction(UIAlertAction(
+                    title: "delete_message_for_me".localized(),
+                    accessibilityIdentifier: "Delete for me",
+                    style: .destructive
+                ) { [weak self] _ in
                     Storage.shared.writeAsync { db in
                         _ = try Interaction
                             .filter(id: cellViewModel.id)
@@ -1827,10 +1914,17 @@ extension ConversationVC:
                 })
                 
                 actionSheet.addAction(UIAlertAction(
-                    title: (cellViewModel.threadVariant == .closedGroup ?
-                        "delete_message_for_everyone".localized() :
-                        String(format: "delete_message_for_me_and_recipient".localized(), threadName)
-                    ),
+                    title: {
+                        switch cellViewModel.threadVariant {
+                            case .closedGroup: return "delete_message_for_everyone".localized()
+                            default:
+                                return (cellViewModel.threadId == userPublicKey ?
+                                    "delete_message_for_me_and_my_devices".localized() :
+                                    String(format: "delete_message_for_me_and_recipient".localized(), threadName)
+                                )
+                        }
+                    }(),
+                    accessibilityIdentifier: "Delete for everyone",
                     style: .destructive
                 ) { [weak self] _ in
                     deleteRemotely(
@@ -2317,6 +2411,7 @@ extension ConversationVC {
         })
         alertVC.addAction(UIAlertAction(title: "TXT_CANCEL_TITLE".localized(), style: .cancel, handler: nil))
         
+        Modal.setupForIPadIfNeeded(alertVC, targetView: self.view)
         self.present(alertVC, animated: true, completion: nil)
     }
     
@@ -2364,6 +2459,7 @@ extension ConversationVC {
         })
         alertVC.addAction(UIAlertAction(title: "TXT_CANCEL_TITLE".localized(), style: .cancel, handler: nil))
         
+        Modal.setupForIPadIfNeeded(alertVC, targetView: self.view)
         self.present(alertVC, animated: true, completion: nil)
     }
 }

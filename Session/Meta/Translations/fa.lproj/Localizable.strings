@@ -600,3 +600,12 @@
 "MESSAGE_DELIVERY_STATUS_SENT" = "Sent";
 "MESSAGE_DELIVERY_STATUS_READ" = "Read";
 "MESSAGE_DELIVERY_STATUS_FAILED" = "Failed to send";
+"MESSAGE_DELIVERY_STATUS_FAILED_SYNC" = "Failed to sync";
+"MESSAGE_DELIVERY_STATUS_SYNCING" = "Syncing";
+"MESSAGE_DELIVERY_FAILED_TITLE" = "Failed to send message";
+"MESSAGE_DELIVERY_FAILED_SYNC_TITLE" = "Failed to sync message to your other devices";
+"delete_message_for_me_and_my_devices" = "Delete from all of my devices";
+"context_menu_resend" = "Resend";
+"context_menu_resync" = "Resync";
+"GIPHY_PERMISSION_TITLE" = "Search GIFs?";
+"GIPHY_PERMISSION_MESSAGE" = "Session will connect to Giphy to provide search results. You will not have full metadata protection when sending GIFs.";

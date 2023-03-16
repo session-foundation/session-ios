@@ -151,15 +151,17 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     
     internal lazy var messageStatusLabel: UILabel = {
         let result = UILabel()
+        result.accessibilityIdentifier = "Message sent status"
         result.accessibilityLabel = "Message sent status"
         result.font = .systemFont(ofSize: Values.verySmallFontSize)
-        result.themeTextColor = .messageBubble_deliveryStatus
+        result.themeTextColor = .messageBubble_deliveryStatus  
         
         return result
     }()
     
     internal lazy var messageStatusImageView: UIImageView = {
         let result = UIImageView()
+        result.accessibilityIdentifier = "Message sent status tick"
         result.accessibilityLabel = "Message sent status tick"
         result.contentMode = .scaleAspectFit
         result.themeTintColor = .messageBubble_deliveryStatus
@@ -426,13 +428,14 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         messageStatusLabel.text = statusText
         messageStatusLabel.themeTextColor = tintColor
         messageStatusImageView.image = image
+        messageStatusLabel.accessibilityIdentifier = "Message sent status: \(statusText ?? "invalid")"
         messageStatusImageView.themeTintColor = tintColor
         messageStatusContainerView.isHidden = (
             cellViewModel.variant != .standardOutgoing ||
             cellViewModel.variant == .infoCall ||
             (
                 cellViewModel.state == .sent &&
-                !cellViewModel.isLast
+                !cellViewModel.isLastOutgoing
             )
         )
         messageStatusLabelPaddingView.isHidden = (
@@ -470,6 +473,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         for subview in bubbleView.subviews {
             subview.removeFromSuperview()
         }
+        albumView = nil
         albumView = nil
         bodyTappableLabel = nil
         
@@ -542,7 +546,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                         let quoteView: QuoteView = QuoteView(
                             for: .regular,
                             authorId: quote.authorId,
-                            quotedText: quote.body ?? "QUOTED_MESSAGE_NOT_FOUND".localized(),
+                            quotedText: quote.body,
                             threadVariant: cellViewModel.threadVariant,
                             currentUserPublicKey: cellViewModel.currentUserPublicKey,
                             currentUserBlindedPublicKey: cellViewModel.currentUserBlindedPublicKey,
@@ -777,9 +781,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         // only needs to custom handle touches for interacting with links so we check to see if it contains
         // links before forwarding touches to it
         if let bodyTappableLabel: TappableLabel = bodyTappableLabel, bodyTappableLabel.containsLinks {
-            let btIngetBodyTappableLabelCoordinates: CGPoint = convert(point, to: bodyTappableLabel)
+            let bodyTappableLabelLocalTapCoordinate: CGPoint = convert(point, to: bodyTappableLabel)
             
-            if bodyTappableLabel.bounds.contains(btIngetBodyTappableLabelCoordinates) {
+            if bodyTappableLabel.bounds.contains(bodyTappableLabelLocalTapCoordinate) {
                 return bodyTappableLabel
             }
         }

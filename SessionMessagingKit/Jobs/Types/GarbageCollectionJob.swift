@@ -41,7 +41,7 @@ public enum GarbageCollectionJob: JobExecutor {
         /// are shown)
         let lastGarbageCollection: Date = UserDefaults.standard[.lastGarbageCollection]
             .defaulting(to: Date.distantPast)
-        let finalTypesToCollection: Set<Types> = {
+        let finalTypesToCollect: Set<Types> = {
             guard
                 job.behaviour != .recurringOnActive ||
                 Date().timeIntervalSince(lastGarbageCollection) > (23 * 60 * 60)
@@ -60,20 +60,20 @@ public enum GarbageCollectionJob: JobExecutor {
         Storage.shared.writeAsync(
             updates: { db in
                 /// Remove any typing indicators
-                if finalTypesToCollection.contains(.threadTypingIndicators) {
+                if finalTypesToCollect.contains(.threadTypingIndicators) {
                     _ = try ThreadTypingIndicator
                         .deleteAll(db)
                 }
                 
                 /// Remove any expired controlMessageProcessRecords
-                if finalTypesToCollection.contains(.expiredControlMessageProcessRecords) {
+                if finalTypesToCollect.contains(.expiredControlMessageProcessRecords) {
                     _ = try ControlMessageProcessRecord
                         .filter(ControlMessageProcessRecord.Columns.serverExpirationTimestamp <= timestampNow)
                         .deleteAll(db)
                 }
                 
                 /// Remove any old open group messages - open group messages which are older than six months
-                if finalTypesToCollection.contains(.oldOpenGroupMessages) && db[.trimOpenGroupMessagesOlderThanSixMonths] {
+                if finalTypesToCollect.contains(.oldOpenGroupMessages) && db[.trimOpenGroupMessagesOlderThanSixMonths] {
                     let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
                     let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
                     let threadIdLiteral: SQL = SQL(stringLiteral: Interaction.Columns.threadId.name)
@@ -104,7 +104,7 @@ public enum GarbageCollectionJob: JobExecutor {
                 }
                 
                 /// Orphaned jobs - jobs which have had their threads or interactions removed
-                if finalTypesToCollection.contains(.orphanedJobs) {
+                if finalTypesToCollect.contains(.orphanedJobs) {
                     let job: TypedTableAlias<Job> = TypedTableAlias()
                     let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
                     let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
@@ -130,7 +130,7 @@ public enum GarbageCollectionJob: JobExecutor {
                 }
                 
                 /// Orphaned link previews - link previews which have no interactions with matching url & rounded timestamps
-                if finalTypesToCollection.contains(.orphanedLinkPreviews) {
+                if finalTypesToCollect.contains(.orphanedLinkPreviews) {
                     let linkPreview: TypedTableAlias<LinkPreview> = TypedTableAlias()
                     let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
                     
@@ -150,7 +150,7 @@ public enum GarbageCollectionJob: JobExecutor {
                 
                 /// Orphaned open groups - open groups which are no longer associated to a thread (except for the session-run ones for which
                 /// we want cached image data even if the user isn't in the group)
-                if finalTypesToCollection.contains(.orphanedOpenGroups) {
+                if finalTypesToCollect.contains(.orphanedOpenGroups) {
                     let openGroup: TypedTableAlias<OpenGroup> = TypedTableAlias()
                     let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
                     
@@ -169,7 +169,7 @@ public enum GarbageCollectionJob: JobExecutor {
                 }
                 
                 /// Orphaned open group capabilities - capabilities which have no existing open groups with the same server
-                if finalTypesToCollection.contains(.orphanedOpenGroupCapabilities) {
+                if finalTypesToCollect.contains(.orphanedOpenGroupCapabilities) {
                     let capability: TypedTableAlias<Capability> = TypedTableAlias()
                     let openGroup: TypedTableAlias<OpenGroup> = TypedTableAlias()
                     
@@ -185,7 +185,7 @@ public enum GarbageCollectionJob: JobExecutor {
                 }
                 
                 /// Orphaned blinded id lookups - lookups which have no existing threads or approval/block settings for either blinded/un-blinded id
-                if finalTypesToCollection.contains(.orphanedBlindedIdLookups) {
+                if finalTypesToCollect.contains(.orphanedBlindedIdLookups) {
                     let blindedIdLookup: TypedTableAlias<BlindedIdLookup> = TypedTableAlias()
                     let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
                     let contact: TypedTableAlias<Contact> = TypedTableAlias()
@@ -213,7 +213,7 @@ public enum GarbageCollectionJob: JobExecutor {
                 
                 /// Approved blinded contact records - once a blinded contact has been approved there is no need to keep the blinded
                 /// contact record around anymore
-                if finalTypesToCollection.contains(.approvedBlindedContactRecords) {
+                if finalTypesToCollect.contains(.approvedBlindedContactRecords) {
                     let contact: TypedTableAlias<Contact> = TypedTableAlias()
                     let blindedIdLookup: TypedTableAlias<BlindedIdLookup> = TypedTableAlias()
 
@@ -232,7 +232,7 @@ public enum GarbageCollectionJob: JobExecutor {
                 }
                 
                 /// Orphaned attachments - attachments which have no related interactions, quotes or link previews
-                if finalTypesToCollection.contains(.orphanedAttachments) {
+                if finalTypesToCollect.contains(.orphanedAttachments) {
                     let attachment: TypedTableAlias<Attachment> = TypedTableAlias()
                     let quote: TypedTableAlias<Quote> = TypedTableAlias()
                     let linkPreview: TypedTableAlias<LinkPreview> = TypedTableAlias()
@@ -255,7 +255,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     """)
                 }
                 
-                if finalTypesToCollection.contains(.orphanedProfiles) {
+                if finalTypesToCollect.contains(.orphanedProfiles) {
                     let profile: TypedTableAlias<Profile> = TypedTableAlias()
                     let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
                     let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
@@ -289,6 +289,12 @@ public enum GarbageCollectionJob: JobExecutor {
                         )
                     """)
                 }
+                
+                if finalTypesToCollect.contains(.expiredPendingReadReceipts) {
+                    _ = try PendingReadReceipt
+                        .filter(PendingReadReceipt.Columns.serverExpirationTimestamp <= timestampNow)
+                        .deleteAll(db)
+                }
             },
             completion: { _, _ in
                 // Dispatch async so we can swap from the write queue to a read one (we are done writing)
@@ -304,7 +310,7 @@ public enum GarbageCollectionJob: JobExecutor {
                         var profileAvatarFilenames: Set<String> = []
                         
                         /// Orphaned attachment files - attachment files which don't have an associated record in the database
-                        if finalTypesToCollection.contains(.orphanedAttachmentFiles) {
+                        if finalTypesToCollect.contains(.orphanedAttachmentFiles) {
                             /// **Note:** Thumbnails are stored in the `NSCachesDirectory` directory which should be automatically manage
                             /// it's own garbage collection so we can just ignore it according to the various comments in the following stack overflow
                             /// post, the directory will be cleared during app updates as well as if the system is running low on memory (if the app isn't running)
@@ -317,7 +323,7 @@ public enum GarbageCollectionJob: JobExecutor {
                         }
 
                         /// Orphaned profile avatar files - profile avatar files which don't have an associated record in the database
-                        if finalTypesToCollection.contains(.orphanedProfileAvatars) {
+                        if finalTypesToCollect.contains(.orphanedProfileAvatars) {
                             profileAvatarFilenames = try Profile
                                 .select(.profilePictureFileName)
                                 .filter(Profile.Columns.profilePictureFileName != nil)
@@ -340,7 +346,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     var deletionErrors: [Error] = []
                     
                     // Orphaned attachment files (actual deletion)
-                    if finalTypesToCollection.contains(.orphanedAttachmentFiles) {
+                    if finalTypesToCollect.contains(.orphanedAttachmentFiles) {
                         // Note: Looks like in order to recursively look through files we need to use the
                         // enumerator method
                         let fileEnumerator = FileManager.default.enumerator(
@@ -384,7 +390,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     }
                     
                     // Orphaned profile avatar files (actual deletion)
-                    if finalTypesToCollection.contains(.orphanedProfileAvatars) {
+                    if finalTypesToCollect.contains(.orphanedProfileAvatars) {
                         let allAvatarProfileFilenames: Set<String> = (try? FileManager.default
                             .contentsOfDirectory(atPath: ProfileManager.sharedDataProfileAvatarsDirPath))
                             .defaulting(to: [])
@@ -442,6 +448,7 @@ extension GarbageCollectionJob {
         case orphanedAttachments
         case orphanedAttachmentFiles
         case orphanedProfileAvatars
+        case expiredPendingReadReceipts
     }
     
     public struct Details: Codable {
