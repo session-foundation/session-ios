@@ -306,6 +306,10 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                         bottom: Values.largeSpacing
                                     ),
                                     backgroundStyle: .noBackground
+                                ),
+                                accessibility: SessionCell.Accessibility(
+                                    identifier: "Session ID",
+                                    label: threadViewModel.id
                                 )
                             )
                         )

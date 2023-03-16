@@ -409,9 +409,41 @@ public final class SnodeAPI {
                         using: dependencies
                     )
                     .decoded(as: responseTypes, using: dependencies)
-                    .map { batchResponse -> [SnodeAPI.Namespace: (info: ResponseInfoType, data: (messages: [SnodeReceivedMessage], lastHash: String?)?)] in
+                    .map { (batchResponse: HTTP.BatchResponse) -> [SnodeAPI.Namespace: (info: ResponseInfoType, data: (messages: [SnodeReceivedMessage], lastHash: String?)?)] in
                         let messageResponses: [HTTP.BatchSubResponse<GetMessagesResponse>] = batchResponse.responses
                             .compactMap { $0 as? HTTP.BatchSubResponse<GetMessagesResponse> }
+                        
+                        /// Since we have extended the TTL for a number of messages we need to make sure we update the local
+                        /// `SnodeReceivedMessageInfo.expirationDateMs` values so we don't end up deleting them
+                        /// incorrectly before they actually expire on the swarm
+                        if
+                            !refreshingConfigHashes.isEmpty,
+                            let refreshTTLSubReponse: HTTP.BatchSubResponse<UpdateExpiryResponse> = batchResponse
+                                .responses
+                                .first(where: { $0 is HTTP.BatchSubResponse<UpdateExpiryResponse> })
+                                .asType(HTTP.BatchSubResponse<UpdateExpiryResponse>.self),
+                            let refreshTTLResponse: UpdateExpiryResponse = refreshTTLSubReponse.body,
+                            let validResults: [String: [(hash: String, expiry: UInt64)]] = try? refreshTTLResponse.validResultMap(
+                                sodium: sodium.wrappedValue,
+                                userX25519PublicKey: getUserHexEncodedPublicKey(),
+                                validationData: refreshingConfigHashes
+                            ),
+                            let groupedExpiryResult: [UInt64: [String]] = validResults[snode.ed25519PublicKey]?
+                                .grouped(by: \.expiry)
+                                .mapValues({ groupedResults in groupedResults.map { $0.hash } })
+                        {
+                            Storage.shared.writeAsync { db in
+                                try groupedExpiryResult.forEach { updatedExpiry, hashes in
+                                    try SnodeReceivedMessageInfo
+                                        .filter(hashes.contains(SnodeReceivedMessageInfo.Columns.hash))
+                                        .updateAll(
+                                            db,
+                                            SnodeReceivedMessageInfo.Columns.expirationDateMs
+                                                .set(to: updatedExpiry)
+                                        )
+                                }
+                            }
+                        }
                         
                         return zip(namespaces, messageResponses)
                             .reduce(into: [:]) { result, next in
@@ -720,7 +752,7 @@ public final class SnodeAPI {
         serverHashes: [String],
         updatedExpiryMs: UInt64,
         using dependencies: SSKDependencies = SSKDependencies()
-    ) -> AnyPublisher<[String: (hashes: [String], expiry: UInt64)], Error> {
+    ) -> AnyPublisher<[String: [(hash: String, expiry: UInt64)]], Error> {
         guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair() else {
             return Fail(error: SnodeAPIError.noKeyPair)
                 .eraseToAnyPublisher()
@@ -728,7 +760,7 @@ public final class SnodeAPI {
         
         return getSwarm(for: publicKey)
             .subscribe(on: Threading.workQueue)
-            .tryFlatMap { swarm -> AnyPublisher<[String: (hashes: [String], expiry: UInt64)], Error> in
+            .tryFlatMap { swarm -> AnyPublisher<[String: [(hash: String, expiry: UInt64)]], Error> in
                 guard let snode: Snode = swarm.randomElement() else { throw SnodeAPIError.generic }
                 
                 return SnodeAPI
@@ -749,7 +781,7 @@ public final class SnodeAPI {
                         using: dependencies
                     )
                     .decoded(as: UpdateExpiryResponse.self, using: dependencies)
-                    .tryMap { _, response -> [String: (hashes: [String], expiry: UInt64)] in
+                    .tryMap { _, response -> [String: [(hash: String, expiry: UInt64)]] in
                         try response.validResultMap(
                             sodium: sodium.wrappedValue,
                             userX25519PublicKey: getUserHexEncodedPublicKey(),

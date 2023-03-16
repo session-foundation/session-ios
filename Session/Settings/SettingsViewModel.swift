@@ -302,7 +302,8 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                                 backgroundStyle: .noBackground
                             ),
                             accessibility: SessionCell.Accessibility(
-                                label: "Session ID"
+                                identifier: "Session ID",
+                                label: profile.id
                             )
                         ),
                         SessionCell.Info(
