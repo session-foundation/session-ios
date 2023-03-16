@@ -254,6 +254,9 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                                 customPadding: SessionCell.Padding(bottom: Values.smallSpacing),
                                 backgroundStyle: .noBackground
                             ),
+                            accessibility: SessionCell.Accessibility(
+                                label: "Profile picture"
+                            ),
                             onTap: {
                                 self?.updateProfilePicture(
                                     hasCustomImage: ProfileManager.hasProfileImageData(
@@ -275,6 +278,10 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                                 customPadding: SessionCell.Padding(top: Values.smallSpacing),
                                 backgroundStyle: .noBackground
                             ),
+                            accessibility: SessionCell.Accessibility(
+                                identifier: "Username",
+                                label: profile.displayName()
+                            ),
                             onTap: { self?.setIsEditing(true) }
                         )
                     ]
@@ -293,6 +300,9 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                             styling: SessionCell.StyleInfo(
                                 customPadding: SessionCell.Padding(bottom: Values.smallSpacing),
                                 backgroundStyle: .noBackground
+                            ),
+                            accessibility: SessionCell.Accessibility(
+                                label: "Session ID"
                             )
                         ),
                         SessionCell.Info(

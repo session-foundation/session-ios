@@ -471,6 +471,7 @@ extension SessionCell {
                     
                     profilePictureView.accessibilityIdentifier = accessibility?.identifier
                     profilePictureView.accessibilityLabel = accessibility?.label
+                    profilePictureView.isAccessibilityElement = (accessibility != nil)
                     profilePictureView.update(
                         publicKey: profileId,
                         threadVariant: threadVariant,
