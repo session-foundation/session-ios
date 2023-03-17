@@ -30,12 +30,12 @@ public enum GroupLeavingJob: JobExecutor {
         
         guard let thread: SessionThread = Storage.shared.read({ db in try? SessionThread.fetchOne(db, id: details.groupPublicKey)}) else {
             SNLog("Can't leave nonexistent closed group.")
-            failure(job, MessageSenderError.noThread, false)
+            failure(job, MessageSenderError.noThread, true)
             return
         }
         
         guard let closedGroup: ClosedGroup = Storage.shared.read({ db in try? thread.closedGroup.fetchOne(db)}) else {
-            failure(job, MessageSenderError.invalidClosedGroupUpdate, false)
+            failure(job, MessageSenderError.invalidClosedGroupUpdate, true)
             return
         }
         
