@@ -39,6 +39,12 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                     in: conf
                 )
                 
+                try SessionUtil.updateNoteToSelf(
+                    hidden: (allThreads[userPublicKey]?.shouldBeVisible == true),
+                    priority: Int32(allThreads[userPublicKey]?.pinnedPriority ?? 0),
+                    in: conf
+                )
+                
                 if config_needs_dump(conf) {
                     try SessionUtil
                         .createDump(
@@ -55,11 +61,12 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         try SessionUtil
             .config(for: .contacts, publicKey: userPublicKey)
             .mutate { conf in
-                // Exclude community, group and outgoing blinded message requests
+                // Exclude Note to Self, community, group and outgoing blinded message requests
                 let validContactIds: [String] = allThreads
                     .values
                     .filter { thread in
                         thread.variant == .contact &&
+                        thread.id != userPublicKey &&
                         SessionId(from: thread.id)?.prefix == .standard
                     }
                     .map { $0.id }

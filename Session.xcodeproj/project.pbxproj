@@ -818,6 +818,7 @@
 		FDD250702837199200198BDA /* GarbageCollectionJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD2506F2837199200198BDA /* GarbageCollectionJob.swift */; };
 		FDD250722837234B00198BDA /* MediaGalleryNavigationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD250712837234B00198BDA /* MediaGalleryNavigationController.swift */; };
 		FDDC08F229A300E800BF9681 /* LibSessionTypeConversionUtilitiesSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDC08F129A300E800BF9681 /* LibSessionTypeConversionUtilitiesSpec.swift */; };
+		FDDF074429C3E3D000E5E8B5 /* FetchRequest+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDF074329C3E3D000E5E8B5 /* FetchRequest+Utilities.swift */; };
 		FDE658A129418C7900A33BC1 /* CryptoKit+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE658A029418C7900A33BC1 /* CryptoKit+Utilities.swift */; };
 		FDE658A329418E2F00A33BC1 /* KeyPair.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE658A229418E2F00A33BC1 /* KeyPair.swift */; };
 		FDE77F6B280FEB28002CFC5D /* ControlMessageProcessRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE77F6A280FEB28002CFC5D /* ControlMessageProcessRecord.swift */; };
@@ -1946,6 +1947,7 @@
 		FDD2506F2837199200198BDA /* GarbageCollectionJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarbageCollectionJob.swift; sourceTree = "<group>"; };
 		FDD250712837234B00198BDA /* MediaGalleryNavigationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaGalleryNavigationController.swift; sourceTree = "<group>"; };
 		FDDC08F129A300E800BF9681 /* LibSessionTypeConversionUtilitiesSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionTypeConversionUtilitiesSpec.swift; sourceTree = "<group>"; };
+		FDDF074329C3E3D000E5E8B5 /* FetchRequest+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FetchRequest+Utilities.swift"; sourceTree = "<group>"; };
 		FDE658A029418C7900A33BC1 /* CryptoKit+Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "CryptoKit+Utilities.swift"; sourceTree = "<group>"; };
 		FDE658A229418E2F00A33BC1 /* KeyPair.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = KeyPair.swift; sourceTree = "<group>"; };
 		FDE7214F287E50D50093DF33 /* ProtoWrappers.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = ProtoWrappers.py; sourceTree = "<group>"; };
@@ -3718,6 +3720,7 @@
 				FD17D7C227F5204C00122BE0 /* Database+Utilities.swift */,
 				FD17D7C627F5207C00122BE0 /* DatabaseMigrator+Utilities.swift */,
 				FDF22210281B5E0B000A4995 /* TableRecord+Utilities.swift */,
+				FDDF074329C3E3D000E5E8B5 /* FetchRequest+Utilities.swift */,
 				FDF2220E281B55E6000A4995 /* QueryInterfaceRequest+Utilities.swift */,
 				FD1A94FA2900D1C2000D73D3 /* PersistableRecord+Utilities.swift */,
 			);
@@ -5642,6 +5645,7 @@
 				FD17D7E527F6A09900122BE0 /* Identity.swift in Sources */,
 				FD9004142818AD0B00ABAAF6 /* _002_SetupStandardJobs.swift in Sources */,
 				FDF8487A29405906007DCAE5 /* HTTPError.swift in Sources */,
+				FDDF074429C3E3D000E5E8B5 /* FetchRequest+Utilities.swift in Sources */,
 				B87EF18126377A1D00124B3C /* Features.swift in Sources */,
 				FD09797727FAB7A600936362 /* Data+Image.swift in Sources */,
 				C300A60D2554B31900555489 /* Logging.swift in Sources */,

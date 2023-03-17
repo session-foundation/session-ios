@@ -71,10 +71,13 @@ final class ConversationTitleView: UIView {
 
     // MARK: - Content
     
-    public func initialSetup(with threadVariant: SessionThread.Variant) {
+    public func initialSetup(
+        with threadVariant: SessionThread.Variant,
+        isNoteToSelf: Bool
+    ) {
         self.update(
             with: " ",
-            isNoteToSelf: false,
+            isNoteToSelf: isNoteToSelf,
             threadVariant: threadVariant,
             mutedUntilTimestamp: nil,
             onlyNotifyForMentions: false,

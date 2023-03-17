@@ -92,6 +92,11 @@ final class MentionSelectionView: UIView, UITableViewDataSource, UITableViewDele
             ),
             isLast: (indexPath.row == (candidates.count - 1))
         )
+        cell.accessibilityIdentifier = "Contact"
+        cell.accessibilityLabel = candidates[indexPath.row].profile.displayName(
+            for: candidates[indexPath.row].threadVariant
+        )
+        cell.isAccessibilityElement = true
         
         return cell
     }

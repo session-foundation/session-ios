@@ -481,19 +481,10 @@ class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDat
             title: "MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_ACTON".localized(),
             style: .destructive
         ) { _ in
-            // Clear the requests
-            Storage.shared.write { db in
-                _ = try SessionThread
-                    .filter(ids: contactThreadIds)
-                    .deleteAll(db)
-                
-                try ClosedGroup.removeKeysAndUnsubscribe(
-                    db,
-                    threadIds: closedGroupThreadIds,
-                    removeGroupData: true,
-                    calledFromConfigHandling: false
-                )
-            }
+            MessageRequestsViewModel.clearAllRequests(
+                contactThreadIds: contactThreadIds,
+                closedGroupThreadIds: closedGroupThreadIds
+            )
         })
         alertVC.addAction(UIAlertAction(title: "TXT_CANCEL_TITLE".localized(), style: .cancel, handler: nil))
         

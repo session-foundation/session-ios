@@ -599,7 +599,13 @@ public final class MessageSender {
         // `MessageSender.performUploadsIfNeeded(queue:preparedSendData:)` before calling this function
         switch preparedSendData.message {
             case let visibleMessage as VisibleMessage:
-                guard visibleMessage.attachmentIds.count == preparedSendData.totalAttachmentsUploaded else {
+                let expectedAttachmentUploadCount: Int = (
+                    visibleMessage.attachmentIds.count +
+                    (visibleMessage.linkPreview?.attachmentId != nil ? 1 : 0) +
+                    (visibleMessage.quote?.attachmentId != nil ? 1 : 0)
+                )
+                
+                guard expectedAttachmentUploadCount == preparedSendData.totalAttachmentsUploaded else {
                     return Fail(error: MessageSenderError.attachmentsNotUploaded)
                         .eraseToAnyPublisher()
                 }

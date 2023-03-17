@@ -517,13 +517,13 @@ class NotificationActionHandler {
             return Fail(error: NotificationError.failDebug("threadId was unexpectedly nil"))
                 .eraseToAnyPublisher()
         }
-
-        guard let thread: SessionThread = Storage.shared.read({ db in try SessionThread.fetchOne(db, id: threadId) }) else {
+        
+        guard Storage.shared.read({ db in try SessionThread.exists(db, id: threadId) }) == true else {
             return Fail(error: NotificationError.failDebug("unable to find thread with id: \(threadId)"))
                 .eraseToAnyPublisher()
         }
 
-        return markAsRead(thread: thread)
+        return markAsRead(threadId: threadId)
     }
 
     func reply(userInfo: [AnyHashable: Any], replyText: String) -> AnyPublisher<Void, Error> {
@@ -540,7 +540,7 @@ class NotificationActionHandler {
         return Storage.shared
             .writePublisher(receiveOn: DispatchQueue.main) { db in
                 let interaction: Interaction = try Interaction(
-                    threadId: thread.id,
+                    threadId: threadId,
                     authorId: getUserHexEncodedPublicKey(db),
                     variant: .standardOutgoing,
                     body: replyText,
@@ -557,16 +557,20 @@ class NotificationActionHandler {
                 try Interaction.markAsRead(
                     db,
                     interactionId: interaction.id,
-                    threadId: thread.id,
+                    threadId: threadId,
                     threadVariant: thread.variant,
                     includingOlder: true,
-                    trySendReadReceipt: true
+                    trySendReadReceipt: try SessionThread.canSendReadReceipt(
+                        db,
+                        threadId: threadId,
+                        threadVariant: thread.variant
+                    )
                 )
                 
                 return try MessageSender.preparedSendData(
                     db,
                     interaction: interaction,
-                    threadId: thread.id,
+                    threadId: threadId,
                     threadVariant: thread.variant
                 )
             }
@@ -605,20 +609,34 @@ class NotificationActionHandler {
             .eraseToAnyPublisher()
     }
     
-    private func markAsRead(thread: SessionThread) -> AnyPublisher<Void, Error> {
+    private func markAsRead(threadId: String) -> AnyPublisher<Void, Error> {
         return Storage.shared
             .writePublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
-                try Interaction.markAsRead(
-                    db,
-                    interactionId: try thread.interactions
+                guard
+                    let threadVariant: SessionThread.Variant = try SessionThread
+                        .filter(id: threadId)
+                        .select(.variant)
+                        .asRequest(of: SessionThread.Variant.self)
+                        .fetchOne(db),
+                    let lastInteractionId: Int64 = try Interaction
                         .select(.id)
+                        .filter(Interaction.Columns.threadId == threadId)
                         .order(Interaction.Columns.timestampMs.desc)
                         .asRequest(of: Int64.self)
-                        .fetchOne(db),
-                    threadId: thread.id,
-                    threadVariant: thread.variant,
+                        .fetchOne(db)
+                else { throw NotificationError.failDebug("unable to required thread info: \(threadId)") }
+
+                try Interaction.markAsRead(
+                    db,
+                    interactionId: lastInteractionId,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
                     includingOlder: true,
-                    trySendReadReceipt: true
+                    trySendReadReceipt: try SessionThread.canSendReadReceipt(
+                        db,
+                        threadId: threadId,
+                        threadVariant: threadVariant
+                    )
                 )
             }
             .eraseToAnyPublisher()

@@ -64,6 +64,7 @@ extension ConversationVC:
     
     @objc func startCall(_ sender: Any?) {
         guard SessionCall.isEnabled else { return }
+        guard viewModel.threadData.threadIsBlocked == false else { return }
         guard Storage.shared[.areCallsEnabled] else {
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
@@ -678,9 +679,11 @@ extension ConversationVC:
             let threadId: String = self.viewModel.threadData.threadId
             let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
             let threadIsMessageRequest: Bool = (self.viewModel.threadData.threadIsMessageRequest == true)
+            let threadIsBlocked: Bool = (self.viewModel.threadData.threadIsBlocked == true)
             let needsToStartTypingIndicator: Bool = TypingIndicators.didStartTypingNeedsToStart(
                 threadId: threadId,
                 threadVariant: threadVariant,
+                threadIsBlocked: threadIsBlocked,
                 threadIsMessageRequest: threadIsMessageRequest,
                 direction: .outgoing,
                 timestampMs: SnodeAPI.currentOffsetTimestampMs()

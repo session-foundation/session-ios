@@ -8,7 +8,7 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
-final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedReminderViewDelegate {
+final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewDataSource, UITableViewDelegate, SeedReminderViewDelegate {
     private static let loadingHeaderHeight: CGFloat = 40
     public static let newConversationButtonSize: CGFloat = 60
     
@@ -19,6 +19,10 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
     private var isLoadingMore: Bool = false
     private var isAutoLoadingNextPage: Bool = false
     private var viewHasAppeared: Bool = false
+    
+    // MARK: - SessionUtilRespondingViewController
+    
+    let isConversationList: Bool = true
     
     // MARK: - Intialization
     

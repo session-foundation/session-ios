@@ -25,6 +25,7 @@ public class TypingIndicators {
         init?(
             threadId: String,
             threadVariant: SessionThread.Variant,
+            threadIsBlocked: Bool,
             threadIsMessageRequest: Bool,
             direction: Direction,
             timestampMs: Int64?
@@ -34,9 +35,11 @@ public class TypingIndicators {
             // or show typing indicators for other users
             //
             // We also don't want to show/send typing indicators for message requests
-            guard Storage.shared[.typingIndicatorsEnabled] && !threadIsMessageRequest else {
-                return nil
-            }
+            guard
+                Storage.shared[.typingIndicatorsEnabled] &&
+                !threadIsBlocked &&
+                !threadIsMessageRequest
+            else { return nil }
             
             // Don't send typing indicators in group threads
             guard
@@ -143,6 +146,7 @@ public class TypingIndicators {
     public static func didStartTypingNeedsToStart(
         threadId: String,
         threadVariant: SessionThread.Variant,
+        threadIsBlocked: Bool,
         threadIsMessageRequest: Bool,
         direction: Direction,
         timestampMs: Int64?
@@ -159,6 +163,7 @@ public class TypingIndicators {
                 let newIndicator: Indicator? = Indicator(
                     threadId: threadId,
                     threadVariant: threadVariant,
+                    threadIsBlocked: threadIsBlocked,
                     threadIsMessageRequest: threadIsMessageRequest,
                     direction: direction,
                     timestampMs: timestampMs
@@ -179,6 +184,7 @@ public class TypingIndicators {
                 let newIndicator: Indicator? = Indicator(
                     threadId: threadId,
                     threadVariant: threadVariant,
+                    threadIsBlocked: threadIsBlocked,
                     threadIsMessageRequest: threadIsMessageRequest,
                     direction: direction,
                     timestampMs: timestampMs

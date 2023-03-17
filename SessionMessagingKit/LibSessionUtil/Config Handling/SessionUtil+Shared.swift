@@ -1,7 +1,8 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
-import Foundation
+import UIKit
 import GRDB
+import SessionUIKit
 import SessionUtil
 import SessionUtilitiesKit
 
@@ -191,6 +192,44 @@ internal extension SessionUtil {
         
         return updated
     }
+    
+    static func kickFromConversationUIIfNeeded(removedThreadIds: [String]) {
+        guard !removedThreadIds.isEmpty else { return }
+        
+        // If the user is currently navigating somewhere within the view hierarchy of a conversation
+        // we just deleted then return to the home screen
+        DispatchQueue.main.async {
+            guard
+                let rootViewController: UIViewController = CurrentAppContext().mainWindow?.rootViewController,
+                let topBannerController: TopBannerController = (rootViewController as? TopBannerController),
+                !topBannerController.children.isEmpty,
+                let navController: UINavigationController = topBannerController.children[0] as? UINavigationController
+            else { return }
+            
+            // Extract the ones which will respond to SessionUtil changes
+            let targetViewControllers: [any SessionUtilRespondingViewController] = navController
+                .viewControllers
+                .compactMap({ $0 as? SessionUtilRespondingViewController })
+            
+            // Make sure we have a conversation list and that one of the removed conversations are
+            // in the nav hierarchy
+            guard
+                targetViewControllers.count > 1,
+                targetViewControllers.contains(where: { $0.isConversationList }),
+                targetViewControllers.contains(where: { $0.isConversation(in: removedThreadIds) })
+            else { return }
+            
+            // Return to the root view controller as the removed conversation will be invalid
+            if navController.presentedViewController != nil {
+                navController.dismiss(animated: false) {
+                    navController.popToRootViewController(animated: true)
+                }
+            }
+            else {
+                navController.popToRootViewController(animated: true)
+            }
+        }
+    }
 }
 
 // MARK: - External Outgoing Changes
@@ -284,4 +323,18 @@ extension SessionUtil {
         let pinnedPriority: Int32?
         let shouldBeVisible: Bool
     }
+}
+
+// MARK: - SessionUtilRespondingViewController
+
+public protocol SessionUtilRespondingViewController {
+    var isConversationList: Bool { get }
+    
+    func isConversation(in threadIds: [String]) -> Bool
+}
+
+public extension SessionUtilRespondingViewController {
+    var isConversationList: Bool { false }
+    
+    func isConversation(in threadIds: [String]) -> Bool { return false }
 }

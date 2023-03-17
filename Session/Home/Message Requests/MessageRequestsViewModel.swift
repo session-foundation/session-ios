@@ -186,7 +186,10 @@ public class MessageRequestsViewModel {
             ) { _ in
                 Storage.shared.write { db in
                     switch threadVariant {
-                        case .contact, .community:
+                        case .contact:
+                            try SessionUtil
+                                .hide(db, contactIds: [threadId])
+                            
                             _ = try SessionThread
                                 .filter(id: threadId)
                                 .deleteAll(db)
@@ -201,6 +204,8 @@ public class MessageRequestsViewModel {
                             
                             // Trigger a config sync
                             ConfigurationSyncJob.enqueue(db, publicKey: getUserHexEncodedPublicKey(db))
+                            
+                        default: break
                     }
                 }
                 
@@ -245,6 +250,10 @@ public class MessageRequestsViewModel {
                                 Contact.Columns.didApproveMe.set(to: true)
                             )
                         
+                        // Sync the removal of the thread from other devices
+                        try SessionUtil
+                            .hide(db, contactIds: [threadId])
+                        
                         // Remove the thread
                         _ = try SessionThread
                             .filter(id: threadId)
@@ -256,5 +265,30 @@ public class MessageRequestsViewModel {
         )
         
         viewController?.present(modal, animated: true, completion: nil)
+    }
+    
+    static func clearAllRequests(
+        contactThreadIds: [String],
+        closedGroupThreadIds: [String]
+    ) {
+        // Clear the requests
+        Storage.shared.write { db in
+            // Sync the removal of the thread from other devices
+            try SessionUtil
+                .hide(db, contactIds: contactThreadIds)
+            
+            // Remove the threads
+            _ = try SessionThread
+                .filter(ids: contactThreadIds)
+                .deleteAll(db)
+            
+            // Remove the groups
+            try ClosedGroup.removeKeysAndUnsubscribe(
+                db,
+                threadIds: closedGroupThreadIds,
+                removeGroupData: true,
+                calledFromConfigHandling: false
+            )
+        }
     }
 }

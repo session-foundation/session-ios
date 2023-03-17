@@ -206,6 +206,48 @@ public extension SessionThread {
         )
     }
     
+    static func canSendReadReceipt(
+        _ db: Database,
+        threadId: String,
+        threadVariant maybeThreadVariant: SessionThread.Variant? = nil,
+        isBlocked maybeIsBlocked: Bool? = nil,
+        isMessageRequest maybeIsMessageRequest: Bool? = nil
+    ) throws -> Bool {
+        let threadVariant: SessionThread.Variant = try {
+            try maybeThreadVariant ??
+            SessionThread
+                .filter(id: threadId)
+                .select(.variant)
+                .asRequest(of: SessionThread.Variant.self)
+                .fetchOne(db, orThrow: StorageError.objectNotFound)
+        }()
+        let threadIsBlocked: Bool = try {
+            try maybeIsBlocked ??
+            (
+                threadVariant == .contact &&
+                Contact
+                    .filter(id: threadId)
+                    .select(.isBlocked)
+                    .asRequest(of: Bool.self)
+                    .fetchOne(db, orThrow: StorageError.objectNotFound)
+            )
+        }()
+        let threadIsMessageRequest: Bool = SessionThread
+            .filter(id: threadId)
+            .filter(
+                SessionThread.isMessageRequest(
+                    userPublicKey: getUserHexEncodedPublicKey(db),
+                    includeNonVisible: true
+                )
+            )
+            .isNotEmpty(db)
+        
+        return (
+            !threadIsBlocked &&
+            !threadIsMessageRequest
+        )
+    }
+    
     @available(*, unavailable, message: "should not be used until pin re-ordering is built")
     static func refreshPinnedPriorities(_ db: Database, adding threadId: String) throws {
         struct PinnedPriority: TableRecord, ColumnExpressible {

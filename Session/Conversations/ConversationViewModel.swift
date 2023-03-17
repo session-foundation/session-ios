@@ -111,6 +111,16 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         threadId: self.threadId,
         threadVariant: self.initialThreadVariant,
         threadIsNoteToSelf: (self.threadId == getUserHexEncodedPublicKey()),
+        threadIsBlocked: (self.initialThreadVariant != .contact ? false :
+            Storage.shared.read { db in
+                try Contact
+                    .filter(id: self.threadId)
+                    .select(.isBlocked)
+                    .asRequest(of: Bool.self)
+                    .fetchOne(db)
+                    .defaulting(to: false)
+            }
+        ),
         currentUserIsClosedGroupMember: ((self.initialThreadVariant != .legacyGroup && self.initialThreadVariant != .group) ?
             nil :
             Storage.shared.read { db in
@@ -119,6 +129,15 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                     .filter(GroupMember.Columns.profileId == getUserHexEncodedPublicKey(db))
                     .filter(GroupMember.Columns.role == GroupMember.Role.standard)
                     .isNotEmpty(db)
+            }
+        ),
+        openGroupPermissions: (self.initialThreadVariant != .community ? nil :
+            Storage.shared.read { db in
+                try OpenGroup
+                    .filter(id: threadId)
+                    .select(.permissions)
+                    .asRequest(of: OpenGroup.Permissions.self)
+                    .fetchOne(db)
             }
         )
     )

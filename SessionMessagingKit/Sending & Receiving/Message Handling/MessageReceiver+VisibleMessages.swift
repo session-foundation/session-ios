@@ -196,7 +196,7 @@ extension MessageReceiver {
                     // If we receive an outgoing message that already exists in the database
                     // then we still need up update the recipient and read states for the
                     // message (even if we don't need to do anything else)
-                    try updateRecipientAndReadStates(
+                    try updateRecipientAndReadStatesForOutgoingInteraction(
                         db,
                         thread: thread,
                         interactionId: existingInteractionId,
@@ -214,7 +214,7 @@ extension MessageReceiver {
         guard let interactionId: Int64 = interaction.id else { throw StorageError.failedToSave }
         
         // Update and recipient and read states as needed
-        try updateRecipientAndReadStates(
+        try updateRecipientAndReadStatesForOutgoingInteraction(
             db,
             thread: thread,
             interactionId: interactionId,
@@ -398,7 +398,7 @@ extension MessageReceiver {
         return interactionId
     }
     
-    private static func updateRecipientAndReadStates(
+    private static func updateRecipientAndReadStatesForOutgoingInteraction(
         _ db: Database,
         thread: SessionThread,
         interactionId: Int64,
@@ -454,7 +454,7 @@ extension MessageReceiver {
             threadId: thread.id,
             threadVariant: thread.variant,
             includingOlder: true,
-            trySendReadReceipt: true
+            trySendReadReceipt: false
         )
         
         // Process any PendingReadReceipt values

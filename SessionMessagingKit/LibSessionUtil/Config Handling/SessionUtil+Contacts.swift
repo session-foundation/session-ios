@@ -168,6 +168,8 @@ internal extension SessionUtil {
                 
                 switch (data.shouldBeVisible, threadExists) {
                     case (false, true):
+                        SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: [contact.id])
+                        
                         try SessionThread
                             .filter(id: contact.id)
                             .deleteAll(db)
@@ -212,6 +214,8 @@ internal extension SessionUtil {
             .fetchAll(db)
         
         if !contactIdsToRemove.isEmpty {
+            SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: contactIdsToRemove)
+            
             try Contact
                 .filter(ids: contactIdsToRemove)
                 .deleteAll(db)
@@ -223,6 +227,11 @@ internal extension SessionUtil {
                     db,
                     Profile.Columns.nickname.set(to: nil)
                 )
+            
+            // Delete the one-to-one conversations associated to the contact
+            try SessionThread
+                .filter(ids: contactIdsToRemove)
+                .deleteAll(db)
             
             try SessionUtil.remove(db, volatileContactIds: contactIdsToRemove)
         }

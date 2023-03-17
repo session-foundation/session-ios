@@ -168,12 +168,16 @@ internal extension SessionUtil {
             .keys)
             .subtracting(communities.map { $0.data.threadId })
         
-        communityIdsToRemove.forEach { threadId in
-            OpenGroupManager.shared.delete(
-                db,
-                openGroupId: threadId,
-                calledFromConfigHandling: true
-            )
+        if !communityIdsToRemove.isEmpty {
+            SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: Array(communityIdsToRemove))
+            
+            communityIdsToRemove.forEach { threadId in
+                OpenGroupManager.shared.delete(
+                    db,
+                    openGroupId: threadId,
+                    calledFromConfigHandling: true
+                )
+            }
         }
         
         // MARK: -- Handle Legacy Group Changes
@@ -320,6 +324,8 @@ internal extension SessionUtil {
             .subtracting(legacyGroups.map { $0.id })
         
         if !legacyGroupIdsToRemove.isEmpty {
+            SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: Array(legacyGroupIdsToRemove))
+            
             try ClosedGroup.removeKeysAndUnsubscribe(
                 db,
                 threadIds: Array(legacyGroupIdsToRemove),

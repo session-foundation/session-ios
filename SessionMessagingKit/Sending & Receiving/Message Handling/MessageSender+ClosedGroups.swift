@@ -455,8 +455,8 @@ extension MessageSender {
                     )
                 ),
                 interactionId: nil,
-                threadId: closedGroup.threadId,
-                threadVariant: .legacyGroup
+                threadId: member,
+                threadVariant: .contact
             )
             
             // Add the users to the group
@@ -548,13 +548,16 @@ extension MessageSender {
                     )
             )
             .flatMap { _ -> AnyPublisher<Void, Error> in
-                generateAndSendNewEncryptionKeyPair(
-                    db,
-                    targetMembers: members,
-                    userPublicKey: userPublicKey,
-                    allGroupMembers: allGroupMembers,
-                    closedGroup: closedGroup
-                )
+                Storage.shared
+                    .writePublisherFlatMap(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
+                        generateAndSendNewEncryptionKeyPair(
+                            db,
+                            targetMembers: members,
+                            userPublicKey: userPublicKey,
+                            allGroupMembers: allGroupMembers,
+                            closedGroup: closedGroup
+                        )
+                    }
             }
             .eraseToAnyPublisher()
     }

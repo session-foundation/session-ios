@@ -279,7 +279,8 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
                 
                 let threadId: String = self.threadId
                 let threadVariant: SessionThread.Variant = self.threadVariant
-                let trySendReadReceipt: Bool = (self.threadIsMessageRequest == false)
+                let threadIsBlocked: Bool? = self.threadIsBlocked
+                let threadIsMessageRequest: Bool? = self.threadIsMessageRequest
                 
                 Storage.shared.writeAsync { db in
                     // Only make this change if needed (want to avoid triggering a thread update
@@ -299,7 +300,13 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
                         threadId: threadId,
                         threadVariant: threadVariant,
                         includingOlder: true,
-                        trySendReadReceipt: trySendReadReceipt
+                        trySendReadReceipt: try SessionThread.canSendReadReceipt(
+                            db,
+                            threadId: threadId,
+                            threadVariant: threadVariant,
+                            isBlocked: threadIsBlocked,
+                            isMessageRequest: threadIsMessageRequest
+                        )
                     )
                 }
         }
@@ -332,8 +339,10 @@ public extension SessionThreadViewModel {
         threadId: String? = nil,
         threadVariant: SessionThread.Variant? = nil,
         threadIsNoteToSelf: Bool = false,
+        threadIsBlocked: Bool? = nil,
         contactProfile: Profile? = nil,
         currentUserIsClosedGroupMember: Bool? = nil,
+        openGroupPermissions: OpenGroup.Permissions? = nil,
         unreadCount: UInt = 0
     ) {
         self.rowId = -1
@@ -347,7 +356,7 @@ public extension SessionThreadViewModel {
         self.threadRequiresApproval = false
         self.threadShouldBeVisible = false
         self.threadPinnedPriority = 0
-        self.threadIsBlocked = nil
+        self.threadIsBlocked = threadIsBlocked
         self.threadMutedUntilTimestamp = nil
         self.threadOnlyNotifyForMentions = nil
         self.threadMessageDraft = nil
@@ -373,7 +382,7 @@ public extension SessionThreadViewModel {
         self.openGroupPublicKey = nil
         self.openGroupProfilePictureData = nil
         self.openGroupUserCount = nil
-        self.openGroupPermissions = nil
+        self.openGroupPermissions = openGroupPermissions
         
         // Interaction display info
         

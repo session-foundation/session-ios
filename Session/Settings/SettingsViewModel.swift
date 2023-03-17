@@ -487,7 +487,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     
     private func updateProfilePicture(hasCustomImage: Bool) {
         let actionSheet: UIAlertController = UIAlertController(
-            title: "Update Profile Picture",
+            title: "UPDATE_PROFILE_TITLE".localized(),
             message: nil,
             preferredStyle: .actionSheet
         )

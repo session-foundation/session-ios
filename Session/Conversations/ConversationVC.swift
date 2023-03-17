@@ -9,7 +9,7 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
-final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITableViewDataSource, UITableViewDelegate {
+final class ConversationVC: BaseVC, SessionUtilRespondingViewController, ConversationSearchControllerDelegate, UITableViewDataSource, UITableViewDelegate {
     private static let loadingHeaderHeight: CGFloat = 40
     
     internal let viewModel: ConversationViewModel
@@ -211,8 +211,14 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     
     private lazy var emptyStateLabel: UILabel = {
         let text: String = String(
-            format: "CONVERSATION_EMPTY_STATE".localized(),
-            self.viewModel.threadData.displayName
+            format: {
+                switch (viewModel.threadData.threadIsNoteToSelf, viewModel.threadData.canWrite) {
+                    case (true, _): return "CONVERSATION_EMPTY_STATE_NOTE_TO_SELF".localized()
+                    case (_, false): return "CONVERSATION_EMPTY_STATE_READ_ONLY".localized()
+                    default: return "CONVERSATION_EMPTY_STATE".localized()
+                }
+            }(),
+            viewModel.threadData.displayName
         )
         
         let result: UILabel = UILabel()
@@ -385,8 +391,16 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         // nav will be offset incorrectly during the push animation (unfortunately the profile icon still
         // doesn't appear until after the animation, I assume it's taking a snapshot or something, but
         // there isn't much we can do about that unfortunately)
-        updateNavBarButtons(threadData: nil, initialVariant: self.viewModel.initialThreadVariant)
-        titleView.initialSetup(with: self.viewModel.initialThreadVariant)
+        updateNavBarButtons(
+            threadData: nil,
+            initialVariant: self.viewModel.initialThreadVariant,
+            initialIsNoteToSelf: self.viewModel.threadData.threadIsNoteToSelf,
+            initialIsBlocked: (self.viewModel.threadData.threadIsBlocked == true)
+        )
+        titleView.initialSetup(
+            with: self.viewModel.initialThreadVariant,
+            isNoteToSelf: self.viewModel.threadData.threadIsNoteToSelf
+        )
         
         // Constraints
         view.addSubview(tableView)
@@ -533,6 +547,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         let threadId: String = viewModel.threadData.threadId
         
         if
+            viewModel.threadData.threadIsNoteToSelf == false &&
             viewModel.threadData.threadShouldBeVisible == false &&
             !SessionUtil.conversationExistsInConfig(
                 threadId: threadId,
@@ -674,9 +689,16 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             
             // Update the empty state
             let text: String = String(
-                format: "CONVERSATION_EMPTY_STATE".localized(),
+                format: {
+                    switch (updatedThreadData.threadIsNoteToSelf, updatedThreadData.canWrite) {
+                        case (true, _): return "CONVERSATION_EMPTY_STATE_NOTE_TO_SELF".localized()
+                        case (_, false): return "CONVERSATION_EMPTY_STATE_READ_ONLY".localized()
+                        default: return "CONVERSATION_EMPTY_STATE".localized()
+                    }
+                }(),
                 updatedThreadData.displayName
             )
+            
             emptyStateLabel.attributedText = NSAttributedString(string: text)
                 .adding(
                     attributes: [.font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize)],
@@ -689,11 +711,17 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         if
             initialLoad ||
             viewModel.threadData.threadVariant != updatedThreadData.threadVariant ||
+            viewModel.threadData.threadIsBlocked != updatedThreadData.threadIsBlocked ||
             viewModel.threadData.threadRequiresApproval != updatedThreadData.threadRequiresApproval ||
             viewModel.threadData.threadIsMessageRequest != updatedThreadData.threadIsMessageRequest ||
             viewModel.threadData.profile != updatedThreadData.profile
         {
-            updateNavBarButtons(threadData: updatedThreadData, initialVariant: viewModel.initialThreadVariant)
+            updateNavBarButtons(
+                threadData: updatedThreadData,
+                initialVariant: viewModel.initialThreadVariant,
+                initialIsNoteToSelf: viewModel.threadData.threadIsNoteToSelf,
+                initialIsBlocked: (viewModel.threadData.threadIsBlocked == true)
+            )
             
             let messageRequestsViewWasVisible: Bool = (
                 messageRequestStackView.isHidden == false
@@ -1139,7 +1167,12 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         }
     }
     
-    func updateNavBarButtons(threadData: SessionThreadViewModel?, initialVariant: SessionThread.Variant) {
+    func updateNavBarButtons(
+        threadData: SessionThreadViewModel?,
+        initialVariant: SessionThread.Variant,
+        initialIsNoteToSelf: Bool,
+        initialIsBlocked: Bool
+    ) {
         navigationItem.hidesBackButton = isShowingSearchUI
 
         if isShowingSearchUI {
@@ -1147,6 +1180,13 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             navigationItem.rightBarButtonItems = []
         }
         else {
+            let shouldHaveCallButton: Bool = (
+                SessionCall.isEnabled &&
+                (threadData?.threadVariant ?? initialVariant) == .contact &&
+                (threadData?.threadIsNoteToSelf ?? initialIsNoteToSelf) == false &&
+                (threadData?.threadIsBlocked ?? initialIsBlocked) == false
+            )
+            
             guard
                 let threadData: SessionThreadViewModel = threadData,
                 (
@@ -1169,7 +1209,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                             )
                         )
                     ),
-                    (initialVariant == .contact ?
+                    (shouldHaveCallButton ?
                         UIBarButtonItem(customView: UIView(frame: CGRect(x: 0, y: 0, width: 44, height: 44))) :
                         nil
                     )
@@ -1199,7 +1239,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                     settingsButtonItem.accessibilityLabel = "More options"
                     settingsButtonItem.isAccessibilityElement = true
                     
-                    if SessionCall.isEnabled && !threadData.threadIsNoteToSelf {
+                    if shouldHaveCallButton {
                         let callButton = UIBarButtonItem(
                             image: UIImage(named: "Phone"),
                             style: .plain,
@@ -1207,11 +1247,12 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                             action: #selector(startCall)
                         )
                         callButton.accessibilityLabel = "Call button"
+                        callButton.isAccessibilityElement = true
                         
                         navigationItem.rightBarButtonItems = [settingsButtonItem, callButton]
                     }
                     else {
-                        navigationItem.rightBarButtonItem = settingsButtonItem
+                        navigationItem.rightBarButtonItems = [settingsButtonItem]
                     }
                     
                 default:
@@ -1640,7 +1681,12 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         }
         
         // Nav bar buttons
-        updateNavBarButtons(threadData: self.viewModel.threadData, initialVariant: viewModel.initialThreadVariant)
+        updateNavBarButtons(
+            threadData: viewModel.threadData,
+            initialVariant: viewModel.initialThreadVariant,
+            initialIsNoteToSelf: viewModel.threadData.threadIsNoteToSelf,
+            initialIsBlocked: (viewModel.threadData.threadIsBlocked == true)
+        )
         
         // Hack so that the ResultsBar stays on the screen when dismissing the search field
         // keyboard.
@@ -1675,7 +1721,12 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     @objc func hideSearchUI() {
         isShowingSearchUI = false
         navigationItem.titleView = titleView
-        updateNavBarButtons(threadData: self.viewModel.threadData, initialVariant: viewModel.initialThreadVariant)
+        updateNavBarButtons(
+            threadData: viewModel.threadData,
+            initialVariant: viewModel.initialThreadVariant,
+            initialIsNoteToSelf: viewModel.threadData.threadIsNoteToSelf,
+            initialIsBlocked: (viewModel.threadData.threadIsBlocked == true)
+        )
         
         searchController.uiSearchController.stubbableSearchBar.stubbedNextResponder = nil
         becomeFirstResponder()
@@ -1799,5 +1850,11 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                 .asType(VisibleMessageCell.self)?
                 .highlight()
         }
+    }
+    
+    // MARK: - SessionUtilRespondingViewController
+    
+    func isConversation(in threadIds: [String]) -> Bool {
+        return threadIds.contains(self.viewModel.threadData.threadId)
     }
 }
