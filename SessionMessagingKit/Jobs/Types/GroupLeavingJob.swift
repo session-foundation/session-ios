@@ -19,7 +19,6 @@ public enum GroupLeavingJob: JobExecutor {
         failure: @escaping (SessionUtilitiesKit.Job, Error?, Bool) -> (),
         deferred: @escaping (SessionUtilitiesKit.Job) -> ())
     {
-        print("Ryan Test: Group leaving job running")
         guard
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData),
