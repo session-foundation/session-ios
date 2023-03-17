@@ -24,7 +24,7 @@ public enum GroupLeavingJob: JobExecutor {
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData),
             let interactionId: Int64 = job.interactionId
         else {
-            failure(job, JobRunnerError.missingRequiredDetails, false)
+            failure(job, JobRunnerError.missingRequiredDetails, true)
             return
         }
         
