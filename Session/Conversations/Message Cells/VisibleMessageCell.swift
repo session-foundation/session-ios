@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import SessionUIKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
 import SessionMessagingKit
@@ -781,15 +782,21 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
 
     // MARK: - Interaction
     
-//    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-//        if let bodyTappableLabel = bodyTappableLabel {
-//            let btIngetBodyTappableLabelCoordinates = convert(point, to: bodyTappableLabel)
-//            if bodyTappableLabel.bounds.contains(btIngetBodyTappableLabelCoordinates) {
-//                return bodyTappableLabel
-//            }
-//        }
-//        return super.hitTest(point, with: event)
-//    }
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        // We are currently using Appium to do automated UI testing, unfortunately it seems to run into
+        // issues when trying to long-press an element which has custom interaction logic - the TappableLabel
+        // only needs to custom handle touches for interacting with links so we check to see if it contains
+        // links before forwarding touches to it
+        if let bodyTappableLabel: TappableLabel = bodyTappableLabel, bodyTappableLabel.containsLinks {
+            let bodyTappableLabelLocalTapCoordinate: CGPoint = convert(point, to: bodyTappableLabel)
+            
+            if bodyTappableLabel.bounds.contains(bodyTappableLabelLocalTapCoordinate) {
+                return bodyTappableLabel
+            }
+        }
+        
+        return super.hitTest(point, with: event)
+    }
 
     override func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         return true // Needed for the pan gesture recognizer to work with the table view's pan gesture recognizer
