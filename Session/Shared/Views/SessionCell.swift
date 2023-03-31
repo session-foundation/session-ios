@@ -95,7 +95,7 @@ public class SessionCell: UITableViewCell {
         return result
     }()
     
-    private let titleLabel: SRCopyableLabel = {
+    fileprivate let titleLabel: SRCopyableLabel = {
         let result: SRCopyableLabel = SRCopyableLabel()
         result.translatesAutoresizingMaskIntoConstraints = false
         result.isUserInteractionEnabled = false
@@ -586,7 +586,16 @@ public class SessionCell: UITableViewCell {
 
 extension CombineCompatible where Self: SessionCell {
     var textPublisher: AnyPublisher<String, Never> {
-        return self.titleTextField.publisher(for: .editingChanged)
+        return self.titleTextField.publisher(for: [.editingChanged, .editingDidEnd])
+            .handleEvents(
+                receiveOutput: { [weak self] textField in
+                    // When editing the text update the 'accessibilityLabel' of the cell to match
+                    // the text
+                    let targetText: String? = (textField.isEditing ? textField.text : self?.titleLabel.text)
+                    self?.accessibilityLabel = (targetText ?? self?.accessibilityLabel)
+                }
+            )
+            .filter { $0.isEditing }    // Don't bother sending events for 'editingDidEnd'
             .map { textField -> String in (textField.text ?? "") }
             .eraseToAnyPublisher()
     }

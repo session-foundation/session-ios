@@ -41,6 +41,15 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
         case unsendRequest = 7
         case messageRequestResponse = 8
         case call = 9
+        
+        /// Since we retrieve messages from all snodes in a swarm there is a fun issue where a user can delete a
+        /// one-to-one conversation (which removes all associated interactions) and then the poller checks a
+        /// different service node, if a previously processed message hadn't been processed yet for that specific
+        /// service node it results in the conversation re-appearing
+        ///
+        /// This `Variant` allows us to create a record which survives thread deletion to prevent a duplicate
+        /// message from being reprocessed
+        case visibleMessageDedupe = 10
     }
     
     /// The id for the thread the control message is associated to
@@ -68,10 +77,6 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
         message: Message,
         serverExpirationTimestamp: TimeInterval?
     ) {
-        // All `VisibleMessage` values will have an associated `Interaction` so just let
-        // the unique constraints on that table prevent duplicate messages
-        if message is VisibleMessage { return nil }
-        
         // Allow duplicates for UnsendRequest messages, if a user received an UnsendRequest
         // as a push notification the it wouldn't include a serverHash and, as a result,
         // wouldn't get deleted from the server - since the logic only runs if we find a
@@ -113,6 +118,7 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
                 case is UnsendRequest: return .unsendRequest
                 case is MessageRequestResponse: return .messageRequestResponse
                 case is CallMessage: return .call
+                case is VisibleMessage: return .visibleMessageDedupe
                 default: preconditionFailure("[ControlMessageProcessRecord] Unsupported message type")
             }
         }()

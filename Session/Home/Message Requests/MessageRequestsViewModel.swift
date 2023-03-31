@@ -185,28 +185,13 @@ public class MessageRequestsViewModel {
                 cancelStyle: .alert_text
             ) { _ in
                 Storage.shared.write { db in
-                    switch threadVariant {
-                        case .contact:
-                            try SessionUtil
-                                .hide(db, contactIds: [threadId])
-                            
-                            _ = try SessionThread
-                                .filter(id: threadId)
-                                .deleteAll(db)
-                            
-                        case .legacyGroup, .group:
-                            try ClosedGroup.removeKeysAndUnsubscribe(
-                                db,
-                                threadId: threadId,
-                                removeGroupData: true,
-                                calledFromConfigHandling: false
-                            )
-                            
-                            // Trigger a config sync
-                            ConfigurationSyncJob.enqueue(db, publicKey: getUserHexEncodedPublicKey(db))
-                            
-                        default: break
-                    }
+                    try SessionThread.deleteOrLeave(
+                        db,
+                        threadId: threadId,
+                        threadVariant: threadVariant,
+                        shouldSendLeaveMessageForGroups: false,
+                        calledFromConfigHandling: false
+                    )
                 }
                 
                 completion?()
@@ -250,14 +235,13 @@ public class MessageRequestsViewModel {
                                 Contact.Columns.didApproveMe.set(to: true)
                             )
                         
-                        // Sync the removal of the thread from other devices
-                        try SessionUtil
-                            .hide(db, contactIds: [threadId])
-                        
-                        // Remove the thread
-                        _ = try SessionThread
-                            .filter(id: threadId)
-                            .deleteAll(db)
+                        try SessionThread.deleteOrLeave(
+                            db,
+                            threadId: threadId,
+                            threadVariant: .contact,
+                            shouldSendLeaveMessageForGroups: false,
+                            calledFromConfigHandling: false
+                        )
                     },
                     completion: { _, _ in completion?() }
                 )
@@ -269,24 +253,25 @@ public class MessageRequestsViewModel {
     
     static func clearAllRequests(
         contactThreadIds: [String],
-        closedGroupThreadIds: [String]
+        groupThreadIds: [String]
     ) {
         // Clear the requests
         Storage.shared.write { db in
-            // Sync the removal of the thread from other devices
-            try SessionUtil
-                .hide(db, contactIds: contactThreadIds)
-            
-            // Remove the threads
-            _ = try SessionThread
-                .filter(ids: contactThreadIds)
-                .deleteAll(db)
-            
-            // Remove the groups
-            try ClosedGroup.removeKeysAndUnsubscribe(
+            // Remove the one-to-one requests
+            try SessionThread.deleteOrLeave(
                 db,
-                threadIds: closedGroupThreadIds,
-                removeGroupData: true,
+                threadIds: contactThreadIds,
+                threadVariant: .contact,
+                shouldSendLeaveMessageForGroups: false,
+                calledFromConfigHandling: false
+            )
+            
+            // Remove the group requests
+            try SessionThread.deleteOrLeave(
+                db,
+                threadIds: groupThreadIds,
+                threadVariant: .group,
+                shouldSendLeaveMessageForGroups: false,
                 calledFromConfigHandling: false
             )
         }

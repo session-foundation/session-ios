@@ -9,7 +9,7 @@ import SessionUtilitiesKit
 import SignalUtilitiesKit
 import SignalCoreKit
 
-class GlobalSearchViewController: BaseVC, UITableViewDelegate, UITableViewDataSource {
+class GlobalSearchViewController: BaseVC, SessionUtilRespondingViewController, UITableViewDelegate, UITableViewDataSource {
     fileprivate typealias SectionModel = ArraySection<SearchSection, SessionThreadViewModel>
     
     // MARK: - SearchSection
@@ -18,6 +18,15 @@ class GlobalSearchViewController: BaseVC, UITableViewDelegate, UITableViewDataSo
         case noResults
         case contactsAndGroups
         case messages
+    }
+    
+    // MARK: - SessionUtilRespondingViewController
+    
+    let isConversationList: Bool = true
+    
+    func forceRefreshIfNeeded() {
+        // Need to do this as the 'GlobalSearchViewController' doesn't observe database changes
+        updateSearchResults(searchText: searchText, force: true)
     }
     
     // MARK: - Variables
@@ -152,7 +161,7 @@ class GlobalSearchViewController: BaseVC, UITableViewDelegate, UITableViewDataSo
         }
     }
 
-    private func updateSearchResults(searchText rawSearchText: String) {
+    private func updateSearchResults(searchText rawSearchText: String, force: Bool = false) {
         let searchText = rawSearchText.stripped
         
         guard searchText.count > 0 else {
@@ -161,7 +170,7 @@ class GlobalSearchViewController: BaseVC, UITableViewDelegate, UITableViewDataSo
             reloadTableData()
             return
         }
-        guard lastSearchText != searchText else { return }
+        guard force || lastSearchText != searchText else { return }
 
         lastSearchText = searchText
 

@@ -115,7 +115,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
 
         createViews()
 
-        reachability = Reachability.forInternetConnection()
+        reachability = Environment.shared?.reachabilityManager.reachability
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(reachabilityChanged),

@@ -7,7 +7,7 @@ import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
 
-class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDataSource {
+class MessageRequestsViewController: BaseVC, SessionUtilRespondingViewController, UITableViewDelegate, UITableViewDataSource {
     private static let loadingHeaderHeight: CGFloat = 40
     
     private let viewModel: MessageRequestsViewModel = MessageRequestsViewModel()
@@ -16,6 +16,10 @@ class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDat
     private var isLoadingMore: Bool = false
     private var isAutoLoadingNextPage: Bool = false
     private var viewHasAppeared: Bool = false
+    
+    // MARK: - SessionUtilRespondingViewController
+    
+    let isConversationList: Bool = true
     
     // MARK: - Intialization
     
@@ -466,7 +470,7 @@ class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDat
             .filter { $0.threadVariant == .contact }
             .map { $0.threadId })
             .defaulting(to: [])
-        let closedGroupThreadIds: [String] = (viewModel.threadData
+        let groupThreadIds: [String] = (viewModel.threadData
             .first { $0.model == .threads }?
             .elements
             .filter { $0.threadVariant == .legacyGroup || $0.threadVariant == .group }
@@ -483,7 +487,7 @@ class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDat
         ) { _ in
             MessageRequestsViewModel.clearAllRequests(
                 contactThreadIds: contactThreadIds,
-                closedGroupThreadIds: closedGroupThreadIds
+                groupThreadIds: groupThreadIds
             )
         })
         alertVC.addAction(UIAlertAction(title: "TXT_CANCEL_TITLE".localized(), style: .cancel, handler: nil))

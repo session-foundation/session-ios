@@ -209,24 +209,74 @@ internal extension SessionUtil {
             // Extract the ones which will respond to SessionUtil changes
             let targetViewControllers: [any SessionUtilRespondingViewController] = navController
                 .viewControllers
-                .compactMap({ $0 as? SessionUtilRespondingViewController })
+                .compactMap { $0 as? SessionUtilRespondingViewController }
+            let presentedNavController: UINavigationController? = (navController.presentedViewController as? UINavigationController)
+            let presentedTargetViewControllers: [any SessionUtilRespondingViewController] = (presentedNavController?
+                .viewControllers
+                .compactMap { $0 as? SessionUtilRespondingViewController })
+                .defaulting(to: [])
             
             // Make sure we have a conversation list and that one of the removed conversations are
             // in the nav hierarchy
-            guard
-                targetViewControllers.count > 1,
-                targetViewControllers.contains(where: { $0.isConversationList }),
+            let rootNavControllerNeedsPop: Bool = (
+                targetViewControllers.count > 1 &&
+                targetViewControllers.contains(where: { $0.isConversationList }) &&
                 targetViewControllers.contains(where: { $0.isConversation(in: removedThreadIds) })
-            else { return }
+            )
+            let presentedNavControllerNeedsPop: Bool = (
+                presentedTargetViewControllers.count > 1 &&
+                presentedTargetViewControllers.contains(where: { $0.isConversationList }) &&
+                presentedTargetViewControllers.contains(where: { $0.isConversation(in: removedThreadIds) })
+            )
             
-            // Return to the root view controller as the removed conversation will be invalid
-            if navController.presentedViewController != nil {
-                navController.dismiss(animated: false) {
-                    navController.popToRootViewController(animated: true)
-                }
-            }
-            else {
-                navController.popToRootViewController(animated: true)
+            // Force the UI to refresh if needed (most screens should do this automatically via database
+            // observation, but a couple of screens don't so need to be done manually)
+            targetViewControllers
+                .appending(contentsOf: presentedTargetViewControllers)
+                .filter { $0.isConversationList }
+                .forEach { $0.forceRefreshIfNeeded() }
+            
+            switch (rootNavControllerNeedsPop, presentedNavControllerNeedsPop) {
+                case (true, false):
+                    // Return to the conversation list as the removed conversation will be invalid
+                    guard
+                        let targetViewController: UIViewController = navController.viewControllers
+                            .last(where: { viewController in
+                                ((viewController as? SessionUtilRespondingViewController)?.isConversationList)
+                                    .defaulting(to: false)
+                            })
+                    else { return }
+                    
+                    if navController.presentedViewController != nil {
+                        navController.dismiss(animated: false) {
+                            navController.popToViewController(targetViewController, animated: true)
+                        }
+                    }
+                    else {
+                        navController.popToViewController(targetViewController, animated: true)
+                    }
+                    
+                case (false, true):
+                    // Return to the conversation list as the removed conversation will be invalid
+                    guard
+                        let targetViewController: UIViewController = presentedNavController?
+                            .viewControllers
+                            .last(where: { viewController in
+                                ((viewController as? SessionUtilRespondingViewController)?.isConversationList)
+                                    .defaulting(to: false)
+                            })
+                    else { return }
+                    
+                    if presentedNavController?.presentedViewController != nil {
+                        presentedNavController?.dismiss(animated: false) {
+                            presentedNavController?.popToViewController(targetViewController, animated: true)
+                        }
+                    }
+                    else {
+                        presentedNavController?.popToViewController(targetViewController, animated: true)
+                    }
+                    
+                default: break
             }
         }
     }
@@ -256,7 +306,12 @@ public extension SessionUtil {
                 var cThreadId: [CChar] = threadId.cArray
                 
                 switch threadVariant {
-                    case .contact: return contacts_get(conf, nil, &cThreadId)
+                    case .contact:
+                        var contact: contacts_contact = contacts_contact()
+                        
+                        guard contacts_get(conf, &contact, &cThreadId) else { return false }
+                        
+                        return !contact.hidden
                         
                     case .community:
                         let maybeUrlInfo: OpenGroupUrlInfo? = Storage.shared
@@ -267,8 +322,9 @@ public extension SessionUtil {
                         
                         var cBaseUrl: [CChar] = urlInfo.server.cArray
                         var cRoom: [CChar] = urlInfo.roomToken.cArray
+                        var community: ugroups_community_info = ugroups_community_info()
                         
-                        return user_groups_get_community(conf, nil, &cBaseUrl, &cRoom)
+                        return user_groups_get_community(conf, &community, &cBaseUrl, &cRoom)
                         
                     case .legacyGroup:
                         let groupInfo: UnsafeMutablePointer<ugroups_legacy_group_info>? = user_groups_get_legacy_group(conf, &cThreadId)
@@ -331,10 +387,12 @@ public protocol SessionUtilRespondingViewController {
     var isConversationList: Bool { get }
     
     func isConversation(in threadIds: [String]) -> Bool
+    func forceRefreshIfNeeded()
 }
 
 public extension SessionUtilRespondingViewController {
     var isConversationList: Bool { false }
     
     func isConversation(in threadIds: [String]) -> Bool { return false }
+    func forceRefreshIfNeeded() {}
 }

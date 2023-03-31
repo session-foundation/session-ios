@@ -93,8 +93,13 @@ extension MessageReceiver {
                 .updateAll(db, Interaction.Columns.threadId.set(to: unblindedThread.id))
             
             _ = try SessionThread
-                .filter(id: blindedIdLookup.blindedId)
-                .deleteAll(db)
+                .deleteOrLeave(
+                    db,
+                    threadId: blindedIdLookup.blindedId,
+                    threadVariant: .contact,
+                    shouldSendLeaveMessageForGroups: false,
+                    calledFromConfigHandling: false
+                )
         }
         
         // Update the `didApproveMe` state of the sender

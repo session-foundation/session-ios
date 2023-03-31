@@ -368,44 +368,13 @@ public class HomeViewModel {
     
     public func deleteOrLeave(threadId: String, threadVariant: SessionThread.Variant) {
         Storage.shared.writeAsync { db in
-            switch threadVariant {
-                case .contact:
-                    // We need to custom handle the 'Note to Self' conversation (it should just be
-                    // hidden rather than deleted
-                    guard threadId != getUserHexEncodedPublicKey(db) else {
-                        _ = try Interaction
-                            .filter(Interaction.Columns.threadId == threadId)
-                            .deleteAll(db)
-                        
-                        _ = try SessionThread
-                            .filter(id: threadId)
-                            .updateAllAndConfig(
-                                db,
-                                SessionThread.Columns.shouldBeVisible.set(to: false)
-                            )
-                        
-                        return
-                    }
-                    
-                    try SessionUtil
-                        .hide(db, contactIds: [threadId])
-                    
-                case .legacyGroup, .group:
-                    MessageSender
-                        .leave(db, groupPublicKey: threadId)
-                        .sinkUntilComplete()
-                    
-                case .community:
-                    OpenGroupManager.shared.delete(
-                        db,
-                        openGroupId: threadId,
-                        calledFromConfigHandling: false
-                    )
-            }
-            
-            _ = try SessionThread
-                .filter(id: threadId)
-                .deleteAll(db)
+            try SessionThread.deleteOrLeave(
+                db,
+                threadId: threadId,
+                threadVariant: threadVariant,
+                shouldSendLeaveMessageForGroups: true,
+                calledFromConfigHandling: false
+            )
         }
     }
 }

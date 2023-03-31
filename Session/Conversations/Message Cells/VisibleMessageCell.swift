@@ -301,9 +301,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         lastSearchText: String?
     ) {
         self.viewModel = cellViewModel
-        self.bubbleView.accessibilityIdentifier = "Message Body"
-        self.bubbleView.isAccessibilityElement = true
-        self.bubbleView.accessibilityLabel = cellViewModel.body
+        
         // We want to add spacing between "clusters" of messages to indicate that time has
         // passed (even if there wasn't enough time to warrant showing a date header)
         let shouldAddTopInset: Bool = (
@@ -361,6 +359,10 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             playbackInfo: playbackInfo,
             lastSearchText: lastSearchText
         )
+        
+        bubbleView.accessibilityIdentifier = "Message Body"
+        bubbleView.accessibilityLabel = bodyTappableLabel?.attributedText?.string
+        bubbleView.isAccessibilityElement = true
         
         // Author label
         authorLabelTopConstraint.constant = (shouldAddTopInset ? Values.mediumSpacing : 0)

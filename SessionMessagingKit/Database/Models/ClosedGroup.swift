@@ -164,7 +164,7 @@ public extension ClosedGroup {
         
         // Remove the remaining group data if desired
         if removeGroupData {
-            try SessionThread
+            try SessionThread   // Intentionally use `deleteAll` here as this gets triggered via `deleteOrLeave`
                 .filter(ids: threadIds)
                 .deleteAll(db)
             

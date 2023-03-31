@@ -88,7 +88,7 @@ internal extension SessionUtil {
                             ),
                         groupMembers: members
                             .filter { _, isAdmin in !isAdmin }
-                            .map { memberId, admin in
+                            .map { memberId, _ in
                                 GroupMember(
                                     groupId: groupId,
                                     profileId: memberId,
@@ -98,7 +98,7 @@ internal extension SessionUtil {
                             },
                         groupAdmins: members
                             .filter { _, isAdmin in isAdmin }
-                            .map { memberId, admin in
+                            .map { memberId, _ in
                                 GroupMember(
                                     groupId: groupId,
                                     profileId: memberId,
@@ -171,13 +171,14 @@ internal extension SessionUtil {
         if !communityIdsToRemove.isEmpty {
             SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: Array(communityIdsToRemove))
             
-            communityIdsToRemove.forEach { threadId in
-                OpenGroupManager.shared.delete(
+            try SessionThread
+                .deleteOrLeave(
                     db,
-                    openGroupId: threadId,
+                    threadIds: Array(communityIdsToRemove),
+                    threadVariant: .community,
+                    shouldSendLeaveMessageForGroups: false,
                     calledFromConfigHandling: true
                 )
-            }
         }
         
         // MARK: -- Handle Legacy Group Changes
@@ -200,7 +201,7 @@ internal extension SessionUtil {
                 let name: String = group.name,
                 let lastKeyPair: ClosedGroupKeyPair = group.lastKeyPair,
                 let members: [GroupMember] = group.groupMembers,
-                let updatedAdmins: [GroupMember] = group.groupAdmins
+                let updatedAdmins: Set<GroupMember> = group.groupAdmins?.asSet()
             else { return }
             
             if !existingLegacyGroupIds.contains(group.id) {
@@ -214,7 +215,8 @@ internal extension SessionUtil {
                         secretKey: lastKeyPair.secretKey.bytes
                     ),
                     members: members
-                        .appending(contentsOf: updatedAdmins)  // Admins should also have 'standard' member entries
+                        .asSet()
+                        .inserting(contentsOf: updatedAdmins)  // Admins should also have 'standard' member entries
                         .map { $0.profileId },
                     admins: updatedAdmins.map { $0.profileId },
                     expirationTimer: UInt32(group.disappearingConfig?.durationSeconds ?? 0),
@@ -253,7 +255,7 @@ internal extension SessionUtil {
                     .saved(db)
                 
                 // Update the members
-                let updatedMembers: [GroupMember] = members
+                let updatedMembers: Set<GroupMember> = members
                     .appending(
                         contentsOf: updatedAdmins.map { admin in
                             GroupMember(
@@ -264,10 +266,12 @@ internal extension SessionUtil {
                             )
                         }
                     )
+                    .asSet()
                 
                 if
-                    let existingMembers: [GroupMember] = existingLegacyGroupMembers[group.id]?
-                        .filter({ $0.role == .standard || $0.role == .zombie }),
+                    let existingMembers: Set<GroupMember> = existingLegacyGroupMembers[group.id]?
+                        .filter({ $0.role == .standard || $0.role == .zombie })
+                        .asSet(),
                     existingMembers != updatedMembers
                 {
                     // Add in any new members and remove any removed members
@@ -288,8 +292,9 @@ internal extension SessionUtil {
                 }
 
                 if
-                    let existingAdmins: [GroupMember] = existingLegacyGroupMembers[group.id]?
-                        .filter({ $0.role == .admin }),
+                    let existingAdmins: Set<GroupMember> = existingLegacyGroupMembers[group.id]?
+                        .filter({ $0.role == .admin })
+                        .asSet(),
                     existingAdmins != updatedAdmins
                 {
                     // Add in any new admins and remove any removed admins
@@ -326,12 +331,14 @@ internal extension SessionUtil {
         if !legacyGroupIdsToRemove.isEmpty {
             SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: Array(legacyGroupIdsToRemove))
             
-            try ClosedGroup.removeKeysAndUnsubscribe(
-                db,
-                threadIds: Array(legacyGroupIdsToRemove),
-                removeGroupData: true,
-                calledFromConfigHandling: true
-            )
+            try SessionThread
+                .deleteOrLeave(
+                    db,
+                    threadIds: Array(legacyGroupIdsToRemove),
+                    threadVariant: .legacyGroup,
+                    shouldSendLeaveMessageForGroups: false,
+                    calledFromConfigHandling: true
+                )
         }
         
         // MARK: -- Handle Group Changes
@@ -364,8 +371,6 @@ internal extension SessionUtil {
         guard conf != nil else { throw SessionUtilError.nilConfigObject }
         guard !legacyGroups.isEmpty else { return }
         
-        // Since we are doing direct memory manipulation we are using an `Atomic` type which has
-        // blocking access in it's `mutate` closure
         legacyGroups
             .forEach { legacyGroup in
                 var cGroupId: [CChar] = legacyGroup.id.cArray
@@ -405,7 +410,12 @@ internal extension SessionUtil {
                 }()
                 
                 if let groupMembers: [GroupMember] = legacyGroup.groupMembers {
-                    let memberIds: Set<String> = groupMembers.map { $0.profileId }.asSet()
+                    // Need to make sure we remove any admins before adding them here otherwise we will
+                    // overwrite the admin permission to be a standard user permission
+                    let memberIds: Set<String> = groupMembers
+                        .map { $0.profileId }
+                        .asSet()
+                        .subtracting(legacyGroup.groupAdmins.defaulting(to: []).map { $0.profileId }.asSet())
                     let existingMemberIds: Set<String> = Array(existingMembers
                         .filter { _, isAdmin in !isAdmin }
                         .keys)
@@ -555,6 +565,19 @@ public extension SessionUtil {
             for: .userGroups,
             publicKey: getUserHexEncodedPublicKey(db)
         ) { conf in
+            guard conf != nil else { throw SessionUtilError.nilConfigObject }
+            
+            var cGroupId: [CChar] = groupPublicKey.cArray
+            let userGroup: UnsafeMutablePointer<ugroups_legacy_group_info>? = user_groups_get_legacy_group(conf, &cGroupId)
+            
+            // Need to make sure the group doesn't already exist (otherwise we will end up overriding the
+            // content which could revert newer changes since this can be triggered from other 'NEW' messages
+            // coming in from the legacy group swarm)
+            guard userGroup == nil else {
+                ugroups_legacy_group_free(userGroup)
+                return
+            }
+            
             try SessionUtil.upsert(
                 legacyGroups: [
                     LegacyGroupInfo(

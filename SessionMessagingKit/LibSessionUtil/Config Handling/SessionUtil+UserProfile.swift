@@ -98,6 +98,20 @@ internal extension SessionUtil {
                     db,
                     SessionThread.Columns.pinnedPriority.set(to: targetPriority)
                 )
+            
+            // If the 'Note to Self' conversation is hidden then we should trigger the proper
+            // `deleteOrLeave` behaviour (for 'Note to Self' this will leave the conversation
+            // but remove the associated interactions)
+            if targetHiddenState {
+                try SessionThread
+                    .deleteOrLeave(
+                        db,
+                        threadId: userPublicKey,
+                        threadVariant: .contact,
+                        shouldSendLeaveMessageForGroups: false,
+                        calledFromConfigHandling: true
+                    )
+            }
         }
         
         // Create a contact for the current user if needed (also force-approve the current user

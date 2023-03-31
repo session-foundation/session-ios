@@ -555,7 +555,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
             )
         {
             Storage.shared.writeAsync { db in
-                _ = try SessionThread
+                _ = try SessionThread   // Intentionally use `deleteAll` here instead of `deleteOrLeave`
                     .filter(id: threadId)
                     .deleteAll(db)
             }
@@ -601,8 +601,18 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                         }),
                         let unblindedId: String = blindedLookup.sessionId
                     else {
-                        // If we don't have an unblinded id then something has gone very wrong so pop to the HomeVC
-                        self?.navigationController?.popToRootViewController(animated: true)
+                        // If we don't have an unblinded id then something has gone very wrong so pop to the
+                        // nearest conversation list
+                        let maybeTargetViewController: UIViewController? = self?.navigationController?
+                            .viewControllers
+                            .last(where: { ($0 as? SessionUtilRespondingViewController)?.isConversationList == true })
+                        
+                        if let targetViewController: UIViewController = maybeTargetViewController {
+                            self?.navigationController?.popToViewController(targetViewController, animated: true)
+                        }
+                        else {
+                            self?.navigationController?.popToRootViewController(animated: true)
+                        }
                         return
                     }
                     
@@ -1246,7 +1256,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                             target: self,
                             action: #selector(startCall)
                         )
-                        callButton.accessibilityLabel = "Call button"
+                        callButton.accessibilityLabel = "Call"
                         callButton.isAccessibilityElement = true
                         
                         navigationItem.rightBarButtonItems = [settingsButtonItem, callButton]

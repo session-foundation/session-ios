@@ -199,7 +199,7 @@ internal extension SessionUtil {
                     threadInfo.changes.forEach { change in
                         switch change {
                             case .lastReadTimestampMs(let lastReadMs):
-                                oneToOne.last_read = lastReadMs
+                                oneToOne.last_read = max(oneToOne.last_read, lastReadMs)
                                 
                             case .markedAsUnread(let unread):
                                 oneToOne.unread = unread
@@ -218,7 +218,7 @@ internal extension SessionUtil {
                     threadInfo.changes.forEach { change in
                         switch change {
                             case .lastReadTimestampMs(let lastReadMs):
-                                legacyGroup.last_read = lastReadMs
+                                legacyGroup.last_read = max(legacyGroup.last_read, lastReadMs)
                                 
                             case .markedAsUnread(let unread):
                                 legacyGroup.unread = unread
@@ -246,7 +246,7 @@ internal extension SessionUtil {
                     threadInfo.changes.forEach { change in
                         switch change {
                             case .lastReadTimestampMs(let lastReadMs):
-                                community.last_read = lastReadMs
+                                community.last_read = max(community.last_read, lastReadMs)
                                 
                             case .markedAsUnread(let unread):
                                 community.unread = unread

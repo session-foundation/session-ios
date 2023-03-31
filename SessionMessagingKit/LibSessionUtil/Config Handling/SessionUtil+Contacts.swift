@@ -171,8 +171,13 @@ internal extension SessionUtil {
                         SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: [contact.id])
                         
                         try SessionThread
-                            .filter(id: contact.id)
-                            .deleteAll(db)
+                            .deleteOrLeave(
+                                db,
+                                threadId: contact.id,
+                                threadVariant: .contact,
+                                shouldSendLeaveMessageForGroups: false,
+                                calledFromConfigHandling: true
+                            )
                         
                     case (true, false):
                         try SessionThread(
@@ -230,8 +235,13 @@ internal extension SessionUtil {
             
             // Delete the one-to-one conversations associated to the contact
             try SessionThread
-                .filter(ids: contactIdsToRemove)
-                .deleteAll(db)
+                .deleteOrLeave(
+                    db,
+                    threadIds: contactIdsToRemove,
+                    threadVariant: .contact,
+                    shouldSendLeaveMessageForGroups: false,
+                    calledFromConfigHandling: true
+                )
             
             try SessionUtil.remove(db, volatileContactIds: contactIdsToRemove)
         }
@@ -441,7 +451,13 @@ public extension SessionUtil {
             // Mark the contacts as hidden
             try SessionUtil.upsert(
                 contactData: contactIds
-                    .map { SyncedContactInfo(id: $0, hidden: true) },
+                    .map {
+                        SyncedContactInfo(
+                            id: $0,
+                            hidden: true,
+                            priority: 0
+                        )
+                    },
                 in: conf
             )
         }

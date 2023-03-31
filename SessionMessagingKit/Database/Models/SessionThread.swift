@@ -285,6 +285,89 @@ public extension SessionThread {
             )
         """)
     }
+    
+    static func deleteOrLeave(
+        _ db: Database,
+        threadId: String,
+        threadVariant: Variant,
+        shouldSendLeaveMessageForGroups: Bool,
+        calledFromConfigHandling: Bool
+    ) throws {
+        try deleteOrLeave(
+            db,
+            threadIds: [threadId],
+            threadVariant: threadVariant,
+            shouldSendLeaveMessageForGroups: shouldSendLeaveMessageForGroups,
+            calledFromConfigHandling: calledFromConfigHandling
+        )
+    }
+    
+    static func deleteOrLeave(
+        _ db: Database,
+        threadIds: [String],
+        threadVariant: Variant,
+        shouldSendLeaveMessageForGroups: Bool,
+        calledFromConfigHandling: Bool
+    ) throws {
+        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
+        let remainingThreadIds: [String] = threadIds.filter { $0 != currentUserPublicKey }
+        
+        switch threadVariant {
+            case .contact:
+                // We need to custom handle the 'Note to Self' conversation (it should just be
+                // hidden rather than deleted
+                if threadIds.contains(currentUserPublicKey) {
+                    _ = try Interaction
+                        .filter(Interaction.Columns.threadId == currentUserPublicKey)
+                        .deleteAll(db)
+                    
+                    _ = try SessionThread
+                        .filter(id: currentUserPublicKey)
+                        .updateAllAndConfig(
+                            db,
+                            SessionThread.Columns.pinnedPriority.set(to: 0),
+                            SessionThread.Columns.shouldBeVisible.set(to: false)
+                        )
+                    return
+                }
+                
+                // If this wasn't called from config handling then we need to hide the conversation
+                if !calledFromConfigHandling {
+                    try SessionUtil
+                        .hide(db, contactIds: threadIds)
+                }
+                
+            case .legacyGroup, .group:
+                if shouldSendLeaveMessageForGroups {
+                    threadIds.forEach { threadId in
+                        MessageSender
+                            .leave(db, groupPublicKey: threadId)
+                            .sinkUntilComplete()
+                    }
+                }
+                else {
+                    try ClosedGroup.removeKeysAndUnsubscribe(
+                        db,
+                        threadIds: threadIds,
+                        removeGroupData: true,
+                        calledFromConfigHandling: calledFromConfigHandling
+                    )
+                }
+                
+            case .community:
+                threadIds.forEach { threadId in
+                    OpenGroupManager.shared.delete(
+                        db,
+                        openGroupId: threadId,
+                        calledFromConfigHandling: calledFromConfigHandling
+                    )
+                }
+        }
+        
+        _ = try SessionThread
+            .filter(ids: remainingThreadIds)
+            .deleteAll(db)
+    }
 }
 
 // MARK: - Convenience

@@ -285,6 +285,10 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 ),
                                 backgroundStyle: .noBackground
                             ),
+                            accessibility: SessionCell.Accessibility(
+                                identifier: "Username",
+                                label: threadViewModel.displayName
+                            ),
                             onTap: {
                                 self?.textChanged(self?.oldDisplayName, for: .nickname)
                                 self?.setIsEditing(true)
