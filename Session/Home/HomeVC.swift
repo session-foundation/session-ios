@@ -619,56 +619,7 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
     }
     
     func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        let section: HomeViewModel.SectionModel = self.viewModel.threadData[indexPath.section]
-        let unswipeAnimationDelay: DispatchTimeInterval = .milliseconds(500)
-        
-        switch section.model {
-            case .messageRequests:
-                return nil
-            case .threads:
-                let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
-                guard threadViewModel.interactionVariant?.isGroupLeavingStatus != true else { return nil }
-                let hasUnread: Bool = (threadViewModel.threadUnreadCount ?? 0) > 0
-                let mark: UIContextualAction = UIContextualAction(
-                    title: ((hasUnread) ? "mark_read_button_text".localized() : "mark_unread_button_text".localized()),
-                    icon: ((hasUnread) ? UIImage(systemName: "envelope.open") : UIImage(systemName: "envelope.badge")),
-                    iconHeight: Values.smallFontSize,
-                    themeTintColor: .white,
-                    themeBackgroundColor: .conversationButton_swipeDestructive,
-                    side: .trailing,
-                    actionIndex: 0,
-                    indexPath: indexPath,
-                    tableView: tableView
-                ) { _, _, completionHandler in
-                    (tableView.cellForRow(at: indexPath) as? FullConversationCell)?.optimisticUpdate(
-                        hasUnread: !hasUnread
-                    )
-                    completionHandler(true)
-                    
-                    // Delay the change to give the cell "unswipe" animation some time to complete
-                    DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
-                        Storage.shared.writeAsync { db in
-                            if hasUnread {
-                                try Interaction.markAsRead(
-                                    db,
-                                    interactionId: threadViewModel.interactionId,
-                                    threadId: threadViewModel.threadId,
-                                    threadVariant: threadViewModel.threadVariant,
-                                    includingOlder: true,
-                                    trySendReadReceipt: true
-                                )
-                            } else {
-                                try Interaction
-                                    .filter(id: threadViewModel.interactionId)
-                                    .updateAll(db, Interaction.Columns.wasRead.set(to: false))
-                            }
-                        }
-                    }
-                }
-                mark.themeBackgroundColor = .conversationButton_swipeSecondary
-                return UISwipeActionsConfiguration(actions: [ mark ])
-            default: return nil
-        }
+        return nil
     }
     
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
