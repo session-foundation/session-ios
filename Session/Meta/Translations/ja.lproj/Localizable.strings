@@ -618,3 +618,4 @@
 "context_menu_resync" = "Resync";
 "GIPHY_PERMISSION_TITLE" = "Search GIFs?";
 "GIPHY_PERMISSION_MESSAGE" = "Session will connect to Giphy to provide search results. You will not have full metadata protection when sending GIFs.";
+"message_info_title" = "Message Info";
