@@ -13,13 +13,14 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool) -> (),
-        failure: @escaping (Job, Error?, Bool) -> (),
-        deferred: @escaping (Job) -> ()
+        success: @escaping (Job, Bool, Dependencies) -> (),
+        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
+        deferred: @escaping (Job, Dependencies) -> (),
+        dependencies: Dependencies = Dependencies()
     ) {
         // Don't run when inactive or not in main app
         guard (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false) else {
-            deferred(job) // Don't need to do anything if it's not the main app
+            deferred(job, dependencies) // Don't need to do anything if it's not the main app
             return
         }
         
@@ -27,7 +28,7 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
         // in the database so we need to create a dummy one to retrieve the default room data
         let defaultGroupId: String = OpenGroup.idFor(roomToken: "", server: OpenGroupAPI.defaultServer)
         
-        Storage.shared.write { db in
+        dependencies.storage.write { db in
             guard try OpenGroup.exists(db, id: defaultGroupId) == false else { return }
             
             _ = try OpenGroup(
@@ -43,8 +44,8 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
         }
         
         OpenGroupManager.getDefaultRoomsIfNeeded()
-            .done(on: queue) { _ in success(job, false) }
-            .catch(on: queue) { error in failure(job, error, false) }
+            .done(on: queue) { _ in success(job, false, dependencies) }
+            .catch(on: queue) { error in failure(job, error, false, dependencies) }
             .retainUntilComplete()
     }
 }

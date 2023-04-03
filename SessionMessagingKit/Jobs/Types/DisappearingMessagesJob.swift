@@ -13,15 +13,16 @@ public enum DisappearingMessagesJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool) -> (),
-        failure: @escaping (Job, Error?, Bool) -> (),
-        deferred: @escaping (Job) -> ()
+        success: @escaping (Job, Bool, Dependencies) -> (),
+        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
+        deferred: @escaping (Job, Dependencies) -> (),
+        dependencies: Dependencies = Dependencies()
     ) {
         // The 'backgroundTask' gets captured and cleared within the 'completion' block
         let timestampNowMs: TimeInterval = TimeInterval(SnodeAPI.currentOffsetTimestampMs())
         var backgroundTask: OWSBackgroundTask? = OWSBackgroundTask(label: #function)
         
-        let updatedJob: Job? = Storage.shared.write { db in
+        let updatedJob: Job? = dependencies.storage.write { db in
             _ = try Interaction
                 .filter(Interaction.Columns.expiresStartedAtMs != nil)
                 .filter((Interaction.Columns.expiresStartedAtMs + (Interaction.Columns.expiresInSeconds * 1000)) <= timestampNowMs)
@@ -35,7 +36,7 @@ public enum DisappearingMessagesJob: JobExecutor {
                 .saved(db)
         }
         
-        success(updatedJob ?? job, false)
+        success(updatedJob ?? job, false, dependencies)
         
         // The 'if' is only there to prevent the "variable never read" warning from showing
         if backgroundTask != nil { backgroundTask = nil }

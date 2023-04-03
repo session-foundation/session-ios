@@ -21,9 +21,10 @@ public enum GarbageCollectionJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool) -> (),
-        failure: @escaping (Job, Error?, Bool) -> (),
-        deferred: @escaping (Job) -> ()
+        success: @escaping (Job, Bool, Dependencies) -> (),
+        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
+        deferred: @escaping (Job, Dependencies) -> (),
+        dependencies: Dependencies = Dependencies()
     ) {
         /// Determine what types of data we want to collect (if we didn't provide any then assume we want to collect everything)
         ///
@@ -57,7 +58,7 @@ public enum GarbageCollectionJob: JobExecutor {
             return typesToCollect.asSet()
         }()
         
-        Storage.shared.writeAsync(
+        dependencies.storage.writeAsync(
             updates: { db in
                 /// Remove any typing indicators
                 if finalTypesToCollect.contains(.threadTypingIndicators) {
@@ -339,7 +340,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     
                     // If we couldn't get the file lists then fail (invalid state and don't want to delete all attachment/profile files)
                     guard let fileInfo: FileInfo = maybeFileInfo else {
-                        failure(job, StorageError.generic, false)
+                        failure(job, StorageError.generic, false, dependencies)
                         return
                     }
                         
@@ -414,7 +415,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     
                     // Report a single file deletion as a job failure (even if other content was successfully removed)
                     guard deletionErrors.isEmpty else {
-                        failure(job, (deletionErrors.first ?? StorageError.generic), false)
+                        failure(job, (deletionErrors.first ?? StorageError.generic), false, dependencies)
                         return
                     }
                     
@@ -424,7 +425,7 @@ public enum GarbageCollectionJob: JobExecutor {
                         UserDefaults.standard[.lastGarbageCollection] = Date()
                     }
                     
-                    success(job, false)
+                    success(job, false, dependencies)
                 }
             }
         )

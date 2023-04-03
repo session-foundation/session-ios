@@ -14,16 +14,17 @@ public enum SendReadReceiptsJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool) -> (),
-        failure: @escaping (Job, Error?, Bool) -> (),
-        deferred: @escaping (Job) -> ()
+        success: @escaping (Job, Bool, Dependencies) -> (),
+        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
+        deferred: @escaping (Job, Dependencies) -> (),
+        dependencies: Dependencies = Dependencies()
     ) {
         guard
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
         else {
-            failure(job, JobRunnerError.missingRequiredDetails, false)
+            failure(job, JobRunnerError.missingRequiredDetails, false, dependencies)
             return
         }
         
@@ -31,11 +32,11 @@ public enum SendReadReceiptsJob: JobExecutor {
         // something is marked as read we want to try and run immediately so don't scuedule
         // another run in this case)
         guard !details.timestampMsValues.isEmpty else {
-            success(job, true)
+            success(job, true, dependencies)
             return
         }
         
-        Storage.shared
+        dependencies.storage
             .writeAsync { db in
                 try MessageSender.sendImmediate(
                     db,
@@ -54,7 +55,7 @@ public enum SendReadReceiptsJob: JobExecutor {
                 var shouldFinishCurrentJob: Bool = false
                 let nextRunTimestamp: TimeInterval = (Date().timeIntervalSince1970 + minRunFrequency)
                 
-                let updatedJob: Job? = Storage.shared.write { db in
+                let updatedJob: Job? = dependencies.storage.write { db in
                     // If another 'sendReadReceipts' job was scheduled then update that one
                     // to run at 'nextRunTimestamp' and make the current job stop
                     if
@@ -79,9 +80,9 @@ public enum SendReadReceiptsJob: JobExecutor {
                         .saved(db)
                 }
                 
-                success(updatedJob ?? job, shouldFinishCurrentJob)
+                success(updatedJob ?? job, shouldFinishCurrentJob, dependencies)
             }
-            .catch(on: queue) { error in failure(job, error, false) }
+            .catch(on: queue) { error in failure(job, error, false, dependencies) }
             .retainUntilComplete()
     }
 }

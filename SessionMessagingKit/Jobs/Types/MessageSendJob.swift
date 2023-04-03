@@ -15,15 +15,16 @@ public enum MessageSendJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool) -> (),
-        failure: @escaping (Job, Error?, Bool) -> (),
-        deferred: @escaping (Job) -> ()
+        success: @escaping (Job, Bool, Dependencies) -> (),
+        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
+        deferred: @escaping (Job, Dependencies) -> (),
+        dependencies: Dependencies = Dependencies()
     ) {
         guard
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
         else {
-            failure(job, JobRunnerError.missingRequiredDetails, false)
+            failure(job, JobRunnerError.missingRequiredDetails, false, dependencies)
             return
         }
         
@@ -36,14 +37,14 @@ public enum MessageSendJob: JobExecutor {
                 let jobId: Int64 = job.id,
                 let interactionId: Int64 = job.interactionId
             else {
-                failure(job, JobRunnerError.missingRequiredDetails, false)
+                failure(job, JobRunnerError.missingRequiredDetails, false, dependencies)
                 return
             }
             
             // If the original interaction no longer exists then don't bother sending the message (ie. the
             // message was deleted before it even got sent)
-            guard Storage.shared.read({ db in try Interaction.exists(db, id: interactionId) }) == true else {
-                failure(job, StorageError.objectNotFound, true)
+            guard dependencies.storage.read({ db in try Interaction.exists(db, id: interactionId) }) == true else {
+                failure(job, StorageError.objectNotFound, true, dependencies)
                 return
             }
             
@@ -52,7 +53,7 @@ public enum MessageSendJob: JobExecutor {
             //
             // Note: Normal attachments should be sent in a non-durable way but any
             // attachments for LinkPreviews and Quotes will be processed through this mechanism
-            let attachmentState: (shouldFail: Bool, shouldDefer: Bool, fileIds: [String])? = Storage.shared.write { db in
+            let attachmentState: (shouldFail: Bool, shouldDefer: Bool, fileIds: [String])? = dependencies.storage.write { db in
                 let allAttachmentStateInfo: [Attachment.StateInfo] = try Attachment
                     .stateInfo(interactionId: interactionId)
                     .fetchAll(db)
@@ -110,7 +111,8 @@ public enum MessageSendJob: JobExecutor {
                                         attachmentId: stateInfo.attachmentId
                                     )
                                 ),
-                                before: job
+                                before: job,
+                                dependencies: dependencies
                             )
                     }
                     .forEach { otherJobId, _ in
@@ -140,13 +142,13 @@ public enum MessageSendJob: JobExecutor {
             // Note: If we have gotten to this point then any dependant attachment upload
             // jobs will have permanently failed so this message send should also do so
             guard attachmentState?.shouldFail == false else {
-                failure(job, AttachmentError.notUploaded, true)
+                failure(job, AttachmentError.notUploaded, true, dependencies)
                 return
             }
 
             // Defer the job if we found incomplete uploads
             guard attachmentState?.shouldDefer == false else {
-                deferred(job)
+                deferred(job, dependencies)
                 return
             }
             
@@ -161,7 +163,7 @@ public enum MessageSendJob: JobExecutor {
         details.message.threadId = (details.message.threadId ?? job.threadId)
         
         // Perform the actual message sending
-        Storage.shared.writeAsync { db -> Promise<Void> in
+        dependencies.storage.writeAsync { db -> Promise<Void> in
             try MessageSender.sendImmediate(
                 db,
                 message: details.message,
@@ -171,20 +173,20 @@ public enum MessageSendJob: JobExecutor {
                 isSyncMessage: (details.isSyncMessage == true)
             )
         }
-        .done(on: queue) { _ in success(job, false) }
+        .done(on: queue) { _ in success(job, false, dependencies) }
         .catch(on: queue) { error in
             SNLog("Couldn't send message due to error: \(error).")
             
             switch error {
                 case let senderError as MessageSenderError where !senderError.isRetryable:
-                    failure(job, error, true)
+                    failure(job, error, true, dependencies)
                     
                 case OnionRequestAPIError.httpRequestFailedAtDestination(let statusCode, _, _) where statusCode == 429: // Rate limited
-                    failure(job, error, true)
+                    failure(job, error, true, dependencies)
                     
                 case SnodeAPIError.clockOutOfSync:
                     SNLog("\(originalSentTimestamp != nil ? "Permanently Failing" : "Failing") to send \(type(of: details.message)) due to clock out of sync issue.")
-                    failure(job, error, (originalSentTimestamp != nil))
+                    failure(job, error, (originalSentTimestamp != nil), dependencies)
                     
                 default:
                     SNLog("Failed to send \(type(of: details.message)).")
@@ -192,15 +194,15 @@ public enum MessageSendJob: JobExecutor {
                     if details.message is VisibleMessage {
                         guard
                             let interactionId: Int64 = job.interactionId,
-                            Storage.shared.read({ db in try Interaction.exists(db, id: interactionId) }) == true
+                            dependencies.storage.read({ db in try Interaction.exists(db, id: interactionId) }) == true
                         else {
                             // The message has been deleted so permanently fail the job
-                            failure(job, error, true)
+                            failure(job, error, true, dependencies)
                             return
                         }
                     }
                     
-                    failure(job, error, false)
+                    failure(job, error, false, dependencies)
             }
         }
         .retainUntilComplete()

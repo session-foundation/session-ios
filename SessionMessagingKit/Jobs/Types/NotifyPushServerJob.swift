@@ -13,15 +13,16 @@ public enum NotifyPushServerJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool) -> (),
-        failure: @escaping (Job, Error?, Bool) -> (),
-        deferred: @escaping (Job) -> ()
+        success: @escaping (Job, Bool, Dependencies) -> (),
+        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
+        deferred: @escaping (Job, Dependencies) -> (),
+        dependencies: Dependencies = Dependencies()
     ) {
         guard
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
         else {
-            failure(job, JobRunnerError.missingRequiredDetails, false)
+            failure(job, JobRunnerError.missingRequiredDetails, false, dependencies)
             return
         }
         
@@ -32,8 +33,8 @@ public enum NotifyPushServerJob: JobExecutor {
                 maxRetryCount: 4,
                 queue: queue
             )
-            .done(on: queue) { _ in success(job, false) }
-            .catch(on: queue) { error in failure(job, error, false) }
+            .done(on: queue) { _ in success(job, false, dependencies) }
+            .catch(on: queue) { error in failure(job, error, false, dependencies) }
             .retainUntilComplete()
     }
 }

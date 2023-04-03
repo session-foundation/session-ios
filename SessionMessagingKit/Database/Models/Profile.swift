@@ -258,10 +258,10 @@ public extension Profile {
     ///
     /// **Note:** This method intentionally does **not** save the newly created Profile,
     /// it will need to be explicitly saved after calling
-    static func fetchOrCreateCurrentUser() -> Profile {
+    static func fetchOrCreateCurrentUser(dependencies: Dependencies = Dependencies()) -> Profile {
         var userPublicKey: String = ""
         
-        let exisingProfile: Profile? = Storage.shared.read { db in
+        let exisingProfile: Profile? = dependencies.storage.read { db in
             userPublicKey = getUserHexEncodedPublicKey(db)
             
             return try Profile.fetchOne(db, id: userPublicKey)

@@ -13,22 +13,23 @@ public enum MessageReceiveJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool) -> (),
-        failure: @escaping (Job, Error?, Bool) -> (),
-        deferred: @escaping (Job) -> ()
+        success: @escaping (Job, Bool, Dependencies) -> (),
+        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
+        deferred: @escaping (Job, Dependencies) -> (),
+        dependencies: Dependencies = Dependencies()
     ) {
         guard
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
         else {
-            failure(job, JobRunnerError.missingRequiredDetails, false)
+            failure(job, JobRunnerError.missingRequiredDetails, false, dependencies)
             return
         }
         
         var updatedJob: Job = job
         var leastSevereError: Error?
         
-        Storage.shared.write { db in
+        dependencies.storage.write { db in
             var remainingMessagesToProcess: [Details.MessageInfo] = []
             
             for messageInfo in details.messages {
@@ -86,13 +87,13 @@ public enum MessageReceiveJob: JobExecutor {
         // Handle the result
         switch leastSevereError {
             case let error as MessageReceiverError where !error.isRetryable:
-                failure(updatedJob, error, true)
+                failure(updatedJob, error, true, dependencies)
                 
             case .some(let error):
-                failure(updatedJob, error, false)
+                failure(updatedJob, error, false, dependencies)
                 
             case .none:
-                success(updatedJob, false)
+                success(updatedJob, false, dependencies)
         }
     }
 }

@@ -284,9 +284,9 @@ public final class ClosedGroupPoller {
                                         MessageReceiveJob.run(
                                             job,
                                             queue: queue,
-                                            success: { _, _ in seal.fulfill(()) },
-                                            failure: { _, _, _ in seal.fulfill(()) },
-                                            deferred: { _ in seal.fulfill(()) }
+                                            success: { _, _, _ in seal.fulfill(()) },
+                                            failure: { _, _, _, _ in seal.fulfill(()) },
+                                            deferred: { _, _ in seal.fulfill(()) }
                                         )
 
                                         return promise

@@ -270,12 +270,12 @@ public final class MessageSender {
                                 NotifyPushServerJob.run(
                                     job,
                                     queue: DispatchQueue.global(qos: .default),
-                                    success: { _, _ in seal.fulfill(()) },
-                                    failure: { _, _, _ in
+                                    success: { _, _, _ in seal.fulfill(()) },
+                                    failure: { _, _, _, _ in
                                         // Always fulfill because the notify PN server job isn't critical.
                                         seal.fulfill(())
                                     },
-                                    deferred: { _ in
+                                    deferred: { _, _ in
                                         // Always fulfill because the notify PN server job isn't critical.
                                         seal.fulfill(())
                                     }

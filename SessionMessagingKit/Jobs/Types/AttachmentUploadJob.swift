@@ -14,16 +14,17 @@ public enum AttachmentUploadJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool) -> (),
-        failure: @escaping (Job, Error?, Bool) -> (),
-        deferred: @escaping (Job) -> ()
+        success: @escaping (Job, Bool, Dependencies) -> (),
+        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
+        deferred: @escaping (Job, Dependencies) -> (),
+        dependencies: Dependencies = Dependencies()
     ) {
         guard
             let threadId: String = job.threadId,
             let interactionId: Int64 = job.interactionId,
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData),
-            let (attachment, openGroup): (Attachment, OpenGroup?) = Storage.shared.read({ db in
+            let (attachment, openGroup): (Attachment, OpenGroup?) = dependencies.storage.read({ db in
                 guard let attachment: Attachment = try Attachment.fetchOne(db, id: details.attachmentId) else {
                     return nil
                 }
@@ -31,20 +32,20 @@ public enum AttachmentUploadJob: JobExecutor {
                 return (attachment, try OpenGroup.fetchOne(db, id: threadId))
             })
         else {
-            failure(job, JobRunnerError.missingRequiredDetails, false)
+            failure(job, JobRunnerError.missingRequiredDetails, false, dependencies)
             return
         }
         
         // If the original interaction no longer exists then don't bother uploading the attachment (ie. the
         // message was deleted before it even got sent)
-        guard Storage.shared.read({ db in try Interaction.exists(db, id: interactionId) }) == true else {
-            failure(job, StorageError.objectNotFound, true)
+        guard dependencies.storage.read({ db in try Interaction.exists(db, id: interactionId) }) == true else {
+            failure(job, StorageError.objectNotFound, true, dependencies)
             return
         }
         
         // If the attachment is still pending download the hold off on running this job
         guard attachment.state != .pendingDownload && attachment.state != .downloading else {
-            deferred(job)
+            deferred(job, dependencies)
             return
         }
         
@@ -71,8 +72,8 @@ public enum AttachmentUploadJob: JobExecutor {
                     .map { response -> String in response.id }
             },
             encrypt: (openGroup == nil),
-            success: { _ in success(job, false) },
-            failure: { error in failure(job, error, false) }
+            success: { _ in success(job, false, dependencies) },
+            failure: { error in failure(job, error, false, dependencies) }
         )
     }
 }

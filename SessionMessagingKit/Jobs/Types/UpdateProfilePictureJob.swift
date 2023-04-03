@@ -13,13 +13,14 @@ public enum UpdateProfilePictureJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool) -> (),
-        failure: @escaping (Job, Error?, Bool) -> (),
-        deferred: @escaping (Job) -> ()
+        success: @escaping (Job, Bool, Dependencies) -> (),
+        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
+        deferred: @escaping (Job, Dependencies) -> (),
+        dependencies: Dependencies = Dependencies()
     ) {
         // Don't run when inactive or not in main app
         guard (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false) else {
-            deferred(job) // Don't need to do anything if it's not the main app
+            deferred(job, dependencies) // Don't need to do anything if it's not the main app
             return
         }
         
@@ -31,18 +32,18 @@ public enum UpdateProfilePictureJob: JobExecutor {
             // Reset the `nextRunTimestamp` value just in case the last run failed so we don't get stuck
             // in a loop endlessly deferring the job
             if let jobId: Int64 = job.id {
-                Storage.shared.write { db in
+                dependencies.storage.write { db in
                     try Job
                         .filter(id: jobId)
                         .updateAll(db, Job.Columns.nextRunTimestamp.set(to: 0))
                 }
             }
-            deferred(job)
+            deferred(job, dependencies)
             return
         }
         
         // Note: The user defaults flag is updated in ProfileManager
-        let profile: Profile = Profile.fetchOrCreateCurrentUser()
+        let profile: Profile = Profile.fetchOrCreateCurrentUser(dependencies: dependencies)
         let profileFilePath: String? = profile.profilePictureFileName
             .map { ProfileManager.profileAvatarFilepath(filename: $0) }
         
@@ -58,10 +59,10 @@ public enum UpdateProfilePictureJob: JobExecutor {
                 // issue as it will write to the database and this closure is already called within
                 // another database write
                 queue.async {
-                    success(job, false)
+                    success(job, false, dependencies)
                 }
             },
-            failure: { error in failure(job, error, false) }
+            failure: { error in failure(job, error, false, dependencies) }
         )
     }
 }

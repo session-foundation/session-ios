@@ -13,14 +13,15 @@ public enum GetSnodePoolJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool) -> (),
-        failure: @escaping (Job, Error?, Bool) -> (),
-        deferred: @escaping (Job) -> ()
+        success: @escaping (Job, Bool, Dependencies) -> (),
+        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
+        deferred: @escaping (Job, Dependencies) -> (),
+        dependencies: Dependencies = Dependencies()
     ) {
         // If the user doesn't exist then don't do anything (when the user registers we run this
         // job directly)
         guard Identity.userExists() else {
-            deferred(job)
+            deferred(job, dependencies)
             return
         }
         
@@ -30,13 +31,13 @@ public enum GetSnodePoolJob: JobExecutor {
         // wait if we already have a potentially valid snode pool
         guard !SnodeAPI.hasCachedSnodesInclusingExpired() else {
             SnodeAPI.getSnodePool().retainUntilComplete()
-            success(job, false)
+            success(job, false, dependencies)
             return
         }
         
         SnodeAPI.getSnodePool()
-            .done(on: queue) { _ in success(job, false) }
-            .catch(on: queue) { error in failure(job, error, false) }
+            .done(on: queue) { _ in success(job, false, dependencies) }
+            .catch(on: queue) { error in failure(job, error, false, dependencies) }
             .retainUntilComplete()
     }
     
@@ -44,9 +45,9 @@ public enum GetSnodePoolJob: JobExecutor {
         GetSnodePoolJob.run(
             Job(variant: .getSnodePool),
             queue: DispatchQueue.global(qos: .background),
-            success: { _, _ in },
-            failure: { _, _, _ in },
-            deferred: { _ in }
+            success: { _, _, _ in },
+            failure: { _, _, _, _ in },
+            deferred: { _, _ in }
         )
     }
 }
