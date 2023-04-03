@@ -633,7 +633,7 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                     title: ((hasUnread) ? "mark_read_button_text".localized() : "mark_unread_button_text".localized()),
                     icon: ((hasUnread) ? UIImage(systemName: "envelope.open") : UIImage(systemName: "envelope.badge")),
                     iconHeight: Values.smallFontSize,
-                    themeTintColor: .textPrimary,
+                    themeTintColor: .white,
                     themeBackgroundColor: .conversationButton_swipeDestructive,
                     side: .trailing,
                     actionIndex: 0,
@@ -693,7 +693,7 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                     title: (threadViewModel.threadIsPinned ? "UNPIN_BUTTON_TEXT".localized() : "PIN_BUTTON_TEXT".localized()),
                     icon: UIImage(systemName: "pin"),
                     iconHeight: Values.mediumFontSize,
-                    themeTintColor: .textPrimary,
+                    themeTintColor: .white,
                     themeBackgroundColor: .conversationButton_swipeDestructive,
                     side: .trailing,
                     actionIndex: 0,
@@ -720,7 +720,7 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                     title: ((threadViewModel.threadMutedUntilTimestamp != nil) ? "unmute_button_text".localized() : "mute_button_text".localized()),
                     icon: UIImage(systemName: "speaker.slash"),
                     iconHeight: Values.mediumFontSize,
-                    themeTintColor: .textPrimary,
+                    themeTintColor: .white,
                     themeBackgroundColor: .conversationButton_swipeDestructive,
                     side: .trailing,
                     actionIndex: 1,
@@ -763,20 +763,32 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                             title: "TXT_DELETE_TITLE".localized(),
                             icon: UIImage(named: "icon_bin")?.resizedImage(to: CGSize(width: Values.mediumFontSize, height: Values.mediumFontSize)),
                             iconHeight: Values.mediumFontSize,
-                            themeTintColor: .textPrimary,
+                            themeTintColor: .white,
                             themeBackgroundColor: .conversationButton_swipeDestructive,
                             side: .trailing,
                             actionIndex: 2,
                             indexPath: indexPath,
                             tableView: tableView
                         ) { [weak self] _, _, completionHandler in
+                            let confirmationModalExplanation: NSAttributedString = {
+                                let mutableAttributedString = NSMutableAttributedString(
+                                    string: String(
+                                        format: "delete_conversation_confirmation_alert_message".localized(),
+                                        threadViewModel.displayName
+                                    )
+                                )
+                                mutableAttributedString.addAttribute(
+                                    .font,
+                                    value: UIFont.boldSystemFont(ofSize: Values.smallFontSize),
+                                    range: (mutableAttributedString.string as NSString).range(of: threadViewModel.displayName)
+                                )
+                                return mutableAttributedString
+                            }()
+                            
                             let confirmationModal: ConfirmationModal = ConfirmationModal(
                                 info: ConfirmationModal.Info(
-                                    title: "CONVERSATION_DELETE_CONFIRMATION_ALERT_TITLE".localized(),
-                                    explanation: (threadViewModel.currentUserIsClosedGroupAdmin == true ?
-                                        "admin_group_leave_warning".localized() :
-                                        "CONVERSATION_DELETE_CONFIRMATION_ALERT_MESSAGE".localized()
-                                    ),
+                                    title: "delete_conversation_confirmation_alert_title".localized(),
+                                    attributedExplanation: confirmationModalExplanation,
                                     confirmTitle: "TXT_DELETE_TITLE".localized(),
                                     confirmStyle: .danger,
                                     cancelStyle: .alert_text,
@@ -805,7 +817,7 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                             title: "LEAVE_BUTTON_TITLE".localized(),
                             icon: UIImage(systemName: "rectangle.portrait.and.arrow.right"),
                             iconHeight: Values.mediumFontSize,
-                            themeTintColor: .textPrimary,
+                            themeTintColor: .white,
                             themeBackgroundColor: .conversationButton_swipeDestructive,
                             side: .trailing,
                             actionIndex: 2,

@@ -28,7 +28,7 @@ public extension UIContextualAction {
         title: String? = nil,
         icon: UIImage? = nil,
         iconHeight: CGFloat = Values.mediumFontSize,
-        themeTintColor: ThemeValue = .textPrimary,
+        themeTintColor: ThemeValue = .white,
         themeBackgroundColor: ThemeValue,
         side: Side,
         actionIndex: Int,

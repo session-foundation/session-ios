@@ -60,14 +60,6 @@
 "BUTTON_DONE" = "完成";
 /* Button text to enable batch selection mode */
 "BUTTON_SELECT" = "选择";
-/* Alert body */
-"CONFIRM_LEAVE_GROUP_DESCRIPTION" = "您将无法在此群组中继续发送或接收消息。";
-/* Alert title */
-"CONFIRM_LEAVE_GROUP_TITLE" = "确定离开群聊？";
-/* Message for the 'conversation delete confirmation' alert. */
-"CONVERSATION_DELETE_CONFIRMATION_ALERT_MESSAGE" = "该操作无法撤销。";
-/* Title for the 'conversation delete confirmation' alert. */
-"CONVERSATION_DELETE_CONFIRMATION_ALERT_TITLE" = "删除会话？";
 /* keyboard toolbar label when starting to search with no current results */
 "CONVERSATION_SEARCH_SEARCHING" = "Searching...";
 /* keyboard toolbar label when no messages match the search string */
@@ -619,3 +611,5 @@
 "group_you_leaving" = "Leaving...";
 "group_leave_error" = "Failed to leave Group!";
 "group_unable_to_leave" = "Unable to leave the Group, please try again";
+"delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
+"delete_conversation_confirmation_alert_title" = "Delete Conversation";

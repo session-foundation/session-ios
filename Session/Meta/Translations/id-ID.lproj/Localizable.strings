@@ -60,14 +60,6 @@
 "BUTTON_DONE" = "Selesai";
 /* Button text to enable batch selection mode */
 "BUTTON_SELECT" = "Pilih";
-/* Alert body */
-"CONFIRM_LEAVE_GROUP_DESCRIPTION" = "Anda tidak dapat lagi mengirim atau menerima pesan dari grup ini.";
-/* Alert title */
-"CONFIRM_LEAVE_GROUP_TITLE" = "Apakah Anda benar-benar ingin keluar?";
-/* Message for the 'conversation delete confirmation' alert. */
-"CONVERSATION_DELETE_CONFIRMATION_ALERT_MESSAGE" = "Tindakan ini tidak dapat dibatalkan.";
-/* Title for the 'conversation delete confirmation' alert. */
-"CONVERSATION_DELETE_CONFIRMATION_ALERT_TITLE" = "Hapus Percakapan?";
 /* keyboard toolbar label when starting to search with no current results */
 "CONVERSATION_SEARCH_SEARCHING" = "Searching...";
 /* keyboard toolbar label when no messages match the search string */
@@ -619,3 +611,5 @@
 "group_you_leaving" = "Leaving...";
 "group_leave_error" = "Failed to leave Group!";
 "group_unable_to_leave" = "Unable to leave the Group, please try again";
+"delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
+"delete_conversation_confirmation_alert_title" = "Delete Conversation";

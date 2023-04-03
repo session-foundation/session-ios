@@ -60,14 +60,6 @@
 "BUTTON_DONE" = "Gotovo";
 /* Button text to enable batch selection mode */
 "BUTTON_SELECT" = "Odaberi";
-/* Alert body */
-"CONFIRM_LEAVE_GROUP_DESCRIPTION" = "Više nećete moći slati niti primati poruke u ovoj grupi.";
-/* Alert title */
-"CONFIRM_LEAVE_GROUP_TITLE" = "Da li zaista želite izaći?";
-/* Message for the 'conversation delete confirmation' alert. */
-"CONVERSATION_DELETE_CONFIRMATION_ALERT_MESSAGE" = "Ovaj je postupak nepovratan.";
-/* Title for the 'conversation delete confirmation' alert. */
-"CONVERSATION_DELETE_CONFIRMATION_ALERT_TITLE" = "Obriši razgovor?";
 /* keyboard toolbar label when starting to search with no current results */
 "CONVERSATION_SEARCH_SEARCHING" = "Searching...";
 /* keyboard toolbar label when no messages match the search string */
@@ -619,3 +611,5 @@
 "group_you_leaving" = "Leaving...";
 "group_leave_error" = "Failed to leave Group!";
 "group_unable_to_leave" = "Unable to leave the Group, please try again";
+"delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
+"delete_conversation_confirmation_alert_title" = "Delete Conversation";
