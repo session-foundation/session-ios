@@ -214,6 +214,8 @@ extension ContextMenuVC {
             return !currentThreadIsMessageRequest
         }()
         
+        let shouldShowInfo: Bool = (cellViewModel.attachments?.isEmpty == false)
+        
         let generatedActions: [Action] = [
             (canRetry ? Action.retry(cellViewModel, delegate) : nil),
             (canReply ? Action.reply(cellViewModel, delegate) : nil),
@@ -223,7 +225,7 @@ extension ContextMenuVC {
             (canDelete ? Action.delete(cellViewModel, delegate) : nil),
             (canBan ? Action.ban(cellViewModel, delegate) : nil),
             (canBan ? Action.banAndDeleteAllMessages(cellViewModel, delegate) : nil),
-            Action.info(cellViewModel, delegate),
+            (shouldShowInfo ? Action.info(cellViewModel, delegate) : nil),
         ]
         .appending(contentsOf: (shouldShowEmojiActions ? recentEmojis : []).map { Action.react(cellViewModel, $0, delegate) })
         .appending(Action.emojiPlusButton(cellViewModel, delegate))
