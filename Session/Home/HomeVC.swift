@@ -708,8 +708,8 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                 }
                 mute.themeBackgroundColor = .conversationButton_swipeSecondary
             
-                switch threadViewModel.threadVariant {
-                    case .contact:
+                switch (threadViewModel.threadVariant, threadViewModel.currentUserIsClosedGroupMember) {
+                    case (.contact, _):
                         let delete: UIContextualAction = UIContextualAction(
                             title: "TXT_DELETE_TITLE".localized(),
                             icon: UIImage(named: "icon_bin")?.resizedImage(to: CGSize(width: Values.mediumFontSize, height: Values.mediumFontSize)),
@@ -763,31 +763,30 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                         
                         return UISwipeActionsConfiguration(actions: [ delete, mute, pin ])
                     
-                    case .openGroup, .closedGroup:
-                        if threadViewModel.currentUserIsClosedGroupMember == false {
-                            let delete: UIContextualAction = UIContextualAction(
-                                title: "TXT_DELETE_TITLE".localized(),
-                                icon: UIImage(named: "icon_bin")?.resizedImage(to: CGSize(width: Values.mediumFontSize, height: Values.mediumFontSize)),
-                                iconHeight: Values.mediumFontSize,
-                                themeTintColor: .white,
-                                themeBackgroundColor: .conversationButton_swipeDestructive,
-                                side: .trailing,
-                                actionIndex: 2,
-                                indexPath: indexPath,
-                                tableView: tableView
-                            ) { [weak self] _, _, completionHandler in
-                                self?.viewModel.delete(
-                                    threadId: threadViewModel.threadId,
-                                    threadVariant: threadViewModel.threadVariant,
-                                    force: true
-                                )
-                                
-                                completionHandler(true)
-                            }
+                    case (.closedGroup, false):
+                        let delete: UIContextualAction = UIContextualAction(
+                            title: "TXT_DELETE_TITLE".localized(),
+                            icon: UIImage(named: "icon_bin")?.resizedImage(to: CGSize(width: Values.mediumFontSize, height: Values.mediumFontSize)),
+                            iconHeight: Values.mediumFontSize,
+                            themeTintColor: .white,
+                            themeBackgroundColor: .conversationButton_swipeDestructive,
+                            side: .trailing,
+                            actionIndex: 2,
+                            indexPath: indexPath,
+                            tableView: tableView
+                        ) { [weak self] _, _, completionHandler in
+                            self?.viewModel.delete(
+                                threadId: threadViewModel.threadId,
+                                threadVariant: threadViewModel.threadVariant,
+                                force: true
+                            )
                             
-                            return UISwipeActionsConfiguration(actions: [ delete, mute, pin ])
+                            completionHandler(true)
                         }
+                        
+                        return UISwipeActionsConfiguration(actions: [ delete, mute, pin ])
                     
+                    default:
                         let leave: UIContextualAction = UIContextualAction(
                             title: "LEAVE_BUTTON_TITLE".localized(),
                             icon: UIImage(systemName: "rectangle.portrait.and.arrow.right"),

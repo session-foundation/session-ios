@@ -310,21 +310,16 @@ public class HomeViewModel {
         }
         
         Storage.shared.writeAsync { db in
-            switch threadVariant {
-                case .closedGroup:
-                    if force {
-                        try delete(db, threadId: threadId)
-                    } else {
-                        try MessageSender.leave(
-                            db,
-                            groupPublicKey: threadId,
-                            deleteThread: true
-                        )
-                    }
+            switch (threadVariant, force) {
+                case (.closedGroup, false):
+                    try MessageSender.leave(
+                        db,
+                        groupPublicKey: threadId,
+                        deleteThread: true
+                    )
                     
-                case .openGroup:
+                case (.openGroup, _):
                     OpenGroupManager.shared.delete(db, openGroupId: threadId)
-                    try delete(db, threadId: threadId)
                     
                 default:
                     try delete(db, threadId: threadId)
