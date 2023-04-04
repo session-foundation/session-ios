@@ -317,42 +317,46 @@ public extension SessionThread {
     }
     
     static func getUserHexEncodedBlindedKey(
+        _ db: Database? = nil,
         threadId: String,
         threadVariant: Variant
     ) -> String? {
+        guard threadVariant == .openGroup else { return nil }
+        guard let db: Database = db else {
+            return Storage.shared.read { db in
+                getUserHexEncodedBlindedKey(db, threadId: threadId, threadVariant: threadVariant)
+            }
+        }
+        
+        // Retrieve the relevant open group info
+        struct OpenGroupInfo: Decodable, FetchableRecord {
+            let publicKey: String
+            let server: String
+        }
+        
         guard
-            threadVariant == .openGroup,
-            let blindingInfo: (edkeyPair: Box.KeyPair?, publicKey: String?, capabilities: Set<Capability.Variant>) = Storage.shared.read({ db in
-                struct OpenGroupInfo: Decodable, FetchableRecord {
-                    let publicKey: String?
-                    let server: String?
-                }
-                let openGroupInfo: OpenGroupInfo? = try OpenGroup
-                    .filter(id: threadId)
-                    .select(.publicKey, .server)
-                    .asRequest(of: OpenGroupInfo.self)
-                    .fetchOne(db)
-                
-                return (
-                    Identity.fetchUserEd25519KeyPair(db),
-                    openGroupInfo?.publicKey,
-                    (try? Capability
-                        .select(.variant)
-                        .filter(Capability.Columns.openGroupServer == openGroupInfo?.server?.lowercased())
-                        .asRequest(of: Capability.Variant.self)
-                        .fetchSet(db))
-                    .defaulting(to: [])
-                )
-            }),
-            let userEdKeyPair: Box.KeyPair = blindingInfo.edkeyPair,
-            let publicKey: String = blindingInfo.publicKey,
-            blindingInfo.capabilities.isEmpty || blindingInfo.capabilities.contains(.blind)
+            let userEdKeyPair: Box.KeyPair = Identity.fetchUserEd25519KeyPair(db),
+            let openGroupInfo: OpenGroupInfo = try? OpenGroup
+                .filter(id: threadId)
+                .select(.publicKey, .server)
+                .asRequest(of: OpenGroupInfo.self)
+                .fetchOne(db)
         else { return nil }
+        
+        // Check the capabilities to ensure the SOGS is blinded (or whether we have no capabilities)
+        let capabilities: Set<Capability.Variant> = (try? Capability
+            .select(.variant)
+            .filter(Capability.Columns.openGroupServer == openGroupInfo.server.lowercased())
+            .asRequest(of: Capability.Variant.self)
+            .fetchSet(db))
+            .defaulting(to: [])
+        
+        guard capabilities.isEmpty || capabilities.contains(.blind) else { return nil }
         
         let sodium: Sodium = Sodium()
         
         let blindedKeyPair: Box.KeyPair? = sodium.blindedKeyPair(
-            serverPublicKey: publicKey,
+            serverPublicKey: openGroupInfo.publicKey,
             edKeyPair: userEdKeyPair,
             genericHash: sodium.getGenericHash()
         )
