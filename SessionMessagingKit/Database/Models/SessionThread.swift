@@ -226,7 +226,7 @@ public extension SessionThread {
     ///
     /// **Note:** In order to use this filter you **MUST** have a `joining(required/optional:)` to the
     /// `SessionThread.contact` association or it won't work
-    static func isMessageRequest(userPublicKey: String, includeNonVisible: Bool = false) -> SQLSpecificExpressible {
+    static func isMessageRequest(userPublicKey: String, includeNonVisible: Bool = false) -> SQLExpression {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         let contact: TypedTableAlias<Contact> = TypedTableAlias()
         let shouldBeVisibleSQL: SQL = (includeNonVisible ?
@@ -241,7 +241,7 @@ public extension SessionThread {
                 \(SQL("\(thread[.id]) != \(userPublicKey)")) AND
                 IFNULL(\(contact[.isApproved]), false) = false
             """
-        )
+        ).sqlExpression
     }
     
     func isNoteToSelf(_ db: Database? = nil) -> Bool {
