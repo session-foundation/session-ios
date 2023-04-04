@@ -457,6 +457,9 @@ public extension SessionThreadViewModel {
             let interactionAttachmentAttachmentIdColumnLiteral: SQL = SQL(stringLiteral: InteractionAttachment.Columns.attachmentId.name)
             let interactionAttachmentInteractionIdColumnLiteral: SQL = SQL(stringLiteral: InteractionAttachment.Columns.interactionId.name)
             let interactionAttachmentAlbumIndexColumnLiteral: SQL = SQL(stringLiteral: InteractionAttachment.Columns.albumIndex.name)
+            let groupMemberProfileIdColumnLiteral: SQL = SQL(stringLiteral: GroupMember.Columns.profileId.name)
+            let groupMemberRoleColumnLiteral: SQL = SQL(stringLiteral: GroupMember.Columns.role.name)
+            let groupMemberGroupIdColumnLiteral: SQL = SQL(stringLiteral: GroupMember.Columns.groupId.name)
             
             /// **Note:** The `numColumnsBeforeProfiles` value **MUST** match the number of fields before
             /// the `ViewModel.contactProfileKey` entry below otherwise the query will fail to
@@ -464,7 +467,7 @@ public extension SessionThreadViewModel {
             ///
             /// Explicitly set default values for the fields ignored for search results
             let numColumnsBeforeProfiles: Int = 12
-            let numColumnsBetweenProfilesAndAttachmentInfo: Int = 11 // The attachment info columns will be combined
+            let numColumnsBetweenProfilesAndAttachmentInfo: Int = 12 // The attachment info columns will be combined
             
             let request: SQLRequest<ViewModel> = """
                 SELECT
@@ -488,7 +491,8 @@ public extension SessionThreadViewModel {
                     \(ViewModel.closedGroupProfileBackKey).*,
                     \(ViewModel.closedGroupProfileBackFallbackKey).*,
                     \(closedGroup[.name]) AS \(ViewModel.closedGroupNameKey),
-                    (\(groupMember[.profileId]) IS NOT NULL) AS \(ViewModel.currentUserIsClosedGroupAdminKey),
+                    (\(ViewModel.currentUserIsClosedGroupMemberKey).profileId IS NOT NULL) AS \(ViewModel.currentUserIsClosedGroupMemberKey),
+                    (\(ViewModel.currentUserIsClosedGroupAdminKey).profileId IS NOT NULL) AS \(ViewModel.currentUserIsClosedGroupAdminKey),
                     \(openGroup[.name]) AS \(ViewModel.openGroupNameKey),
                     \(openGroup[.imageData]) AS \(ViewModel.openGroupProfilePictureDataKey),
                 
@@ -563,10 +567,15 @@ public extension SessionThreadViewModel {
                 LEFT JOIN \(Profile.self) AS \(ViewModel.contactProfileKey) ON \(ViewModel.contactProfileKey).\(profileIdColumnLiteral) = \(thread[.id])
                 LEFT JOIN \(OpenGroup.self) ON \(openGroup[.threadId]) = \(thread[.id])
                 LEFT JOIN \(ClosedGroup.self) ON \(closedGroup[.threadId]) = \(thread[.id])
-                LEFT JOIN \(GroupMember.self) ON (
-                    \(SQL("\(groupMember[.role]) = \(GroupMember.Role.admin)")) AND
-                    \(groupMember[.groupId]) = \(closedGroup[.threadId]) AND
-                    \(SQL("\(groupMember[.profileId]) = \(userPublicKey)"))
+                LEFT JOIN \(GroupMember.self) AS \(ViewModel.currentUserIsClosedGroupMemberKey) ON (
+                    \(SQL("\(ViewModel.currentUserIsClosedGroupMemberKey).\(groupMemberRoleColumnLiteral) != \(GroupMember.Role.zombie)")) AND
+                    \(ViewModel.currentUserIsClosedGroupMemberKey).\(groupMemberGroupIdColumnLiteral) = \(closedGroup[.threadId]) AND
+                    \(SQL("\(ViewModel.currentUserIsClosedGroupMemberKey).\(groupMemberProfileIdColumnLiteral) = \(userPublicKey)"))
+                )
+                LEFT JOIN \(GroupMember.self) AS \(ViewModel.currentUserIsClosedGroupAdminKey) ON (
+                    \(SQL("\(ViewModel.currentUserIsClosedGroupAdminKey).\(groupMemberRoleColumnLiteral) = \(GroupMember.Role.admin)")) AND
+                    \(ViewModel.currentUserIsClosedGroupAdminKey).\(groupMemberGroupIdColumnLiteral) = \(closedGroup[.threadId]) AND
+                    \(SQL("\(ViewModel.currentUserIsClosedGroupAdminKey).\(groupMemberProfileIdColumnLiteral) = \(userPublicKey)"))
                 )
             
                 LEFT JOIN \(Profile.self) AS \(ViewModel.closedGroupProfileFrontKey) ON (

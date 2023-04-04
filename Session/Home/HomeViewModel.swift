@@ -301,23 +301,42 @@ public class HomeViewModel {
     
     // MARK: - Functions
     
-    public func delete(threadId: String, threadVariant: SessionThread.Variant) {
+    public func delete(threadId: String, threadVariant: SessionThread.Variant, force: Bool = false) {
+        
+        func delete(_ db: Database, threadId: String) throws {
+            _ = try SessionThread
+                .filter(id: threadId)
+                .deleteAll(db)
+        }
+        
         Storage.shared.writeAsync { db in
             switch threadVariant {
                 case .closedGroup:
-                    try MessageSender.leave(
-                        db,
-                        groupPublicKey: threadId,
-                        deleteThread: true
-                    )
+                    if force {
+                        if let thread: SessionThread = try? SessionThread.fetchOne(db, id: threadId),
+                           let closedGroup: ClosedGroup = try? thread.closedGroup.fetchOne(db)
+                        {
+                            try MessageSender.performClosedGroupCleanUp(
+                                db,
+                                for: closedGroup,
+                                in: thread
+                            )
+                        }
+                        try delete(db, threadId: threadId)
+                    } else {
+                        try MessageSender.leave(
+                            db,
+                            groupPublicKey: threadId,
+                            deleteThread: true
+                        )
+                    }
                     
                 case .openGroup:
                     OpenGroupManager.shared.delete(db, openGroupId: threadId)
-                    _ = try SessionThread
-                        .filter(id: threadId)
-                        .deleteAll(db)
+                    try delete(db, threadId: threadId)
                     
-                default: break
+                default:
+                    try delete(db, threadId: threadId)
             }
         }
     }

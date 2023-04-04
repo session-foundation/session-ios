@@ -50,21 +50,8 @@ public enum GroupLeavingJob: JobExecutor {
             )
         }
         .done(on: queue) { _ in
-            // Remove the group from the database and unsubscribe from PNs
-            ClosedGroupPoller.shared.stopPolling(for: details.groupPublicKey)
-            
             Storage.shared.writeAsync { db in
-                let userPublicKey: String = getUserHexEncodedPublicKey(db)
-                
-                try closedGroup
-                    .keyPairs
-                    .deleteAll(db)
-                
-                let _ = PushNotificationAPI.performOperation(
-                    .unsubscribe,
-                    for: details.groupPublicKey,
-                    publicKey: userPublicKey
-                )
+                try MessageSender.performClosedGroupCleanUp(db, for: closedGroup, in: thread)
                 
                 try Interaction
                     .filter(id: interactionId)
@@ -75,25 +62,6 @@ public enum GroupLeavingJob: JobExecutor {
                             Interaction.Columns.body.set(to: "GROUP_YOU_LEFT".localized())
                         ]
                     )
-                
-                // Update the group (if the admin leaves the group is disbanded)
-                let wasAdminUser: Bool = try GroupMember
-                    .filter(GroupMember.Columns.groupId == thread.id)
-                    .filter(GroupMember.Columns.profileId == userPublicKey)
-                    .filter(GroupMember.Columns.role == GroupMember.Role.admin)
-                    .isNotEmpty(db)
-                
-                if wasAdminUser {
-                    try GroupMember
-                        .filter(GroupMember.Columns.groupId == thread.id)
-                        .deleteAll(db)
-                }
-                else {
-                    try GroupMember
-                        .filter(GroupMember.Columns.groupId == thread.id)
-                        .filter(GroupMember.Columns.profileId == userPublicKey)
-                        .deleteAll(db)
-                }
                 
                 if details.deleteThread {
                     _ = try SessionThread

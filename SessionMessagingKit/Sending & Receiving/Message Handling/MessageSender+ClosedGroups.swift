@@ -582,4 +582,40 @@ extension MessageSender {
         }
         catch {}
     }
+    
+    /// Remove the group from the database and unsubscribe from PNs
+    public static func performClosedGroupCleanUp(_ db: Database, for closedGroup: ClosedGroup, in thread: SessionThread) throws {
+        ClosedGroupPoller.shared.stopPolling(for: closedGroup.publicKey)
+        
+        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        
+        try closedGroup
+            .keyPairs
+            .deleteAll(db)
+        
+        let _ = PushNotificationAPI.performOperation(
+            .unsubscribe,
+            for: closedGroup.publicKey,
+            publicKey: userPublicKey
+        )
+        
+        // Update the group (if the admin leaves the group is disbanded)
+        let wasAdminUser: Bool = try GroupMember
+            .filter(GroupMember.Columns.groupId == thread.id)
+            .filter(GroupMember.Columns.profileId == userPublicKey)
+            .filter(GroupMember.Columns.role == GroupMember.Role.admin)
+            .isNotEmpty(db)
+        
+        if wasAdminUser {
+            try GroupMember
+                .filter(GroupMember.Columns.groupId == thread.id)
+                .deleteAll(db)
+        }
+        else {
+            try GroupMember
+                .filter(GroupMember.Columns.groupId == thread.id)
+                .filter(GroupMember.Columns.profileId == userPublicKey)
+                .deleteAll(db)
+        }
+    }
 }
