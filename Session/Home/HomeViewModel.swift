@@ -313,15 +313,6 @@ public class HomeViewModel {
             switch threadVariant {
                 case .closedGroup:
                     if force {
-                        if let thread: SessionThread = try? SessionThread.fetchOne(db, id: threadId),
-                           let closedGroup: ClosedGroup = try? thread.closedGroup.fetchOne(db)
-                        {
-                            try MessageSender.performClosedGroupCleanUp(
-                                db,
-                                for: closedGroup,
-                                in: thread
-                            )
-                        }
                         try delete(db, threadId: threadId)
                     } else {
                         try MessageSender.leave(
