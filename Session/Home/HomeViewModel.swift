@@ -301,23 +301,29 @@ public class HomeViewModel {
     
     // MARK: - Functions
     
-    public func delete(threadId: String, threadVariant: SessionThread.Variant) {
-        Storage.shared.writeAsync { db in
-            switch threadVariant {
-                case .closedGroup:
-                    try MessageSender
-                        .leave(db, groupPublicKey: threadId)
-                        .retainUntilComplete()
-                    
-                case .openGroup:
-                    OpenGroupManager.shared.delete(db, openGroupId: threadId)
-                    
-                default: break
-            }
-            
+    public func delete(threadId: String, threadVariant: SessionThread.Variant, force: Bool = false) {
+        
+        func delete(_ db: Database, threadId: String) throws {
             _ = try SessionThread
                 .filter(id: threadId)
                 .deleteAll(db)
+        }
+        
+        Storage.shared.writeAsync { db in
+            switch (threadVariant, force) {
+                case (.closedGroup, false):
+                    try MessageSender.leave(
+                        db,
+                        groupPublicKey: threadId,
+                        deleteThread: true
+                    )
+                    
+                case (.openGroup, _):
+                    OpenGroupManager.shared.delete(db, openGroupId: threadId)
+                    
+                default:
+                    try delete(db, threadId: threadId)
+            }
         }
     }
 }
