@@ -360,6 +360,7 @@ public extension SessionThreadViewModel {
     }
     
     func populatingCurrentUserBlindedKey(
+        _ db: Database? = nil,
         currentUserBlindedPublicKeyForThisThread: String? = nil
     ) -> SessionThreadViewModel {
         return SessionThreadViewModel(
@@ -411,6 +412,7 @@ public extension SessionThreadViewModel {
             currentUserBlindedPublicKey: (
                 currentUserBlindedPublicKeyForThisThread ??
                 SessionThread.getUserHexEncodedBlindedKey(
+                    db,
                     threadId: self.threadId,
                     threadVariant: self.threadVariant
                 )
