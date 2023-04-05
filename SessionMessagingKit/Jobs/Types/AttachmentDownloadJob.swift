@@ -25,7 +25,7 @@ public enum AttachmentDownloadJob: JobExecutor {
             let attachment: Attachment = Storage.shared
                 .read({ db in try Attachment.fetchOne(db, id: details.attachmentId) })
         else {
-            failure(job, JobRunnerError.missingRequiredDetails, false)
+            failure(job, JobRunnerError.missingRequiredDetails, true)
             return
         }
         
