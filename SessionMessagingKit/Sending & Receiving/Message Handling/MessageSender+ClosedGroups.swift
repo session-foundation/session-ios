@@ -478,13 +478,9 @@ extension MessageSender {
     /// unregisters from push notifications.
     ///
     /// The returned promise is fulfilled when the `MEMBER_LEFT` message has been sent to the group.
-    public static func leave(_ db: Database, groupPublicKey: String) throws -> Promise<Void> {
+    public static func leave(_ db: Database, groupPublicKey: String, deleteThread: Bool) throws {
         guard let thread: SessionThread = try? SessionThread.fetchOne(db, id: groupPublicKey) else {
-            SNLog("Can't leave nonexistent closed group.")
-            return Promise(error: MessageSenderError.noThread)
-        }
-        guard let closedGroup: ClosedGroup = try? thread.closedGroup.fetchOne(db) else {
-            return Promise(error: MessageSenderError.invalidClosedGroupUpdate)
+            return
         }
         
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
@@ -493,66 +489,23 @@ extension MessageSender {
         let interaction: Interaction = try Interaction(
             threadId: thread.id,
             authorId: userPublicKey,
-            variant: .infoClosedGroupCurrentUserLeft,
-            body: ClosedGroupControlMessage.Kind
-                .memberLeft
-                .infoMessage(db, sender: userPublicKey),
+            variant: .infoClosedGroupCurrentUserLeaving,
+            body: "group_you_leaving".localized(),
             timestampMs: SnodeAPI.currentOffsetTimestampMs()
         ).inserted(db)
         
-        guard let interactionId: Int64 = interaction.id else {
-            throw StorageError.objectNotSaved
-        }
-        
-        // Send the update to the group
-        let promise = try MessageSender
-            .sendNonDurably(
-                db,
-                message: ClosedGroupControlMessage(
-                    kind: .memberLeft
-                ),
-                interactionId: interactionId,
-                in: thread
+        JobRunner.upsert(
+            db,
+            job: Job(
+                variant: .groupLeaving,
+                threadId: thread.id,
+                interactionId: interaction.id,
+                details: GroupLeavingJob.Details(
+                    groupPublicKey: groupPublicKey,
+                    deleteThread: deleteThread
+                )
             )
-            .done {
-                // Remove the group from the database and unsubscribe from PNs
-                ClosedGroupPoller.shared.stopPolling(for: groupPublicKey)
-                
-                Storage.shared.write { db in
-                    try closedGroup
-                        .keyPairs
-                        .deleteAll(db)
-                    
-                    let _ = PushNotificationAPI.performOperation(
-                        .unsubscribe,
-                        for: groupPublicKey,
-                        publicKey: userPublicKey
-                    )
-                }
-            }
-            .map { _ in }
-        
-        // Update the group (if the admin leaves the group is disbanded)
-        let wasAdminUser: Bool = try GroupMember
-            .filter(GroupMember.Columns.groupId == thread.id)
-            .filter(GroupMember.Columns.profileId == userPublicKey)
-            .filter(GroupMember.Columns.role == GroupMember.Role.admin)
-            .isNotEmpty(db)
-        
-        if wasAdminUser {
-            try GroupMember
-                .filter(GroupMember.Columns.groupId == thread.id)
-                .deleteAll(db)
-        }
-        else {
-            try GroupMember
-                .filter(GroupMember.Columns.groupId == thread.id)
-                .filter(GroupMember.Columns.profileId == userPublicKey)
-                .deleteAll(db)
-        }
-        
-        // Return
-        return promise
+        )
     }
     
     /*

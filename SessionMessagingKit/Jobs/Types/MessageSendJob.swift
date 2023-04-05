@@ -23,7 +23,7 @@ public enum MessageSendJob: JobExecutor {
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
         else {
-            failure(job, JobRunnerError.missingRequiredDetails, false)
+            failure(job, JobRunnerError.missingRequiredDetails, true)
             return
         }
         
@@ -36,7 +36,7 @@ public enum MessageSendJob: JobExecutor {
                 let jobId: Int64 = job.id,
                 let interactionId: Int64 = job.interactionId
             else {
-                failure(job, JobRunnerError.missingRequiredDetails, false)
+                failure(job, JobRunnerError.missingRequiredDetails, true)
                 return
             }
             

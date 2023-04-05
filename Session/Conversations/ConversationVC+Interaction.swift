@@ -1706,7 +1706,8 @@ extension ConversationVC:
         switch cellViewModel.variant {
             case .standardIncomingDeleted, .infoCall,
                 .infoScreenshotNotification, .infoMediaSavedNotification,
-                .infoClosedGroupCreated, .infoClosedGroupUpdated, .infoClosedGroupCurrentUserLeft,
+                .infoClosedGroupCreated, .infoClosedGroupUpdated,
+                .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving,
                 .infoMessageRequestAccepted, .infoDisappearingMessagesUpdate:
                 // Info messages and unsent messages should just trigger a local
                 // deletion (they are created as side effects so we wouldn't be
@@ -2015,7 +2016,8 @@ extension ConversationVC:
             try MessageSender.send(
                 db,
                 message: DataExtractionNotification(
-                    kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs))
+                    kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs)),
+                    sentTimestamp: UInt64(SnodeAPI.currentOffsetTimestampMs())
                 ),
                 interactionId: nil,
                 in: thread
@@ -2269,7 +2271,8 @@ extension ConversationVC:
             try MessageSender.send(
                 db,
                 message: DataExtractionNotification(
-                    kind: .screenshot
+                    kind: .screenshot,
+                    sentTimestamp: UInt64(SnodeAPI.currentOffsetTimestampMs())
                 ),
                 interactionId: nil,
                 in: thread

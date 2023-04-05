@@ -46,5 +46,6 @@ public enum SNMessagingKit { // Just to make the external API nice
         JobRunner.add(executor: SendReadReceiptsJob.self, for: .sendReadReceipts)
         JobRunner.add(executor: AttachmentDownloadJob.self, for: .attachmentDownload)
         JobRunner.add(executor: AttachmentUploadJob.self, for: .attachmentUpload)
+        JobRunner.add(executor: GroupLeavingJob.self, for: .groupLeaving)
     }
 }
