@@ -45,6 +45,14 @@ public extension Array {
         return updatedArray
     }
     
+    func inserting(contentsOf other: [Element]?, at index: Int) -> [Element] {
+        guard let other: [Element] = other else { return self }
+        
+        var updatedArray: [Element] = self
+        updatedArray.insert(contentsOf: other, at: 0)
+        return updatedArray
+    }
+    
     func grouped<Key: Hashable>(by keyForValue: (Element) throws -> Key) -> [Key: [Element]] {
         return ((try? Dictionary(grouping: self, by: keyForValue)) ?? [:])
     }

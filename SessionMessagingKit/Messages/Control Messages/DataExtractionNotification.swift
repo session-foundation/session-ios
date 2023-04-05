@@ -27,8 +27,13 @@ public final class DataExtractionNotification: ControlMessage {
 
     // MARK: - Initialization
     
-    public init(kind: Kind) {
-        super.init()
+    public init(
+        kind: Kind,
+        sentTimestamp: UInt64? = nil
+    ) {
+        super.init(
+            sentTimestamp: sentTimestamp
+        )
         
         self.kind = kind
     }
