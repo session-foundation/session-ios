@@ -184,7 +184,7 @@ extension MediaInfoVC {
             }()
             durationLabel.text = {
                 guard let duration = attachment.duration else { return "N/A" }
-                return floor(duration).formatted(format: .hoursMinutesSeconds)
+                return floor(duration).formatted(format: .videoDuration)
             }()
         }
     }

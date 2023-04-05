@@ -84,6 +84,15 @@ public extension String {
         let secondsPerWeek: TimeInterval = (secondsPerDay * 7)
         
         switch format {
+            case .videoDuration:
+                let seconds: Int = Int(duration.truncatingRemainder(dividingBy: 60))
+                let minutes: Int = Int((duration / 60).truncatingRemainder(dividingBy: 60))
+                let hours: Int = Int(duration / 3600)
+                
+                guard hours > 0 else { return String(format: "%02ld:%02ld", minutes, seconds) }
+                
+                return String(format: "%ld:%02ld:%02ld", hours, minutes, seconds)
+            
             case .hoursMinutesSeconds:
                 let seconds: Int = Int(duration.truncatingRemainder(dividingBy: 60))
                 let minutes: Int = Int((duration / 60).truncatingRemainder(dividingBy: 60))
