@@ -394,18 +394,32 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 accessibilityIdentifier: "Leave group",
                                 accessibilityLabel: "Leave group",
                                 confirmationInfo: ConfirmationModal.Info(
-                                    title: "CONFIRM_LEAVE_GROUP_TITLE".localized(),
-                                    explanation: (currentUserIsClosedGroupAdmin ?
-                                        "Because you are the creator of this group it will be deleted for everyone. This cannot be undone." :
-                                        "CONFIRM_LEAVE_GROUP_DESCRIPTION".localized()
-                                    ),
+                                    title: "leave_group_confirmation_alert_title".localized(),
+                                    attributedExplanation: {
+                                        if currentUserIsClosedGroupAdmin {
+                                            return NSAttributedString(string: "admin_group_leave_warning".localized())
+                                        }
+                                        
+                                        let mutableAttributedString = NSMutableAttributedString(
+                                            string: String(
+                                                format: "leave_community_confirmation_alert_message".localized(),
+                                                threadViewModel.displayName
+                                            )
+                                        )
+                                        mutableAttributedString.addAttribute(
+                                            .font,
+                                            value: UIFont.boldSystemFont(ofSize: Values.smallFontSize),
+                                            range: (mutableAttributedString.string as NSString).range(of: threadViewModel.displayName)
+                                        )
+                                        return mutableAttributedString
+                                    }(),
                                     confirmTitle: "LEAVE_BUTTON_TITLE".localized(),
                                     confirmStyle: .danger,
                                     cancelStyle: .alert_text
                                 ),
                                 onTap: { [weak self] in
                                     dependencies.storage.writeAsync { db in
-                                        try MessageSender.leave(db, groupPublicKey: threadId)
+                                        try MessageSender.leave(db, groupPublicKey: threadId, deleteThread: false)
                                     }
                                 }
                             )

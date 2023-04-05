@@ -32,7 +32,7 @@ public enum AttachmentUploadJob: JobExecutor {
                 return (attachment, try OpenGroup.fetchOne(db, id: threadId))
             })
         else {
-            failure(job, JobRunnerError.missingRequiredDetails, false, dependencies)
+            failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
             return
         }
         

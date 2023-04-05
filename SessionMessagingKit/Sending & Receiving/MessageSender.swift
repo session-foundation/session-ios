@@ -763,26 +763,3 @@ public final class MessageSender {
         }
     }
 }
-
-// MARK: - Objective-C Support
-
-// FIXME: Remove when possible
-
-@objc(SMKMessageSender)
-public class SMKMessageSender: NSObject {
-    @objc(leaveClosedGroupWithPublicKey:)
-    public static func objc_leave(_ groupPublicKey: String) -> AnyPromise {
-        let promise = Storage.shared.writeAsync { db in
-            try MessageSender.leave(db, groupPublicKey: groupPublicKey)
-        }
-        
-        return AnyPromise.from(promise)
-    }
-    
-    @objc(forceSyncConfigurationNow)
-    public static func objc_forceSyncConfigurationNow() {
-        Storage.shared.write { db in
-            try MessageSender.syncConfiguration(db, forceSyncNow: true).retainUntilComplete()
-        }
-    }
-}

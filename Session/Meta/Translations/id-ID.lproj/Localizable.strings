@@ -60,14 +60,6 @@
 "BUTTON_DONE" = "Selesai";
 /* Button text to enable batch selection mode */
 "BUTTON_SELECT" = "Pilih";
-/* Alert body */
-"CONFIRM_LEAVE_GROUP_DESCRIPTION" = "Anda tidak dapat lagi mengirim atau menerima pesan dari grup ini.";
-/* Alert title */
-"CONFIRM_LEAVE_GROUP_TITLE" = "Apakah Anda benar-benar ingin keluar?";
-/* Message for the 'conversation delete confirmation' alert. */
-"CONVERSATION_DELETE_CONFIRMATION_ALERT_MESSAGE" = "Tindakan ini tidak dapat dibatalkan.";
-/* Title for the 'conversation delete confirmation' alert. */
-"CONVERSATION_DELETE_CONFIRMATION_ALERT_TITLE" = "Hapus Percakapan?";
 /* keyboard toolbar label when starting to search with no current results */
 "CONVERSATION_SEARCH_SEARCHING" = "Searching...";
 /* keyboard toolbar label when no messages match the search string */
@@ -609,3 +601,15 @@
 "context_menu_resync" = "Resync";
 "GIPHY_PERMISSION_TITLE" = "Search GIFs?";
 "GIPHY_PERMISSION_MESSAGE" = "Session will connect to Giphy to provide search results. You will not have full metadata protection when sending GIFs.";
+"mute_button_text" = "Mute";
+"unmute_button_text" = "Unmute";
+"mark_read_button_text" = "Mark read";
+"mark_unread_button_text" = "Mark unread";
+"leave_group_confirmation_alert_title" = "Leave Group";
+"leave_community_confirmation_alert_title" = "Leave Community";
+"leave_community_confirmation_alert_message" = "Are you sure you want to leave %@?";
+"group_you_leaving" = "Leaving...";
+"group_leave_error" = "Failed to leave Group!";
+"group_unable_to_leave" = "Unable to leave the Group, please try again";
+"delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
+"delete_conversation_confirmation_alert_title" = "Delete Conversation";

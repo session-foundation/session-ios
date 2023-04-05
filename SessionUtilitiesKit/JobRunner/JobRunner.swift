@@ -164,7 +164,8 @@ public final class JobRunner: JobRunnerType {
                     jobVariants.remove(.attachmentUpload),
                     jobVariants.remove(.messageSend),
                     jobVariants.remove(.notifyPushServer),
-                    jobVariants.remove(.sendReadReceipts)
+                    jobVariants.remove(.sendReadReceipts),
+                    jobVariants.remove(.groupLeaving)
                 ].compactMap { $0 }
             ),
             

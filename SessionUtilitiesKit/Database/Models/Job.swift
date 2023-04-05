@@ -102,6 +102,10 @@ public struct Job: Codable, Hashable, Equatable, Identifiable, FetchableRecord, 
         /// This is a job that runs once whenever an attachment is downloaded to attempt to decode and properly
         /// download the attachment
         case attachmentDownload
+        
+        /// This is a job that runs once whenever the user leaves a group to send a group leaving message, remove group
+        /// record and group member record
+        case groupLeaving
     }
     
     public enum Behaviour: Int, Codable, DatabaseValueConvertible, CaseIterable {
