@@ -3,7 +3,7 @@
 import Foundation
 import GRDB
 
-public struct Job: Codable, Equatable, Identifiable, FetchableRecord, MutablePersistableRecord, TableRecord, ColumnExpressible {
+public struct Job: Codable, Hashable, Equatable, Identifiable, FetchableRecord, MutablePersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "job" }
     internal static let dependencyForeignKey = ForeignKey([Columns.id], to: [JobDependencies.Columns.dependantId])
     public static let dependantJobDependency = hasMany(
@@ -184,7 +184,7 @@ public struct Job: Codable, Equatable, Identifiable, FetchableRecord, MutablePer
     
     // MARK: - Initialization
     
-    fileprivate init(
+    internal init(
         id: Int64?,
         failureCount: UInt,
         variant: Variant,

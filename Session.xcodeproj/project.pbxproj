@@ -761,6 +761,10 @@
 		FD9004142818AD0B00ABAAF6 /* _002_SetupStandardJobs.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9004132818AD0B00ABAAF6 /* _002_SetupStandardJobs.swift */; };
 		FD9004152818B46300ABAAF6 /* JobRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B7432804EF1B004C14C5 /* JobRunner.swift */; };
 		FD9004162818B46700ABAAF6 /* JobRunnerError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE77F68280F9EDA002CFC5D /* JobRunnerError.swift */; };
+		FD96F3A529DBC3DC00401309 /* MessageSendJobSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD96F3A429DBC3DC00401309 /* MessageSendJobSpec.swift */; };
+		FD96F3A729DBD43D00401309 /* MockJobRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD96F3A629DBD43D00401309 /* MockJobRunner.swift */; };
+		FD96F3A829DBD4AD00401309 /* MockJobRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD96F3A629DBD43D00401309 /* MockJobRunner.swift */; };
+		FD96F3A929DBD4AD00401309 /* MockJobRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD96F3A629DBD43D00401309 /* MockJobRunner.swift */; };
 		FDA8EAFE280E8B78002B68E5 /* FailedMessageSendsJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA8EAFD280E8B78002B68E5 /* FailedMessageSendsJob.swift */; };
 		FDA8EB00280E8D58002B68E5 /* FailedAttachmentDownloadsJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA8EAFF280E8D58002B68E5 /* FailedAttachmentDownloadsJob.swift */; };
 		FDA8EB10280F8238002B68E5 /* Codable+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA8EB0F280F8238002B68E5 /* Codable+Utilities.swift */; };
@@ -1841,6 +1845,8 @@
 		FD87DD0328B8727D00AF0F98 /* Configuration.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Configuration.swift; sourceTree = "<group>"; };
 		FD90040E2818AB6D00ABAAF6 /* GetSnodePoolJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetSnodePoolJob.swift; sourceTree = "<group>"; };
 		FD9004132818AD0B00ABAAF6 /* _002_SetupStandardJobs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _002_SetupStandardJobs.swift; sourceTree = "<group>"; };
+		FD96F3A429DBC3DC00401309 /* MessageSendJobSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageSendJobSpec.swift; sourceTree = "<group>"; };
+		FD96F3A629DBD43D00401309 /* MockJobRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockJobRunner.swift; sourceTree = "<group>"; };
 		FDA8EAFD280E8B78002B68E5 /* FailedMessageSendsJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FailedMessageSendsJob.swift; sourceTree = "<group>"; };
 		FDA8EAFF280E8D58002B68E5 /* FailedAttachmentDownloadsJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FailedAttachmentDownloadsJob.swift; sourceTree = "<group>"; };
 		FDA8EB0F280F8238002B68E5 /* Codable+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Codable+Utilities.swift"; sourceTree = "<group>"; };
@@ -3928,6 +3934,7 @@
 			children = (
 				FDC290A527D860CE005DAE71 /* Mock.swift */,
 				FDFD645C27F273F300808CA1 /* MockGeneralCache.swift */,
+				FD96F3A629DBD43D00401309 /* MockJobRunner.swift */,
 				FD83B9BD27CF2243005E1583 /* TestConstants.swift */,
 				FDC290A727D9B46D005DAE71 /* NimbleExtensions.swift */,
 				FD078E4727E02561000769AF /* CommonMockedExtensions.swift */,
@@ -3968,6 +3975,22 @@
 				FDE77F68280F9EDA002CFC5D /* JobRunnerError.swift */,
 			);
 			path = JobRunner;
+			sourceTree = "<group>";
+		};
+		FD96F3A229DBC3BA00401309 /* Jobs */ = {
+			isa = PBXGroup;
+			children = (
+				FD96F3A329DBC3D000401309 /* Types */,
+			);
+			path = Jobs;
+			sourceTree = "<group>";
+		};
+		FD96F3A329DBC3D000401309 /* Types */ = {
+			isa = PBXGroup;
+			children = (
+				FD96F3A429DBC3DC00401309 /* MessageSendJobSpec.swift */,
+			);
+			path = Types;
 			sourceTree = "<group>";
 		};
 		FDC2909227D710A9005DAE71 /* Types */ = {
@@ -4059,6 +4082,7 @@
 				FDC4389B27BA01E300C60D73 /* _TestUtilities */,
 				FD3C905D27E410DB00CD579F /* Common Networking */,
 				FD3C906527E416A200CD579F /* Contacts */,
+				FD96F3A229DBC3BA00401309 /* Jobs */,
 				FDC4389827BA001800C60D73 /* Open Groups */,
 				FD3C906B27E43C2400CD579F /* Sending & Receiving */,
 				FD3C906827E417B100CD579F /* Utilities */,
@@ -5794,6 +5818,7 @@
 				FD71161528D00D6700B47552 /* ThreadDisappearingMessagesViewModelSpec.swift in Sources */,
 				FD23EA5E28ED00FD0058676E /* NimbleExtensions.swift in Sources */,
 				FD23EA5F28ED00FF0058676E /* CommonMockedExtensions.swift in Sources */,
+				FD96F3A829DBD4AD00401309 /* MockJobRunner.swift in Sources */,
 				FD23EA5D28ED00FA0058676E /* TestConstants.swift in Sources */,
 				FD71161A28D00E1100B47552 /* NotificationContentViewModelSpec.swift in Sources */,
 				FD23EA5C28ED00F80058676E /* Mock.swift in Sources */,
@@ -5807,6 +5832,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				FD2AAAF228ED57B500A49611 /* SynchronousStorage.swift in Sources */,
+				FD96F3A929DBD4AD00401309 /* MockJobRunner.swift in Sources */,
 				FD078E4927E02576000769AF /* CommonMockedExtensions.swift in Sources */,
 				FD83B9BF27CF2294005E1583 /* TestConstants.swift in Sources */,
 				FD83B9BB27CF20AF005E1583 /* SessionIdSpec.swift in Sources */,
@@ -5827,9 +5853,11 @@
 				FD3C905C27E3FBEF00CD579F /* BatchRequestInfoSpec.swift in Sources */,
 				FD859EFA27C2F5C500510D0C /* MockGenericHash.swift in Sources */,
 				FDC2909427D710B4005DAE71 /* SOGSEndpointSpec.swift in Sources */,
+				FD96F3A529DBC3DC00401309 /* MessageSendJobSpec.swift in Sources */,
 				FDC290B327DFF9F5005DAE71 /* TestOnionRequestAPI.swift in Sources */,
 				FDC2909127D709CA005DAE71 /* SOGSMessageSpec.swift in Sources */,
 				FD3C906A27E417CE00CD579F /* SodiumUtilitiesSpec.swift in Sources */,
+				FD96F3A729DBD43D00401309 /* MockJobRunner.swift in Sources */,
 				FD3C907127E445E500CD579F /* MessageReceiverDecryptionSpec.swift in Sources */,
 				FDC2909627D71252005DAE71 /* SOGSErrorSpec.swift in Sources */,
 				FDC2908727D7047F005DAE71 /* RoomSpec.swift in Sources */,

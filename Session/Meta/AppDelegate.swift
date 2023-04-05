@@ -254,7 +254,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     private func completePostMigrationSetup(needsConfigSync: Bool) {
         Configuration.performMainSetup()
-        JobRunner.add(executor: SyncPushTokensJob.self, for: .syncPushTokens)
+        JobRunner.setExecutor(SyncPushTokensJob.self, for: .syncPushTokens)
         
         /// Setup the UI
         ///

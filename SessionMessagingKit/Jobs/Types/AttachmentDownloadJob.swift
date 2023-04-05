@@ -42,8 +42,8 @@ public enum AttachmentDownloadJob: JobExecutor {
         // the same attachment multiple times at the same time (it also adds a "clean up" mechanism
         // if an attachment ends up stuck in a "downloading" state incorrectly
         guard attachment.state != .downloading else {
-            let otherCurrentJobAttachmentIds: Set<String> = JobRunner
-                .detailsForCurrentlyRunningJobs(of: .attachmentDownload)
+            let otherCurrentJobAttachmentIds: Set<String> = dependencies.jobRunner
+                .detailsFor(state: .running, variant: .attachmentDownload)
                 .filter { key, _ in key != job.id }
                 .values
                 .compactMap { data -> String? in

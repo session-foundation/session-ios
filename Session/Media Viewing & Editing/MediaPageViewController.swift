@@ -540,7 +540,8 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                     message: DataExtractionNotification(
                         kind: .mediaSaved(
                             timestamp: UInt64(currentViewController.galleryItem.interactionTimestampMs)
-                        )
+                        ),
+                        sentTimestamp: UInt64(SnodeAPI.currentOffsetTimestampMs())
                     ),
                     interactionId: nil, // Show no interaction for the current user
                     in: thread

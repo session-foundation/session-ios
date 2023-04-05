@@ -24,7 +24,7 @@ public enum MessageSendJob: JobExecutor {
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
         else {
-            failure(job, JobRunnerError.missingRequiredDetails, false, dependencies)
+            failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
             return
         }
         
@@ -37,7 +37,7 @@ public enum MessageSendJob: JobExecutor {
                 let jobId: Int64 = job.id,
                 let interactionId: Int64 = job.interactionId
             else {
-                failure(job, JobRunnerError.missingRequiredDetails, false, dependencies)
+                failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
                 return
             }
             
@@ -89,16 +89,16 @@ public enum MessageSendJob: JobExecutor {
                     }
                     .filter { stateInfo in
                         // Don't add a new job if there is one already in the queue
-                        !JobRunner.hasPendingOrRunningJob(
-                            with: .attachmentUpload,
-                            details: AttachmentUploadJob.Details(
+                        !dependencies.jobRunner.hasJob(
+                            of: .attachmentUpload,
+                            with: AttachmentUploadJob.Details(
                                 messageSendJobId: jobId,
                                 attachmentId: stateInfo.attachmentId
                             )
                         )
                     }
                     .compactMap { stateInfo -> (jobId: Int64, job: Job)? in
-                        JobRunner
+                        dependencies.jobRunner
                             .insert(
                                 db,
                                 job: Job(
@@ -131,8 +131,8 @@ public enum MessageSendJob: JobExecutor {
                 let hasPendingUploads: Bool = allAttachmentStateInfo.contains(where: { $0.state != .uploaded })
                 
                 return (
-                    (isMissingFileIds && !hasPendingUploads),
-                    hasPendingUploads,
+                    (isMissingFileIds && !hasPendingUploads),   // shouldFail
+                    hasPendingUploads,                          // shouldDefer
                     fileIds
                 )
             }

@@ -16,6 +16,12 @@ open class Dependencies {
         set { _storage.mutate { $0 = newValue } }
     }
     
+    public var _jobRunner: Atomic<JobRunnerType?>
+    public var jobRunner: JobRunnerType {
+        get { Dependencies.getValueSettingIfNull(&_jobRunner) { JobRunner.instance } }
+        set { _jobRunner.mutate { $0 = newValue } }
+    }
+    
     public var _scheduler: Atomic<ValueObservationScheduler?>
     public var scheduler: ValueObservationScheduler {
         get { Dependencies.getValueSettingIfNull(&_scheduler) { Storage.defaultPublisherScheduler } }
@@ -39,12 +45,14 @@ open class Dependencies {
     public init(
         generalCache: Atomic<GeneralCacheType>? = nil,
         storage: Storage? = nil,
+        jobRunner: JobRunnerType? = nil,
         scheduler: ValueObservationScheduler? = nil,
         standardUserDefaults: UserDefaultsType? = nil,
         date: Date? = nil
     ) {
         _generalCache = Atomic(generalCache)
         _storage = Atomic(storage)
+        _jobRunner = Atomic(jobRunner)
         _scheduler = Atomic(scheduler)
         _standardUserDefaults = Atomic(standardUserDefaults)
         _date = Atomic(date)

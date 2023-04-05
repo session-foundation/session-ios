@@ -1,8 +1,10 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import GRDB
 import Sodium
 import Curve25519Kit
+import SessionUtilitiesKit
 
 extension Box.KeyPair: Mocked {
     static var mockValue: Box.KeyPair = Box.KeyPair(
@@ -18,4 +20,20 @@ extension ECKeyPair: Mocked {
             privateKeyData: Data(hex: TestConstants.privateKey)
         )
     }
+}
+
+extension Database: Mocked {
+    static var mockValue: Database {
+        var result: Database!
+        try! DatabaseQueue().read { result = $0 }
+        return result!
+    }
+}
+
+extension Job: Mocked {
+    static var mockValue: Job = Job(variant: .messageSend)
+}
+
+extension Job.Variant: Mocked {
+    static var mockValue: Job.Variant = .messageSend
 }

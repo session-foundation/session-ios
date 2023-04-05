@@ -34,7 +34,7 @@ class TestOnionRequestAPI: OnionRequestAPIType {
     
     class var mockResponse: Data? { return nil }
     
-    static func sendOnionRequest(_ request: URLRequest, to server: String, using version: OnionRequestAPIVersion, with x25519PublicKey: String) -> Promise<(OnionRequestResponseInfoType, Data?)> {
+    static func sendOnionRequest(_ request: URLRequest, to server: String, using version: OnionRequestAPIVersion, with x25519PublicKey: String, timeout: TimeInterval) -> Promise<(OnionRequestResponseInfoType, Data?)> {
         let responseInfo: ResponseInfo = ResponseInfo(
             requestData: RequestData(
                 urlString: request.url?.absoluteString,
@@ -54,7 +54,7 @@ class TestOnionRequestAPI: OnionRequestAPIType {
         return Promise.value((responseInfo, mockResponse))
     }
     
-    static func sendOnionRequest(to snode: Snode, invoking method: SnodeAPIEndpoint, with parameters: JSON, associatedWith publicKey: String?) -> Promise<Data> {
+    static func sendOnionRequest(to snode: Snode, invoking method: SnodeAPIEndpoint, with parameters: JSON, associatedWith publicKey: String?, timeout: TimeInterval) -> Promise<Data> {
         return Promise.value(mockResponse!)
     }
 }
