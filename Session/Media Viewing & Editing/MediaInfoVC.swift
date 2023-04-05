@@ -5,7 +5,7 @@ import SessionUIKit
 import SessionUtilitiesKit
 
 final class MediaInfoVC: BaseVC, SessionCarouselViewDelegate {
-    internal static let mediaSize: CGFloat = 293
+    internal static let mediaSize: CGFloat = UIScreen.main.bounds.width - 2 * Values.veryLargeSpacing
     internal static let arrowSize: CGSize = CGSize(width: 20, height: 30)
     
     private let attachments: [Attachment]
@@ -110,7 +110,7 @@ final class MediaInfoVC: BaseVC, SessionCarouselViewDelegate {
         mediaInfoView.update(attachment: attachments[0])
         
         mediaCarouselView.addSubview(fullScreenButton)
-        fullScreenButton.pin(.trailing, to: .trailing, of: mediaCarouselView, withInset: -(Values.smallSpacing + Self.arrowSize.width + Values.largeSpacing))
+        fullScreenButton.pin(.trailing, to: .trailing, of: mediaCarouselView, withInset: -(Values.smallSpacing + Values.veryLargeSpacing))
         fullScreenButton.pin(.bottom, to: .bottom, of: mediaCarouselView, withInset: -Values.smallSpacing)
         
         let stackView: UIStackView = UIStackView(arrangedSubviews: [ mediaCarouselView, mediaInfoView ])
@@ -120,7 +120,7 @@ final class MediaInfoVC: BaseVC, SessionCarouselViewDelegate {
         
         self.view.addSubview(stackView)
         stackView.pin([ UIView.HorizontalEdge.leading, UIView.HorizontalEdge.trailing ], to: self.view)
-        stackView.center(.vertical, in: self.view)
+        stackView.pin(.top, to: .top, of: self.view, withInset: Values.veryLargeSpacing)
     }
     
     // MARK: - Interaction

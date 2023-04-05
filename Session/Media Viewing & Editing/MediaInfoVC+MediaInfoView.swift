@@ -6,9 +6,10 @@ import SessionUtilitiesKit
 
 extension MediaInfoVC {
     final class MediaInfoView: UIView {
-        private static let cornerRadius: CGFloat = 8
+        private static let cornerRadius: CGFloat = 12
         
         private var attachment: Attachment?
+        private let width: CGFloat = MediaInfoVC.mediaSize - 2 * MediaInfoVC.arrowSize.width
         
         // MARK: - UI
         
@@ -80,7 +81,7 @@ extension MediaInfoVC {
             backgroundView.pin(to: self)
             
             let container: UIView = UIView()
-            container.set(.width, to: 245)
+            container.set(.width, to: self.width)
             
             // File ID
             let fileIdTitleLabel: UILabel = {
@@ -93,6 +94,7 @@ extension MediaInfoVC {
             }()
             let fileIdContainerStackView: UIStackView = UIStackView(arrangedSubviews: [ fileIdTitleLabel, fileIdLabel ])
             fileIdContainerStackView.axis = .vertical
+            fileIdContainerStackView.spacing = 6
             container.addSubview(fileIdContainerStackView)
             fileIdContainerStackView.pin([ UIView.HorizontalEdge.leading, UIView.HorizontalEdge.trailing, UIView.VerticalEdge.top ], to: container)
             
@@ -107,9 +109,10 @@ extension MediaInfoVC {
             }()
             let fileTypeContainerStackView: UIStackView = UIStackView(arrangedSubviews: [ fileTypeTitleLabel, fileTypeLabel ])
             fileTypeContainerStackView.axis = .vertical
+            fileTypeContainerStackView.spacing = 6
             container.addSubview(fileTypeContainerStackView)
             fileTypeContainerStackView.pin(.leading, to: .leading, of: container)
-            fileTypeContainerStackView.pin(.top, to: .bottom, of: fileIdContainerStackView, withInset: Values.mediumSpacing)
+            fileTypeContainerStackView.pin(.top, to: .bottom, of: fileIdContainerStackView, withInset: Values.largeSpacing)
             
             // File Size
             let fileSizeTitleLabel: UILabel = {
@@ -122,9 +125,10 @@ extension MediaInfoVC {
             }()
             let fileSizeContainerStackView: UIStackView = UIStackView(arrangedSubviews: [ fileSizeTitleLabel, fileSizeLabel ])
             fileSizeContainerStackView.axis = .vertical
+            fileSizeContainerStackView.spacing = 6
             container.addSubview(fileSizeContainerStackView)
             fileSizeContainerStackView.pin(.trailing, to: .trailing, of: container)
-            fileSizeContainerStackView.pin(.top, to: .bottom, of: fileIdContainerStackView, withInset: Values.mediumSpacing)
+            fileSizeContainerStackView.pin(.top, to: .bottom, of: fileIdContainerStackView, withInset: Values.largeSpacing)
             fileSizeContainerStackView.set(.width, to: 90)
             
             // Resolution
@@ -138,9 +142,10 @@ extension MediaInfoVC {
             }()
             let resolutionContainerStackView: UIStackView = UIStackView(arrangedSubviews: [ resolutionTitleLabel, resolutionLabel ])
             resolutionContainerStackView.axis = .vertical
+            resolutionContainerStackView.spacing = 6
             container.addSubview(resolutionContainerStackView)
             resolutionContainerStackView.pin(.leading, to: .leading, of: container)
-            resolutionContainerStackView.pin(.top, to: .bottom, of: fileTypeContainerStackView, withInset: Values.mediumSpacing)
+            resolutionContainerStackView.pin(.top, to: .bottom, of: fileTypeContainerStackView, withInset: Values.largeSpacing)
             
             // Duration
             let durationTitleLabel: UILabel = {
@@ -153,9 +158,10 @@ extension MediaInfoVC {
             }()
             let durationContainerStackView: UIStackView = UIStackView(arrangedSubviews: [ durationTitleLabel, durationLabel ])
             durationContainerStackView.axis = .vertical
+            durationContainerStackView.spacing = 6
             container.addSubview(durationContainerStackView)
             durationContainerStackView.pin(.trailing, to: .trailing, of: container)
-            durationContainerStackView.pin(.top, to: .bottom, of: fileSizeContainerStackView, withInset: Values.mediumSpacing)
+            durationContainerStackView.pin(.top, to: .bottom, of: fileSizeContainerStackView, withInset: Values.largeSpacing)
             durationContainerStackView.set(.width, to: 90)
             container.pin(.bottom, to: .bottom, of: durationContainerStackView)
             
@@ -178,7 +184,7 @@ extension MediaInfoVC {
             }()
             durationLabel.text = {
                 guard let duration = attachment.duration else { return "N/A" }
-                return "\(duration)"
+                return floor(duration).formatted(format: .hoursMinutesSeconds)
             }()
         }
     }
