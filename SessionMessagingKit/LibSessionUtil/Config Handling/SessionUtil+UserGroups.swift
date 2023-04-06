@@ -176,7 +176,7 @@ internal extension SessionUtil {
                     db,
                     threadIds: Array(communityIdsToRemove),
                     threadVariant: .community,
-                    shouldSendLeaveMessageForGroups: false,
+                    groupLeaveType: .forced,
                     calledFromConfigHandling: true
                 )
         }
@@ -336,7 +336,7 @@ internal extension SessionUtil {
                     db,
                     threadIds: Array(legacyGroupIdsToRemove),
                     threadVariant: .legacyGroup,
-                    shouldSendLeaveMessageForGroups: false,
+                    groupLeaveType: .forced,
                     calledFromConfigHandling: true
                 )
         }

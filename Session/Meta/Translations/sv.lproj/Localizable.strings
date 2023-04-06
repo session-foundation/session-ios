@@ -60,14 +60,6 @@
 "BUTTON_DONE" = "Klart";
 /* Button text to enable batch selection mode */
 "BUTTON_SELECT" = "Välj";
-/* Alert body */
-"CONFIRM_LEAVE_GROUP_DESCRIPTION" = "Du kommer inte längre att kunna skicka eller ta emot meddelanden i denna grupp.";
-/* Alert title */
-"CONFIRM_LEAVE_GROUP_TITLE" = "Vill du verkligen lämna?";
-/* Message for the 'conversation delete confirmation' alert. */
-"CONVERSATION_DELETE_CONFIRMATION_ALERT_MESSAGE" = "Detta kan inte ångras.";
-/* Title for the 'conversation delete confirmation' alert. */
-"CONVERSATION_DELETE_CONFIRMATION_ALERT_TITLE" = "Radera konversation?";
 /* keyboard toolbar label when starting to search with no current results */
 "CONVERSATION_SEARCH_SEARCHING" = "Searching...";
 /* keyboard toolbar label when no messages match the search string */
@@ -609,6 +601,22 @@
 "context_menu_resync" = "Resync";
 "GIPHY_PERMISSION_TITLE" = "Search GIFs?";
 "GIPHY_PERMISSION_MESSAGE" = "Session will connect to Giphy to provide search results. You will not have full metadata protection when sending GIFs.";
+"mute_button_text" = "Mute";
+"unmute_button_text" = "Unmute";
+"mark_read_button_text" = "Mark read";
+"mark_unread_button_text" = "Mark unread";
+"leave_group_confirmation_alert_title" = "Leave Group";
+"leave_community_confirmation_alert_title" = "Leave Community";
+"leave_community_confirmation_alert_message" = "Are you sure you want to leave %@?";
+"group_you_leaving" = "Leaving...";
+"group_leave_error" = "Failed to leave Group!";
+"group_unable_to_leave" = "Unable to leave the Group, please try again";
+"delete_group_confirmation_alert_title" = "Delete Group";
+"delete_group_confirmation_alert_message" = "Are you sure you want to delete %@?";
+"delete_conversation_confirmation_alert_title" = "Delete Conversation";
+"delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
+"hide_note_to_self_confirmation_alert_title" = "Hide Note to Self";
+"hide_note_to_self_confirmation_alert_message" = "Are you sure you want to hide %@?";
 "REMOVE_AVATAR" = "Remove";
 "CONTACT_NICKNAME_PLACEHOLDER" = "Enter a name";
 "MARK_AS_READ" = "Mark Read";

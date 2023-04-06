@@ -97,7 +97,7 @@ extension MessageReceiver {
                     db,
                     threadId: blindedIdLookup.blindedId,
                     threadVariant: .contact,
-                    shouldSendLeaveMessageForGroups: false,
+                    groupLeaveType: .forced,
                     calledFromConfigHandling: false
                 )
         }

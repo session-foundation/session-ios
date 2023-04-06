@@ -572,110 +572,31 @@ extension MessageSender {
     /// The returned promise is fulfilled when the `MEMBER_LEFT` message has been sent to the group.
     public static func leave(
         _ db: Database,
-        groupPublicKey: String
-    ) -> AnyPublisher<Void, Error> {
-        guard let thread: SessionThread = try? SessionThread.fetchOne(db, id: groupPublicKey) else {
-            SNLog("Can't leave nonexistent closed group.")
-            return Fail(error: MessageSenderError.noThread)
-                .eraseToAnyPublisher()
-        }
-        guard thread.closedGroup.isNotEmpty(db) else {
-            return Fail(error: MessageSenderError.invalidClosedGroupUpdate)
-                .eraseToAnyPublisher()
-        }
-        
+        groupPublicKey: String,
+        deleteThread: Bool
+    ) throws {
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
-        let sendData: MessageSender.PreparedSendData
         
-        do {
-            // Notify the user
-            let interaction: Interaction = try Interaction(
-                threadId: thread.id,
-                authorId: userPublicKey,
-                variant: .infoClosedGroupCurrentUserLeft,
-                body: ClosedGroupControlMessage.Kind
-                    .memberLeft
-                    .infoMessage(db, sender: userPublicKey),
-                timestampMs: SnodeAPI.currentOffsetTimestampMs()
-            ).inserted(db)
-            
-            guard let interactionId: Int64 = interaction.id else {
-                return Fail(error: StorageError.objectNotSaved)
-                    .eraseToAnyPublisher()
-            }
-            
-            // Send the update to the group
-            sendData = try MessageSender
-                .preparedSendData(
-                    db,
-                    message: ClosedGroupControlMessage(
-                        kind: .memberLeft
-                    ),
-                    to: try Message.Destination.from(db, threadId: groupPublicKey, threadVariant: .legacyGroup),
-                    namespace: try Message.Destination
-                        .from(db, threadId: groupPublicKey, threadVariant: .legacyGroup)
-                        .defaultNamespace,
-                    interactionId: interactionId
+        // Notify the user
+        let interaction: Interaction = try Interaction(
+            threadId: groupPublicKey,
+            authorId: userPublicKey,
+            variant: .infoClosedGroupCurrentUserLeaving,
+            body: "group_you_leaving".localized(),
+            timestampMs: SnodeAPI.currentOffsetTimestampMs()
+        ).inserted(db)
+        
+        JobRunner.upsert(
+            db,
+            job: Job(
+                variant: .groupLeaving,
+                threadId: groupPublicKey,
+                interactionId: interaction.id,
+                details: GroupLeavingJob.Details(
+                    deleteThread: deleteThread
                 )
-            
-            // Update the group (if the admin leaves the group is disbanded)
-            let wasAdminUser: Bool = GroupMember
-                .filter(GroupMember.Columns.groupId == thread.id)
-                .filter(GroupMember.Columns.profileId == userPublicKey)
-                .filter(GroupMember.Columns.role == GroupMember.Role.admin)
-                .isNotEmpty(db)
-            
-            if wasAdminUser {
-                try GroupMember
-                    .filter(GroupMember.Columns.groupId == thread.id)
-                    .deleteAll(db)
-            }
-            else {
-                try GroupMember
-                    .filter(GroupMember.Columns.groupId == thread.id)
-                    .filter(GroupMember.Columns.profileId == userPublicKey)
-                    .deleteAll(db)
-            }
-        }
-        catch {
-            switch error {
-                // There are some cases where the keys for a ClosedGroup can be lost or become invalid, in
-                // those cases we don't want to prevent the user from being able to leave a group so catch
-                // them and just remove the group from the users devices
-                case MessageSenderError.noKeyPair, MessageSenderError.encryptionFailed:
-                    try? ClosedGroup.removeKeysAndUnsubscribe(
-                        db,
-                        threadId: groupPublicKey,
-                        removeGroupData: false,
-                        calledFromConfigHandling: false
-                    )
-                    return Just(())
-                        .setFailureType(to: Error.self)
-                        .eraseToAnyPublisher()
-                    
-                default: break
-            }
-            
-            return Fail(error: error)
-                .eraseToAnyPublisher()
-        }
-        
-        return MessageSender
-            .sendImmediate(preparedSendData: sendData)
-            .handleEvents(
-                receiveCompletion: { result in
-                    switch result {
-                        case .failure: break
-                        case .finished:
-                            try? ClosedGroup.removeKeysAndUnsubscribe(
-                                threadId: groupPublicKey,
-                                removeGroupData: false,
-                                calledFromConfigHandling: false
-                            )
-                    }
-                }
             )
-            .eraseToAnyPublisher()
+        )
     }
     
     public static func sendLatestEncryptionKeyPair(

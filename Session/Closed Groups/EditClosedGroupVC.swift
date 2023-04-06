@@ -18,6 +18,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
     }
     
     private let threadId: String
+    private let threadVariant: SessionThread.Variant
     private var originalName: String = ""
     private var originalMembersAndZombieIds: Set<String> = []
     private var name: String = ""
@@ -82,8 +83,9 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
 
     // MARK: - Lifecycle
     
-    init(threadId: String) {
+    init(threadId: String, threadVariant: SessionThread.Variant) {
         self.threadId = threadId
+        self.threadVariant = threadVariant
         
         super.init(nibName: nil, bundle: nil)
     }
@@ -438,6 +440,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         }
         
         let threadId: String = self.threadId
+        let threadVariant: SessionThread.Variant = self.threadVariant
         let updatedName: String = self.name
         let userPublicKey: String = self.userPublicKey
         let updatedMemberIds: Set<String> = self.membersAndZombies
@@ -464,7 +467,15 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
             Storage.shared
                 .writePublisherFlatMap(receiveOn: DispatchQueue.main) { db -> AnyPublisher<Void, Error> in
                     if !updatedMemberIds.contains(userPublicKey) {
-                        return MessageSender.leave(db, groupPublicKey: threadId)
+                        try MessageSender.leave(
+                            db,
+                            groupPublicKey: threadId,
+                            deleteThread: true
+                        )
+                        
+                        return Just(())
+                            .setFailureType(to: Error.self)
+                            .eraseToAnyPublisher()
                     }
                     
                     return MessageSender.update(

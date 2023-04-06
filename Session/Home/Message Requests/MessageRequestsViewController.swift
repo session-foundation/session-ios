@@ -404,54 +404,23 @@ class MessageRequestsViewController: BaseVC, SessionUtilRespondingViewController
     
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         let section: MessageRequestsViewModel.SectionModel = self.viewModel.threadData[indexPath.section]
+        let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
         
         switch section.model {
             case .threads:
-                let threadId: String = section.elements[indexPath.row].threadId
-                let threadVariant: SessionThread.Variant = section.elements[indexPath.row].threadVariant
-                let delete: UIContextualAction = UIContextualAction(
-                    title: "TXT_DELETE_TITLE".localized(),
-                    icon: UIImage(named: "icon_bin"),
-                    themeTintColor: .white,
-                    themeBackgroundColor: .conversationButton_swipeDestructive,
-                    side: .trailing,
-                    actionIndex: (threadVariant == .contact ? 1 : 0),
-                    indexPath: indexPath,
-                    tableView: tableView
-                ) { [weak self] _, _, completionHandler in
-                    MessageRequestsViewModel.deleteMessageRequest(
-                        threadId: threadId,
-                        threadVariant: threadVariant,
+                return UIContextualAction.configuration(
+                    for: UIContextualAction.generateSwipeActions(
+                        [
+                            (threadViewModel.threadVariant != .contact ? nil : .block),
+                            .delete
+                        ].compactMap { $0 },
+                        for: .trailing,
+                        indexPath: indexPath,
+                        tableView: tableView,
+                        threadViewModel: threadViewModel,
                         viewController: self
                     )
-                    completionHandler(true)
-                }
-            
-                switch threadVariant {
-                    case .contact:
-                        let block: UIContextualAction = UIContextualAction(
-                            title: "BLOCK_LIST_BLOCK_BUTTON".localized(),
-                            icon: UIImage(named: "table_ic_block"),
-                            themeTintColor: .white,
-                            themeBackgroundColor: .conversationButton_swipeSecondary,
-                            side: .trailing,
-                            actionIndex: 0,
-                            indexPath: indexPath,
-                            tableView: tableView
-                        ) { [weak self] _, _, completionHandler in
-                            MessageRequestsViewModel.blockMessageRequest(
-                                threadId: threadId,
-                                threadVariant: threadVariant,
-                                viewController: self
-                            )
-                            completionHandler(true)
-                        }
-                        
-                        return UISwipeActionsConfiguration(actions: [ delete, block ])
-                        
-                    case .legacyGroup, .group, .community:
-                        return UISwipeActionsConfiguration(actions: [ delete ])
-                }
+                )
                 
             default: return nil
         }

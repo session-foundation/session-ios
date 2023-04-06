@@ -237,6 +237,7 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
         
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         let userBlindedKey: String? = SessionThread.getUserHexEncodedBlindedKey(
+            db,
             threadId: thread.id,
             threadVariant: thread.variant
         )

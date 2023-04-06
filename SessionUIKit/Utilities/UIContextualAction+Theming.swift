@@ -28,7 +28,7 @@ public extension UIContextualAction {
         title: String? = nil,
         icon: UIImage? = nil,
         iconHeight: CGFloat = Values.mediumFontSize,
-        themeTintColor: ThemeValue = .textPrimary,
+        themeTintColor: ThemeValue = .white,
         themeBackgroundColor: ThemeValue,
         side: Side,
         actionIndex: Int,
@@ -66,7 +66,7 @@ public extension UIContextualAction {
         let stackView: UIStackView = UIStackView()
         stackView.axis = .vertical
         stackView.alignment = .center
-        stackView.spacing = 3
+        stackView.spacing = 4
         
         if let icon: UIImage = icon {
             let aspectRatio: CGFloat = (icon.size.width / icon.size.height)

@@ -108,7 +108,7 @@ internal extension SessionUtil {
                         db,
                         threadId: userPublicKey,
                         threadVariant: .contact,
-                        shouldSendLeaveMessageForGroups: false,
+                        groupLeaveType: .forced,
                         calledFromConfigHandling: true
                     )
             }

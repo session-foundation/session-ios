@@ -217,7 +217,12 @@ class GlobalSearchViewController: BaseVC, SessionUtilRespondingViewController, U
                         self?.termForCurrentSearchResultSet = searchText
                         self?.searchResultSet = [
                             (hasResults ? nil : [
-                                ArraySection(model: .noResults, elements: [SessionThreadViewModel()])
+                                ArraySection(
+                                    model: .noResults,
+                                    elements: [
+                                        SessionThreadViewModel(threadId: SessionThreadViewModel.invalidId)
+                                    ]
+                                )
                             ]),
                             (hasResults ? sections : nil)
                         ]

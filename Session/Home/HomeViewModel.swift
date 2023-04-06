@@ -271,7 +271,11 @@ public class HomeViewModel {
         
         PagedData.processAndTriggerUpdates(
             updatedData: updatedThreadData,
-            currentDataRetriever: { [weak self] in (self?.unobservedThreadDataChanges?.0 ?? self?.threadData) },
+            currentDataRetriever: { [weak self] in
+                guard self?.hasProcessedInitialThreadData == true else { return nil }
+                
+                return (self?.unobservedThreadDataChanges?.0 ?? self?.threadData)
+            },
             onDataChange: onThreadChange,
             onUnobservedDataChange: { [weak self] updatedData, changeset in
                 self?.unobservedThreadDataChanges = (changeset.isEmpty ?
@@ -284,12 +288,15 @@ public class HomeViewModel {
     
     // MARK: - Thread Data
     
+    private var hasProcessedInitialThreadData: Bool = false
     public private(set) var unobservedThreadDataChanges: ([SectionModel], StagedChangeset<[SectionModel]>)?
     public private(set) var threadData: [SectionModel] = []
     public private(set) var pagedDataObserver: PagedDatabaseObserver<SessionThread, SessionThreadViewModel>?
     
     public var onThreadChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ())? {
         didSet {
+            self.hasProcessedInitialThreadData = (onThreadChange != nil || hasProcessedInitialThreadData)
+            
             // When starting to observe interaction changes we want to trigger a UI update just in case the
             // data was changed while we weren't observing
             if let unobservedThreadDataChanges: ([SectionModel], StagedChangeset<[SectionModel]>) = self.unobservedThreadDataChanges {
@@ -317,7 +324,10 @@ public class HomeViewModel {
                 [SectionModel(
                     section: .messageRequests,
                     elements: [
-                        SessionThreadViewModel(unreadCount: UInt(finalUnreadMessageRequestCount))
+                        SessionThreadViewModel(
+                            threadId: SessionThreadViewModel.messageRequestsSectionId,
+                            unreadCount: UInt(finalUnreadMessageRequestCount)
+                        )
                     ]
                 )]
             ),
@@ -351,30 +361,5 @@ public class HomeViewModel {
     
     public func updateThreadData(_ updatedData: [SectionModel]) {
         self.threadData = updatedData
-    }
-    
-    // MARK: - Functions
-    
-    public func markAsRead(
-        threadViewModel: SessionThreadViewModel,
-        target: SessionThreadViewModel.ReadTarget
-    ) {
-        threadViewModel.markAsRead(target: target)
-    }
-    
-    public func markAsUnread(threadViewModel: SessionThreadViewModel) {
-        threadViewModel.markAsUnread()
-    }
-    
-    public func deleteOrLeave(threadId: String, threadVariant: SessionThread.Variant) {
-        Storage.shared.writeAsync { db in
-            try SessionThread.deleteOrLeave(
-                db,
-                threadId: threadId,
-                threadVariant: threadVariant,
-                shouldSendLeaveMessageForGroups: true,
-                calledFromConfigHandling: false
-            )
-        }
     }
 }

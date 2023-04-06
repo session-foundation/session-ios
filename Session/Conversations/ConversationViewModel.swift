@@ -168,6 +168,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                     .map { $0.with(recentReactionEmoji: recentReactionEmoji) }
                     .map { viewModel -> SessionThreadViewModel in
                         viewModel.populatingCurrentUserBlindedKey(
+                            db,
                             currentUserBlindedPublicKeyForThisThread: self?.threadData.currentUserBlindedPublicKey
                         )
                     }

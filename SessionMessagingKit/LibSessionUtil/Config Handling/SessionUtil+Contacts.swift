@@ -175,7 +175,7 @@ internal extension SessionUtil {
                                 db,
                                 threadId: contact.id,
                                 threadVariant: .contact,
-                                shouldSendLeaveMessageForGroups: false,
+                                groupLeaveType: .forced,
                                 calledFromConfigHandling: true
                             )
                         
@@ -239,7 +239,7 @@ internal extension SessionUtil {
                     db,
                     threadIds: contactIdsToRemove,
                     threadVariant: .contact,
-                    shouldSendLeaveMessageForGroups: false,
+                    groupLeaveType: .forced,
                     calledFromConfigHandling: true
                 )
             

@@ -5,7 +5,7 @@ import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
 
-public final class FullConversationCell: UITableViewCell {
+public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticCell {
     public static let unreadCountViewSize: CGFloat = 20
     private static let statusIndicatorSize: CGFloat = 14
     
@@ -394,7 +394,7 @@ public final class FullConversationCell: UITableViewCell {
         }
         else {
             accentLineView.themeBackgroundColor = .conversationButton_unreadStripBackground
-            accentLineView.alpha = (unreadCount > 0 ? 1 : 0.0001) // Setting the alpha to exactly 0 causes an issue on iOS 12
+            accentLineView.alpha = (unreadCount > 0 ? 1 : 0)
         }
         
         isPinnedIcon.isHidden = (cellViewModel.threadPinnedPriority == 0)
@@ -434,12 +434,34 @@ public final class FullConversationCell: UITableViewCell {
             typingIndicatorView.stopAnimation()
             
             ThemeManager.onThemeChange(observer: snippetLabel) { [weak self, weak snippetLabel] theme, _ in
-                guard let textColor: UIColor = theme.color(for: .textPrimary) else { return }
-                
-                snippetLabel?.attributedText = self?.getSnippet(
-                    cellViewModel: cellViewModel,
-                    textColor: textColor
-                )
+                if cellViewModel.interactionVariant == .infoClosedGroupCurrentUserLeaving {
+                    guard let textColor: UIColor = theme.color(for: .textSecondary) else { return }
+                    
+                    self?.displayNameLabel.themeTextColor = .textSecondary
+                    
+                    snippetLabel?.attributedText = self?.getSnippet(
+                        cellViewModel: cellViewModel,
+                        textColor: textColor
+                    )
+                } else if cellViewModel.interactionVariant == .infoClosedGroupCurrentUserErrorLeaving {
+                    guard let textColor: UIColor = theme.color(for: .danger) else { return }
+                    
+                    self?.displayNameLabel.themeTextColor = .textPrimary
+                    
+                    snippetLabel?.attributedText = self?.getSnippet(
+                        cellViewModel: cellViewModel,
+                        textColor: textColor
+                    )
+                } else {
+                    guard let textColor: UIColor = theme.color(for: .textPrimary) else { return }
+                    
+                    self?.displayNameLabel.themeTextColor = .textPrimary
+                    
+                    snippetLabel?.attributedText = self?.getSnippet(
+                        cellViewModel: cellViewModel,
+                        textColor: textColor
+                    )
+                }
             }
         }
         
@@ -455,10 +477,23 @@ public final class FullConversationCell: UITableViewCell {
         )
     }
     
+    // MARK: - SwipeActionOptimisticCell
+    
     public func optimisticUpdate(
-        isBlocked: Bool? = nil,
-        isPinned: Bool? = nil
+        isMuted: Bool?,
+        isBlocked: Bool?,
+        isPinned: Bool?,
+        hasUnread: Bool?
     ) {
+        // TODO: Decide on this
+        if let isMuted: Bool = isMuted {
+            if isMuted {
+                
+            } else {
+                
+            }
+        }
+        
         if let isBlocked: Bool = isBlocked {
             if isBlocked {
                 accentLineView.themeBackgroundColor = .danger
@@ -466,15 +501,24 @@ public final class FullConversationCell: UITableViewCell {
             }
             else {
                 accentLineView.themeBackgroundColor = .conversationButton_unreadStripBackground
-                accentLineView.alpha = (!unreadCountView.isHidden || !unreadImageView.isHidden ?
-                    1 :
-                    0.0001 // Setting the alpha to exactly 0 causes an issue on iOS 12
-                )
+                accentLineView.alpha = (!unreadCountView.isHidden || !unreadImageView.isHidden ? 1 : 0)
             }
         }
         
         if let isPinned: Bool = isPinned {
             isPinnedIcon.isHidden = !isPinned
+        }
+        
+        if let hasUnread: Bool = hasUnread {
+            if hasUnread {
+                unreadCountView.isHidden = false
+                unreadCountLabel.text = "1"
+                unreadCountLabel.font = .boldSystemFont(ofSize: Values.verySmallFontSize)
+                accentLineView.alpha = 1
+            } else {
+                unreadCountView.isHidden = true
+                accentLineView.alpha = 0
+            }
         }
     }
     
@@ -514,7 +558,10 @@ public final class FullConversationCell: UITableViewCell {
             ))
         }
         
-        if cellViewModel.threadVariant == .legacyGroup || cellViewModel.threadVariant == .group || cellViewModel.threadVariant == .community {
+        if
+            (cellViewModel.threadVariant == .legacyGroup || cellViewModel.threadVariant == .group || cellViewModel.threadVariant == .community) &&
+            (cellViewModel.interactionVariant?.isGroupControlMessage == false)
+        {
             let authorName: String = cellViewModel.authorName(for: cellViewModel.threadVariant)
             
             result.append(NSAttributedString(
@@ -523,17 +570,22 @@ public final class FullConversationCell: UITableViewCell {
             ))
         }
         
+        let previewText: String = {
+            if cellViewModel.interactionVariant == .infoClosedGroupCurrentUserErrorLeaving { return "group_leave_error".localized() }
+            return Interaction.previewText(
+                variant: (cellViewModel.interactionVariant ?? .standardIncoming),
+                body: cellViewModel.interactionBody,
+                threadContactDisplayName: cellViewModel.threadContactName(),
+                authorDisplayName: cellViewModel.authorName(for: cellViewModel.threadVariant),
+                attachmentDescriptionInfo: cellViewModel.interactionAttachmentDescriptionInfo,
+                attachmentCount: cellViewModel.interactionAttachmentCount,
+                isOpenGroupInvitation: (cellViewModel.interactionIsOpenGroupInvitation == true)
+            )
+        }()
+        
         result.append(NSAttributedString(
             string: MentionUtilities.highlightMentionsNoAttributes(
-                in: Interaction.previewText(
-                    variant: (cellViewModel.interactionVariant ?? .standardIncoming),
-                    body: cellViewModel.interactionBody,
-                    threadContactDisplayName: cellViewModel.threadContactName(),
-                    authorDisplayName: cellViewModel.authorName(for: cellViewModel.threadVariant),
-                    attachmentDescriptionInfo: cellViewModel.interactionAttachmentDescriptionInfo,
-                    attachmentCount: cellViewModel.interactionAttachmentCount,
-                    isOpenGroupInvitation: (cellViewModel.interactionIsOpenGroupInvitation == true)
-                ),
+                in: previewText,
                 threadVariant: cellViewModel.threadVariant,
                 currentUserPublicKey: cellViewModel.currentUserPublicKey,
                 currentUserBlindedPublicKey: cellViewModel.currentUserBlindedPublicKey

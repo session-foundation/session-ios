@@ -10,7 +10,7 @@ abstract_target 'GlobalDependencies' do
   # FIXME: If https://github.com/jedisct1/swift-sodium/pull/249 gets resolved then revert this back to the standard pod
   pod 'Sodium', :git => 'https://github.com/oxen-io/session-ios-swift-sodium.git', branch: 'session-build'
   pod 'GRDB.swift/SQLCipher'
-  pod 'SQLCipher', '~> 4.5.0' # FIXME: Version 4.5.2 is crashing when access DB settings
+  pod 'SQLCipher', '~> 4.5.3'
 
   # FIXME: We want to remove this once it's been long enough since the migration to GRDB
   pod 'YapDatabase/SQLCipher', :git => 'https://github.com/oxen-io/session-ios-yap-database.git', branch: 'signal-release'
@@ -102,6 +102,9 @@ post_install do |installer|
   enable_whole_module_optimization_for_crypto_swift(installer)
   set_minimum_deployment_target(installer)
   enable_fts5_support(installer)
+  
+  #FIXME: Remove this workaround once an official fix is released (hopefully Cocoapods 1.12.1)
+  xcode_14_3_workaround(installer)
 end
 
 def enable_whole_module_optimization_for_crypto_swift(installer)
@@ -131,4 +134,13 @@ def enable_fts5_support(installer)
       config.build_settings['OTHER_SWIFT_FLAGS'] = "$(inherited) -D SQLITE_ENABLE_FTS5"
     end
   end
+end
+
+# Workaround for Xcode 14.3:
+# Sourced from https://github.com/flutter/flutter/issues/123852#issuecomment-1493232105
+def xcode_14_3_workaround(installer)
+  system('sed -i \'\' \'44s/readlink/readlink -f/\' \'Pods/Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionMessagingKit-SessionMessagingKitTests/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionMessagingKit-SessionMessagingKitTests-frameworks.sh\'')
+  system('sed -i \'\' \'44s/readlink/readlink -f/\' \'Pods/Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit-SessionUtilitiesKitTests/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit-SessionUtilitiesKitTests-frameworks.sh\'')
+  system('sed -i \'\' \'44s/readlink/readlink -f/\' \'Pods/Target Support Files/Pods-GlobalDependencies-Session/Pods-GlobalDependencies-Session-frameworks.sh\'')
+  system('sed -i \'\' \'44s/readlink/readlink -f/\' \'Pods/Target Support Files/Pods-GlobalDependencies-Session-SessionTests/Pods-GlobalDependencies-Session-SessionTests-frameworks.sh\'')
 end

@@ -46,8 +46,25 @@ public enum HTTP {
             guard SecTrustSetAnchorCertificates(trust, certificates as CFArray) == errSecSuccess else {
                 return completionHandler(.cancelAuthenticationChallenge, nil)
             }
+            
+            // We want to make sure that the pinned certification was valid during it's validity
+            // period (which has now expired) so set the date to validate against to be within the
+            // valid period
+            let dateFormatter: DateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "dd/MM/yyyy HH:mm:ss"
+            
+            if let validDate: Date = dateFormatter.date(from: "01/01/2022 12:00:00") {
+                if SecTrustSetVerifyDate(trust, validDate as CFDate) != errSecSuccess {
+                    SNLog("Unable to set date for seed node certificate validation.")
+                }
+            }
+            else {
+                SNLog("Unable to set date for seed node certificate validation.")
+            }
+            
             // Check that the presented certificate is one of the seed node certificates
             var result: SecTrustResultType = .invalid
+            
             guard SecTrustEvaluate(trust, &result) == errSecSuccess else {
                 return completionHandler(.cancelAuthenticationChallenge, nil)
             }

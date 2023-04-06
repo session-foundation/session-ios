@@ -1742,7 +1742,8 @@ extension ConversationVC:
         switch cellViewModel.variant {
             case .standardIncomingDeleted, .infoCall,
                 .infoScreenshotNotification, .infoMediaSavedNotification,
-                .infoClosedGroupCreated, .infoClosedGroupUpdated, .infoClosedGroupCurrentUserLeft,
+                .infoClosedGroupCreated, .infoClosedGroupUpdated,
+                .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving,
                 .infoMessageRequestAccepted, .infoDisappearingMessagesUpdate:
                 // Info messages and unsent messages should just trigger a local
                 // deletion (they are created as side effects so we wouldn't be
@@ -2052,7 +2053,8 @@ extension ConversationVC:
             try MessageSender.send(
                 db,
                 message: DataExtractionNotification(
-                    kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs))
+                    kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs)),
+                    sentTimestamp: UInt64(SnodeAPI.currentOffsetTimestampMs())
                 ),
                 interactionId: nil,
                 threadId: threadId,
@@ -2320,7 +2322,8 @@ extension ConversationVC:
             try MessageSender.send(
                 db,
                 message: DataExtractionNotification(
-                    kind: .screenshot
+                    kind: .screenshot,
+                    sentTimestamp: UInt64(SnodeAPI.currentOffsetTimestampMs())
                 ),
                 interactionId: nil,
                 threadId: threadId,
@@ -2435,31 +2438,49 @@ extension ConversationVC {
     }
 
     @objc func deleteMessageRequest() {
-        MessageRequestsViewModel.deleteMessageRequest(
-            threadId: self.viewModel.threadData.threadId,
-            threadVariant: self.viewModel.threadData.threadVariant,
+        let actions: [UIContextualAction]? = UIContextualAction.generateSwipeActions(
+            [.delete],
+            for: .trailing,
+            indexPath: IndexPath(row: 0, section: 0),
+            tableView: self.tableView,
+            threadViewModel: self.viewModel.threadData,
             viewController: self
-        ) { [weak self] in
+        )
+        
+        guard let action: UIContextualAction = actions?.first else { return }
+        
+        action.handler(action, self.view, { [weak self] didConfirm in
+            guard didConfirm else { return }
+            
             self?.stopObservingChanges()
             
             DispatchQueue.main.async {
                 self?.navigationController?.popViewController(animated: true)
             }
-        }
+        })
     }
     
     @objc func blockMessageRequest() {
-        MessageRequestsViewModel.blockMessageRequest(
-            threadId: self.viewModel.threadData.threadId,
-            threadVariant: self.viewModel.threadData.threadVariant,
+        let actions: [UIContextualAction]? = UIContextualAction.generateSwipeActions(
+            [.block],
+            for: .trailing,
+            indexPath: IndexPath(row: 0, section: 0),
+            tableView: self.tableView,
+            threadViewModel: self.viewModel.threadData,
             viewController: self
-        ) { [weak self] in
+        )
+        
+        guard let action: UIContextualAction = actions?.first else { return }
+        
+        action.handler(action, self.view, { [weak self] didConfirm in
+            guard didConfirm else { return }
+            
             self?.stopObservingChanges()
             
             DispatchQueue.main.async {
                 self?.navigationController?.popViewController(animated: true)
             }
-        }
+        })
     }
 }
 
