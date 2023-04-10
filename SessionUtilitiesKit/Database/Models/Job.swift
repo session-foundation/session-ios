@@ -3,7 +3,7 @@
 import Foundation
 import GRDB
 
-public struct Job: Codable, Equatable, Identifiable, FetchableRecord, MutablePersistableRecord, TableRecord, ColumnExpressible {
+public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, MutablePersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "job" }
     internal static let dependencyForeignKey = ForeignKey([Columns.id], to: [JobDependencies.Columns.dependantId])
     public static let dependantJobDependency = hasMany(
@@ -102,6 +102,10 @@ public struct Job: Codable, Equatable, Identifiable, FetchableRecord, MutablePer
         /// This is a job that runs once whenever an attachment is downloaded to attempt to decode and properly
         /// download the attachment
         case attachmentDownload
+        
+        /// This is a job that runs once whenever the user leaves a group to send a group leaving message, remove group
+        /// record and group member record
+        case groupLeaving
     }
     
     public enum Behaviour: Int, Codable, DatabaseValueConvertible, CaseIterable {

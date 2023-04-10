@@ -1611,7 +1611,19 @@ extension ConversationVC:
                 quotedAttachment.downloadUrl == Attachment.nonMediaQuoteFileId,
                 let quotedInteraction = try? quote.originalInteraction.fetchOne(db)
             {
-                let attachment = try? quotedInteraction.attachments.fetchAll(db).first
+                let attachment: Attachment? = {
+                    if let attachment = try? quotedInteraction.attachments.fetchOne(db) {
+                        return attachment
+                    }
+                    if
+                        let linkPreview = try? quotedInteraction.linkPreview.fetchOne(db),
+                        let linkPreviewAttachment = try? linkPreview.attachment.fetchOne(db)
+                    {
+                        return linkPreviewAttachment
+                    }
+                       
+                    return nil
+                }()
                 try quote.with(
                     attachmentId: attachment?.cloneAsQuoteThumbnail()?.inserted(db).id
                 ).update(db)
@@ -1694,7 +1706,8 @@ extension ConversationVC:
         switch cellViewModel.variant {
             case .standardIncomingDeleted, .infoCall,
                 .infoScreenshotNotification, .infoMediaSavedNotification,
-                .infoClosedGroupCreated, .infoClosedGroupUpdated, .infoClosedGroupCurrentUserLeft,
+                .infoClosedGroupCreated, .infoClosedGroupUpdated,
+                .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving,
                 .infoMessageRequestAccepted, .infoDisappearingMessagesUpdate:
                 // Info messages and unsent messages should just trigger a local
                 // deletion (they are created as side effects so we wouldn't be
@@ -2003,7 +2016,8 @@ extension ConversationVC:
             try MessageSender.send(
                 db,
                 message: DataExtractionNotification(
-                    kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs))
+                    kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs)),
+                    sentTimestamp: UInt64(SnodeAPI.currentOffsetTimestampMs())
                 ),
                 interactionId: nil,
                 in: thread
@@ -2257,7 +2271,8 @@ extension ConversationVC:
             try MessageSender.send(
                 db,
                 message: DataExtractionNotification(
-                    kind: .screenshot
+                    kind: .screenshot,
+                    sentTimestamp: UInt64(SnodeAPI.currentOffsetTimestampMs())
                 ),
                 interactionId: nil,
                 in: thread

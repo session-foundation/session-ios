@@ -97,6 +97,7 @@ final class InfoMessageCell: MessageCell {
         iconImageViewHeightConstraint.constant = (icon != nil) ? InfoMessageCell.iconSize : 0
         
         self.label.text = cellViewModel.body
+        self.label.themeTextColor = (cellViewModel.variant == .infoClosedGroupCurrentUserErrorLeaving) ? .danger : .textPrimary
     }
     
     override func dynamicUpdate(with cellViewModel: MessageViewModel, playbackInfo: ConversationViewModel.PlaybackInfo?) {
