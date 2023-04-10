@@ -3,7 +3,7 @@
 import Foundation
 import GRDB
 
-public struct JobDependencies: Codable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+public struct JobDependencies: Codable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "jobDependencies" }
     internal static let jobForeignKey = ForeignKey([Columns.jobId], to: [Job.Columns.id])
     internal static let dependantForeignKey = ForeignKey([Columns.dependantId], to: [Job.Columns.id])

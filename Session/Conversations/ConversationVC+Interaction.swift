@@ -2027,7 +2027,8 @@ extension ConversationVC:
             try MessageSender.send(
                 db,
                 message: DataExtractionNotification(
-                    kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs))
+                    kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs)),
+                    sentTimestamp: UInt64(SnodeAPI.currentOffsetTimestampMs())
                 ),
                 interactionId: nil,
                 in: thread
@@ -2281,7 +2282,8 @@ extension ConversationVC:
             try MessageSender.send(
                 db,
                 message: DataExtractionNotification(
-                    kind: .screenshot
+                    kind: .screenshot,
+                    sentTimestamp: UInt64(SnodeAPI.currentOffsetTimestampMs())
                 ),
                 interactionId: nil,
                 in: thread
