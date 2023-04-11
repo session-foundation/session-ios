@@ -66,17 +66,17 @@
 	<dict>
 		<key>NSExceptionDomains</key>
 		<dict>
-			<key>public.loki.foundation</key>
+			<key>seed1.getsession.org</key>
 			<dict>
 				<key>NSExceptionRequiresForwardSecrecy</key>
 				<false/>
 			</dict>
-			<key>storage.seed1.loki.network</key>
+			<key>seed2.getsession.org</key>
 			<dict>
 				<key>NSExceptionRequiresForwardSecrecy</key>
 				<false/>
 			</dict>
-			<key>storage.seed3.loki.network</key>
+			<key>seed3.getsession.org</key>
 			<dict>
 				<key>NSExceptionRequiresForwardSecrecy</key>
 				<false/>
