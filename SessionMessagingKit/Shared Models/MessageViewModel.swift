@@ -744,7 +744,12 @@ public extension MessageViewModel {
                         ) AND
                         \(quote[.timestampMs]) = \(interaction[.timestampMs])
                     )
-                    LEFT JOIN \(InteractionAttachment.self) ON \(interaction[.id]) = \(interactionAttachment[.interactionId])
+                    LEFT JOIN \(InteractionAttachment.self) ON \(interactionAttachment[.attachmentId]) = (
+                        SELECT \(interactionAttachment[.attachmentId])
+                        FROM \(InteractionAttachment.self)
+                        WHERE \(interaction[.id]) = \(interactionAttachment[.interactionId])
+                        LIMIT 1
+                    )
                 ) AS \(ViewModel.quoteKey) ON \(quote[.interactionId]) = \(interaction[.id])
                 LEFT JOIN \(Attachment.self) AS \(ViewModel.quoteAttachmentKey) ON \(ViewModel.quoteAttachmentKey).\(attachmentIdColumnLiteral) = \(quote[.attachmentId])
                 LEFT JOIN \(LinkPreview.self) ON (
