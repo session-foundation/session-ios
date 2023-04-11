@@ -47,7 +47,14 @@ public final class SnodeAPI {
     
     private static let maxRetryCount: UInt = 8
     private static let minSwarmSnodeCount = 3
-    private static let seedNodePool: Set<String> = Features.useTestnet ? [ "http://public.loki.foundation:38157" ] : [ "https://storage.seed1.loki.network:4433", "https://storage.seed3.loki.network:4433", "https://public.loki.foundation:4433" ]
+    private static let seedNodePool: Set<String> = (Features.useTestnet ?
+        [ "http://public.loki.foundation:38157" ] :
+        [
+            "https://seed1.getsession.org:4443",
+            "https://seed2.getsession.org:4443",
+            "https://seed3.getsession.org:4443"
+        ]
+    )
     private static let snodeFailureThreshold = 3
     private static let targetSwarmSnodeCount = 2
     private static let minSnodePoolCount = 12
@@ -316,46 +323,56 @@ public final class SnodeAPI {
         
         if let getSnodePoolPromise = getSnodePoolPromise.wrappedValue { return getSnodePoolPromise }
         
-        let promise: Promise<Set<Snode>>
-        if snodePool.count < minSnodePoolCount {
-            promise = getSnodePoolFromSeedNode()
-        }
-        else {
-            promise = getSnodePoolFromSnode().recover2 { _ in
-                getSnodePoolFromSeedNode()
+        return getSnodePoolPromise.mutate { result in
+            /// It was possible for multiple threads to call this at the same time resulting in duplicate promises getting created, while
+            /// this should no longer be possible (as the `wrappedValue` should now properly be blocked) this is a sanity check
+            /// to make sure we don't create an additional promise when one already exists
+            if let previouslyBlockedPromise: Promise<Set<Snode>> = result {
+                return previouslyBlockedPromise
             }
-        }
-        
-        getSnodePoolPromise.mutate { $0 = promise }
-        promise.map2 { snodePool -> Set<Snode> in
-            guard !snodePool.isEmpty else { throw SnodeAPIError.snodePoolUpdatingFailed }
-            
-            return snodePool
-        }
-        
-        promise.then2 { snodePool -> Promise<Set<Snode>> in
-            let (promise, seal) = Promise<Set<Snode>>.pending()
-            
-            Storage.shared.writeAsync(
-                updates: { db in
-                    db[.lastSnodePoolRefreshDate] = now
-                    setSnodePool(to: snodePool, db: db)
-                },
-                completion: { _, _ in
-                    seal.fulfill(snodePool)
+
+            let promise: Promise<Set<Snode>>
+
+            if snodePool.count < minSnodePoolCount {
+                promise = getSnodePoolFromSeedNode()
+            }
+            else {
+                promise = getSnodePoolFromSnode().recover2 { _ in
+                    getSnodePoolFromSeedNode()
                 }
-            )
-            
+            }
+
+            promise.map2 { snodePool -> Set<Snode> in
+                guard !snodePool.isEmpty else { throw SnodeAPIError.snodePoolUpdatingFailed }
+
+                return snodePool
+            }
+
+            promise.then2 { snodePool -> Promise<Set<Snode>> in
+                let (promise, seal) = Promise<Set<Snode>>.pending()
+
+                Storage.shared.writeAsync(
+                    updates: { db in
+                        db[.lastSnodePoolRefreshDate] = now
+                        setSnodePool(to: snodePool, db: db)
+                    },
+                    completion: { _, _ in
+                        seal.fulfill(snodePool)
+                    }
+                )
+
+                return promise
+            }
+            promise.done2 { _ in
+                getSnodePoolPromise.mutate { $0 = nil }
+            }
+            promise.catch2 { _ in
+                getSnodePoolPromise.mutate { $0 = nil }
+            }
+
+            result = promise
             return promise
         }
-        promise.done2 { _ in
-            getSnodePoolPromise.mutate { $0 = nil }
-        }
-        promise.catch2 { _ in
-            getSnodePoolPromise.mutate { $0 = nil }
-        }
-        
-        return promise
     }
     
     public static func getSessionID(for onsName: String) -> Promise<String> {
