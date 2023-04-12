@@ -663,6 +663,7 @@ public extension MessageViewModel {
             let attachmentIdColumn: SQL = SQL(stringLiteral: Attachment.Columns.id.name)
             let interactionAttachmentInteractionIdColumn: SQL = SQL(stringLiteral: InteractionAttachment.Columns.interactionId.name)
             let interactionAttachmentAttachmentIdColumn: SQL = SQL(stringLiteral: InteractionAttachment.Columns.attachmentId.name)
+            let interactionAttachmentAlbumIndexColumn: SQL = SQL(stringLiteral: InteractionAttachment.Columns.albumIndex.name)
             
             let numColumnsBeforeLinkedRecords: Int = 20
             let finalGroupSQL: SQL = (groupSQL ?? "")
@@ -743,7 +744,10 @@ public extension MessageViewModel {
                         )
                     )
                 )
-                LEFT JOIN \(InteractionAttachment.self) AS \(quoteInteractionAttachment) ON \(quoteInteractionAttachment).\(interactionAttachmentInteractionIdColumn) = \(quoteInteraction).\(idColumn)
+                LEFT JOIN \(InteractionAttachment.self) AS \(quoteInteractionAttachment) ON (
+                    \(quoteInteractionAttachment).\(interactionAttachmentInteractionIdColumn) = \(quoteInteraction).\(idColumn) AND
+                    \(quoteInteractionAttachment).\(interactionAttachmentAlbumIndexColumn) = 0
+                )
                 LEFT JOIN \(Attachment.self) AS \(ViewModel.quoteAttachmentKey) ON \(ViewModel.quoteAttachmentKey).\(attachmentIdColumn) = \(quoteInteractionAttachment).\(interactionAttachmentAttachmentIdColumn)
             
                 LEFT JOIN \(LinkPreview.self) ON (
