@@ -520,8 +520,7 @@ extension Attachment {
                     \(interaction[.id]) = \(interactionAttachment[.interactionId]) OR
                     (
                         \(interaction[.linkPreviewUrl]) = \(linkPreview[.url]) AND
-                        /* Note: This equation MUST match the `linkPreviewFilterLiteral` logic in Interaction.swift */
-                        (ROUND((\(interaction[.timestampMs]) / 1000 / 100000) - 0.5) * 100000) = \(linkPreview[.timestamp])
+                        \(Interaction.linkPreviewFilterLiteral)
                     )
                 )
             
@@ -566,8 +565,7 @@ extension Attachment {
                     \(interaction[.id]) = \(interactionAttachment[.interactionId]) OR
                     (
                         \(interaction[.linkPreviewUrl]) = \(linkPreview[.url]) AND
-                        /* Note: This equation MUST match the `linkPreviewFilterLiteral` logic in Interaction.swift */
-                        (ROUND((\(interaction[.timestampMs]) / 1000 / 100000) - 0.5) * 100000) = \(linkPreview[.timestamp])
+                        \(Interaction.linkPreviewFilterLiteral)
                     )
                 )
             

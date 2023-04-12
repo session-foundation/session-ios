@@ -312,9 +312,9 @@ public final class SnodeAPI {
     public static func getSnodePool() -> Promise<Set<Snode>> {
         loadSnodePoolIfNeeded()
         let now = Date()
-        let hasSnodePoolExpired = given(Storage.shared[.lastSnodePoolRefreshDate]) {
-            now.timeIntervalSince($0) > 2 * 60 * 60
-        }.defaulting(to: true)
+        let hasSnodePoolExpired: Bool = Storage.shared[.lastSnodePoolRefreshDate]
+            .map { now.timeIntervalSince($0) > 2 * 60 * 60 }
+            .defaulting(to: true)
         let snodePool: Set<Snode> = SnodeAPI.snodePool.wrappedValue
         
         guard hasInsufficientSnodes || hasSnodePoolExpired else {
