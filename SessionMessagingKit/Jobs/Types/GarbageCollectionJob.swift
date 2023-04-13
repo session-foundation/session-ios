@@ -141,7 +141,7 @@ public enum GarbageCollectionJob: JobExecutor {
                             FROM \(LinkPreview.self)
                             LEFT JOIN \(Interaction.self) ON (
                                 \(interaction[.linkPreviewUrl]) = \(linkPreview[.url]) AND
-                                \(Interaction.linkPreviewFilterLiteral())
+                                \(Interaction.linkPreviewFilterLiteral)
                             )
                             WHERE \(interaction[.id]) IS NULL
                         )

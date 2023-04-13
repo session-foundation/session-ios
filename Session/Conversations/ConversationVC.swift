@@ -441,11 +441,6 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         
-        // Flag that the initial layout has been completed (the flag blocks and unblocks a number
-        // of different behaviours)
-        didFinishInitialLayout = true
-        viewIsAppearing = false
-        
         if delayFirstResponder || isShowingSearchUI {
             delayFirstResponder = false
             
@@ -457,7 +452,12 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             }
         }
         
-        recoverInputView()
+        recoverInputView { [weak self] in
+            // Flag that the initial layout has been completed (the flag blocks and unblocks a number
+            // of different behaviours)
+            self?.didFinishInitialLayout = true
+            self?.viewIsAppearing = false
+        }
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -1261,7 +1261,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         self.blockedBanner.pin([ UIView.HorizontalEdge.left, UIView.VerticalEdge.top, UIView.HorizontalEdge.right ], to: self.view)
     }
     
-    func recoverInputView() {
+    func recoverInputView(completion: (() -> ())? = nil) {
         // This is a workaround for an issue where the textview is not scrollable
         // after the app goes into background and goes back in foreground.
         DispatchQueue.main.async {

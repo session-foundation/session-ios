@@ -57,6 +57,7 @@ public enum MessageSendJob: JobExecutor {
                     .stateInfo(interactionId: interactionId)
                     .fetchAll(db)
                 let maybeFileIds: [String?] = allAttachmentStateInfo
+                    .sorted { lhs, rhs in lhs.albumIndex < rhs.albumIndex }
                     .map { Attachment.fileId(for: $0.downloadUrl) }
                 let fileIds: [String] = maybeFileIds.compactMap { $0 }
                 

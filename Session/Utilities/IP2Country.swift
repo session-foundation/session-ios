@@ -40,7 +40,7 @@ final class IP2Country {
     private func cacheCountry(for ip: String) -> String {
         if let result = countryNamesCache[ip] { return result }
         let ipAsInt = IPv4.toInt(ip)
-        guard let ipv4TableIndex = given(ipv4Table["network"]!.firstIndex(where: { $0 > ipAsInt }), { $0 - 1 }) else { return "Unknown Country" } // Relies on the array being sorted
+        guard let ipv4TableIndex = ipv4Table["network"]!.firstIndex(where: { $0 > ipAsInt }).map({ $0 - 1 }) else { return "Unknown Country" } // Relies on the array being sorted
         let countryID = ipv4Table["registered_country_geoname_id"]![ipv4TableIndex]
         guard let countryNamesTableIndex = countryNamesTable["geoname_id"]!.firstIndex(of: String(countryID)) else { return "Unknown Country" }
         let result = countryNamesTable["country_name"]![countryNamesTableIndex]
