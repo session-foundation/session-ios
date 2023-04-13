@@ -4,6 +4,7 @@ import Foundation
 import UIKit
 import SessionUIKit
 import SignalCoreKit
+import PureLayout
 
 // Coincides with Android's max text message length
 let kMaxMessageBodyCharacterCount = 2000

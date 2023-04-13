@@ -18,8 +18,9 @@ public enum FileServerAPI {
     /// exactly will be fine but a single byte more will result in an error
     public static let maxFileSize = 10_000_000
     
-    /// Standard timeout is 10 seconds which is a little too short fir file upload/download with slightly larger files
-    public static let fileTimeout: TimeInterval = 30
+    /// Standard timeout is 10 seconds which is a little too short for file upload/download with slightly larger files
+    public static let fileDownloadTimeout: TimeInterval = 30
+    public static let fileUploadTimeout: TimeInterval = 60
     
     // MARK: - File Storage
     
@@ -35,7 +36,7 @@ public enum FileServerAPI {
             body: Array(file)
         )
 
-        return send(request, serverPublicKey: serverPublicKey)
+        return send(request, serverPublicKey: serverPublicKey, timeout: FileServerAPI.fileUploadTimeout)
             .decoded(as: FileUploadResponse.self)
     }
     
@@ -46,7 +47,7 @@ public enum FileServerAPI {
             endpoint: .fileIndividual(fileId: fileId)
         )
         
-        return send(request, serverPublicKey: serverPublicKey)
+        return send(request, serverPublicKey: serverPublicKey, timeout: FileServerAPI.fileDownloadTimeout)
     }
 
     public static func getVersion(_ platform: String) -> AnyPublisher<String, Error> {
@@ -58,7 +59,7 @@ public enum FileServerAPI {
             ]
         )
         
-        return send(request, serverPublicKey: serverPublicKey)
+        return send(request, serverPublicKey: serverPublicKey, timeout: HTTP.timeout)
             .decoded(as: VersionResponse.self)
             .map { response in response.version }
             .eraseToAnyPublisher()
@@ -68,7 +69,8 @@ public enum FileServerAPI {
     
     private static func send<T: Encodable>(
         _ request: Request<T, Endpoint>,
-        serverPublicKey: String
+        serverPublicKey: String,
+        timeout: TimeInterval
     ) -> AnyPublisher<Data, Error> {
         let urlRequest: URLRequest
         
@@ -80,7 +82,13 @@ public enum FileServerAPI {
                 .eraseToAnyPublisher()
         }
         
-        return OnionRequestAPI.sendOnionRequest(urlRequest, to: request.server, with: serverPublicKey, timeout: FileServerAPI.fileTimeout)
+        return OnionRequestAPI
+            .sendOnionRequest(
+                urlRequest,
+                to: request.server,
+                with: serverPublicKey,
+                timeout: timeout
+            )
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .tryMap { _, response -> Data in
                 guard let response: Data = response else { throw HTTPError.parsingFailed }

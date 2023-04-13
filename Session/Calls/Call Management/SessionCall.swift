@@ -372,6 +372,10 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         webRTCSession.attachLocalRenderer(renderer)
     }
     
+    func removeLocalVideoRenderer(_ renderer: RTCVideoRenderer) {
+        webRTCSession.removeLocalRenderer(renderer)
+    }
+    
     // MARK: - Delegate
     
     public func webRTCIsConnected() {

@@ -17,13 +17,13 @@ public extension UIView {
     
     class func spacer(withWidth width: CGFloat) -> UIView {
         let view = UIView()
-        view.autoSetDimension(.width, toSize: width)
+        view.set(.width, to: width)
         return view
     }
 
     class func spacer(withHeight height: CGFloat) -> UIView {
         let view = UIView()
-        view.autoSetDimension(.height, toSize: height)
+        view.set(.height, to: height)
         return view
     }
 

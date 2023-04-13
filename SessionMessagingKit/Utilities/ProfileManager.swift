@@ -514,16 +514,13 @@ public struct ProfileManager {
         
         // Name
         if let name: String = name, !name.isEmpty, name != profile.name {
-            let shouldUpdate: Bool
-            if isCurrentUser {
-                shouldUpdate = given(UserDefaults.standard[.lastDisplayNameUpdate]) {
-                    sentTimestamp > $0.timeIntervalSince1970
-                }
-                .defaulting(to: true)
-            }
-            else {
-                shouldUpdate = true
-            }
+            let shouldUpdate: Bool = {
+                guard isCurrentUser else { return true }
+                
+                return UserDefaults.standard[.lastDisplayNameUpdate]
+                    .map { sentTimestamp > $0.timeIntervalSince1970 }
+                    .defaulting(to: true)
+            }()
             
             if shouldUpdate {
                 if isCurrentUser {
@@ -540,10 +537,9 @@ public struct ProfileManager {
         let shouldUpdateAvatar: Bool = {
             guard isCurrentUser else { return true }
             
-            return given(UserDefaults.standard[.lastProfilePictureUpdate]) {
-                sentTimestamp > $0.timeIntervalSince1970
-            }
-            .defaulting(to: true)
+            return UserDefaults.standard[.lastProfilePictureUpdate]
+                .map { sentTimestamp > $0.timeIntervalSince1970 }
+                .defaulting(to: true)
         }()
         
         if shouldUpdateAvatar {

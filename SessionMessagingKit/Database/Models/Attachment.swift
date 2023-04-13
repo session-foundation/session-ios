@@ -493,6 +493,7 @@ extension Attachment {
         public let interactionId: Int64
         public let state: Attachment.State
         public let downloadUrl: String?
+        public let albumIndex: Int
     }
     
     public static func stateInfo(authorId: String, state: State? = nil) -> SQLRequest<Attachment.StateInfo> {
@@ -510,7 +511,8 @@ extension Attachment {
                 \(attachment[.id]) AS attachmentId,
                 \(interaction[.id]) AS interactionId,
                 \(attachment[.state]) AS state,
-                \(attachment[.downloadUrl]) AS downloadUrl
+                \(attachment[.downloadUrl]) AS downloadUrl,
+                IFNULL(\(interactionAttachment[.albumIndex]), 0) AS albumIndex
         
             FROM \(Attachment.self)
             
@@ -520,8 +522,7 @@ extension Attachment {
                     \(interaction[.id]) = \(interactionAttachment[.interactionId]) OR
                     (
                         \(interaction[.linkPreviewUrl]) = \(linkPreview[.url]) AND
-                        /* Note: This equation MUST match the `linkPreviewFilterLiteral` logic in Interaction.swift */
-                        (ROUND((\(interaction[.timestampMs]) / 1000 / 100000) - 0.5) * 100000) = \(linkPreview[.timestamp])
+                        \(Interaction.linkPreviewFilterLiteral)
                     )
                 )
             
@@ -556,7 +557,8 @@ extension Attachment {
                 \(attachment[.id]) AS attachmentId,
                 \(interaction[.id]) AS interactionId,
                 \(attachment[.state]) AS state,
-                \(attachment[.downloadUrl]) AS downloadUrl
+                \(attachment[.downloadUrl]) AS downloadUrl,
+                IFNULL(\(interactionAttachment[.albumIndex]), 0) AS albumIndex
         
             FROM \(Attachment.self)
             
@@ -566,8 +568,7 @@ extension Attachment {
                     \(interaction[.id]) = \(interactionAttachment[.interactionId]) OR
                     (
                         \(interaction[.linkPreviewUrl]) = \(linkPreview[.url]) AND
-                        /* Note: This equation MUST match the `linkPreviewFilterLiteral` logic in Interaction.swift */
-                        (ROUND((\(interaction[.timestampMs]) / 1000 / 100000) - 0.5) * 100000) = \(linkPreview[.timestamp])
+                        \(Interaction.linkPreviewFilterLiteral)
                     )
                 )
             

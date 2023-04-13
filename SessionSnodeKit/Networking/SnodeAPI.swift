@@ -41,9 +41,9 @@ public final class SnodeAPI {
         }
         
         return [
-            "https://storage.seed1.loki.network:4433",
-            "https://storage.seed3.loki.network:4433",
-            "https://public.loki.foundation:4433"
+            "https://seed1.getsession.org:4432",
+            "https://seed2.getsession.org:4432",
+            "https://seed3.getsession.org:4432"
         ]
     }()
     private static let snodeFailureThreshold: Int = 3
@@ -139,9 +139,9 @@ public final class SnodeAPI {
         loadSnodePoolIfNeeded()
         
         let now: Date = Date()
-        let hasSnodePoolExpired: Bool = given(Storage.shared[.lastSnodePoolRefreshDate]) {
-            now.timeIntervalSince($0) > 2 * 60 * 60
-        }.defaulting(to: true)
+        let hasSnodePoolExpired: Bool = Storage.shared[.lastSnodePoolRefreshDate]
+            .map { now.timeIntervalSince($0) > 2 * 60 * 60 }
+            .defaulting(to: true)
         let snodePool: Set<Snode> = SnodeAPI.snodePool.wrappedValue
         
         guard hasInsufficientSnodes || hasSnodePoolExpired else {
@@ -154,35 +154,42 @@ public final class SnodeAPI {
             return getSnodePoolPublisher
         }
         
-        let publisher: AnyPublisher<Set<Snode>, Error>
-        if snodePool.count < minSnodePoolCount {
-            publisher = getSnodePoolFromSeedNode()
-        }
-        else {
-            publisher = getSnodePoolFromSnode()
-                .catch { _ in getSnodePoolFromSeedNode() }
+        return getSnodePoolPublisher.mutate { result in
+            /// It was possible for multiple threads to call this at the same time resulting in duplicate promises getting created, while
+            /// this should no longer be possible (as the `wrappedValue` should now properly be blocked) this is a sanity check
+            /// to make sure we don't create an additional promise when one already exists
+            if let previouslyBlockedPublisher: AnyPublisher<Set<Snode>, Error> = result {
+                return previouslyBlockedPublisher
+            }
+            
+            let publisher: AnyPublisher<Set<Snode>, Error> = {
+                guard snodePool.count >= minSnodePoolCount else { return getSnodePoolFromSeedNode() }
+                
+                return getSnodePoolFromSnode()
+                    .catch { _ in getSnodePoolFromSeedNode() }
+                    .eraseToAnyPublisher()
+            }()
+            
+            getSnodePoolPublisher.mutate { $0 = publisher }
+            
+            return publisher
+                .tryFlatMap { snodePool -> AnyPublisher<Set<Snode>, Error> in
+                    guard !snodePool.isEmpty else { throw SnodeAPIError.snodePoolUpdatingFailed }
+                    
+                    return Storage.shared
+                        .writePublisher(receiveOn: Threading.workQueue) { db in
+                            db[.lastSnodePoolRefreshDate] = now
+                            setSnodePool(db, to: snodePool)
+                            
+                            return snodePool
+                        }
+                        .eraseToAnyPublisher()
+                }
+                .handleEvents(
+                    receiveCompletion: { _ in getSnodePoolPublisher.mutate { $0 = nil } }
+                )
                 .eraseToAnyPublisher()
         }
-        
-        getSnodePoolPublisher.mutate { $0 = publisher }
-        
-        return publisher
-            .tryFlatMap { snodePool -> AnyPublisher<Set<Snode>, Error> in
-                guard !snodePool.isEmpty else { throw SnodeAPIError.snodePoolUpdatingFailed }
-            
-                return Storage.shared
-                    .writePublisher(receiveOn: Threading.workQueue) { db in
-                        db[.lastSnodePoolRefreshDate] = now
-                        setSnodePool(db, to: snodePool)
-                        
-                        return snodePool
-                    }
-                    .eraseToAnyPublisher()
-            }
-            .handleEvents(
-                receiveCompletion: { _ in getSnodePoolPublisher.mutate { $0 = nil } }
-            )
-            .eraseToAnyPublisher()
     }
     
     public static func getSessionID(for onsName: String) -> AnyPublisher<String, Error> {

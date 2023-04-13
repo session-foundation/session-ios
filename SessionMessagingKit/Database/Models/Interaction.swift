@@ -29,13 +29,13 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
     /// Whenever using this `linkPreview` association make sure to filter the result using
     /// `.filter(literal: Interaction.linkPreviewFilterLiteral)` to ensure the correct LinkPreview is returned
     public static let linkPreview = hasOne(LinkPreview.self, using: LinkPreview.interactionForeignKey)
-    public static func linkPreviewFilterLiteral(
-        timestampColumn: SQL = SQL(stringLiteral: Interaction.Columns.timestampMs.name)
-    ) -> SQL {
+    public static var linkPreviewFilterLiteral: SQL = {
+        let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
         let linkPreview: TypedTableAlias<LinkPreview> = TypedTableAlias()
-        
-        return "(ROUND((\(Interaction.self).\(timestampColumn) / 1000 / 100000) - 0.5) * 100000) = \(linkPreview[.timestamp])"
-    }
+        let halfResolution: Double = LinkPreview.timstampResolution
+
+        return "(\(interaction[.timestampMs]) BETWEEN (\(linkPreview[.timestamp]) - \(halfResolution)) AND (\(linkPreview[.timestamp]) + \(halfResolution)))"
+    }()
     public static let recipientStates = hasMany(RecipientState.self, using: RecipientState.interactionForeignKey)
     
     public typealias Columns = CodingKeys
@@ -250,10 +250,14 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
 
     public var linkPreview: QueryInterfaceRequest<LinkPreview> {
         /// **Note:** This equation **MUST** match the `linkPreviewFilterLiteral` logic
+        let halfResolution: Double = LinkPreview.timstampResolution
         let roundedTimestamp: Double = (round(((Double(timestampMs) / 1000) / 100000) - 0.5) * 100000)
         
         return request(for: Interaction.linkPreview)
-            .filter(LinkPreview.Columns.timestamp == roundedTimestamp)
+            .filter(
+                (Interaction.Columns.timestampMs >= (LinkPreview.Columns.timestamp - halfResolution)) &&
+                (Interaction.Columns.timestampMs <= (LinkPreview.Columns.timestamp + halfResolution))
+            )
     }
     
     public var recipientStates: QueryInterfaceRequest<RecipientState> {

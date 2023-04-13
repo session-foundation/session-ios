@@ -600,12 +600,17 @@ private final class JobQueue {
     }
     
     fileprivate func appDidBecomeActive(with jobs: [Job], canStart: Bool) {
+        let currentlyRunningJobIds: Set<Int64> = jobsCurrentlyRunning.wrappedValue
+        
         queue.mutate { queue in
             // Avoid re-adding jobs to the queue that are already in it (this can
             // happen if the user sends the app to the background before the 'onActive'
             // jobs and then brings it back to the foreground)
             let jobsNotAlreadyInQueue: [Job] = jobs
-                .filter { job in !queue.contains(where: { $0.id == job.id }) }
+                .filter { job in
+                    !currentlyRunningJobIds.contains(job.id ?? -1) &&
+                    !queue.contains(where: { $0.id == job.id })
+                }
             
             queue.append(contentsOf: jobsNotAlreadyInQueue)
         }
@@ -797,14 +802,20 @@ private final class JobQueue {
         guard dependencyInfo.jobs.isEmpty else {
             SNLog("[JobRunner] \(queueContext) found job with \(dependencyInfo.jobs.count) dependencies, running those first")
             
-            /// Remove all jobs this one is dependant on from the queue and re-insert them at the start of the queue
+            /// Remove all jobs this one is dependant on that aren't currently running from the queue and re-insert them at the start
+            /// of the queue
             ///
             /// **Note:** We don't add the current job back the the queue because it should only be re-added if it's dependencies
             /// are successfully completed
+            let currentlyRunningJobIds: [Int64] = Array(detailsForCurrentlyRunningJobs.wrappedValue.keys)
+            let dependencyJobsNotCurrentlyRunning: [Job] = dependencyInfo.jobs
+                .filter { job in !currentlyRunningJobIds.contains(job.id ?? -1) }
+                .sorted { lhs, rhs in (lhs.id ?? -1) < (rhs.id ?? -1) }
+            
             queue.mutate { queue in
                 queue = queue
-                    .filter { !dependencyInfo.jobs.contains($0) }
-                    .inserting(contentsOf: Array(dependencyInfo.jobs), at: 0)
+                    .filter { !dependencyJobsNotCurrentlyRunning.contains($0) }
+                    .inserting(contentsOf: dependencyJobsNotCurrentlyRunning, at: 0)
             }
             handleJobDeferred(nextJob)
             return
@@ -991,17 +1002,22 @@ private final class JobQueue {
             default: break
         }
         
-        /// Now that the job has been completed we want to insert any jobs that were dependant on it to the start of the queue (the
-        /// most likely case is that we want an entire job chain to be completed at the same time rather than being blocked by other
-        /// unrelated jobs)
+        /// Now that the job has been completed we want to insert any jobs that were dependant on it, that aren't already running
+        /// to the start of the queue (the most likely case is that we want an entire job chain to be completed at the same time rather
+        /// than being blocked by other unrelated jobs)
         ///
         /// **Note:** If any of these `dependantJobs` have other dependencies then when they attempt to start they will be
         /// removed from the queue, replaced by their dependencies
         if !dependantJobs.isEmpty {
+            let currentlyRunningJobIds: [Int64] = Array(detailsForCurrentlyRunningJobs.wrappedValue.keys)
+            let dependantJobsNotCurrentlyRunning: [Job] = dependantJobs
+                .filter { job in !currentlyRunningJobIds.contains(job.id ?? -1) }
+                .sorted { lhs, rhs in (lhs.id ?? -1) < (rhs.id ?? -1) }
+            
             queue.mutate { queue in
                 queue = queue
-                    .filter { !dependantJobs.contains($0) }
-                    .inserting(contentsOf: dependantJobs, at: 0)
+                    .filter { !dependantJobsNotCurrentlyRunning.contains($0) }
+                    .inserting(contentsOf: dependantJobsNotCurrentlyRunning, at: 0)
             }
         }
         

@@ -922,7 +922,7 @@ public enum OpenGroupAPI {
                     ],
                     body: bytes
                 ),
-                timeout: FileServerAPI.fileTimeout,
+                timeout: FileServerAPI.fileUploadTimeout,
                 using: dependencies
             )
             .decoded(as: FileUploadResponse.self, using: dependencies)
@@ -944,7 +944,7 @@ public enum OpenGroupAPI {
                     server: server,
                     endpoint: .roomFileIndividual(roomToken, fileId)
                 ),
-                timeout: FileServerAPI.fileTimeout,
+                timeout: FileServerAPI.fileDownloadTimeout,
                 using: dependencies
             )
             .tryMap { responseInfo, maybeData -> (ResponseInfoType, Data) in
