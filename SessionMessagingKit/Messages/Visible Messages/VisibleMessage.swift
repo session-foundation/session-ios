@@ -160,14 +160,21 @@ public final class VisibleMessage: Message {
         
         // Attachments
         
-        let attachments: [Attachment]? = try? Attachment.fetchAll(db, ids: self.attachmentIds)
+        let attachmentIdIndexes: [String: Int] = (try? InteractionAttachment
+            .filter(self.attachmentIds.contains(InteractionAttachment.Columns.attachmentId))
+            .fetchAll(db))
+            .defaulting(to: [])
+            .reduce(into: [:]) { result, next in result[next.attachmentId] = next.albumIndex }
+        let attachments: [Attachment] = (try? Attachment.fetchAll(db, ids: self.attachmentIds))
+            .defaulting(to: [])
+            .sorted { lhs, rhs in (attachmentIdIndexes[lhs.id] ?? 0) < (attachmentIdIndexes[rhs.id] ?? 0) }
         
-        if !(attachments ?? []).allSatisfy({ $0.state == .uploaded }) {
+        if !attachments.allSatisfy({ $0.state == .uploaded }) {
             #if DEBUG
             preconditionFailure("Sending a message before all associated attachments have been uploaded.")
             #endif
         }
-        let attachmentProtos = (attachments ?? []).compactMap { $0.buildProto() }
+        let attachmentProtos = attachments.compactMap { $0.buildProto() }
         dataMessage.setAttachments(attachmentProtos)
         
         // Open group invitation

@@ -327,10 +327,9 @@ public enum MessageReceiver {
         if let name = name, !name.isEmpty, name != profile.name {
             let shouldUpdate: Bool
             if isCurrentUser {
-                shouldUpdate = given(UserDefaults.standard[.lastDisplayNameUpdate]) {
-                    sentTimestamp > $0.timeIntervalSince1970
-                }
-                .defaulting(to: true)
+                shouldUpdate = UserDefaults.standard[.lastDisplayNameUpdate]
+                    .map { sentTimestamp > $0.timeIntervalSince1970 }
+                    .defaulting(to: true)
             }
             else {
                 shouldUpdate = true
@@ -354,10 +353,9 @@ public enum MessageReceiver {
         {
             let shouldUpdate: Bool
             if isCurrentUser {
-                shouldUpdate = given(UserDefaults.standard[.lastProfilePictureUpdate]) {
-                    sentTimestamp > $0.timeIntervalSince1970
-                }
-                .defaulting(to: true)
+                shouldUpdate = UserDefaults.standard[.lastProfilePictureUpdate]
+                    .map { sentTimestamp > $0.timeIntervalSince1970 }
+                    .defaulting(to: true)
             }
             else {
                 shouldUpdate = true

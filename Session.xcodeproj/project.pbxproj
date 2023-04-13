@@ -188,9 +188,6 @@
 		B80A579F23DFF1F300876683 /* NewClosedGroupVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = B80A579E23DFF1F300876683 /* NewClosedGroupVC.swift */; };
 		B817AD9A26436593009DF825 /* SimplifiedConversationCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B817AD9926436593009DF825 /* SimplifiedConversationCell.swift */; };
 		B817AD9C26436F73009DF825 /* ThreadPickerVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = B817AD9B26436F73009DF825 /* ThreadPickerVC.swift */; };
-		B81D25C426157F40004D1FE1 /* storage-seed-3.crt in Resources */ = {isa = PBXBuildFile; fileRef = B81D25B926157F20004D1FE1 /* storage-seed-3.crt */; };
-		B81D25C526157F40004D1FE1 /* storage-seed-1.crt in Resources */ = {isa = PBXBuildFile; fileRef = B81D25B726157F20004D1FE1 /* storage-seed-1.crt */; };
-		B81D25C626157F40004D1FE1 /* public-loki-foundation.crt in Resources */ = {isa = PBXBuildFile; fileRef = B81D25B826157F20004D1FE1 /* public-loki-foundation.crt */; };
 		B82149C125D605C6009C0F2A /* InfoBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82149C025D605C6009C0F2A /* InfoBanner.swift */; };
 		B8269D2925C7A4B400488AB4 /* InputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8269D2825C7A4B400488AB4 /* InputView.swift */; };
 		B8269D3325C7A8C600488AB4 /* InputViewButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8269D3225C7A8C600488AB4 /* InputViewButton.swift */; };
@@ -434,9 +431,6 @@
 		C38EF407255B6DF7007E1867 /* Toast.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF3E9255B6DF6007E1867 /* Toast.swift */; };
 		C38EF40B255B6DF7007E1867 /* TappableStackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF3ED255B6DF6007E1867 /* TappableStackView.swift */; };
 		C38EF48A255B7E3F007E1867 /* SessionUIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C331FF1B2558F9D300070591 /* SessionUIKit.framework */; };
-		C3A01E05261D24C400290BEB /* public-loki-foundation.der in Resources */ = {isa = PBXBuildFile; fileRef = C3A01E02261D24C400290BEB /* public-loki-foundation.der */; };
-		C3A01E06261D24C400290BEB /* storage-seed-1.der in Resources */ = {isa = PBXBuildFile; fileRef = C3A01E03261D24C400290BEB /* storage-seed-1.der */; };
-		C3A01E07261D24C400290BEB /* storage-seed-3.der in Resources */ = {isa = PBXBuildFile; fileRef = C3A01E04261D24C400290BEB /* storage-seed-3.der */; };
 		C3A3A171256E1D25004D228D /* SSKReachabilityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3A3A170256E1D25004D228D /* SSKReachabilityManager.swift */; };
 		C3A71D0B2558989C0043A11F /* MessageWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3A71D0A2558989C0043A11F /* MessageWrapper.swift */; };
 		C3A71D1E25589AC30043A11F /* WebSocketProto.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3A71D1C25589AC30043A11F /* WebSocketProto.swift */; };
@@ -615,6 +609,12 @@
 		FD245C6B2850667400B966DD /* VisibleMessage+Profile.swift in Sources */ = {isa = PBXBuildFile; fileRef = C300A5B12554AF9800555489 /* VisibleMessage+Profile.swift */; };
 		FD245C6C2850669200B966DD /* MessageReceiveJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = C352A31225574F5200338F3E /* MessageReceiveJob.swift */; };
 		FD245C6D285066A400B966DD /* NotifyPushServerJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = C352A32E2557549C00338F3E /* NotifyPushServerJob.swift */; };
+		FD29A11D29E4EB71001923B4 /* seed1-10y.der in Resources */ = {isa = PBXBuildFile; fileRef = FD29A11729E4EB71001923B4 /* seed1-10y.der */; };
+		FD29A11E29E4EB71001923B4 /* seed2-10y.der in Resources */ = {isa = PBXBuildFile; fileRef = FD29A11829E4EB71001923B4 /* seed2-10y.der */; };
+		FD29A11F29E4EB71001923B4 /* seed3-10y.crt in Resources */ = {isa = PBXBuildFile; fileRef = FD29A11929E4EB71001923B4 /* seed3-10y.crt */; };
+		FD29A12029E4EB71001923B4 /* seed1-10y.crt in Resources */ = {isa = PBXBuildFile; fileRef = FD29A11A29E4EB71001923B4 /* seed1-10y.crt */; };
+		FD29A12129E4EB71001923B4 /* seed3-10y.der in Resources */ = {isa = PBXBuildFile; fileRef = FD29A11B29E4EB71001923B4 /* seed3-10y.der */; };
+		FD29A12229E4EB71001923B4 /* seed2-10y.crt in Resources */ = {isa = PBXBuildFile; fileRef = FD29A11C29E4EB71001923B4 /* seed2-10y.crt */; };
 		FD2AAAED28ED3E1000A49611 /* MockGeneralCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFD645C27F273F300808CA1 /* MockGeneralCache.swift */; };
 		FD2AAAEE28ED3E1100A49611 /* MockGeneralCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFD645C27F273F300808CA1 /* MockGeneralCache.swift */; };
 		FD2AAAF028ED57B500A49611 /* SynchronousStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */; };
@@ -1278,9 +1278,6 @@
 		B80A579E23DFF1F300876683 /* NewClosedGroupVC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewClosedGroupVC.swift; sourceTree = "<group>"; };
 		B817AD9926436593009DF825 /* SimplifiedConversationCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimplifiedConversationCell.swift; sourceTree = "<group>"; };
 		B817AD9B26436F73009DF825 /* ThreadPickerVC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadPickerVC.swift; sourceTree = "<group>"; };
-		B81D25B726157F20004D1FE1 /* storage-seed-1.crt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "storage-seed-1.crt"; sourceTree = "<group>"; };
-		B81D25B826157F20004D1FE1 /* public-loki-foundation.crt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "public-loki-foundation.crt"; sourceTree = "<group>"; };
-		B81D25B926157F20004D1FE1 /* storage-seed-3.crt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "storage-seed-3.crt"; sourceTree = "<group>"; };
 		B82149C025D605C6009C0F2A /* InfoBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoBanner.swift; sourceTree = "<group>"; };
 		B8269D2825C7A4B400488AB4 /* InputView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputView.swift; sourceTree = "<group>"; };
 		B8269D3225C7A8C600488AB4 /* InputViewButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputViewButton.swift; sourceTree = "<group>"; };
@@ -1554,9 +1551,6 @@
 		C396469D2509D3F400B0B9F5 /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/Localizable.strings; sourceTree = "<group>"; };
 		C396469E2509D40400B0B9F5 /* vi-VN */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "vi-VN"; path = "vi-VN.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		C396469F2509D41100B0B9F5 /* id-ID */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "id-ID"; path = "id-ID.lproj/Localizable.strings"; sourceTree = "<group>"; };
-		C3A01E02261D24C400290BEB /* public-loki-foundation.der */ = {isa = PBXFileReference; lastKnownFileType = file; path = "public-loki-foundation.der"; sourceTree = "<group>"; };
-		C3A01E03261D24C400290BEB /* storage-seed-1.der */ = {isa = PBXFileReference; lastKnownFileType = file; path = "storage-seed-1.der"; sourceTree = "<group>"; };
-		C3A01E04261D24C400290BEB /* storage-seed-3.der */ = {isa = PBXFileReference; lastKnownFileType = file; path = "storage-seed-3.der"; sourceTree = "<group>"; };
 		C3A3A170256E1D25004D228D /* SSKReachabilityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSKReachabilityManager.swift; sourceTree = "<group>"; };
 		C3A71D0A2558989C0043A11F /* MessageWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageWrapper.swift; sourceTree = "<group>"; };
 		C3A71D1C25589AC30043A11F /* WebSocketProto.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WebSocketProto.swift; sourceTree = "<group>"; };
@@ -1711,6 +1705,12 @@
 		FD23EA6028ED0B260058676E /* CombineExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CombineExtensions.swift; sourceTree = "<group>"; };
 		FD245C612850664300B966DD /* Configuration.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Configuration.swift; sourceTree = "<group>"; };
 		FD28A4F527EAD44C00FF65E7 /* Storage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Storage.swift; sourceTree = "<group>"; };
+		FD29A11729E4EB71001923B4 /* seed1-10y.der */ = {isa = PBXFileReference; lastKnownFileType = file; path = "seed1-10y.der"; sourceTree = "<group>"; };
+		FD29A11829E4EB71001923B4 /* seed2-10y.der */ = {isa = PBXFileReference; lastKnownFileType = file; path = "seed2-10y.der"; sourceTree = "<group>"; };
+		FD29A11929E4EB71001923B4 /* seed3-10y.crt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "seed3-10y.crt"; sourceTree = "<group>"; };
+		FD29A11A29E4EB71001923B4 /* seed1-10y.crt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "seed1-10y.crt"; sourceTree = "<group>"; };
+		FD29A11B29E4EB71001923B4 /* seed3-10y.der */ = {isa = PBXFileReference; lastKnownFileType = file; path = "seed3-10y.der"; sourceTree = "<group>"; };
+		FD29A11C29E4EB71001923B4 /* seed2-10y.crt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "seed2-10y.crt"; sourceTree = "<group>"; };
 		FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SynchronousStorage.swift; sourceTree = "<group>"; };
 		FD37E9C228A1C6F3003AE748 /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeManager.swift; sourceTree = "<group>"; };
 		FD37E9C528A1D4EC003AE748 /* Theme+ClassicDark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Theme+ClassicDark.swift"; sourceTree = "<group>"; };
@@ -2378,12 +2378,12 @@
 		B81D260326158DF5004D1FE1 /* Certificates */ = {
 			isa = PBXGroup;
 			children = (
-				B81D25B826157F20004D1FE1 /* public-loki-foundation.crt */,
-				C3A01E02261D24C400290BEB /* public-loki-foundation.der */,
-				B81D25B726157F20004D1FE1 /* storage-seed-1.crt */,
-				C3A01E03261D24C400290BEB /* storage-seed-1.der */,
-				B81D25B926157F20004D1FE1 /* storage-seed-3.crt */,
-				C3A01E04261D24C400290BEB /* storage-seed-3.der */,
+				FD29A11A29E4EB71001923B4 /* seed1-10y.crt */,
+				FD29A11729E4EB71001923B4 /* seed1-10y.der */,
+				FD29A11C29E4EB71001923B4 /* seed2-10y.crt */,
+				FD29A11829E4EB71001923B4 /* seed2-10y.der */,
+				FD29A11929E4EB71001923B4 /* seed3-10y.crt */,
+				FD29A11B29E4EB71001923B4 /* seed3-10y.der */,
 			);
 			path = Certificates;
 			sourceTree = "<group>";
@@ -4710,15 +4710,12 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				B81D25C526157F40004D1FE1 /* storage-seed-1.crt in Resources */,
-				B81D25C426157F40004D1FE1 /* storage-seed-3.crt in Resources */,
-				B81D25C626157F40004D1FE1 /* public-loki-foundation.crt in Resources */,
 				4C63CC00210A620B003AE45C /* SignalTSan.supp in Resources */,
 				4C6F527C20FFE8400097DEEE /* SignalUBSan.supp in Resources */,
+				FD29A11D29E4EB71001923B4 /* seed1-10y.der in Resources */,
 				34CF078A203E6B78005C4D61 /* end_call_tone_cept.caf in Resources */,
 				C3CA3AA2255CDADA00F4C6D4 /* english.txt in Resources */,
 				B6F509971AA53F760068F56A /* Localizable.strings in Resources */,
-				C3A01E05261D24C400290BEB /* public-loki-foundation.der in Resources */,
 				B66DBF4A19D5BBC8006EA940 /* Images.xcassets in Resources */,
 				34CF0788203E6B78005C4D61 /* ringback_tone_ansi.caf in Resources */,
 				7BFD1A972747689000FB91B9 /* Session-Turn-Server in Resources */,
@@ -4728,13 +4725,13 @@
 				34C3C78D20409F320000134C /* Opening.m4r in Resources */,
 				C3CA3AB4255CDAE600F4C6D4 /* japanese.txt in Resources */,
 				B67EBF5D19194AC60084CCFD /* Settings.bundle in Resources */,
+				FD29A12129E4EB71001923B4 /* seed3-10y.der in Resources */,
 				34CF0787203E6B78005C4D61 /* busy_tone_ansi.caf in Resources */,
 				45A2F005204473A3002E978A /* NewMessage.aifc in Resources */,
 				45B74A882044AAB600CD42F8 /* aurora.aifc in Resources */,
 				45B74A742044AAB600CD42F8 /* aurora-quiet.aifc in Resources */,
 				7B0EFDF4275490EA00FFAAE7 /* ringing.mp3 in Resources */,
 				45B74A852044AAB600CD42F8 /* bamboo.aifc in Resources */,
-				C3A01E06261D24C400290BEB /* storage-seed-1.der in Resources */,
 				45B74A782044AAB600CD42F8 /* bamboo-quiet.aifc in Resources */,
 				45B74A7B2044AAB600CD42F8 /* chord.aifc in Resources */,
 				45B74A812044AAB600CD42F8 /* chord-quiet.aifc in Resources */,
@@ -4748,10 +4745,12 @@
 				B8FF8E7425C10FC3004D1F22 /* GeoLite2-Country-Locations-English in Resources */,
 				B8CCF6352396005F0091D419 /* SpaceMono-Regular.ttf in Resources */,
 				45B74A872044AAB600CD42F8 /* complete-quiet.aifc in Resources */,
+				FD29A11F29E4EB71001923B4 /* seed3-10y.crt in Resources */,
 				45B74A772044AAB600CD42F8 /* hello.aifc in Resources */,
 				45B74A7C2044AAB600CD42F8 /* hello-quiet.aifc in Resources */,
 				7B50D64D28AC7CF80086CCEC /* silence.aiff in Resources */,
 				45B74A792044AAB600CD42F8 /* input.aifc in Resources */,
+				FD29A12029E4EB71001923B4 /* seed1-10y.crt in Resources */,
 				C3CA3ABE255CDB0D00F4C6D4 /* portuguese.txt in Resources */,
 				45B74A8C2044AAB600CD42F8 /* input-quiet.aifc in Resources */,
 				45B74A7A2044AAB600CD42F8 /* keys.aifc in Resources */,
@@ -4763,7 +4762,8 @@
 				45B74A822044AAB600CD42F8 /* pulse.aifc in Resources */,
 				C3CA3AC8255CDB2900F4C6D4 /* spanish.txt in Resources */,
 				B8FF8E6225C10DA5004D1F22 /* GeoLite2-Country-Blocks-IPv4 in Resources */,
-				C3A01E07261D24C400290BEB /* storage-seed-3.der in Resources */,
+				FD29A11E29E4EB71001923B4 /* seed2-10y.der in Resources */,
+				FD29A12229E4EB71001923B4 /* seed2-10y.crt in Resources */,
 				45B74A802044AAB600CD42F8 /* pulse-quiet.aifc in Resources */,
 				45B74A8B2044AAB600CD42F8 /* synth.aifc in Resources */,
 				45B74A752044AAB600CD42F8 /* synth-quiet.aifc in Resources */,
@@ -6076,7 +6076,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 399;
+				CURRENT_PROJECT_VERSION = 400;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
@@ -6101,7 +6101,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 2.2.10;
+				MARKETING_VERSION = 2.2.11;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.loki-messenger.ShareExtension";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -6149,7 +6149,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 399;
+				CURRENT_PROJECT_VERSION = 400;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -6179,7 +6179,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 2.2.10;
+				MARKETING_VERSION = 2.2.11;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.loki-messenger.ShareExtension";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -6215,7 +6215,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 399;
+				CURRENT_PROJECT_VERSION = 400;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
@@ -6238,7 +6238,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 2.2.10;
+				MARKETING_VERSION = 2.2.11;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.loki-messenger.NotificationServiceExtension";
@@ -6289,7 +6289,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 399;
+				CURRENT_PROJECT_VERSION = 400;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -6317,7 +6317,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 2.2.10;
+				MARKETING_VERSION = 2.2.11;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.loki-messenger.NotificationServiceExtension";
@@ -7217,7 +7217,7 @@
 				CODE_SIGN_ENTITLEMENTS = Session/Meta/Signal.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 399;
+				CURRENT_PROJECT_VERSION = 400;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -7256,7 +7256,7 @@
 					"$(SRCROOT)",
 				);
 				LLVM_LTO = NO;
-				MARKETING_VERSION = 2.2.10;
+				MARKETING_VERSION = 2.2.11;
 				OTHER_LDFLAGS = "$(inherited)";
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.loki-messenger";
@@ -7289,7 +7289,7 @@
 				CODE_SIGN_ENTITLEMENTS = Session/Meta/Signal.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 399;
+				CURRENT_PROJECT_VERSION = 400;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -7328,7 +7328,7 @@
 					"$(SRCROOT)",
 				);
 				LLVM_LTO = NO;
-				MARKETING_VERSION = 2.2.10;
+				MARKETING_VERSION = 2.2.11;
 				OTHER_LDFLAGS = "$(inherited)";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.loki-messenger";
 				PRODUCT_NAME = Session;
