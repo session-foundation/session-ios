@@ -739,7 +739,9 @@ public extension MessageViewModel {
                 LEFT JOIN \(Interaction.self) AS \(quoteInteraction) ON (
                     \(quoteInteraction).\(timestampMsColumn) = \(quote[.timestampMs]) AND (
                         \(quoteInteraction).\(authorIdColumn) = \(quote[.authorId]) OR (
-                            \(quoteInteraction).\(authorIdColumn) = '' AND
+                            -- A users outgoing message is stored in some cases using their standard id
+                            -- but the quote will use their blinded id so handle that case
+                            \(quote[.authorId]) = \(blindedPublicKey ?? "''") AND
                             \(quoteInteraction).\(authorIdColumn) = \(userPublicKey)
                         )
                     )
