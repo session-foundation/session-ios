@@ -1600,6 +1600,17 @@ extension ConversationVC:
     
     // MARK: - ContextMenuActionDelegate
     
+    func info(_ cellViewModel: MessageViewModel) {
+        let mediaInfoVC = MediaInfoVC(
+            attachments: (cellViewModel.attachments ?? []),
+            isOutgoing: (cellViewModel.variant == .standardOutgoing),
+            threadId: self.viewModel.threadData.threadId,
+            threadVariant: self.viewModel.threadData.threadVariant,
+            interactionId: cellViewModel.id
+        )
+        navigationController?.pushViewController(mediaInfoVC, animated: true)
+    }
+
     func retry(_ cellViewModel: MessageViewModel) {
         Storage.shared.writeAsync { [weak self] db in
             guard
