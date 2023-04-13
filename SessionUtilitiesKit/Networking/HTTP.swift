@@ -8,20 +8,24 @@ public enum HTTP {
     private static let snodeURLSessionDelegate = SnodeURLSessionDelegateImplementation()
 
     // MARK: Certificates
+    
+    /// **Note:** These certificates will need to be regenerated and replaced at the start of April 2025, iOS has a restriction after iOS 13
+    /// where certificates can have a maximum lifetime of 825 days (https://support.apple.com/en-au/HT210176) as a result we
+    /// can't use the 10 year certificates that the other platforms use
     private static let storageSeed1Cert: SecCertificate = {
-        let path = Bundle.main.path(forResource: "seed1-10y", ofType: "der")!
+        let path = Bundle.main.path(forResource: "seed1-2023-2y", ofType: "der")!
         let data = try! Data(contentsOf: URL(fileURLWithPath: path))
         return SecCertificateCreateWithData(nil, data as CFData)!
     }()
 
     private static let storageSeed2Cert: SecCertificate = {
-        let path = Bundle.main.path(forResource: "seed2-10y", ofType: "der")!
+        let path = Bundle.main.path(forResource: "seed2-2023-2y", ofType: "der")!
         let data = try! Data(contentsOf: URL(fileURLWithPath: path))
         return SecCertificateCreateWithData(nil, data as CFData)!
     }()
 
     private static let storageSeed3Cert: SecCertificate = {
-        let path = Bundle.main.path(forResource: "seed3-10y", ofType: "der")!
+        let path = Bundle.main.path(forResource: "seed3-2023-2y", ofType: "der")!
         let data = try! Data(contentsOf: URL(fileURLWithPath: path))
         return SecCertificateCreateWithData(nil, data as CFData)!
     }()
@@ -60,48 +64,24 @@ public enum HTTP {
                     
                     case .recoverableTrustFailure:
                         /// A recoverable failure generally suggests that the certificate was mostly valid but something minor didn't line up,
-                        /// iOS has a specific rule which rejects certificates which have a lifetime over 825 days which we don't really care
-                        /// about so if we end up with a single issue which is `OtherTrustValidityPeriod` then we can just allow
-                        /// the request to continue
-                        guard
-                            let validationResult: [String: Any] = SecTrustCopyResult(trust) as? [String: Any],
-                            let details: [String: Any] = (validationResult["TrustResultDetails"] as? [[String: Any]])?
-                                .reduce(into: [:], { result, next in next.forEach { result[$0.key] = $0.value } }),
-                            let otherTrustValidityPeriod: Int = details["OtherTrustValidityPeriod"] as? Int,
-                            details.count == 1,
-                            otherTrustValidityPeriod == 0,
-                            let exceptions: CFData = SecTrustCopyExceptions(trust),
-                            SecTrustSetExceptions(trust, exceptions)
-                        else {
-                            let reason: String = {
-                                guard
-                                    let validationResult: [String: Any] = SecTrustCopyResult(trust) as? [String: Any],
-                                    let details: [String: Any] = (validationResult["TrustResultDetails"] as? [[String: Any]])?
-                                        .reduce(into: [:], { result, next in next.forEach { result[$0.key] = $0.value } })
-                                else { return "Unknown" }
-    
-                                return "\(details)"
-                            }()
-    
-                            SNLog("Failed to handle a recoverable seed certificate trust failure: \(reason)")
-                            return completionHandler(.cancelAuthenticationChallenge, nil)
-                        }
+                        /// while we don't want to recover in this case it's probably a good idea to include the reason in the logs to simplify
+                        /// debugging if it does end up happening
+                        let reason: String = {
+                            guard
+                                let validationResult: [String: Any] = SecTrustCopyResult(trust) as? [String: Any],
+                                let details: [String: Any] = (validationResult["TrustResultDetails"] as? [[String: Any]])?
+                                    .reduce(into: [:], { result, next in next.forEach { result[$0.key] = $0.value } })
+                            else { return "Unknown" }
+
+                            return "\(details)"
+                        }()
                         
-                        /// Now that the `trust` has been updated with the exceptions it can ignore we need to try to re-evaluate it
-                        /// to ensure it is now seen as valid
-                        var error2: CFError? = nil
-                        guard SecTrustEvaluateWithError(trust, &error2) else {
-                            SNLog("Seed certificate reevaluation failed due to error: \(String(describing: error2))")
-                            return completionHandler(.cancelAuthenticationChallenge, nil)
-                        }
+                        SNLog("Failed to validate a seed certificate with a recoverable error: \(reason)")
+                        return completionHandler(.cancelAuthenticationChallenge, nil)
                         
-                        /// If the reevaluation succeeded then try to use the credential
-                        ///
-                        /// **Note:** It is still possible for the OS to reject the request (which seems to be happening with an expired
-                        /// certificate) but it _does_ seem to work fine with the 10 year certificate
-                        return completionHandler(.useCredential, URLCredential(trust: trust))
-                        
-                    default: return completionHandler(.cancelAuthenticationChallenge, nil)
+                    default:
+                        SNLog("Failed to validate a seed certificate with an unrecoverable error.")
+                        return completionHandler(.cancelAuthenticationChallenge, nil)
                 }
             }
             

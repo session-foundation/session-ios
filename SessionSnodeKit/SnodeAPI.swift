@@ -50,9 +50,9 @@ public final class SnodeAPI {
     private static let seedNodePool: Set<String> = (Features.useTestnet ?
         [ "http://public.loki.foundation:38157" ] :
         [
-            "https://seed1.getsession.org:4443",
-            "https://seed2.getsession.org:4443",
-            "https://seed3.getsession.org:4443"
+            "https://seed1.getsession.org:4432",
+            "https://seed2.getsession.org:4432",
+            "https://seed3.getsession.org:4432"
         ]
     )
     private static let snodeFailureThreshold = 3
@@ -312,9 +312,9 @@ public final class SnodeAPI {
     public static func getSnodePool() -> Promise<Set<Snode>> {
         loadSnodePoolIfNeeded()
         let now = Date()
-        let hasSnodePoolExpired = given(Storage.shared[.lastSnodePoolRefreshDate]) {
-            now.timeIntervalSince($0) > 2 * 60 * 60
-        }.defaulting(to: true)
+        let hasSnodePoolExpired: Bool = Storage.shared[.lastSnodePoolRefreshDate]
+            .map { now.timeIntervalSince($0) > 2 * 60 * 60 }
+            .defaulting(to: true)
         let snodePool: Set<Snode> = SnodeAPI.snodePool.wrappedValue
         
         guard hasInsufficientSnodes || hasSnodePoolExpired else {

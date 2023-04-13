@@ -308,9 +308,16 @@ public enum Preferences {
     }
     
     public static var isCallKitSupported: Bool {
+#if targetEnvironment(simulator)
+        /// The iOS simulator doesn't support CallKit, when receiving a call on the simulator and routing it via CallKit it
+        /// will immediately trigger a hangup making it difficult to test - instead we just should just avoid using CallKit
+        /// entirely on the simulator
+        return false
+#else
         guard let regionCode: String = NSLocale.current.regionCode else { return false }
         guard !regionCode.contains("CN") && !regionCode.contains("CHN") else { return false }
         
         return true
+#endif
     }
 }

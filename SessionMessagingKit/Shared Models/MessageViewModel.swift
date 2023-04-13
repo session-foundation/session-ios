@@ -74,6 +74,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     public let id: Int64
     public let variant: Interaction.Variant
     public let timestampMs: Int64
+    public let receivedAtTimestampMs: Int64
     public let authorId: String
     private let authorNameInternal: String?
     public let body: String?
@@ -123,6 +124,9 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     /// This value will be used to populate the Context Menu and date header (if present)
     public var dateForUI: Date { Date(timeIntervalSince1970: (TimeInterval(self.timestampMs) / 1000)) }
     
+    /// This value will be used to populate the Message Info (if present)
+    public var receivedDateForUI: Date { Date(timeIntervalSince1970: (TimeInterval(self.receivedAtTimestampMs) / 1000)) }
+    
     /// This value specifies whether the body contains only emoji characters
     public let containsOnlyEmoji: Bool?
     
@@ -164,6 +168,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             id: self.id,
             variant: self.variant,
             timestampMs: self.timestampMs,
+            receivedAtTimestampMs: self.receivedAtTimestampMs,
             authorId: self.authorId,
             authorNameInternal: self.authorNameInternal,
             body: self.body,
@@ -321,6 +326,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             id: self.id,
             variant: self.variant,
             timestampMs: self.timestampMs,
+            receivedAtTimestampMs: self.receivedAtTimestampMs,
             authorId: self.authorId,
             authorNameInternal: self.authorNameInternal,
             body: (!self.variant.isInfoMessage ?
@@ -500,6 +506,7 @@ public extension MessageViewModel {
     init(
         variant: Interaction.Variant = .standardOutgoing,
         timestampMs: Int64 = Int64.max,
+        receivedAtTimestampMs: Int64 = Int64.max,
         body: String? = nil,
         quote: Quote? = nil,
         cellType: CellType = .typingIndicator,
@@ -527,6 +534,7 @@ public extension MessageViewModel {
         self.id = targetId
         self.variant = variant
         self.timestampMs = timestampMs
+        self.receivedAtTimestampMs = receivedAtTimestampMs
         self.authorId = ""
         self.authorNameInternal = nil
         self.body = body
@@ -637,29 +645,35 @@ public extension MessageViewModel {
             let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
             let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
             let openGroup: TypedTableAlias<OpenGroup> = TypedTableAlias()
+            let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
             let recipientState: TypedTableAlias<RecipientState> = TypedTableAlias()
             let contact: TypedTableAlias<Contact> = TypedTableAlias()
             let disappearingMessagesConfig: TypedTableAlias<DisappearingMessagesConfiguration> = TypedTableAlias()
             let profile: TypedTableAlias<Profile> = TypedTableAlias()
             let quote: TypedTableAlias<Quote> = TypedTableAlias()
-            let interactionAttachment: TypedTableAlias<InteractionAttachment> = TypedTableAlias()
             let linkPreview: TypedTableAlias<LinkPreview> = TypedTableAlias()
             
-            let threadProfileTableLiteral: SQL = SQL(stringLiteral: "threadProfile")
-            let profileIdColumnLiteral: SQL = SQL(stringLiteral: Profile.Columns.id.name)
-            let profileNicknameColumnLiteral: SQL = SQL(stringLiteral: Profile.Columns.nickname.name)
-            let profileNameColumnLiteral: SQL = SQL(stringLiteral: Profile.Columns.name.name)
-            let interactionStateInteractionIdColumnLiteral: SQL = SQL(stringLiteral: RecipientState.Columns.interactionId.name)
-            let readReceiptTableLiteral: SQL = SQL(stringLiteral: "readReceipt")
-            let readReceiptReadTimestampMsColumnLiteral: SQL = SQL(stringLiteral: RecipientState.Columns.readTimestampMs.name)
-            let attachmentIdColumnLiteral: SQL = SQL(stringLiteral: Attachment.Columns.id.name)
-            let groupMemberModeratorTableLiteral: SQL = SQL(stringLiteral: "groupMemberModerator")
-            let groupMemberAdminTableLiteral: SQL = SQL(stringLiteral: "groupMemberAdmin")
-            let groupMemberGroupIdColumnLiteral: SQL = SQL(stringLiteral: GroupMember.Columns.groupId.name)
-            let groupMemberProfileIdColumnLiteral: SQL = SQL(stringLiteral: GroupMember.Columns.profileId.name)
-            let groupMemberRoleColumnLiteral: SQL = SQL(stringLiteral: GroupMember.Columns.role.name)
+            let threadProfile: SQL = SQL(stringLiteral: "threadProfile")
+            let quoteInteraction: SQL = SQL(stringLiteral: "quoteInteraction")
+            let quoteInteractionAttachment: SQL = SQL(stringLiteral: "quoteInteractionAttachment")
+            let readReceipt: SQL = SQL(stringLiteral: "readReceipt")
+            let idColumn: SQL = SQL(stringLiteral: Interaction.Columns.id.name)
+            let interactionBodyColumn: SQL = SQL(stringLiteral: Interaction.Columns.body.name)
+            let profileIdColumn: SQL = SQL(stringLiteral: Profile.Columns.id.name)
+            let nicknameColumn: SQL = SQL(stringLiteral: Profile.Columns.nickname.name)
+            let nameColumn: SQL = SQL(stringLiteral: Profile.Columns.name.name)
+            let quoteBodyColumn: SQL = SQL(stringLiteral: Quote.Columns.body.name)
+            let quoteAttachmentIdColumn: SQL = SQL(stringLiteral: Quote.Columns.attachmentId.name)
+            let readReceiptInteractionIdColumn: SQL = SQL(stringLiteral: RecipientState.Columns.interactionId.name)
+            let readTimestampMsColumn: SQL = SQL(stringLiteral: RecipientState.Columns.readTimestampMs.name)
+            let timestampMsColumn: SQL = SQL(stringLiteral: Interaction.Columns.timestampMs.name)
+            let authorIdColumn: SQL = SQL(stringLiteral: Interaction.Columns.authorId.name)
+            let attachmentIdColumn: SQL = SQL(stringLiteral: Attachment.Columns.id.name)
+            let interactionAttachmentInteractionIdColumn: SQL = SQL(stringLiteral: InteractionAttachment.Columns.interactionId.name)
+            let interactionAttachmentAttachmentIdColumn: SQL = SQL(stringLiteral: InteractionAttachment.Columns.attachmentId.name)
+            let interactionAttachmentAlbumIndexColumn: SQL = SQL(stringLiteral: InteractionAttachment.Columns.albumIndex.name)
             
-            let numColumnsBeforeLinkedRecords: Int = 20
+            let numColumnsBeforeLinkedRecords: Int = 21
             let finalGroupSQL: SQL = (groupSQL ?? "")
             let request: SQLRequest<ViewModel> = """
                 SELECT
@@ -671,12 +685,13 @@ public extension MessageViewModel {
                     IFNULL(\(disappearingMessagesConfig[.isEnabled]), false) AS \(ViewModel.threadHasDisappearingMessagesEnabledKey),
                     \(openGroup[.server]) AS \(ViewModel.threadOpenGroupServerKey),
                     \(openGroup[.publicKey]) AS \(ViewModel.threadOpenGroupPublicKeyKey),
-                    IFNULL(\(threadProfileTableLiteral).\(profileNicknameColumnLiteral), \(threadProfileTableLiteral).\(profileNameColumnLiteral)) AS \(ViewModel.threadContactNameInternalKey),
+                    IFNULL(\(threadProfile).\(nicknameColumn), \(threadProfile).\(nameColumn)) AS \(ViewModel.threadContactNameInternalKey),
             
                     \(interaction.alias[Column.rowID]) AS \(ViewModel.rowIdKey),
                     \(interaction[.id]),
                     \(interaction[.variant]),
                     \(interaction[.timestampMs]),
+                    \(interaction[.receivedAtTimestampMs]),
                     \(interaction[.authorId]),
                     IFNULL(\(profile[.nickname]), \(profile[.name])) AS \(ViewModel.authorNameInternalKey),
                     \(interaction[.body]),
@@ -685,20 +700,30 @@ public extension MessageViewModel {
             
                     -- Default to 'sending' assuming non-processed interaction when null
                     IFNULL(MIN(\(recipientState[.state])), \(SQL("\(RecipientState.State.sending)"))) AS \(ViewModel.stateKey),
-                    (\(readReceiptTableLiteral).\(readReceiptReadTimestampMsColumnLiteral) IS NOT NULL) AS \(ViewModel.hasAtLeastOneReadReceiptKey),
+                    (\(readReceipt).\(readTimestampMsColumn) IS NOT NULL) AS \(ViewModel.hasAtLeastOneReadReceiptKey),
                     \(recipientState[.mostRecentFailureText]) AS \(ViewModel.mostRecentFailureTextKey),
                     
-                    (
-                        \(groupMemberModeratorTableLiteral).\(groupMemberProfileIdColumnLiteral) IS NOT NULL OR
-                        \(groupMemberAdminTableLiteral).\(groupMemberProfileIdColumnLiteral) IS NOT NULL
+                    EXISTS (
+                        SELECT 1
+                        FROM \(GroupMember.self)
+                        WHERE (
+                            \(groupMember[.groupId]) = \(interaction[.threadId]) AND
+                            \(groupMember[.profileId]) = \(interaction[.authorId]) AND
+                            \(SQL("\(thread[.variant]) = \(SessionThread.Variant.openGroup)")) AND
+                            \(SQL("\(groupMember[.role]) IN \([GroupMember.Role.moderator, GroupMember.Role.admin])"))
+                        )
                     ) AS \(ViewModel.isSenderOpenGroupModeratorKey),
             
                     \(ViewModel.profileKey).*,
-                    \(ViewModel.quoteKey).*,
+                    \(quote[.interactionId]),
+                    \(quote[.authorId]),
+                    \(quote[.timestampMs]),
+                    \(quoteInteraction).\(interactionBodyColumn) AS \(quoteBodyColumn),
+                    \(quoteInteractionAttachment).\(interactionAttachmentAttachmentIdColumn) AS \(quoteAttachmentIdColumn),
                     \(ViewModel.quoteAttachmentKey).*,
                     \(ViewModel.linkPreviewKey).*,
                     \(ViewModel.linkPreviewAttachmentKey).*,
-            
+                    
                     \(SQL("\(userPublicKey)")) AS \(ViewModel.currentUserPublicKeyKey),
             
                     -- All of the below properties are set in post-query processing but to prevent the
@@ -715,54 +740,40 @@ public extension MessageViewModel {
                 FROM \(Interaction.self)
                 JOIN \(SessionThread.self) ON \(thread[.id]) = \(interaction[.threadId])
                 LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(interaction[.threadId])
-                LEFT JOIN \(Profile.self) AS \(threadProfileTableLiteral) ON \(threadProfileTableLiteral).\(profileIdColumnLiteral) = \(interaction[.threadId])
+                LEFT JOIN \(Profile.self) AS \(threadProfile) ON \(threadProfile).\(profileIdColumn) = \(interaction[.threadId])
                 LEFT JOIN \(DisappearingMessagesConfiguration.self) ON \(disappearingMessagesConfig[.threadId]) = \(interaction[.threadId])
                 LEFT JOIN \(OpenGroup.self) ON \(openGroup[.threadId]) = \(interaction[.threadId])
                 LEFT JOIN \(Profile.self) ON \(profile[.id]) = \(interaction[.authorId])
-                LEFT JOIN (
-                    SELECT \(quote[.interactionId]),
-                           \(quote[.authorId]),
-                           \(quote[.timestampMs]),
-                           \(interaction[.body]) AS \(Quote.Columns.body),
-                           \(interactionAttachment[.attachmentId]) AS \(Quote.Columns.attachmentId)
-                    FROM \(Quote.self)
-                    LEFT JOIN \(Interaction.self) ON (
-                        (
-                            \(quote[.authorId]) = \(interaction[.authorId]) OR (
-                                \(quote[.authorId]) = \(blindedPublicKey ?? "") AND
-                                \(userPublicKey) = \(interaction[.authorId])
-                            )
-                        ) AND
-                        \(quote[.timestampMs]) = \(interaction[.timestampMs])
+                LEFT JOIN \(Quote.self) ON \(quote[.interactionId]) = \(interaction[.id])
+                LEFT JOIN \(Interaction.self) AS \(quoteInteraction) ON (
+                    \(quoteInteraction).\(timestampMsColumn) = \(quote[.timestampMs]) AND (
+                        \(quoteInteraction).\(authorIdColumn) = \(quote[.authorId]) OR (
+                            -- A users outgoing message is stored in some cases using their standard id
+                            -- but the quote will use their blinded id so handle that case
+                            \(quote[.authorId]) = \(blindedPublicKey ?? "''") AND
+                            \(quoteInteraction).\(authorIdColumn) = \(userPublicKey)
+                        )
                     )
-                    LEFT JOIN \(InteractionAttachment.self) ON \(interaction[.id]) = \(interactionAttachment[.interactionId])
-                ) AS \(ViewModel.quoteKey) ON \(quote[.interactionId]) = \(interaction[.id])
-                LEFT JOIN \(Attachment.self) AS \(ViewModel.quoteAttachmentKey) ON \(ViewModel.quoteAttachmentKey).\(attachmentIdColumnLiteral) = \(quote[.attachmentId])
+                )
+                LEFT JOIN \(InteractionAttachment.self) AS \(quoteInteractionAttachment) ON (
+                    \(quoteInteractionAttachment).\(interactionAttachmentInteractionIdColumn) = \(quoteInteraction).\(idColumn) AND
+                    \(quoteInteractionAttachment).\(interactionAttachmentAlbumIndexColumn) = 0
+                )
+                LEFT JOIN \(Attachment.self) AS \(ViewModel.quoteAttachmentKey) ON \(ViewModel.quoteAttachmentKey).\(attachmentIdColumn) = \(quoteInteractionAttachment).\(interactionAttachmentAttachmentIdColumn)
+            
                 LEFT JOIN \(LinkPreview.self) ON (
                     \(linkPreview[.url]) = \(interaction[.linkPreviewUrl]) AND
-                    \(Interaction.linkPreviewFilterLiteral())
+                    \(Interaction.linkPreviewFilterLiteral)
                 )
-                LEFT JOIN \(Attachment.self) AS \(ViewModel.linkPreviewAttachmentKey) ON \(ViewModel.linkPreviewAttachmentKey).\(attachmentIdColumnLiteral) = \(linkPreview[.attachmentId])
+                LEFT JOIN \(Attachment.self) AS \(ViewModel.linkPreviewAttachmentKey) ON \(ViewModel.linkPreviewAttachmentKey).\(attachmentIdColumn) = \(linkPreview[.attachmentId])
                 LEFT JOIN \(RecipientState.self) ON (
                     -- Ignore 'skipped' states
                     \(SQL("\(recipientState[.state]) != \(RecipientState.State.skipped)")) AND
                     \(recipientState[.interactionId]) = \(interaction[.id])
                 )
-                LEFT JOIN \(RecipientState.self) AS \(readReceiptTableLiteral) ON (
-                    \(readReceiptTableLiteral).\(readReceiptReadTimestampMsColumnLiteral) IS NOT NULL AND
-                    \(interaction[.id]) = \(readReceiptTableLiteral).\(interactionStateInteractionIdColumnLiteral)
-                )
-                LEFT JOIN \(GroupMember.self) AS \(groupMemberModeratorTableLiteral) ON (
-                    \(SQL("\(thread[.variant]) = \(SessionThread.Variant.openGroup)")) AND
-                    \(groupMemberModeratorTableLiteral).\(groupMemberGroupIdColumnLiteral) = \(interaction[.threadId]) AND
-                    \(groupMemberModeratorTableLiteral).\(groupMemberProfileIdColumnLiteral) = \(interaction[.authorId]) AND
-                    \(SQL("\(groupMemberModeratorTableLiteral).\(groupMemberRoleColumnLiteral) = \(GroupMember.Role.moderator)"))
-                )
-                LEFT JOIN \(GroupMember.self) AS \(groupMemberAdminTableLiteral) ON (
-                    \(SQL("\(thread[.variant]) = \(SessionThread.Variant.openGroup)")) AND
-                    \(groupMemberAdminTableLiteral).\(groupMemberGroupIdColumnLiteral) = \(interaction[.threadId]) AND
-                    \(groupMemberAdminTableLiteral).\(groupMemberProfileIdColumnLiteral) = \(interaction[.authorId]) AND
-                    \(SQL("\(groupMemberAdminTableLiteral).\(groupMemberRoleColumnLiteral) = \(GroupMember.Role.admin)"))
+                LEFT JOIN \(RecipientState.self) AS \(readReceipt) ON (
+                    \(readReceipt).\(readTimestampMsColumn) IS NOT NULL AND
+                    \(readReceipt).\(readReceiptInteractionIdColumn) = \(interaction[.id])
                 )
                 WHERE \(interaction.alias[Column.rowID]) IN \(rowIds)
                 \(finalGroupSQL)

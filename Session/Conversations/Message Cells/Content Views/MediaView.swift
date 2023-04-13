@@ -16,10 +16,9 @@ public class MediaView: UIView {
 
     // MARK: -
 
-    private let mediaCache: NSCache<NSString, AnyObject>
+    private let mediaCache: NSCache<NSString, AnyObject>?
     public let attachment: Attachment
     private let isOutgoing: Bool
-    private let maxMessageWidth: CGFloat
     private var loadBlock: (() -> Void)?
     private var unloadBlock: (() -> Void)?
 
@@ -46,22 +45,21 @@ public class MediaView: UIView {
     // MARK: - Initializers
 
     public required init(
-        mediaCache: NSCache<NSString, AnyObject>,
+        mediaCache: NSCache<NSString, AnyObject>? = nil,
         attachment: Attachment,
         isOutgoing: Bool,
-        maxMessageWidth: CGFloat
+        cornerRadius: CGFloat
     ) {
         self.mediaCache = mediaCache
         self.attachment = attachment
         self.isOutgoing = isOutgoing
-        self.maxMessageWidth = maxMessageWidth
 
         super.init(frame: .zero)
 
         themeBackgroundColor = .backgroundSecondary
         clipsToBounds = true
         layer.masksToBounds = true
-        layer.cornerRadius = VisibleMessageCell.largeCornerRadius
+        layer.cornerRadius = cornerRadius
 
         createContents()
     }
@@ -396,7 +394,7 @@ public class MediaView: UIView {
             
             applyMediaBlock(media)
             
-            self?.mediaCache.setObject(media, forKey: cacheKey as NSString)
+            self?.mediaCache?.setObject(media, forKey: cacheKey as NSString)
             self?.loadState.mutate { $0 = .loaded }
         }
 
@@ -405,7 +403,7 @@ public class MediaView: UIView {
             return
         }
 
-        if let media: AnyObject = self.mediaCache.object(forKey: cacheKey as NSString) {
+        if let media: AnyObject = self.mediaCache?.object(forKey: cacheKey as NSString) {
             Logger.verbose("media cache hit")
             
             guard Thread.isMainThread else {
