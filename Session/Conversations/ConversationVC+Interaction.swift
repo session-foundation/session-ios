@@ -661,6 +661,10 @@ extension ConversationVC:
     }
     
     func inputTextViewDidChangeContent(_ inputTextView: InputTextView) {
+        // Note: If there is a 'draft' message then we don't want it to trigger the typing indicator to
+        // appear (as that is not expected/correct behaviour)
+        guard !viewIsAppearing else { return }
+        
         let newText: String = (inputTextView.text ?? "")
         
         if !newText.isEmpty {

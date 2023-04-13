@@ -413,7 +413,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         
         if shouldRestartCamera { cameraManager.prepare() }
         
-        touch(call.videoCapturer)
+        _ = call.videoCapturer // Force the lazy var to instantiate
         titleLabel.text = self.call.contactName
         AppEnvironment.shared.callManager.startCall(call) { [weak self] error in
             DispatchQueue.main.async {
@@ -468,7 +468,8 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         view.addSubview(titleLabel)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         titleLabel.center(.vertical, in: minimizeButton)
-        titleLabel.center(.horizontal, in: view)
+        titleLabel.pin(.leading, to: .leading, of: view, withInset: Values.largeSpacing)
+        titleLabel.pin(.trailing, to: .trailing, of: view, withInset: -Values.largeSpacing)
         
         // Response Panel
         view.addSubview(responsePanel)
