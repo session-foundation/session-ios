@@ -603,12 +603,6 @@
 		FD245C6B2850667400B966DD /* VisibleMessage+Profile.swift in Sources */ = {isa = PBXBuildFile; fileRef = C300A5B12554AF9800555489 /* VisibleMessage+Profile.swift */; };
 		FD245C6C2850669200B966DD /* MessageReceiveJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = C352A31225574F5200338F3E /* MessageReceiveJob.swift */; };
 		FD245C6D285066A400B966DD /* NotifyPushServerJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = C352A32E2557549C00338F3E /* NotifyPushServerJob.swift */; };
-		FD29A11D29E4EB71001923B4 /* seed1-10y.der in Resources */ = {isa = PBXBuildFile; fileRef = FD29A11729E4EB71001923B4 /* seed1-10y.der */; };
-		FD29A11E29E4EB71001923B4 /* seed2-10y.der in Resources */ = {isa = PBXBuildFile; fileRef = FD29A11829E4EB71001923B4 /* seed2-10y.der */; };
-		FD29A11F29E4EB71001923B4 /* seed3-10y.crt in Resources */ = {isa = PBXBuildFile; fileRef = FD29A11929E4EB71001923B4 /* seed3-10y.crt */; };
-		FD29A12029E4EB71001923B4 /* seed1-10y.crt in Resources */ = {isa = PBXBuildFile; fileRef = FD29A11A29E4EB71001923B4 /* seed1-10y.crt */; };
-		FD29A12129E4EB71001923B4 /* seed3-10y.der in Resources */ = {isa = PBXBuildFile; fileRef = FD29A11B29E4EB71001923B4 /* seed3-10y.der */; };
-		FD29A12229E4EB71001923B4 /* seed2-10y.crt in Resources */ = {isa = PBXBuildFile; fileRef = FD29A11C29E4EB71001923B4 /* seed2-10y.crt */; };
 		FD2AAAED28ED3E1000A49611 /* MockGeneralCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFD645C27F273F300808CA1 /* MockGeneralCache.swift */; };
 		FD2AAAEE28ED3E1100A49611 /* MockGeneralCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFD645C27F273F300808CA1 /* MockGeneralCache.swift */; };
 		FD2AAAF028ED57B500A49611 /* SynchronousStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */; };
@@ -827,6 +821,12 @@
 		FDD2506E283711D600198BDA /* DifferenceKit+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD2506D283711D600198BDA /* DifferenceKit+Utilities.swift */; };
 		FDD250702837199200198BDA /* GarbageCollectionJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD2506F2837199200198BDA /* GarbageCollectionJob.swift */; };
 		FDD250722837234B00198BDA /* MediaGalleryNavigationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD250712837234B00198BDA /* MediaGalleryNavigationController.swift */; };
+		FDDCBDA829E776BF00303C38 /* seed2-2023-2y.crt in Resources */ = {isa = PBXBuildFile; fileRef = FDDCBDA229E776BF00303C38 /* seed2-2023-2y.crt */; };
+		FDDCBDA929E776BF00303C38 /* seed1-2023-2y.crt in Resources */ = {isa = PBXBuildFile; fileRef = FDDCBDA329E776BF00303C38 /* seed1-2023-2y.crt */; };
+		FDDCBDAA29E776BF00303C38 /* seed1-2023-2y.der in Resources */ = {isa = PBXBuildFile; fileRef = FDDCBDA429E776BF00303C38 /* seed1-2023-2y.der */; };
+		FDDCBDAB29E776BF00303C38 /* seed2-2023-2y.der in Resources */ = {isa = PBXBuildFile; fileRef = FDDCBDA529E776BF00303C38 /* seed2-2023-2y.der */; };
+		FDDCBDAC29E776BF00303C38 /* seed3-2023-2y.crt in Resources */ = {isa = PBXBuildFile; fileRef = FDDCBDA629E776BF00303C38 /* seed3-2023-2y.crt */; };
+		FDDCBDAD29E776BF00303C38 /* seed3-2023-2y.der in Resources */ = {isa = PBXBuildFile; fileRef = FDDCBDA729E776BF00303C38 /* seed3-2023-2y.der */; };
 		FDE77F6B280FEB28002CFC5D /* ControlMessageProcessRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE77F6A280FEB28002CFC5D /* ControlMessageProcessRecord.swift */; };
 		FDED2E3C282E1B5D00B2CD2A /* UICollectionView+ReusableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDED2E3B282E1B5D00B2CD2A /* UICollectionView+ReusableView.swift */; };
 		FDF0B73C27FFD3D6004C14C5 /* LinkPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B73B27FFD3D6004C14C5 /* LinkPreview.swift */; };
@@ -1693,12 +1693,6 @@
 		FD23EA6028ED0B260058676E /* CombineExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CombineExtensions.swift; sourceTree = "<group>"; };
 		FD245C612850664300B966DD /* Configuration.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Configuration.swift; sourceTree = "<group>"; };
 		FD28A4F527EAD44C00FF65E7 /* Storage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Storage.swift; sourceTree = "<group>"; };
-		FD29A11729E4EB71001923B4 /* seed1-10y.der */ = {isa = PBXFileReference; lastKnownFileType = file; path = "seed1-10y.der"; sourceTree = "<group>"; };
-		FD29A11829E4EB71001923B4 /* seed2-10y.der */ = {isa = PBXFileReference; lastKnownFileType = file; path = "seed2-10y.der"; sourceTree = "<group>"; };
-		FD29A11929E4EB71001923B4 /* seed3-10y.crt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "seed3-10y.crt"; sourceTree = "<group>"; };
-		FD29A11A29E4EB71001923B4 /* seed1-10y.crt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "seed1-10y.crt"; sourceTree = "<group>"; };
-		FD29A11B29E4EB71001923B4 /* seed3-10y.der */ = {isa = PBXFileReference; lastKnownFileType = file; path = "seed3-10y.der"; sourceTree = "<group>"; };
-		FD29A11C29E4EB71001923B4 /* seed2-10y.crt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "seed2-10y.crt"; sourceTree = "<group>"; };
 		FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SynchronousStorage.swift; sourceTree = "<group>"; };
 		FD37E9C228A1C6F3003AE748 /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeManager.swift; sourceTree = "<group>"; };
 		FD37E9C528A1D4EC003AE748 /* Theme+ClassicDark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Theme+ClassicDark.swift"; sourceTree = "<group>"; };
@@ -1906,6 +1900,12 @@
 		FDD2506D283711D600198BDA /* DifferenceKit+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DifferenceKit+Utilities.swift"; sourceTree = "<group>"; };
 		FDD2506F2837199200198BDA /* GarbageCollectionJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarbageCollectionJob.swift; sourceTree = "<group>"; };
 		FDD250712837234B00198BDA /* MediaGalleryNavigationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaGalleryNavigationController.swift; sourceTree = "<group>"; };
+		FDDCBDA229E776BF00303C38 /* seed2-2023-2y.crt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "seed2-2023-2y.crt"; sourceTree = "<group>"; };
+		FDDCBDA329E776BF00303C38 /* seed1-2023-2y.crt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "seed1-2023-2y.crt"; sourceTree = "<group>"; };
+		FDDCBDA429E776BF00303C38 /* seed1-2023-2y.der */ = {isa = PBXFileReference; lastKnownFileType = file; path = "seed1-2023-2y.der"; sourceTree = "<group>"; };
+		FDDCBDA529E776BF00303C38 /* seed2-2023-2y.der */ = {isa = PBXFileReference; lastKnownFileType = file; path = "seed2-2023-2y.der"; sourceTree = "<group>"; };
+		FDDCBDA629E776BF00303C38 /* seed3-2023-2y.crt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "seed3-2023-2y.crt"; sourceTree = "<group>"; };
+		FDDCBDA729E776BF00303C38 /* seed3-2023-2y.der */ = {isa = PBXFileReference; lastKnownFileType = file; path = "seed3-2023-2y.der"; sourceTree = "<group>"; };
 		FDE7214F287E50D50093DF33 /* ProtoWrappers.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = ProtoWrappers.py; sourceTree = "<group>"; };
 		FDE72150287E50D50093DF33 /* LintLocalizableStrings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LintLocalizableStrings.swift; sourceTree = "<group>"; };
 		FDE77F68280F9EDA002CFC5D /* JobRunnerError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobRunnerError.swift; sourceTree = "<group>"; };
@@ -2366,12 +2366,12 @@
 		B81D260326158DF5004D1FE1 /* Certificates */ = {
 			isa = PBXGroup;
 			children = (
-				FD29A11A29E4EB71001923B4 /* seed1-10y.crt */,
-				FD29A11729E4EB71001923B4 /* seed1-10y.der */,
-				FD29A11C29E4EB71001923B4 /* seed2-10y.crt */,
-				FD29A11829E4EB71001923B4 /* seed2-10y.der */,
-				FD29A11929E4EB71001923B4 /* seed3-10y.crt */,
-				FD29A11B29E4EB71001923B4 /* seed3-10y.der */,
+				FDDCBDA329E776BF00303C38 /* seed1-2023-2y.crt */,
+				FDDCBDA429E776BF00303C38 /* seed1-2023-2y.der */,
+				FDDCBDA229E776BF00303C38 /* seed2-2023-2y.crt */,
+				FDDCBDA529E776BF00303C38 /* seed2-2023-2y.der */,
+				FDDCBDA629E776BF00303C38 /* seed3-2023-2y.crt */,
+				FDDCBDA729E776BF00303C38 /* seed3-2023-2y.der */,
 			);
 			path = Certificates;
 			sourceTree = "<group>";
@@ -4694,7 +4694,6 @@
 			files = (
 				4C63CC00210A620B003AE45C /* SignalTSan.supp in Resources */,
 				4C6F527C20FFE8400097DEEE /* SignalUBSan.supp in Resources */,
-				FD29A11D29E4EB71001923B4 /* seed1-10y.der in Resources */,
 				34CF078A203E6B78005C4D61 /* end_call_tone_cept.caf in Resources */,
 				C3CA3AA2255CDADA00F4C6D4 /* english.txt in Resources */,
 				B6F509971AA53F760068F56A /* Localizable.strings in Resources */,
@@ -4702,12 +4701,12 @@
 				34CF0788203E6B78005C4D61 /* ringback_tone_ansi.caf in Resources */,
 				7BFD1A972747689000FB91B9 /* Session-Turn-Server in Resources */,
 				34C3C78F2040A4F70000134C /* sonarping.mp3 in Resources */,
+				FDDCBDA929E776BF00303C38 /* seed1-2023-2y.crt in Resources */,
 				34661FB820C1C0D60056EDD6 /* message_sent.aiff in Resources */,
 				45CB2FA81CB7146C00E1B343 /* Launch Screen.storyboard in Resources */,
 				34C3C78D20409F320000134C /* Opening.m4r in Resources */,
 				C3CA3AB4255CDAE600F4C6D4 /* japanese.txt in Resources */,
 				B67EBF5D19194AC60084CCFD /* Settings.bundle in Resources */,
-				FD29A12129E4EB71001923B4 /* seed3-10y.der in Resources */,
 				34CF0787203E6B78005C4D61 /* busy_tone_ansi.caf in Resources */,
 				45A2F005204473A3002E978A /* NewMessage.aifc in Resources */,
 				45B74A882044AAB600CD42F8 /* aurora.aifc in Resources */,
@@ -4719,6 +4718,7 @@
 				45B74A812044AAB600CD42F8 /* chord-quiet.aifc in Resources */,
 				45B74A832044AAB600CD42F8 /* circles.aifc in Resources */,
 				45B74A892044AAB600CD42F8 /* circles-quiet.aifc in Resources */,
+				FDDCBDAA29E776BF00303C38 /* seed1-2023-2y.der in Resources */,
 				C34C8F7423A7830B00D82669 /* SpaceMono-Bold.ttf in Resources */,
 				4503F1BF20470A5B00CEE724 /* classic.aifc in Resources */,
 				B8D07405265C683300F77E07 /* ElegantIcons.ttf in Resources */,
@@ -4727,14 +4727,15 @@
 				B8FF8E7425C10FC3004D1F22 /* GeoLite2-Country-Locations-English in Resources */,
 				B8CCF6352396005F0091D419 /* SpaceMono-Regular.ttf in Resources */,
 				45B74A872044AAB600CD42F8 /* complete-quiet.aifc in Resources */,
-				FD29A11F29E4EB71001923B4 /* seed3-10y.crt in Resources */,
 				45B74A772044AAB600CD42F8 /* hello.aifc in Resources */,
 				45B74A7C2044AAB600CD42F8 /* hello-quiet.aifc in Resources */,
 				7B50D64D28AC7CF80086CCEC /* silence.aiff in Resources */,
 				45B74A792044AAB600CD42F8 /* input.aifc in Resources */,
-				FD29A12029E4EB71001923B4 /* seed1-10y.crt in Resources */,
+				FDDCBDAB29E776BF00303C38 /* seed2-2023-2y.der in Resources */,
 				C3CA3ABE255CDB0D00F4C6D4 /* portuguese.txt in Resources */,
 				45B74A8C2044AAB600CD42F8 /* input-quiet.aifc in Resources */,
+				FDDCBDAC29E776BF00303C38 /* seed3-2023-2y.crt in Resources */,
+				FDDCBDA829E776BF00303C38 /* seed2-2023-2y.crt in Resources */,
 				45B74A7A2044AAB600CD42F8 /* keys.aifc in Resources */,
 				45B74A762044AAB600CD42F8 /* keys-quiet.aifc in Resources */,
 				45B74A862044AAB600CD42F8 /* note.aifc in Resources */,
@@ -4744,8 +4745,7 @@
 				45B74A822044AAB600CD42F8 /* pulse.aifc in Resources */,
 				C3CA3AC8255CDB2900F4C6D4 /* spanish.txt in Resources */,
 				B8FF8E6225C10DA5004D1F22 /* GeoLite2-Country-Blocks-IPv4 in Resources */,
-				FD29A11E29E4EB71001923B4 /* seed2-10y.der in Resources */,
-				FD29A12229E4EB71001923B4 /* seed2-10y.crt in Resources */,
+				FDDCBDAD29E776BF00303C38 /* seed3-2023-2y.der in Resources */,
 				45B74A802044AAB600CD42F8 /* pulse-quiet.aifc in Resources */,
 				45B74A8B2044AAB600CD42F8 /* synth.aifc in Resources */,
 				45B74A752044AAB600CD42F8 /* synth-quiet.aifc in Resources */,

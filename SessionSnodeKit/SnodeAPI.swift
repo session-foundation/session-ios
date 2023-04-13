@@ -50,9 +50,9 @@ public final class SnodeAPI {
     private static let seedNodePool: Set<String> = (Features.useTestnet ?
         [ "http://public.loki.foundation:38157" ] :
         [
-            "https://seed1.getsession.org:4443",
-            "https://seed2.getsession.org:4443",
-            "https://seed3.getsession.org:4443"
+            "https://seed1.getsession.org:4432",
+            "https://seed2.getsession.org:4432",
+            "https://seed3.getsession.org:4432"
         ]
     )
     private static let snodeFailureThreshold = 3
