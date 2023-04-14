@@ -5,10 +5,9 @@ import GRDB
 import SessionUtilitiesKit
 
 class SynchronousStorage: Storage {
-    override func readPublisher<S, T>(
-        receiveOn scheduler: S,
+    override func readPublisher<T>(
         value: @escaping (Database) throws -> T
-    ) -> AnyPublisher<T, Error> where S: Scheduler {
+    ) -> AnyPublisher<T, Error> {
         guard let result: T = super.read(value) else {
             return Fail(error: StorageError.generic)
                 .eraseToAnyPublisher()
@@ -19,10 +18,9 @@ class SynchronousStorage: Storage {
             .eraseToAnyPublisher()
     }
     
-    override func writePublisher<S, T>(
-        receiveOn scheduler: S,
+    override func writePublisher<T>(
         updates: @escaping (Database) throws -> T
-    ) -> AnyPublisher<T, Error> where S: Scheduler {
+    ) -> AnyPublisher<T, Error> {
         guard let result: T = super.write(updates: updates) else {
             return Fail(error: StorageError.generic)
                 .eraseToAnyPublisher()

@@ -184,16 +184,18 @@ internal extension SessionUtil {
                 }
             }
         
-        validChanges.forEach { threadInfo in
-            var cThreadId: [CChar] = threadInfo.threadId.cArray
+        try validChanges.forEach { threadInfo in
+            var cThreadId: [CChar] = threadInfo.threadId.cArray.nullTerminated()
             
             switch threadInfo.variant {
                 case .contact:
                     var oneToOne: convo_info_volatile_1to1 = convo_info_volatile_1to1()
                     
                     guard convo_info_volatile_get_or_construct_1to1(conf, &oneToOne, &cThreadId) else {
-                        SNLog("Unable to create contact conversation when updating last read timestamp")
-                        return
+                        /// It looks like there are some situations where this object might not get created correctly (and
+                        /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
+                        SNLog("Unable to upsert contact volatile info to SessionUtil: \(SessionUtil.lastError(conf))")
+                        throw SessionUtilError.getOrConstructFailedUnexpectedly
                     }
                     
                     threadInfo.changes.forEach { change in
@@ -211,8 +213,10 @@ internal extension SessionUtil {
                     var legacyGroup: convo_info_volatile_legacy_group = convo_info_volatile_legacy_group()
                     
                     guard convo_info_volatile_get_or_construct_legacy_group(conf, &legacyGroup, &cThreadId) else {
-                        SNLog("Unable to create legacy group conversation when updating last read timestamp")
-                        return
+                        /// It looks like there are some situations where this object might not get created correctly (and
+                        /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
+                        SNLog("Unable to upsert legacy group volatile info to SessionUtil: \(SessionUtil.lastError(conf))")
+                        throw SessionUtilError.getOrConstructFailedUnexpectedly
                     }
                     
                     threadInfo.changes.forEach { change in
@@ -228,8 +232,8 @@ internal extension SessionUtil {
                     
                 case .community:
                     guard
-                        var cBaseUrl: [CChar] = threadInfo.openGroupUrlInfo?.server.cArray,
-                        var cRoomToken: [CChar] = threadInfo.openGroupUrlInfo?.roomToken.cArray,
+                        var cBaseUrl: [CChar] = threadInfo.openGroupUrlInfo?.server.cArray.nullTerminated(),
+                        var cRoomToken: [CChar] = threadInfo.openGroupUrlInfo?.roomToken.cArray.nullTerminated(),
                         var cPubkey: [UInt8] = threadInfo.openGroupUrlInfo?.publicKey.bytes
                     else {
                         SNLog("Unable to create community conversation when updating last read timestamp due to missing URL info")
@@ -239,8 +243,10 @@ internal extension SessionUtil {
                     var community: convo_info_volatile_community = convo_info_volatile_community()
                     
                     guard convo_info_volatile_get_or_construct_community(conf, &community, &cBaseUrl, &cRoomToken, &cPubkey) else {
-                        SNLog("Unable to create legacy group conversation when updating last read timestamp")
-                        return
+                        /// It looks like there are some situations where this object might not get created correctly (and
+                        /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
+                        SNLog("Unable to upsert community volatile info to SessionUtil: \(SessionUtil.lastError(conf))")
+                        throw SessionUtilError.getOrConstructFailedUnexpectedly
                     }
                     
                     threadInfo.changes.forEach { change in
@@ -296,7 +302,7 @@ internal extension SessionUtil {
             publicKey: getUserHexEncodedPublicKey(db)
         ) { conf in
             volatileContactIds.forEach { contactId in
-                var cSessionId: [CChar] = contactId.cArray
+                var cSessionId: [CChar] = contactId.cArray.nullTerminated()
                 
                 // Don't care if the data doesn't exist
                 convo_info_volatile_erase_1to1(conf, &cSessionId)
@@ -311,7 +317,7 @@ internal extension SessionUtil {
             publicKey: getUserHexEncodedPublicKey(db)
         ) { conf in
             volatileLegacyGroupIds.forEach { legacyGroupId in
-                var cLegacyGroupId: [CChar] = legacyGroupId.cArray
+                var cLegacyGroupId: [CChar] = legacyGroupId.cArray.nullTerminated()
                 
                 // Don't care if the data doesn't exist
                 convo_info_volatile_erase_legacy_group(conf, &cLegacyGroupId)
@@ -326,8 +332,8 @@ internal extension SessionUtil {
             publicKey: getUserHexEncodedPublicKey(db)
         ) { conf in
             volatileCommunityInfo.forEach { urlInfo in
-                var cBaseUrl: [CChar] = urlInfo.server.cArray
-                var cRoom: [CChar] = urlInfo.roomToken.cArray
+                var cBaseUrl: [CChar] = urlInfo.server.cArray.nullTerminated()
+                var cRoom: [CChar] = urlInfo.roomToken.cArray.nullTerminated()
                 
                 // Don't care if the data doesn't exist
                 convo_info_volatile_erase_community(conf, &cBaseUrl, &cRoom)
@@ -382,7 +388,7 @@ public extension SessionUtil {
             .map { conf in
                 switch threadVariant {
                     case .contact:
-                        var cThreadId: [CChar] = threadId.cArray
+                        var cThreadId: [CChar] = threadId.cArray.nullTerminated()
                         var oneToOne: convo_info_volatile_1to1 = convo_info_volatile_1to1()
                         guard convo_info_volatile_get_1to1(conf, &oneToOne, &cThreadId) else {
                             return false
@@ -391,7 +397,7 @@ public extension SessionUtil {
                         return (oneToOne.last_read > timestampMs)
                         
                     case .legacyGroup:
-                        var cThreadId: [CChar] = threadId.cArray
+                        var cThreadId: [CChar] = threadId.cArray.nullTerminated()
                         var legacyGroup: convo_info_volatile_legacy_group = convo_info_volatile_legacy_group()
                         
                         guard convo_info_volatile_get_legacy_group(conf, &legacyGroup, &cThreadId) else {
@@ -403,8 +409,8 @@ public extension SessionUtil {
                     case .community:
                         guard let openGroup: OpenGroup = openGroup else { return false }
                         
-                        var cBaseUrl: [CChar] = openGroup.server.cArray
-                        var cRoomToken: [CChar] = openGroup.roomToken.cArray
+                        var cBaseUrl: [CChar] = openGroup.server.cArray.nullTerminated()
+                        var cRoomToken: [CChar] = openGroup.roomToken.cArray.nullTerminated()
                         var convoCommunity: convo_info_volatile_community = convo_info_volatile_community()
                         
                         guard convo_info_volatile_get_community(conf, &convoCommunity, &cBaseUrl, &cRoomToken) else {

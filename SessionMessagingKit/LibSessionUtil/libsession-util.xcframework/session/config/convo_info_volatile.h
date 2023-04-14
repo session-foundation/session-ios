@@ -61,34 +61,39 @@ int convo_info_volatile_init(
 
 /// Fills `convo` with the conversation info given a session ID (specified as a null-terminated hex
 /// string), if the conversation exists, and returns true.  If the conversation does not exist then
-/// `convo` is left unchanged and false is returned.
+/// `convo` is left unchanged and false is returned.  If an error occurs, false is returned and
+/// `conf->last_error` will be set to non-NULL containing the error string (if no error occurs, such
+/// as in the case where the conversation merely doesn't exist, `last_error` will be set to NULL).
 bool convo_info_volatile_get_1to1(
-        const config_object* conf, convo_info_volatile_1to1* convo, const char* session_id)
+        config_object* conf, convo_info_volatile_1to1* convo, const char* session_id)
         __attribute__((warn_unused_result));
 
 /// Same as the above except that when the conversation does not exist, this sets all the convo
 /// fields to defaults and loads it with the given session_id.
 ///
 /// Returns true as long as it is given a valid session_id.  A false return is considered an error,
-/// and means the session_id was not a valid session_id.
+/// and means the session_id was not a valid session_id.  In such a case `conf->last_error` will be
+/// set to an error string.
 ///
 /// This is the method that should usually be used to create or update a conversation, followed by
 /// setting fields in the convo, and then giving it to convo_info_volatile_set().
 bool convo_info_volatile_get_or_construct_1to1(
-        const config_object* conf, convo_info_volatile_1to1* convo, const char* session_id)
+        config_object* conf, convo_info_volatile_1to1* convo, const char* session_id)
         __attribute__((warn_unused_result));
 
 /// community versions of the 1-to-1 functions:
 ///
 /// Gets a community convo info.  `base_url` and `room` are null-terminated c strings; pubkey is
 /// 32 bytes.  base_url and room will always be lower-cased (if not already).
+///
+/// Error handling works the same as the 1-to-1 version.
 bool convo_info_volatile_get_community(
-        const config_object* conf,
+        config_object* conf,
         convo_info_volatile_community* comm,
         const char* base_url,
         const char* room) __attribute__((warn_unused_result));
 bool convo_info_volatile_get_or_construct_community(
-        const config_object* conf,
+        config_object* conf,
         convo_info_volatile_community* convo,
         const char* base_url,
         const char* room,
@@ -96,21 +101,23 @@ bool convo_info_volatile_get_or_construct_community(
 
 /// Fills `convo` with the conversation info given a legacy group ID (specified as a null-terminated
 /// hex string), if the conversation exists, and returns true.  If the conversation does not exist
-/// then `convo` is left unchanged and false is returned.
+/// then `convo` is left unchanged and false is returned.  On error, false is returned and the error
+/// is set in conf->last_error (on non-error, last_error is cleared).
 bool convo_info_volatile_get_legacy_group(
-        const config_object* conf, convo_info_volatile_legacy_group* convo, const char* id)
+        config_object* conf, convo_info_volatile_legacy_group* convo, const char* id)
         __attribute__((warn_unused_result));
 
 /// Same as the above except that when the conversation does not exist, this sets all the convo
 /// fields to defaults and loads it with the given id.
 ///
 /// Returns true as long as it is given a valid legacy group id (i.e. same format as a session id).
-/// A false return is considered an error, and means the id was not a valid session id.
+/// A false return is considered an error, and means the id was not a valid session id; an error
+/// string will be set in `conf->last_error`.
 ///
 /// This is the method that should usually be used to create or update a conversation, followed by
 /// setting fields in the convo, and then giving it to convo_info_volatile_set().
 bool convo_info_volatile_get_or_construct_legacy_group(
-        const config_object* conf, convo_info_volatile_legacy_group* convo, const char* id)
+        config_object* conf, convo_info_volatile_legacy_group* convo, const char* id)
         __attribute__((warn_unused_result));
 
 /// Adds or updates a conversation from the given convo info

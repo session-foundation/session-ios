@@ -141,14 +141,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                         interactionId: interactionId
                     )
             )
-            .handleEvents(
-                receiveCompletion: { result in
-                    switch result {
-                        case .failure: break
-                        case .finished: SNLog("[Calls] Pre-offer message has been sent.")
-                    }
-                }
-            )
+            .handleEvents(receiveOutput: { _ in SNLog("[Calls] Pre-offer message has been sent.") })
             .eraseToAnyPublisher()
     }
     
@@ -186,7 +179,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                     }
                     
                     Storage.shared
-                        .writePublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
+                        .writePublisher { db in
                             try MessageSender
                                 .preparedSendData(
                                     db,
@@ -225,14 +218,12 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         let mediaConstraints: RTCMediaConstraints = mediaConstraints(false)
         
         return Storage.shared
-            .readPublisherFlatMap(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db -> AnyPublisher<SessionThread, Error> in
+            .readPublisher { db -> SessionThread in
                 guard let thread: SessionThread = try? SessionThread.fetchOne(db, id: sessionId) else {
                     throw WebRTCSessionError.noThread
                 }
                 
-                return Just(thread)
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
+                return thread
             }
             .flatMap { [weak self] thread in
                 Future<Void, Error> { resolver in
@@ -254,7 +245,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                         }
                         
                         Storage.shared
-                            .writePublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
+                            .writePublisher { db in
                                 try MessageSender
                                     .preparedSendData(
                                         db,
@@ -305,36 +296,33 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         self.queuedICECandidates.removeAll()
         
         Storage.shared
-            .writePublisherFlatMap(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
+            .writePublisher { db in
                 guard let thread: SessionThread = try SessionThread.fetchOne(db, id: contactSessionId) else {
                     throw WebRTCSessionError.noThread
                 }
                 
                 SNLog("[Calls] Batch sending \(candidates.count) ICE candidates.")
                 
-                return Just(
-                    try MessageSender
-                        .preparedSendData(
-                            db,
-                            message: CallMessage(
-                                uuid: uuid,
-                                kind: .iceCandidates(
-                                    sdpMLineIndexes: candidates.map { UInt32($0.sdpMLineIndex) },
-                                    sdpMids: candidates.map { $0.sdpMid! }
-                                ),
-                                sdps: candidates.map { $0.sdp }
+                return try MessageSender
+                    .preparedSendData(
+                        db,
+                        message: CallMessage(
+                            uuid: uuid,
+                            kind: .iceCandidates(
+                                sdpMLineIndexes: candidates.map { UInt32($0.sdpMLineIndex) },
+                                sdpMids: candidates.map { $0.sdpMid! }
                             ),
-                            to: try Message.Destination
-                                .from(db, threadId: thread.id, threadVariant: thread.variant),
-                            namespace: try Message.Destination
-                                .from(db, threadId: thread.id, threadVariant: thread.variant)
-                                .defaultNamespace,
-                            interactionId: nil
-                        )
+                            sdps: candidates.map { $0.sdp }
+                        ),
+                        to: try Message.Destination
+                            .from(db, threadId: thread.id, threadVariant: thread.variant),
+                        namespace: try Message.Destination
+                            .from(db, threadId: thread.id, threadVariant: thread.variant)
+                            .defaultNamespace,
+                        interactionId: nil
                     )
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
             }
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
             .sinkUntilComplete()
     }

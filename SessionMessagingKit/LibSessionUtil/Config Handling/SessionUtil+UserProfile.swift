@@ -61,13 +61,12 @@ internal extension SessionUtil {
             .asRequest(of: PriorityVisibilityInfo.self)
             .fetchOne(db)
         let targetPriority: Int32 = user_profile_get_nts_priority(conf)
-        let targetHiddenState: Bool = user_profile_get_nts_hidden(conf)
         
         // Create the 'Note to Self' thread if it doesn't exist
         if let threadInfo: PriorityVisibilityInfo = threadInfo {
             let threadChanges: [ConfigColumnAssignment] = [
-                (threadInfo.shouldBeVisible == (targetHiddenState == false) ? nil :
-                    SessionThread.Columns.shouldBeVisible.set(to: (targetHiddenState == false))
+                ((threadInfo.shouldBeVisible == SessionUtil.shouldBeVisible(priority: targetPriority)) ? nil :
+                    SessionThread.Columns.shouldBeVisible.set(to: SessionUtil.shouldBeVisible(priority: targetPriority))
                 ),
                 (threadInfo.pinnedPriority == targetPriority ? nil :
                     SessionThread.Columns.pinnedPriority.set(to: targetPriority)
@@ -89,7 +88,7 @@ internal extension SessionUtil {
                     db,
                     id: userPublicKey,
                     variant: .contact,
-                    shouldBeVisible: (targetHiddenState == false)
+                    shouldBeVisible: SessionUtil.shouldBeVisible(priority: targetPriority)
                 )
             
             try SessionThread
@@ -102,7 +101,7 @@ internal extension SessionUtil {
             // If the 'Note to Self' conversation is hidden then we should trigger the proper
             // `deleteOrLeave` behaviour (for 'Note to Self' this will leave the conversation
             // but remove the associated interactions)
-            if targetHiddenState {
+            if !SessionUtil.shouldBeVisible(priority: targetPriority) {
                 try SessionThread
                     .deleteOrLeave(
                         db,
@@ -140,7 +139,7 @@ internal extension SessionUtil {
         guard conf != nil else { throw SessionUtilError.nilConfigObject }
         
         // Update the name
-        var updatedName: [CChar] = profile.name.cArray
+        var updatedName: [CChar] = profile.name.cArray.nullTerminated()
         user_profile_set_name(conf, &updatedName)
         
         // Either assign the updated profile pic, or sent a blank profile pic (to remove the current one)
@@ -151,18 +150,11 @@ internal extension SessionUtil {
     }
     
     static func updateNoteToSelf(
-        hidden: Bool? = nil,
-        priority: Int32? = nil,
+        priority: Int32,
         in conf: UnsafeMutablePointer<config_object>?
     ) throws {
         guard conf != nil else { throw SessionUtilError.nilConfigObject }
         
-        if let hidden: Bool = hidden {
-            user_profile_set_nts_hidden(conf, hidden)
-        }
-        
-        if let priority: Int32 = priority {
-            user_profile_set_nts_priority(conf, priority)
-        }
+        user_profile_set_nts_priority(conf, priority)
     }
 }

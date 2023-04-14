@@ -8,6 +8,7 @@ module SessionUtil {
     header "session/config/expiring.h"
     header "session/config/user_groups.h"
     header "session/config/convo_info_volatile.h"
+    header "session/config/notify.h"
     header "session/config/user_profile.h"
     header "session/config/util.h"
     header "session/config/contacts.h"

@@ -465,7 +465,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         
         ModalActivityIndicatorViewController.present(fromViewController: navigationController) { _ in
             Storage.shared
-                .writePublisherFlatMap(receiveOn: DispatchQueue.main) { db -> AnyPublisher<Void, Error> in
+                .writePublisherFlatMap { db -> AnyPublisher<Void, Error> in
                     if !updatedMemberIds.contains(userPublicKey) {
                         try MessageSender.leave(
                             db,
@@ -485,6 +485,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
                         name: updatedName
                     )
                 }
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveCompletion: { [weak self] result in

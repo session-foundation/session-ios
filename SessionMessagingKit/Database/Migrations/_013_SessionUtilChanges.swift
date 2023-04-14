@@ -11,7 +11,7 @@ enum _013_SessionUtilChanges: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "SessionUtilChanges"
     static let needsConfigSync: Bool = true
-    static let minExpectedRunDuration: TimeInterval = 0.1
+    static let minExpectedRunDuration: TimeInterval = 0.4
     
     static func migrate(_ db: Database) throws {
         // Add `markedAsUnread` to the thread table
@@ -139,6 +139,12 @@ enum _013_SessionUtilChanges: Migration {
             columns: [.threadId, .threadKeyPairHash]
         )
         
+        // Add an index for the 'Quote' table to speed up queries
+        try db.createIndex(
+            on: Quote.self,
+            columns: [.timestampMs]
+        )
+        
         // New table for storing the latest config dump for each type
         try db.create(table: ConfigDump.self) { t in
             t.column(.variant, .text)
@@ -163,13 +169,46 @@ enum _013_SessionUtilChanges: Migration {
         // If we don't have an ed25519 key then no need to create cached dump data
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         
-        // Remove any hidden threads to avoid syncing them (they are basically shadow threads created
-        // by starting a conversation but not sending a message so can just be cleared out)
-        try SessionThread
+        /// Remove any hidden threads to avoid syncing them (they are basically shadow threads created by starting a conversation
+        /// but not sending a message so can just be cleared out)
+        ///
+        /// **Note:** Our settings defer foreign key checks to the end of the migration, unfortunately the `PRAGMA foreign_keys`
+        /// setting is also a no-on during transactions so we can't enable it for the delete action, as a result we need to manually clean
+        /// up any data associated with the threads we want to delete, at the time of this migration the following tables should cascade
+        /// delete when a thread is deleted:
+        /// - DisappearingMessagesConfiguration
+        /// - ClosedGroup
+        /// - GroupMember
+        /// - Interaction
+        /// - ThreadTypingIndicator
+        /// - PendingReadReceipt
+        let threadIdsToDelete: [String] = try SessionThread
             .filter(
                 SessionThread.Columns.shouldBeVisible == false &&
                 SessionThread.Columns.id != userPublicKey
             )
+            .select(.id)
+            .asRequest(of: String.self)
+            .fetchAll(db)
+        try SessionThread
+            .deleteAll(db, ids: threadIdsToDelete)
+        try DisappearingMessagesConfiguration
+            .filter(threadIdsToDelete.contains(DisappearingMessagesConfiguration.Columns.threadId))
+            .deleteAll(db)
+        try ClosedGroup
+            .filter(threadIdsToDelete.contains(ClosedGroup.Columns.threadId))
+            .deleteAll(db)
+        try GroupMember
+            .filter(threadIdsToDelete.contains(GroupMember.Columns.groupId))
+            .deleteAll(db)
+        try Interaction
+            .filter(threadIdsToDelete.contains(Interaction.Columns.threadId))
+            .deleteAll(db)
+        try ThreadTypingIndicator
+            .filter(threadIdsToDelete.contains(ThreadTypingIndicator.Columns.threadId))
+            .deleteAll(db)
+        try PendingReadReceipt
+            .filter(threadIdsToDelete.contains(PendingReadReceipt.Columns.threadId))
             .deleteAll(db)
         
         /// There was previously a bug which allowed users to fully delete the 'Note to Self' conversation but we don't want that, so

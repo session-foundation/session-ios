@@ -163,7 +163,7 @@ public enum MessageSendJob: JobExecutor {
         /// **Note:** No need to upload attachments as part of this process as the above logic splits that out into it's own job
         /// so we shouldn't get here until attachments have already been uploaded
         Storage.shared
-            .writePublisher(receiveOn: queue) { db in
+            .writePublisher { db in
                 try MessageSender.preparedSendData(
                     db,
                     message: details.message,

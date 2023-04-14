@@ -186,7 +186,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     it("generates the correct request") {
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -221,7 +221,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     it("retrieves recent messages if there was no last message") {
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -250,7 +250,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -279,7 +279,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -308,7 +308,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
 
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -340,7 +340,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                         it("does not call the inbox and outbox endpoints") {
                             mockStorage
-                                .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                                .readPublisherFlatMap { db in
                                     OpenGroupAPI.poll(
                                         db,
                                         server: "testserver",
@@ -439,7 +439,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                         it("includes the inbox and outbox endpoints") {
                             mockStorage
-                                .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                                .readPublisherFlatMap { db in
                                     OpenGroupAPI.poll(
                                         db,
                                         server: "testserver",
@@ -466,7 +466,7 @@ class OpenGroupAPISpec: QuickSpec {
                         
                         it("retrieves recent inbox messages if there was no last message") {
                             mockStorage
-                                .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                                .readPublisherFlatMap { db in
                                     OpenGroupAPI.poll(
                                         db,
                                         server: "testserver",
@@ -495,7 +495,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             
                             mockStorage
-                                .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                                .readPublisherFlatMap { db in
                                     OpenGroupAPI.poll(
                                         db,
                                         server: "testserver",
@@ -519,7 +519,7 @@ class OpenGroupAPISpec: QuickSpec {
                         
                         it("retrieves recent outbox messages if there was no last message") {
                             mockStorage
-                                .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                                .readPublisherFlatMap { db in
                                     OpenGroupAPI.poll(
                                         db,
                                         server: "testserver",
@@ -548,7 +548,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             
                             mockStorage
-                                .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                                .readPublisherFlatMap { db in
                                     OpenGroupAPI.poll(
                                         db,
                                         server: "testserver",
@@ -609,7 +609,7 @@ class OpenGroupAPISpec: QuickSpec {
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -639,7 +639,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     it("errors when no data is returned") {
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -668,7 +668,7 @@ class OpenGroupAPISpec: QuickSpec {
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -697,7 +697,7 @@ class OpenGroupAPISpec: QuickSpec {
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -726,7 +726,7 @@ class OpenGroupAPISpec: QuickSpec {
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -787,7 +787,7 @@ class OpenGroupAPISpec: QuickSpec {
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -825,7 +825,7 @@ class OpenGroupAPISpec: QuickSpec {
                     var response: (info: ResponseInfoType, data: OpenGroupAPI.Capabilities)?
                     
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI.capabilities(
                                 db,
                                 server: "testserver",
@@ -895,7 +895,7 @@ class OpenGroupAPISpec: QuickSpec {
                     var response: (info: ResponseInfoType, data: [OpenGroupAPI.Room])?
                     
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI.rooms(
                                 db,
                                 server: "testserver",
@@ -986,7 +986,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: OpenGroupAPI.CapabilitiesAndRoomResponse?
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.capabilitiesAndRoom(
                                     db,
                                     for: "testRoom",
@@ -1041,7 +1041,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: OpenGroupAPI.CapabilitiesAndRoomResponse?
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .capabilitiesAndRoom(
                                         db,
@@ -1113,7 +1113,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: OpenGroupAPI.CapabilitiesAndRoomResponse?
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .capabilitiesAndRoom(
                                         db,
@@ -1202,7 +1202,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: OpenGroupAPI.CapabilitiesAndRoomResponse?
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.capabilitiesAndRoom(
                                     db,
                                     for: "testRoom",
@@ -1261,7 +1261,7 @@ class OpenGroupAPISpec: QuickSpec {
                     var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                     
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .send(
                                     db,
@@ -1306,7 +1306,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .send(
                                         db,
@@ -1346,7 +1346,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .send(
                                         db,
@@ -1381,7 +1381,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .send(
                                         db,
@@ -1414,7 +1414,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .send(
                                         db,
@@ -1454,7 +1454,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .send(
                                         db,
@@ -1494,7 +1494,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .send(
                                         db,
@@ -1529,7 +1529,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .send(
                                         db,
@@ -1570,7 +1570,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .send(
                                         db,
@@ -1623,7 +1623,7 @@ class OpenGroupAPISpec: QuickSpec {
                     var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                     
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .message(
                                     db,
@@ -1675,7 +1675,7 @@ class OpenGroupAPISpec: QuickSpec {
                     var response: (info: ResponseInfoType, data: Data?)?
                     
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .messageUpdate(
                                     db,
@@ -1716,7 +1716,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .messageUpdate(
                                         db,
@@ -1755,7 +1755,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .messageUpdate(
                                         db,
@@ -1789,7 +1789,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .messageUpdate(
                                         db,
@@ -1821,7 +1821,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .messageUpdate(
                                         db,
@@ -1860,7 +1860,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .messageUpdate(
                                         db,
@@ -1899,7 +1899,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .messageUpdate(
                                         db,
@@ -1933,7 +1933,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .messageUpdate(
                                         db,
@@ -1973,7 +1973,7 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .messageUpdate(
                                         db,
@@ -2010,7 +2010,7 @@ class OpenGroupAPISpec: QuickSpec {
                     var response: (info: ResponseInfoType, data: Data?)?
                     
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .messageDelete(
                                     db,
@@ -2054,7 +2054,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("generates the request and handles the response correctly") {
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .messagesDeleteAll(
                                     db,
@@ -2094,7 +2094,7 @@ class OpenGroupAPISpec: QuickSpec {
                     var response: ResponseInfoType?
                     
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .pinMessage(
                                     db,
@@ -2132,7 +2132,7 @@ class OpenGroupAPISpec: QuickSpec {
                     var response: ResponseInfoType?
                     
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .unpinMessage(
                                     db,
@@ -2170,7 +2170,7 @@ class OpenGroupAPISpec: QuickSpec {
                     var response: ResponseInfoType?
                     
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .unpinAll(
                                     db,
@@ -2209,7 +2209,7 @@ class OpenGroupAPISpec: QuickSpec {
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .uploadFile(
                                     db,
@@ -2245,7 +2245,7 @@ class OpenGroupAPISpec: QuickSpec {
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .uploadFile(
                                     db,
@@ -2281,7 +2281,7 @@ class OpenGroupAPISpec: QuickSpec {
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .uploadFile(
                                     db,
@@ -2319,7 +2319,7 @@ class OpenGroupAPISpec: QuickSpec {
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .downloadFile(
                                     db,
@@ -2376,7 +2376,7 @@ class OpenGroupAPISpec: QuickSpec {
                     var response: (info: ResponseInfoType, data: OpenGroupAPI.SendDirectMessageResponse)?
                     
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .send(
                                     db,
@@ -2425,7 +2425,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("generates the request and handles the response correctly") {
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userBan(
                                     db,
@@ -2455,7 +2455,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("does a global ban if no room tokens are provided") {
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userBan(
                                     db,
@@ -2487,7 +2487,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("does room specific bans if room tokens are provided") {
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userBan(
                                     db,
@@ -2534,7 +2534,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("generates the request and handles the response correctly") {
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userUnban(
                                     db,
@@ -2563,7 +2563,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("does a global ban if no room tokens are provided") {
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userUnban(
                                     db,
@@ -2594,7 +2594,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("does room specific bans if room tokens are provided") {
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userUnban(
                                     db,
@@ -2640,7 +2640,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("generates the request and handles the response correctly") {
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userModeratorUpdate(
                                     db,
@@ -2672,7 +2672,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("does a global update if no room tokens are provided") {
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userModeratorUpdate(
                                     db,
@@ -2706,7 +2706,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("does room specific updates if room tokens are provided") {
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userModeratorUpdate(
                                     db,
@@ -2740,7 +2740,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("fails if neither moderator or admin are set") {
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userModeratorUpdate(
                                     db,
@@ -2804,7 +2804,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("generates the request and handles the response correctly") {
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userBanAndDeleteAllMessages(
                                     db,
@@ -2833,7 +2833,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("bans the user from the specified room rather than globally") {
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userBanAndDeleteAllMessages(
                                     db,
@@ -2890,7 +2890,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .rooms(
                                     db,
@@ -2917,7 +2917,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .rooms(
                                     db,
@@ -2944,7 +2944,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     
                     mockStorage
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .rooms(
                                     db,
@@ -2975,7 +2975,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     it("signs correctly") {
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .rooms(
                                         db,
@@ -3011,7 +3011,7 @@ class OpenGroupAPISpec: QuickSpec {
                         mockSign.when { $0.signature(message: anyArray(), secretKey: anyArray()) }.thenReturn(nil)
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .rooms(
                                         db,
@@ -3044,7 +3044,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     it("signs correctly") {
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .rooms(
                                         db,
@@ -3081,7 +3081,7 @@ class OpenGroupAPISpec: QuickSpec {
                             .thenReturn(nil)
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .rooms(
                                         db,
@@ -3108,7 +3108,7 @@ class OpenGroupAPISpec: QuickSpec {
                             .thenReturn(nil)
                         
                         mockStorage
-                            .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .rooms(
                                         db,

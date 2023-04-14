@@ -37,8 +37,8 @@ internal extension SessionUtil {
             String: (
                 contact: Contact,
                 profile: Profile,
-                shouldBeVisible: Bool,
-                priority: Int32
+                priority: Int32,
+                created: TimeInterval
             )
         ]
         
@@ -77,8 +77,8 @@ internal extension SessionUtil {
             contactData[contactId] = (
                 contactResult,
                 profileResult,
-                (contact.hidden == false),
-                contact.priority
+                contact.priority,
+                TimeInterval(contact.created)
             )
             contacts_iterator_advance(contactIterator)
         }
@@ -165,8 +165,9 @@ internal extension SessionUtil {
                     .asRequest(of: PriorityVisibilityInfo.self)
                     .fetchOne(db)
                 let threadExists: Bool = (threadInfo != nil)
-                
-                switch (data.shouldBeVisible, threadExists) {
+                let updatedShouldBeVisible: Bool = SessionUtil.shouldBeVisible(priority: data.priority)
+
+                switch (updatedShouldBeVisible, threadExists) {
                     case (false, true):
                         SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: [contact.id])
                         
@@ -183,14 +184,15 @@ internal extension SessionUtil {
                         try SessionThread(
                             id: contact.id,
                             variant: .contact,
+                            creationDateTimestamp: data.created,
                             shouldBeVisible: true,
                             pinnedPriority: data.priority
                         ).save(db)
                         
                     case (true, true):
                         let changes: [ConfigColumnAssignment] = [
-                            (threadInfo?.shouldBeVisible == data.shouldBeVisible ? nil :
-                                SessionThread.Columns.shouldBeVisible.set(to: data.shouldBeVisible)
+                            (threadInfo?.shouldBeVisible == updatedShouldBeVisible ? nil :
+                                SessionThread.Columns.shouldBeVisible.set(to: updatedShouldBeVisible)
                             ),
                             (threadInfo?.pinnedPriority == data.priority ? nil :
                                 SessionThread.Columns.pinnedPriority.set(to: data.priority)
@@ -208,7 +210,7 @@ internal extension SessionUtil {
                 }
             }
         
-        // Delete any contact records which have been removed
+        // Delete any contact/thread records which aren't in the config message
         let syncedContactIds: [String] = targetContactData
             .map { $0.key }
             .appending(userPublicKey)
@@ -217,17 +219,25 @@ internal extension SessionUtil {
             .select(.id)
             .asRequest(of: String.self)
             .fetchAll(db)
+        let threadIdsToRemove: [String] = try SessionThread
+            .filter(!syncedContactIds.contains(SessionThread.Columns.id))
+            .filter(SessionThread.Columns.variant == SessionThread.Variant.contact)
+            .filter(!SessionThread.Columns.id.like("\(SessionId.Prefix.blinded.rawValue)%"))
+            .select(.id)
+            .asRequest(of: String.self)
+            .fetchAll(db)
+        let combinedIds: [String] = contactIdsToRemove.appending(contentsOf: threadIdsToRemove)
         
-        if !contactIdsToRemove.isEmpty {
-            SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: contactIdsToRemove)
+        if !combinedIds.isEmpty {
+            SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: combinedIds)
             
             try Contact
-                .filter(ids: contactIdsToRemove)
+                .filter(ids: combinedIds)
                 .deleteAll(db)
             
             // Also need to remove any 'nickname' values since they are associated to contact data
             try Profile
-                .filter(ids: contactIdsToRemove)
+                .filter(ids: combinedIds)
                 .updateAll(
                     db,
                     Profile.Columns.nickname.set(to: nil)
@@ -237,13 +247,13 @@ internal extension SessionUtil {
             try SessionThread
                 .deleteOrLeave(
                     db,
-                    threadIds: contactIdsToRemove,
+                    threadIds: combinedIds,
                     threadVariant: .contact,
                     groupLeaveType: .forced,
                     calledFromConfigHandling: true
                 )
             
-            try SessionUtil.remove(db, volatileContactIds: contactIdsToRemove)
+            try SessionUtil.remove(db, volatileContactIds: combinedIds)
         }
     }
     
@@ -268,13 +278,15 @@ internal extension SessionUtil {
         guard !targetContacts.isEmpty else { return }        
         
         // Update the name
-        targetContacts
+        try targetContacts
             .forEach { info in
-                var sessionId: [CChar] = info.id.cArray
+                var sessionId: [CChar] = info.id.cArray.nullTerminated()
                 var contact: contacts_contact = contacts_contact()
                 guard contacts_get_or_construct(conf, &contact, &sessionId) else {
-                    SNLog("Unable to upsert contact from Config Message")
-                    return
+                    /// It looks like there are some situations where this object might not get created correctly (and
+                    /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
+                    SNLog("Unable to upsert contact to SessionUtil: \(SessionUtil.lastError(conf))")
+                    throw SessionUtilError.getOrConstructFailedUnexpectedly
                 }
                 
                 // Assign all properties to match the updated contact (if there is one)
@@ -304,7 +316,10 @@ internal extension SessionUtil {
                     // Download the profile picture if needed (this can be triggered within
                     // database reads/writes so dispatch the download to a separate queue to
                     // prevent blocking)
-                    if oldAvatarUrl != updatedProfile.profilePictureUrl || oldAvatarKey != updatedProfile.profileEncryptionKey {
+                    if
+                        oldAvatarUrl != (updatedProfile.profilePictureUrl ?? "") ||
+                        oldAvatarKey != (updatedProfile.profileEncryptionKey ?? Data(repeating: 0, count: ProfileManager.avatarAES256KeyByteLength))
+                    {
                         DispatchQueue.global(qos: .background).async {
                             ProfileManager.downloadAvatar(for: updatedProfile)
                         }
@@ -315,7 +330,6 @@ internal extension SessionUtil {
                 }
                 
                 // Store the updated contact (can't be sure if we made any changes above)
-                contact.hidden = (info.hidden ?? contact.hidden)
                 contact.priority = (info.priority ?? contact.priority)
                 contacts_set(conf, &contact)
             }
@@ -350,7 +364,7 @@ internal extension SessionUtil {
             // contacts are new/invalid, and if so, fetch any profile data we have for them
             let newContactIds: [String] = targetContacts
                 .compactMap { contactData -> String? in
-                    var cContactId: [CChar] = contactData.id.cArray
+                    var cContactId: [CChar] = contactData.id.cArray.nullTerminated()
                     var contact: contacts_contact = contacts_contact()
                     
                     guard
@@ -454,8 +468,7 @@ public extension SessionUtil {
                     .map {
                         SyncedContactInfo(
                             id: $0,
-                            hidden: true,
-                            priority: 0
+                            priority: SessionUtil.hiddenPriority
                         )
                     },
                 in: conf
@@ -472,7 +485,7 @@ public extension SessionUtil {
             publicKey: getUserHexEncodedPublicKey(db)
         ) { conf in
             contactIds.forEach { sessionId in
-                var cSessionId: [CChar] = sessionId.cArray
+                var cSessionId: [CChar] = sessionId.cArray.nullTerminated()
                 
                 // Don't care if the contact doesn't exist
                 contacts_erase(conf, &cSessionId)
@@ -488,20 +501,17 @@ extension SessionUtil {
         let id: String
         let contact: Contact?
         let profile: Profile?
-        let hidden: Bool?
         let priority: Int32?
         
         init(
             id: String,
             contact: Contact? = nil,
             profile: Profile? = nil,
-            hidden: Bool? = nil,
             priority: Int32? = nil
         ) {
             self.id = id
             self.contact = contact
             self.profile = profile
-            self.hidden = hidden
             self.priority = priority
         }
     }

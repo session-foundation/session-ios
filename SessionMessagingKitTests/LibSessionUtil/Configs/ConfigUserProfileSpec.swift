@@ -204,7 +204,7 @@ class ConfigUserProfileSpec {
             
             // So now imagine we got back confirmation from the swarm that the push has been stored:
             let fakeHash1: String = "fakehash1"
-            var cFakeHash1: [CChar] = fakeHash1.cArray
+            var cFakeHash1: [CChar] = fakeHash1.cArray.nullTerminated()
             config_confirm_pushed(conf, pushData2.pointee.seqno, &cFakeHash1)
             pushData2.deallocate()
             
@@ -289,13 +289,13 @@ class ConfigUserProfileSpec {
             expect(config_needs_push(conf2)).to(beTrue())
             
             let fakeHash2: String = "fakehash2"
-            var cFakeHash2: [CChar] = fakeHash2.cArray
+            var cFakeHash2: [CChar] = fakeHash2.cArray.nullTerminated()
             let pushData3: UnsafeMutablePointer<config_push_data> = config_push(conf)
             expect(pushData3.pointee.seqno).to(equal(2)) // incremented, since we made a field change
             config_confirm_pushed(conf, pushData3.pointee.seqno, &cFakeHash2)
             
             let fakeHash3: String = "fakehash3"
-            var cFakeHash3: [CChar] = fakeHash3.cArray
+            var cFakeHash3: [CChar] = fakeHash3.cArray.nullTerminated()
             let pushData4: UnsafeMutablePointer<config_push_data> = config_push(conf2)
             expect(pushData4.pointee.seqno).to(equal(2)) // incremented, since we made a field change
             config_confirm_pushed(conf, pushData4.pointee.seqno, &cFakeHash3)
@@ -365,9 +365,9 @@ class ConfigUserProfileSpec {
             expect(user_profile_get_nts_priority(conf2)).to(equal(9))
             
             let fakeHash4: String = "fakehash4"
-            var cFakeHash4: [CChar] = fakeHash4.cArray
+            var cFakeHash4: [CChar] = fakeHash4.cArray.nullTerminated()
             let fakeHash5: String = "fakehash5"
-            var cFakeHash5: [CChar] = fakeHash5.cArray
+            var cFakeHash5: [CChar] = fakeHash5.cArray.nullTerminated()
             config_confirm_pushed(conf, pushData5.pointee.seqno, &cFakeHash4)
             config_confirm_pushed(conf2, pushData6.pointee.seqno, &cFakeHash5)
             pushData5.deallocate()

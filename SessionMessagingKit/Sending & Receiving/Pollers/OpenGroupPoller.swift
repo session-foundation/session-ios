@@ -91,7 +91,7 @@ extension OpenGroupAPI {
             let server: String = self.server
             
             return dependencies.storage
-                .readPublisherFlatMap(receiveOn: Threading.pollerQueue) { db -> AnyPublisher<(Int64, PollResponse), Error> in
+                .readPublisherFlatMap { db -> AnyPublisher<(Int64, PollResponse), Error> in
                     let failureCount: Int64 = (try? OpenGroup
                         .filter(OpenGroup.Columns.server == server)
                         .select(max(OpenGroup.Columns.pollFailureCount))
@@ -114,6 +114,7 @@ extension OpenGroupAPI {
                         .eraseToAnyPublisher()
                 }
                 .subscribe(on: Threading.pollerQueue)
+                .receive(on: Threading.pollerQueue)
                 .handleEvents(
                     receiveOutput: { [weak self] failureCount, response in
                         guard !calledFromBackgroundPoller || isBackgroundPollerValid() else {
@@ -282,7 +283,7 @@ extension OpenGroupAPI {
             }
             
             return dependencies.storage
-                .readPublisherFlatMap(receiveOn: OpenGroupAPI.workQueue) { db in
+                .readPublisherFlatMap { db in
                     OpenGroupAPI.capabilities(
                         db,
                         server: server,
@@ -291,6 +292,7 @@ extension OpenGroupAPI {
                     )
                 }
                 .subscribe(on: OpenGroupAPI.workQueue)
+                .receive(on: OpenGroupAPI.workQueue)
                 .flatMap { [weak self] _, responseBody -> AnyPublisher<Void, Error> in
                     guard let strongSelf = self, isBackgroundPollerValid() else {
                         return Just(())

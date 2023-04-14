@@ -94,7 +94,7 @@ enum Onboarding {
                         }
                 }
                 .flatMap { _ -> AnyPublisher<String?, Error> in
-                    Storage.shared.readPublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
+                    Storage.shared.readPublisher { db in
                         try Profile
                             .filter(id: userPublicKey)
                             .select(.name)

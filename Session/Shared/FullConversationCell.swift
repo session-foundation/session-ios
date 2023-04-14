@@ -430,14 +430,19 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             typingIndicatorView.startAnimation()
         }
         else {
+            displayNameLabel.themeTextColor = {
+                guard cellViewModel.interactionVariant != .infoClosedGroupCurrentUserLeaving else {
+                    return .textSecondary
+                }
+                
+                return .textPrimary
+            }()
             typingIndicatorView.isHidden = true
             typingIndicatorView.stopAnimation()
             
             ThemeManager.onThemeChange(observer: snippetLabel) { [weak self, weak snippetLabel] theme, _ in
                 if cellViewModel.interactionVariant == .infoClosedGroupCurrentUserLeaving {
                     guard let textColor: UIColor = theme.color(for: .textSecondary) else { return }
-                    
-                    self?.displayNameLabel.themeTextColor = .textSecondary
                     
                     snippetLabel?.attributedText = self?.getSnippet(
                         cellViewModel: cellViewModel,
@@ -446,16 +451,12 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                 } else if cellViewModel.interactionVariant == .infoClosedGroupCurrentUserErrorLeaving {
                     guard let textColor: UIColor = theme.color(for: .danger) else { return }
                     
-                    self?.displayNameLabel.themeTextColor = .textPrimary
-                    
                     snippetLabel?.attributedText = self?.getSnippet(
                         cellViewModel: cellViewModel,
                         textColor: textColor
                     )
                 } else {
                     guard let textColor: UIColor = theme.color(for: .textPrimary) else { return }
-                    
-                    self?.displayNameLabel.themeTextColor = .textPrimary
                     
                     snippetLabel?.attributedText = self?.getSnippet(
                         cellViewModel: cellViewModel,

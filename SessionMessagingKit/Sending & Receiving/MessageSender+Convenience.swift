@@ -131,29 +131,23 @@ extension MessageSender {
         }()
         
         return Storage.shared
-            .readPublisherFlatMap(receiveOn: queue) { db -> AnyPublisher<(attachments: [Attachment], openGroup: OpenGroup?), Error> in
+            .readPublisher { db -> (attachments: [Attachment], openGroup: OpenGroup?) in
                 let attachmentStateInfo: [Attachment.StateInfo] = (try? Attachment
                     .stateInfo(interactionId: interactionId, state: .uploading)
                     .fetchAll(db))
                     .defaulting(to: [])
                 
                 // If there is no attachment data then just return early
-                guard !attachmentStateInfo.isEmpty else {
-                    return Just(([], nil))
-                        .setFailureType(to: Error.self)
-                        .eraseToAnyPublisher()
-                }
+                guard !attachmentStateInfo.isEmpty else { return ([], nil) }
                 
                 // Otherwise fetch the open group (if there is one)
-                return Just((
+                return (
                     (try? Attachment
                         .filter(ids: attachmentStateInfo.map { $0.attachmentId })
                         .fetchAll(db))
                         .defaulting(to: []),
                     try? OpenGroup.fetchOne(db, id: threadId)
-                ))
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
+                )
             }
             .flatMap { attachments, openGroup -> AnyPublisher<[String?], Error> in
                 guard !attachments.isEmpty else {
@@ -171,8 +165,7 @@ extension MessageSender {
                                         to: (
                                             openGroup.map { Attachment.Destination.openGroup($0) } ??
                                             .fileServer
-                                        ),
-                                        queue: DispatchQueue.global(qos: .userInitiated)
+                                        )
                                     )
                             }
                     )

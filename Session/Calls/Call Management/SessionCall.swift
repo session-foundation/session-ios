@@ -216,6 +216,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
             let thread: SessionThread = try? SessionThread.fetchOne(db, id: sessionId)
         else { return }
         
+        let webRTCSession: WebRTCSession = self.webRTCSession
         let timestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
         let message: CallMessage = CallMessage(
             uuid: self.uuid,
@@ -235,26 +236,21 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         self.callInteractionId = interaction?.id
         
-        try? self.webRTCSession
+        try? webRTCSession
             .sendPreOffer(
                 db,
                 message: message,
                 interactionId: interaction?.id,
                 in: thread
             )
-            .sinkUntilComplete(
-                receiveCompletion: { [weak self] result in
-                    switch result {
-                        case .failure: break
-                        case .finished:
-                            Storage.shared.writeAsync { db in
-                                self?.webRTCSession.sendOffer(db, to: sessionId)
-                            }
-                            
-                            self?.setupTimeoutTimer()
-                    }
+            // Start the timeout timer for the call
+            .handleEvents(receiveOutput: { [weak self] _ in self?.setupTimeoutTimer() })
+            .flatMap { _ in
+                Storage.shared.writePublisherFlatMap { db -> AnyPublisher<Void, Error> in
+                    webRTCSession.sendOffer(db, to: sessionId)
                 }
-            )
+            }
+            .sinkUntilComplete()
     }
     
     func answerSessionCall() {
@@ -435,9 +431,10 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         let webRTCSession: WebRTCSession = self.webRTCSession
         
         Storage.shared
-            .readPublisherFlatMap(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
+            .readPublisherFlatMap { db in
                 webRTCSession.sendOffer(db, to: sessionId, isRestartingICEConnection: true)
             }
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .sinkUntilComplete()
     }
     

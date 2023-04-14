@@ -102,8 +102,8 @@ public class HomeViewModel {
                         return SQL("""
                             JOIN \(Profile.self) ON (
                                 (   -- Contact profile change
-                                    \(SQL("\(thread[.variant]) = \(SessionThread.Variant.contact)")) AND
-                                    \(profile[.id]) = \(thread[.id])
+                                    \(profile[.id]) = \(thread[.id]) AND
+                                    \(SQL("\(thread[.variant]) = \(SessionThread.Variant.contact)"))
                                 ) OR ( -- Closed group profile change
                                     \(SQL("\(thread[.variant]) IN \(threadVariants)")) AND (
                                         profile.id = (  -- Front profile
@@ -111,8 +111,8 @@ public class HomeViewModel {
                                             FROM \(GroupMember.self)
                                             JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
                                             WHERE (
-                                                \(SQL("\(groupMember[.role]) = \(targetRole)")) AND
                                                 \(groupMember[.groupId]) = \(thread[.id]) AND
+                                                \(SQL("\(groupMember[.role]) = \(targetRole)")) AND
                                                 \(groupMember[.profileId]) != \(userPublicKey)
                                             )
                                         ) OR
@@ -121,8 +121,8 @@ public class HomeViewModel {
                                             FROM \(GroupMember.self)
                                             JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
                                             WHERE (
-                                                \(SQL("\(groupMember[.role]) = \(targetRole)")) AND
                                                 \(groupMember[.groupId]) = \(thread[.id]) AND
+                                                \(SQL("\(groupMember[.role]) = \(targetRole)")) AND
                                                 \(groupMember[.profileId]) != \(userPublicKey)
                                             )
                                         ) OR (  -- Fallback profile
@@ -132,8 +132,8 @@ public class HomeViewModel {
                                                 FROM \(GroupMember.self)
                                                 JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
                                                 WHERE (
-                                                    \(SQL("\(groupMember[.role]) = \(targetRole)")) AND
                                                     \(groupMember[.groupId]) = \(thread[.id]) AND
+                                                    \(SQL("\(groupMember[.role]) = \(targetRole)")) AND
                                                     \(groupMember[.profileId]) != \(userPublicKey)
                                                 )
                                             ) = 1

@@ -98,6 +98,13 @@ open class Storage {
     
     // MARK: - Migrations
     
+    public static func appliedMigrationIdentifiers(_ db: Database) -> Set<String> {
+        let migrator: DatabaseMigrator = DatabaseMigrator()
+        
+        return (try? migrator.appliedIdentifiers(db))
+            .defaulting(to: [])
+    }
+    
     public func perform(
         migrations: [TargetMigrations],
         async: Bool = true,
@@ -336,30 +343,50 @@ open class Storage {
         )
     }
     
-    open func writePublisher<S, T>(
-        receiveOn scheduler: S,
+    open func writePublisher<T>(
         updates: @escaping (Database) throws -> T
-    ) -> AnyPublisher<T, Error> where S: Scheduler {
+    ) -> AnyPublisher<T, Error> {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
             return Fail<T, Error>(error: StorageError.databaseInvalid)
                 .eraseToAnyPublisher()
         }
         
-        return dbWriter.writePublisher(receiveOn: scheduler, updates: updates)
-            .eraseToAnyPublisher()
+        /// **Note:** GRDB does have a `writePublisher` method but it appears to asynchronously trigger
+        /// both the `output` and `complete` closures at the same time which causes a lot of unexpected
+        /// behaviours (this behaviour is apparently expected but still causes a number of odd behaviours in our code
+        /// for more information see https://github.com/groue/GRDB.swift/issues/1334)
+        ///
+        /// Instead of this we are just using `Deferred { Future {} }` which is executed on the specified scheduled
+        /// which behaves in a much more expected way than the GRDB `writePublisher` does
+        return Deferred {
+            Future { resolver in
+                do { resolver(Result.success(try dbWriter.write(updates))) }
+                catch { resolver(Result.failure(error)) }
+            }
+        }.eraseToAnyPublisher()
     }
     
-    open func readPublisher<S, T>(
-        receiveOn scheduler: S,
+    open func readPublisher<T>(
         value: @escaping (Database) throws -> T
-    ) -> AnyPublisher<T, Error> where S: Scheduler {
+    ) -> AnyPublisher<T, Error> {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
             return Fail<T, Error>(error: StorageError.databaseInvalid)
                 .eraseToAnyPublisher()
         }
         
-        return dbWriter.readPublisher(receiveOn: scheduler, value: value)
-            .eraseToAnyPublisher()
+        /// **Note:** GRDB does have a `readPublisher` method but it appears to asynchronously trigger
+        /// both the `output` and `complete` closures at the same time which causes a lot of unexpected
+        /// behaviours (this behaviour is apparently expected but still causes a number of odd behaviours in our code
+        /// for more information see https://github.com/groue/GRDB.swift/issues/1334)
+        ///
+        /// Instead of this we are just using `Deferred { Future {} }` which is executed on the specified scheduled
+        /// which behaves in a much more expected way than the GRDB `readPublisher` does
+        return Deferred {
+            Future { resolver in
+                do { resolver(Result.success(try dbWriter.read(value))) }
+                catch { resolver(Result.failure(error)) }
+            }
+        }.eraseToAnyPublisher()
     }
     
     @discardableResult public final func read<T>(_ value: (Database) throws -> T?) -> T? {
@@ -423,20 +450,18 @@ open class Storage {
 // MARK: - Combine Extensions
 
 public extension Storage {
-    func readPublisherFlatMap<S, T>(
-        receiveOn scheduler: S,
+    func readPublisherFlatMap<T>(
         value: @escaping (Database) throws -> AnyPublisher<T, Error>
-    ) -> AnyPublisher<T, Error> where S: Scheduler {
-        return readPublisher(receiveOn: scheduler, value: value)
+    ) -> AnyPublisher<T, Error> {
+        return readPublisher(value: value)
             .flatMap { resultPublisher -> AnyPublisher<T, Error> in resultPublisher }
             .eraseToAnyPublisher()
     }
     
-    func writePublisherFlatMap<S, T>(
-        receiveOn scheduler: S,
+    func writePublisherFlatMap<T>(
         updates: @escaping (Database) throws -> AnyPublisher<T, Error>
-    ) -> AnyPublisher<T, Error> where S: Scheduler {
-        return writePublisher(receiveOn: scheduler, updates: updates)
+    ) -> AnyPublisher<T, Error> {
+        return writePublisher(updates: updates)
             .flatMap { resultPublisher -> AnyPublisher<T, Error> in resultPublisher }
             .eraseToAnyPublisher()
     }

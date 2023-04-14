@@ -282,7 +282,7 @@ public final class OpenGroupManager {
         }
         .flatMap { _ in
             dependencies.storage
-                .readPublisherFlatMap(receiveOn: OpenGroupAPI.workQueue) { db in
+                .readPublisherFlatMap { db in
                     // Note: The initial request for room info and it's capabilities should NOT be
                     // authenticated (this is because if the server requires blinding and the auth
                     // headers aren't blinded it will error - these endpoints do support unauthenticated
@@ -296,6 +296,7 @@ public final class OpenGroupManager {
                         )
                 }
         }
+        .subscribe(on: OpenGroupAPI.workQueue)
         .receive(on: OpenGroupAPI.workQueue)
         .flatMap { response -> Future<Void, Error> in
             Future<Void, Error> { resolver in
@@ -1000,13 +1001,14 @@ public final class OpenGroupManager {
         
         // Try to retrieve the default rooms 8 times
         let publisher: AnyPublisher<[OpenGroupAPI.Room], Error> = dependencies.storage
-            .readPublisherFlatMap(receiveOn: OpenGroupAPI.workQueue) { db in
+            .readPublisherFlatMap { db in
                 OpenGroupAPI.capabilitiesAndRooms(
                     db,
                     on: OpenGroupAPI.defaultServer,
                     using: dependencies
                 )
             }
+            .subscribe(on: OpenGroupAPI.workQueue)
             .receive(on: OpenGroupAPI.workQueue)
             .retry(8)
             .map { response in

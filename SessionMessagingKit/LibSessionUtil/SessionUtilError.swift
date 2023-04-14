@@ -6,4 +6,5 @@ public enum SessionUtilError: Error {
     case unableToCreateConfigObject
     case nilConfigObject
     case userDoesNotExist
+    case getOrConstructFailedUnexpectedly
 }

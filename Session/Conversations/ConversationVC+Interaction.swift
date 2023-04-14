@@ -448,7 +448,7 @@ extension ConversationVC:
         
         // Send the message
         Storage.shared
-            .writePublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { [weak self] db in
+            .writePublisher { [weak self] db in
                 // Let the viewModel know we are about to send a message
                 self?.viewModel.sentMessageBeforeUpdate = true
                 
@@ -517,6 +517,7 @@ extension ConversationVC:
                     threadVariant: threadVariant
                 )
             }
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .sinkUntilComplete(
                 receiveCompletion: { [weak self] _ in
                     self?.handleMessageSent()
@@ -579,7 +580,7 @@ extension ConversationVC:
         
         // Send the message
         Storage.shared
-            .writePublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { [weak self] db in
+            .writePublisher { [weak self] db in
                 // Let the viewModel know we are about to send a message
                 self?.viewModel.sentMessageBeforeUpdate = true
                 
@@ -625,6 +626,7 @@ extension ConversationVC:
                     threadVariant: threadVariant
                 )
             }
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .sinkUntilComplete(
                 receiveCompletion: { [weak self] _ in
                     self?.handleMessageSent()
@@ -1222,7 +1224,7 @@ extension ConversationVC:
         guard cellViewModel.threadVariant == .community else { return }
         
         Storage.shared
-            .readPublisherFlatMap(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db -> AnyPublisher<(OpenGroupAPI.ReactionRemoveAllResponse, OpenGroupAPI.PendingChange), Error> in
+            .readPublisherFlatMap { db -> AnyPublisher<(OpenGroupAPI.ReactionRemoveAllResponse, OpenGroupAPI.PendingChange), Error> in
                 guard
                     let openGroup: OpenGroup = try? OpenGroup
                         .fetchOne(db, id: cellViewModel.threadId),
@@ -1253,6 +1255,7 @@ extension ConversationVC:
                     .map { _, response in (response, pendingChange) }
                     .eraseToAnyPublisher()
             }
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .handleEvents(
                 receiveOutput: { response, pendingChange in
                     OpenGroupManager
@@ -1310,7 +1313,7 @@ extension ConversationVC:
         
         // Perform the sending logic
         Storage.shared
-            .writePublisherFlatMap(receiveOn: DispatchQueue.global(qos: .userInitiated)) { [weak self] db -> AnyPublisher<MessageSender.PreparedSendData?, Error> in
+            .writePublisherFlatMap { [weak self] db -> AnyPublisher<MessageSender.PreparedSendData?, Error> in
                 // Update the thread to be visible (if it isn't already)
                 if self?.viewModel.threadData.threadShouldBeVisible == false {
                     _ = try SessionThread
@@ -1467,6 +1470,7 @@ extension ConversationVC:
                     .map { _ in nil }
                     .eraseToAnyPublisher()
             }
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .flatMap { maybeSendData -> AnyPublisher<Void, Error> in
                 guard let sendData: MessageSender.PreparedSendData = maybeSendData else {
                     return Just(())
@@ -1598,7 +1602,7 @@ extension ConversationVC:
                     }
                     
                     Storage.shared
-                        .writePublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .writePublisherFlatMap { db in
                             OpenGroupManager.shared.add(
                                 db,
                                 roomToken: room,
@@ -1607,6 +1611,7 @@ extension ConversationVC:
                                 calledFromConfigHandling: false
                             )
                         }
+                        .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                         .receive(on: DispatchQueue.main)
                         .sinkUntilComplete(
                             receiveCompletion: { result in
@@ -1787,6 +1792,7 @@ extension ConversationVC:
                 }
             }
             .flatMap { _ in request }
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .receive(on: DispatchQueue.main)
             .sinkUntilComplete(
                 receiveCompletion: { [weak self] result in
@@ -1893,7 +1899,7 @@ extension ConversationVC:
                 // Delete the message from the open group
                 deleteRemotely(
                     from: self,
-                    request: Storage.shared.readPublisherFlatMap(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
+                    request: Storage.shared.readPublisherFlatMap { db in
                         OpenGroupAPI.messageDelete(
                             db,
                             id: openGroupServerMessageId,
@@ -2091,7 +2097,7 @@ extension ConversationVC:
                 cancelStyle: .alert_text,
                 onConfirm: { [weak self] _ in
                     Storage.shared
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db -> AnyPublisher<Void, Error> in
+                        .readPublisherFlatMap { db -> AnyPublisher<Void, Error> in
                             guard let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId) else {
                                 throw StorageError.objectNotFound
                             }
@@ -2106,6 +2112,7 @@ extension ConversationVC:
                                 .map { _ in () }
                                 .eraseToAnyPublisher()
                         }
+                        .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                         .receive(on: DispatchQueue.main)
                         .sinkUntilComplete(
                             receiveCompletion: { result in
@@ -2147,7 +2154,7 @@ extension ConversationVC:
                 cancelStyle: .alert_text,
                 onConfirm: { [weak self] _ in
                     Storage.shared
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db -> AnyPublisher<Void, Error> in
+                        .readPublisherFlatMap { db -> AnyPublisher<Void, Error> in
                             guard let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId) else {
                                 throw StorageError.objectNotFound
                             }
@@ -2162,6 +2169,7 @@ extension ConversationVC:
                                 .map { _ in () }
                                 .eraseToAnyPublisher()
                         }
+                        .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                         .receive(on: DispatchQueue.main)
                         .sinkUntilComplete(
                             receiveCompletion: { result in
@@ -2407,7 +2415,7 @@ extension ConversationVC {
         else { return }
         
         Storage.shared
-            .writePublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
+            .writePublisher { db in
                 // If we aren't creating a new thread (ie. sending a message request) then send a
                 // messageRequestResponse back to the sender (this allows the sender to know that
                 // they have been approved and can now use this contact in closed groups)
@@ -2435,6 +2443,8 @@ extension ConversationVC {
                             .set(to: contact.didApproveMe || !isNewThread)
                     )
             }
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+            .receive(on: DispatchQueue.main)
             .sinkUntilComplete(
                 receiveCompletion: { _ in
                     // Update the UI

@@ -14,6 +14,8 @@ class ConfigContactsSpec {
 
     static func spec() {
         it("generates Contact configs correctly") {
+            let createdTs: Int64 = 1680064059
+            let nowTs: Int64 = Int64(Date().timeIntervalSince1970)
             let seed: Data = Data(hex: "0123456789abcdef0123456789abcdef")
             
             // FIXME: Would be good to move these into the libSession-util instead of using Sodium separately
@@ -33,7 +35,7 @@ class ConfigContactsSpec {
             
             // Empty contacts shouldn't have an existing contact
             let definitelyRealId: String = "050000000000000000000000000000000000000000000000000000000000000000"
-            var cDefinitelyRealId: [CChar] = definitelyRealId.cArray
+            var cDefinitelyRealId: [CChar] = definitelyRealId.cArray.nullTerminated()
             let contactPtr: UnsafeMutablePointer<contacts_contact>? = nil
             expect(contacts_get(conf, contactPtr, &cDefinitelyRealId)).to(beFalse())
             
@@ -48,6 +50,9 @@ class ConfigContactsSpec {
             expect(contact2.blocked).to(beFalse())
             expect(contact2.profile_pic).toNot(beNil()) // Creates an empty instance apparently
             expect(String(libSessionVal: contact2.profile_pic.url)).to(beEmpty())
+            expect(contact2.created).to(equal(0))
+            expect(contact2.notifications).to(equal(CONVO_NOTIFY_DEFAULT))
+            expect(contact2.mute_until).to(equal(0))
             
             expect(config_needs_push(conf)).to(beFalse())
             expect(config_needs_dump(conf)).to(beFalse())
@@ -61,6 +66,9 @@ class ConfigContactsSpec {
             contact2.nickname = "Joey".toLibSession()
             contact2.approved = true
             contact2.approved_me = true
+            contact2.created = createdTs
+            contact2.notifications = CONVO_NOTIFY_ALL
+            contact2.mute_until = nowTs + 1800
             
             // Update the contact
             contacts_set(conf, &contact2)
@@ -76,6 +84,10 @@ class ConfigContactsSpec {
             expect(String(libSessionVal: contact3.profile_pic.url)).to(beEmpty())
             expect(contact3.blocked).to(beFalse())
             expect(String(libSessionVal: contact3.session_id)).to(equal(definitelyRealId))
+            expect(contact3.created).to(equal(createdTs))
+            expect(contact2.notifications).to(equal(CONVO_NOTIFY_ALL))
+            expect(contact2.mute_until).to(equal(nowTs + 1800))
+            
             
             // Since we've made changes, we should need to push new config to the swarm, *and* should need
             // to dump the updated state:
@@ -92,7 +104,7 @@ class ConfigContactsSpec {
             
             // Pretend we uploaded it
             let fakeHash1: String = "fakehash1"
-            var cFakeHash1: [CChar] = fakeHash1.cArray
+            var cFakeHash1: [CChar] = fakeHash1.cArray.nullTerminated()
             config_confirm_pushed(conf, pushData2.pointee.seqno, &cFakeHash1)
             expect(config_needs_push(conf)).to(beFalse())
             expect(config_needs_dump(conf)).to(beTrue())
@@ -130,9 +142,10 @@ class ConfigContactsSpec {
             expect(contact4.profile_pic).toNot(beNil()) // Creates an empty instance apparently
             expect(String(libSessionVal: contact4.profile_pic.url)).to(beEmpty())
             expect(contact4.blocked).to(beFalse())
+            expect(contact4.created).to(equal(createdTs))
             
             let anotherId: String = "051111111111111111111111111111111111111111111111111111111111111111"
-            var cAnotherId: [CChar] = anotherId.cArray
+            var cAnotherId: [CChar] = anotherId.cArray.nullTerminated()
             var contact5: contacts_contact = contacts_contact()
             expect(contacts_get_or_construct(conf2, &contact5, &cAnotherId)).to(beTrue())
             expect(String(libSessionVal: contact5.name)).to(beEmpty())
@@ -152,7 +165,7 @@ class ConfigContactsSpec {
             
             // Check the merging
             let fakeHash2: String = "fakehash2"
-            var cFakeHash2: [CChar] = fakeHash2.cArray
+            var cFakeHash2: [CChar] = fakeHash2.cArray.nullTerminated()
             var mergeHashes: [UnsafePointer<CChar>?] = [cFakeHash2].unsafeCopy()
             var mergeData: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData4.pointee.config)]
             var mergeSize: [Int] = [pushData4.pointee.config_len]
@@ -195,7 +208,7 @@ class ConfigContactsSpec {
             
             // Client 2 adds a new friend:
             let thirdId: String = "052222222222222222222222222222222222222222222222222222222222222222"
-            var cThirdId: [CChar] = thirdId.cArray
+            var cThirdId: [CChar] = thirdId.cArray.nullTerminated()
             var contact7: contacts_contact = contacts_contact()
             expect(contacts_get_or_construct(conf2, &contact7, &cThirdId)).to(beTrue())
             contact7.nickname = "Nickname 3".toLibSession()
@@ -223,9 +236,9 @@ class ConfigContactsSpec {
                 .to(equal([fakeHash2]))
             
             let fakeHash3a: String = "fakehash3a"
-            var cFakeHash3a: [CChar] = fakeHash3a.cArray
+            var cFakeHash3a: [CChar] = fakeHash3a.cArray.nullTerminated()
             let fakeHash3b: String = "fakehash3b"
-            var cFakeHash3b: [CChar] = fakeHash3b.cArray
+            var cFakeHash3b: [CChar] = fakeHash3b.cArray.nullTerminated()
             config_confirm_pushed(conf, pushData6.pointee.seqno, &cFakeHash3a)
             config_confirm_pushed(conf2, pushData7.pointee.seqno, &cFakeHash3b)
             
@@ -260,7 +273,7 @@ class ConfigContactsSpec {
                 .to(equal([fakeHash3a, fakeHash3b]))
             
             let fakeHash4: String = "fakeHash4"
-            var cFakeHash4: [CChar] = fakeHash4.cArray
+            var cFakeHash4: [CChar] = fakeHash4.cArray.nullTerminated()
             config_confirm_pushed(conf, pushData8.pointee.seqno, &cFakeHash4)
             config_confirm_pushed(conf2, pushData9.pointee.seqno, &cFakeHash4)
             pushData8.deallocate()

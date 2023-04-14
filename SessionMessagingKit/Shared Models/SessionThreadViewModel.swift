@@ -792,10 +792,6 @@ public extension SessionThreadViewModel {
                 \(SQL("\(thread[.variant]) != \(SessionThread.Variant.contact)")) OR
                 \(SQL("\(thread[.id]) = \(userPublicKey)")) OR
                 \(contact[.isApproved]) = true
-            ) AND (
-                -- Only show the 'Note to Self' thread if it has an interaction
-                \(SQL("\(thread[.id]) != \(userPublicKey)")) OR
-                \(interaction[.timestampMs]) IS NOT NULL
             )
         """
     }
@@ -826,7 +822,7 @@ public extension SessionThreadViewModel {
         
         return SQL("""
             (IFNULL(\(thread[.pinnedPriority]), 0) > 0) DESC,
-            IFNULL(\(interaction[.timestampMs]), (\(thread[.creationDateTimestamp]) * 1000)) END DESC
+            IFNULL(\(interaction[.timestampMs]), (\(thread[.creationDateTimestamp]) * 1000)) DESC
         """)
     }()
     

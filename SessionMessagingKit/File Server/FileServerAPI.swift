@@ -59,7 +59,7 @@ public enum FileServerAPI {
             ]
         )
         
-        return send(request, serverPublicKey: serverPublicKey, timeout: HTTP.timeout)
+        return send(request, serverPublicKey: serverPublicKey, timeout: HTTP.defaultTimeout)
             .decoded(as: VersionResponse.self)
             .map { response in response.version }
             .eraseToAnyPublisher()

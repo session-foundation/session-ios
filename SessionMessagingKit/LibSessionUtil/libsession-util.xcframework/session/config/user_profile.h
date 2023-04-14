@@ -50,17 +50,13 @@ user_profile_pic user_profile_get_pic(const config_object* conf);
 // Sets a user profile
 int user_profile_set_pic(config_object* conf, user_profile_pic pic);
 
-// Gets the current note-to-self priority level. Will always be >= 0.
+// Gets the current note-to-self priority level. Will be negative for hidden, 0 for unpinned, and >
+// 0 for pinned (with higher value = higher priority).
 int user_profile_get_nts_priority(const config_object* conf);
 
-// Sets the current note-to-self priority level. Should be >= 0 (negatives will be set to 0).
+// Sets the current note-to-self priority level. Set to -1 for hidden; 0 for unpinned, and > 0 for
+// higher priority in the conversation list.
 void user_profile_set_nts_priority(config_object* conf, int priority);
-
-// Gets the current note-to-self priority level. Will always be >= 0.
-bool user_profile_get_nts_hidden(const config_object* conf);
-
-// Sets the current note-to-self priority level. Should be >= 0 (negatives will be set to 0).
-void user_profile_set_nts_hidden(config_object* conf, bool hidden);
 
 #ifdef __cplusplus
 }  // extern "C"

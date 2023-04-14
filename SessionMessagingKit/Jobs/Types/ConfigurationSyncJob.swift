@@ -64,7 +64,7 @@ public enum ConfigurationSyncJob: JobExecutor {
             .asSet()
         
         Storage.shared
-            .readPublisher(receiveOn: queue) { db in
+            .readPublisher { db in
                 try pendingConfigChanges.map { change -> MessageSender.PreparedSendData in
                     try MessageSender.preparedSendData(
                         db,
@@ -89,6 +89,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                         allObsoleteHashes: Array(allObsoleteHashes)
                     )
             }
+            .subscribe(on: queue)
             .receive(on: queue)
             .map { (response: HTTP.BatchResponse) -> [ConfigDump] in
                 /// The number of responses returned might not match the number of changes sent but they will be returned
@@ -233,7 +234,7 @@ public extension ConfigurationSyncJob {
         // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
         guard Features.useSharedUtilForUserConfig else {
             return Storage.shared
-                .writePublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db -> MessageSender.PreparedSendData in
+                .writePublisher { db -> MessageSender.PreparedSendData in
                     // If we don't have a userKeyPair yet then there is no need to sync the configuration
                     // as the user doesn't exist yet (this will get triggered on the first launch of a
                     // fresh install due to the migrations getting run)

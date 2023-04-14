@@ -59,7 +59,7 @@ public enum PushNotificationAPI {
         // Unsubscribe from all closed groups (including ones the user is no longer a member of,
         // just in case)
         Storage.shared
-            .readPublisher(receiveOn: DispatchQueue.global(qos: .background)) { db -> (String, Set<String>) in
+            .readPublisher { db -> (String, Set<String>) in
                 (
                     getUserHexEncodedPublicKey(db),
                     try ClosedGroup
@@ -84,6 +84,7 @@ public enum PushNotificationAPI {
                     .collect()
                     .eraseToAnyPublisher()
             }
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .sinkUntilComplete()
         
         // Unregister for normal push notifications

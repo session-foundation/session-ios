@@ -12,7 +12,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "GenerateInitialUserConfigDumps"
     static let needsConfigSync: Bool = true
-    static let minExpectedRunDuration: TimeInterval = 0.1   // TODO: Need to test this
+    static let minExpectedRunDuration: TimeInterval = 4.0
     
     static func migrate(_ db: Database) throws {
         // If we have no ed25519 key then there is no need to create cached dump data
@@ -40,8 +40,11 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                 )
                 
                 try SessionUtil.updateNoteToSelf(
-                    hidden: (allThreads[userPublicKey]?.shouldBeVisible == true),
-                    priority: Int32(allThreads[userPublicKey]?.pinnedPriority ?? 0),
+                    priority: {
+                        guard allThreads[userPublicKey]?.shouldBeVisible == true else { return SessionUtil.hiddenPriority }
+                        
+                        return Int32(allThreads[userPublicKey]?.pinnedPriority ?? 0)
+                    }(),
                     in: conf
                 )
                 
@@ -78,16 +81,32 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                     .including(optional: Contact.profile)
                     .asRequest(of: ContactInfo.self)
                     .fetchAll(db)
+                let threadIdsNeedingContacts: [String] = validContactIds
+                    .filter { contactId in !contactsData.contains(where: { $0.contact.id == contactId }) }
                 
                 try SessionUtil.upsert(
                     contactData: contactsData
+                        .appending(
+                            contentsOf: threadIdsNeedingContacts
+                                .map { contactId in
+                                    ContactInfo(
+                                        contact: Contact.fetchOrCreate(db, id: contactId),
+                                        profile: nil
+                                    )
+                                }
+                        )
                         .map { data in
                             SessionUtil.SyncedContactInfo(
                                 id: data.contact.id,
                                 contact: data.contact,
                                 profile: data.profile,
-                                hidden: (allThreads[data.contact.id]?.shouldBeVisible == true),
-                                priority: Int32(allThreads[data.contact.id]?.pinnedPriority ?? 0)
+                                priority: {
+                                    guard allThreads[data.contact.id]?.shouldBeVisible == true else {
+                                        return SessionUtil.hiddenPriority
+                                    }
+                                    
+                                    return Int32(allThreads[data.contact.id]?.pinnedPriority ?? 0)
+                                }()
                             )
                         },
                     in: conf

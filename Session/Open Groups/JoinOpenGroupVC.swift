@@ -169,7 +169,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         
         ModalActivityIndicatorViewController.present(fromViewController: navigationController, canCancel: false) { [weak self] _ in
             Storage.shared
-                .writePublisherFlatMap(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
+                .writePublisherFlatMap { db in
                     OpenGroupManager.shared.add(
                         db,
                         roomToken: roomToken,
@@ -178,6 +178,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                         calledFromConfigHandling: false
                     )
                 }
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveCompletion: { result in

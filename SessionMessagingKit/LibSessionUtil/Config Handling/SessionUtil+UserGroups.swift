@@ -106,7 +106,8 @@ internal extension SessionUtil {
                                     isHidden: false
                                 )
                             },
-                        priority: legacyGroup.priority
+                        priority: legacyGroup.priority,
+                        joinedAt: legacyGroup.joined_at
                     )
                 )
             }
@@ -201,7 +202,8 @@ internal extension SessionUtil {
                 let name: String = group.name,
                 let lastKeyPair: ClosedGroupKeyPair = group.lastKeyPair,
                 let members: [GroupMember] = group.groupMembers,
-                let updatedAdmins: Set<GroupMember> = group.groupAdmins?.asSet()
+                let updatedAdmins: Set<GroupMember> = group.groupAdmins?.asSet(),
+                let joinedAt: Int64 = group.joinedAt
             else { return }
             
             if !existingLegacyGroupIds.contains(group.id) {
@@ -220,18 +222,28 @@ internal extension SessionUtil {
                         .map { $0.profileId },
                     admins: updatedAdmins.map { $0.profileId },
                     expirationTimer: UInt32(group.disappearingConfig?.durationSeconds ?? 0),
-                    messageSentTimestamp: UInt64(latestConfigUpdateSentTimestamp * 1000),
+                    formationTimestampMs: UInt64((group.joinedAt ?? Int64(latestConfigUpdateSentTimestamp)) * 1000),
                     calledFromConfigHandling: true
                 )
             }
             else {
                 // Otherwise update the existing group
-                if existingLegacyGroups[group.id]?.name != name {
+                let groupChanges: [ConfigColumnAssignment] = [
+                    (existingLegacyGroups[group.id]?.name == name ? nil :
+                        ClosedGroup.Columns.name.set(to: name)
+                    ),
+                    (existingLegacyGroups[group.id]?.formationTimestamp == TimeInterval(joinedAt) ? nil :
+                        ClosedGroup.Columns.formationTimestamp.set(to: TimeInterval(joinedAt))
+                    )
+                ].compactMap { $0 }
+                
+                // Apply any group changes
+                if !groupChanges.isEmpty {
                     _ = try? ClosedGroup
                         .filter(id: group.id)
                         .updateAll( // Handling a config update so don't use `updateAllAndConfig`
                             db,
-                            ClosedGroup.Columns.name.set(to: name)
+                            groupChanges
                         )
                 }
                 
@@ -371,10 +383,15 @@ internal extension SessionUtil {
         guard conf != nil else { throw SessionUtilError.nilConfigObject }
         guard !legacyGroups.isEmpty else { return }
         
-        legacyGroups
+        try legacyGroups
             .forEach { legacyGroup in
-                var cGroupId: [CChar] = legacyGroup.id.cArray
-                let userGroup: UnsafeMutablePointer<ugroups_legacy_group_info> = user_groups_get_or_construct_legacy_group(conf, &cGroupId)
+                var cGroupId: [CChar] = legacyGroup.id.cArray.nullTerminated()
+                guard let userGroup: UnsafeMutablePointer<ugroups_legacy_group_info> = user_groups_get_or_construct_legacy_group(conf, &cGroupId) else {
+                    /// It looks like there are some situations where this object might not get created correctly (and
+                    /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
+                    SNLog("Unable to upsert legacy group conversation to SessionUtil: \(SessionUtil.lastError(conf))")
+                    throw SessionUtilError.getOrConstructFailedUnexpectedly
+                }
                 
                 // Assign all properties to match the updated group (if there is one)
                 if let updatedName: String = legacyGroup.name {
@@ -424,12 +441,12 @@ internal extension SessionUtil {
                     let membersIdsToRemove: Set<String> = existingMemberIds.subtracting(memberIds)
                     
                     membersIdsToAdd.forEach { memberId in
-                        var cProfileId: [CChar] = memberId.cArray
+                        var cProfileId: [CChar] = memberId.cArray.nullTerminated()
                         ugroups_legacy_member_add(userGroup, &cProfileId, false)
                     }
                     
                     membersIdsToRemove.forEach { memberId in
-                        var cProfileId: [CChar] = memberId.cArray
+                        var cProfileId: [CChar] = memberId.cArray.nullTerminated()
                         ugroups_legacy_member_remove(userGroup, &cProfileId)
                     }
                 }
@@ -444,14 +461,18 @@ internal extension SessionUtil {
                     let adminIdsToRemove: Set<String> = existingAdminIds.subtracting(adminIds)
                     
                     adminIdsToAdd.forEach { adminId in
-                        var cProfileId: [CChar] = adminId.cArray
+                        var cProfileId: [CChar] = adminId.cArray.nullTerminated()
                         ugroups_legacy_member_add(userGroup, &cProfileId, true)
                     }
                     
                     adminIdsToRemove.forEach { adminId in
-                        var cProfileId: [CChar] = adminId.cArray
+                        var cProfileId: [CChar] = adminId.cArray.nullTerminated()
                         ugroups_legacy_member_remove(userGroup, &cProfileId)
                     }
+                }
+                
+                if let joinedAt: Int64 = legacyGroup.joinedAt {
+                    userGroup.pointee.joined_at = joinedAt
                 }
                 
                 // Store the updated group (can't be sure if we made any changes above)
@@ -469,16 +490,18 @@ internal extension SessionUtil {
         guard conf != nil else { throw SessionUtilError.nilConfigObject }
         guard !communities.isEmpty else { return }
         
-        communities
+        try communities
             .forEach { community in
-                var cBaseUrl: [CChar] = community.urlInfo.server.cArray
-                var cRoom: [CChar] = community.urlInfo.roomToken.cArray
+                var cBaseUrl: [CChar] = community.urlInfo.server.cArray.nullTerminated()
+                var cRoom: [CChar] = community.urlInfo.roomToken.cArray.nullTerminated()
                 var cPubkey: [UInt8] = Data(hex: community.urlInfo.publicKey).cArray
                 var userCommunity: ugroups_community_info = ugroups_community_info()
                 
                 guard user_groups_get_or_construct_community(conf, &userCommunity, &cBaseUrl, &cRoom, &cPubkey) else {
-                    SNLog("Unable to upsert community conversation to Config Message")
-                    return
+                    /// It looks like there are some situations where this object might not get created correctly (and
+                    /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
+                    SNLog("Unable to upsert community conversation to SessionUtil: \(SessionUtil.lastError(conf))")
+                    throw SessionUtilError.getOrConstructFailedUnexpectedly
                 }
                 
                 userCommunity.priority = (community.priority ?? userCommunity.priority)
@@ -526,8 +549,8 @@ public extension SessionUtil {
             for: .userGroups,
             publicKey: getUserHexEncodedPublicKey(db)
         ) { conf in
-            var cBaseUrl: [CChar] = server.cArray
-            var cRoom: [CChar] = roomToken.cArray
+            var cBaseUrl: [CChar] = server.cArray.nullTerminated()
+            var cRoom: [CChar] = roomToken.cArray.nullTerminated()
             
             // Don't care if the community doesn't exist
             user_groups_erase_community(conf, &cBaseUrl, &cRoom)
@@ -567,7 +590,7 @@ public extension SessionUtil {
         ) { conf in
             guard conf != nil else { throw SessionUtilError.nilConfigObject }
             
-            var cGroupId: [CChar] = groupPublicKey.cArray
+            var cGroupId: [CChar] = groupPublicKey.cArray.nullTerminated()
             let userGroup: UnsafeMutablePointer<ugroups_legacy_group_info>? = user_groups_get_legacy_group(conf, &cGroupId)
             
             // Need to make sure the group doesn't already exist (otherwise we will end up overriding the
@@ -670,7 +693,7 @@ public extension SessionUtil {
             publicKey: getUserHexEncodedPublicKey(db)
         ) { conf in
             legacyGroupIds.forEach { threadId in
-                var cGroupId: [CChar] = threadId.cArray
+                var cGroupId: [CChar] = threadId.cArray.nullTerminated()
                 
                 // Don't care if the group doesn't exist
                 user_groups_erase_legacy_group(conf, &cGroupId)
@@ -692,6 +715,13 @@ public extension SessionUtil {
 
 extension SessionUtil {
     struct LegacyGroupInfo: Decodable, FetchableRecord, ColumnExpressible {
+        private static let threadIdKey: SQL = SQL(stringLiteral: CodingKeys.threadId.stringValue)
+        private static let nameKey: SQL = SQL(stringLiteral: CodingKeys.name.stringValue)
+        private static let lastKeyPairKey: SQL = SQL(stringLiteral: CodingKeys.lastKeyPair.stringValue)
+        private static let disappearingConfigKey: SQL = SQL(stringLiteral: CodingKeys.disappearingConfig.stringValue)
+        private static let priorityKey: SQL = SQL(stringLiteral: CodingKeys.priority.stringValue)
+        private static let joinedAtKey: SQL = SQL(stringLiteral: CodingKeys.joinedAt.stringValue)
+        
         typealias Columns = CodingKeys
         enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
             case threadId
@@ -701,6 +731,7 @@ extension SessionUtil {
             case groupMembers
             case groupAdmins
             case priority
+            case joinedAt = "formationTimestamp"
         }
         
         var id: String { threadId }
@@ -712,6 +743,7 @@ extension SessionUtil {
         let groupMembers: [GroupMember]?
         let groupAdmins: [GroupMember]?
         let priority: Int32?
+        let joinedAt: Int64?
         
         init(
             id: String,
@@ -720,7 +752,8 @@ extension SessionUtil {
             disappearingConfig: DisappearingMessagesConfiguration? = nil,
             groupMembers: [GroupMember]? = nil,
             groupAdmins: [GroupMember]? = nil,
-            priority: Int32? = nil
+            priority: Int32? = nil,
+            joinedAt: Int64? = nil
         ) {
             self.threadId = id
             self.name = name
@@ -729,36 +762,87 @@ extension SessionUtil {
             self.groupMembers = groupMembers
             self.groupAdmins = groupAdmins
             self.priority = priority
+            self.joinedAt = joinedAt
         }
         
         static func fetchAll(_ db: Database) throws -> [LegacyGroupInfo] {
-            return try ClosedGroup
-                .filter(ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.standard.rawValue)%"))
-                .including(
-                    required: ClosedGroup.keyPairs
-                        .order(ClosedGroupKeyPair.Columns.receivedTimestamp.desc)
-                        .forKey(Columns.lastKeyPair.name)
-                )
-                .including(
-                    all: ClosedGroup.members
-                        .filter([GroupMember.Role.standard, GroupMember.Role.zombie]
-                            .contains(GroupMember.Columns.role))
-                        .forKey(Columns.groupMembers.name)
-                )
-                .including(
-                    all: ClosedGroup.members
-                        .filter(GroupMember.Columns.role == GroupMember.Role.admin)
-                        .forKey(Columns.groupAdmins.name)
-                )
-                .joining(
-                    optional: ClosedGroup.thread
-                        .including(
-                            optional: SessionThread.disappearingMessagesConfiguration
-                                .forKey(Columns.disappearingConfig.name)
-                        )
-                )
-                .asRequest(of: LegacyGroupInfo.self)
+            let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
+            let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
+            let keyPair: TypedTableAlias<ClosedGroupKeyPair> = TypedTableAlias()
+            
+            let prefixLiteral: SQL = SQL(stringLiteral: "\(SessionId.Prefix.standard.rawValue)%")
+            let keyPairThreadIdColumnLiteral: SQL = SQL(stringLiteral: ClosedGroupKeyPair.Columns.threadId.name)
+            let receivedTimestampColumnLiteral: SQL = SQL(stringLiteral: ClosedGroupKeyPair.Columns.receivedTimestamp.name)
+            let threadIdColumnLiteral: SQL = SQL(stringLiteral: DisappearingMessagesConfiguration.Columns.threadId.name)
+            
+            /// **Note:** The `numColumnsBeforeTypes` value **MUST** match the number of fields before
+            /// the `LegacyGroupInfo.lastKeyPairKey` entry below otherwise the query will fail to
+            /// parse and might throw
+            ///
+            /// Explicitly set default values for the fields ignored for search results
+            let numColumnsBeforeTypes: Int = 4
+            
+            let request: SQLRequest<LegacyGroupInfo> = """
+                SELECT
+                    \(closedGroup[.threadId]) AS \(LegacyGroupInfo.threadIdKey),
+                    \(closedGroup[.name]) AS \(LegacyGroupInfo.nameKey),
+                    \(closedGroup[.formationTimestamp]) AS \(LegacyGroupInfo.joinedAtKey),
+                    \(thread[.pinnedPriority]) AS \(LegacyGroupInfo.priorityKey),
+                    \(LegacyGroupInfo.lastKeyPairKey).*,
+                    \(LegacyGroupInfo.disappearingConfigKey).*
+                
+                FROM \(ClosedGroup.self)
+                JOIN \(SessionThread.self) ON \(thread[.id]) = \(closedGroup[.threadId])
+                LEFT JOIN (
+                    SELECT
+                        \(keyPair[.threadId]),
+                        \(keyPair[.publicKey]),
+                        \(keyPair[.secretKey]),
+                        MAX(\(keyPair[.receivedTimestamp])) AS \(receivedTimestampColumnLiteral),
+                        \(keyPair[.threadKeyPairHash])
+                    FROM \(ClosedGroupKeyPair.self)
+                    GROUP BY \(keyPair[.threadId])
+                ) AS \(LegacyGroupInfo.lastKeyPairKey) ON \(LegacyGroupInfo.lastKeyPairKey).\(keyPairThreadIdColumnLiteral) = \(closedGroup[.threadId])
+                LEFT JOIN \(DisappearingMessagesConfiguration.self) AS \(LegacyGroupInfo.disappearingConfigKey) ON \(LegacyGroupInfo.disappearingConfigKey).\(threadIdColumnLiteral) = \(closedGroup[.threadId])
+                
+                WHERE \(SQL("\(closedGroup[.threadId]) LIKE '\(prefixLiteral)'"))
+            """
+            
+            let legacyGroupInfoNoMembers: [LegacyGroupInfo] = try request
+                .adapted { db in
+                    let adapters = try splittingRowAdapters(columnCounts: [
+                        numColumnsBeforeTypes,
+                        ClosedGroupKeyPair.numberOfSelectedColumns(db),
+                        DisappearingMessagesConfiguration.numberOfSelectedColumns(db)
+                    ])
+                    
+                    return ScopeAdapter([
+                        CodingKeys.lastKeyPair.stringValue: adapters[1],
+                        CodingKeys.disappearingConfig.stringValue: adapters[2]
+                    ])
+                }
                 .fetchAll(db)
+            let legacyGroupIds: [String] = legacyGroupInfoNoMembers.map { $0.threadId }
+            let allLegacyGroupMembers: [String: [GroupMember]] = try GroupMember
+                .filter(legacyGroupIds.contains(GroupMember.Columns.groupId))
+                .fetchAll(db)
+                .grouped(by: \.groupId)
+            
+            return legacyGroupInfoNoMembers
+                .map { nonMemberGroup in
+                    LegacyGroupInfo(
+                        id: nonMemberGroup.id,
+                        name: nonMemberGroup.name,
+                        lastKeyPair: nonMemberGroup.lastKeyPair,
+                        disappearingConfig: nonMemberGroup.disappearingConfig,
+                        groupMembers: allLegacyGroupMembers[nonMemberGroup.id]?
+                            .filter { $0.role == .standard || $0.role == .zombie },
+                        groupAdmins: allLegacyGroupMembers[nonMemberGroup.id]?
+                            .filter { $0.role == .admin },
+                        priority: nonMemberGroup.priority,
+                        joinedAt: nonMemberGroup.joinedAt
+                    )
+                }
         }
     }
     

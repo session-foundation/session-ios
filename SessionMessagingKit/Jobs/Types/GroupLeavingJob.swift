@@ -32,7 +32,7 @@ public enum GroupLeavingJob: JobExecutor {
         let destination: Message.Destination = .closedGroup(groupPublicKey: threadId)
         
         Storage.shared
-            .writePublisher(receiveOn: queue) { db in
+            .writePublisher { db in
                 guard (try? SessionThread.exists(db, id: threadId)) == true else {
                     SNLog("Can't update nonexistent closed group.")
                     throw MessageSenderError.noThread

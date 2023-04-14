@@ -644,7 +644,7 @@ public final class MessageSender {
                 in: namespace
             )
             .subscribe(on: DispatchQueue.global(qos: .default))
-            .flatMap { response -> AnyPublisher<Bool, Error> in
+            .flatMap { response -> AnyPublisher<Void, Error> in
                 let updatedMessage: Message = message
                 updatedMessage.serverHash = response.1.hash
 
@@ -669,7 +669,7 @@ public final class MessageSender {
                 }()
 
                 return dependencies.storage
-                    .writePublisher(receiveOn: DispatchQueue.global(qos: .default)) { db -> Void in
+                    .writePublisher { db -> Void in
                         try MessageSender.handleSuccessfulMessageSend(
                             db,
                             message: updatedMessage,
@@ -684,34 +684,34 @@ public final class MessageSender {
                         JobRunner.add(db, job: job)
                         return ()
                     }
-                    .flatMap { _ -> AnyPublisher<Bool, Error> in
+                    .flatMap { _ -> AnyPublisher<Void, Error> in
                         let isMainAppActive: Bool = (UserDefaults.sharedLokiProject?[.isMainAppActive])
                             .defaulting(to: false)
                         
                         guard shouldNotify && !isMainAppActive else {
-                            return Just(true)
+                            return Just(())
                                 .setFailureType(to: Error.self)
                                 .eraseToAnyPublisher()
                         }
                         guard let job: Job = job else {
-                            return Just(true)
+                            return Just(())
                                 .setFailureType(to: Error.self)
                                 .eraseToAnyPublisher()
                         }
 
                         return Deferred {
-                            Future<Bool, Error> { resolver in
+                            Future<Void, Error> { resolver in
                                 NotifyPushServerJob.run(
                                     job,
                                     queue: DispatchQueue.global(qos: .default),
-                                    success: { _, _ in resolver(Result.success(true)) },
+                                    success: { _, _ in resolver(Result.success(())) },
                                     failure: { _, _, _ in
                                         // Always fulfill because the notify PN server job isn't critical.
-                                        resolver(Result.success(true))
+                                        resolver(Result.success(()))
                                     },
                                     deferred: { _ in
                                         // Always fulfill because the notify PN server job isn't critical.
-                                        resolver(Result.success(true))
+                                        resolver(Result.success(()))
                                     }
                                 )
                             }
@@ -720,7 +720,6 @@ public final class MessageSender {
                     }
                     .eraseToAnyPublisher()
             }
-            .filter { $0 }
             .handleEvents(
                 receiveCompletion: { result in
                     switch result {
@@ -761,7 +760,7 @@ public final class MessageSender {
         
         // Send the result
         return dependencies.storage
-            .readPublisherFlatMap(receiveOn: DispatchQueue.global(qos: .default)) { db in
+            .readPublisherFlatMap { db in
                 OpenGroupAPI
                     .send(
                         db,
@@ -780,7 +779,7 @@ public final class MessageSender {
                 let updatedMessage: Message = message
                 updatedMessage.openGroupServerMessageId = UInt64(responseData.id)
                 
-                return dependencies.storage.writePublisher(receiveOn: DispatchQueue.global(qos: .default)) { db in
+                return dependencies.storage.writePublisher { db in
                     // The `posted` value is in seconds but we sent it in ms so need that for de-duping
                     try MessageSender.handleSuccessfulMessageSend(
                         db,
@@ -829,7 +828,7 @@ public final class MessageSender {
         
         // Send the result
         return dependencies.storage
-            .readPublisherFlatMap(receiveOn: DispatchQueue.global(qos: .default)) { db in
+            .readPublisherFlatMap { db in
                 return OpenGroupAPI
                     .send(
                         db,
@@ -844,7 +843,7 @@ public final class MessageSender {
                 let updatedMessage: Message = message
                 updatedMessage.openGroupServerMessageId = UInt64(responseData.id)
                 
-                return dependencies.storage.writePublisher(receiveOn: DispatchQueue.global(qos: .default)) { db in
+                return dependencies.storage.writePublisher { db in
                     // The `posted` value is in seconds but we sent it in ms so need that for de-duping
                     try MessageSender.handleSuccessfulMessageSend(
                         db,

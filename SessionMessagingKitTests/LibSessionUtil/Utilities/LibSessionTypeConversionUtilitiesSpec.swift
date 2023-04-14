@@ -49,10 +49,10 @@ class LibSessionTypeConversionUtilitiesSpec: QuickSpec {
                 it("returns a string when valid") {
                     let test: [CChar] = [84, 101, 115, 116]
                     let result = test.withUnsafeBufferPointer { ptr in
-                        String(pointer: UnsafeRawPointer(ptr.baseAddress), length: 5)
+                        String(pointer: UnsafeRawPointer(ptr.baseAddress), length: 4)
                     }
                     
-                    expect(result).to(equal("Test\0"))
+                    expect(result).to(equal("Test"))
                 }
             }
             

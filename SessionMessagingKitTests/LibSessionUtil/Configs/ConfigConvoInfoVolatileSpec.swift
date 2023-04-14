@@ -33,7 +33,7 @@ class ConfigConvoInfoVolatileSpec {
             
             // Empty contacts shouldn't have an existing contact
             let definitelyRealId: String = "055000000000000000000000000000000000000000000000000000000000000000"
-            var cDefinitelyRealId: [CChar] = definitelyRealId.cArray
+            var cDefinitelyRealId: [CChar] = definitelyRealId.cArray.nullTerminated()
             var oneToOne1: convo_info_volatile_1to1 = convo_info_volatile_1to1()
             expect(convo_info_volatile_get_1to1(conf, &oneToOne1, &cDefinitelyRealId)).to(beFalse())
             expect(convo_info_volatile_size(conf)).to(equal(0))
@@ -67,7 +67,7 @@ class ConfigConvoInfoVolatileSpec {
             expect(config_needs_dump(conf)).to(beTrue())
             
             let openGroupBaseUrl: String = "http://Example.ORG:5678"
-            var cOpenGroupBaseUrl: [CChar] = openGroupBaseUrl.cArray
+            var cOpenGroupBaseUrl: [CChar] = openGroupBaseUrl.cArray.nullTerminated()
             let openGroupBaseUrlResult: String = openGroupBaseUrl.lowercased()
             //            ("http://Example.ORG:5678"
             //                .lowercased()
@@ -75,7 +75,7 @@ class ConfigConvoInfoVolatileSpec {
             //                [CChar](repeating: 0, count: (268 - openGroupBaseUrl.count))
             //            )
             let openGroupRoom: String = "SudokuRoom"
-            var cOpenGroupRoom: [CChar] = openGroupRoom.cArray
+            var cOpenGroupRoom: [CChar] = openGroupRoom.cArray.nullTerminated()
             let openGroupRoomResult: String = openGroupRoom.lowercased()
             //            ("SudokuRoom"
             //                .lowercased()
@@ -97,12 +97,12 @@ class ConfigConvoInfoVolatileSpec {
             
             // We don't need to push since we haven't changed anything, so this call is mainly just for
             // testing:
-            var pushData1: UnsafeMutablePointer<config_push_data> = config_push(conf)
+            let pushData1: UnsafeMutablePointer<config_push_data> = config_push(conf)
             expect(pushData1.pointee.seqno).to(equal(1))
             
             // Pretend we uploaded it
             let fakeHash1: String = "fakehash1"
-            var cFakeHash1: [CChar] = fakeHash1.cArray
+            var cFakeHash1: [CChar] = fakeHash1.cArray.nullTerminated()
             config_confirm_pushed(conf, pushData1.pointee.seqno, &cFakeHash1)
             expect(config_needs_dump(conf)).to(beTrue())
             expect(config_needs_push(conf)).to(beFalse())
@@ -136,26 +136,26 @@ class ConfigConvoInfoVolatileSpec {
             community2.unread = true
             
             let anotherId: String = "051111111111111111111111111111111111111111111111111111111111111111"
-            var cAnotherId: [CChar] = anotherId.cArray
+            var cAnotherId: [CChar] = anotherId.cArray.nullTerminated()
             var oneToOne5: convo_info_volatile_1to1 = convo_info_volatile_1to1()
             expect(convo_info_volatile_get_or_construct_1to1(conf2, &oneToOne5, &cAnotherId)).to(beTrue())
             oneToOne5.unread = true
             convo_info_volatile_set_1to1(conf2, &oneToOne5)
             
             let thirdId: String = "05cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-            var cThirdId: [CChar] = thirdId.cArray
+            var cThirdId: [CChar] = thirdId.cArray.nullTerminated()
             var legacyGroup2: convo_info_volatile_legacy_group = convo_info_volatile_legacy_group()
             expect(convo_info_volatile_get_or_construct_legacy_group(conf2, &legacyGroup2, &cThirdId)).to(beTrue())
             legacyGroup2.last_read = (nowTimestampMs - 50)
             convo_info_volatile_set_legacy_group(conf2, &legacyGroup2)
             expect(config_needs_push(conf2)).to(beTrue())
             
-            var pushData2: UnsafeMutablePointer<config_push_data> = config_push(conf2)
+            let pushData2: UnsafeMutablePointer<config_push_data> = config_push(conf2)
             expect(pushData2.pointee.seqno).to(equal(2))
             
             // Check the merging
             let fakeHash2: String = "fakehash2"
-            var cFakeHash2: [CChar] = fakeHash2.cArray
+            var cFakeHash2: [CChar] = fakeHash2.cArray.nullTerminated()
             var mergeHashes: [UnsafePointer<CChar>?] = [cFakeHash2].unsafeCopy()
             var mergeData: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData2.pointee.config)]
             var mergeSize: [Int] = [pushData2.pointee.config_len]
@@ -203,7 +203,7 @@ class ConfigConvoInfoVolatileSpec {
             }
             
             let fourthId: String = "052000000000000000000000000000000000000000000000000000000000000000"
-            var cFourthId: [CChar] = fourthId.cArray
+            var cFourthId: [CChar] = fourthId.cArray.nullTerminated()
             expect(config_needs_push(conf)).to(beFalse())
             convo_info_volatile_erase_1to1(conf, &cFourthId)
             expect(config_needs_push(conf)).to(beFalse())

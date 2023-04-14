@@ -94,7 +94,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                 else { throw AttachmentDownloadError.invalidUrl }
                 
                 return Storage.shared
-                    .readPublisher(receiveOn: queue) { db in try OpenGroup.fetchOne(db, id: threadId) }
+                    .readPublisher { db in try OpenGroup.fetchOne(db, id: threadId) }
                     .flatMap { maybeOpenGroup -> AnyPublisher<Data, Error> in
                         guard let openGroup: OpenGroup = maybeOpenGroup else {
                             return FileServerAPI
@@ -106,7 +106,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                         }
                         
                         return Storage.shared
-                            .readPublisherFlatMap(receiveOn: queue) { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .downloadFile(
                                         db,
@@ -120,6 +120,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                     }
                     .eraseToAnyPublisher()
             }
+            .subscribe(on: queue)
             .receive(on: queue)
             .tryMap { data -> Void in
                 // Store the encrypted data temporarily

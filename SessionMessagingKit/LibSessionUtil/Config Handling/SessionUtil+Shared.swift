@@ -28,6 +28,13 @@ internal extension SessionUtil {
         return !allColumnsThatTriggerConfigUpdate.isDisjoint(with: targetColumns)
     }
     
+    /// A negative `priority` value indicates hidden
+    static let hiddenPriority: Int32 = -1
+    
+    static func shouldBeVisible(priority: Int32) -> Bool {
+        return (priority >= 0)
+    }
+    
     static func performAndPushChange(
         _ db: Database,
         for variant: ConfigDump.Variant,
@@ -36,6 +43,10 @@ internal extension SessionUtil {
     ) throws {
         // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
         guard Features.useSharedUtilForUserConfig else { return }
+        
+        // If we haven't completed the required migrations then do nothing (assume that
+        // this is called from a migration change and we won't miss a change)
+        guard SessionUtil.requiredMigrationsCompleted(db) else { return }
         
         // Since we are doing direct memory manipulation we are using an `Atomic`
         // type which has blocking access in it's `mutate` closure
@@ -109,10 +120,13 @@ internal extension SessionUtil {
                             publicKey: userPublicKey
                         ) { conf in
                             try SessionUtil.updateNoteToSelf(
-                                hidden: !noteToSelf.shouldBeVisible,
-                                priority: noteToSelf.pinnedPriority
-                                    .map { Int32($0 == 0 ? 0 : max($0, 1)) }
-                                    .defaulting(to: 0),
+                                priority: {
+                                    guard noteToSelf.shouldBeVisible else { return SessionUtil.hiddenPriority }
+                                    
+                                    return noteToSelf.pinnedPriority
+                                        .map { Int32($0 == 0 ? 0 : max($0, 1)) }
+                                        .defaulting(to: 0)
+                                }(),
                                 in: conf
                             )
                         }
@@ -133,10 +147,13 @@ internal extension SessionUtil {
                                 .map { thread in
                                     SyncedContactInfo(
                                         id: thread.id,
-                                        hidden: !thread.shouldBeVisible,
-                                        priority: thread.pinnedPriority
-                                            .map { Int32($0 == 0 ? 0 : max($0, 1)) }
-                                            .defaulting(to: 0)
+                                        priority: {
+                                            guard thread.shouldBeVisible else { return SessionUtil.hiddenPriority }
+                                            
+                                            return thread.pinnedPriority
+                                                .map { Int32($0 == 0 ? 0 : max($0, 1)) }
+                                                .defaulting(to: 0)
+                                        }()
                                     )
                                 },
                             in: conf
@@ -285,7 +302,7 @@ internal extension SessionUtil {
 // MARK: - External Outgoing Changes
 
 public extension SessionUtil {
-    static func conversationExistsInConfig(
+    static func conversationVisibleInConfig(
         threadId: String,
         threadVariant: SessionThread.Variant
     ) -> Bool {
@@ -303,7 +320,7 @@ public extension SessionUtil {
             .config(for: configVariant, publicKey: getUserHexEncodedPublicKey())
             .wrappedValue
             .map { conf in
-                var cThreadId: [CChar] = threadId.cArray
+                var cThreadId: [CChar] = threadId.cArray.nullTerminated()
                 
                 switch threadVariant {
                     case .contact:
@@ -311,7 +328,10 @@ public extension SessionUtil {
                         
                         guard contacts_get(conf, &contact, &cThreadId) else { return false }
                         
-                        return !contact.hidden
+                        /// If the user opens a conversation with an existing contact but doesn't send them a message
+                        /// then the one-to-one conversation should remain hidden so we want to delete the `SessionThread`
+                        /// when leaving the conversation
+                        return SessionUtil.shouldBeVisible(priority: contact.priority)
                         
                     case .community:
                         let maybeUrlInfo: OpenGroupUrlInfo? = Storage.shared
@@ -320,15 +340,17 @@ public extension SessionUtil {
                         
                         guard let urlInfo: OpenGroupUrlInfo = maybeUrlInfo else { return false }
                         
-                        var cBaseUrl: [CChar] = urlInfo.server.cArray
-                        var cRoom: [CChar] = urlInfo.roomToken.cArray
+                        var cBaseUrl: [CChar] = urlInfo.server.cArray.nullTerminated()
+                        var cRoom: [CChar] = urlInfo.roomToken.cArray.nullTerminated()
                         var community: ugroups_community_info = ugroups_community_info()
                         
+                        /// Not handling the `hidden` behaviour for communities so just indicate the existence
                         return user_groups_get_community(conf, &community, &cBaseUrl, &cRoom)
                         
                     case .legacyGroup:
                         let groupInfo: UnsafeMutablePointer<ugroups_legacy_group_info>? = user_groups_get_legacy_group(conf, &cThreadId)
                         
+                        /// Not handling the `hidden` behaviour for legacy groups so just indicate the existence
                         if groupInfo != nil {
                             ugroups_legacy_group_free(groupInfo)
                             return true

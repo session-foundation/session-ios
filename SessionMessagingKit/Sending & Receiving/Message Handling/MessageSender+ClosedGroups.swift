@@ -549,7 +549,7 @@ extension MessageSender {
             )
             .flatMap { _ -> AnyPublisher<Void, Error> in
                 Storage.shared
-                    .writePublisherFlatMap(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
+                    .writePublisherFlatMap { db in
                         generateAndSendNewEncryptionKeyPair(
                             db,
                             targetMembers: members,

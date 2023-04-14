@@ -549,7 +549,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         if
             viewModel.threadData.threadIsNoteToSelf == false &&
             viewModel.threadData.threadShouldBeVisible == false &&
-            !SessionUtil.conversationExistsInConfig(
+            !SessionUtil.conversationVisibleInConfig(
                 threadId: threadId,
                 threadVariant: viewModel.threadData.threadVariant
             )
@@ -1399,6 +1399,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         // after the app goes into background and goes back in foreground.
         DispatchQueue.main.async {
             self.snInputView.text = self.snInputView.text
+            completion?()
         }
     }
 

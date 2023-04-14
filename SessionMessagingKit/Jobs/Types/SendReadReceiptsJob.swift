@@ -36,7 +36,7 @@ public enum SendReadReceiptsJob: JobExecutor {
         }
         
         Storage.shared
-            .writePublisher(receiveOn: queue) { db in
+            .writePublisher { db in
                 try MessageSender.preparedSendData(
                     db,
                     message: ReadReceipt(

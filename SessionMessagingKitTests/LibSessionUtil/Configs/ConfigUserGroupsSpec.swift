@@ -84,6 +84,8 @@ class ConfigUserGroupsSpec {
         }
             
         it("generates UserGroup configs correctly") {
+            let createdTs: Int64 = 1680064059
+            let nowTs: Int64 = Int64(Date().timeIntervalSince1970)
             let seed: Data = Data(hex: "0123456789abcdef0123456789abcdef")
 
             // FIXME: Would be good to move these into the libSession-util instead of using Sodium separately
@@ -103,7 +105,7 @@ class ConfigUserGroupsSpec {
             
             // Empty contacts shouldn't have an existing contact
             let definitelyRealId: String = "055000000000000000000000000000000000000000000000000000000000000000"
-            var cDefinitelyRealId: [CChar] = definitelyRealId.cArray
+            var cDefinitelyRealId: [CChar] = definitelyRealId.cArray.nullTerminated()
             let legacyGroup1: UnsafeMutablePointer<ugroups_legacy_group_info>? = user_groups_get_legacy_group(conf, &cDefinitelyRealId)
             expect(legacyGroup1?.pointee).to(beNil())
             expect(user_groups_size(conf)).to(equal(0))
@@ -112,12 +114,14 @@ class ConfigUserGroupsSpec {
             expect(legacyGroup2.pointee).toNot(beNil())
             expect(String(libSessionVal: legacyGroup2.pointee.session_id))
                 .to(equal(definitelyRealId))
-            expect(legacyGroup2.pointee.hidden).to(beFalse())
             expect(legacyGroup2.pointee.disappearing_timer).to(equal(0))
             expect(String(libSessionVal: legacyGroup2.pointee.enc_pubkey, fixedLength: 32)).to(equal(""))
             expect(String(libSessionVal: legacyGroup2.pointee.enc_seckey, fixedLength: 32)).to(equal(""))
             expect(legacyGroup2.pointee.priority).to(equal(0))
             expect(String(libSessionVal: legacyGroup2.pointee.name)).to(equal(""))
+            expect(legacyGroup2.pointee.joined_at).to(equal(0))
+            expect(legacyGroup2.pointee.notifications).to(equal(CONVO_NOTIFY_DEFAULT))
+            expect(legacyGroup2.pointee.mute_until).to(equal(0))
             
             // Iterate through and make sure we got everything we expected
             var membersSeen1: [String: Bool] = [:]
@@ -155,9 +159,12 @@ class ConfigUserGroupsSpec {
                 "055555555555555555555555555555555555555555555555555555555555555555",
                 "056666666666666666666666666666666666666666666666666666666666666666"
             ]
-            var cUsers: [[CChar]] = users.map { $0.cArray }
+            var cUsers: [[CChar]] = users.map { $0.cArray.nullTerminated() }
             legacyGroup2.pointee.name = "Englishmen".toLibSession()
             legacyGroup2.pointee.disappearing_timer = 60
+            legacyGroup2.pointee.joined_at = createdTs
+            legacyGroup2.pointee.notifications = CONVO_NOTIFY_ALL
+            legacyGroup2.pointee.mute_until = (nowTs + 3600)
             expect(ugroups_legacy_member_add(legacyGroup2, &cUsers[0], false)).to(beTrue())
             expect(ugroups_legacy_member_add(legacyGroup2, &cUsers[1], true)).to(beTrue())
             expect(ugroups_legacy_member_add(legacyGroup2, &cUsers[2], false)).to(beTrue())
@@ -216,8 +223,8 @@ class ConfigUserGroupsSpec {
             
             let communityPubkey: String = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
             var cCommunityPubkey: [UInt8] = Data(hex: communityPubkey).cArray
-            var cCommunityBaseUrl: [CChar] = "http://Example.ORG:5678".cArray
-            var cCommunityRoom: [CChar] = "SudokuRoom".cArray
+            var cCommunityBaseUrl: [CChar] = "http://Example.ORG:5678".cArray.nullTerminated()
+            var cCommunityRoom: [CChar] = "SudokuRoom".cArray.nullTerminated()
             var community1: ugroups_community_info = ugroups_community_info()
             expect(user_groups_get_or_construct_community(conf, &community1, &cCommunityBaseUrl, &cCommunityRoom, &cCommunityPubkey))
                 .to(beTrue())
@@ -240,7 +247,7 @@ class ConfigUserGroupsSpec {
 
             // Pretend we uploaded it
             let fakeHash1: String = "fakehash1"
-            var cFakeHash1: [CChar] = fakeHash1.cArray
+            var cFakeHash1: [CChar] = fakeHash1.cArray.nullTerminated()
             config_confirm_pushed(conf, pushData2.pointee.seqno, &cFakeHash1)
             expect(config_needs_dump(conf)).to(beTrue())
             expect(config_needs_push(conf)).to(beFalse())
@@ -294,9 +301,11 @@ class ConfigUserGroupsSpec {
             expect(String(libSessionVal: legacyGroup4?.pointee.enc_seckey, fixedLength: 32)).to(equal(""))
             expect(legacyGroup4?.pointee.disappearing_timer).to(equal(60))
             expect(String(libSessionVal: legacyGroup4?.pointee.session_id)).to(equal(definitelyRealId))
-            expect(legacyGroup4?.pointee.hidden).to(beFalse())
             expect(legacyGroup4?.pointee.priority).to(equal(3))
             expect(String(libSessionVal: legacyGroup4?.pointee.name)).to(equal("Englishmen"))
+            expect(legacyGroup4?.pointee.joined_at).to(equal(createdTs))
+            expect(legacyGroup2.pointee.notifications).to(equal(CONVO_NOTIFY_ALL))
+            expect(legacyGroup2.pointee.mute_until).to(equal(nowTs + 3600))
             
             var membersSeen3: [String: Bool] = [:]
             var memberSessionId3: UnsafePointer<CChar>? = nil
@@ -357,8 +366,8 @@ class ConfigUserGroupsSpec {
                 ]))
             }
             
-            var cCommunity2BaseUrl: [CChar] = "http://example.org:5678".cArray
-            var cCommunity2Room: [CChar] = "sudokuRoom".cArray
+            var cCommunity2BaseUrl: [CChar] = "http://example.org:5678".cArray.nullTerminated()
+            var cCommunity2Room: [CChar] = "sudokuRoom".cArray.nullTerminated()
             var community2: ugroups_community_info = ugroups_community_info()
             expect(user_groups_get_community(conf2, &community2, &cCommunity2BaseUrl, &cCommunity2Room))
                 .to(beTrue())
@@ -383,7 +392,7 @@ class ConfigUserGroupsSpec {
             expect(config_needs_dump(conf2)).to(beTrue())
             
             let fakeHash2: String = "fakehash2"
-            var cFakeHash2: [CChar] = fakeHash2.cArray
+            var cFakeHash2: [CChar] = fakeHash2.cArray.nullTerminated()
             let pushData7: UnsafeMutablePointer<config_push_data> = config_push(conf2)
             expect(pushData7.pointee.seqno).to(equal(2))
             config_confirm_pushed(conf2, pushData7.pointee.seqno, &cFakeHash2)
@@ -413,8 +422,8 @@ class ConfigUserGroupsSpec {
             expect(config_merge(conf, &mergeHashes1, &mergeData1, &mergeSize1, 1)).to(equal(1))
             pushData8.deallocate()
             
-            var cCommunity3BaseUrl: [CChar] = "http://example.org:5678".cArray
-            var cCommunity3Room: [CChar] = "SudokuRoom".cArray
+            var cCommunity3BaseUrl: [CChar] = "http://example.org:5678".cArray.nullTerminated()
+            var cCommunity3Room: [CChar] = "SudokuRoom".cArray.nullTerminated()
             var community3: ugroups_community_info = ugroups_community_info()
             expect(user_groups_get_community(conf, &community3, &cCommunity3BaseUrl, &cCommunity3Room))
                 .to(beTrue())
@@ -442,12 +451,12 @@ class ConfigUserGroupsSpec {
             expect(config_needs_push(conf2)).to(beTrue())
             expect(config_needs_dump(conf2)).to(beTrue())
 
-            var cCommunity4BaseUrl: [CChar] = "http://exAMple.ORG:5678".cArray
-            var cCommunity4Room: [CChar] = "sudokuROOM".cArray
+            var cCommunity4BaseUrl: [CChar] = "http://exAMple.ORG:5678".cArray.nullTerminated()
+            var cCommunity4Room: [CChar] = "sudokuROOM".cArray.nullTerminated()
             user_groups_erase_community(conf2, &cCommunity4BaseUrl, &cCommunity4Room)
             
             let fakeHash3: String = "fakehash3"
-            var cFakeHash3: [CChar] = fakeHash3.cArray
+            var cFakeHash3: [CChar] = fakeHash3.cArray.nullTerminated()
             let pushData10: UnsafeMutablePointer<config_push_data> = config_push(conf2)
             config_confirm_pushed(conf2, pushData10.pointee.seqno, &cFakeHash3)
             
@@ -470,13 +479,13 @@ class ConfigUserGroupsSpec {
             expect(user_groups_size_legacy_groups(conf)).to(equal(1))
             
             var prio: Int32 = 0
-            var cBeanstalkBaseUrl: [CChar] = "http://jacksbeanstalk.org".cArray
+            var cBeanstalkBaseUrl: [CChar] = "http://jacksbeanstalk.org".cArray.nullTerminated()
             var cBeanstalkPubkey: [UInt8] = Data(
                 hex: "0000111122223333444455556666777788889999aaaabbbbccccddddeeeeffff"
             ).cArray
             
             ["fee", "fi", "fo", "fum"].forEach { room in
-                var cRoom: [CChar] = room.cArray
+                var cRoom: [CChar] = room.cArray.nullTerminated()
                 prio += 1
                 
                 var community4: ugroups_community_info = ugroups_community_info()
@@ -491,7 +500,7 @@ class ConfigUserGroupsSpec {
             expect(user_groups_size_legacy_groups(conf)).to(equal(1))
 
             let fakeHash4: String = "fakehash4"
-            var cFakeHash4: [CChar] = fakeHash4.cArray
+            var cFakeHash4: [CChar] = fakeHash4.cArray.nullTerminated()
             let pushData11: UnsafeMutablePointer<config_push_data> = config_push(conf)
             config_confirm_pushed(conf, pushData11.pointee.seqno, &cFakeHash4)
             expect(pushData11.pointee.seqno).to(equal(4))
@@ -500,11 +509,11 @@ class ConfigUserGroupsSpec {
             
             // Load some obsolete ones in just to check that they get immediately obsoleted
             let fakeHash10: String = "fakehash10"
-            let cFakeHash10: [CChar] = fakeHash10.cArray
+            let cFakeHash10: [CChar] = fakeHash10.cArray.nullTerminated()
             let fakeHash11: String = "fakehash11"
-            let cFakeHash11: [CChar] = fakeHash11.cArray
+            let cFakeHash11: [CChar] = fakeHash11.cArray.nullTerminated()
             let fakeHash12: String = "fakehash12"
-            let cFakeHash12: [CChar] = fakeHash12.cArray
+            let cFakeHash12: [CChar] = fakeHash12.cArray.nullTerminated()
             var mergeHashes3: [UnsafePointer<CChar>?] = [cFakeHash10, cFakeHash11, cFakeHash12, cFakeHash4].unsafeCopy()
             var mergeData3: [UnsafePointer<UInt8>?] = [
                 UnsafePointer(pushData10.pointee.config),

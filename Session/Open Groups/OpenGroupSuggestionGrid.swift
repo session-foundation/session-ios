@@ -322,7 +322,7 @@ extension OpenGroupSuggestionGrid {
             Publishers
                 .MergeMany(
                     Storage.shared
-                        .readPublisherFlatMap(receiveOn: DispatchQueue.main) { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupManager
                                 .roomImage(db, fileId: imageId, for: room.token, on: OpenGroupAPI.defaultServer)
                         }
@@ -335,6 +335,7 @@ extension OpenGroupSuggestionGrid {
                         .delay(for: .milliseconds(10), scheduler: DispatchQueue.main)
                         .eraseToAnyPublisher()
                 )
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .receiveOnMain(immediately: true)
                 .sinkUntilComplete(
                     receiveValue: { [weak self] imageData, hasData in

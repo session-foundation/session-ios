@@ -23,7 +23,10 @@ public enum GetSnodePoolJob: JobExecutor {
         // to block if we have no Snode pool and prevent other jobs from failing but avoids having to
         // wait if we already have a potentially valid snode pool
         guard !SnodeAPI.hasCachedSnodesInclusingExpired() else {
-            SnodeAPI.getSnodePool().sinkUntilComplete()
+            SnodeAPI
+                .getSnodePool()
+                .subscribe(on: DispatchQueue.global(qos: .default))
+                .sinkUntilComplete()
             success(job, false)
             return
         }

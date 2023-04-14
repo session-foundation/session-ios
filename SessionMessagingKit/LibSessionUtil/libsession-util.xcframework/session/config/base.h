@@ -16,8 +16,11 @@ typedef struct config_object {
     // Internal opaque object pointer; calling code should leave this alone.
     void* internals;
     // When an error occurs in the C API this string will be set to the specific error message.  May
-    // be NULL.
+    // be empty.
     const char* last_error;
+
+    // Sometimes used as the backing buffer for `last_error`.  Should not be touched externally.
+    char _error_buf[256];
 } config_object;
 
 // Common functions callable on any config instance:

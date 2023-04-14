@@ -712,7 +712,7 @@ public extension MessageViewModel {
                         WHERE (
                             \(groupMember[.groupId]) = \(interaction[.threadId]) AND
                             \(groupMember[.profileId]) = \(interaction[.authorId]) AND
-                            \(SQL("\(thread[.variant]) = \(SessionThread.Variant.openGroup)")) AND
+                            \(SQL("\(thread[.variant]) = \(SessionThread.Variant.community)")) AND
                             \(SQL("\(groupMember[.role]) IN \([GroupMember.Role.moderator, GroupMember.Role.admin])"))
                         )
                     ) AS \(ViewModel.isSenderOpenGroupModeratorKey),

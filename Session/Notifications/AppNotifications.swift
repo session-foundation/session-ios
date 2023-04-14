@@ -539,7 +539,7 @@ class NotificationActionHandler {
         }
         
         return Storage.shared
-            .writePublisher(receiveOn: DispatchQueue.main) { db in
+            .writePublisher { db in
                 let interaction: Interaction = try Interaction(
                     threadId: threadId,
                     authorId: getUserHexEncodedPublicKey(db),
@@ -575,7 +575,9 @@ class NotificationActionHandler {
                     threadVariant: thread.variant
                 )
             }
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
+            .receive(on: DispatchQueue.main)
             .handleEvents(
                 receiveCompletion: { result in
                     switch result {
@@ -612,7 +614,7 @@ class NotificationActionHandler {
     
     private func markAsRead(threadId: String) -> AnyPublisher<Void, Error> {
         return Storage.shared
-            .writePublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
+            .writePublisher { db in
                 guard
                     let threadVariant: SessionThread.Variant = try SessionThread
                         .filter(id: threadId)

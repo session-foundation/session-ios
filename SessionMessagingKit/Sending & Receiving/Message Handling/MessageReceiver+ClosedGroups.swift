@@ -79,7 +79,7 @@ extension MessageReceiver {
             members: membersAsData.map { $0.toHexString() },
             admins: adminsAsData.map { $0.toHexString() },
             expirationTimer: expirationTimer,
-            messageSentTimestamp: sentTimestamp,
+            formationTimestampMs: sentTimestamp,
             calledFromConfigHandling: false
         )
     }
@@ -92,7 +92,7 @@ extension MessageReceiver {
         members: [String],
         admins: [String],
         expirationTimer: UInt32,
-        messageSentTimestamp: UInt64,
+        formationTimestampMs: UInt64,
         calledFromConfigHandling: Bool
     ) throws {
         // With new closed groups we only want to create them if the admin creating the closed group is an
@@ -118,7 +118,7 @@ extension MessageReceiver {
         let closedGroup: ClosedGroup = try ClosedGroup(
             threadId: groupPublicKey,
             name: name,
-            formationTimestamp: (TimeInterval(messageSentTimestamp) / 1000)
+            formationTimestamp: (TimeInterval(formationTimestampMs) / 1000)
         ).saved(db)
         
         // Clear the zombie list if the group wasn't active (ie. had no keys)

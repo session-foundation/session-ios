@@ -63,6 +63,22 @@ public enum SessionUtil {
     
     public static var libSessionVersion: String { String(cString: LIBSESSION_UTIL_VERSION_STR) }
     
+    private static var hasCompletedRequiredMigrations: Bool = false
+    
+    internal static func requiredMigrationsCompleted(_ db: Database) -> Bool {
+        guard !hasCompletedRequiredMigrations else { return true }
+        
+        return Storage.appliedMigrationIdentifiers(db)
+            .isSuperset(of: [
+                _013_SessionUtilChanges.identifier,
+                _014_GenerateInitialUserConfigDumps.identifier
+            ])
+    }
+    
+    internal static func lastError(_ conf: UnsafeMutablePointer<config_object>?) -> String {
+        return (conf?.pointee.last_error.map { String(cString: $0) } ?? "Unknown")
+    }
+    
     // MARK: - Loading
     
     public static func loadState(
@@ -268,7 +284,7 @@ public enum SessionUtil {
                 guard conf != nil else { return nil }
                 
                 // Mark the config as pushed
-                var cHash: [CChar] = serverHash.cArray
+                var cHash: [CChar] = serverHash.cArray.nullTerminated()
                 config_confirm_pushed(conf, message.seqNo, &cHash)
                 
                 // Update the result to indicate whether the config needs to be dumped
@@ -349,10 +365,7 @@ public enum SessionUtil {
                     .mutate { conf in
                         // Merge the messages
                         var mergeHashes: [UnsafePointer<CChar>?] = next.value
-                            .map { message in
-                                (message.serverHash ?? "").cArray
-                                    .nullTerminated()
-                            }
+                            .map { message in (message.serverHash ?? "").cArray.nullTerminated() }
                             .unsafeCopy()
                         var mergeData: [UnsafePointer<UInt8>?] = next.value
                             .map { message -> [UInt8] in message.data.bytes }
@@ -441,7 +454,7 @@ fileprivate extension SessionUtil {
 
 public extension SessionUtil {
     static func parseCommunity(url: String) -> (room: String, server: String, publicKey: String)? {
-        var cFullUrl: [CChar] = url.cArray
+        var cFullUrl: [CChar] = url.cArray.nullTerminated()
         var cBaseUrl: [CChar] = [CChar](repeating: 0, count: COMMUNITY_BASE_URL_MAX_LENGTH)
         var cRoom: [CChar] = [CChar](repeating: 0, count: COMMUNITY_ROOM_MAX_LENGTH)
         var cPubkey: [UInt8] = [UInt8](repeating: 0, count: OpenGroup.pubkeyByteLength)
@@ -464,8 +477,8 @@ public extension SessionUtil {
     }
     
     static func communityUrlFor(server: String, roomToken: String, publicKey: String) -> String {
-        var cBaseUrl: [CChar] = server.cArray
-        var cRoom: [CChar] = roomToken.cArray
+        var cBaseUrl: [CChar] = server.cArray.nullTerminated()
+        var cRoom: [CChar] = roomToken.cArray.nullTerminated()
         var cPubkey: [UInt8] = Data(hex: publicKey).cArray
         var cFullUrl: [CChar] = [CChar](repeating: 0, count: COMMUNITY_FULL_URL_MAX_LENGTH)
         community_make_full_url(&cBaseUrl, &cRoom, &cPubkey, &cFullUrl)

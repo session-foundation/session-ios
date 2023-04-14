@@ -9,6 +9,7 @@
 #include "base.hpp"
 #include "expiring.hpp"
 #include "namespaces.hpp"
+#include "notify.hpp"
 #include "profile_pic.hpp"
 
 extern "C" struct contacts_contact;
@@ -31,14 +32,18 @@ namespace session::config {
 ///     a - 1 if approved, omitted otherwise (int)
 ///     A - 1 if remote has approved me, omitted otherwise (int)
 ///     b - 1 if contact is blocked, omitted otherwise
-///     h - 1 if the conversation with this contact is hidden, omitted if visible.
-///     + - the conversation priority, for pinned messages.  Omitted means not pinned; otherwise an
+///     @ - notification setting (int).  Omitted = use default setting; 1 = all; 2 = disabled.
+///     ! - mute timestamp: if this is set then notifications are to be muted until the given unix
+///         timestamp (seconds, not milliseconds).
+///     + - the conversation priority; -1 means hidden; omitted means not pinned; otherwise an
 ///         integer value >0, where a higher priority means the conversation is meant to appear
 ///         earlier in the pinned conversation list.
 ///     e - Disappearing messages expiration type.  Omitted if disappearing messages are not enabled
 ///         for the conversation with this contact; 1 for delete-after-send, and 2 for
 ///         delete-after-read.
 ///     E - Disappearing message timer, in seconds.  Omitted when `e` is omitted.
+///     j - Unix timestamp (seconds) when the contact was created ("j" to match user_groups
+///         equivalent "j"oined field). Omitted if 0.
 
 /// Struct containing contact info.
 struct contact_info {
@@ -51,12 +56,17 @@ struct contact_info {
     bool approved = false;
     bool approved_me = false;
     bool blocked = false;
-    bool hidden = false;  // True if the conversation with this contact is not visible in the convo
-                          // list (typically because it has been deleted).
-    int priority = 0;     // If >0 then this message is pinned; higher values mean higher priority
-                          // (i.e. pinned earlier in the pinned list).
+    int priority = 0;  // If >0 then this message is pinned; higher values mean higher priority
+                       // (i.e. pinned earlier in the pinned list).  If negative then this
+                       // conversation is hidden.  Otherwise (0) this is a regular, unpinned
+                       // conversation.
+    notify_mode notifications = notify_mode::defaulted;
+    int64_t mute_until = 0;  // If non-zero, disable notifications until the given unix timestamp
+                             // (overriding whatever the current `notifications` value is until the
+                             // timestamp expires).
     expiration_mode exp_mode = expiration_mode::none;  // The expiry time; none if not expiring.
     std::chrono::seconds exp_timer{0};                 // The expiration timer (in seconds)
+    int64_t created = 0;                               // Unix timestamp when this contact was added
 
     explicit contact_info(std::string sid);
 
@@ -127,12 +137,13 @@ class Contacts : public ConfigBase {
     void set_approved(std::string_view session_id, bool approved);
     void set_approved_me(std::string_view session_id, bool approved_me);
     void set_blocked(std::string_view session_id, bool blocked);
-    void set_hidden(std::string_view session_id, bool hidden);
     void set_priority(std::string_view session_id, int priority);
+    void set_notifications(std::string_view session_id, notify_mode notifications);
     void set_expiry(
             std::string_view session_id,
             expiration_mode exp_mode,
             std::chrono::seconds expiration_timer = 0min);
+    void set_created(std::string_view session_id, int64_t timestamp);
 
     /// Removes a contact, if present.  Returns true if it was found and removed, false otherwise.
     /// Note that this removes all fields related to a contact, even fields we do not know about.

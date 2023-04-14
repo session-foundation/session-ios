@@ -169,15 +169,16 @@ public final class SnodeAPI {
                     .catch { _ in getSnodePoolFromSeedNode() }
                     .eraseToAnyPublisher()
             }()
-            
-            getSnodePoolPublisher.mutate { $0 = publisher }
+
+            /// Actually assign the atomic value
+            result = publisher
             
             return publisher
                 .tryFlatMap { snodePool -> AnyPublisher<Set<Snode>, Error> in
                     guard !snodePool.isEmpty else { throw SnodeAPIError.snodePoolUpdatingFailed }
                     
                     return Storage.shared
-                        .writePublisher(receiveOn: Threading.workQueue) { db in
+                        .writePublisher { db in
                             db[.lastSnodePoolRefreshDate] = now
                             setSnodePool(db, to: snodePool)
                             

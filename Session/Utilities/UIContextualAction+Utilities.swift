@@ -286,12 +286,12 @@ public extension UIContextualAction {
                             let threadIsMessageRequest: Bool = (threadViewModel.threadIsMessageRequest == true)
                             let contactChanges: [ConfigColumnAssignment] = [
                                 Contact.Columns.isBlocked.set(to: !threadIsBlocked),
-                                (!threadIsMessageRequest ? nil : Contact.Columns.isApproved.set(to: false)),
                                 
-                                // Note: We set this to true so the current user will be able to send a
-                                // message to the person who originally sent them the message request in
-                                // the future if they unblock them
-                                (!threadIsMessageRequest ? nil : Contact.Columns.didApproveMe.set(to: true))
+                                /// **Note:** We set `didApproveMe` to `true` so the current user will be able to send a
+                                /// message to the person who originally sent them the message request in the future if they
+                                /// unblock them
+                                (!threadIsMessageRequest ? nil : Contact.Columns.didApproveMe.set(to: true)),
+                                (!threadIsMessageRequest ? nil : Contact.Columns.isApproved.set(to: false))
                             ].compactMap { $0 }
                             
                             let performBlock: (UIViewController?) -> () = { viewController in
@@ -305,7 +305,7 @@ public extension UIContextualAction {
                                 // Delay the change to give the cell "unswipe" animation some time to complete
                                 DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
                                     Storage.shared
-                                        .writePublisher(receiveOn: DispatchQueue.global(qos: .userInitiated)) { db in
+                                        .writePublisher { db in
                                             // Create the contact if it doesn't exist
                                             try Contact
                                                 .fetchOrCreate(db, id: threadViewModel.threadId)
@@ -325,6 +325,7 @@ public extension UIContextualAction {
                                                 )
                                             }
                                         }
+                                        .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                                         .sinkUntilComplete()
                                 }
                             }

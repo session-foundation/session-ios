@@ -121,8 +121,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                     .defaulting(to: false)
             }
         ),
-        currentUserIsClosedGroupMember: ((self.initialThreadVariant != .legacyGroup && self.initialThreadVariant != .group) ?
-            nil :
+        currentUserIsClosedGroupMember: (![.legacyGroup, .group].contains(self.initialThreadVariant) ? nil :
             Storage.shared.read { db in
                 GroupMember
                     .filter(GroupMember.Columns.groupId == self.threadId)

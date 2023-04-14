@@ -190,7 +190,7 @@ extension MessageReceiver {
                         members: [String](closedGroup.members),
                         admins: [String](closedGroup.admins),
                         expirationTimer: closedGroup.expirationTimer,
-                        messageSentTimestamp: message.sentTimestamp!,
+                        formationTimestampMs: message.sentTimestamp!,
                         calledFromConfigHandling: false // Legacy config isn't an issue
                     )
                 }

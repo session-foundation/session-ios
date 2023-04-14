@@ -1022,10 +1022,7 @@ extension Attachment {
             }
     }
     
-    internal func upload(
-        to destination: Attachment.Destination,
-        queue: DispatchQueue
-    ) -> AnyPublisher<String?, Error> {
+    internal func upload(to destination: Attachment.Destination) -> AnyPublisher<String?, Error> {
         // This can occur if an AttachmnetUploadJob was explicitly created for a message
         // dependant on the attachment being uploaded (in this case the attachment has
         // already been uploaded so just succeed)
@@ -1045,7 +1042,7 @@ extension Attachment {
         let attachmentId: String = self.id
         
         return Storage.shared
-            .writePublisherFlatMap(receiveOn: queue) { db -> AnyPublisher<(String?, Data?, Data?), Error> in
+            .writePublisherFlatMap { db -> AnyPublisher<(String?, Data?, Data?), Error> in
                 // If the attachment is a downloaded attachment, check if it came from
                 // the server and if so just succeed immediately (no use re-uploading
                 // an attachment that is already present on the server) - or if we want
@@ -1136,14 +1133,13 @@ extension Attachment {
                             .eraseToAnyPublisher()
                 }
             }
-            .receive(on: queue)
             .flatMap { fileId, encryptionKey, digest -> AnyPublisher<String?, Error> in
                 /// Save the final upload info
                 ///
                 /// **Note:** We **MUST** use the `.with` function here to ensure the `isValid` flag is
                 /// updated correctly
                 Storage.shared
-                    .writePublisher(receiveOn: queue) { db in
+                    .writePublisher { db in
                         try self
                             .with(
                                 serverId: fileId,

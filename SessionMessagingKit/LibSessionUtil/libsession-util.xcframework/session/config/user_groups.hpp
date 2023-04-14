@@ -9,6 +9,7 @@
 #include "base.hpp"
 #include "community.hpp"
 #include "namespaces.hpp"
+#include "notify.hpp"
 
 extern "C" {
 struct ugroups_legacy_group_info;
@@ -29,11 +30,16 @@ namespace session::config {
 ///     a - set of admin session ids (each 33 bytes).
 ///     E - disappearing messages duration, in seconds, > 0.  Omitted if disappearing messages is
 ///         disabled.  (Note that legacy groups only support expire after-read)
-///     h - hidden: 1 if the conversation has been removed from the conversation list, omitted if
-///         visible.
-///     + - the conversation priority, for pinned messages.  Omitted means not pinned; otherwise an
-///         integer value >0, where a higher priority means the conversation is meant to appear
-///         earlier in the pinned conversation list.
+///     @ - notification setting (int).  Omitted = use default setting; 1 = all, 2 = disabled, 3 =
+///         mentions-only.
+///     ! - mute timestamp: if set then don't show notifications for this contact's messages until
+///         this unix timestamp (i.e.  overriding the current notification setting until the given
+///         time).
+///     + - the conversation priority, for pinned/hidden messages.  Integer.  Omitted means not
+///         pinned; -1 means hidden, and a positive value is a pinned message for which higher
+///         priority values means the conversation is meant to appear earlier in the pinned
+///         conversation list.
+///     j - joined at unix timestamp.  Omitted if 0.
 ///
 /// o - dict of communities (AKA open groups); within this dict (which deliberately has the same
 ///     layout as convo_info_volatile) each key is the SOGS base URL (in canonical form), and value
@@ -45,14 +51,29 @@ namespace session::config {
 ///             appropriate).  For instance, a room name SudokuSolvers would be "sudokusolvers" in
 ///             the outer key, with the capitalization variation in use ("SudokuSolvers") in this
 ///             key.  This key is *always* present (to keep the room dict non-empty).
-///         + - the conversation priority, for pinned messages.  Omitted means not pinned; otherwise
-///             an integer value >0, where a higher priority means the conversation is meant to
-///             appear earlier in the pinned conversation list.
+///         @ - notification setting (see above).
+///         ! - mute timestamp (see above).
+///         + - the conversation priority, for pinned messages.  Omitted means not pinned; -1 means
+///             hidden; otherwise an integer value >0, where a higher priority means the
+///             conversation is meant to appear earlier in the pinned conversation list.
+///         j - joined at unix timestamp.  Omitted if 0.
 ///
 /// c - reserved for future storage of new-style group info.
 
+/// Common base type with fields shared by all the groups
+struct base_group_info {
+    int priority = 0;       // The priority; 0 means unpinned, -1 means hidden, positive means
+                            // pinned higher (i.e.  higher priority conversations come first).
+    int64_t joined_at = 0;  // unix timestamp (seconds) when the group was joined (or re-joined)
+    notify_mode notifications = notify_mode::defaulted;  // When the user wants notifications
+    int64_t mute_until = 0;  // unix timestamp (seconds) until which notifications are disabled
+
+  protected:
+    void load(const dict& info_dict);
+};
+
 /// Struct containing legacy group info (aka "closed groups").
-struct legacy_group_info {
+struct legacy_group_info : base_group_info {
     static constexpr size_t NAME_MAX_LENGTH = 100;  // in bytes; name will be truncated if exceeded
 
     std::string session_id;  // The legacy group "session id" (33 bytes).
@@ -61,9 +82,6 @@ struct legacy_group_info {
     ustring enc_pubkey;                          // bytes (32 or empty)
     ustring enc_seckey;                          // bytes (32 or empty)
     std::chrono::seconds disappearing_timer{0};  // 0 == disabled.
-    bool hidden = false;  // true if the conversation is hidden from the convo list
-    int priority = 0;     // The priority; 0 means unpinned, larger means pinned higher (i.e.
-                          // higher priority conversations come first).
 
     /// Constructs a new legacy group info from an id (which must look like a session_id).  Throws
     /// if id is invalid.
@@ -108,7 +126,7 @@ struct legacy_group_info {
 };
 
 /// Community (aka open group) info
-struct community_info : community {
+struct community_info : base_group_info, community {
     // Note that *changing* url/room/pubkey and then doing a set inserts a new room under the given
     // url/room/pubkey, it does *not* update an existing room.
 
@@ -118,9 +136,6 @@ struct community_info : community {
     // Internal ctor/method for C API implementations:
     community_info(const struct ugroups_community_info& c);  // From c struct
     void into(ugroups_community_info& c) const;              // Into c struct
-
-    int priority = 0;  // The priority; 0 means unpinned, larger means pinned higher (i.e.
-                       // higher priority conversations come first).
 
   private:
     void load(const dict& info_dict);
@@ -212,6 +227,8 @@ class UserGroups : public ConfigBase {
     DictFieldProxy community_field(
             const community_info& og, ustring_view* get_pubkey = nullptr) const;
 
+    void set_base(const base_group_info& bg, DictFieldProxy& info) const;
+
   public:
     /// Removes a community group.  Returns true if found and removed, false if not present.
     /// Arguments are the same as `get_community`.
@@ -253,7 +270,7 @@ class UserGroups : public ConfigBase {
     ///         if (auto* comm = std::get_if<community_info>(&group)) {
     ///             // use comm->name, comm->priority, etc.
     ///         } else if (auto* lg = std::get_if<legacy_group_info>(&convo)) {
-    ///             // use lg->session_id, lg->hidden, etc.
+    ///             // use lg->session_id, lg->priority, etc.
     ///         }
     ///     }
     ///
