@@ -98,7 +98,12 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
     /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
     private lazy var _observableSettingsData: ObservableData = ValueObservation
-        .trackingConstantRegion { [weak self, config] db -> [SectionModel] in
+        .trackingConstantRegion { [weak self, config, dependencies, threadId = self.threadId] db -> [SectionModel] in
+            let userPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
+            let maybeThreadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
+                .conversationSettingsQuery(threadId: threadId, userPublicKey: userPublicKey)
+                .fetchOne(db)
+            
             return [
                 SectionModel(
                     model: .content,
@@ -108,6 +113,10 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                             title: "DISAPPEARING_MESSAGES_OFF".localized(),
                             rightAccessory: .radio(
                                 isSelected: { (self?.currentSelection.value == 0) }
+                            ),
+                            isEnabled: (
+                                maybeThreadViewModel?.threadVariant != .closedGroup ||
+                                maybeThreadViewModel?.currentUserIsClosedGroupMember == true
                             ),
                             onTap: { self?.currentSelection.send(0) }
                         )
@@ -121,6 +130,10 @@ class ThreadDisappearingMessagesViewModel: SessionTableViewModel<ThreadDisappear
                                     title: title,
                                     rightAccessory: .radio(
                                         isSelected: { (self?.currentSelection.value == duration) }
+                                    ),
+                                    isEnabled: (
+                                        maybeThreadViewModel?.threadVariant != .closedGroup ||
+                                        maybeThreadViewModel?.currentUserIsClosedGroupMember == true
                                     ),
                                     onTap: { self?.currentSelection.send(duration) }
                                 )
