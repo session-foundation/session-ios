@@ -142,7 +142,7 @@ final class ConversationTitleView: UIView {
             
             guard Date().timeIntervalSince1970 > (mutedUntilTimestamp ?? 0) else {
                 subtitleLabel?.attributedText = NSAttributedString(
-                    string: "\u{e067}  ",
+                    string: FullConversationCell.mutePrefix,
                     attributes: [
                         .font: UIFont.ows_elegantIconsFont(10),
                         .foregroundColor: textPrimary

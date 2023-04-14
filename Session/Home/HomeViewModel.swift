@@ -265,7 +265,7 @@ public class HomeViewModel {
         /// **MUST** have the same logic as in the 'PagedDataObserver.onChangeUnsorted' above
         let currentData: [SectionModel] = (self.unobservedThreadDataChanges?.0 ?? self.threadData)
         let updatedThreadData: [SectionModel] = self.process(
-            data: currentData.flatMap { $0.elements },
+            data: (currentData.first(where: { $0.model == .threads })?.elements ?? []),
             for: currentPageInfo
         )
         
@@ -335,7 +335,10 @@ public class HomeViewModel {
                 SectionModel(
                     section: .threads,
                     elements: data
-                        .filter { $0.id != SessionThreadViewModel.invalidId }
+                        .filter { threadViewModel in
+                            threadViewModel.id != SessionThreadViewModel.invalidId &&
+                            threadViewModel.id != SessionThreadViewModel.messageRequestsSectionId
+                        }
                         .sorted { lhs, rhs -> Bool in
                             guard lhs.threadPinnedPriority == rhs.threadPinnedPriority else {
                                 return lhs.threadPinnedPriority > rhs.threadPinnedPriority

@@ -35,9 +35,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
     var activityIndicator: UIActivityIndicatorView?
     var hasSelectedCell: Bool = false
     var imageInfos = [GiphyImageInfo]()
-
-    var reachability: Reachability?
-
+    
     private let kCellReuseIdentifier = "kCellReuseIdentifier"
 
     var progressiveSearchTimer: Timer?
@@ -115,7 +113,6 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
 
         createViews()
 
-        reachability = Environment.shared?.reachabilityManager.reachability
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(reachabilityChanged),

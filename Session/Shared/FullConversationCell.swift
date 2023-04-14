@@ -6,6 +6,7 @@ import SignalUtilitiesKit
 import SessionMessagingKit
 
 public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticCell {
+    public static let mutePrefix: String = "\u{e067}  "
     public static let unreadCountViewSize: CGFloat = 20
     private static let statusIndicatorSize: CGFloat = 14
     
@@ -486,12 +487,26 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         isPinned: Bool?,
         hasUnread: Bool?
     ) {
-        // TODO: Decide on this
+        // Note: This will result in the snippet being out of sync while the swipe action animation completes,
+        // this means if the day/night mode changes while the animation is happening then the below optimistic
+        // update might get reset (this should be rare and is a relatively minor bug so can be left in)
         if let isMuted: Bool = isMuted {
-            if isMuted {
-                
-            } else {
-                
+            let attrString: NSAttributedString = (self.snippetLabel.attributedText ?? NSAttributedString())
+            let hasMutePrefix: Bool = attrString.string.starts(with: FullConversationCell.mutePrefix)
+            
+            switch (isMuted, hasMutePrefix) {
+                case (true, false):
+                    self.snippetLabel.attributedText = NSAttributedString(
+                        string: FullConversationCell.mutePrefix,
+                        attributes: [ .font: UIFont.ows_elegantIconsFont(10) ]
+                    )
+                    .appending(attrString)
+                    
+                case (false, true):
+                    self.snippetLabel.attributedText = attrString
+                        .attributedSubstring(from: NSRange(location: FullConversationCell.mutePrefix.count, length: (attrString.length - FullConversationCell.mutePrefix.count)))
+                    
+                default: break
             }
         }
         
@@ -536,7 +551,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         
         if Date().timeIntervalSince1970 < (cellViewModel.threadMutedUntilTimestamp ?? 0) {
             result.append(NSAttributedString(
-                string: "\u{e067}  ",
+                string: FullConversationCell.mutePrefix,
                 attributes: [
                     .font: UIFont.ows_elegantIconsFont(10),
                     .foregroundColor: textColor

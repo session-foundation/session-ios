@@ -223,22 +223,22 @@ extension MessageSender {
                     /// Store it **after** having sent out the message to the group
                     Storage.shared.write { db in
                         try newKeyPair.insert(db)
+                        
+                        // Update libSession
+                        try? SessionUtil.update(
+                            db,
+                            groupPublicKey: closedGroup.threadId,
+                            latestKeyPair: newKeyPair,
+                            members: allGroupMembers
+                                .filter { $0.role == .standard || $0.role == .zombie }
+                                .map { $0.profileId }
+                                .asSet(),
+                            admins: allGroupMembers
+                                .filter { $0.role == .admin }
+                                .map { $0.profileId }
+                                .asSet()
+                        )
                     }
-                    
-                    // Update libSession
-                    try? SessionUtil.update(
-                        db,
-                        groupPublicKey: closedGroup.threadId,
-                        latestKeyPair: newKeyPair,
-                        members: allGroupMembers
-                            .filter { $0.role == .standard || $0.role == .zombie }
-                            .map { $0.profileId }
-                            .asSet(),
-                        admins: allGroupMembers
-                            .filter { $0.role == .admin }
-                            .map { $0.profileId }
-                            .asSet()
-                    )
                     
                     distributingKeyPairs.mutate {
                         if let index = ($0[closedGroup.id] ?? []).firstIndex(of: newKeyPair) {
