@@ -527,11 +527,11 @@ public extension SessionThreadViewModel {
                         WHERE (
                             \(recipientState[.interactionId]) = \(interaction[.id]) AND
                             -- Ignore 'skipped' states
-                            \(SQL("\(recipientState[.state]) = \(RecipientState.State.sending)"))
+                            \(SQL("\(recipientState[.state]) != \(RecipientState.State.skipped)"))
                         )
                         LIMIT 1
-                    ), 0) AS \(ViewModel.interactionStateKey),
-
+                    ), \(SQL("\(RecipientState.State.sending)"))) AS \(ViewModel.interactionStateKey),
+                    
                     (\(readReceiptTableLiteral).\(readReceiptReadTimestampMsColumnLiteral) IS NOT NULL) AS \(ViewModel.interactionHasAtLeastOneReadReceiptKey),
                     (\(linkPreview[.url]) IS NOT NULL) AS \(ViewModel.interactionIsOpenGroupInvitationKey),
 
