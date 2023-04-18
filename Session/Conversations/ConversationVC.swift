@@ -1266,6 +1266,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         // after the app goes into background and goes back in foreground.
         DispatchQueue.main.async {
             self.snInputView.text = self.snInputView.text
+            completion?()
         }
     }
 
