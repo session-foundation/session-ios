@@ -1575,6 +1575,7 @@ public extension SessionThreadViewModel {
         let profile: TypedTableAlias<Profile> = TypedTableAlias()
         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
         
+        let aggregateInteractionLiteral: SQL = SQL(stringLiteral: "aggregateInteraction")
         let profileIdColumnLiteral: SQL = SQL(stringLiteral: Profile.Columns.id.name)
         
         /// **Note:** The `numColumnsBeforeProfiles` value **MUST** match the number of fields before
@@ -1608,11 +1609,21 @@ public extension SessionThreadViewModel {
             
             FROM \(SessionThread.self)
             LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])
+            
             LEFT JOIN (
-                SELECT \(interaction[.threadId]), MAX(\(interaction[.timestampMs]))
+                SELECT
+                    \(interaction[.id]) AS \(ViewModel.interactionIdKey),
+                    \(interaction[.threadId]) AS \(ViewModel.threadIdKey),
+                    MAX(\(interaction[.timestampMs]))
                 FROM \(Interaction.self)
+                WHERE \(SQL("\(interaction[.variant]) != \(Interaction.Variant.standardIncomingDeleted)"))
                 GROUP BY \(interaction[.threadId])
-            ) AS \(Interaction.self) ON \(interaction[.threadId]) = \(thread[.id])
+            ) AS \(aggregateInteractionLiteral) ON \(aggregateInteractionLiteral).\(ViewModel.threadIdKey) = \(thread[.id])
+            LEFT JOIN \(Interaction.self) ON (
+                \(interaction[.threadId]) = \(thread[.id]) AND
+                \(interaction[.id]) = \(aggregateInteractionLiteral).\(ViewModel.interactionIdKey)
+            )
+        
             LEFT JOIN \(Profile.self) AS \(ViewModel.contactProfileKey) ON \(ViewModel.contactProfileKey).\(profileIdColumnLiteral) = \(thread[.id])
             LEFT JOIN \(ClosedGroup.self) ON \(closedGroup[.threadId]) = \(thread[.id])
             LEFT JOIN \(OpenGroup.self) ON \(openGroup[.threadId]) = \(thread[.id])
