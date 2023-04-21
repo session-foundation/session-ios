@@ -97,8 +97,13 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
     /// this is due to the behaviour of `ValueConcurrentObserver.asyncStartObservation` which triggers it's own
     /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
-    private lazy var _observableTableData: ObservableData = ValueObservation
-        .trackingConstantRegion { [weak self, config] db -> [SectionModel] in
+    private lazy var _observableSettingsData: ObservableData = ValueObservation
+        .trackingConstantRegion { [weak self, config, dependencies, threadId = self.threadId] db -> [SectionModel] in
+            let userPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
+            let maybeThreadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
+                .conversationSettingsQuery(threadId: threadId, userPublicKey: userPublicKey)
+                .fetchOne(db)
+            
             return [
                 SectionModel(
                     model: .content,
@@ -108,6 +113,10 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                             title: "DISAPPEARING_MESSAGES_OFF".localized(),
                             rightAccessory: .radio(
                                 isSelected: { (self?.currentSelection.value == 0) }
+                            ),
+                            isEnabled: (
+                                maybeThreadViewModel?.threadVariant != .closedGroup ||
+                                maybeThreadViewModel?.currentUserIsClosedGroupMember == true
                             ),
                             onTap: { self?.currentSelection.send(0) }
                         )
@@ -121,6 +130,10 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                                     title: title,
                                     rightAccessory: .radio(
                                         isSelected: { (self?.currentSelection.value == duration) }
+                                    ),
+                                    isEnabled: (
+                                        maybeThreadViewModel?.threadVariant != .closedGroup ||
+                                        maybeThreadViewModel?.currentUserIsClosedGroupMember == true
                                     ),
                                     onTap: { self?.currentSelection.send(duration) }
                                 )

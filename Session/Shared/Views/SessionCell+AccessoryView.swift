@@ -408,20 +408,34 @@ extension SessionCell {
                     let wasOldSelection: Bool = (!isSelected && storedSelection)
                     
                     radioBorderView.isHidden = false
-                    radioBorderView.themeBorderColor = (isSelected ?
-                        .radioButton_selectedBorder :
-                        .radioButton_unselectedBorder
-                    )
+                    radioBorderView.themeBorderColor = {
+                        guard isEnabled else { return .radioButton_disabledBorder }
+                        
+                        return (isSelected ?
+                            .radioButton_selectedBorder :
+                            .radioButton_unselectedBorder
+                        )
+                    }()
+                    
                     radioBorderView.layer.cornerRadius = (size.borderSize / 2)
                     
                     radioView.accessibilityIdentifier = accessibility?.identifier
                     radioView.accessibilityLabel = accessibility?.label
                     radioView.alpha = (wasOldSelection ? 0.3 : 1)
                     radioView.isHidden = (!isSelected && !storedSelection)
-                    radioView.themeBackgroundColor = (isSelected || wasOldSelection ?
-                        .radioButton_selectedBackground :
-                        .radioButton_unselectedBackground
-                    )
+                    radioView.themeBackgroundColor = {
+                        guard isEnabled else {
+                            return (isSelected || wasOldSelection ?
+                                .radioButton_disabledSelectedBackground :
+                                .radioButton_disabledUnselectedBackground
+                            )
+                        }
+                        
+                        return (isSelected || wasOldSelection ?
+                            .radioButton_selectedBackground :
+                            .radioButton_unselectedBackground
+                        )
+                    }()
                     radioView.layer.cornerRadius = (size.selectionSize / 2)
                     
                     radioViewWidthConstraint.constant = size.selectionSize

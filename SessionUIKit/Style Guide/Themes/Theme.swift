@@ -136,6 +136,9 @@ public indirect enum ThemeValue: Hashable {
     case radioButton_unselectedBackground
     case radioButton_selectedBorder
     case radioButton_unselectedBorder
+    case radioButton_disabledSelectedBackground
+    case radioButton_disabledUnselectedBackground
+    case radioButton_disabledBorder
     
     // SessionButton
     case sessionButton_text

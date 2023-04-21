@@ -48,6 +48,9 @@ internal enum Theme_OceanDark: ThemeColors {
         .radioButton_unselectedBackground: .clear,
         .radioButton_selectedBorder: .oceanDark7,
         .radioButton_unselectedBorder: .oceanDark7,
+        .radioButton_disabledSelectedBackground: .disabledDark,
+        .radioButton_disabledUnselectedBackground: .clear,
+        .radioButton_disabledBorder: .disabledDark,
         
         // SessionButton
         .sessionButton_text: .primary,
