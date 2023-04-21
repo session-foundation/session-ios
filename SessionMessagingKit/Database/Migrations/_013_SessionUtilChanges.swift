@@ -217,8 +217,10 @@ enum _013_SessionUtilChanges: Migration {
         /// **Note:** Since migrations are run when running tests creating a random SessionThread will result in unexpected thread
         /// counts so don't do this when running tests (this logic is the same as in `MainAppContext.isRunningTests`
         if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
-            try SessionThread
-                .fetchOrCreate(db, id: userPublicKey, variant: .contact, shouldBeVisible: false)
+            if (try SessionThread.exists(db, id: userPublicKey)) == false {
+                try SessionThread
+                    .fetchOrCreate(db, id: userPublicKey, variant: .contact, shouldBeVisible: false)
+            }
         }
         
         Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
