@@ -229,24 +229,14 @@ public extension Profile {
     ///
     /// **Note:** This method intentionally does **not** save the newly created Profile,
     /// it will need to be explicitly saved after calling
-    static func fetchOrCreateCurrentUser() -> Profile {
-        var userPublicKey: String = ""
-        
-        let exisingProfile: Profile? = Storage.shared.read { db in
-            userPublicKey = getUserHexEncodedPublicKey(db)
-            
-            return try Profile.fetchOne(db, id: userPublicKey)
-        }
-        
-        return (exisingProfile ?? defaultFor(userPublicKey))
-    }
-    
-    /// Fetches or creates a Profile for the current user
-    ///
-    /// **Note:** This method intentionally does **not** save the newly created Profile,
-    /// it will need to be explicitly saved after calling
-    static func fetchOrCreateCurrentUser(_ db: Database) -> Profile {
+    static func fetchOrCreateCurrentUser(_ db: Database? = nil) -> Profile {
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        
+        guard let db: Database = db else {
+            return Storage.shared
+                .read { db in fetchOrCreateCurrentUser(db) }
+                .defaulting(to: defaultFor(userPublicKey))
+        }
         
         return (
             (try? Profile.fetchOne(db, id: userPublicKey)) ??

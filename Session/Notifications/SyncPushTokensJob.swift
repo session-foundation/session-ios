@@ -24,12 +24,7 @@ public enum SyncPushTokensJob: JobExecutor {
         // Don't run when inactive or not in main app or if the user doesn't exist yet
         guard
             (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false),
-            Identity.userExists(),
-            // If we have no display name then the user will be asked to enter one (this
-            // can happen if the app crashed during onboarding which would leave the user
-            // in an invalid state with no display name - the user is likely going to be
-            // taken to the PN registration screen next which will re-trigger this job)
-            !Profile.fetchOrCreateCurrentUser().name.isEmpty
+            Identity.userCompletedRequiredOnboarding()
         else {
             deferred(job) // Don't need to do anything if it's not the main app
             return

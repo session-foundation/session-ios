@@ -103,6 +103,16 @@ NS_ASSUME_NONNULL_BEGIN
     [self.appDidBecomeReadyBlocks addObject:block];
 }
 
++ (void)invalidate
+{
+    [self.sharedManager invalidate];
+}
+
+- (void)invalidate
+{
+    self.isAppReady = NO;
+}
+
 + (void)setAppIsReady
 {
     [self.sharedManager setAppIsReady];

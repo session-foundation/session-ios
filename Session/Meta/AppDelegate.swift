@@ -19,6 +19,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     var hasInitialRootViewController: Bool = false
     private var loadingViewController: LoadingViewController?
     
+    enum LifecycleMethod {
+        case finishLaunching
+        case enterForeground
+    }
+    
     /// This needs to be a lazy variable to ensure it doesn't get initialized before it actually needs to be used
     lazy var poller: CurrentUserPoller = CurrentUserPoller()
     
@@ -69,11 +74,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             },
             migrationsCompletion: { [weak self] result, needsConfigSync in
                 if case .failure(let error) = result {
-                    self?.showFailedMigrationAlert(error: error)
+                    self?.showFailedMigrationAlert(calledFrom: .finishLaunching, error: error)
                     return
                 }
                 
-                self?.completePostMigrationSetup(needsConfigSync: needsConfigSync)
+                self?.completePostMigrationSetup(calledFrom: .finishLaunching, needsConfigSync: needsConfigSync)
             }
         )
         
@@ -126,6 +131,28 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         // Resume database
         NotificationCenter.default.post(name: Database.resumeNotification, object: self)
+        
+        // If we've already completed migrations at least once this launch then check
+        // to see if any "delayed" migrations now need to run
+        if Storage.shared.hasCompletedMigrations {
+            AppReadiness.invalidate()
+            AppSetup.runPostSetupMigrations(
+                migrationProgressChanged: { [weak self] progress, minEstimatedTotalTime in
+                    self?.loadingViewController?.updateProgress(
+                        progress: progress,
+                        minEstimatedTotalTime: minEstimatedTotalTime
+                    )
+                },
+                migrationsCompletion: { [weak self] result, needsConfigSync in
+                    if case .failure(let error) = result {
+                        self?.showFailedMigrationAlert(calledFrom: .enterForeground, error: error)
+                        return
+                    }
+                    
+                    self?.completePostMigrationSetup(calledFrom: .enterForeground, needsConfigSync: needsConfigSync)
+                }
+            )
+        }
     }
     
     func applicationDidEnterBackground(_ application: UIApplication) {
@@ -250,7 +277,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     // MARK: - App Readiness
     
-    private func completePostMigrationSetup(needsConfigSync: Bool) {
+    private func completePostMigrationSetup(calledFrom lifecycleMethod: LifecycleMethod, needsConfigSync: Bool) {
         Configuration.performMainSetup()
         JobRunner.add(executor: SyncPushTokensJob.self, for: .syncPushTokens)
         
@@ -268,7 +295,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         self.ensureRootViewController(isPreAppReadyCall: true)
         
         // Trigger any launch-specific jobs and start the JobRunner
-        JobRunner.appDidFinishLaunching()
+        if lifecycleMethod == .finishLaunching {
+            JobRunner.appDidFinishLaunching()
+        }
         
         // Note that this does much more than set a flag;
         // it will also run all deferred blocks (including the JobRunner
@@ -285,7 +314,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             // at least once in the post-SAE world.
             db[.isReadyForAppExtensions] = true
             
-            if Identity.userExists(db) {
+            if Identity.userCompletedRequiredOnboarding(db) {
                 let appVersion: AppVersion = AppVersion.sharedInstance()
                 
                 // If the device needs to sync config or the user updated to a new version
@@ -301,7 +330,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
     }
     
-    private func showFailedMigrationAlert(error: Error?) {
+    private func showFailedMigrationAlert(calledFrom lifecycleMethod: LifecycleMethod, error: Error?) {
         let alert = UIAlertController(
             title: "Session",
             message: "DATABASE_MIGRATION_FAILED".localized(),
@@ -309,7 +338,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         )
         alert.addAction(UIAlertAction(title: "HELP_REPORT_BUG_ACTION_TITLE".localized(), style: .default) { _ in
             HelpViewModel.shareLogs(viewControllerToDismiss: alert) { [weak self] in
-                self?.showFailedMigrationAlert(error: error)
+                self?.showFailedMigrationAlert(calledFrom: lifecycleMethod, error: error)
             }
         })
         alert.addAction(UIAlertAction(title: "vc_restore_title".localized(), style: .destructive) { _ in
@@ -330,11 +359,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 },
                 migrationsCompletion: { [weak self] result, needsConfigSync in
                     if case .failure(let error) = result {
-                        self?.showFailedMigrationAlert(error: error)
+                        self?.showFailedMigrationAlert(calledFrom: lifecycleMethod, error: error)
                         return
                     }
                     
-                    self?.completePostMigrationSetup(needsConfigSync: needsConfigSync)
+                    self?.completePostMigrationSetup(calledFrom: lifecycleMethod, needsConfigSync: needsConfigSync)
                 }
             )
         })
@@ -497,7 +526,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     func application(_ application: UIApplication, performActionFor shortcutItem: UIApplicationShortcutItem, completionHandler: @escaping (Bool) -> Void) {
         AppReadiness.runNowOrWhenAppDidBecomeReady {
-            guard Identity.userExists() else { return }
+            guard Identity.userCompletedRequiredOnboarding() else { return }
             
             SessionApp.homeViewController.wrappedValue?.createNewConversation()
             completionHandler(true)
@@ -662,7 +691,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     func syncConfigurationIfNeeded() {
         // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard !Features.useSharedUtilForUserConfig else { return }
+        guard !SessionUtil.userConfigsEnabled else { return }
         
         let lastSync: Date = (UserDefaults.standard[.lastConfigurationSync] ?? .distantPast)
         

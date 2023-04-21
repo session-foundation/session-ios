@@ -22,9 +22,15 @@ open class Storage {
         return true
     }
     
+    private let migrationsCompleted: Atomic<Bool> = Atomic(false)
+    internal let internalCurrentlyRunningMigration: Atomic<(identifier: TargetMigrations.Identifier, migration: Migration.Type)?> = Atomic(nil)
+    
     public static let shared: Storage = Storage()
     public private(set) var isValid: Bool = false
-    public private(set) var hasCompletedMigrations: Bool = false
+    public var hasCompletedMigrations: Bool { migrationsCompleted.wrappedValue }
+    public var currentlyRunningMigration: (identifier: TargetMigrations.Identifier, migration: Migration.Type)? {
+        internalCurrentlyRunningMigration.wrappedValue
+    }
     public static let defaultPublisherScheduler: ValueObservationScheduler = .async(onQueue: .main)
     
     fileprivate var dbWriter: DatabaseWriter?
@@ -186,7 +192,7 @@ open class Storage {
         
         // Store the logic to run when the migration completes
         let migrationCompleted: (Swift.Result<Void, Error>) -> () = { [weak self] result in
-            self?.hasCompletedMigrations = true
+            self?.migrationsCompleted.mutate { $0 = true }
             self?.migrationProgressUpdater = nil
             SUKLegacy.clearLegacyDatabaseInstance()
             
@@ -195,6 +201,12 @@ open class Storage {
             }
             
             onComplete(result, needsConfigSync)
+        }
+        
+        // Update the 'migrationsCompleted' state (since we not support running migrations when
+        // returning from the background it's possible for this flag to transition back to false)
+        if unperformedMigrations.isEmpty {
+            self.migrationsCompleted.mutate { $0 = false }
         }
         
         // Note: The non-async migration should only be used for unit tests
@@ -303,7 +315,7 @@ open class Storage {
         try? SUKLegacy.deleteLegacyDatabaseFilesAndKey()
         
         Storage.shared.isValid = false
-        Storage.shared.hasCompletedMigrations = false
+        Storage.shared.migrationsCompleted.mutate { $0 = false }
         Storage.shared.dbWriter = nil
         
         self.deleteDatabaseFiles()

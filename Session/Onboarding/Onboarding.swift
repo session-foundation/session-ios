@@ -10,7 +10,7 @@ import SessionMessagingKit
 enum Onboarding {
     private static let profileNameRetrievalPublisher: Atomic<AnyPublisher<String?, Error>> = {
         // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard Features.useSharedUtilForUserConfig else {
+        guard SessionUtil.userConfigsEnabled else {
             return Atomic(
                 Just(nil)
                     .setFailureType(to: Error.self)
@@ -39,7 +39,7 @@ enum Onboarding {
                         )
                         .tryFlatMap { receivedMessageTypes -> AnyPublisher<Void, Error> in
                             // FIXME: Remove this entire 'tryFlatMap' once the updated user config has been released for long enough
-                            guard !receivedMessageTypes.isEmpty else {
+                            guard receivedMessageTypes.isEmpty else {
                                 return Just(())
                                     .setFailureType(to: Error.self)
                                     .eraseToAnyPublisher()
@@ -149,9 +149,19 @@ enum Onboarding {
                         Contact.Columns.didApproveMe.set(to: true)
                     )
 
-                // Create the 'Note to Self' thread (not visible by default)
+                /// Create the 'Note to Self' thread (not visible by default)
+                ///
+                /// **Note:** We need to explicitly `updateAllAndConfig` the `shouldBeVisible` value to `false`
+                /// otherwise it won't actually get synced correctly
                 try SessionThread
                     .fetchOrCreate(db, id: x25519PublicKey, variant: .contact, shouldBeVisible: false)
+                
+                try SessionThread
+                    .filter(id: x25519PublicKey)
+                    .updateAllAndConfig(
+                        db,
+                        SessionThread.Columns.shouldBeVisible.set(to: false)
+                    )
             }
             
             // Set hasSyncedInitialConfiguration to true so that when we hit the

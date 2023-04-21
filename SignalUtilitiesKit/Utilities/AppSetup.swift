@@ -7,16 +7,16 @@ import SessionUtilitiesKit
 import SessionUIKit
 
 public enum AppSetup {
-    private static var hasRun: Bool = false
+    private static let hasRun: Atomic<Bool> = Atomic(false)
     
     public static func setupEnvironment(
         appSpecificBlock: @escaping () -> (),
         migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
         migrationsCompletion: @escaping (Result<Void, Error>, Bool) -> ()
     ) {
-        guard !AppSetup.hasRun else { return }
+        guard !AppSetup.hasRun.wrappedValue else { return }
         
-        AppSetup.hasRun = true
+        AppSetup.hasRun.mutate { $0 = true }
         
         var backgroundTask: OWSBackgroundTask? = OWSBackgroundTask(labelStr: #function)
         
@@ -83,6 +83,12 @@ public enum AppSetup {
                         ed25519SecretKey: Identity.fetchUserEd25519KeyPair()?.secretKey
                     )
                 }
+                
+                // Refresh the migration state for 'SessionUtil' so it's logic can start running
+                // correctly when called (doing this here instead of automatically via the
+                // `SessionUtil.userConfigsEnabled` property to avoid having to use the correct
+                // method when calling within a database read/write closure)
+                Storage.shared.read { db in SessionUtil.refreshingUserConfigsEnabled(db) }
                 
                 DispatchQueue.main.async {
                     migrationsCompletion(result, (needsConfigSync || SessionUtil.needsSync))

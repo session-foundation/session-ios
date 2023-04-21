@@ -282,7 +282,8 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         if Identity.userExists(), let appDelegate: AppDelegate = UIApplication.shared.delegate as? AppDelegate {
             appDelegate.startPollersIfNeeded()
             
-            if !Features.useSharedUtilForUserConfig {
+            // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
+            if !SessionUtil.userConfigsEnabled {
                 // Do this only if we created a new Session ID, or if we already received the initial configuration message
                 if UserDefaults.standard[.hasSyncedInitialConfiguration] {
                     appDelegate.syncConfigurationIfNeeded()

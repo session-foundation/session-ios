@@ -32,6 +32,7 @@ public enum SNMessagingKit { // Just to make the external API nice
                     _013_SessionUtilChanges.self,
                     // Wait until the feature is turned on before doing the migration that generates
                     // the config dump data
+                    // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
                     (Features.useSharedUtilForUserConfig ?
                         _014_GenerateInitialUserConfigDumps.self :
                         (nil as Migration.Type?)

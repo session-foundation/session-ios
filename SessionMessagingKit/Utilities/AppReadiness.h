@@ -15,7 +15,8 @@ typedef void (^AppReadyBlock)(void);
 // This method can be called on any thread.
 + (BOOL)isAppReady;
 
-// This method should only be called on the main thread.
+// These methods should only be called on the main thread.
++ (void)invalidate;
 + (void)setAppIsReady;
 
 // If the app is ready, the block is called immediately;

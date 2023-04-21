@@ -16,9 +16,12 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
     
     static func migrate(_ db: Database) throws {
         // If we have no ed25519 key then there is no need to create cached dump data
-        guard let secretKey: [UInt8] = Identity.fetchUserEd25519KeyPair(db)?.secretKey else { return }
+        guard let secretKey: [UInt8] = Identity.fetchUserEd25519KeyPair(db)?.secretKey else {
+            Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
+            return
+        }
         
-        // Load the initial config state if needed
+        // Create the initial config state
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         
         SessionUtil.loadState(db, userPublicKey: userPublicKey, ed25519SecretKey: secretKey)

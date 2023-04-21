@@ -20,10 +20,10 @@ public enum ConfigurationSyncJob: JobExecutor {
         failure: @escaping (Job, Error?, Bool) -> (),
         deferred: @escaping (Job) -> ()
     ) {
-        guard Features.useSharedUtilForUserConfig else {
-            success(job, true)
-            return
-        }
+        guard
+            SessionUtil.userConfigsEnabled,
+            Identity.userCompletedRequiredOnboarding()
+        else { return success(job, true) }
         
         // On startup it's possible for multiple ConfigSyncJob's to run at the same time (which is
         // redundant) so check if there is another job already running and, if so, defer this job
@@ -175,14 +175,13 @@ public extension ConfigurationSyncJob {
         
     static func enqueue(_ db: Database, publicKey: String) {
         // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard Features.useSharedUtilForUserConfig else {
+        guard SessionUtil.userConfigsEnabled else {
             // If we don't have a userKeyPair (or name) yet then there is no need to sync the
             // configuration as the user doesn't fully exist yet (this will get triggered on
             // the first launch of a fresh install due to the migrations getting run and a few
             // times during onboarding)
             guard
-                Identity.userExists(db),
-                !Profile.fetchOrCreateCurrentUser(db).name.isEmpty,
+                Identity.userCompletedRequiredOnboarding(db),
                 let legacyConfigMessage: Message = try? ConfigurationMessage.getCurrent(db)
             else { return }
             
@@ -232,13 +231,13 @@ public extension ConfigurationSyncJob {
     
     static func run() -> AnyPublisher<Void, Error> {
         // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard Features.useSharedUtilForUserConfig else {
+        guard SessionUtil.userConfigsEnabled else {
             return Storage.shared
                 .writePublisher { db -> MessageSender.PreparedSendData in
                     // If we don't have a userKeyPair yet then there is no need to sync the configuration
                     // as the user doesn't exist yet (this will get triggered on the first launch of a
                     // fresh install due to the migrations getting run)
-                    guard Identity.userExists(db) else { throw StorageError.generic }
+                    guard Identity.userCompletedRequiredOnboarding(db) else { throw StorageError.generic }
                     
                     let publicKey: String = getUserHexEncodedPublicKey(db)
                     
