@@ -151,6 +151,9 @@ public extension UIContextualAction {
                                             title: "hide_note_to_self_confirmation_alert_title".localized(),
                                             attributedExplanation: confirmationModalExplanation,
                                             confirmTitle: "TXT_HIDE_TITLE".localized(),
+                                            confirmAccessibility: Accessibility(
+                                                identifier: "Hide"
+                                            ),
                                             confirmStyle: .danger,
                                             cancelStyle: .alert_text,
                                             dismissOnConfirm: true,
@@ -337,6 +340,9 @@ public extension UIContextualAction {
                                         info: ConfirmationModal.Info(
                                             title: "MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON".localized(),
                                             confirmTitle: "BLOCK_LIST_BLOCK_BUTTON".localized(),
+                                            confirmAccessibility: Accessibility(
+                                                identifier: "Block"
+                                            ),
                                             confirmStyle: .danger,
                                             cancelStyle: .alert_text,
                                             dismissOnConfirm: true,
@@ -398,6 +404,9 @@ public extension UIContextualAction {
                                     title: confirmationModalTitle,
                                     attributedExplanation: confirmationModalExplanation,
                                     confirmTitle: "LEAVE_BUTTON_TITLE".localized(),
+                                    confirmAccessibility: Accessibility(
+                                        identifier: "Leave"
+                                    ),
                                     confirmStyle: .danger,
                                     cancelStyle: .alert_text,
                                     dismissOnConfirm: true,
@@ -493,6 +502,9 @@ public extension UIContextualAction {
                                     title: confirmationModalTitle,
                                     attributedExplanation: confirmationModalExplanation,
                                     confirmTitle: "TXT_DELETE_TITLE".localized(),
+                                    confirmAccessibility: Accessibility(
+                                        identifier: "Delete"
+                                    ),
                                     confirmStyle: .danger,
                                     cancelStyle: .alert_text,
                                     dismissOnConfirm: true,

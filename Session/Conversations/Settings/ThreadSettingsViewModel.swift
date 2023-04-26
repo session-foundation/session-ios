@@ -285,7 +285,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 ),
                                 backgroundStyle: .noBackground
                             ),
-                            accessibility: SessionCell.Accessibility(
+                            accessibility: Accessibility(
                                 identifier: "Username",
                                 label: threadViewModel.displayName
                             ),
@@ -311,7 +311,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     ),
                                     backgroundStyle: .noBackground
                                 ),
-                                accessibility: SessionCell.Accessibility(
+                                accessibility: Accessibility(
                                     identifier: "Session ID",
                                     label: threadViewModel.id
                                 )
@@ -333,7 +333,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     "COPY_GROUP_URL".localized() :
                                     "vc_conversation_settings_copy_session_id_button_title".localized()
                                 ),
-                                accessibility: SessionCell.Accessibility(
+                                accessibility: Accessibility(
                                     identifier: "\(ThreadSettingsViewModel.self).copy_thread_id",
                                     label: "Copy Session ID"
                                 ),
@@ -371,7 +371,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     .withRenderingMode(.alwaysTemplate)
                             ),
                             title: MediaStrings.allMedia,
-                            accessibility: SessionCell.Accessibility(
+                            accessibility: Accessibility(
                                 identifier: "\(ThreadSettingsViewModel.self).all_media",
                                 label: "All media"
                             ),
@@ -393,7 +393,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     .withRenderingMode(.alwaysTemplate)
                             ),
                             title: "CONVERSATION_SETTINGS_SEARCH".localized(),
-                            accessibility: SessionCell.Accessibility(
+                            accessibility: Accessibility(
                                 identifier: "\(ThreadSettingsViewModel.self).search",
                                 label: "Search"
                             ),
@@ -410,7 +410,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
                                 title: "vc_conversation_settings_invite_button_title".localized(),
-                                accessibility: SessionCell.Accessibility(
+                                accessibility: Accessibility(
                                     identifier: "\(ThreadSettingsViewModel.self).add_to_open_group"
                                 ),
                                 onTap: { [weak self] in
@@ -439,7 +439,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                             "ic_timer_disabled"
                                         )
                                     )?.withRenderingMode(.alwaysTemplate),
-                                    accessibility: SessionCell.Accessibility(
+                                    accessibility: Accessibility(
                                         label: "Timer icon"
                                     )
                                 ),
@@ -451,7 +451,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     ) :
                                     "DISAPPEARING_MESSAGES_SUBTITLE_OFF".localized()
                                 ),
-                                accessibility: SessionCell.Accessibility(
+                                accessibility: Accessibility(
                                     identifier: "\(ThreadSettingsViewModel.self).disappearing_messages",
                                     label: "Disappearing messages"
                                 ),
@@ -477,7 +477,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
                                 title: "EDIT_GROUP_ACTION".localized(),
-                                accessibility: SessionCell.Accessibility(
+                                accessibility: Accessibility(
                                     identifier: "Edit group",
                                     label: "Edit group"
                                 ),
@@ -497,7 +497,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
                                 title: "LEAVE_GROUP_ACTION".localized(),
-                                accessibility: SessionCell.Accessibility(
+                                accessibility: Accessibility(
                                     identifier: "Leave group",
                                     label: "Leave group"
                                 ),
@@ -579,7 +579,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     ) ||
                                     currentUserIsClosedGroupMember
                                 ),
-                                accessibility: SessionCell.Accessibility(
+                                accessibility: Accessibility(
                                     identifier: "Mentions only notification setting",
                                     label: "Mentions only"
                                 ),
@@ -617,7 +617,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     ) ||
                                     currentUserIsClosedGroupMember
                                 ),
-                                accessibility: SessionCell.Accessibility(
+                                accessibility: Accessibility(
                                     identifier: "\(ThreadSettingsViewModel.self).mute",
                                     label: "Mute notifications"
                                 ),
@@ -656,7 +656,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 rightAccessory: .toggle(
                                     .boolValue(threadViewModel.threadIsBlocked == true)
                                 ),
-                                accessibility: SessionCell.Accessibility(
+                                accessibility: Accessibility(
                                     identifier: "\(ThreadSettingsViewModel.self).block",
                                     label: "Block"
                                 ),
@@ -682,7 +682,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                         "BLOCK_LIST_UNBLOCK_BUTTON".localized() :
                                         "BLOCK_LIST_BLOCK_BUTTON".localized()
                                     ),
-                                    confirmAccessibilityLabel: "Confirm block",
+                                    confirmAccessibility: Accessibility(identifier: "Confirm block"),
                                     confirmStyle: .danger,
                                     cancelStyle: .alert_text
                                 ),
@@ -820,10 +820,12 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 ) :
                                 nil
                             ),
-                            accessibilityLabel: oldBlockedState == false ? "User blocked" : "Confirm unblock",
-                            accessibilityId: "Test_name",
+                            accessibility: Accessibility(
+                                identifier: "Test_name",
+                                label: (oldBlockedState == false ? "User blocked" : "Confirm unblock")
+                            ),
                             cancelTitle: "BUTTON_OK".localized(),
-                            cancelAccessibilityLabel: "OK_BUTTON",
+                            cancelAccessibility: Accessibility(identifier: "OK_BUTTON"),
                             cancelStyle: .alert_text
                         )
                     )

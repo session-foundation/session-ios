@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import SessionUtilitiesKit
 
 public class ConfirmationModal: Modal {
     public struct Info: Equatable, Hashable {
@@ -21,14 +22,13 @@ public class ConfirmationModal: Modal {
         let title: String
         let explanation: String?
         let attributedExplanation: NSAttributedString?
-        let accessibilityLabel: String?
-        let accessibilityIdentifier: String?
+        let accessibility: Accessibility?
         public let stateToShow: State
         let confirmTitle: String?
-        let confirmAccessibilityLabel: String?
+        let confirmAccessibility: Accessibility?
         let confirmStyle: ThemeValue
         let cancelTitle: String
-        let cancelAccessibilityLabel: String?
+        let cancelAccessibility: Accessibility?
         let cancelStyle: ThemeValue
         let dismissOnConfirm: Bool
         let onConfirm: ((UIViewController) -> ())?
@@ -40,14 +40,15 @@ public class ConfirmationModal: Modal {
             title: String,
             explanation: String? = nil,
             attributedExplanation: NSAttributedString? = nil,
-            accessibilityLabel: String? = nil,
-            accessibilityId: String? = nil,
+            accessibility: Accessibility? = nil,
             stateToShow: State = .always,
             confirmTitle: String? = nil,
-            confirmAccessibilityLabel: String? = nil,
+            confirmAccessibility: Accessibility? = nil,
             confirmStyle: ThemeValue = .alert_text,
             cancelTitle: String = "TXT_CANCEL_TITLE".localized(),
-            cancelAccessibilityLabel: String? = nil,
+            cancelAccessibility: Accessibility? = Accessibility(
+                identifier: "Cancel"
+            ),
             cancelStyle: ThemeValue = .danger,
             dismissOnConfirm: Bool = true,
             onConfirm: ((UIViewController) -> ())? = nil,
@@ -56,14 +57,13 @@ public class ConfirmationModal: Modal {
             self.title = title
             self.explanation = explanation
             self.attributedExplanation = attributedExplanation
-            self.accessibilityLabel = accessibilityLabel
-            self.accessibilityIdentifier = accessibilityId
+            self.accessibility = accessibility
             self.stateToShow = stateToShow
             self.confirmTitle = confirmTitle
-            self.confirmAccessibilityLabel = confirmAccessibilityLabel
+            self.confirmAccessibility = confirmAccessibility
             self.confirmStyle = confirmStyle
             self.cancelTitle = cancelTitle
-            self.cancelAccessibilityLabel = cancelAccessibilityLabel
+            self.cancelAccessibility = cancelAccessibility
             self.cancelStyle = cancelStyle
             self.dismissOnConfirm = dismissOnConfirm
             self.onConfirm = onConfirm
@@ -80,13 +80,13 @@ public class ConfirmationModal: Modal {
                 title: self.title,
                 explanation: self.explanation,
                 attributedExplanation: self.attributedExplanation,
-                accessibilityLabel: self.accessibilityLabel,
+                accessibility: self.accessibility,
                 stateToShow: self.stateToShow,
                 confirmTitle: self.confirmTitle,
-                confirmAccessibilityLabel: self.confirmAccessibilityLabel,
+                confirmAccessibility: self.confirmAccessibility,
                 confirmStyle: self.confirmStyle,
                 cancelTitle: self.cancelTitle,
-                cancelAccessibilityLabel: self.cancelAccessibilityLabel,
+                cancelAccessibility: self.cancelAccessibility,
                 cancelStyle: self.cancelStyle,
                 dismissOnConfirm: self.dismissOnConfirm,
                 onConfirm: (onConfirm ?? self.onConfirm),
@@ -101,13 +101,13 @@ public class ConfirmationModal: Modal {
                 lhs.title == rhs.title &&
                 lhs.explanation == rhs.explanation &&
                 lhs.attributedExplanation == rhs.attributedExplanation &&
-                lhs.accessibilityLabel == rhs.accessibilityLabel &&
+                lhs.accessibility == rhs.accessibility &&
                 lhs.stateToShow == rhs.stateToShow &&
                 lhs.confirmTitle == rhs.confirmTitle &&
-                lhs.confirmAccessibilityLabel == rhs.confirmAccessibilityLabel &&
+                lhs.confirmAccessibility == rhs.confirmAccessibility &&
                 lhs.confirmStyle == rhs.confirmStyle &&
                 lhs.cancelTitle == rhs.cancelTitle &&
-                lhs.cancelAccessibilityLabel == rhs.cancelAccessibilityLabel &&
+                lhs.cancelAccessibility == rhs.cancelAccessibility &&
                 lhs.cancelStyle == rhs.cancelStyle &&
                 lhs.dismissOnConfirm == rhs.dismissOnConfirm
             )
@@ -117,13 +117,13 @@ public class ConfirmationModal: Modal {
             title.hash(into: &hasher)
             explanation.hash(into: &hasher)
             attributedExplanation.hash(into: &hasher)
-            accessibilityLabel.hash(into: &hasher)
+            accessibility.hash(into: &hasher)
             stateToShow.hash(into: &hasher)
             confirmTitle.hash(into: &hasher)
-            confirmAccessibilityLabel.hash(into: &hasher)
+            confirmAccessibility.hash(into: &hasher)
             confirmStyle.hash(into: &hasher)
             cancelTitle.hash(into: &hasher)
-            cancelAccessibilityLabel.hash(into: &hasher)
+            cancelAccessibility.hash(into: &hasher)
             cancelStyle.hash(into: &hasher)
             dismissOnConfirm.hash(into: &hasher)
         }
@@ -229,20 +229,20 @@ public class ConfirmationModal: Modal {
             info.explanation == nil &&
             info.attributedExplanation == nil
         )
-        confirmButton.accessibilityLabel = info.confirmAccessibilityLabel
-        confirmButton.accessibilityIdentifier = info.confirmAccessibilityLabel
+        confirmButton.accessibilityLabel = info.confirmAccessibility?.label
+        confirmButton.accessibilityIdentifier = info.confirmAccessibility?.identifier
         confirmButton.isAccessibilityElement = true
         confirmButton.setTitle(info.confirmTitle, for: .normal)
         confirmButton.setThemeTitleColor(info.confirmStyle, for: .normal)
         confirmButton.isHidden = (info.confirmTitle == nil)
-        cancelButton.accessibilityLabel = info.cancelAccessibilityLabel
-        cancelButton.accessibilityIdentifier = info.cancelAccessibilityLabel
+        cancelButton.accessibilityLabel = info.cancelAccessibility?.label
+        cancelButton.accessibilityIdentifier = info.cancelAccessibility?.identifier
         cancelButton.isAccessibilityElement = true
         cancelButton.setTitle(info.cancelTitle, for: .normal)
         cancelButton.setThemeTitleColor(info.cancelStyle, for: .normal)
         
-        self.contentView.accessibilityLabel = info.accessibilityLabel
-        self.contentView.accessibilityIdentifier = info.accessibilityIdentifier
+        contentView.accessibilityLabel = info.accessibility?.label
+        contentView.accessibilityIdentifier = info.accessibility?.identifier
     }
     
     required init?(coder: NSCoder) {

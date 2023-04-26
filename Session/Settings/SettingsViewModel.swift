@@ -254,7 +254,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                                 customPadding: SessionCell.Padding(bottom: Values.smallSpacing),
                                 backgroundStyle: .noBackground
                             ),
-                            accessibility: SessionCell.Accessibility(
+                            accessibility: Accessibility(
                                 label: "Profile picture"
                             ),
                             onTap: {
@@ -278,7 +278,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                                 customPadding: SessionCell.Padding(top: Values.smallSpacing),
                                 backgroundStyle: .noBackground
                             ),
-                            accessibility: SessionCell.Accessibility(
+                            accessibility: Accessibility(
                                 identifier: "Username",
                                 label: profile.displayName()
                             ),
@@ -301,7 +301,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                                 customPadding: SessionCell.Padding(bottom: Values.smallSpacing),
                                 backgroundStyle: .noBackground
                             ),
-                            accessibility: SessionCell.Accessibility(
+                            accessibility: Accessibility(
                                 identifier: "Session ID",
                                 label: profile.id
                             )

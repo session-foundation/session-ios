@@ -13,33 +13,33 @@ extension SessionCell {
             size: IconSize,
             customTint: ThemeValue?,
             shouldFill: Bool,
-            accessibility: SessionCell.Accessibility?
+            accessibility: Accessibility?
         )
         case iconAsync(
             size: IconSize,
             customTint: ThemeValue?,
             shouldFill: Bool,
-            accessibility: SessionCell.Accessibility?,
+            accessibility: Accessibility?,
             setter: (UIImageView) -> Void
         )
         case toggle(
             DataSource,
-            accessibility: SessionCell.Accessibility?
+            accessibility: Accessibility?
         )
         case dropDown(
             DataSource,
-            accessibility: SessionCell.Accessibility?
+            accessibility: Accessibility?
         )
         case radio(
             size: RadioSize,
             isSelected: () -> Bool,
             storedSelection: Bool,
-            accessibility: SessionCell.Accessibility?
+            accessibility: Accessibility?
         )
         
         case highlightingBackgroundLabel(
             title: String,
-            accessibility: SessionCell.Accessibility?
+            accessibility: Accessibility?
         )
         case profile(
             id: String,
@@ -49,18 +49,18 @@ extension SessionCell {
             profile: Profile?,
             additionalProfile: Profile?,
             cornerIcon: UIImage?,
-            accessibility: SessionCell.Accessibility?
+            accessibility: Accessibility?
         )
         
         case search(
             placeholder: String,
-            accessibility: SessionCell.Accessibility?,
+            accessibility: Accessibility?,
             searchTermChanged: (String?) -> Void
         )
         case button(
             style: SessionButton.Style,
             title: String,
-            accessibility: SessionCell.Accessibility?,
+            accessibility: Accessibility?,
             run: (SessionButton?) -> Void
         )
         case customView(
@@ -283,7 +283,7 @@ extension SessionCell.Accessory {
         return .icon(image, size: .medium, customTint: nil, shouldFill: shouldFill, accessibility: nil)
     }
     
-    public static func icon(_ image: UIImage?, accessibility: SessionCell.Accessibility) -> SessionCell.Accessory {
+    public static func icon(_ image: UIImage?, accessibility: Accessibility) -> SessionCell.Accessory {
         return .icon(image, size: .medium, customTint: nil, shouldFill: false, accessibility: accessibility)
     }
     

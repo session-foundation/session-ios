@@ -75,7 +75,7 @@ final class UserSelectionVC: BaseVC, UITableViewDataSource, UITableViewDelegate 
                     self?.selectedUsers.contains(profile.id) == true
                 }),
                 styling: SessionCell.StyleInfo(backgroundStyle: .edgeToEdge),
-                accessibility: SessionCell.Accessibility(identifier: "Contact")
+                accessibility: Accessibility(identifier: "Contact")
             )
         )
         

@@ -14,7 +14,7 @@ extension SessionCell {
         let rightAccessory: SessionCell.Accessory?
         let styling: StyleInfo
         let isEnabled: Bool
-        let accessibility: SessionCell.Accessibility?
+        let accessibility: Accessibility?
         let confirmationInfo: ConfirmationModal.Info?
         let onTap: (() -> Void)?
         let onTapView: ((UIView?) -> Void)?
@@ -37,7 +37,7 @@ extension SessionCell {
             rightAccessory: SessionCell.Accessory? = nil,
             styling: StyleInfo = StyleInfo(),
             isEnabled: Bool = true,
-            accessibility: SessionCell.Accessibility? = nil,
+            accessibility: Accessibility? = nil,
             confirmationInfo: ConfirmationModal.Info? = nil,
             onTap: (() -> Void)? = nil,
             onTapView: ((UIView?) -> Void)? = nil
@@ -119,7 +119,7 @@ public extension SessionCell.Info {
         accessory: SessionCell.Accessory,
         styling: SessionCell.StyleInfo = SessionCell.StyleInfo(),
         isEnabled: Bool = true,
-        accessibility: SessionCell.Accessibility? = nil,
+        accessibility: Accessibility? = nil,
         confirmationInfo: ConfirmationModal.Info? = nil,
         onTap: (() -> Void)? = nil
     ) {
@@ -146,7 +146,7 @@ public extension SessionCell.Info {
         rightAccessory: SessionCell.Accessory,
         styling: SessionCell.StyleInfo = SessionCell.StyleInfo(),
         isEnabled: Bool = true,
-        accessibility: SessionCell.Accessibility? = nil,
+        accessibility: Accessibility? = nil,
         confirmationInfo: ConfirmationModal.Info? = nil
     ) {
         self.id = id
@@ -173,7 +173,7 @@ public extension SessionCell.Info {
         rightAccessory: SessionCell.Accessory? = nil,
         styling: SessionCell.StyleInfo = SessionCell.StyleInfo(),
         isEnabled: Bool = true,
-        accessibility: SessionCell.Accessibility? = nil,
+        accessibility: Accessibility? = nil,
         confirmationInfo: ConfirmationModal.Info? = nil,
         onTap: (() -> Void)? = nil
     ) {
@@ -201,7 +201,7 @@ public extension SessionCell.Info {
         rightAccessory: SessionCell.Accessory? = nil,
         styling: SessionCell.StyleInfo = SessionCell.StyleInfo(),
         isEnabled: Bool = true,
-        accessibility: SessionCell.Accessibility? = nil,
+        accessibility: Accessibility? = nil,
         confirmationInfo: ConfirmationModal.Info? = nil,
         onTap: (() -> Void)? = nil
     ) {
@@ -230,7 +230,7 @@ public extension SessionCell.Info {
         rightAccessory: SessionCell.Accessory? = nil,
         styling: SessionCell.StyleInfo = SessionCell.StyleInfo(),
         isEnabled: Bool = true,
-        accessibility: SessionCell.Accessibility? = nil,
+        accessibility: Accessibility? = nil,
         confirmationInfo: ConfirmationModal.Info? = nil,
         onTap: (() -> Void)? = nil,
         onTapView: ((UIView?) -> Void)? = nil

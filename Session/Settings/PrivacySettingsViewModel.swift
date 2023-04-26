@@ -209,7 +209,7 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                             title: "PRIVACY_CALLS_TITLE".localized(),
                             subtitle: "PRIVACY_CALLS_DESCRIPTION".localized(),
                             rightAccessory: .toggle(.settingBool(key: .areCallsEnabled)),
-                            accessibility: SessionCell.Accessibility(
+                            accessibility: Accessibility(
                                 label: "Allow voice and video calls"
                             ),
                             confirmationInfo: ConfirmationModal.Info(
@@ -217,7 +217,7 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                                 explanation: "PRIVACY_CALLS_WARNING_DESCRIPTION".localized(),
                                 stateToShow: .whenDisabled,
                                 confirmTitle: "continue_2".localized(),
-                                confirmAccessibilityLabel: "Enable",
+                                confirmAccessibility: Accessibility(identifier: "Enable"),
                                 confirmStyle: .textPrimary,
                                 onConfirm: { _ in Permissions.requestMicrophonePermissionIfNeeded() }
                             ),

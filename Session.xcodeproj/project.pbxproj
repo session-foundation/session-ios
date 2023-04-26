@@ -688,7 +688,6 @@
 		FD71164628E2CC1300B47552 /* SessionHighlightingBackgroundLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD71164528E2CC1300B47552 /* SessionHighlightingBackgroundLabel.swift */; };
 		FD71164828E2CE8700B47552 /* SessionCell+AccessoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD71164728E2CE8700B47552 /* SessionCell+AccessoryView.swift */; };
 		FD71164A28E3EA5B00B47552 /* DismissType.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD71164928E3EA5B00B47552 /* DismissType.swift */; };
-		FD71164C28E3F5AA00B47552 /* SessionCell+Accessibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD71164B28E3F5AA00B47552 /* SessionCell+Accessibility.swift */; };
 		FD71164E28E3F8CC00B47552 /* SessionCell+Info.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD71164D28E3F8CC00B47552 /* SessionCell+Info.swift */; };
 		FD71165028E3F9FA00B47552 /* SessionTableViewModel+NavItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD71164F28E3F9FA00B47552 /* SessionTableViewModel+NavItem.swift */; };
 		FD71165228E410BE00B47552 /* SessionTableSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD71165128E410BE00B47552 /* SessionTableSection.swift */; };
@@ -822,6 +821,7 @@
 		FDDF074429C3E3D000E5E8B5 /* FetchRequest+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDF074329C3E3D000E5E8B5 /* FetchRequest+Utilities.swift */; };
 		FDE658A129418C7900A33BC1 /* CryptoKit+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE658A029418C7900A33BC1 /* CryptoKit+Utilities.swift */; };
 		FDE658A329418E2F00A33BC1 /* KeyPair.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE658A229418E2F00A33BC1 /* KeyPair.swift */; };
+		FDE6E99829F8E63A00F93C5D /* Accessibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE6E99729F8E63A00F93C5D /* Accessibility.swift */; };
 		FDE77F6B280FEB28002CFC5D /* ControlMessageProcessRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE77F6A280FEB28002CFC5D /* ControlMessageProcessRecord.swift */; };
 		FDED2E3C282E1B5D00B2CD2A /* UICollectionView+ReusableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDED2E3B282E1B5D00B2CD2A /* UICollectionView+ReusableView.swift */; };
 		FDF0B73C27FFD3D6004C14C5 /* LinkPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B73B27FFD3D6004C14C5 /* LinkPreview.swift */; };
@@ -1824,7 +1824,6 @@
 		FD71164528E2CC1300B47552 /* SessionHighlightingBackgroundLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionHighlightingBackgroundLabel.swift; sourceTree = "<group>"; };
 		FD71164728E2CE8700B47552 /* SessionCell+AccessoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionCell+AccessoryView.swift"; sourceTree = "<group>"; };
 		FD71164928E3EA5B00B47552 /* DismissType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DismissType.swift; sourceTree = "<group>"; };
-		FD71164B28E3F5AA00B47552 /* SessionCell+Accessibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionCell+Accessibility.swift"; sourceTree = "<group>"; };
 		FD71164D28E3F8CC00B47552 /* SessionCell+Info.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionCell+Info.swift"; sourceTree = "<group>"; };
 		FD71164F28E3F9FA00B47552 /* SessionTableViewModel+NavItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionTableViewModel+NavItem.swift"; sourceTree = "<group>"; };
 		FD71165128E410BE00B47552 /* SessionTableSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTableSection.swift; sourceTree = "<group>"; };
@@ -1954,6 +1953,7 @@
 		FDDF074329C3E3D000E5E8B5 /* FetchRequest+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FetchRequest+Utilities.swift"; sourceTree = "<group>"; };
 		FDE658A029418C7900A33BC1 /* CryptoKit+Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "CryptoKit+Utilities.swift"; sourceTree = "<group>"; };
 		FDE658A229418E2F00A33BC1 /* KeyPair.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = KeyPair.swift; sourceTree = "<group>"; };
+		FDE6E99729F8E63A00F93C5D /* Accessibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Accessibility.swift; sourceTree = "<group>"; };
 		FDE7214F287E50D50093DF33 /* ProtoWrappers.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = ProtoWrappers.py; sourceTree = "<group>"; };
 		FDE72150287E50D50093DF33 /* LintLocalizableStrings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LintLocalizableStrings.swift; sourceTree = "<group>"; };
 		FDE77F68280F9EDA002CFC5D /* JobRunnerError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobRunnerError.swift; sourceTree = "<group>"; };
@@ -3967,6 +3967,7 @@
 			children = (
 				FD71162B28E1451400B47552 /* Position.swift */,
 				FD71163128E2C42A00B47552 /* IconSize.swift */,
+				FDE6E99729F8E63A00F93C5D /* Accessibility.swift */,
 			);
 			path = Types;
 			sourceTree = "<group>";
@@ -3989,7 +3990,6 @@
 				FD71163328E2C48400B47552 /* TransitionType.swift */,
 				FD71164D28E3F8CC00B47552 /* SessionCell+Info.swift */,
 				FD71164328E2CB8A00B47552 /* SessionCell+Accessory.swift */,
-				FD71164B28E3F5AA00B47552 /* SessionCell+Accessibility.swift */,
 				FDF848F429413EEC007DCAE5 /* SessionCell+Styling.swift */,
 				FD71165128E410BE00B47552 /* SessionTableSection.swift */,
 				FD71164F28E3F9FA00B47552 /* SessionTableViewModel+NavItem.swift */,
@@ -5426,6 +5426,7 @@
 				C331FFE92558FB0000070591 /* Separator.swift in Sources */,
 				FD71163228E2C42A00B47552 /* IconSize.swift in Sources */,
 				C33100282559000A00070591 /* UIView+Utilities.swift in Sources */,
+				FDE6E99829F8E63A00F93C5D /* Accessibility.swift in Sources */,
 				FD37E9CA28A1E4BD003AE748 /* Theme+ClassicLight.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -5899,7 +5900,6 @@
 				B8CCF63723961D6D0091D419 /* NewDMVC.swift in Sources */,
 				FDFDE12A282D056B0098B17F /* MediaZoomAnimationController.swift in Sources */,
 				4C1885D2218F8E1C00B67051 /* PhotoGridViewCell.swift in Sources */,
-				FD71164C28E3F5AA00B47552 /* SessionCell+Accessibility.swift in Sources */,
 				34D1F0501F7D45A60066283D /* GifPickerCell.swift in Sources */,
 				7BFA8AE32831D0D4001876F3 /* ContextMenuVC+EmojiReactsView.swift in Sources */,
 				C3E5C2FA251DBABB0040DFFC /* EditClosedGroupVC.swift in Sources */,

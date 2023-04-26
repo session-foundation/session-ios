@@ -214,7 +214,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                     self?.selectedContacts.contains(profile.id) == true
                 }),
                 styling: SessionCell.StyleInfo(backgroundStyle: .edgeToEdge),
-                accessibility: SessionCell.Accessibility(
+                accessibility: Accessibility(
                     identifier: "Contact"
                 )
             )
