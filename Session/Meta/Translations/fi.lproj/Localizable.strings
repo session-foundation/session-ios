@@ -407,7 +407,6 @@
 "MESSAGE_REQUESTS_NOTIFICATION" = "Sinulla on uusi viestipyyntö";
 "TXT_HIDE_TITLE" = "Piilota";
 "TXT_DELETE_ACCEPT" = "Hyväksy";
-"TXT_DECLINE_TITLE" = "Decline";
 "TXT_BLOCK_USER_TITLE" = "Block User";
 "ALERT_ERROR_TITLE" = "Virhe";
 "modal_call_permission_request_title" = "Call Permissions Required";

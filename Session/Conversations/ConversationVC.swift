@@ -325,10 +325,10 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
 
     private lazy var messageRequestDeleteButton: UIButton = {
         let result: SessionButton = SessionButton(style: .destructive, size: .medium)
-        result.accessibilityLabel = "Decline message request"
+        result.accessibilityLabel = "Delete message request"
         result.isAccessibilityElement = true
         result.translatesAutoresizingMaskIntoConstraints = false
-        result.setTitle("TXT_DECLINE_TITLE".localized(), for: .normal)
+        result.setTitle("TXT_DELETE_TITLE".localized(), for: .normal)
         result.addTarget(self, action: #selector(deleteMessageRequest), for: .touchUpInside)
 
         return result

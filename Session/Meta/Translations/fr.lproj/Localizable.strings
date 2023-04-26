@@ -407,7 +407,6 @@
 "MESSAGE_REQUESTS_NOTIFICATION" = "Vous avez une nouvelle demande de message";
 "TXT_HIDE_TITLE" = "Masquer";
 "TXT_DELETE_ACCEPT" = "Accepter";
-"TXT_DECLINE_TITLE" = "Decline";
 "TXT_BLOCK_USER_TITLE" = "Block User";
 "ALERT_ERROR_TITLE" = "Erreur";
 "modal_call_permission_request_title" = "Autorisations d'appel requises";

@@ -407,7 +407,6 @@
 "MESSAGE_REQUESTS_NOTIFICATION" = "您有一个新的消息请求";
 "TXT_HIDE_TITLE" = "隐藏";
 "TXT_DELETE_ACCEPT" = "接受";
-"TXT_DECLINE_TITLE" = "Decline";
 "TXT_BLOCK_USER_TITLE" = "Block User";
 "ALERT_ERROR_TITLE" = "错误";
 "modal_call_permission_request_title" = "请授予通话权限";

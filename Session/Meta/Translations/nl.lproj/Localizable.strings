@@ -407,7 +407,6 @@
 "MESSAGE_REQUESTS_NOTIFICATION" = "You have a new message request";
 "TXT_HIDE_TITLE" = "Hide";
 "TXT_DELETE_ACCEPT" = "Accept";
-"TXT_DECLINE_TITLE" = "Decline";
 "TXT_BLOCK_USER_TITLE" = "Block User";
 "ALERT_ERROR_TITLE" = "Fout";
 "modal_call_permission_request_title" = "Call Permissions Required";

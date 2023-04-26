@@ -407,7 +407,6 @@
 "MESSAGE_REQUESTS_NOTIFICATION" = "新しいリクエストがあります";
 "TXT_HIDE_TITLE" = "非表示";
 "TXT_DELETE_ACCEPT" = "許可";
-"TXT_DECLINE_TITLE" = "Decline";
 "TXT_BLOCK_USER_TITLE" = "Block User";
 "ALERT_ERROR_TITLE" = "エラー";
 "modal_call_permission_request_title" = "許可が必要です";

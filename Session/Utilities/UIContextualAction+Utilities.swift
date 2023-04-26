@@ -503,7 +503,7 @@ public extension UIContextualAction {
                                     attributedExplanation: confirmationModalExplanation,
                                     confirmTitle: "TXT_DELETE_TITLE".localized(),
                                     confirmAccessibility: Accessibility(
-                                        identifier: "Delete"
+                                        identifier: "Confirm delete"
                                     ),
                                     confirmStyle: .danger,
                                     cancelStyle: .alert_text,
