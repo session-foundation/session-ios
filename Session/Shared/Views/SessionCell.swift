@@ -345,6 +345,8 @@ public class SessionCell: UITableViewCell {
         titleTextField.textAlignment = (info.title?.textAlignment ?? .left)
         titleTextField.placeholder = info.title?.editingPlaceholder
         titleTextField.isHidden = (info.title == nil)
+        titleTextField.accessibilityIdentifier = info.accessibility?.identifier
+        titleTextField.accessibilityLabel = info.accessibility?.label
         subtitleLabel.isUserInteractionEnabled = (info.subtitle?.interaction == .copy)
         subtitleLabel.font = info.subtitle?.font
         subtitleLabel.text = info.subtitle?.text

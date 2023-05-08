@@ -549,9 +549,10 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         if
             viewModel.threadData.threadIsNoteToSelf == false &&
             viewModel.threadData.threadShouldBeVisible == false &&
-            !SessionUtil.conversationVisibleInConfig(
+            !SessionUtil.conversationInConfig(
                 threadId: threadId,
-                threadVariant: viewModel.threadData.threadVariant
+                threadVariant: viewModel.threadData.threadVariant,
+                visibleOnly: true
             )
         {
             Storage.shared.writeAsync { db in

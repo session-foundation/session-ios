@@ -185,6 +185,13 @@ public enum MessageReceiver {
         associatedWithProto proto: SNProtoContent,
         dependencies: SMKDependencies = SMKDependencies()
     ) throws {
+        // Check if the message requires an existing conversation (if it does and the conversation isn't in
+        // the config then the message will be dropped)
+        guard
+            !Message.requiresExistingConversation(message: message, threadVariant: threadVariant) ||
+            SessionUtil.conversationInConfig(threadId: threadId, threadVariant: threadVariant, visibleOnly: false)
+        else { throw MessageReceiverError.requiredThreadNotInConfig }
+        
         switch message {
             case let message as ReadReceipt:
                 try MessageReceiver.handleReadReceipt(

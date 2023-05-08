@@ -298,9 +298,10 @@ internal extension SessionUtil {
 // MARK: - External Outgoing Changes
 
 public extension SessionUtil {
-    static func conversationVisibleInConfig(
+    static func conversationInConfig(
         threadId: String,
-        threadVariant: SessionThread.Variant
+        threadVariant: SessionThread.Variant,
+        visibleOnly: Bool
     ) -> Bool {
         // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
         guard SessionUtil.userConfigsEnabled else { return true }
@@ -327,7 +328,7 @@ public extension SessionUtil {
                         /// If the user opens a conversation with an existing contact but doesn't send them a message
                         /// then the one-to-one conversation should remain hidden so we want to delete the `SessionThread`
                         /// when leaving the conversation
-                        return SessionUtil.shouldBeVisible(priority: contact.priority)
+                        return (!visibleOnly || SessionUtil.shouldBeVisible(priority: contact.priority))
                         
                     case .community:
                         let maybeUrlInfo: OpenGroupUrlInfo? = Storage.shared

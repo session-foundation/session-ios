@@ -163,6 +163,26 @@ public extension Message {
             }
     }
     
+    static func requiresExistingConversation(message: Message, threadVariant: SessionThread.Variant) -> Bool {
+        switch threadVariant {
+            case .contact, .community: return false
+                
+            case .legacyGroup:
+                switch message {
+                    case let controlMessage as ClosedGroupControlMessage:
+                        switch controlMessage.kind {
+                            case .new: return false
+                            default: return true
+                        }
+                        
+                    default: return true
+                }
+                
+            case .group:
+                return false
+        }
+    }
+    
     static func shouldSync(message: Message) -> Bool {
         switch message {
             case is VisibleMessage: return true
