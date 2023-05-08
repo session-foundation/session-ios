@@ -45,6 +45,7 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
                     dependencies: dependencies,
                     threadId: "TestId",
                     threadVariant: .contact,
+                    currentUserIsClosedGroupMember: nil,
                     currentUserIsClosedGroupAdmin: nil,
                     config: DisappearingMessagesConfiguration.defaultWith("TestId")
                 )
@@ -114,6 +115,7 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
                     dependencies: dependencies,
                     threadId: "TestId",
                     threadVariant: .contact,
+                    currentUserIsClosedGroupMember: nil,
                     currentUserIsClosedGroupAdmin: nil,
                     config: config
                 )

@@ -8,7 +8,7 @@ extension MessageReceiver {
     internal static func handleExpirationTimerUpdate(_ db: Database, message: ExpirationTimerUpdate) throws {
         // Get the target thread
         guard
-            !DisappearingMessagesConfiguration.isNewConfigurationEnabled,
+            !Features.useNewDisappearingMessagesConfig,
             let targetId: String = MessageReceiver.threadInfo(db, message: message, openGroupId: nil)?.id,
             let sender: String = message.sender,
             let thread: SessionThread = try? SessionThread.fetchOne(db, id: targetId)
@@ -41,7 +41,7 @@ extension MessageReceiver {
             isEnabled: ((message.duration ?? 0) > 0),
             durationSeconds: (
                 message.duration.map { TimeInterval($0) } ??
-                DisappearingMessagesConfiguration.defaultDuration
+                DisappearingMessagesConfiguration.DisappearingMessageType.disappearAfterSend.defaultDuration
             ),
             type: defaultType
         )

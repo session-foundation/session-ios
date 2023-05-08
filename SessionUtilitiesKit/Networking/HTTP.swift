@@ -8,20 +8,24 @@ public enum HTTP {
     private static let snodeURLSessionDelegate = SnodeURLSessionDelegateImplementation()
 
     // MARK: Certificates
+    
+    /// **Note:** These certificates will need to be regenerated and replaced at the start of April 2025, iOS has a restriction after iOS 13
+    /// where certificates can have a maximum lifetime of 825 days (https://support.apple.com/en-au/HT210176) as a result we
+    /// can't use the 10 year certificates that the other platforms use
     private static let storageSeed1Cert: SecCertificate = {
-        let path = Bundle.main.path(forResource: "storage-seed-1", ofType: "der")!
+        let path = Bundle.main.path(forResource: "seed1-2023-2y", ofType: "der")!
         let data = try! Data(contentsOf: URL(fileURLWithPath: path))
         return SecCertificateCreateWithData(nil, data as CFData)!
     }()
-    
+
+    private static let storageSeed2Cert: SecCertificate = {
+        let path = Bundle.main.path(forResource: "seed2-2023-2y", ofType: "der")!
+        let data = try! Data(contentsOf: URL(fileURLWithPath: path))
+        return SecCertificateCreateWithData(nil, data as CFData)!
+    }()
+
     private static let storageSeed3Cert: SecCertificate = {
-        let path = Bundle.main.path(forResource: "storage-seed-3", ofType: "der")!
-        let data = try! Data(contentsOf: URL(fileURLWithPath: path))
-        return SecCertificateCreateWithData(nil, data as CFData)!
-    }()
-    
-    private static let publicLokiFoundationCert: SecCertificate = {
-        let path = Bundle.main.path(forResource: "public-loki-foundation", ofType: "der")!
+        let path = Bundle.main.path(forResource: "seed3-2023-2y", ofType: "der")!
         let data = try! Data(contentsOf: URL(fileURLWithPath: path))
         return SecCertificateCreateWithData(nil, data as CFData)!
     }()
@@ -37,24 +41,51 @@ public enum HTTP {
                 return completionHandler(.cancelAuthenticationChallenge, nil)
             }
             // Mark the seed node certificates as trusted
-            let certificates = [ storageSeed1Cert, storageSeed3Cert, publicLokiFoundationCert ]
+            let certificates = [ storageSeed1Cert, storageSeed2Cert, storageSeed3Cert ]
             guard SecTrustSetAnchorCertificates(trust, certificates as CFArray) == errSecSuccess else {
+                SNLog("Failed to set seed node certificates.")
                 return completionHandler(.cancelAuthenticationChallenge, nil)
             }
+            
             // Check that the presented certificate is one of the seed node certificates
-            var result: SecTrustResultType = .invalid
-            guard SecTrustEvaluate(trust, &result) == errSecSuccess else {
-                return completionHandler(.cancelAuthenticationChallenge, nil)
+            var error: CFError?
+            guard SecTrustEvaluateWithError(trust, &error) else {
+                // Extract the result for further processing (since we are defaulting to `invalid` we
+                // don't care if extracting the result type fails)
+                var result: SecTrustResultType = .invalid
+                _ = SecTrustGetTrustResult(trust, &result)
+                
+                switch result {
+                    case .proceed, .unspecified:
+                        /// Unspecified indicates that evaluation reached an (implicitly trusted) anchor certificate without any evaluation
+                        /// failures, but never encountered any explicitly stated user-trust preference. This is the most common return
+                        /// value. The Keychain Access utility refers to this value as the "Use System Policy," which is the default user setting.
+                        return completionHandler(.useCredential, URLCredential(trust: trust))
+                    
+                    case .recoverableTrustFailure:
+                        /// A recoverable failure generally suggests that the certificate was mostly valid but something minor didn't line up,
+                        /// while we don't want to recover in this case it's probably a good idea to include the reason in the logs to simplify
+                        /// debugging if it does end up happening
+                        let reason: String = {
+                            guard
+                                let validationResult: [String: Any] = SecTrustCopyResult(trust) as? [String: Any],
+                                let details: [String: Any] = (validationResult["TrustResultDetails"] as? [[String: Any]])?
+                                    .reduce(into: [:], { result, next in next.forEach { result[$0.key] = $0.value } })
+                            else { return "Unknown" }
+
+                            return "\(details)"
+                        }()
+                        
+                        SNLog("Failed to validate a seed certificate with a recoverable error: \(reason)")
+                        return completionHandler(.cancelAuthenticationChallenge, nil)
+                        
+                    default:
+                        SNLog("Failed to validate a seed certificate with an unrecoverable error.")
+                        return completionHandler(.cancelAuthenticationChallenge, nil)
+                }
             }
-            switch result {
-            case .proceed, .unspecified:
-                // Unspecified indicates that evaluation reached an (implicitly trusted) anchor certificate without
-                // any evaluation failures, but never encountered any explicitly stated user-trust preference. This
-                // is the most common return value. The Keychain Access utility refers to this value as the "Use System
-                // Policy," which is the default user setting.
-                return completionHandler(.useCredential, URLCredential(trust: trust))
-            default: return completionHandler(.cancelAuthenticationChallenge, nil)
-            }
+            
+            return completionHandler(.useCredential, URLCredential(trust: trust))
         }
     }
     

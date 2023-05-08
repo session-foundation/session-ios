@@ -1083,7 +1083,11 @@ public final class OpenGroupManager: NSObject {
     }
     
     public static func parseOpenGroup(from string: String) -> (room: String, server: String, publicKey: String)? {
-        guard let url = URL(string: string), let host = url.host ?? given(string.split(separator: "/").first, { String($0) }), let query = url.query else { return nil }
+        guard
+            let url = URL(string: string),
+            let host = (url.host ?? string.split(separator: "/").first.map({ String($0) })),
+            let query = url.query
+        else { return nil }
         // Inputs that should work:
         // https://sessionopengroup.co/r/main?public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c
         // https://sessionopengroup.co/main?public_key=658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c

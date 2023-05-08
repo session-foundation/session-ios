@@ -29,13 +29,13 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
     /// Whenever using this `linkPreview` association make sure to filter the result using
     /// `.filter(literal: Interaction.linkPreviewFilterLiteral)` to ensure the correct LinkPreview is returned
     public static let linkPreview = hasOne(LinkPreview.self, using: LinkPreview.interactionForeignKey)
-    public static func linkPreviewFilterLiteral(
-        timestampColumn: SQL = SQL(stringLiteral: Interaction.Columns.timestampMs.name)
-    ) -> SQL {
+    public static var linkPreviewFilterLiteral: SQL = {
+        let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
         let linkPreview: TypedTableAlias<LinkPreview> = TypedTableAlias()
-        
-        return "(ROUND((\(Interaction.self).\(timestampColumn) / 1000 / 100000) - 0.5) * 100000) = \(linkPreview[.timestamp])"
-    }
+        let halfResolution: Double = LinkPreview.timstampResolution
+
+        return "(\(interaction[.timestampMs]) BETWEEN (\(linkPreview[.timestamp]) - \(halfResolution)) AND (\(linkPreview[.timestamp]) + \(halfResolution)))"
+    }()
     public static let recipientStates = hasMany(RecipientState.self, using: RecipientState.interactionForeignKey)
     
     public typealias Columns = CodingKeys
@@ -73,6 +73,8 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         case infoClosedGroupCreated = 1000
         case infoClosedGroupUpdated
         case infoClosedGroupCurrentUserLeft
+        case infoClosedGroupCurrentUserErrorLeaving
+        case infoClosedGroupCurrentUserLeaving
         
         case infoDisappearingMessagesUpdate = 2000
         
@@ -88,12 +90,32 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         
         public var isInfoMessage: Bool {
             switch self {
-                case .infoClosedGroupCreated, .infoClosedGroupUpdated, .infoClosedGroupCurrentUserLeft,
+                case .infoClosedGroupCreated, .infoClosedGroupUpdated,
+                    .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving,
                     .infoDisappearingMessagesUpdate, .infoScreenshotNotification, .infoMediaSavedNotification,
                     .infoMessageRequestAccepted, .infoCall:
                     return true
                     
                 case .standardIncoming, .standardOutgoing, .standardIncomingDeleted:
+                    return false
+            }
+        }
+        
+        public var isGroupControlMessage: Bool {
+            switch self {
+                case .infoClosedGroupCreated, .infoClosedGroupUpdated,
+                    .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving:
+                    return true
+                default:
+                    return false
+            }
+        }
+        
+        public var isGroupLeavingStatus: Bool {
+            switch self {
+                case .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving:
+                    return true
+                default:
                     return false
             }
         }
@@ -104,11 +126,16 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
             switch self {
                 case .standardIncoming: return true
                 case .infoCall: return true
-                case .infoDisappearingMessagesUpdate, .infoScreenshotNotification, .infoMediaSavedNotification: return true // Won't be count as unread messages
+
+                case .infoDisappearingMessagesUpdate, .infoScreenshotNotification, .infoMediaSavedNotification:
+                    /// These won't be counted as unread messages but need to be able to be in an unread state so that they can disappear
+                    /// after being read (if we don't do this their expiration timer will start immediately when received)
+                    return true
                 
                 case .standardOutgoing, .standardIncomingDeleted: return false
                 
-                case .infoClosedGroupCreated, .infoClosedGroupUpdated, .infoClosedGroupCurrentUserLeft,
+                case .infoClosedGroupCreated, .infoClosedGroupUpdated,
+                    .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving,
                     .infoMessageRequestAccepted:
                     return false
             }
@@ -240,10 +267,14 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
 
     public var linkPreview: QueryInterfaceRequest<LinkPreview> {
         /// **Note:** This equation **MUST** match the `linkPreviewFilterLiteral` logic
+        let halfResolution: Double = LinkPreview.timstampResolution
         let roundedTimestamp: Double = (round(((Double(timestampMs) / 1000) / 100000) - 0.5) * 100000)
         
         return request(for: Interaction.linkPreview)
-            .filter(LinkPreview.Columns.timestamp == roundedTimestamp)
+            .filter(
+                (Interaction.Columns.timestampMs >= (LinkPreview.Columns.timestamp - halfResolution)) &&
+                (Interaction.Columns.timestampMs <= (LinkPreview.Columns.timestamp + halfResolution))
+            )
     }
     
     public var recipientStates: QueryInterfaceRequest<RecipientState> {
@@ -884,6 +915,8 @@ public extension Interaction {
                 
             case .infoClosedGroupCreated: return "GROUP_CREATED".localized()
             case .infoClosedGroupCurrentUserLeft: return "GROUP_YOU_LEFT".localized()
+            case .infoClosedGroupCurrentUserLeaving: return "group_you_leaving".localized()
+            case .infoClosedGroupCurrentUserErrorLeaving: return "group_unable_to_leave".localized()
             case .infoClosedGroupUpdated: return (body ?? "GROUP_UPDATED".localized())
             case .infoMessageRequestAccepted: return (body ?? "MESSAGE_REQUESTS_ACCEPTED".localized())
             

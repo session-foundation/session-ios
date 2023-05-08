@@ -71,9 +71,11 @@ extension ConversationVC:
                 openSettings()
                 break
             case .disappearingMessageSetting:
-                let viewController = SessionTableViewController(viewModel: ThreadDisappearingMessagesViewModel(
+                let viewController = SessionTableViewController(
+                    viewModel: ThreadDisappearingMessagesViewModel(
                         threadId: self.viewModel.threadData.threadId,
                         threadVariant: self.viewModel.threadData.threadVariant,
+                        currentUserIsClosedGroupMember: self.viewModel.threadData.currentUserIsClosedGroupMember,
                         currentUserIsClosedGroupAdmin: self.viewModel.threadData.currentUserIsClosedGroupAdmin,
                         config: self.viewModel.threadData.disappearingMessagesConfiguration!
                     )
@@ -701,6 +703,10 @@ extension ConversationVC:
     }
     
     func inputTextViewDidChangeContent(_ inputTextView: InputTextView) {
+        // Note: If there is a 'draft' message then we don't want it to trigger the typing indicator to
+        // appear (as that is not expected/correct behaviour)
+        guard !viewIsAppearing else { return }
+        
         let newText: String = (inputTextView.text ?? "")
         
         if !newText.isEmpty {
@@ -1636,6 +1642,17 @@ extension ConversationVC:
     
     // MARK: - ContextMenuActionDelegate
     
+    func info(_ cellViewModel: MessageViewModel) {
+        let mediaInfoVC = MediaInfoVC(
+            attachments: (cellViewModel.attachments ?? []),
+            isOutgoing: (cellViewModel.variant == .standardOutgoing),
+            threadId: self.viewModel.threadData.threadId,
+            threadVariant: self.viewModel.threadData.threadVariant,
+            interactionId: cellViewModel.id
+        )
+        navigationController?.pushViewController(mediaInfoVC, animated: true)
+    }
+
     func retry(_ cellViewModel: MessageViewModel) {
         Storage.shared.writeAsync { [weak self] db in
             guard
@@ -1651,7 +1668,19 @@ extension ConversationVC:
                 quotedAttachment.downloadUrl == Attachment.nonMediaQuoteFileId,
                 let quotedInteraction = try? quote.originalInteraction.fetchOne(db)
             {
-                let attachment = try? quotedInteraction.attachments.fetchAll(db).first
+                let attachment: Attachment? = {
+                    if let attachment = try? quotedInteraction.attachments.fetchOne(db) {
+                        return attachment
+                    }
+                    if
+                        let linkPreview = try? quotedInteraction.linkPreview.fetchOne(db),
+                        let linkPreviewAttachment = try? linkPreview.attachment.fetchOne(db)
+                    {
+                        return linkPreviewAttachment
+                    }
+                       
+                    return nil
+                }()
                 try quote.with(
                     attachmentId: attachment?.cloneAsQuoteThumbnail()?.inserted(db).id
                 ).update(db)
@@ -1734,7 +1763,8 @@ extension ConversationVC:
         switch cellViewModel.variant {
             case .standardIncomingDeleted, .infoCall,
                 .infoScreenshotNotification, .infoMediaSavedNotification,
-                .infoClosedGroupCreated, .infoClosedGroupUpdated, .infoClosedGroupCurrentUserLeft,
+                .infoClosedGroupCreated, .infoClosedGroupUpdated,
+                .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving,
                 .infoMessageRequestAccepted, .infoDisappearingMessagesUpdate:
                 // Info messages and unsent messages should just trigger a local
                 // deletion (they are created as side effects so we wouldn't be
@@ -2043,7 +2073,8 @@ extension ConversationVC:
             try MessageSender.send(
                 db,
                 message: DataExtractionNotification(
-                    kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs))
+                    kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs)),
+                    sentTimestamp: UInt64(SnodeAPI.currentOffsetTimestampMs())
                 ),
                 interactionId: nil,
                 in: thread
@@ -2297,7 +2328,8 @@ extension ConversationVC:
             try MessageSender.send(
                 db,
                 message: DataExtractionNotification(
-                    kind: .screenshot
+                    kind: .screenshot,
+                    sentTimestamp: UInt64(SnodeAPI.currentOffsetTimestampMs())
                 ),
                 interactionId: nil,
                 in: thread

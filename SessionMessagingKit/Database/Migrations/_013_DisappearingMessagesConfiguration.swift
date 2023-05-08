@@ -4,7 +4,7 @@ import Foundation
 import GRDB
 import SessionUtilitiesKit
 
-enum _012_DisappearingMessagesConfiguration: Migration {
+enum _013_DisappearingMessagesConfiguration: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "DisappearingMessagesWithTypes"
     static let needsConfigSync: Bool = false

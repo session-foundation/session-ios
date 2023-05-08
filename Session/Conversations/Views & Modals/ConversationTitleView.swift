@@ -222,7 +222,7 @@ final class ConversationTitleView: UIView {
                 )
                 
                 let disappearingMessageSettingLabelString: NSAttributedString = {
-                    guard DisappearingMessagesConfiguration.isNewConfigurationEnabled else {
+                    guard Features.useNewDisappearingMessagesConfig else {
                         return NSAttributedString(attachment: imageAttachment)
                             .appending(string: " ")
                             .appending(string: String(

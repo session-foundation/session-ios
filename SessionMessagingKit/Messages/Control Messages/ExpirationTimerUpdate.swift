@@ -31,7 +31,8 @@ public final class ExpirationTimerUpdate: ControlMessage {
     
     public override var isValid: Bool {
         guard super.isValid else { return false }
-        return duration != nil || DisappearingMessagesConfiguration.isNewConfigurationEnabled
+        
+        return (duration != nil || Features.useNewDisappearingMessagesConfig)
     }
     
     // MARK: - Codable

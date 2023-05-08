@@ -461,11 +461,6 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         
-        // Flag that the initial layout has been completed (the flag blocks and unblocks a number
-        // of different behaviours)
-        didFinishInitialLayout = true
-        viewIsAppearing = false
-        
         if delayFirstResponder || isShowingSearchUI {
             delayFirstResponder = false
             
@@ -477,7 +472,12 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             }
         }
         
-        recoverInputView()
+        recoverInputView { [weak self] in
+            // Flag that the initial layout has been completed (the flag blocks and unblocks a number
+            // of different behaviours)
+            self?.didFinishInitialLayout = true
+            self?.viewIsAppearing = false
+        }
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -1274,7 +1274,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     
     func addOrRemoveOutdatedClientBanner(contactIsUsingOutdatedClient: Bool) {
         // Do not show the banner until the new disappearing messages is enabled
-        guard DisappearingMessagesConfiguration.isNewConfigurationEnabled else { return }
+        guard Features.useNewDisappearingMessagesConfig else { return }
         
         guard contactIsUsingOutdatedClient else {
             UIView.animate(
@@ -1313,11 +1313,12 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         self.blockedBanner.pin([ UIView.HorizontalEdge.left, UIView.VerticalEdge.top, UIView.HorizontalEdge.right ], to: self.view)
     }
     
-    func recoverInputView() {
+    func recoverInputView(completion: (() -> ())? = nil) {
         // This is a workaround for an issue where the textview is not scrollable
         // after the app goes into background and goes back in foreground.
         DispatchQueue.main.async {
             self.snInputView.text = self.snInputView.text
+            completion?()
         }
     }
 

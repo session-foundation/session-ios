@@ -26,7 +26,8 @@ public enum SNMessagingKit { // Just to make the external API nice
                     _009_OpenGroupPermission.self,
                     _010_AddThreadIdToFTS.self,
                     _011_AddPendingReadReceipts.self,
-                    _012_DisappearingMessagesConfiguration.self
+                    _012_AddFTSIfNeeded.self,
+                    _013_DisappearingMessagesConfiguration.self
                 ]
             ]
         )
@@ -46,5 +47,6 @@ public enum SNMessagingKit { // Just to make the external API nice
         JobRunner.add(executor: SendReadReceiptsJob.self, for: .sendReadReceipts)
         JobRunner.add(executor: AttachmentDownloadJob.self, for: .attachmentDownload)
         JobRunner.add(executor: AttachmentUploadJob.self, for: .attachmentUpload)
+        JobRunner.add(executor: GroupLeavingJob.self, for: .groupLeaving)
     }
 }

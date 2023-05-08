@@ -386,6 +386,7 @@ public extension Message {
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         let blindedUserPublicKey: String? = SessionThread
             .getUserHexEncodedBlindedKey(
+                db,
                 threadId: openGroupId,
                 threadVariant: .openGroup
             )

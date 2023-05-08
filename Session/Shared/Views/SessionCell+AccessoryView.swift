@@ -301,30 +301,33 @@ extension SessionCell {
                     let wasOldSelection: Bool = (!isSelected && storedSelection)
                     
                     radioBorderView.isHidden = false
-                    if isEnabled {
-                        radioBorderView.themeBorderColor = (isSelected ?
+                    radioBorderView.themeBorderColor = {
+                        guard isEnabled else { return .radioButton_disabledBorder }
+                        
+                        return (isSelected ?
                             .radioButton_selectedBorder :
                             .radioButton_unselectedBorder
                         )
-                    } else {
-                        radioBorderView.themeBorderColor = .disabled
-                    }
+                    }()
+                    
                     radioBorderView.layer.cornerRadius = (size.borderSize / 2)
                     
                     radioView.accessibilityLabel = accessibilityLabel
                     radioView.alpha = (wasOldSelection ? 0.3 : 1)
                     radioView.isHidden = (!isSelected && !storedSelection)
-                    if isEnabled {
-                        radioView.themeBackgroundColor = (isSelected || wasOldSelection ?
+                    radioView.themeBackgroundColor = {
+                        guard isEnabled else {
+                            return (isSelected || wasOldSelection ?
+                                .radioButton_disabledSelectedBackground :
+                                .radioButton_disabledUnselectedBackground
+                            )
+                        }
+                        
+                        return (isSelected || wasOldSelection ?
                             .radioButton_selectedBackground :
                             .radioButton_unselectedBackground
                         )
-                    } else {
-                        radioView.themeBackgroundColor = (isSelected || wasOldSelection ?
-                            .disabled :
-                            .radioButton_unselectedBackground
-                        )
-                    }
+                    }()
                     radioView.layer.cornerRadius = (size.selectionSize / 2)
                     
                     radioViewWidthConstraint.constant = size.selectionSize

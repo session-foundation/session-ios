@@ -5,10 +5,7 @@ import GRDB
 import SessionUtilitiesKit
 import SessionSnodeKit
 
-public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
-//    public static let isNewConfigurationEnabled: Bool = Date().timeIntervalSince1970 > 1671062400 // 15/12/2022
-    public static let isNewConfigurationEnabled: Bool = true
-    
+public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {    
     public static var databaseTableName: String { "disappearingMessagesConfiguration" }
     internal static let threadForeignKey = ForeignKey([Columns.threadId], to: [SessionThread.Columns.id])
     private static let thread = belongsTo(SessionThread.self, using: threadForeignKey)
@@ -26,21 +23,24 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatabl
         case disappearAfterRead
         case disappearAfterSend
         
+        public var defaultDuration: TimeInterval {
+            switch self {
+                case .disappearAfterRead: return (12 * 60 * 60)
+                case .disappearAfterSend: return (24 * 60 * 60)
+            }
+        }
+        
         init(protoType: SNProtoContent.SNProtoContentExpirationType) {
             switch protoType {
-                case .deleteAfterSend:
-                    self = .disappearAfterSend
-                case .deleteAfterRead:
-                    self = .disappearAfterRead
+                case .deleteAfterRead: self = .disappearAfterRead
+                case .deleteAfterSend: self = .disappearAfterSend
             }
         }
         
         func toProto() -> SNProtoContent.SNProtoContentExpirationType {
             switch self {
-                case .disappearAfterRead:
-                    return .deleteAfterRead
-                case .disappearAfterSend:
-                    return .deleteAfterSend
+                case .disappearAfterRead: return .deleteAfterRead
+                case .disappearAfterSend: return .deleteAfterSend
             }
         }
     }
@@ -63,13 +63,11 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatabl
 // MARK: - Mutation
 
 public extension DisappearingMessagesConfiguration {
-    static let defaultDuration: TimeInterval = (24 * 60 * 60)
-    
     static func defaultWith(_ threadId: String) -> DisappearingMessagesConfiguration {
         return DisappearingMessagesConfiguration(
             threadId: threadId,
             isEnabled: false,
-            durationSeconds: defaultDuration,
+            durationSeconds: DisappearingMessageType.disappearAfterSend.defaultDuration,
             type: nil,
             lastChangeTimestampMs: 0
         )
@@ -102,7 +100,7 @@ public extension DisappearingMessagesConfiguration {
         public let isPreviousOff: Bool?
         
         var previewText: String {
-            guard DisappearingMessagesConfiguration.isNewConfigurationEnabled else { return legacyPreviewText }
+            guard Features.useNewDisappearingMessagesConfig else { return legacyPreviewText }
             
             guard let senderName: String = senderName else {
                 // Changed by this device or via synced transcript
@@ -270,7 +268,12 @@ public class SMKDisappearingMessagesConfiguration: NSObject {
                     .asRequest(of: TimeInterval.self)
                     .fetchOne(db)
             }
-            .defaulting(to: DisappearingMessagesConfiguration.defaultDuration)
+            .defaulting(
+                to: DisappearingMessagesConfiguration
+                    .DisappearingMessageType
+                    .disappearAfterSend
+                    .defaultDuration
+            )
         
         return DisappearingMessagesConfiguration.validDurationsSeconds
             .firstIndex(of: durationSeconds)

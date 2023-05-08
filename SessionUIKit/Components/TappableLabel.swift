@@ -55,6 +55,10 @@ public class TappableLabel: UILabel {
         }
     }
     
+    public var containsLinks: Bool {
+        return !links.isEmpty
+    }
+    
     // MARK: - Initialization
 
     public override init(frame: CGRect) {

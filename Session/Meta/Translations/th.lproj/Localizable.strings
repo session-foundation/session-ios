@@ -60,14 +60,6 @@
 "BUTTON_DONE" = "เสร็จ";
 /* Button text to enable batch selection mode */
 "BUTTON_SELECT" = "เลือก";
-/* Alert body */
-"CONFIRM_LEAVE_GROUP_DESCRIPTION" = "คุณจะไม่สามารถส่งและรับข้อความในกลุ่มนี้ได้อีกต่อไป";
-/* Alert title */
-"CONFIRM_LEAVE_GROUP_TITLE" = "แน่ใจออกจากไหม";
-/* Message for the 'conversation delete confirmation' alert. */
-"CONVERSATION_DELETE_CONFIRMATION_ALERT_MESSAGE" = "การกระทำนี้ไม่สามารถยกเลิกได้";
-/* Title for the 'conversation delete confirmation' alert. */
-"CONVERSATION_DELETE_CONFIRMATION_ALERT_TITLE" = "ลบการสนทนาไหม";
 /* keyboard toolbar label when starting to search with no current results */
 "CONVERSATION_SEARCH_SEARCHING" = "Searching...";
 /* keyboard toolbar label when no messages match the search string */
@@ -374,6 +366,7 @@
 "delete_message_for_me" = "Delete just for me";
 "delete_message_for_everyone" = "Delete for everyone";
 "delete_message_for_me_and_recipient" = "Delete for me and %@";
+"context_menu_info" = "Info";
 "context_menu_reply" = "Reply";
 "context_menu_save" = "Save";
 "context_menu_ban_user" = "Ban User";
@@ -608,6 +601,14 @@
 "MESSAGE_DELIVERY_STATUS_SENT" = "Sent";
 "MESSAGE_DELIVERY_STATUS_READ" = "Read";
 "MESSAGE_DELIVERY_STATUS_FAILED" = "Failed to send";
+"MESSAGE_INFO_SENT" = "Sent";
+"MESSAGE_INFO_RECEIVED" = "Received";
+"MESSAGE_INFO_FROM" = "From";
+"ATTACHMENT_INFO_FILE_ID" = "File ID";
+"ATTACHMENT_INFO_FILE_TYPE" = "File Type";
+"ATTACHMENT_INFO_FILE_SIZE" = "File Size";
+"ATTACHMENT_INFO_RESOLUTION" = "Resolution";
+"ATTACHMENT_INFO_DURATION" = "Duration";
 "MESSAGE_DELIVERY_STATUS_FAILED_SYNC" = "Failed to sync";
 "MESSAGE_DELIVERY_STATUS_SYNCING" = "Syncing";
 "MESSAGE_DELIVERY_FAILED_TITLE" = "Failed to send message";
@@ -617,3 +618,16 @@
 "context_menu_resync" = "Resync";
 "GIPHY_PERMISSION_TITLE" = "Search GIFs?";
 "GIPHY_PERMISSION_MESSAGE" = "Session will connect to Giphy to provide search results. You will not have full metadata protection when sending GIFs.";
+"message_info_title" = "Message Info";
+"mute_button_text" = "Mute";
+"unmute_button_text" = "Unmute";
+"mark_read_button_text" = "Mark read";
+"mark_unread_button_text" = "Mark unread";
+"leave_group_confirmation_alert_title" = "Leave Group";
+"leave_community_confirmation_alert_title" = "Leave Community";
+"leave_community_confirmation_alert_message" = "Are you sure you want to leave %@?";
+"group_you_leaving" = "Leaving...";
+"group_leave_error" = "Failed to leave Group!";
+"group_unable_to_leave" = "Unable to leave the Group, please try again";
+"delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
+"delete_conversation_confirmation_alert_title" = "Delete Conversation";

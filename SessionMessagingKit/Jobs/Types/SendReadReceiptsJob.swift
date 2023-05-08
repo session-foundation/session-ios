@@ -23,7 +23,7 @@ public enum SendReadReceiptsJob: JobExecutor {
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
         else {
-            failure(job, JobRunnerError.missingRequiredDetails, false)
+            failure(job, JobRunnerError.missingRequiredDetails, true)
             return
         }
         

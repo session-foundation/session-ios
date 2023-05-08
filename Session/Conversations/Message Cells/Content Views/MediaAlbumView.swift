@@ -29,7 +29,7 @@ public class MediaAlbumView: UIStackView {
                     mediaCache: mediaCache,
                     attachment: $0,
                     isOutgoing: isOutgoing,
-                    maxMessageWidth: maxMessageWidth
+                    cornerRadius: VisibleMessageCell.largeCornerRadius
                 )
             }
 

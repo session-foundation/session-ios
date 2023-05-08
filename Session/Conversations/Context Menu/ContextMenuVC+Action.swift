@@ -35,6 +35,14 @@ extension ContextMenuVC {
         
         // MARK: - Actions
         
+        static func info(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
+            return Action(
+                icon: UIImage(named: "ic_info"),
+                title: "context_menu_info".localized(),
+                accessibilityLabel: "Message info"
+            ) { delegate?.info(cellViewModel) }
+        }
+
         static func retry(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
                 icon: UIImage(systemName: "arrow.triangle.2.circlepath"),
@@ -136,7 +144,8 @@ extension ContextMenuVC {
         switch cellViewModel.variant {
             case .standardIncomingDeleted, .infoCall,
                 .infoScreenshotNotification, .infoMediaSavedNotification,
-                .infoClosedGroupCreated, .infoClosedGroupUpdated, .infoClosedGroupCurrentUserLeft,
+                .infoClosedGroupCreated, .infoClosedGroupUpdated,
+                .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving,
                 .infoMessageRequestAccepted, .infoDisappearingMessagesUpdate:
                 // Let the user delete info messages and unsent messages
                 return [ Action.delete(cellViewModel, delegate) ]
@@ -206,6 +215,8 @@ extension ContextMenuVC {
             return !currentThreadIsMessageRequest
         }()
         
+        let shouldShowInfo: Bool = (cellViewModel.attachments?.isEmpty == false)
+        
         let generatedActions: [Action] = [
             (canRetry ? Action.retry(cellViewModel, delegate) : nil),
             (canReply ? Action.reply(cellViewModel, delegate) : nil),
@@ -215,6 +226,7 @@ extension ContextMenuVC {
             (canDelete ? Action.delete(cellViewModel, delegate) : nil),
             (canBan ? Action.ban(cellViewModel, delegate) : nil),
             (canBan ? Action.banAndDeleteAllMessages(cellViewModel, delegate) : nil),
+            (shouldShowInfo ? Action.info(cellViewModel, delegate) : nil),
         ]
         .appending(contentsOf: (shouldShowEmojiActions ? recentEmojis : []).map { Action.react(cellViewModel, $0, delegate) })
         .appending(Action.emojiPlusButton(cellViewModel, delegate))
@@ -229,6 +241,7 @@ extension ContextMenuVC {
 // MARK: - Delegate
 
 protocol ContextMenuActionDelegate {
+    func info(_ cellViewModel: MessageViewModel)
     func retry(_ cellViewModel: MessageViewModel)
     func reply(_ cellViewModel: MessageViewModel)
     func copy(_ cellViewModel: MessageViewModel)
