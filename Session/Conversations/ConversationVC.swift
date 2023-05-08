@@ -1285,6 +1285,12 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let section: ConversationViewModel.SectionModel = viewModel.interactionData[indexPath.section]
         
+        Storage.shared.read { db in
+            let interaction = try? Interaction.fetchOne(db, id: 8)
+            print(interaction)
+            print(try? interaction?.linkPreview.fetchOne(db))
+        }
+        
         switch section.model {
             case .messages:
                 let cellViewModel: MessageViewModel = section.elements[indexPath.row]
