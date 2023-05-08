@@ -92,7 +92,9 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
                                 title: "DISAPPEARING_MESSAGES_OFF".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { true }
-                                )
+                                ),
+                                accessibilityIdentifier: "Off option",
+                                accessibilityLabel: "Off option"
                             )
                         )
                     )
@@ -138,7 +140,9 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
                                 title: "DISAPPEARING_MESSAGES_OFF".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { false }
-                                )
+                                ),
+                                accessibilityIdentifier: "Off option",
+                                accessibilityLabel: "Off option"
                             )
                         )
                     )
@@ -173,7 +177,9 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
                                 title: title,
                                 rightAccessory: .radio(
                                     isSelected: { true }
-                                )
+                                ),
+                                accessibilityIdentifier: "Time option",
+                                accessibilityLabel: "Time option"
                             )
                         )
                     )
@@ -192,7 +198,7 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
                         )
                 )
                 
-                expect(footerButtonInfo).to(equal(nil))
+                expect(footerButtonInfo).to(beNil())
             }
             
             context("when changed from the previous setting") {

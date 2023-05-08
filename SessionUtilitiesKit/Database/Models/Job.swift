@@ -106,10 +106,6 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         /// This is a job that runs once whenever the user leaves a group to send a group leaving message, remove group
         /// record and group member record
         case groupLeaving
-        
-        /// This is a job that runs once whenever some disappearing messages is read and started the timer to inform
-        /// linked devices and the network for the change of the messages's ttl
-        case syncExpires
     }
     
     public enum Behaviour: Int, Codable, DatabaseValueConvertible, CaseIterable {

@@ -234,7 +234,9 @@ class OpenGroupManagerSpec: QuickSpec {
                 mockGeneralCache.when { $0.encodedPublicKey }.thenReturn("05\(TestConstants.publicKey)")
                 mockGenericHash.when { $0.hash(message: anyArray(), outputLength: any()) }.thenReturn([])
                 mockSodium
-                    .when { $0.blindedKeyPair(serverPublicKey: any(), edKeyPair: any(), genericHash: mockGenericHash) }
+                    .when { [mockGenericHash] mock in
+                        mock.blindedKeyPair(serverPublicKey: any(), edKeyPair: any(), genericHash: mockGenericHash!)
+                    }
                     .thenReturn(
                         Box.KeyPair(
                             publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
@@ -3568,11 +3570,11 @@ class OpenGroupManagerSpec: QuickSpec {
                 
                 it("adds the image retrieval promise to the cache") {
                     class TestNeverReturningApi: OnionRequestAPIType {
-                        static func sendOnionRequest(_ request: URLRequest, to server: String, using version: OnionRequestAPIVersion, with x25519PublicKey: String) -> Promise<(OnionRequestResponseInfoType, Data?)> {
+                        static func sendOnionRequest(_ request: URLRequest, to server: String, using version: OnionRequestAPIVersion, with x25519PublicKey: String, timeout: TimeInterval) -> Promise<(OnionRequestResponseInfoType, Data?)> {
                             return Promise<(OnionRequestResponseInfoType, Data?)>.pending().promise
                         }
                         
-                        static func sendOnionRequest(to snode: Snode, invoking method: SnodeAPIEndpoint, with parameters: JSON, associatedWith publicKey: String?) -> Promise<Data> {
+                        static func sendOnionRequest(to snode: Snode, invoking method: SnodeAPIEndpoint, with parameters: JSON, associatedWith publicKey: String?, timeout: TimeInterval) -> Promise<Data> {
                             return Promise.value(Data())
                         }
                     }
