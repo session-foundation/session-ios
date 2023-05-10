@@ -1105,7 +1105,7 @@ public final class SnodeAPI {
                     .compactMap { $0.value }
                     .asSet()
             }
-            .retry(4)
+            .retry(2)
             .handleEvents(
                 receiveCompletion: { result in
                     switch result {

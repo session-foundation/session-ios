@@ -382,6 +382,12 @@ public final class OpenGroupManager {
             .filter(id: openGroupId)
             .deleteAll(db)
         
+        // Remove any MessageProcessRecord entries (we will want to reprocess all OpenGroup messages
+        // if they get re-added)
+        _ = try? ControlMessageProcessRecord
+            .filter(ControlMessageProcessRecord.Columns.threadId == openGroupId)
+            .deleteAll(db)
+        
         // Remove the open group (no foreign key to the thread so it won't auto-delete)
         if server?.lowercased() != OpenGroupAPI.defaultServer.lowercased() {
             _ = try? OpenGroup

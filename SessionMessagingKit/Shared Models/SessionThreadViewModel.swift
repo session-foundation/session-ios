@@ -784,7 +784,6 @@ public extension SessionThreadViewModel {
     static func homeFilterSQL(userPublicKey: String) -> SQL {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         let contact: TypedTableAlias<Contact> = TypedTableAlias()
-        let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
         
         return """
             \(thread[.shouldBeVisible]) = true AND (
@@ -848,7 +847,6 @@ public extension SessionThreadViewModel {
         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
         
         let aggregateInteractionLiteral: SQL = SQL(stringLiteral: "aggregateInteraction")
-        let timestampMsColumnLiteral: SQL = SQL(stringLiteral: Interaction.Columns.timestampMs.name)
         let closedGroupUserCountTableLiteral: SQL = SQL(stringLiteral: "\(ViewModel.closedGroupUserCountString)_table")
         let groupMemberGroupIdColumnLiteral: SQL = SQL(stringLiteral: GroupMember.Columns.groupId.name)
         let profileIdColumnLiteral: SQL = SQL(stringLiteral: Profile.Columns.id.name)

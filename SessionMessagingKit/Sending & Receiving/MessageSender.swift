@@ -961,16 +961,8 @@ public final class MessageSender {
             }
         }
         
-        let threadId: String = {
-            switch destination {
-                case .contact(let publicKey): return publicKey
-                case .closedGroup(let groupPublicKey): return groupPublicKey
-                case .openGroup(let roomToken, let server, _, _, _):
-                    return OpenGroup.idFor(roomToken: roomToken, server: server)
-                
-                case .openGroupInbox(_, _, let blindedPublicKey): return blindedPublicKey
-            }
-        }()
+        // Extract the threadId from the message
+        let threadId: String = Message.threadId(forMessage: message, destination: destination)
         
         // Prevent ControlMessages from being handled multiple times if not supported
         try? ControlMessageProcessRecord(

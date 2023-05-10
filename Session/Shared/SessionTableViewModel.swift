@@ -41,10 +41,6 @@ class SessionTableViewModel<NavItemId: Equatable, Section: SessionTableSection, 
     
     open var title: String { preconditionFailure("abstract class - override in subclass") }
     open var emptyStateTextPublisher: AnyPublisher<String?, Never> { Just(nil).eraseToAnyPublisher() }
-    open var settingsData: [SectionModel] { preconditionFailure("abstract class - override in subclass") }
-    open var observableSettingsData: ObservableData {
-        preconditionFailure("abstract class - override in subclass")
-    }
     open var footerView: AnyPublisher<UIView?, Never> { Just(nil).eraseToAnyPublisher() }
     open var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> {
         Just(nil).eraseToAnyPublisher()

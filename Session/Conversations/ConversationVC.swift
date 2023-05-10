@@ -734,6 +734,11 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                 initialIsBlocked: (viewModel.threadData.threadIsBlocked == true)
             )
             
+            messageRequestDescriptionLabel.text = (updatedThreadData.threadRequiresApproval == false ?
+                "MESSAGE_REQUESTS_INFO".localized() :
+                "MESSAGE_REQUEST_PENDING_APPROVAL_INFO".localized()
+            )
+            
             let messageRequestsViewWasVisible: Bool = (
                 messageRequestStackView.isHidden == false
             )
@@ -865,15 +870,18 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
             self.viewModel.updateInteractionData(updatedData)
             self.tableView.reloadData()
             
-            // We need to dispatch to the next run loop because it seems trying to scroll immediately after
-            // triggering a 'reloadData' doesn't work
-            DispatchQueue.main.async { [weak self] in
-                self?.scrollToBottom(isAnimated: false)
-                
-                // Note: The scroll button alpha won't get set correctly in this case so we forcibly set it to
-                // have an alpha of 0 to stop it appearing buggy
-                self?.scrollButton.alpha = 0
-                self?.unreadCountView.alpha = 0
+            // If we just sent a message then we want to jump to the bottom of the conversation instantly
+            if didSendMessageBeforeUpdate {
+                // We need to dispatch to the next run loop because it seems trying to scroll immediately after
+                // triggering a 'reloadData' doesn't work
+                DispatchQueue.main.async { [weak self] in
+                    self?.scrollToBottom(isAnimated: false)
+                    
+                    // Note: The scroll button alpha won't get set correctly in this case so we forcibly set it to
+                    // have an alpha of 0 to stop it appearing buggy
+                    self?.scrollButton.alpha = 0
+                    self?.unreadCountView.alpha = 0
+                }
             }
             return
         }

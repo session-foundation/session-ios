@@ -210,7 +210,7 @@ internal extension SessionUtil {
                 }
             }
         
-        // Delete any contact/thread records which aren't in the config message
+        /// Delete any contact/thread records which aren't in the config message
         let syncedContactIds: [String] = targetContactData
             .map { $0.key }
             .appending(userPublicKey)
@@ -226,7 +226,28 @@ internal extension SessionUtil {
             .select(.id)
             .asRequest(of: String.self)
             .fetchAll(db)
-        let combinedIds: [String] = contactIdsToRemove.appending(contentsOf: threadIdsToRemove)
+        
+        /// When the user opens a brand new conversation this creates a "draft conversation" which has a hidden thread but no
+        /// contact record, when we receive a contact update this "draft conversation" would be included in the
+        /// `threadIdsToRemove` which would result in the user getting kicked from the screen and the thread removed, we
+        /// want to avoid this (as it's essentially a bug) so find any conversations in this state and remove them from the list that
+        /// will be pruned
+        let threadT: TypedTableAlias<SessionThread> = TypedTableAlias()
+        let contactT: TypedTableAlias<Contact> = TypedTableAlias()
+        let draftConversationIds: [String] = try SQLRequest<String>("""
+            SELECT \(threadT[.id])
+            FROM \(SessionThread.self)
+            LEFT JOIN \(Contact.self) ON \(contactT[.id]) = \(threadT[.id])
+            WHERE (
+                \(SQL("\(threadT[.id]) IN \(threadIdsToRemove)")) AND
+                \(contactT[.id]) IS NULL
+            )
+        """).fetchAll(db)
+        
+        /// Consolidate the ids which should be removed
+        let combinedIds: [String] = contactIdsToRemove
+            .appending(contentsOf: threadIdsToRemove)
+            .filter { !draftConversationIds.contains($0) }
         
         if !combinedIds.isEmpty {
             SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: combinedIds)

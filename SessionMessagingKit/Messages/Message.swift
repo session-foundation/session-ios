@@ -206,6 +206,28 @@ public extension Message {
         }
     }
     
+    static func threadId(forMessage message: Message, destination: Message.Destination) -> String {
+        switch destination {
+            case .contact(let publicKey):
+                // Extract the 'syncTarget' value if there is one
+                let maybeSyncTarget: String?
+                
+                switch message {
+                    case let message as VisibleMessage: maybeSyncTarget = message.syncTarget
+                    case let message as ExpirationTimerUpdate: maybeSyncTarget = message.syncTarget
+                    default: maybeSyncTarget = nil
+                }
+                
+                return (maybeSyncTarget ?? publicKey)
+                
+            case .closedGroup(let groupPublicKey): return groupPublicKey
+            case .openGroup(let roomToken, let server, _, _, _):
+                return OpenGroup.idFor(roomToken: roomToken, server: server)
+            
+            case .openGroupInbox(_, _, let blindedPublicKey): return blindedPublicKey
+        }
+    }
+    
     static func processRawReceivedMessage(
         _ db: Database,
         rawMessage: SnodeReceivedMessage
