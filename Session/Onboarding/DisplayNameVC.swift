@@ -6,10 +6,24 @@ import SessionMessagingKit
 import SignalUtilitiesKit
 
 final class DisplayNameVC: BaseVC {
+    private let flow: Onboarding.Flow
+    
     private var spacer1HeightConstraint: NSLayoutConstraint!
     private var spacer2HeightConstraint: NSLayoutConstraint!
     private var registerButtonBottomOffsetConstraint: NSLayoutConstraint!
     private var bottomConstraint: NSLayoutConstraint!
+    
+    // MARK: - Initialization
+    
+    init(flow: Onboarding.Flow) {
+        self.flow = flow
+        
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     // MARK: - Components
     
@@ -176,11 +190,22 @@ final class DisplayNameVC: BaseVC {
         // Try to save the user name but ignore the result
         ProfileManager.updateLocal(
             queue: DispatchQueue.global(qos: .default),
-            profileName: displayName,
-            image: nil,
-            imageFilePath: nil
+            profileName: displayName
         )
-        let pnModeVC = PNModeVC()
+        
+        // If we are not in the registration flow then we are finished and should go straight
+        // to the home screen
+        guard self.flow == .register else {
+            self.flow.completeRegistration()
+            
+            // Go to the home screen
+            let homeVC: HomeVC = HomeVC()
+            self.navigationController?.setViewControllers([ homeVC ], animated: true)
+            return
+        }
+        
+        // Need to get the PN mode if registering
+        let pnModeVC = PNModeVC(flow: .register)
         navigationController?.pushViewController(pnModeVC, animated: true)
     }
 }

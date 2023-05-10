@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import Sodium
 import Curve25519Kit
 import SessionMessagingKit
 
@@ -109,7 +108,8 @@ enum MockDataGenerator {
         logProgress("", "Start")
         
         // First create the thread used to indicate that the mock data has been generated
-        _ = try? SessionThread.fetchOrCreate(db, id: "MockDatabaseThread", variant: .contact)
+        _ = try? SessionThread
+            .fetchOrCreate(db, id: "MockDatabaseThread", variant: .contact, shouldBeVisible: false)
         
         // MARK: - -- DM Thread
         
@@ -134,9 +134,12 @@ enum MockDataGenerator {
                 
                 // Generate the thread
                 let thread: SessionThread = try! SessionThread
-                    .fetchOrCreate(db, id: randomSessionId, variant: .contact)
-                    .with(shouldBeVisible: true)
-                    .saved(db)
+                    .fetchOrCreate(
+                        db,
+                        id: randomSessionId,
+                        variant: .contact,
+                        shouldBeVisible: true
+                    )
                 
                 // Generate the contact
                 let contact: Contact = try! Contact(
@@ -242,9 +245,12 @@ enum MockDataGenerator {
                 }
                 
                 let thread: SessionThread = try! SessionThread
-                    .fetchOrCreate(db, id: randomGroupPublicKey, variant: .closedGroup)
-                    .with(shouldBeVisible: true)
-                    .saved(db)
+                    .fetchOrCreate(
+                        db,
+                        id: randomGroupPublicKey,
+                        variant: .legacyGroup,
+                        shouldBeVisible: true
+                    )
                 _ = try! ClosedGroup(
                     threadId: randomGroupPublicKey,
                     name: groupName,
@@ -253,33 +259,33 @@ enum MockDataGenerator {
                 .saved(db)
                 
                 members.forEach { memberId in
-                    _ = try! GroupMember(
+                    try! GroupMember(
                         groupId: randomGroupPublicKey,
                         profileId: memberId,
                         role: .standard,
                         isHidden: false
                     )
-                    .saved(db)
+                    .save(db)
                 }
                 [members.randomElement(using: &cgThreadRandomGenerator) ?? userSessionId].forEach { adminId in
-                    _ = try! GroupMember(
+                    try! GroupMember(
                         groupId: randomGroupPublicKey,
                         profileId: adminId,
                         role: .admin,
                         isHidden: false
                     )
-                    .saved(db)
+                    .save(db)
                 }
                 
                 // Add the group to the user's set of public keys to poll for and store the key pair
                 let encryptionKeyPair = Curve25519.generateKeyPair()
-                _ = try! ClosedGroupKeyPair(
+                try! ClosedGroupKeyPair(
                     threadId: randomGroupPublicKey,
                     publicKey: encryptionKeyPair.publicKey,
                     secretKey: encryptionKeyPair.privateKey,
                     receivedTimestamp: timestampNow
                 )
-                .saved(db)
+                .save(db)
                 
                 // Generate the message history (Note: Unapproved message requests will only include incoming messages)
                 logProgress("Closed Group Thread \(threadIndex)", "Generate \(numMessages) Messages")
@@ -368,9 +374,12 @@ enum MockDataGenerator {
                 
                 // Create the open group model and the thread
                 let thread: SessionThread = try! SessionThread
-                    .fetchOrCreate(db, id: randomGroupPublicKey, variant: .openGroup)
-                    .with(shouldBeVisible: true)
-                    .saved(db)
+                    .fetchOrCreate(
+                        db,
+                        id: randomGroupPublicKey,
+                        variant: .community,
+                        shouldBeVisible: true
+                    )
                 _ = try! OpenGroup(
                     server: serverName,
                     roomToken: roomName,

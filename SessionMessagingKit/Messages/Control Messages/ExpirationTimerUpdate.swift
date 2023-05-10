@@ -69,22 +69,15 @@ public final class ExpirationTimerUpdate: ControlMessage {
         )
     }
 
-    public override func toProto(_ db: Database) -> SNProtoContent? {
+    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
         let dataMessageProto = SNProtoDataMessage.builder()
         dataMessageProto.setFlags(UInt32(SNProtoDataMessage.SNProtoDataMessageFlags.expirationTimerUpdate.rawValue))
         if let duration = duration { dataMessageProto.setExpireTimer(duration) }
         if let syncTarget = syncTarget { dataMessageProto.setSyncTarget(syncTarget) }
-        // Group context
-        do {
-            try setGroupContextIfNeeded(db, on: dataMessageProto)
-        } catch {
-            SNLog("Couldn't construct expiration timer update proto from: \(self).")
-            return nil
-        }
         let contentProto = SNProtoContent.builder()
         
         // DisappearingMessagesConfiguration
-        setDisappearingMessagesConfigurationIfNeeded(db, on: contentProto)
+        setDisappearingMessagesConfigurationIfNeeded(db, on: contentProto, threadId: threadId)
         
         do {
             contentProto.setDataMessage(try dataMessageProto.build())

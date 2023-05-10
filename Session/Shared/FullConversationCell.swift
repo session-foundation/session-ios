@@ -5,7 +5,8 @@ import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
 
-public final class FullConversationCell: UITableViewCell {
+public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticCell {
+    public static let mutePrefix: String = "\u{e067}  "
     public static let unreadCountViewSize: CGFloat = 20
     private static let statusIndicatorSize: CGFloat = 14
     
@@ -40,6 +41,50 @@ public final class FullConversationCell: UITableViewCell {
         result.font = .boldSystemFont(ofSize: Values.verySmallFontSize)
         result.themeTextColor = .conversationButton_unreadBubbleText
         result.textAlignment = .center
+        
+        return result
+    }()
+    
+    private lazy var unreadImageView: UIView = {
+        let iconHeight: CGFloat = 12
+        let indicatorSize: CGFloat = 6
+        
+        let result: UIView = UIView()
+        
+        let imageView: UIImageView = UIImageView(image: UIImage(systemName: "envelope"))
+        imageView.contentMode = .scaleAspectFit
+        imageView.themeTintColor = .textPrimary
+        result.addSubview(imageView)
+        
+        // Note: We add a 2 inset to align the bottom of the image with the bottom of the text (looks
+        // off otherwise)
+        imageView.pin(.top, to: .top, of: result, withInset: 2)
+        imageView.pin(.leading, to: .leading, of: result)
+        imageView.pin(.trailing, to: .trailing, of: result)
+        imageView.pin(.bottom, to: .bottom, of: result)
+        
+        // Note: For some weird reason if we dont '+ 4' here the height ends up getting set to '8'
+        imageView.set(.height, to: (iconHeight + 4))
+        imageView.set(.width, to: ((imageView.image?.size.width ?? 1) / (imageView.image?.size.height ?? 1) * iconHeight))
+        
+        let indicatorBackgroundView: UIView = UIView()
+        indicatorBackgroundView.themeBackgroundColor = .conversationButton_unreadBackground
+        indicatorBackgroundView.layer.cornerRadius = (indicatorSize / 2)
+        result.addSubview(indicatorBackgroundView)
+
+        indicatorBackgroundView.set(.width, to: indicatorSize)
+        indicatorBackgroundView.set(.height, to: indicatorSize)
+        indicatorBackgroundView.pin(.top, to: .top, of: result, withInset: 1)
+        indicatorBackgroundView.pin(.trailing, to: .trailing, of: result, withInset: 1)
+        
+        let indicatorView: UIView = UIView()
+        indicatorView.themeBackgroundColor = .conversationButton_unreadBubbleBackground
+        indicatorView.layer.cornerRadius = ((indicatorSize - 2) / 2)
+        result.addSubview(indicatorView)
+
+        indicatorView.set(.width, to: (indicatorSize - 2))
+        indicatorView.set(.height, to: (indicatorSize - 2))
+        indicatorView.center(in: indicatorBackgroundView)
         
         return result
     }()
@@ -174,7 +219,7 @@ public final class FullConversationCell: UITableViewCell {
         
         // Label stack view
         let topLabelSpacer = UIView.hStretchingSpacer()
-        [ displayNameLabel, isPinnedIcon, unreadCountView, hasMentionView, topLabelSpacer, timestampLabel ].forEach{ view in
+        [ displayNameLabel, isPinnedIcon, unreadCountView, unreadImageView, hasMentionView, topLabelSpacer, timestampLabel ].forEach{ view in
             topLabelStackView.addArrangedSubview(view)
         }
         
@@ -231,15 +276,15 @@ public final class FullConversationCell: UITableViewCell {
     public func updateForMessageSearchResult(with cellViewModel: SessionThreadViewModel, searchText: String) {
         profilePictureView.update(
             publicKey: cellViewModel.threadId,
-            profile: cellViewModel.profile,
-            additionalProfile: cellViewModel.additionalProfile,
             threadVariant: cellViewModel.threadVariant,
-            openGroupProfilePictureData: cellViewModel.openGroupProfilePictureData,
-            useFallbackPicture: (cellViewModel.threadVariant == .openGroup && cellViewModel.openGroupProfilePictureData == nil)
+            customImageData: cellViewModel.openGroupProfilePictureData,
+            profile: cellViewModel.profile,
+            additionalProfile: cellViewModel.additionalProfile
         )
         
         isPinnedIcon.isHidden = true
         unreadCountView.isHidden = true
+        unreadImageView.isHidden = true
         hasMentionView.isHidden = true
         timestampLabel.isHidden = false
         timestampLabel.text = cellViewModel.lastInteractionDate.formattedForDisplay
@@ -282,15 +327,15 @@ public final class FullConversationCell: UITableViewCell {
     public func updateForContactAndGroupSearchResult(with cellViewModel: SessionThreadViewModel, searchText: String) {
         profilePictureView.update(
             publicKey: cellViewModel.threadId,
-            profile: cellViewModel.profile,
-            additionalProfile: cellViewModel.additionalProfile,
             threadVariant: cellViewModel.threadVariant,
-            openGroupProfilePictureData: cellViewModel.openGroupProfilePictureData,
-            useFallbackPicture: (cellViewModel.threadVariant == .openGroup && cellViewModel.openGroupProfilePictureData == nil)
+            customImageData: cellViewModel.openGroupProfilePictureData,
+            profile: cellViewModel.profile,
+            additionalProfile: cellViewModel.additionalProfile
         )
         
         isPinnedIcon.isHidden = true
         unreadCountView.isHidden = true
+        unreadImageView.isHidden = true
         hasMentionView.isHidden = true
         timestampLabel.isHidden = true
         
@@ -308,14 +353,14 @@ public final class FullConversationCell: UITableViewCell {
         }
         
         switch cellViewModel.threadVariant {
-            case .contact, .openGroup: bottomLabelStackView.isHidden = true
+            case .contact, .community: bottomLabelStackView.isHidden = true
                 
-            case .closedGroup:
+            case .legacyGroup, .group:
                 bottomLabelStackView.isHidden = (cellViewModel.threadMemberNames ?? "").isEmpty
         
                 ThemeManager.onThemeChange(observer: displayNameLabel) { [weak self, weak snippetLabel] theme, _ in
                     guard let textColor: UIColor = theme.color(for: .textPrimary) else { return }
-                    if cellViewModel.threadVariant == .closedGroup {
+                    if cellViewModel.threadVariant == .legacyGroup || cellViewModel.threadVariant == .group {
                         snippetLabel?.attributedText = self?.getHighlightedSnippet(
                             content: (cellViewModel.threadMemberNames ?? ""),
                             currentUserPublicKey: cellViewModel.currentUserPublicKey,
@@ -333,7 +378,11 @@ public final class FullConversationCell: UITableViewCell {
     
     public func update(with cellViewModel: SessionThreadViewModel) {
         let unreadCount: UInt = (cellViewModel.threadUnreadCount ?? 0)
-        let themeBackgroundColor: ThemeValue = (unreadCount > 0 ?
+        let threadIsUnread: Bool = (
+            unreadCount > 0 ||
+            cellViewModel.threadWasMarkedUnread == true
+        )
+        let themeBackgroundColor: ThemeValue = (threadIsUnread ?
             .conversationButton_unreadBackground :
             .conversationButton_background
         )
@@ -349,27 +398,29 @@ public final class FullConversationCell: UITableViewCell {
             accentLineView.alpha = (unreadCount > 0 ? 1 : 0)
         }
         
-        isPinnedIcon.isHidden = !cellViewModel.threadIsPinned
+        isPinnedIcon.isHidden = (cellViewModel.threadPinnedPriority == 0)
         unreadCountView.isHidden = (unreadCount <= 0)
-        unreadCountLabel.text = (unreadCount < 10000 ? "\(unreadCount)" : "9999+")
+        unreadImageView.isHidden = (!unreadCountView.isHidden || !threadIsUnread)
+        unreadCountLabel.text = (unreadCount <= 0 ?
+            "" :
+            (unreadCount < 10000 ? "\(unreadCount)" : "9999+")
+        )
         unreadCountLabel.font = .boldSystemFont(
             ofSize: (unreadCount < 10000 ? Values.verySmallFontSize : 8)
         )
         hasMentionView.isHidden = !(
-            ((cellViewModel.threadUnreadMentionCount ?? 0) > 0) &&
-            (cellViewModel.threadVariant == .closedGroup || cellViewModel.threadVariant == .openGroup)
+            ((cellViewModel.threadUnreadMentionCount ?? 0) > 0) && (
+                cellViewModel.threadVariant == .legacyGroup ||
+                cellViewModel.threadVariant == .group ||
+                cellViewModel.threadVariant == .community
+            )
         )
         profilePictureView.update(
             publicKey: cellViewModel.threadId,
-            profile: cellViewModel.profile,
-            additionalProfile: cellViewModel.additionalProfile,
             threadVariant: cellViewModel.threadVariant,
-            openGroupProfilePictureData: cellViewModel.openGroupProfilePictureData,
-            useFallbackPicture: (
-                cellViewModel.threadVariant == .openGroup &&
-                cellViewModel.openGroupProfilePictureData == nil
-            ),
-            showMultiAvatarForClosedGroup: true
+            customImageData: cellViewModel.openGroupProfilePictureData,
+            profile: cellViewModel.profile,
+            additionalProfile: cellViewModel.additionalProfile
         )
         displayNameLabel.text = cellViewModel.displayName
         timestampLabel.text = cellViewModel.lastInteractionDate.formattedForDisplay
@@ -380,14 +431,19 @@ public final class FullConversationCell: UITableViewCell {
             typingIndicatorView.startAnimation()
         }
         else {
+            displayNameLabel.themeTextColor = {
+                guard cellViewModel.interactionVariant != .infoClosedGroupCurrentUserLeaving else {
+                    return .textSecondary
+                }
+                
+                return .textPrimary
+            }()
             typingIndicatorView.isHidden = true
             typingIndicatorView.stopAnimation()
             
             ThemeManager.onThemeChange(observer: snippetLabel) { [weak self, weak snippetLabel] theme, _ in
                 if cellViewModel.interactionVariant == .infoClosedGroupCurrentUserLeaving {
                     guard let textColor: UIColor = theme.color(for: .textSecondary) else { return }
-                    
-                    self?.displayNameLabel.themeTextColor = .textSecondary
                     
                     snippetLabel?.attributedText = self?.getSnippet(
                         cellViewModel: cellViewModel,
@@ -396,16 +452,12 @@ public final class FullConversationCell: UITableViewCell {
                 } else if cellViewModel.interactionVariant == .infoClosedGroupCurrentUserErrorLeaving {
                     guard let textColor: UIColor = theme.color(for: .danger) else { return }
                     
-                    self?.displayNameLabel.themeTextColor = .textPrimary
-                    
                     snippetLabel?.attributedText = self?.getSnippet(
                         cellViewModel: cellViewModel,
                         textColor: textColor
                     )
                 } else {
                     guard let textColor: UIColor = theme.color(for: .textPrimary) else { return }
-                    
-                    self?.displayNameLabel.themeTextColor = .textPrimary
                     
                     snippetLabel?.attributedText = self?.getSnippet(
                         cellViewModel: cellViewModel,
@@ -427,16 +479,45 @@ public final class FullConversationCell: UITableViewCell {
         )
     }
     
+    // MARK: - SwipeActionOptimisticCell
+    
     public func optimisticUpdate(
-        isMuted: Bool? = nil,
-        isPinned: Bool? = nil,
-        hasUnread: Bool? = nil
+        isMuted: Bool?,
+        isBlocked: Bool?,
+        isPinned: Bool?,
+        hasUnread: Bool?
     ) {
+        // Note: This will result in the snippet being out of sync while the swipe action animation completes,
+        // this means if the day/night mode changes while the animation is happening then the below optimistic
+        // update might get reset (this should be rare and is a relatively minor bug so can be left in)
         if let isMuted: Bool = isMuted {
-            if isMuted {
-                
-            } else {
-                
+            let attrString: NSAttributedString = (self.snippetLabel.attributedText ?? NSAttributedString())
+            let hasMutePrefix: Bool = attrString.string.starts(with: FullConversationCell.mutePrefix)
+            
+            switch (isMuted, hasMutePrefix) {
+                case (true, false):
+                    self.snippetLabel.attributedText = NSAttributedString(
+                        string: FullConversationCell.mutePrefix,
+                        attributes: [ .font: UIFont.ows_elegantIconsFont(10) ]
+                    )
+                    .appending(attrString)
+                    
+                case (false, true):
+                    self.snippetLabel.attributedText = attrString
+                        .attributedSubstring(from: NSRange(location: FullConversationCell.mutePrefix.count, length: (attrString.length - FullConversationCell.mutePrefix.count)))
+                    
+                default: break
+            }
+        }
+        
+        if let isBlocked: Bool = isBlocked {
+            if isBlocked {
+                accentLineView.themeBackgroundColor = .danger
+                accentLineView.alpha = 1
+            }
+            else {
+                accentLineView.themeBackgroundColor = .conversationButton_unreadStripBackground
+                accentLineView.alpha = (!unreadCountView.isHidden || !unreadImageView.isHidden ? 1 : 0)
             }
         }
         
@@ -470,7 +551,7 @@ public final class FullConversationCell: UITableViewCell {
         
         if Date().timeIntervalSince1970 < (cellViewModel.threadMutedUntilTimestamp ?? 0) {
             result.append(NSAttributedString(
-                string: "\u{e067}  ",
+                string: FullConversationCell.mutePrefix,
                 attributes: [
                     .font: UIFont.ows_elegantIconsFont(10),
                     .foregroundColor: textColor
@@ -494,7 +575,7 @@ public final class FullConversationCell: UITableViewCell {
         }
         
         if
-            (cellViewModel.threadVariant == .closedGroup || cellViewModel.threadVariant == .openGroup) &&
+            (cellViewModel.threadVariant == .legacyGroup || cellViewModel.threadVariant == .group || cellViewModel.threadVariant == .community) &&
             (cellViewModel.interactionVariant?.isGroupControlMessage == false)
         {
             let authorName: String = cellViewModel.authorName(for: cellViewModel.threadVariant)

@@ -4,8 +4,8 @@
 
 #import "OWSBackgroundTask.h"
 #import "AppContext.h"
-#import <SignalCoreKit/Threading.h>
 #import <SessionUtilitiesKit/SessionUtilitiesKit.h>
+#import <SessionUtilitiesKit/SessionUtilitiesKit-Swift.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -237,7 +237,7 @@ typedef NSNumber *OWSTaskId;
     // always be called on the main thread, so we use DispatchSyncMainThreadSafe()
     // to ensure that.  We thereby ensure that we don't end the background task
     // until all of the completion blocks have completed.
-    DispatchSyncMainThreadSafe(^{
+    [Threading dispatchSyncMainThreadSafe:^{
         for (BackgroundTaskExpirationBlock expirationBlock in expirationMap.allValues) {
             expirationBlock();
         }
@@ -245,7 +245,7 @@ typedef NSNumber *OWSTaskId;
             // Apparently we need to "end" even expired background tasks.
             [CurrentAppContext() endBackgroundTask:backgroundTaskId];
         }
-    });
+    }];
 }
 
 - (void)timerDidFire
@@ -329,7 +329,7 @@ typedef NSNumber *OWSTaskId;
 {
     __weak typeof(self) weakSelf = self;
     self.taskId = [OWSBackgroundTaskManager.sharedManager addTaskWithExpirationBlock:^{
-        DispatchMainThreadSafe(^{
+        [Threading dispatchMainThreadSafe:^{
             OWSBackgroundTask *strongSelf = weakSelf;
             if (!strongSelf) {
                 return;
@@ -353,7 +353,7 @@ typedef NSNumber *OWSTaskId;
             if (completionBlock) {
                 completionBlock(BackgroundTaskState_Expired);
             }
-        });
+        }];
     }];
 
     // If a background task could not be begun, call the completion block.
@@ -368,9 +368,9 @@ typedef NSNumber *OWSTaskId;
             self.completionBlock = nil;
         }
         if (completionBlock) {
-            DispatchMainThreadSafe(^{
+            [Threading dispatchMainThreadSafe:^{
                 completionBlock(BackgroundTaskState_CouldNotStart);
-            });
+            }];
         }
     }
 }
@@ -393,11 +393,11 @@ typedef NSNumber *OWSTaskId;
     }
 
     // endBackgroundTask must be called on the main thread.
-    DispatchMainThreadSafe(^{
+    [Threading dispatchMainThreadSafe:^{
         if (completionBlock) {
             completionBlock(BackgroundTaskState_Cancelled);
         }
-    });
+    }];
 }
 
 - (void)endBackgroundTask
@@ -418,11 +418,11 @@ typedef NSNumber *OWSTaskId;
     }
 
     // endBackgroundTask must be called on the main thread.
-    DispatchMainThreadSafe(^{
+    [Threading dispatchMainThreadSafe:^{
         if (completionBlock) {
             completionBlock(BackgroundTaskState_Success);
         }
-    });
+    }];
 }
 
 @end

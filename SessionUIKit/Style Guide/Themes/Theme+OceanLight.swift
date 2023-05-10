@@ -69,6 +69,7 @@ internal enum Theme_OceanLight: ThemeColors {
         .solidButton_background: .oceanLight5,
         
         // Settings
+        .settings_tertiaryAction: .oceanLight1,
         .settings_tabBackground: .oceanLight6,
         
         // Appearance
@@ -89,6 +90,7 @@ internal enum Theme_OceanLight: ThemeColors {
         .conversationButton_swipeDestructive: .dangerLight,
         .conversationButton_swipeSecondary: .oceanLight2,
         .conversationButton_swipeTertiary: Theme.PrimaryColor.orange.color,
+        .conversationButton_swipeRead: .primary,
         
         // InputButton
         .inputButton_background: .oceanLight5,

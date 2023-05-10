@@ -2,6 +2,20 @@
 
 import Foundation
 import Combine
+import SessionUtilitiesKit
+
+public extension Publisher {
+    func sinkAndStore<C>(in storage: inout C) where C: RangeReplaceableCollection, C.Element == AnyCancellable {
+        self
+            .subscribeOnMain(immediately: true)
+            .receiveOnMain(immediately: true)
+            .sink(
+                receiveCompletion: { _ in },
+                receiveValue: { _ in }
+            )
+            .store(in: &storage)
+    }
+}
 
 public extension AnyPublisher {
     func firstValue() -> Output? {

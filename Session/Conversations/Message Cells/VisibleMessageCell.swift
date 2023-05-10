@@ -301,9 +301,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         lastSearchText: String?
     ) {
         self.viewModel = cellViewModel
-        self.bubbleView.accessibilityIdentifier = "Message Body"
-        self.bubbleView.isAccessibilityElement = true
-        self.bubbleView.accessibilityLabel = cellViewModel.body
+        
         // We want to add spacing between "clusters" of messages to indicate that time has
         // passed (even if there wasn't enough time to warrant showing a date header)
         let shouldAddTopInset: Bool = (
@@ -313,16 +311,22 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 cellViewModel.isOnlyMessageInCluster
             )
         )
-        let isGroupThread: Bool = (cellViewModel.threadVariant == .openGroup || cellViewModel.threadVariant == .closedGroup)
+        let isGroupThread: Bool = (
+            cellViewModel.threadVariant == .community ||
+            cellViewModel.threadVariant == .legacyGroup ||
+            cellViewModel.threadVariant == .group
+        )
         
-        // Profile picture view
+        // Profile picture view (should always be handled as a standard 'contact' profile picture)
         profilePictureViewLeadingConstraint.constant = (isGroupThread ? VisibleMessageCell.groupThreadHSpacing : 0)
         profilePictureViewWidthConstraint.constant = (isGroupThread ? VisibleMessageCell.profilePictureSize : 0)
         profilePictureView.isHidden = (!cellViewModel.shouldShowProfile || cellViewModel.profile == nil)
         profilePictureView.update(
             publicKey: cellViewModel.authorId,
+            threadVariant: .contact,    // Should always be '.contact'
+            customImageData: nil,
             profile: cellViewModel.profile,
-            threadVariant: cellViewModel.threadVariant
+            additionalProfile: nil
         )
         moderatorIconImageView.isHidden = (!cellViewModel.isSenderOpenGroupModerator || !cellViewModel.shouldShowProfile)
        
@@ -355,6 +359,10 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             playbackInfo: playbackInfo,
             lastSearchText: lastSearchText
         )
+        
+        bubbleView.accessibilityIdentifier = "Message Body"
+        bubbleView.accessibilityLabel = bodyTappableLabel?.attributedText?.string
+        bubbleView.isAccessibilityElement = true
         
         // Author label
         authorLabelTopConstraint.constant = (shouldAddTopInset ? Values.mediumSpacing : 0)
@@ -718,8 +726,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             maxWidth: maxWidth,
             showingAllReactions: showExpandedReactions,
             showNumbers: (
-                cellViewModel.threadVariant == .closedGroup ||
-                cellViewModel.threadVariant == .openGroup
+                cellViewModel.threadVariant == .legacyGroup ||
+                cellViewModel.threadVariant == .group ||
+                cellViewModel.threadVariant == .community
             )
         )
     }
@@ -873,7 +882,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         
         if profilePictureView.bounds.contains(profilePictureView.convert(location, from: self)), cellViewModel.shouldShowProfile {
             // For open groups only attempt to start a conversation if the author has a blinded id
-            guard cellViewModel.threadVariant != .openGroup else {
+            guard cellViewModel.threadVariant != .community else {
                 guard SessionId.Prefix(from: cellViewModel.authorId) == .blinded else { return }
                 
                 delegate?.startThread(
@@ -1083,8 +1092,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 
             case .standardIncoming, .standardIncomingDeleted:
                 let isGroupThread = (
-                    cellViewModel.threadVariant == .openGroup ||
-                    cellViewModel.threadVariant == .closedGroup
+                    cellViewModel.threadVariant == .community ||
+                    cellViewModel.threadVariant == .legacyGroup ||
+                    cellViewModel.threadVariant == .group
                 )
                 let leftGutterSize = (isGroupThread ? leftGutterSize : contactThreadHSpacing)
                 

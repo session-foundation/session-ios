@@ -2,7 +2,6 @@
 
 import UIKit
 import GRDB
-import PromiseKit
 import SessionUIKit
 import SessionMessagingKit
 
@@ -143,13 +142,13 @@ final class NewConversationVC: BaseVC, ThemedNavigation, UITableViewDelegate, UI
         cell.update(
             with: SessionCell.Info(
                 id: profile,
-                leftAccessory: .profile(profile.id, profile),
-                title: profile.displayName()
-            ),
-            style: .edgeToEdge,
-            position: Position.with(
-                indexPath.row,
-                count: newConversationViewModel.sectionData[indexPath.section].contacts.count
+                position: Position.with(
+                    indexPath.row,
+                    count: newConversationViewModel.sectionData[indexPath.section].contacts.count
+                ),
+                leftAccessory: .profile(id: profile.id, profile: profile),
+                title: profile.displayName(),
+                styling: SessionCell.StyleInfo(backgroundStyle: .edgeToEdge)
             )
         )
         
@@ -180,7 +179,8 @@ final class NewConversationVC: BaseVC, ThemedNavigation, UITableViewDelegate, UI
         
         let sessionId = newConversationViewModel.sectionData[indexPath.section].contacts[indexPath.row].id
         let maybeThread: SessionThread? = Storage.shared.write { db in
-            try SessionThread.fetchOrCreate(db, id: sessionId, variant: .contact)
+            try SessionThread
+                .fetchOrCreate(db, id: sessionId, variant: .contact, shouldBeVisible: nil)
         }
         
         guard maybeThread != nil else { return }

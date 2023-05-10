@@ -1,17 +1,15 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
-import Foundation
+import UIKit
+import Combine
+import UserNotifications
 import GRDB
-import PromiseKit
 import WebRTC
 import SessionUIKit
-import UIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
-import SessionUIKit
-import UserNotifications
-import UIKit
 import SignalUtilitiesKit
+import SignalCoreKit
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
@@ -21,8 +19,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     var hasInitialRootViewController: Bool = false
     private var loadingViewController: LoadingViewController?
     
+    enum LifecycleMethod {
+        case finishLaunching
+        case enterForeground
+    }
+    
     /// This needs to be a lazy variable to ensure it doesn't get initialized before it actually needs to be used
-    lazy var poller: Poller = Poller()
+    lazy var poller: CurrentUserPoller = CurrentUserPoller()
     
     // MARK: - Lifecycle
 
@@ -71,11 +74,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             },
             migrationsCompletion: { [weak self] result, needsConfigSync in
                 if case .failure(let error) = result {
-                    self?.showFailedMigrationAlert(error: error)
+                    self?.showFailedMigrationAlert(calledFrom: .finishLaunching, error: error)
                     return
                 }
                 
-                self?.completePostMigrationSetup(needsConfigSync: needsConfigSync)
+                self?.completePostMigrationSetup(calledFrom: .finishLaunching, needsConfigSync: needsConfigSync)
             }
         )
         
@@ -128,6 +131,28 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         // Resume database
         NotificationCenter.default.post(name: Database.resumeNotification, object: self)
+        
+        // If we've already completed migrations at least once this launch then check
+        // to see if any "delayed" migrations now need to run
+        if Storage.shared.hasCompletedMigrations {
+            AppReadiness.invalidate()
+            AppSetup.runPostSetupMigrations(
+                migrationProgressChanged: { [weak self] progress, minEstimatedTotalTime in
+                    self?.loadingViewController?.updateProgress(
+                        progress: progress,
+                        minEstimatedTotalTime: minEstimatedTotalTime
+                    )
+                },
+                migrationsCompletion: { [weak self] result, needsConfigSync in
+                    if case .failure(let error) = result {
+                        self?.showFailedMigrationAlert(calledFrom: .enterForeground, error: error)
+                        return
+                    }
+                    
+                    self?.completePostMigrationSetup(calledFrom: .enterForeground, needsConfigSync: needsConfigSync)
+                }
+            )
+        }
     }
     
     func applicationDidEnterBackground(_ application: UIApplication) {
@@ -252,7 +277,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     // MARK: - App Readiness
     
-    private func completePostMigrationSetup(needsConfigSync: Bool) {
+    private func completePostMigrationSetup(calledFrom lifecycleMethod: LifecycleMethod, needsConfigSync: Bool) {
         Configuration.performMainSetup()
         JobRunner.add(executor: SyncPushTokensJob.self, for: .syncPushTokens)
         
@@ -270,7 +295,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         self.ensureRootViewController(isPreAppReadyCall: true)
         
         // Trigger any launch-specific jobs and start the JobRunner
-        JobRunner.appDidFinishLaunching()
+        if lifecycleMethod == .finishLaunching {
+            JobRunner.appDidFinishLaunching()
+        }
         
         // Note that this does much more than set a flag;
         // it will also run all deferred blocks (including the JobRunner
@@ -287,7 +314,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             // at least once in the post-SAE world.
             db[.isReadyForAppExtensions] = true
             
-            if Identity.userExists(db) {
+            if Identity.userCompletedRequiredOnboarding(db) {
                 let appVersion: AppVersion = AppVersion.sharedInstance()
                 
                 // If the device needs to sync config or the user updated to a new version
@@ -297,13 +324,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                         appVersion.lastAppVersion != appVersion.currentAppVersion
                     )
                 {
-                    try MessageSender.syncConfiguration(db, forceSyncNow: true).retainUntilComplete()
+                    ConfigurationSyncJob.enqueue(db, publicKey: getUserHexEncodedPublicKey(db))
                 }
             }
         }
     }
     
-    private func showFailedMigrationAlert(error: Error?) {
+    private func showFailedMigrationAlert(calledFrom lifecycleMethod: LifecycleMethod, error: Error?) {
         let alert = UIAlertController(
             title: "Session",
             message: "DATABASE_MIGRATION_FAILED".localized(),
@@ -311,7 +338,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         )
         alert.addAction(UIAlertAction(title: "HELP_REPORT_BUG_ACTION_TITLE".localized(), style: .default) { _ in
             HelpViewModel.shareLogs(viewControllerToDismiss: alert) { [weak self] in
-                self?.showFailedMigrationAlert(error: error)
+                self?.showFailedMigrationAlert(calledFrom: lifecycleMethod, error: error)
             }
         })
         alert.addAction(UIAlertAction(title: "vc_restore_title".localized(), style: .destructive) { _ in
@@ -332,11 +359,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 },
                 migrationsCompletion: { [weak self] result, needsConfigSync in
                     if case .failure(let error) = result {
-                        self?.showFailedMigrationAlert(error: error)
+                        self?.showFailedMigrationAlert(calledFrom: lifecycleMethod, error: error)
                         return
                     }
                     
-                    self?.completePostMigrationSetup(needsConfigSync: needsConfigSync)
+                    self?.completePostMigrationSetup(calledFrom: lifecycleMethod, needsConfigSync: needsConfigSync)
                 }
             )
         })
@@ -406,11 +433,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
         
         self.hasInitialRootViewController = true
-        self.window?.rootViewController = StyledNavigationController(
-            rootViewController: (Identity.userExists() ?
-                HomeVC() :
-                LandingVC()
-            )
+        self.window?.rootViewController = TopBannerController(
+            child: StyledNavigationController(
+                rootViewController: {
+                    guard Identity.userExists() else { return LandingVC() }
+                    guard !Profile.fetchOrCreateCurrentUser().name.isEmpty else {
+                        // If we have no display name then collect one (this can happen if the
+                        // app crashed during onboarding which would leave the user in an invalid
+                        // state with no display name)
+                        return DisplayNameVC(flow: .register)
+                    }
+                    
+                    return HomeVC()
+                }()
+            ),
+            cachedWarning: UserDefaults.sharedLokiProject?[.topBannerWarningToShow]
+                .map { rawValue in TopBannerController.Warning(rawValue: rawValue) }
         )
         UIViewController.attemptRotationToDeviceOrientation()
         
@@ -484,7 +522,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     func application(_ application: UIApplication, performActionFor shortcutItem: UIApplicationShortcutItem, completionHandler: @escaping (Bool) -> Void) {
         AppReadiness.runNowOrWhenAppDidBecomeReady {
-            guard Identity.userExists() else { return }
+            guard Identity.userCompletedRequiredOnboarding() else { return }
             
             SessionApp.homeViewController.wrappedValue?.createNewConversation()
             completionHandler(true)
@@ -560,7 +598,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     public func startPollersIfNeeded(shouldStartGroupPollers: Bool = true) {
         guard Identity.userExists() else { return }
         
-        poller.startIfNeeded()
+        poller.start()
         
         guard shouldStartGroupPollers else { return }
         
@@ -570,7 +608,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     public func stopPollers(shouldStopUserPoller: Bool = true) {
         if shouldStopUserPoller {
-            poller.stop()
+            poller.stopAllPollers()
         }
         
         ClosedGroupPoller.shared.stopAllPollers()
@@ -648,20 +686,30 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     // MARK: - Config Sync
     
     func syncConfigurationIfNeeded() {
+        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
+        guard !SessionUtil.userConfigsEnabled else { return }
+        
         let lastSync: Date = (UserDefaults.standard[.lastConfigurationSync] ?? .distantPast)
         
         guard Date().timeIntervalSince(lastSync) > (7 * 24 * 60 * 60) else { return } // Sync every 2 days
         
         Storage.shared
-            .writeAsync { db in try MessageSender.syncConfiguration(db, forceSyncNow: false) }
-            .done {
-                // Only update the 'lastConfigurationSync' timestamp if we have done the
-                // first sync (Don't want a new device config sync to override config
-                // syncs from other devices)
-                if UserDefaults.standard[.hasSyncedInitialConfiguration] {
-                    UserDefaults.standard[.lastConfigurationSync] = Date()
+            .writeAsync(
+                updates: { db in
+                    ConfigurationSyncJob.enqueue(db, publicKey: getUserHexEncodedPublicKey(db))
+                },
+                completion: { _, result in
+                    switch result {
+                        case .failure: break
+                        case .success:
+                            // Only update the 'lastConfigurationSync' timestamp if we have done the
+                            // first sync (Don't want a new device config sync to override config
+                            // syncs from other devices)
+                            if UserDefaults.standard[.hasSyncedInitialConfiguration] {
+                                UserDefaults.standard[.lastConfigurationSync] = Date()
+                            }
+                    }
                 }
-            }
-            .retainUntilComplete()
+            )
     }
 }

@@ -2,9 +2,10 @@
 
 import Foundation
 import Sodium
-import Curve25519Kit
 
 public struct SessionId {
+    public static let byteCount: Int = 33
+    
     public enum Prefix: String, CaseIterable {
         case standard = "05"    // Used for identified users, open groups, etc.
         case blinded = "15"     // Used for authentication and participants in open groups with blinding enabled
@@ -19,7 +20,7 @@ public struct SessionId {
                 return
             }
             
-            guard ECKeyPair.isValidHexEncodedPublicKey(candidate: stringValue) else { return nil }
+            guard KeyPair.isValidHexEncodedPublicKey(candidate: stringValue) else { return nil }
             guard let targetPrefix: Prefix = Prefix(rawValue: String(stringValue.prefix(2))) else { return nil }
             
             self = targetPrefix

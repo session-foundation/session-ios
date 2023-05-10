@@ -1,11 +1,12 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Combine
+import GRDB
 import SessionUIKit
 import SessionSnodeKit
 import SessionMessagingKit
 import SignalUtilitiesKit
-import PromiseKit
 
 final class NukeDataModal: Modal {
     // MARK: - Initialization
@@ -150,88 +151,99 @@ final class NukeDataModal: Modal {
     
     private func clearDeviceOnly() {
         ModalActivityIndicatorViewController.present(fromViewController: self, canCancel: false) { [weak self] _ in
-            Storage.shared
-                .writeAsync { db in try MessageSender.syncConfiguration(db, forceSyncNow: true) }
-                .ensure(on: DispatchQueue.main) {
-                    self?.deleteAllLocalData()
-                    self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-                }
-                .retainUntilComplete()
+            ConfigurationSyncJob.run()
+                .receive(on: DispatchQueue.main)
+                .sinkUntilComplete(
+                    receiveCompletion: { _ in
+                        self?.deleteAllLocalData()
+                        self?.dismiss(animated: true, completion: nil) // Dismiss the loader
+                    }
+                )
         }
     }
     
     private func clearEntireAccount(presentedViewController: UIViewController) {
         ModalActivityIndicatorViewController
             .present(fromViewController: presentedViewController, canCancel: false) { [weak self] _ in
-                let servers: Set<String> = Storage.shared.read { db in
-                    try OpenGroup
-                        .select(.server)
-                        .distinct()
-                        .asRequest(of: String.self)
-                        .fetchSet(db)
-                    
-                }.defaulting(to: [])
-                
-                var promises: [Promise<[String: Bool]>] = Storage.shared.read { db in
-                    servers.map { server in
-                        OpenGroupAPI
-                            .clearInbox(
-                                db,
-                                on: server
-                            ).map { _, response in
-                                [server: true]
+                Publishers
+                    .MergeMany(
+                        Storage.shared
+                            .read { db -> [AnyPublisher<[String: Bool], Error>] in
+                                try OpenGroup
+                                    .filter(OpenGroup.Columns.isActive == true)
+                                    .select(.server)
+                                    .distinct()
+                                    .asRequest(of: String.self)
+                                    .fetchSet(db)
+                                    .map { server -> AnyPublisher<[String: Bool], Error> in
+                                        OpenGroupAPI
+                                            .clearInbox(db, on: server)
+                                            .map { _, _ -> [String: Bool] in [server: true] }
+                                            .eraseToAnyPublisher()
+                                    }
                             }
+                            .defaulting(to: [])
+                    )
+                    .collect()
+                    .subscribe(on: DispatchQueue.global(qos: .default))
+                    .flatMap { results in
+                        SnodeAPI
+                            .deleteAllMessages()
+                            .map { results.reduce($0) { result, next in result.updated(with: next) } }
+                            .eraseToAnyPublisher()
                     }
-                }.defaulting(to: [])
-                
-                when(resolved: promises)
-                    .done(on: DispatchQueue.main) { results in
-                        SnodeAPI.clearAllData()
-                            .done(on: DispatchQueue.main) { confirmations in
-                                self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-                                
-                                let potentiallyMaliciousSnodes: [String] = confirmations.compactMap { $0.value == false ? $0.key : nil }
-                                
-                                
-                                if potentiallyMaliciousSnodes.isEmpty {
-                                    self?.deleteAllLocalData()
-                                }
-                                else {
-                                    let message: String
-                                    if potentiallyMaliciousSnodes.count == 1 {
-                                        message = String(format: "dialog_clear_all_data_deletion_failed_1".localized(), potentiallyMaliciousSnodes[0])
-                                    }
-                                    else {
-                                        message = String(format: "dialog_clear_all_data_deletion_failed_2".localized(), String(potentiallyMaliciousSnodes.count), potentiallyMaliciousSnodes.joined(separator: ", "))
-                                    }
+                    .receive(on: DispatchQueue.main)
+                    .sinkUntilComplete(
+                        receiveCompletion: { result in
+                            switch result {
+                                case .finished: break
+                                case .failure(let error):
+                                    self?.dismiss(animated: true, completion: nil) // Dismiss the loader
                                     
                                     let modal: ConfirmationModal = ConfirmationModal(
                                         targetView: self?.view,
                                         info: ConfirmationModal.Info(
                                             title: "ALERT_ERROR_TITLE".localized(),
-                                            explanation: message,
+                                            explanation: error.localizedDescription,
                                             cancelTitle: "BUTTON_OK".localized(),
                                             cancelStyle: .alert_text
                                         )
                                     )
                                     self?.present(modal, animated: true)
-                                }
                             }
-                            .catch(on: DispatchQueue.main) { error in
-                                self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-                                
-                                let modal: ConfirmationModal = ConfirmationModal(
-                                    targetView: self?.view,
-                                    info: ConfirmationModal.Info(
-                                        title: "ALERT_ERROR_TITLE".localized(),
-                                        explanation: error.localizedDescription,
-                                        cancelTitle: "BUTTON_OK".localized(),
-                                        cancelStyle: .alert_text
-                                    )
+                        },
+                        receiveValue: { confirmations in
+                            self?.dismiss(animated: true, completion: nil) // Dismiss the loader
+
+                            let potentiallyMaliciousSnodes = confirmations
+                                .compactMap { ($0.value == false ? $0.key : nil) }
+
+                            guard !potentiallyMaliciousSnodes.isEmpty else {
+                                self?.deleteAllLocalData()
+                                return
+                            }
+
+                            let message: String
+
+                            if potentiallyMaliciousSnodes.count == 1 {
+                                message = String(format: "dialog_clear_all_data_deletion_failed_1".localized(), potentiallyMaliciousSnodes[0])
+                            }
+                            else {
+                                message = String(format: "dialog_clear_all_data_deletion_failed_2".localized(), String(potentiallyMaliciousSnodes.count), potentiallyMaliciousSnodes.joined(separator: ", "))
+                            }
+
+                            let modal: ConfirmationModal = ConfirmationModal(
+                                targetView: self?.view,
+                                info: ConfirmationModal.Info(
+                                    title: "ALERT_ERROR_TITLE".localized(),
+                                    explanation: message,
+                                    cancelTitle: "BUTTON_OK".localized(),
+                                    cancelStyle: .alert_text
                                 )
-                                self?.present(modal, animated: true)
-                            }
-                    }
+                            )
+                            self?.present(modal, animated: true)
+                        }
+                    )
             }
     }
     
@@ -242,7 +254,7 @@ final class NukeDataModal: Modal {
         
         if isUsingFullAPNs, let deviceToken: String = maybeDeviceToken {
             let data: Data = Data(hex: deviceToken)
-            PushNotificationAPI.unregister(data).retainUntilComplete()
+            PushNotificationAPI.unregister(data).sinkUntilComplete()
         }
         
         // Clear the app badge and notifications

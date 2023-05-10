@@ -4,6 +4,8 @@ import Foundation
 import GRDB
 import SessionUtilitiesKit
 
+/// This type is duplicate in both the database and within the SessionUtil config so should only ever have it's data changes via the
+/// `updateAllAndConfig` function. Updating it elsewhere could result in issues with syncing data between devices
 public struct Contact: Codable, Identifiable, Equatable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "contact" }
     internal static let threadForeignKey = ForeignKey([Columns.id], to: [SessionThread.Columns.id])
@@ -73,31 +75,6 @@ public struct Contact: Codable, Identifiable, Equatable, FetchableRecord, Persis
     }
 }
 
-// MARK: - Convenience
-
-public extension Contact {
-    func with(
-        isTrusted: Updatable<Bool> = .existing,
-        isApproved: Updatable<Bool> = .existing,
-        isBlocked: Updatable<Bool> = .existing,
-        lastKnownClientVersion: SessionVersion.FeatureVersion? = nil,
-        didApproveMe: Updatable<Bool> = .existing
-    ) -> Contact {
-        return Contact(
-            id: id,
-            isTrusted: (
-                (isTrusted ?? self.isTrusted) ||
-                self.id == getUserHexEncodedPublicKey() // Always trust ourselves
-            ),
-            isApproved: (isApproved ?? self.isApproved),
-            isBlocked: (isBlocked ?? self.isBlocked),
-            lastKnownClientVersion: (lastKnownClientVersion ?? self.lastKnownClientVersion),
-            didApproveMe: (didApproveMe ?? self.didApproveMe),
-            hasBeenBlocked: ((isBlocked ?? self.isBlocked) || self.hasBeenBlocked)
-        )
-    }
-}
-
 // MARK: - GRDB Interactions
 
 public extension Contact {
@@ -107,24 +84,5 @@ public extension Contact {
     /// it will need to be explicitly saved after calling
     static func fetchOrCreate(_ db: Database, id: ID) -> Contact {
         return ((try? fetchOne(db, id: id)) ?? Contact(db, id: id))
-    }
-}
-
-// MARK: - Objective-C Support
-
-// TODO: Remove this when possible
-@objc(SMKContact)
-public class SMKContact: NSObject {
-    @objc(isBlockedFor:)
-    public static func isBlocked(id: String) -> Bool {
-        return Storage.shared
-            .read { db in
-                try Contact
-                    .filter(id: id)
-                    .select(.isBlocked)
-                    .asRequest(of: Bool.self)
-                    .fetchOne(db)
-            }
-            .defaulting(to: false)
     }
 }

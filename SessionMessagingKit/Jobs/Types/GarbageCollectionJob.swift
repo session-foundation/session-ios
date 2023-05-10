@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import PromiseKit
 import SignalCoreKit
 import SessionUtilitiesKit
 import SessionSnodeKit
@@ -86,7 +85,7 @@ public enum GarbageCollectionJob: JobExecutor {
                             SELECT \(interaction.alias[Column.rowID])
                             FROM \(Interaction.self)
                             JOIN \(SessionThread.self) ON (
-                                \(SQL("\(thread[.variant]) = \(SessionThread.Variant.openGroup)")) AND
+                                \(SQL("\(thread[.variant]) = \(SessionThread.Variant.community)")) AND
                                 \(thread[.id]) = \(interaction[.threadId])
                             )
                             JOIN (
@@ -118,6 +117,8 @@ public enum GarbageCollectionJob: JobExecutor {
                             LEFT JOIN \(SessionThread.self) ON \(thread[.id]) = \(job[.threadId])
                             LEFT JOIN \(Interaction.self) ON \(interaction[.id]) = \(job[.interactionId])
                             WHERE (
+                                -- Never delete config sync jobs, even if their threads were deleted
+                                \(SQL("\(job[.variant]) != \(Job.Variant.configurationSync)")) AND
                                 (
                                     \(job[.threadId]) IS NOT NULL AND
                                     \(thread[.id]) IS NULL

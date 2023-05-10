@@ -1,8 +1,8 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
-import PromiseKit
 import SignalCoreKit
 import SessionUtilitiesKit
 
@@ -48,32 +48,62 @@ public enum AttachmentUploadJob: JobExecutor {
             return
         }
         
+        // If this upload is related to sending a message then trigger the 'handleMessageWillSend' logic
+        // as if this is a retry the logic wouldn't run until after the upload has completed resulting in
+        // a potentially incorrect delivery status
+        Storage.shared.write { db in
+            guard
+                let sendJob: Job = try Job.fetchOne(db, id: details.messageSendJobId),
+                let sendJobDetails: Data = sendJob.details,
+                let details: MessageSendJob.Details = try? JSONDecoder()
+                    .decode(MessageSendJob.Details.self, from: sendJobDetails)
+            else { return }
+            
+            MessageSender.handleMessageWillSend(
+                db,
+                message: details.message,
+                interactionId: interactionId,
+                isSyncMessage: details.isSyncMessage
+            )
+        }
+        
         // Note: In the AttachmentUploadJob we intentionally don't provide our own db instance to prevent
         // reentrancy issues when the success/failure closures get called before the upload as the JobRunner
         // will attempt to update the state of the job immediately
-        attachment.upload(
-            queue: queue,
-            using: { db, data in
-                SNLog("[AttachmentUpload] Started for message \(interactionId) (\(attachment.byteCount) bytes)")
-                
-                if let openGroup: OpenGroup = openGroup {
-                    return OpenGroupAPI
-                        .uploadFile(
-                            db,
-                            bytes: data.bytes,
-                            to: openGroup.roomToken,
-                            on: openGroup.server
-                        )
-                        .map { _, response -> String in response.id }
+        attachment
+            .upload(to: (openGroup.map { .openGroup($0) } ?? .fileServer))
+            .subscribe(on: queue)
+            .receive(on: queue)
+            .sinkUntilComplete(
+                receiveCompletion: { result in
+                    switch result {
+                        case .failure(let error):
+                            // If this upload is related to sending a message then trigger the
+                            // 'handleFailedMessageSend' logic as we want to ensure the message
+                            // has the correct delivery status
+                            Storage.shared.read { db in
+                                guard
+                                    let sendJob: Job = try Job.fetchOne(db, id: details.messageSendJobId),
+                                    let sendJobDetails: Data = sendJob.details,
+                                    let details: MessageSendJob.Details = try? JSONDecoder()
+                                        .decode(MessageSendJob.Details.self, from: sendJobDetails)
+                                else { return }
+                                
+                                MessageSender.handleFailedMessageSend(
+                                    db,
+                                    message: details.message,
+                                    with: .other(error),
+                                    interactionId: interactionId,
+                                    isSyncMessage: details.isSyncMessage
+                                )
+                            }
+                            
+                            failure(job, error, false)
+                        
+                        case .finished: success(job, false)
+                    }
                 }
-                
-                return FileServerAPI.upload(data)
-                    .map { response -> String in response.id }
-            },
-            encrypt: (openGroup == nil),
-            success: { _ in success(job, false) },
-            failure: { error in failure(job, error, false) }
-        )
+            )
     }
 }
 

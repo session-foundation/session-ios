@@ -6,7 +6,7 @@ import SessionMessagingKit
 
 final class InfoMessageCell: MessageCell {
     private static let iconSize: CGFloat = 16
-    private static let inset = Values.mediumSpacing
+    public static let inset = Values.mediumSpacing
     
     private var isHandlingLongPress: Bool = false
     

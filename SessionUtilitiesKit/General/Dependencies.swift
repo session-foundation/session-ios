@@ -4,6 +4,12 @@ import Foundation
 import GRDB
 
 open class Dependencies {
+    public var _queue: Atomic<DispatchQueue?>
+    public var queue: DispatchQueue {
+        get { Dependencies.getValueSettingIfNull(&_queue) { DispatchQueue.global(qos: .default) } }
+        set { _queue.mutate { $0 = newValue } }
+    }
+    
     public var _generalCache: Atomic<Atomic<GeneralCacheType>?>
     public var generalCache: Atomic<GeneralCacheType> {
         get { Dependencies.getValueSettingIfNull(&_generalCache) { General.cache } }
@@ -37,12 +43,14 @@ open class Dependencies {
     // MARK: - Initialization
     
     public init(
+        queue: DispatchQueue? = nil,
         generalCache: Atomic<GeneralCacheType>? = nil,
         storage: Storage? = nil,
         scheduler: ValueObservationScheduler? = nil,
         standardUserDefaults: UserDefaultsType? = nil,
         date: Date? = nil
     ) {
+        _queue = Atomic(queue)
         _generalCache = Atomic(generalCache)
         _storage = Atomic(storage)
         _scheduler = Atomic(scheduler)

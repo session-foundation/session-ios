@@ -37,8 +37,8 @@ public extension MentionInfo {
         /// The query needs to differ depending on the thread variant because the behaviour should be different:
         ///
         /// **Contact:** We should show the profile directly (filtered out if the pattern doesn't match)
-        /// **Closed Group:** We should show all profiles within the group, filtered by the pattern
-        /// **Open Group:** We should show only the 20 most recent profiles which match the pattern
+        /// **Group:** We should show all profiles within the group, filtered by the pattern
+        /// **Community:** We should show only the 20 most recent profiles which match the pattern
         let request: SQLRequest<MentionInfo> = {
             let hasValidPattern: Bool = (pattern != nil && pattern?.rawPattern != "\"\"*")
             let targetJoin: SQL = {
@@ -49,7 +49,7 @@ public extension MentionInfo {
                     JOIN \(Profile.self) ON (
                         \(Profile.self).rowid = \(profileFullTextSearch).rowid AND
                         \(SQL("\(profile[.id]) != \(userPublicKey)")) AND (
-                            \(SQL("\(threadVariant) != \(SessionThread.Variant.openGroup)")) OR
+                            \(SQL("\(threadVariant) != \(SessionThread.Variant.community)")) OR
                             \(SQL("\(profile[.id]) LIKE '\(prefixLiteral)'"))
                         )
                     )
@@ -60,7 +60,7 @@ public extension MentionInfo {
                     return """
                         WHERE (
                             \(SQL("\(profile[.id]) != \(userPublicKey)")) AND (
-                                \(SQL("\(threadVariant) != \(SessionThread.Variant.openGroup)")) OR
+                                \(SQL("\(threadVariant) != \(SessionThread.Variant.community)")) OR
                                 \(SQL("\(profile[.id]) LIKE '\(prefixLiteral)'"))
                             )
                         )
@@ -83,7 +83,7 @@ public extension MentionInfo {
                         \(targetWhere) AND \(SQL("\(profile[.id]) = \(threadId)"))
                     """)
                     
-                case .closedGroup:
+                case .legacyGroup, .group:
                     return SQLRequest("""
                         SELECT
                             \(Profile.self).*,
@@ -100,7 +100,7 @@ public extension MentionInfo {
                         ORDER BY IFNULL(\(profile[.nickname]), \(profile[.name])) ASC
                     """)
                     
-                case .openGroup:
+                case .community:
                     return SQLRequest("""
                         SELECT
                             \(Profile.self).*,

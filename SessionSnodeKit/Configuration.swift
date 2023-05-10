@@ -17,7 +17,8 @@ public enum SNSnodeKit { // Just to make the external API nice
                 ],
                 [
                     _004_FlagMessageHashAsDeletedOrInvalid.self
-                ]
+                ],
+                []  // Add job priorities
             ]
         )
     }

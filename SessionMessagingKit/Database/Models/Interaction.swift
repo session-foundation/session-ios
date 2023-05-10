@@ -86,7 +86,10 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         case infoCall = 5000
         
         // MARK: - Convenience
-        public static let variantsToIncrementUnreadCount: [Variant] = [ .standardIncoming, .infoCall ]
+        
+        public static let variantsToIncrementUnreadCount: [Variant] = [
+            .standardIncoming, .infoCall
+        ]
         
         public var isInfoMessage: Bool {
             switch self {
@@ -409,7 +412,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
                             state: .sending
                         ).insert(db)
                         
-                    case .closedGroup:
+                    case .legacyGroup, .group:
                         let closedGroupMemberIds: Set<String> = (try? GroupMember
                             .select(.profileId)
                             .filter(GroupMember.Columns.groupId == threadId)
@@ -435,7 +438,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
                                 ).insert(db)
                             }
                         
-                    case .openGroup:
+                    case .community:
                         // Since we use the 'RecipientState' type to manage the message state
                         // we need to ensure we have a state for all threads; so for open groups
                         // we just use the open group id as the 'recipientId' value
@@ -527,7 +530,21 @@ public extension Interaction {
         }
 
         // Once all of the below is done schedule the jobs
-        func scheduleJobs(interactionInfo: [InteractionReadInfo]) {
+        func scheduleJobs(
+            _ db: Database,
+            threadId: String,
+            threadVariant: SessionThread.Variant,
+            interactionInfo: [InteractionReadInfo],
+            lastReadTimestampMs: Int64
+        ) throws {
+            // Update the last read timestamp if needed
+            try SessionUtil.syncThreadLastReadIfNeeded(
+                db,
+                threadId: threadId,
+                threadVariant: threadVariant,
+                lastReadTimestampMs: lastReadTimestampMs
+            )
+            
             // Add the 'DisappearingMessagesJob' if needed - this will update any expiring
             // messages `expiresStartedAtMs` values
             JobRunner.upsert(
@@ -587,6 +604,7 @@ public extension Interaction {
             // actually not read (no point updating and triggering db changes otherwise)
             guard
                 maybeInteractionInfo?.wasRead == false,
+                let timestampMs: Int64 = maybeInteractionInfo?.timestampMs,
                 let variant: Variant = try Interaction
                     .filter(id: interactionId)
                     .select(.variant)
@@ -598,14 +616,20 @@ public extension Interaction {
                 .filter(id: interactionId)
                 .updateAll(db, Columns.wasRead.set(to: true))
             
-            scheduleJobs(interactionInfo: [
-                InteractionReadInfo(
-                    id: interactionId,
-                    variant: variant,
-                    timestampMs: 0,
-                    wasRead: false
-                )
-            ])
+            try scheduleJobs(
+                db,
+                threadId: threadId,
+                threadVariant: threadVariant,
+                interactionInfo: [
+                    InteractionReadInfo(
+                        id: interactionId,
+                        variant: variant,
+                        timestampMs: 0,
+                        wasRead: false
+                    )
+                ],
+                lastReadTimestampMs: timestampMs
+            )
             return
         }
         
@@ -622,7 +646,13 @@ public extension Interaction {
         // for this interaction (need to ensure the disapeparing messages run for sync'ed
         // outgoing messages which will always have 'wasRead' as false)
         guard !interactionInfoToMarkAsRead.isEmpty else {
-            scheduleJobs(interactionInfo: [interactionInfo])
+            try scheduleJobs(
+                db,
+                threadId: threadId,
+                threadVariant: threadVariant,
+                interactionInfo: [interactionInfo],
+                lastReadTimestampMs: interactionInfo.timestampMs
+            )
             return
         }
         
@@ -630,7 +660,13 @@ public extension Interaction {
         try interactionQuery.updateAll(db, Columns.wasRead.set(to: true))
         
         // Retrieve the interaction ids we want to update
-        scheduleJobs(interactionInfo: interactionInfoToMarkAsRead)
+        try scheduleJobs(
+            db,
+            threadId: threadId,
+            threadVariant: threadVariant,
+            interactionInfo: interactionInfoToMarkAsRead,
+            lastReadTimestampMs: interactionInfo.timestampMs
+        )
     }
     
     /// This method flags sent messages as read for the specified recipients
@@ -701,13 +737,28 @@ public extension Interaction {
 // MARK: - Search Queries
 
 public extension Interaction {
-    static func idsForTermWithin(threadId: String, pattern: FTS5Pattern) -> SQLRequest<Int64> {
+    struct TimestampInfo: FetchableRecord, Codable {
+        public let id: Int64
+        public let timestampMs: Int64
+        
+        public init(
+            id: Int64,
+            timestampMs: Int64
+        ) {
+            self.id = id
+            self.timestampMs = timestampMs
+        }
+    }
+    
+    static func idsForTermWithin(threadId: String, pattern: FTS5Pattern) -> SQLRequest<TimestampInfo> {
         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
         let interactionFullTextSearch: SQL = SQL(stringLiteral: Interaction.fullTextSearchTableName)
         let threadIdLiteral: SQL = SQL(stringLiteral: Interaction.Columns.threadId.name)
         
-        let request: SQLRequest<Int64> = """
-            SELECT \(interaction[.id])
+        let request: SQLRequest<TimestampInfo> = """
+            SELECT
+                \(interaction[.id]),
+                \(interaction[.timestampMs])
             FROM \(Interaction.self)
             JOIN \(interactionFullTextSearch) ON (
                 \(interactionFullTextSearch).rowid = \(interaction.alias[Column.rowID]) AND
@@ -799,8 +850,8 @@ public extension Interaction {
             let sodium: Sodium = Sodium()
             
             if
-                let userEd25519KeyPair: Box.KeyPair = Identity.fetchUserEd25519KeyPair(db),
-                let blindedKeyPair: Box.KeyPair = sodium.blindedKeyPair(
+                let userEd25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
+                let blindedKeyPair: KeyPair = sodium.blindedKeyPair(
                     serverPublicKey: openGroup.publicKey,
                     edKeyPair: userEd25519KeyPair,
                     genericHash: sodium.genericHash

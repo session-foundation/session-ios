@@ -194,22 +194,33 @@ final class RestoreVC: BaseVC {
             present(modal, animated: true)
         }
         
-        let mnemonic = mnemonicTextView.text!.lowercased()
+        let seed: Data
+        let keyPairs: (ed25519KeyPair: KeyPair, x25519KeyPair: KeyPair)
+        
         do {
-            let hexEncodedSeed = try Mnemonic.decode(mnemonic: mnemonic)
-            let seed = Data(hex: hexEncodedSeed)
-            let (ed25519KeyPair, x25519KeyPair) = try Identity.generate(from: seed)
-            Onboarding.Flow.recover.preregister(with: seed, ed25519KeyPair: ed25519KeyPair, x25519KeyPair: x25519KeyPair)
-            mnemonicTextView.resignFirstResponder()
-            
-            Timer.scheduledTimer(withTimeInterval: 0.25, repeats: false) { _ in
-                let displayNameVC = DisplayNameVC()
-                self.navigationController!.pushViewController(displayNameVC, animated: true)
-            }
-        } catch let error {
+            let mnemonic: String = mnemonicTextView.text!.lowercased()
+            let hexEncodedSeed: String = try Mnemonic.decode(mnemonic: mnemonic)
+            seed = Data(hex: hexEncodedSeed)
+            keyPairs = try Identity.generate(from: seed)
+        }
+        catch let error {
             let error = error as? Mnemonic.DecodingError ?? Mnemonic.DecodingError.generic
             showError(title: error.errorDescription!)
+            return
         }
+        
+        // Load in the user config and progress to the next screen
+        mnemonicTextView.resignFirstResponder()
+        
+        Onboarding.Flow.recover
+            .preregister(
+                with: seed,
+                ed25519KeyPair: keyPairs.ed25519KeyPair,
+                x25519KeyPair: keyPairs.x25519KeyPair
+            )
+        
+        let pnModeVC: PNModeVC = PNModeVC(flow: .recover)
+        self.navigationController?.pushViewController(pnModeVC, animated: true)
     }
     
     @objc private func handleLegalLabelTapped(_ tapGestureRecognizer: UITapGestureRecognizer) {

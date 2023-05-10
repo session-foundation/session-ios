@@ -56,11 +56,14 @@ class MessageSenderEncryptionSpec: QuickSpec {
                 }
                 
                 it("can encrypt correctly") {
-                    let result = try? MessageSender.encryptWithSessionProtocol(
-                        "TestMessage".data(using: .utf8)!,
-                        for: "05\(TestConstants.publicKey)",
-                        using: SMKDependencies(storage: mockStorage)
-                    )
+                    let result = mockStorage.write { db in
+                        try? MessageSender.encryptWithSessionProtocol(
+                            db,
+                            plaintext: "TestMessage".data(using: .utf8)!,
+                            for: "05\(TestConstants.publicKey)",
+                            using: SMKDependencies(storage: mockStorage)
+                        )
+                    }
                     
                     // Note: A Nonce is used for this so we can't compare the exact value when not mocked
                     expect(result).toNot(beNil())
@@ -68,11 +71,14 @@ class MessageSenderEncryptionSpec: QuickSpec {
                 }
                 
                 it("returns the correct value when mocked") {
-                    let result = try? MessageSender.encryptWithSessionProtocol(
-                        "TestMessage".data(using: .utf8)!,
-                        for: "05\(TestConstants.publicKey)",
-                        using: dependencies
-                    )
+                    let result = mockStorage.write { db in
+                        try? MessageSender.encryptWithSessionProtocol(
+                            db,
+                            plaintext: "TestMessage".data(using: .utf8)!,
+                            for: "05\(TestConstants.publicKey)",
+                            using: dependencies
+                        )
+                    }
                     
                     expect(result?.bytes).to(equal([1, 2, 3]))
                 }
@@ -83,51 +89,63 @@ class MessageSenderEncryptionSpec: QuickSpec {
                         _ = try Identity.filter(id: .ed25519SecretKey).deleteAll(db)
                     }
                     
-                    expect {
-                        try MessageSender.encryptWithSessionProtocol(
-                            "TestMessage".data(using: .utf8)!,
-                            for: "05\(TestConstants.publicKey)",
-                            using: dependencies
-                        )
+                    mockStorage.write { db in
+                        expect {
+                            try MessageSender.encryptWithSessionProtocol(
+                                db,
+                                plaintext: "TestMessage".data(using: .utf8)!,
+                                for: "05\(TestConstants.publicKey)",
+                                using: dependencies
+                            )
+                        }
+                        .to(throwError(MessageSenderError.noUserED25519KeyPair))
                     }
-                    .to(throwError(MessageSenderError.noUserED25519KeyPair))
                 }
                 
                 it("throws an error if the signature generation fails") {
                     mockSign.when { $0.signature(message: anyArray(), secretKey: anyArray()) }.thenReturn(nil)
                     
-                    expect {
-                        try MessageSender.encryptWithSessionProtocol(
-                            "TestMessage".data(using: .utf8)!,
-                            for: "05\(TestConstants.publicKey)",
-                            using: dependencies
-                        )
+                    mockStorage.write { db in
+                        expect {
+                            try MessageSender.encryptWithSessionProtocol(
+                                db,
+                                plaintext: "TestMessage".data(using: .utf8)!,
+                                for: "05\(TestConstants.publicKey)",
+                                using: dependencies
+                            )
+                        }
+                        .to(throwError(MessageSenderError.signingFailed))
                     }
-                    .to(throwError(MessageSenderError.signingFailed))
                 }
                 
                 it("throws an error if the encryption fails") {
                     mockBox.when { $0.seal(message: anyArray(), recipientPublicKey: anyArray()) }.thenReturn(nil)
                     
-                    expect {
-                        try MessageSender.encryptWithSessionProtocol(
-                            "TestMessage".data(using: .utf8)!,
-                            for: "05\(TestConstants.publicKey)",
-                            using: dependencies
-                        )
+                    mockStorage.write { db in
+                        expect {
+                            try MessageSender.encryptWithSessionProtocol(
+                                db,
+                                plaintext: "TestMessage".data(using: .utf8)!,
+                                for: "05\(TestConstants.publicKey)",
+                                using: dependencies
+                            )
+                        }
+                        .to(throwError(MessageSenderError.encryptionFailed))
                     }
-                    .to(throwError(MessageSenderError.encryptionFailed))
                 }
             }
             
             context("when encrypting with the blinded session protocol") {
                 it("successfully encrypts") {
-                    let result = try? MessageSender.encryptWithSessionBlindingProtocol(
-                        "TestMessage".data(using: .utf8)!,
-                        for: "15\(TestConstants.blindedPublicKey)",
-                        openGroupPublicKey: TestConstants.serverPublicKey,
-                        using: dependencies
-                    )
+                    let result = mockStorage.write { db in
+                        try? MessageSender.encryptWithSessionBlindingProtocol(
+                            db,
+                            plaintext: "TestMessage".data(using: .utf8)!,
+                            for: "15\(TestConstants.blindedPublicKey)",
+                            openGroupPublicKey: TestConstants.serverPublicKey,
+                            using: dependencies
+                        )
+                    }
                     
                     expect(result?.toHexString())
                         .to(equal(
@@ -138,23 +156,29 @@ class MessageSenderEncryptionSpec: QuickSpec {
                 }
                 
                 it("includes a version at the start of the encrypted value") {
-                    let result = try? MessageSender.encryptWithSessionBlindingProtocol(
-                        "TestMessage".data(using: .utf8)!,
-                        for: "15\(TestConstants.blindedPublicKey)",
-                        openGroupPublicKey: TestConstants.serverPublicKey,
-                        using: dependencies
-                    )
+                    let result = mockStorage.write { db in
+                        try? MessageSender.encryptWithSessionBlindingProtocol(
+                            db,
+                            plaintext: "TestMessage".data(using: .utf8)!,
+                            for: "15\(TestConstants.blindedPublicKey)",
+                            openGroupPublicKey: TestConstants.serverPublicKey,
+                            using: dependencies
+                        )
+                    }
                     
                     expect(result?.toHexString().prefix(2)).to(equal("00"))
                 }
                 
                 it("includes the nonce at the end of the encrypted value") {
-                    let maybeResult = try? MessageSender.encryptWithSessionBlindingProtocol(
-                        "TestMessage".data(using: .utf8)!,
-                        for: "15\(TestConstants.blindedPublicKey)",
-                        openGroupPublicKey: TestConstants.serverPublicKey,
-                        using: dependencies
-                    )
+                    let maybeResult = mockStorage.write { db in
+                        try? MessageSender.encryptWithSessionBlindingProtocol(
+                            db,
+                            plaintext: "TestMessage".data(using: .utf8)!,
+                            for: "15\(TestConstants.blindedPublicKey)",
+                            openGroupPublicKey: TestConstants.serverPublicKey,
+                            using: dependencies
+                        )
+                    }
                     let result: [UInt8] = (maybeResult?.bytes ?? [])
                     let nonceBytes: [UInt8] = Array(result[max(0, (result.count - 24))..<result.count])
                     
@@ -163,15 +187,18 @@ class MessageSenderEncryptionSpec: QuickSpec {
                 }
                 
                 it("throws an error if the recipient isn't a blinded id") {
-                    expect {
-                        try MessageSender.encryptWithSessionBlindingProtocol(
-                            "TestMessage".data(using: .utf8)!,
-                            for: "05\(TestConstants.publicKey)",
-                            openGroupPublicKey: TestConstants.serverPublicKey,
-                            using: dependencies
-                        )
+                    mockStorage.write { db in
+                        expect {
+                            try MessageSender.encryptWithSessionBlindingProtocol(
+                                db,
+                                plaintext: "TestMessage".data(using: .utf8)!,
+                                for: "05\(TestConstants.publicKey)",
+                                openGroupPublicKey: TestConstants.serverPublicKey,
+                                using: dependencies
+                            )
+                        }
+                        .to(throwError(MessageSenderError.signingFailed))
                     }
-                    .to(throwError(MessageSenderError.signingFailed))
                 }
                 
                 it("throws an error if there is no ed25519 keyPair") {
@@ -180,15 +207,18 @@ class MessageSenderEncryptionSpec: QuickSpec {
                         _ = try Identity.filter(id: .ed25519SecretKey).deleteAll(db)
                     }
                     
-                    expect {
-                        try MessageSender.encryptWithSessionBlindingProtocol(
-                            "TestMessage".data(using: .utf8)!,
-                            for: "15\(TestConstants.blindedPublicKey)",
-                            openGroupPublicKey: TestConstants.serverPublicKey,
-                            using: dependencies
-                        )
+                    mockStorage.write { db in
+                        expect {
+                            try MessageSender.encryptWithSessionBlindingProtocol(
+                                db,
+                                plaintext: "TestMessage".data(using: .utf8)!,
+                                for: "15\(TestConstants.blindedPublicKey)",
+                                openGroupPublicKey: TestConstants.serverPublicKey,
+                                using: dependencies
+                            )
+                        }
+                        .to(throwError(MessageSenderError.noUserED25519KeyPair))
                     }
-                    .to(throwError(MessageSenderError.noUserED25519KeyPair))
                 }
                 
                 it("throws an error if it fails to generate a blinded keyPair") {
@@ -206,15 +236,18 @@ class MessageSenderEncryptionSpec: QuickSpec {
                         }
                         .thenReturn(nil)
                     
-                    expect {
-                        try MessageSender.encryptWithSessionBlindingProtocol(
-                            "TestMessage".data(using: .utf8)!,
-                            for: "15\(TestConstants.blindedPublicKey)",
-                            openGroupPublicKey: TestConstants.serverPublicKey,
-                            using: dependencies
-                        )
+                    mockStorage.write { db in
+                        expect {
+                            try MessageSender.encryptWithSessionBlindingProtocol(
+                                db,
+                                plaintext: "TestMessage".data(using: .utf8)!,
+                                for: "15\(TestConstants.blindedPublicKey)",
+                                openGroupPublicKey: TestConstants.serverPublicKey,
+                                using: dependencies
+                            )
+                        }
+                        .to(throwError(MessageSenderError.signingFailed))
                     }
-                    .to(throwError(MessageSenderError.signingFailed))
                 }
                 
                 it("throws an error if it fails to generate an encryption key") {
@@ -231,7 +264,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
                             )
                         }
                         .thenReturn(
-                            Box.KeyPair(
+                            KeyPair(
                                 publicKey: Data(hex: TestConstants.edPublicKey).bytes,
                                 secretKey: Data(hex: TestConstants.edSecretKey).bytes
                             )
@@ -248,15 +281,18 @@ class MessageSenderEncryptionSpec: QuickSpec {
                         }
                         .thenReturn(nil)
                     
-                    expect {
-                        try MessageSender.encryptWithSessionBlindingProtocol(
-                            "TestMessage".data(using: .utf8)!,
-                            for: "15\(TestConstants.blindedPublicKey)",
-                            openGroupPublicKey: TestConstants.serverPublicKey,
-                            using: dependencies
-                        )
+                    mockStorage.write { db in
+                        expect {
+                            try MessageSender.encryptWithSessionBlindingProtocol(
+                                db,
+                                plaintext: "TestMessage".data(using: .utf8)!,
+                                for: "15\(TestConstants.blindedPublicKey)",
+                                openGroupPublicKey: TestConstants.serverPublicKey,
+                                using: dependencies
+                            )
+                        }
+                        .to(throwError(MessageSenderError.signingFailed))
                     }
-                    .to(throwError(MessageSenderError.signingFailed))
                 }
                 
                 it("throws an error if it fails to encrypt") {
@@ -267,15 +303,18 @@ class MessageSenderEncryptionSpec: QuickSpec {
                         .when { $0.encrypt(message: anyArray(), secretKey: anyArray(), nonce: anyArray()) }
                         .thenReturn(nil)
                     
-                    expect {
-                        try MessageSender.encryptWithSessionBlindingProtocol(
-                            "TestMessage".data(using: .utf8)!,
-                            for: "15\(TestConstants.blindedPublicKey)",
-                            openGroupPublicKey: TestConstants.serverPublicKey,
-                            using: dependencies
-                        )
+                    mockStorage.write { db in
+                        expect {
+                            try MessageSender.encryptWithSessionBlindingProtocol(
+                                db,
+                                plaintext: "TestMessage".data(using: .utf8)!,
+                                for: "15\(TestConstants.blindedPublicKey)",
+                                openGroupPublicKey: TestConstants.serverPublicKey,
+                                using: dependencies
+                            )
+                        }
+                        .to(throwError(MessageSenderError.encryptionFailed))
                     }
-                    .to(throwError(MessageSenderError.encryptionFailed))
                 }
             }
         }

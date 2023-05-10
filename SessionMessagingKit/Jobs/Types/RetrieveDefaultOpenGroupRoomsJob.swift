@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import SignalCoreKit
 import SessionUtilitiesKit
 
 public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
@@ -43,8 +42,15 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
         }
         
         OpenGroupManager.getDefaultRoomsIfNeeded()
-            .done(on: queue) { _ in success(job, false) }
-            .catch(on: queue) { error in failure(job, error, false) }
-            .retainUntilComplete()
+            .subscribe(on: queue)
+            .receive(on: queue)
+            .sinkUntilComplete(
+                receiveCompletion: { result in
+                    switch result {
+                        case .finished: success(job, false)
+                        case .failure(let error): failure(job, error, false)
+                    }
+                }
+            )
     }
 }

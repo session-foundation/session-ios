@@ -6,6 +6,7 @@ import GRDB
 import DifferenceKit
 import SessionUIKit
 import SignalUtilitiesKit
+import SignalCoreKit
 
 public class DocumentTileViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
     
@@ -496,7 +497,7 @@ class DocumentCell: UITableViewCell {
     func update(with item: MediaGalleryViewModel.Item) {
         let attachment = item.attachment
         titleLabel.text = (attachment.sourceFilename ?? "File")
-        detailLabel.text = "\(OWSFormat.formatFileSize(UInt(attachment.byteCount)))"
+        detailLabel.text = "\(Format.fileSize(attachment.byteCount)))"
         timeLabel.text = Date(
             timeIntervalSince1970: TimeInterval(item.interactionTimestampMs / 1000)
         ).formattedForDisplay

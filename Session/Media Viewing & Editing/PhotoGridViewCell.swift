@@ -4,6 +4,7 @@
 
 import UIKit
 import SessionUIKit
+import SignalCoreKit
 
 public enum PhotoGridItemType {
     case photo, animated, video

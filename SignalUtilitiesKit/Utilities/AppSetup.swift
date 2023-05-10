@@ -7,16 +7,16 @@ import SessionUtilitiesKit
 import SessionUIKit
 
 public enum AppSetup {
-    private static var hasRun: Bool = false
+    private static let hasRun: Atomic<Bool> = Atomic(false)
     
     public static func setupEnvironment(
         appSpecificBlock: @escaping () -> (),
         migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
-        migrationsCompletion: @escaping (Result<Database, Error>, Bool) -> ()
+        migrationsCompletion: @escaping (Result<Void, Error>, Bool) -> ()
     ) {
-        guard !AppSetup.hasRun else { return }
+        guard !AppSetup.hasRun.wrappedValue else { return }
         
-        AppSetup.hasRun = true
+        AppSetup.hasRun.mutate { $0 = true }
         
         var backgroundTask: OWSBackgroundTask? = OWSBackgroundTask(labelStr: #function)
         
@@ -27,7 +27,7 @@ public enum AppSetup {
             // initializers injected.
             OWSBackgroundTaskManager.shared().observeNotifications()
             
-            // AFNetworking (via CFNetworking) spools it's attachments to NSTemporaryDirectory().
+            // Attachments can be stored to NSTemporaryDirectory()
             // If you receive a media message while the device is locked, the download will fail if
             // the temporary directory is NSFileProtectionComplete
             let success: Bool = OWSFileSystem.protectFileOrFolder(
@@ -61,7 +61,7 @@ public enum AppSetup {
     public static func runPostSetupMigrations(
         backgroundTask: OWSBackgroundTask? = nil,
         migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
-        migrationsCompletion: @escaping (Result<Database, Error>, Bool) -> ()
+        migrationsCompletion: @escaping (Result<Void, Error>, Bool) -> ()
     ) {
         var backgroundTask: OWSBackgroundTask? = (backgroundTask ?? OWSBackgroundTask(labelStr: #function))
         
@@ -74,8 +74,24 @@ public enum AppSetup {
             ],
             onProgressUpdate: migrationProgressChanged,
             onComplete: { result, needsConfigSync in
+                // After the migrations have run but before the migration completion we load the
+                // SessionUtil state and update the 'needsConfigSync' flag based on whether the
+                // configs also need to be sync'ed
+                if Identity.userExists() {
+                    SessionUtil.loadState(
+                        userPublicKey: getUserHexEncodedPublicKey(),
+                        ed25519SecretKey: Identity.fetchUserEd25519KeyPair()?.secretKey
+                    )
+                }
+                
+                // Refresh the migration state for 'SessionUtil' so it's logic can start running
+                // correctly when called (doing this here instead of automatically via the
+                // `SessionUtil.userConfigsEnabled` property to avoid having to use the correct
+                // method when calling within a database read/write closure)
+                Storage.shared.read { db in SessionUtil.refreshingUserConfigsEnabled(db) }
+                
                 DispatchQueue.main.async {
-                    migrationsCompletion(result, needsConfigSync)
+                    migrationsCompletion(result, (needsConfigSync || SessionUtil.needsSync))
                     
                     // The 'if' is only there to prevent the "variable never read" warning from showing
                     if backgroundTask != nil { backgroundTask = nil }

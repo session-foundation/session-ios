@@ -92,12 +92,10 @@ final class SimplifiedConversationCell: UITableViewCell {
         accentLineView.alpha = (cellViewModel.threadIsBlocked == true ? 1 : 0)
         profilePictureView.update(
             publicKey: cellViewModel.threadId,
-            profile: cellViewModel.profile,
-            additionalProfile: cellViewModel.additionalProfile,
             threadVariant: cellViewModel.threadVariant,
-            openGroupProfilePictureData: cellViewModel.openGroupProfilePictureData,
-            useFallbackPicture: (cellViewModel.threadVariant == .openGroup && cellViewModel.openGroupProfilePictureData == nil),
-            showMultiAvatarForClosedGroup: true
+            customImageData: cellViewModel.openGroupProfilePictureData,
+            profile: cellViewModel.profile,
+            additionalProfile: cellViewModel.additionalProfile
         )
         displayNameLabel.text = cellViewModel.displayName
     }

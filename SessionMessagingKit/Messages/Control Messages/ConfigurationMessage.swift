@@ -1,9 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import Sodium
 import GRDB
-import Curve25519Kit
 import SessionUtilitiesKit
 
 public final class ConfigurationMessage: ControlMessage {
@@ -94,7 +92,7 @@ public final class ConfigurationMessage: ControlMessage {
         )
     }
 
-    public override func toProto(_ db: Database) -> SNProtoContent? {
+    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
         let configurationProto = SNProtoConfigurationMessage.builder()
         if let displayName = displayName { configurationProto.setDisplayName(displayName) }
         if let profilePictureUrl = profilePictureUrl { configurationProto.setProfilePicture(profilePictureUrl) }

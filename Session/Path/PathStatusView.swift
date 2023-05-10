@@ -4,6 +4,7 @@ import UIKit
 import Reachability
 import SessionUIKit
 import SessionSnodeKit
+import SessionMessagingKit
 
 final class PathStatusView: UIView {
     enum Size {
@@ -44,7 +45,7 @@ final class PathStatusView: UIView {
     // MARK: - Initialization
     
     private let size: Size
-    private let reachability: Reachability = Reachability.forInternetConnection()
+    private let reachability: Reachability? = Environment.shared?.reachabilityManager.reachability
     
     init(size: Size = .small) {
         self.size = size
@@ -76,10 +77,10 @@ final class PathStatusView: UIView {
         self.set(.width, to: self.size.pointSize)
         self.set(.height, to: self.size.pointSize)
         
-        switch (reachability.isReachable(), OnionRequestAPI.paths.isEmpty) {
-            case (false, _): setStatus(to: .error)
-            case (true, true): setStatus(to: .connecting)
-            case (true, false): setStatus(to: .connected)
+        switch (reachability?.isReachable(), OnionRequestAPI.paths.isEmpty) {
+            case (.some(false), _), (nil, _): setStatus(to: .error)
+            case (.some(true), true): setStatus(to: .connecting)
+            case (.some(true), false): setStatus(to: .connected)
         }
     }
     
@@ -124,7 +125,7 @@ final class PathStatusView: UIView {
     }
 
     @objc private func handleBuildingPathsNotification() {
-        guard reachability.isReachable() else {
+        guard reachability?.isReachable() == true else {
             setStatus(to: .error)
             return
         }
@@ -133,7 +134,7 @@ final class PathStatusView: UIView {
     }
 
     @objc private func handlePathsBuiltNotification() {
-        guard reachability.isReachable() else {
+        guard reachability?.isReachable() == true  else {
             setStatus(to: .error)
             return
         }
@@ -147,7 +148,7 @@ final class PathStatusView: UIView {
             return
         }
         
-        guard reachability.isReachable() else {
+        guard reachability?.isReachable() == true else {
             setStatus(to: .error)
             return
         }

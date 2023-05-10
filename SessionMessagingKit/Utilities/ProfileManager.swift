@@ -1,16 +1,42 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import CryptoKit
+import Combine
 import GRDB
-import PromiseKit
 import SignalCoreKit
 import SessionUtilitiesKit
 
 public struct ProfileManager {
+    public enum AvatarUpdate {
+        case none
+        case remove
+        case uploadImage(UIImage)
+        case uploadFilePath(String)
+        case updateTo(url: String, key: Data, fileName: String?)
+        
+        var image: UIImage? {
+            switch self {
+                case .uploadImage(let image): return image
+                default: return nil
+            }
+        }
+        
+        var filePath: String? {
+            switch self {
+                case .uploadFilePath(let filePath): return filePath
+                default: return nil
+            }
+        }
+    }
+    
     // The max bytes for a user's profile name, encoded in UTF8.
     // Before encrypting and submitting we NULL pad the name data to this length.
-    private static let nameDataLength: UInt = 64
     public static let maxAvatarDiameter: CGFloat = 640
+    private static let maxAvatarBytes: UInt = (5 * 1000 * 1000)
+    public static let avatarAES256KeyByteLength: Int = 32
+    private static let avatarNonceLength: Int = 12
+    private static let avatarTagLength: Int = 16
     
     private static var profileAvatarCache: Atomic<[String: Data]> = Atomic([:])
     private static var currentAvatarDownloads: Atomic<Set<String>> = Atomic([])
@@ -18,7 +44,11 @@ public struct ProfileManager {
     // MARK: - Functions
     
     public static func isToLong(profileName: String) -> Bool {
-        return ((profileName.data(using: .utf8)?.count ?? 0) > nameDataLength)
+        return (profileName.utf8CString.count > SessionUtil.libSessionMaxNameByteLength)
+    }
+    
+    public static func isToLong(profileUrl: String) -> Bool {
+        return (profileUrl.utf8CString.count > SessionUtil.libSessionMaxProfileUrlByteLength)
     }
     
     public static func profileAvatar(_ db: Database? = nil, id: String) -> Data? {
@@ -74,6 +104,13 @@ public struct ProfileManager {
         return data
     }
     
+    public static func hasProfileImageData(with fileName: String?) -> Bool {
+        guard let fileName: String = fileName, !fileName.isEmpty else { return false }
+        
+        return FileManager.default
+            .fileExists(atPath: ProfileManager.profileAvatarFilepath(filename: fileName))
+    }
+    
     private static func loadProfileData(with fileName: String) -> Data? {
         let filePath: String = ProfileManager.profileAvatarFilepath(filename: fileName)
         
@@ -82,16 +119,40 @@ public struct ProfileManager {
     
     // MARK: - Profile Encryption
     
-    private static func encryptProfileData(data: Data, key: OWSAES256Key) -> Data? {
-        guard key.keyData.count == kAES256_KeyByteLength else { return nil }
+    private static func encryptData(data: Data, key: Data) -> Data? {
+        // The key structure is: nonce || ciphertext || authTag
+        guard
+            key.count == ProfileManager.avatarAES256KeyByteLength,
+            let nonceData: Data = try? Randomness.generateRandomBytes(numberBytes: ProfileManager.avatarNonceLength),
+            let nonce: AES.GCM.Nonce = try? AES.GCM.Nonce(data: nonceData),
+            let sealedData: AES.GCM.SealedBox = try? AES.GCM.seal(
+                data,
+                using: SymmetricKey(data: key),
+                nonce: nonce
+            ),
+            let encryptedContent: Data = sealedData.combined
+        else { return nil }
         
-        return Cryptography.encryptAESGCMProfileData(plainTextData: data, key: key)
+        return encryptedContent
     }
     
-    private static func decryptProfileData(data: Data, key: OWSAES256Key) -> Data? {
-        guard key.keyData.count == kAES256_KeyByteLength else { return nil }
+    private static func decryptData(data: Data, key: Data) -> Data? {
+        guard key.count == ProfileManager.avatarAES256KeyByteLength else { return nil }
         
-        return Cryptography.decryptAESGCMProfileData(encryptedData: data, key: key)
+        // The key structure is: nonce || ciphertext || authTag
+        let cipherTextLength: Int = (data.count - (ProfileManager.avatarNonceLength + ProfileManager.avatarTagLength))
+        
+        guard
+            cipherTextLength > 0,
+            let sealedData: AES.GCM.SealedBox = try? AES.GCM.SealedBox(
+                nonce: AES.GCM.Nonce(data: data.subdata(in: 0..<ProfileManager.avatarNonceLength)),
+                ciphertext: data.subdata(in: ProfileManager.avatarNonceLength..<(ProfileManager.avatarNonceLength + cipherTextLength)),
+                tag: data.subdata(in: (data.count - ProfileManager.avatarTagLength)..<data.count)
+            ),
+            let decryptedData: Data = try? AES.GCM.open(sealedData, using: SymmetricKey(data: key))
+        else { return nil }
+        
+        return decryptedData
     }
     
     // MARK: - File Paths
@@ -151,35 +212,40 @@ public struct ProfileManager {
         }
         guard
             let fileId: String = Attachment.fileId(for: profileUrlStringAtStart),
-            let profileKeyAtStart: OWSAES256Key = profile.profileEncryptionKey,
-            profileKeyAtStart.keyData.count > 0
+            let profileKeyAtStart: Data = profile.profileEncryptionKey,
+            profileKeyAtStart.count > 0
         else {
             return
         }
         
-        let queue: DispatchQueue = DispatchQueue.global(qos: .default)
         let fileName: String = UUID().uuidString.appendingFileExtension("jpg")
         let filePath: String = ProfileManager.profileAvatarFilepath(filename: fileName)
         var backgroundTask: OWSBackgroundTask? = OWSBackgroundTask(label: funcName)
         
-        queue.async {
-            OWSLogger.verbose("downloading profile avatar: \(profile.id)")
-            currentAvatarDownloads.mutate { $0.insert(profile.id) }
-            
-            let useOldServer: Bool = (profileUrlStringAtStart.contains(FileServerAPI.oldServer))
-            
-            FileServerAPI
-                .download(fileId, useOldServer: useOldServer)
-                .done(on: queue) { data in
+        OWSLogger.verbose("downloading profile avatar: \(profile.id)")
+        currentAvatarDownloads.mutate { $0.insert(profile.id) }
+        
+        let useOldServer: Bool = (profileUrlStringAtStart.contains(FileServerAPI.oldServer))
+        
+        FileServerAPI
+            .download(fileId, useOldServer: useOldServer)
+            .receive(on: DispatchQueue.global(qos: .default))
+            .sinkUntilComplete(
+                receiveCompletion: { _ in
                     currentAvatarDownloads.mutate { $0.remove(profile.id) }
                     
+                    // Redundant but without reading 'backgroundTask' it will warn that the variable
+                    // isn't used
+                    if backgroundTask != nil { backgroundTask = nil }
+                },
+                receiveValue: { data in
                     guard let latestProfile: Profile = Storage.shared.read({ db in try Profile.fetchOne(db, id: profile.id) }) else {
                         return
                     }
                     
                     guard
-                        let latestProfileKey: OWSAES256Key = latestProfile.profileEncryptionKey,
-                        !latestProfileKey.keyData.isEmpty,
+                        let latestProfileKey: Data = latestProfile.profileEncryptionKey,
+                        !latestProfileKey.isEmpty,
                         latestProfileKey == profileKeyAtStart
                     else {
                         OWSLogger.warn("Ignoring avatar download for obsolete user profile.")
@@ -195,7 +261,7 @@ public struct ProfileManager {
                         return
                     }
                     
-                    guard let decryptedData: Data = decryptProfileData(data: data, key: profileKeyAtStart) else {
+                    guard let decryptedData: Data = decryptData(data: data, key: profileKeyAtStart) else {
                         OWSLogger.warn("Avatar data for \(profile.id) could not be decrypted.")
                         return
                     }
@@ -214,20 +280,8 @@ public struct ProfileManager {
                             .updateAll(db, Profile.Columns.profilePictureFileName.set(to: fileName))
                         profileAvatarCache.mutate { $0[fileName] = decryptedData }
                     }
-                    
-                    // Redundant but without reading 'backgroundTask' it will warn that the variable
-                    // isn't used
-                    if backgroundTask != nil { backgroundTask = nil }
                 }
-                .catch(on: queue) { _ in
-                    currentAvatarDownloads.mutate { $0.remove(profile.id) }
-                    
-                    // Redundant but without reading 'backgroundTask' it will warn that the variable
-                    // isn't used
-                    if backgroundTask != nil { backgroundTask = nil }
-                }
-                .retainUntilComplete()
-        }
+            )
     }
     
     // MARK: - Current User Profile
@@ -235,22 +289,101 @@ public struct ProfileManager {
     public static func updateLocal(
         queue: DispatchQueue,
         profileName: String,
+        avatarUpdate: AvatarUpdate = .none,
+        success: ((Database) throws -> ())? = nil,
+        failure: ((ProfileManagerError) -> ())? = nil
+    ) {
+        let userPublicKey: String = getUserHexEncodedPublicKey()
+        let isRemovingAvatar: Bool = {
+            switch avatarUpdate {
+                case .remove: return true
+                default: return false
+            }
+        }()
+        
+        switch avatarUpdate {
+            case .none, .remove, .updateTo:
+                Storage.shared.writeAsync { db in
+                    if isRemovingAvatar {
+                        let existingProfileUrl: String? = try Profile
+                            .filter(id: userPublicKey)
+                            .select(.profilePictureUrl)
+                            .asRequest(of: String.self)
+                            .fetchOne(db)
+                        let existingProfileFileName: String? = try Profile
+                            .filter(id: userPublicKey)
+                            .select(.profilePictureFileName)
+                            .asRequest(of: String.self)
+                            .fetchOne(db)
+                        
+                        // Remove any cached avatar image value
+                        if let fileName: String = existingProfileFileName {
+                            profileAvatarCache.mutate { $0[fileName] = nil }
+                        }
+                        
+                        OWSLogger.verbose(existingProfileUrl != nil ?
+                            "Updating local profile on service with cleared avatar." :
+                            "Updating local profile on service with no avatar."
+                        )
+                    }
+                    
+                    try ProfileManager.updateProfileIfNeeded(
+                        db,
+                        publicKey: userPublicKey,
+                        name: profileName,
+                        avatarUpdate: avatarUpdate,
+                        sentTimestamp: Date().timeIntervalSince1970
+                    )
+                    
+                    SNLog("Successfully updated service with profile.")
+                    try success?(db)
+                }
+                
+            case .uploadFilePath, .uploadImage:
+                prepareAndUploadAvatarImage(
+                    queue: queue,
+                    image: avatarUpdate.image,
+                    imageFilePath: avatarUpdate.filePath,
+                    success: { downloadUrl, fileName, newProfileKey in
+                        Storage.shared.writeAsync { db in
+                            try ProfileManager.updateProfileIfNeeded(
+                                db,
+                                publicKey: userPublicKey,
+                                name: profileName,
+                                avatarUpdate: .updateTo(url: downloadUrl, key: newProfileKey, fileName: fileName),
+                                sentTimestamp: Date().timeIntervalSince1970
+                            )
+                                
+                            SNLog("Successfully updated service with profile.")
+                            try success?(db)
+                        }
+                    },
+                    failure: failure
+                )
+        }
+    }
+    
+    private static func prepareAndUploadAvatarImage(
+        queue: DispatchQueue,
         image: UIImage?,
         imageFilePath: String?,
-        success: ((Database, Profile) throws -> ())? = nil,
+        success: @escaping ((downloadUrl: String, fileName: String, profileKey: Data)) -> (),
         failure: ((ProfileManagerError) -> ())? = nil
     ) {
         queue.async {
             // If the profile avatar was updated or removed then encrypt with a new profile key
             // to ensure that other users know that our profile picture was updated
-            let newProfileKey: OWSAES256Key = OWSAES256Key.generateRandom()
-            let maxAvatarBytes: UInt = (5 * 1000 * 1000)
+            let newProfileKey: Data
             let avatarImageData: Data?
             
             do {
+                newProfileKey = try Randomness.generateRandomBytes(numberBytes: ProfileManager.avatarAES256KeyByteLength)
+                
                 avatarImageData = try {
                     guard var image: UIImage = image else {
-                        guard let imageFilePath: String = imageFilePath else { return nil }
+                        guard let imageFilePath: String = imageFilePath else {
+                            throw ProfileManagerError.invalidCall
+                        }
                         
                         let data: Data = try Data(contentsOf: URL(fileURLWithPath: imageFilePath))
                         
@@ -297,37 +430,9 @@ public struct ProfileManager {
                 return
             } 
             
+            // If we have no image then we should succeed (database changes happen in the callback)
             guard let data: Data = avatarImageData else {
-                // If we have no image then we need to make sure to remove it from the profile
-                Storage.shared.writeAsync { db in
-                    let existingProfile: Profile = Profile.fetchOrCreateCurrentUser(db)
-                    
-                    OWSLogger.verbose(existingProfile.profilePictureUrl != nil ?
-                        "Updating local profile on service with cleared avatar." :
-                        "Updating local profile on service with no avatar."
-                    )
-                    
-                    let updatedProfile: Profile = try existingProfile
-                        .with(
-                            name: profileName,
-                            profilePictureUrl: nil,
-                            profilePictureFileName: nil,
-                            profileEncryptionKey: (existingProfile.profilePictureUrl != nil ?
-                                .update(newProfileKey) :
-                                .existing
-                            )
-                        )
-                        .saved(db)
-                    
-                    // Remove any cached avatar image value
-                    if let fileName: String = existingProfile.profilePictureFileName {
-                        profileAvatarCache.mutate { $0[fileName] = nil }
-                    }
-                    
-                    SNLog("Successfully updated service with profile.")
-                    
-                    try success?(db, updatedProfile)
-                }
+                failure?(ProfileManagerError.invalidCall)
                 return
             }
 
@@ -356,7 +461,7 @@ public struct ProfileManager {
             }
             
             // Encrypt the avatar for upload
-            guard let encryptedAvatarData: Data = encryptProfileData(data: data, key: newProfileKey) else {
+            guard let encryptedAvatarData: Data = encryptData(data: data, key: newProfileKey) else {
                 SNLog("Updating service with profile failed.")
                 failure?(.avatarEncryptionFailed)
                 return
@@ -365,38 +470,162 @@ public struct ProfileManager {
             // Upload the avatar to the FileServer
             FileServerAPI
                 .upload(encryptedAvatarData)
-                .done(on: queue) { fileUploadResponse in
-                    let downloadUrl: String = "\(FileServerAPI.server)/files/\(fileUploadResponse.id)"
-                    UserDefaults.standard[.lastProfilePictureUpload] = Date()
-                    
-                    Storage.shared.writeAsync { db in
-                        let profile: Profile = try Profile
-                            .fetchOrCreateCurrentUser(db)
-                            .with(
-                                name: profileName,
-                                profilePictureUrl: .update(downloadUrl),
-                                profilePictureFileName: .update(fileName),
-                                profileEncryptionKey: .update(newProfileKey)
-                            )
-                            .saved(db)
+                .receive(on: queue)
+                .sinkUntilComplete(
+                    receiveCompletion: { result in
+                        switch result {
+                            case .finished: break
+                            case .failure(let error):
+                                SNLog("Updating service with profile failed.")
+                                
+                                let isMaxFileSizeExceeded: Bool = ((error as? HTTPError) == .maxFileSizeExceeded)
+                                failure?(isMaxFileSizeExceeded ?
+                                    .avatarUploadMaxFileSizeExceeded :
+                                    .avatarUploadFailed
+                                )
+                        }
+                    },
+                    receiveValue: { fileUploadResponse in
+                        let downloadUrl: String = "\(FileServerAPI.server)/file/\(fileUploadResponse.id)"
                         
                         // Update the cached avatar image value
                         profileAvatarCache.mutate { $0[fileName] = data }
+                        UserDefaults.standard[.lastProfilePictureUpload] = Date()
                         
-                        SNLog("Successfully updated service with profile.")
-                        try success?(db, profile)
+                        SNLog("Successfully uploaded avatar image.")
+                        success((downloadUrl, fileName, newProfileKey))
                     }
+                )
+        }
+    }
+    
+    public static func updateProfileIfNeeded(
+        _ db: Database,
+        publicKey: String,
+        name: String?,
+        avatarUpdate: AvatarUpdate,
+        sentTimestamp: TimeInterval,
+        calledFromConfigHandling: Bool = false,
+        dependencies: Dependencies = Dependencies()
+    ) throws {
+        let isCurrentUser = (publicKey == getUserHexEncodedPublicKey(db, dependencies: dependencies))
+        let profile: Profile = Profile.fetchOrCreate(id: publicKey)
+        var profileChanges: [ConfigColumnAssignment] = []
+        
+        // Name
+        if let name: String = name, !name.isEmpty, name != profile.name {
+            let shouldUpdate: Bool = {
+                guard isCurrentUser else { return true }
+                
+                return UserDefaults.standard[.lastDisplayNameUpdate]
+                    .map { sentTimestamp > $0.timeIntervalSince1970 }
+                    .defaulting(to: true)
+            }()
+            
+            if shouldUpdate {
+                if isCurrentUser {
+                    UserDefaults.standard[.lastDisplayNameUpdate] = Date(timeIntervalSince1970: sentTimestamp)
                 }
-                .recover(on: queue) { error in
-                    SNLog("Updating service with profile failed.")
+                
+                profileChanges.append(Profile.Columns.name.set(to: name))
+            }
+        }
+        
+        // Profile picture & profile key
+        var avatarNeedsDownload: Bool = false
+        var targetAvatarUrl: String? = nil
+        let shouldUpdateAvatar: Bool = {
+            guard isCurrentUser else { return true }
+            
+            return UserDefaults.standard[.lastProfilePictureUpdate]
+                .map { sentTimestamp > $0.timeIntervalSince1970 }
+                .defaulting(to: true)
+        }()
+        
+        if shouldUpdateAvatar {
+            switch avatarUpdate {
+                case .none: break
+                case .uploadImage, .uploadFilePath: preconditionFailure("Invalid options for this function")
                     
-                    let isMaxFileSizeExceeded: Bool = ((error as? HTTP.Error) == HTTP.Error.maxFileSizeExceeded)
-                    failure?(isMaxFileSizeExceeded ?
-                        .avatarUploadMaxFileSizeExceeded :
-                        .avatarUploadFailed
+                case .remove:
+                    if isCurrentUser {
+                        UserDefaults.standard[.lastProfilePictureUpdate] = Date(timeIntervalSince1970: sentTimestamp)
+                    }
+                    
+                    profileChanges.append(Profile.Columns.profilePictureUrl.set(to: nil))
+                    profileChanges.append(Profile.Columns.profileEncryptionKey.set(to: nil))
+                    profileChanges.append(Profile.Columns.profilePictureFileName.set(to: nil))
+                    
+                case .updateTo(let url, let key, let fileName):
+                    if url != profile.profilePictureUrl {
+                        profileChanges.append(Profile.Columns.profilePictureUrl.set(to: url))
+                        avatarNeedsDownload = true
+                        targetAvatarUrl = url
+                    }
+                    
+                    if key != profile.profileEncryptionKey && key.count == ProfileManager.avatarAES256KeyByteLength {
+                        profileChanges.append(Profile.Columns.profileEncryptionKey.set(to: key))
+                    }
+                    
+                    // Profile filename (this isn't synchronized between devices)
+                    if let fileName: String = fileName {
+                        profileChanges.append(Profile.Columns.profilePictureFileName.set(to: fileName))
+                        
+                        // If we have already downloaded the image then no need to download it again
+                        avatarNeedsDownload = (
+                            avatarNeedsDownload &&
+                            !ProfileManager.hasProfileImageData(with: fileName)
+                        )
+                    }
+            }
+        }
+        
+        // Persist any changes
+        if !profileChanges.isEmpty {
+            try profile.save(db)
+            
+            if calledFromConfigHandling {
+                try Profile
+                    .filter(id: publicKey)
+                    .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                        db,
+                        profileChanges
                     )
+            }
+            // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
+            else if !SessionUtil.userConfigsEnabled {
+                // If we have a contact record for the profile (ie. it's a synced profile) then
+                // should should send an updated config message, otherwise we should just update
+                // the local state (the shared util has this logic build in to it's handling)
+                if (try? Contact.exists(db, id: publicKey)) == true {
+                    try Profile
+                        .filter(id: publicKey)
+                        .updateAllAndConfig(db, profileChanges)
                 }
-                .retainUntilComplete()
+                else {
+                    try Profile
+                        .filter(id: publicKey)
+                        .updateAll(
+                            db,
+                            profileChanges
+                        )
+                }
+            }
+            else {
+                try Profile
+                    .filter(id: publicKey)
+                    .updateAllAndConfig(db, profileChanges)
+            }
+        }
+        
+        // Download the profile picture if needed
+        guard avatarNeedsDownload else { return }
+        
+        let dedupeIdentifier: String = "AvatarDownload-\(publicKey)-\(targetAvatarUrl ?? "remove")"
+        
+        db.afterNextTransactionNestedOnce(dedupeId: dedupeIdentifier) { db in
+            // Need to refetch to ensure the db changes have occurred
+            ProfileManager.downloadAvatar(for: Profile.fetchOrCreate(db, id: publicKey))
         }
     }
 }

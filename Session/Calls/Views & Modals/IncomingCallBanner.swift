@@ -118,8 +118,10 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
         
         profilePictureView.update(
             publicKey: call.sessionId,
+            threadVariant: .contact,
+            customImageData: nil,
             profile: Profile.fetchOrCreate(id: call.sessionId),
-            threadVariant: .contact
+            additionalProfile: nil
         )
         displayNameLabel.text = call.contactName
         

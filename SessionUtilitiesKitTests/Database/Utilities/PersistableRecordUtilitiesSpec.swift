@@ -274,7 +274,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                 it("succeeds when using the migration safe mutable upsert and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
-                            var result = MutableTestType(columnA: "Test14", columnB: "Test14B")
+                            let result = MutableTestType(columnA: "Test14", columnB: "Test14B")
                             try result.migrationSafeUpsert(db)
                             return result
                         }
@@ -620,7 +620,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                 it("succeeds when using the migration safe mutable upsert and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
-                            var result = MutableTestType(columnA: "Test21", columnB: "Test21B")
+                            let result = MutableTestType(columnA: "Test21", columnB: "Test21B")
                             try result.migrationSafeUpsert(db)
                             return result
                         }
@@ -650,7 +650,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                                 sql: "INSERT INTO MutableTestType (columnA) VALUES (?)",
                                 arguments: StatementArguments(["Test23"])
                             )
-                            var result = MutableTestType(id: 1, columnA: "Test23", columnB: "Test23B")
+                            let result = MutableTestType(id: 1, columnA: "Test23", columnB: "Test23B")
                             try result.migrationSafeUpsert(db)
                             return result
                         }
@@ -661,7 +661,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                                 sql: "INSERT INTO MutableTestType (columnA) VALUES (?)",
                                 arguments: StatementArguments(["Test24"])
                             )
-                            var result = MutableTestType(id: 2, columnA: "Test24", columnB: "Test24B")
+                            let result = MutableTestType(id: 2, columnA: "Test24", columnB: "Test24B")
                             try result.migrationSafeUpsert(db)
                             return result.id
                         }

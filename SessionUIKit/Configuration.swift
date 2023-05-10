@@ -15,7 +15,7 @@ public enum SNUIKit {
                 [], // YDB Removal
                 [
                     _001_ThemePreferences.self
-                ]
+                ]   // Add job priorities
             ]
         )
     }

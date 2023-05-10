@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Combine
 import AVFoundation
 import GRDB
 import SessionUIKit
@@ -150,7 +151,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
     fileprivate func joinOpenGroup(with urlString: String) {
         // A V2 open group URL will look like: <optional scheme> + <host> + <optional port> + <room> + <public key>
         // The host doesn't parse if no explicit scheme is provided
-        guard let (room, server, publicKey) = OpenGroupManager.parseOpenGroup(from: urlString) else {
+        guard let (room, server, publicKey) = SessionUtil.parseCommunity(url: urlString) else {
             showError(
                 title: "invalid_url".localized(),
                 message: "COMMUNITY_ERROR_INVALID_URL".localized()
@@ -168,40 +169,43 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         
         ModalActivityIndicatorViewController.present(fromViewController: navigationController, canCancel: false) { [weak self] _ in
             Storage.shared
-                .writeAsync { db in
+                .writePublisherFlatMap { db in
                     OpenGroupManager.shared.add(
                         db,
                         roomToken: roomToken,
                         server: server,
                         publicKey: publicKey,
-                        isConfigMessage: false
+                        calledFromConfigHandling: false
                     )
                 }
-                .done(on: DispatchQueue.main) { [weak self] _ in
-                    Storage.shared.writeAsync { db in
-                        try MessageSender.syncConfiguration(db, forceSyncNow: true).retainUntilComplete() // FIXME: It's probably cleaner to do this inside addOpenGroup(...)
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+                .receive(on: DispatchQueue.main)
+                .sinkUntilComplete(
+                    receiveCompletion: { result in
+                        switch result {
+                            case .failure(let error):
+                                self?.dismiss(animated: true, completion: nil) // Dismiss the loader
+                                let title = "COMMUNITY_ERROR_GENERIC".localized()
+                                let message = error.localizedDescription
+                                self?.isJoining = false
+                                self?.showError(title: title, message: message)
+                                
+                            case .finished:
+                                self?.presentingViewController?.dismiss(animated: true, completion: nil)
+                                
+                                if shouldOpenCommunity {
+                                    SessionApp.presentConversation(
+                                        for: OpenGroup.idFor(roomToken: roomToken, server: server),
+                                        threadVariant: .community,
+                                        isMessageRequest: false,
+                                        action: .compose,
+                                        focusInteractionInfo: nil,
+                                        animated: false
+                                    )
+                                }
+                        }
                     }
-                    
-                    self?.presentingViewController?.dismiss(animated: true, completion: nil)
-                    
-                    if shouldOpenCommunity {
-                        SessionApp.presentConversation(
-                            for: OpenGroup.idFor(roomToken: roomToken, server: server),
-                            threadVariant: .openGroup,
-                            isMessageRequest: false,
-                            action: .compose,
-                            focusInteractionId: nil,
-                            animated: false
-                        )
-                    }
-                }
-                .catch(on: DispatchQueue.main) { [weak self] error in
-                    self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-                    let title = "COMMUNITY_ERROR_GENERIC".localized()
-                    let message = error.localizedDescription
-                    self?.isJoining = false
-                    self?.showError(title: title, message: message)
-                }
+                )
         }
     }
 

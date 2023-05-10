@@ -1,10 +1,11 @@
-//
 //  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
-//
 
 import Foundation
 import Reachability
+import SignalCoreKit
 
+/// **Warning:** The simulator doesn't detect reachability correctly so if you are seeing odd/incorrect reachability states double
+/// check on an actual device before trying to replace this implementation
 @objc
 public class SSKReachabilityManagerImpl: NSObject, SSKReachabilityManager {
 

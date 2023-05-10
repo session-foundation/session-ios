@@ -3,14 +3,13 @@
 import Foundation
 import Combine
 import GRDB
-import PromiseKit
 import SignalCoreKit
 
 open class Storage {
     private static let dbFileName: String = "Session.sqlite"
     private static let keychainService: String = "TSKeyChainService"
     private static let dbCipherKeySpecKey: String = "GRDBDatabaseCipherKeySpec"
-    private static let kSQLCipherKeySpecLength: Int32 = 48
+    private static let kSQLCipherKeySpecLength: Int = 48
     
     private static var sharedDatabaseDirectoryPath: String { "\(OWSFileSystem.appSharedDataDirectoryPath())/database" }
     private static var databasePath: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)" }
@@ -23,9 +22,15 @@ open class Storage {
         return true
     }
     
+    private let migrationsCompleted: Atomic<Bool> = Atomic(false)
+    internal let internalCurrentlyRunningMigration: Atomic<(identifier: TargetMigrations.Identifier, migration: Migration.Type)?> = Atomic(nil)
+    
     public static let shared: Storage = Storage()
     public private(set) var isValid: Bool = false
-    public private(set) var hasCompletedMigrations: Bool = false
+    public var hasCompletedMigrations: Bool { migrationsCompleted.wrappedValue }
+    public var currentlyRunningMigration: (identifier: TargetMigrations.Identifier, migration: Migration.Type)? {
+        internalCurrentlyRunningMigration.wrappedValue
+    }
     public static let defaultPublisherScheduler: ValueObservationScheduler = .async(onQueue: .main)
     
     fileprivate var dbWriter: DatabaseWriter?
@@ -99,11 +104,18 @@ open class Storage {
     
     // MARK: - Migrations
     
+    public static func appliedMigrationIdentifiers(_ db: Database) -> Set<String> {
+        let migrator: DatabaseMigrator = DatabaseMigrator()
+        
+        return (try? migrator.appliedIdentifiers(db))
+            .defaulting(to: [])
+    }
+    
     public func perform(
         migrations: [TargetMigrations],
         async: Bool = true,
         onProgressUpdate: ((CGFloat, TimeInterval) -> ())?,
-        onComplete: @escaping (Swift.Result<Database, Error>, Bool) -> ()
+        onComplete: @escaping (Swift.Result<Void, Error>, Bool) -> ()
     ) {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return }
         
@@ -179,8 +191,8 @@ open class Storage {
         }
         
         // Store the logic to run when the migration completes
-        let migrationCompleted: (Swift.Result<Database, Error>) -> () = { [weak self] result in
-            self?.hasCompletedMigrations = true
+        let migrationCompleted: (Swift.Result<Void, Error>) -> () = { [weak self] result in
+            self?.migrationsCompleted.mutate { $0 = true }
             self?.migrationProgressUpdater = nil
             SUKLegacy.clearLegacyDatabaseInstance()
             
@@ -191,19 +203,32 @@ open class Storage {
             onComplete(result, needsConfigSync)
         }
         
+        // Update the 'migrationsCompleted' state (since we not support running migrations when
+        // returning from the background it's possible for this flag to transition back to false)
+        if unperformedMigrations.isEmpty {
+            self.migrationsCompleted.mutate { $0 = false }
+        }
+        
         // Note: The non-async migration should only be used for unit tests
         guard async else {
             do { try self.migrator?.migrate(dbWriter) }
-            catch {
-                try? dbWriter.read { db in
-                    migrationCompleted(Swift.Result<Database, Error>.failure(error))
-                }
-            }
+            catch { migrationCompleted(Swift.Result<Void, Error>.failure(error)) }
             return
         }
         
         self.migrator?.asyncMigrate(dbWriter) { result in
-            migrationCompleted(result)
+            let finalResult: Swift.Result<Void, Error> = {
+                switch result {
+                    case .failure(let error): return .failure(error)
+                    case .success: return .success(())
+                }
+            }()
+            
+            // Note: We need to dispatch this to the next run toop to prevent any potential re-entrancy
+            // issues since the 'asyncMigrate' returns a result containing a DB instance
+            DispatchQueue.global(qos: .userInitiated).async {
+                migrationCompleted(finalResult)
+            }
         }
     }
     
@@ -251,7 +276,7 @@ open class Storage {
                 case (_, errSecItemNotFound):
                     // No keySpec was found so we need to generate a new one
                     do {
-                        var keySpec: Data = Randomness.generateRandomBytes(kSQLCipherKeySpecLength)
+                        var keySpec: Data = try Randomness.generateRandomBytes(numberBytes: kSQLCipherKeySpecLength)
                         defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
                         
                         try SSKDefaultKeychainStorage.shared.set(data: keySpec, service: keychainService, key: dbCipherKeySpecKey)
@@ -290,7 +315,7 @@ open class Storage {
         try? SUKLegacy.deleteLegacyDatabaseFilesAndKey()
         
         Storage.shared.isValid = false
-        Storage.shared.hasCompletedMigrations = false
+        Storage.shared.migrationsCompleted.mutate { $0 = false }
         Storage.shared.dbWriter = nil
         
         self.deleteDatabaseFiles()
@@ -328,6 +353,52 @@ open class Storage {
                 try? completion(db, result)
             }
         )
+    }
+    
+    open func writePublisher<T>(
+        updates: @escaping (Database) throws -> T
+    ) -> AnyPublisher<T, Error> {
+        guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
+            return Fail<T, Error>(error: StorageError.databaseInvalid)
+                .eraseToAnyPublisher()
+        }
+        
+        /// **Note:** GRDB does have a `writePublisher` method but it appears to asynchronously trigger
+        /// both the `output` and `complete` closures at the same time which causes a lot of unexpected
+        /// behaviours (this behaviour is apparently expected but still causes a number of odd behaviours in our code
+        /// for more information see https://github.com/groue/GRDB.swift/issues/1334)
+        ///
+        /// Instead of this we are just using `Deferred { Future {} }` which is executed on the specified scheduled
+        /// which behaves in a much more expected way than the GRDB `writePublisher` does
+        return Deferred {
+            Future { resolver in
+                do { resolver(Result.success(try dbWriter.write(updates))) }
+                catch { resolver(Result.failure(error)) }
+            }
+        }.eraseToAnyPublisher()
+    }
+    
+    open func readPublisher<T>(
+        value: @escaping (Database) throws -> T
+    ) -> AnyPublisher<T, Error> {
+        guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
+            return Fail<T, Error>(error: StorageError.databaseInvalid)
+                .eraseToAnyPublisher()
+        }
+        
+        /// **Note:** GRDB does have a `readPublisher` method but it appears to asynchronously trigger
+        /// both the `output` and `complete` closures at the same time which causes a lot of unexpected
+        /// behaviours (this behaviour is apparently expected but still causes a number of odd behaviours in our code
+        /// for more information see https://github.com/groue/GRDB.swift/issues/1334)
+        ///
+        /// Instead of this we are just using `Deferred { Future {} }` which is executed on the specified scheduled
+        /// which behaves in a much more expected way than the GRDB `readPublisher` does
+        return Deferred {
+            Future { resolver in
+                do { resolver(Result.success(try dbWriter.read(value))) }
+                catch { resolver(Result.failure(error)) }
+            }
+        }.eraseToAnyPublisher()
     }
     
     @discardableResult public final func read<T>(_ value: (Database) throws -> T?) -> T? {
@@ -388,51 +459,25 @@ open class Storage {
     }
 }
 
-// MARK: - Promise Extensions
+// MARK: - Combine Extensions
 
 public extension Storage {
-    // FIXME: Would be good to replace these with Swift Combine
-    @discardableResult func read<T>(_ value: (Database) throws -> Promise<T>) -> Promise<T> {
-        guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
-            return Promise(error: StorageError.databaseInvalid)
-        }
-        
-        do {
-            return try dbWriter.read(value)
-        }
-        catch {
-            return Promise(error: error)
-        }
+    func readPublisherFlatMap<T>(
+        value: @escaping (Database) throws -> AnyPublisher<T, Error>
+    ) -> AnyPublisher<T, Error> {
+        return readPublisher(value: value)
+            .flatMap { resultPublisher -> AnyPublisher<T, Error> in resultPublisher }
+            .eraseToAnyPublisher()
     }
     
-    // FIXME: Can't overrwrite this in `SynchronousStorage` since it's in an extension
-    @discardableResult func writeAsync<T>(updates: @escaping (Database) throws -> Promise<T>) -> Promise<T> {
-        guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
-            return Promise(error: StorageError.databaseInvalid)
-        }
-        
-        let (promise, seal) = Promise<T>.pending()
-        
-        dbWriter.asyncWrite(
-            { db in
-                try updates(db)
-                    .done { result in seal.fulfill(result) }
-                    .catch { error in seal.reject(error) }
-                    .retainUntilComplete()
-            },
-            completion: { _, result in
-                switch result {
-                    case .failure(let error): seal.reject(error)
-                    default: break
-                }
-            }
-        )
-        
-        return promise
+    func writePublisherFlatMap<T>(
+        updates: @escaping (Database) throws -> AnyPublisher<T, Error>
+    ) -> AnyPublisher<T, Error> {
+        return writePublisher(updates: updates)
+            .flatMap { resultPublisher -> AnyPublisher<T, Error> in resultPublisher }
+            .eraseToAnyPublisher()
     }
 }
-
-// MARK: - Combine Extensions
 
 public extension ValueObservation {
     func publisher(

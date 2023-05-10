@@ -2,6 +2,7 @@
 
 import Foundation
 import DifferenceKit
+import SessionUIKit
 
 protocol SessionTableSection: Differentiable {
     var title: String? { get }
@@ -15,8 +16,36 @@ extension SessionTableSection {
     var footer: String? { nil }
 }
 
-public enum SessionTableSectionStyle: Differentiable {
+public enum SessionTableSectionStyle: Equatable, Hashable, Differentiable {
     case none
-    case title
+    case titleRoundedContent
+    case titleEdgeToEdgeContent
+    case titleNoBackgroundContent
+    case titleSeparator
     case padding
+    case loadMore
+    
+    var height: CGFloat {
+        switch self {
+            case .none: return 0
+            case .titleRoundedContent, .titleEdgeToEdgeContent, .titleNoBackgroundContent:
+                return UITableView.automaticDimension
+                
+            case .titleSeparator: return Separator.height
+            case .padding: return Values.smallSpacing
+            case .loadMore: return 40
+        }
+    }
+    
+    /// These values should always be consistent with the padding in `SessionCell` to ensure the text lines up
+    var edgePadding: CGFloat {
+        switch self {
+            case .titleRoundedContent, .titleNoBackgroundContent:
+                // Align to the start of the text in the cell
+                return (Values.largeSpacing + Values.mediumSpacing)
+            
+            case .titleEdgeToEdgeContent, .titleSeparator: return Values.largeSpacing
+            case .none, .padding, .loadMore: return 0
+        }
+    }
 }

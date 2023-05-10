@@ -3,6 +3,7 @@
 import Foundation
 import SessionUtilitiesKit
 import SessionMessagingKit
+import SignalCoreKit
 
 public struct SessionApp {
     static let homeViewController: Atomic<HomeVC?> = Atomic(nil)
@@ -11,7 +12,8 @@ public struct SessionApp {
     
     public static func presentConversation(for threadId: String, action: ConversationViewModel.Action = .none, animated: Bool) {
         let maybeThreadInfo: (thread: SessionThread, isMessageRequest: Bool)? = Storage.shared.write { db in
-            let thread: SessionThread = try SessionThread.fetchOrCreate(db, id: threadId, variant: .contact)
+            let thread: SessionThread = try SessionThread
+                .fetchOrCreate(db, id: threadId, variant: .contact, shouldBeVisible: nil)
             
             return (thread, thread.isMessageRequest(db))
         }
@@ -26,7 +28,7 @@ public struct SessionApp {
             threadVariant: variant,
             isMessageRequest: isMessageRequest,
             action: action,
-            focusInteractionId: nil,
+            focusInteractionInfo: nil,
             animated: animated
         )
     }
@@ -36,7 +38,7 @@ public struct SessionApp {
         threadVariant: SessionThread.Variant,
         isMessageRequest: Bool,
         action: ConversationViewModel.Action,
-        focusInteractionId: Int64?,
+        focusInteractionInfo: Interaction.TimestampInfo?,
         animated: Bool
     ) {
         guard Thread.isMainThread else {
@@ -46,7 +48,7 @@ public struct SessionApp {
                     threadVariant: threadVariant,
                     isMessageRequest: isMessageRequest,
                     action: action,
-                    focusInteractionId: focusInteractionId,
+                    focusInteractionInfo: focusInteractionInfo,
                     animated: animated
                 )
             }
@@ -58,7 +60,7 @@ public struct SessionApp {
             variant: threadVariant,
             isMessageRequest: isMessageRequest,
             with: action,
-            focusedInteractionId: focusInteractionId,
+            focusedInteractionInfo: focusInteractionInfo,
             animated: animated
         )
     }

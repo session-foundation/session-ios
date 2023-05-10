@@ -3,6 +3,7 @@
 import UIKit
 import AVFoundation
 import SessionUIKit
+import SignalCoreKit
 
 @objc
 public class VideoPlayerView: UIView {

@@ -73,10 +73,13 @@ final class ConversationTitleView: UIView {
 
     // MARK: - Content
     
-    public func initialSetup(with threadVariant: SessionThread.Variant) {
+    public func initialSetup(
+        with threadVariant: SessionThread.Variant,
+        isNoteToSelf: Bool
+    ) {
         self.update(
             with: " ",
-            isNoteToSelf: false,
+            isNoteToSelf: isNoteToSelf,
             threadVariant: threadVariant,
             mutedUntilTimestamp: nil,
             onlyNotifyForMentions: false,
@@ -147,7 +150,7 @@ final class ConversationTitleView: UIView {
             
             if Date().timeIntervalSince1970 <= (mutedUntilTimestamp ?? 0) {
                 let notificationSettingsLabelString = NSAttributedString(
-                    string: "\u{e067}  ",
+                    string: FullConversationCell.mutePrefix,
                     attributes: [
                         .font: UIFont.ows_elegantIconsFont(8),
                         .foregroundColor: textPrimary
@@ -162,7 +165,8 @@ final class ConversationTitleView: UIView {
                         type: .notificationSettings
                     )
                 )
-            } else if onlyNotifyForMentions{
+            }
+            else if onlyNotifyForMentions {
                 let imageAttachment = NSTextAttachment()
                 imageAttachment.image = UIImage(named: "NotifyMentions.png")?.withTint(textPrimary)
                 imageAttachment.bounds = CGRect(
@@ -186,29 +190,31 @@ final class ConversationTitleView: UIView {
             }
             
             if let userCount: Int = userCount {
-                let userCountLabelString: NSAttributedString = {
-                    switch threadVariant {
-                        case .contact: return NSAttributedString(string: "") // Should not happen
-                            
-                        case .closedGroup:
-                            return NSAttributedString(
-                                string: "\(userCount) member\(userCount == 1 ? "" : "s")"
+                switch threadVariant {
+                    case .contact: break
+                        
+                    case .legacyGroup, .group:
+                        labelInfos.append(
+                            SessionLabelCarouselView.LabelInfo(
+                                attributedText: NSAttributedString(
+                                    string: "\(userCount) member\(userCount == 1 ? "" : "s")"
+                                ),
+                                accessibilityIdentifier: nil,
+                                type: .userCount
                             )
-                            
-                        case .openGroup:
-                            return NSAttributedString(
-                                string: "\(userCount) active member\(userCount == 1 ? "" : "s")"
+                        )
+                        
+                    case .community:
+                        labelInfos.append(
+                            SessionLabelCarouselView.LabelInfo(
+                                attributedText: NSAttributedString(
+                                    string: "\(userCount) active member\(userCount == 1 ? "" : "s")"
+                                ),
+                                accessibilityIdentifier: nil,
+                                type: .userCount
                             )
-                    }
-                }()
-                
-                labelInfos.append(
-                    SessionLabelCarouselView.LabelInfo(
-                        attributedText: userCountLabelString,
-                        accessibilityIdentifier: nil,
-                        type: .userCount
-                    )
-                )
+                        )
+                }
             }
             
             if let config = disappearingMessagesConfig, config.isEnabled == true {

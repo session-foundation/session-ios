@@ -4,6 +4,7 @@ import Foundation
 import UIKit
 import AVFoundation
 import SessionUIKit
+import SignalCoreKit
 
 protocol AttachmentPrepViewControllerDelegate: AnyObject {
     func prepViewControllerUpdateNavigationBar()

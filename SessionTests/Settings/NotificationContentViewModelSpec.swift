@@ -30,11 +30,11 @@ class NotificationContentViewModelSpec: QuickSpec {
                     ]
                 )
                 viewModel = NotificationContentViewModel(storage: mockStorage, scheduling: .immediate)
-                dataChangeCancellable = viewModel.observableSettingsData
+                dataChangeCancellable = viewModel.observableTableData
                     .receiveOnMain(immediately: true)
                     .sink(
                         receiveCompletion: { _ in },
-                        receiveValue: { viewModel.updateSettings($0) }
+                        receiveValue: { viewModel.updateTableData($0.0) }
                     )
             }
             
@@ -55,18 +55,19 @@ class NotificationContentViewModelSpec: QuickSpec {
             }
 
             it("has the correct number of items") {
-                expect(viewModel.settingsData.count)
+                expect(viewModel.tableData.count)
                     .to(equal(1))
-                expect(viewModel.settingsData.first?.elements.count)
+                expect(viewModel.tableData.first?.elements.count)
                     .to(equal(3))
             }
             
             it("has the correct default state") {
-                expect(viewModel.settingsData.first?.elements)
+                expect(viewModel.tableData.first?.elements)
                     .to(
                         equal([
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameAndPreview,
+                                position: .top,
                                 title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_AND_CONTENT".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { true }
@@ -74,6 +75,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                             ),
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameNoPreview,
+                                position: .middle,
                                 title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_ONLY".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { false }
@@ -81,6 +83,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                             ),
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.noNameNoPreview,
+                                position: .bottom,
                                 title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NO_NAME_OR_CONTENT".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { false }
@@ -95,18 +98,19 @@ class NotificationContentViewModelSpec: QuickSpec {
                     db[.preferencesNotificationPreviewType] = Preferences.NotificationPreviewType.nameNoPreview
                 }
                 viewModel = NotificationContentViewModel(storage: mockStorage, scheduling: .immediate)
-                dataChangeCancellable = viewModel.observableSettingsData
+                dataChangeCancellable = viewModel.observableTableData
                     .receiveOnMain(immediately: true)
                     .sink(
                         receiveCompletion: { _ in },
-                        receiveValue: { viewModel.updateSettings($0) }
+                        receiveValue: { viewModel.updateTableData($0.0) }
                     )
                 
-                expect(viewModel.settingsData.first?.elements)
+                expect(viewModel.tableData.first?.elements)
                     .to(
                         equal([
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameAndPreview,
+                                position: .top,
                                 title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_AND_CONTENT".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { false }
@@ -114,6 +118,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                             ),
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameNoPreview,
+                                position: .middle,
                                 title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_ONLY".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { true }
@@ -121,6 +126,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                             ),
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.noNameNoPreview,
+                                position: .bottom,
                                 title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NO_NAME_OR_CONTENT".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { false }
@@ -132,7 +138,7 @@ class NotificationContentViewModelSpec: QuickSpec {
             
             context("when tapping an item") {
                 it("updates the saved preference") {
-                    viewModel.settingsData.first?.elements.last?.onTap?(nil)
+                    viewModel.tableData.first?.elements.last?.onTap?()
                     
                     expect(mockStorage[.preferencesNotificationPreviewType])
                         .to(equal(Preferences.NotificationPreviewType.noNameNoPreview))
@@ -147,7 +153,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                             receiveCompletion: { _ in },
                             receiveValue: { _ in didDismissScreen = true }
                         )
-                    viewModel.settingsData.first?.elements.last?.onTap?(nil)
+                    viewModel.tableData.first?.elements.last?.onTap?()
                     
                     expect(didDismissScreen).to(beTrue())
                 }

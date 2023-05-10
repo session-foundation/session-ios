@@ -153,8 +153,8 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     // MARK: - Mutation
     
     public func with(
-        attachments: Updatable<[Attachment]> = .existing,
-        reactionInfo: Updatable<[ReactionInfo]> = .existing
+        attachments: [Attachment]? = nil,
+        reactionInfo: [ReactionInfo]? = nil
     ) -> MessageViewModel {
         return MessageViewModel(
             threadId: self.threadId,
@@ -313,6 +313,11 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
                 case (false, true): return (.bottom, isOnlyMessageInCluster)
             }
         }()
+        let isGroupThread: Bool = (
+            self.threadVariant == .community ||
+            self.threadVariant == .legacyGroup ||
+            self.threadVariant == .group
+        )
         
         return ViewModel(
             threadId: self.threadId,
@@ -374,9 +379,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             authorName: authorDisplayName,
             senderName: {
                 // Only show for group threads
-                guard self.threadVariant == .openGroup || self.threadVariant == .closedGroup else {
-                    return nil
-                }
+                guard isGroupThread else { return nil }
                 
                 // Only show for incoming messages
                 guard self.variant == .standardIncoming || self.variant == .standardIncomingDeleted else {
@@ -392,7 +395,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             }(),
             shouldShowProfile: (
                 // Only group threads
-                (self.threadVariant == .openGroup || self.threadVariant == .closedGroup) &&
+                isGroupThread &&
                 
                 // Only incoming messages
                 (self.variant == .standardIncoming || self.variant == .standardIncomingDeleted) &&
@@ -709,7 +712,7 @@ public extension MessageViewModel {
                         WHERE (
                             \(groupMember[.groupId]) = \(interaction[.threadId]) AND
                             \(groupMember[.profileId]) = \(interaction[.authorId]) AND
-                            \(SQL("\(thread[.variant]) = \(SessionThread.Variant.openGroup)")) AND
+                            \(SQL("\(thread[.variant]) = \(SessionThread.Variant.community)")) AND
                             \(SQL("\(groupMember[.role]) IN \([GroupMember.Role.moderator, GroupMember.Role.admin])"))
                         )
                     ) AS \(ViewModel.isSenderOpenGroupModeratorKey),
@@ -871,11 +874,9 @@ public extension MessageViewModel.AttachmentInteractionInfo {
                     
                     updatedPagedDataCache = updatedPagedDataCache.upserting(
                         dataToUpdate.with(
-                            attachments: .update(
-                                attachments
-                                    .sorted()
-                                    .map { $0.attachment }
-                            )
+                            attachments: attachments
+                                .sorted()
+                                .map { $0.attachment }
                         )
                     )
                 }
@@ -953,7 +954,7 @@ public extension MessageViewModel.ReactionInfo {
                     else { return }
                     
                     updatedPagedDataCache = updatedPagedDataCache.upserting(
-                        dataToUpdate.with(reactionInfo: .update(reactionInfo.sorted()))
+                        dataToUpdate.with(reactionInfo: reactionInfo.sorted())
                     )
                     pagedRowIdsWithNoReactions.remove(interactionRowId)
                 }

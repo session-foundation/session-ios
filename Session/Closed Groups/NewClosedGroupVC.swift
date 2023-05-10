@@ -3,7 +3,6 @@
 import UIKit
 import GRDB
 import DifferenceKit
-import PromiseKit
 import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
@@ -208,15 +207,17 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         cell.update(
             with: SessionCell.Info(
                 id: profile,
-                leftAccessory: .profile(profile.id, profile),
+                position: Position.with(indexPath.row, count: data[indexPath.section].elements.count),
+                leftAccessory: .profile(id: profile.id, profile: profile),
                 title: profile.displayName(),
                 rightAccessory: .radio(isSelected: { [weak self] in
                     self?.selectedContacts.contains(profile.id) == true
                 }),
-                accessibilityIdentifier: "Contact"
-        ),
-            style: .edgeToEdge,
-            position: Position.with(indexPath.row, count: data[indexPath.section].elements.count)
+                styling: SessionCell.StyleInfo(backgroundStyle: .edgeToEdge),
+                accessibility: Accessibility(
+                    identifier: "Contact"
+                )
+            )
         )
         
         return cell
@@ -319,7 +320,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         else {
             return showError(title: "vc_create_closed_group_group_name_missing_error".localized())
         }
-        guard name.count < 30 else {
+        guard name.utf8CString.count < SessionUtil.libSessionMaxGroupNameByteLength else {
             return showError(title: "vc_create_closed_group_group_name_too_long_error".localized())
         }
         guard selectedContacts.count >= 1 else {
@@ -332,32 +333,35 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         let message: String? = (selectedContacts.count > 20 ? "GROUP_CREATION_PLEASE_WAIT".localized() : nil)
         ModalActivityIndicatorViewController.present(fromViewController: navigationController!, message: message) { [weak self] _ in
             Storage.shared
-                .writeAsync { db in
+                .writePublisherFlatMap { db in
                     try MessageSender.createClosedGroup(db, name: name, members: selectedContacts)
                 }
-                .done(on: DispatchQueue.main) { thread in
-                    Storage.shared.writeAsync { db in
-                        try? MessageSender.syncConfiguration(db, forceSyncNow: true).retainUntilComplete()
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+                .receive(on: DispatchQueue.main)
+                .sinkUntilComplete(
+                    receiveCompletion: { result in
+                        switch result {
+                            case .finished: break
+                            case .failure:
+                                self?.dismiss(animated: true, completion: nil) // Dismiss the loader
+                                
+                                let modal: ConfirmationModal = ConfirmationModal(
+                                    targetView: self?.view,
+                                    info: ConfirmationModal.Info(
+                                        title: "GROUP_CREATION_ERROR_TITLE".localized(),
+                                        explanation: "GROUP_CREATION_ERROR_MESSAGE".localized(),
+                                        cancelTitle: "BUTTON_OK".localized(),
+                                        cancelStyle: .alert_text
+                                    )
+                                )
+                                self?.present(modal, animated: true)
+                        }
+                    },
+                    receiveValue: { thread in
+                        self?.presentingViewController?.dismiss(animated: true, completion: nil)
+                        SessionApp.presentConversation(for: thread.id, action: .compose, animated: false)
                     }
-                    
-                    self?.presentingViewController?.dismiss(animated: true, completion: nil)
-                    SessionApp.presentConversation(for: thread.id, action: .compose, animated: false)
-                }
-                .catch(on: DispatchQueue.main) { [weak self] _ in
-                    self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-                    
-                    let modal: ConfirmationModal = ConfirmationModal(
-                        targetView: self?.view,
-                        info: ConfirmationModal.Info(
-                            title: "GROUP_CREATION_ERROR_TITLE".localized(),
-                            explanation: "GROUP_CREATION_ERROR_MESSAGE".localized(),
-                            cancelTitle: "BUTTON_OK".localized(),
-                            cancelStyle: .alert_text
-                        )
-                    )
-                    self?.present(modal, animated: true)
-                }
-                .retainUntilComplete()
+                )
         }
     }
 }

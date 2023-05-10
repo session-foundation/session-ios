@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
-import PromiseKit
+import Foundation
+import Combine
 import GRDB
 import Sodium
 import SessionSnodeKit
@@ -24,11 +25,12 @@ class OpenGroupAPISpec: QuickSpec {
         var mockNonce16Generator: MockNonce16Generator!
         var mockNonce24Generator: MockNonce24Generator!
         var dependencies: SMKDependencies!
+        var disposables: [AnyCancellable] = []
         
-        var response: (OnionRequestResponseInfoType, Codable)? = nil
-        var pollResponse: [OpenGroupAPI.Endpoint: (OnionRequestResponseInfoType, Codable?)]?
+        var response: (ResponseInfoType, Codable)? = nil
+        var pollResponse: (info: ResponseInfoType, data: [OpenGroupAPI.Endpoint: Codable])?
         var error: Error?
-
+        
         describe("an OpenGroupAPI") {
             // MARK: - Configuration
             
@@ -87,7 +89,7 @@ class OpenGroupAPISpec: QuickSpec {
                 mockSodium
                     .when { $0.blindedKeyPair(serverPublicKey: any(), edKeyPair: any(), genericHash: mockGenericHash) }
                     .thenReturn(
-                        Box.KeyPair(
+                        KeyPair(
                             publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
                             secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
                         )
@@ -114,6 +116,8 @@ class OpenGroupAPISpec: QuickSpec {
             }
 
             afterEach {
+                disposables.forEach { $0.cancel() }
+                
                 mockStorage = nil
                 mockSodium = nil
                 mockAeadXChaCha20Poly1305Ietf = nil
@@ -121,6 +125,7 @@ class OpenGroupAPISpec: QuickSpec {
                 mockGenericHash = nil
                 mockEd25519 = nil
                 dependencies = nil
+                disposables = []
                 
                 response = nil
                 pollResponse = nil
@@ -136,7 +141,7 @@ class OpenGroupAPISpec: QuickSpec {
                             override class var mockResponse: Data? {
                                 let responses: [Data] = [
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: OpenGroupAPI.Capabilities(capabilities: [], missing: nil),
@@ -144,7 +149,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         )
                                     ),
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: try! JSONDecoder().decode(
@@ -163,7 +168,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         )
                                     ),
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: [OpenGroupAPI.Message](),
@@ -181,7 +186,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     it("generates the correct request") {
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -190,9 +195,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .get { result in pollResponse = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(pollResponse)
                             .toEventuallyNot(
@@ -202,23 +207,21 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(error?.localizedDescription).to(beNil())
                         
                         // Validate the response data
-                        expect(pollResponse?.values).to(haveCount(3))
-                        expect(pollResponse?.keys).to(contain(.capabilities))
-                        expect(pollResponse?.keys).to(contain(.roomPollInfo("testRoom", 0)))
-                        expect(pollResponse?.keys).to(contain(.roomMessagesRecent("testRoom")))
-                        expect(pollResponse?[.capabilities]?.0).to(beAKindOf(TestOnionRequestAPI.ResponseInfo.self))
+                        expect(pollResponse?.data.count).to(equal(3))
+                        expect(pollResponse?.data.keys).to(contain(.capabilities))
+                        expect(pollResponse?.data.keys).to(contain(.roomPollInfo("testRoom", 0)))
+                        expect(pollResponse?.data.keys).to(contain(.roomMessagesRecent("testRoom")))
                         
                         // Validate request data
-                        let requestData: TestOnionRequestAPI.RequestData? = (pollResponse?[.capabilities]?.0 as? TestOnionRequestAPI.ResponseInfo)?.requestData
+                        let requestData: TestOnionRequestAPI.RequestData? = (pollResponse?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                         expect(requestData?.urlString).to(equal("testserver/batch"))
                         expect(requestData?.httpMethod).to(equal("POST"))
-                        expect(requestData?.server).to(equal("testserver"))
                         expect(requestData?.publicKey).to(equal("88672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"))
                     }
                     
                     it("retrieves recent messages if there was no last message") {
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -227,9 +230,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .get { result in pollResponse = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(pollResponse)
                             .toEventuallyNot(
@@ -237,7 +240,7 @@ class OpenGroupAPISpec: QuickSpec {
                                 timeout: .milliseconds(100)
                             )
                         expect(error?.localizedDescription).to(beNil())
-                        expect(pollResponse?.keys).to(contain(.roomMessagesRecent("testRoom")))
+                        expect(pollResponse?.data.keys).to(contain(.roomMessagesRecent("testRoom")))
                     }
                     
                     it("retrieves recent messages if there was a last message and it has not performed the initial poll and the last message was too long ago") {
@@ -247,7 +250,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -256,9 +259,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .get { result in pollResponse = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(pollResponse)
                             .toEventuallyNot(
@@ -266,7 +269,7 @@ class OpenGroupAPISpec: QuickSpec {
                                 timeout: .milliseconds(100)
                             )
                         expect(error?.localizedDescription).to(beNil())
-                        expect(pollResponse?.keys).to(contain(.roomMessagesRecent("testRoom")))
+                        expect(pollResponse?.data.keys).to(contain(.roomMessagesRecent("testRoom")))
                     }
                     
                     it("retrieves recent messages if there was a last message and it has performed an initial poll but it was not too long ago") {
@@ -276,7 +279,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -285,9 +288,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .get { result in pollResponse = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(pollResponse)
                             .toEventuallyNot(
@@ -295,7 +298,7 @@ class OpenGroupAPISpec: QuickSpec {
                                 timeout: .milliseconds(100)
                             )
                         expect(error?.localizedDescription).to(beNil())
-                        expect(pollResponse?.keys).to(contain(.roomMessagesSince("testRoom", seqNo: 123)))
+                        expect(pollResponse?.data.keys).to(contain(.roomMessagesSince("testRoom", seqNo: 123)))
                     }
                     
                     it("retrieves recent messages if there was a last message and there has already been a poll this session") {
@@ -305,7 +308,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
 
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -314,9 +317,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .get { result in pollResponse = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(pollResponse)
                             .toEventuallyNot(
@@ -324,7 +327,7 @@ class OpenGroupAPISpec: QuickSpec {
                                 timeout: .milliseconds(100)
                             )
                         expect(error?.localizedDescription).to(beNil())
-                        expect(pollResponse?.keys).to(contain(.roomMessagesSince("testRoom", seqNo: 123)))
+                        expect(pollResponse?.data.keys).to(contain(.roomMessagesSince("testRoom", seqNo: 123)))
                     }
                     
                     context("when unblinded") {
@@ -337,7 +340,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                         it("does not call the inbox and outbox endpoints") {
                             mockStorage
-                                .read { db in
+                                .readPublisherFlatMap { db in
                                     OpenGroupAPI.poll(
                                         db,
                                         server: "testserver",
@@ -346,9 +349,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                                 }
-                                .get { result in pollResponse = result }
-                                .catch { requestError in error = requestError }
-                                .retainUntilComplete()
+                                .handleEvents(receiveOutput: { result in pollResponse = result })
+                                .mapError { error.setting(to: $0) }
+                                .sinkAndStore(in: &disposables)
                             
                             expect(pollResponse)
                                 .toEventuallyNot(
@@ -358,8 +361,8 @@ class OpenGroupAPISpec: QuickSpec {
                             expect(error?.localizedDescription).to(beNil())
                             
                             // Validate the response data
-                            expect(pollResponse?.keys).toNot(contain(.inbox))
-                            expect(pollResponse?.keys).toNot(contain(.outbox))
+                            expect(pollResponse?.data.keys).toNot(contain(.inbox))
+                            expect(pollResponse?.data.keys).toNot(contain(.outbox))
                         }
                     }
                     
@@ -369,7 +372,7 @@ class OpenGroupAPISpec: QuickSpec {
                                 override class var mockResponse: Data? {
                                     let responses: [Data] = [
                                         try! JSONEncoder().encode(
-                                            OpenGroupAPI.BatchSubResponse(
+                                            HTTP.BatchSubResponse(
                                                 code: 200,
                                                 headers: [:],
                                                 body: OpenGroupAPI.Capabilities(capabilities: [], missing: nil),
@@ -377,7 +380,7 @@ class OpenGroupAPISpec: QuickSpec {
                                             )
                                         ),
                                         try! JSONEncoder().encode(
-                                            OpenGroupAPI.BatchSubResponse(
+                                            HTTP.BatchSubResponse(
                                                 code: 200,
                                                 headers: [:],
                                                 body: try! JSONDecoder().decode(
@@ -396,7 +399,7 @@ class OpenGroupAPISpec: QuickSpec {
                                             )
                                         ),
                                         try! JSONEncoder().encode(
-                                            OpenGroupAPI.BatchSubResponse(
+                                            HTTP.BatchSubResponse(
                                                 code: 200,
                                                 headers: [:],
                                                 body: [OpenGroupAPI.Message](),
@@ -404,7 +407,7 @@ class OpenGroupAPISpec: QuickSpec {
                                             )
                                         ),
                                         try! JSONEncoder().encode(
-                                            OpenGroupAPI.BatchSubResponse(
+                                            HTTP.BatchSubResponse(
                                                 code: 200,
                                                 headers: [:],
                                                 body: [OpenGroupAPI.DirectMessage](),
@@ -412,7 +415,7 @@ class OpenGroupAPISpec: QuickSpec {
                                             )
                                         ),
                                         try! JSONEncoder().encode(
-                                            OpenGroupAPI.BatchSubResponse(
+                                            HTTP.BatchSubResponse(
                                                 code: 200,
                                                 headers: [:],
                                                 body: [OpenGroupAPI.DirectMessage](),
@@ -436,7 +439,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                         it("includes the inbox and outbox endpoints") {
                             mockStorage
-                                .read { db in
+                                .readPublisherFlatMap { db in
                                     OpenGroupAPI.poll(
                                         db,
                                         server: "testserver",
@@ -445,9 +448,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                                 }
-                                .get { result in pollResponse = result }
-                                .catch { requestError in error = requestError }
-                                .retainUntilComplete()
+                                .handleEvents(receiveOutput: { result in pollResponse = result })
+                                .mapError { error.setting(to: $0) }
+                                .sinkAndStore(in: &disposables)
                             
                             expect(pollResponse)
                                 .toEventuallyNot(
@@ -457,13 +460,13 @@ class OpenGroupAPISpec: QuickSpec {
                             expect(error?.localizedDescription).to(beNil())
                             
                             // Validate the response data
-                            expect(pollResponse?.keys).to(contain(.inbox))
-                            expect(pollResponse?.keys).to(contain(.outbox))
+                            expect(pollResponse?.data.keys).to(contain(.inbox))
+                            expect(pollResponse?.data.keys).to(contain(.outbox))
                         }
                         
                         it("retrieves recent inbox messages if there was no last message") {
                             mockStorage
-                                .read { db in
+                                .readPublisherFlatMap { db in
                                     OpenGroupAPI.poll(
                                         db,
                                         server: "testserver",
@@ -472,9 +475,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                                 }
-                                .get { result in pollResponse = result }
-                                .catch { requestError in error = requestError }
-                                .retainUntilComplete()
+                                .handleEvents(receiveOutput: { result in pollResponse = result })
+                                .mapError { error.setting(to: $0) }
+                                .sinkAndStore(in: &disposables)
                             
                             expect(pollResponse)
                                 .toEventuallyNot(
@@ -482,7 +485,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     timeout: .milliseconds(100)
                                 )
                             expect(error?.localizedDescription).to(beNil())
-                            expect(pollResponse?.keys).to(contain(.inbox))
+                            expect(pollResponse?.data.keys).to(contain(.inbox))
                         }
                         
                         it("retrieves inbox messages since the last message if there was one") {
@@ -492,7 +495,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             
                             mockStorage
-                                .read { db in
+                                .readPublisherFlatMap { db in
                                     OpenGroupAPI.poll(
                                         db,
                                         server: "testserver",
@@ -501,9 +504,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                                 }
-                                .get { result in pollResponse = result }
-                                .catch { requestError in error = requestError }
-                                .retainUntilComplete()
+                                .handleEvents(receiveOutput: { result in pollResponse = result })
+                                .mapError { error.setting(to: $0) }
+                                .sinkAndStore(in: &disposables)
                             
                             expect(pollResponse)
                                 .toEventuallyNot(
@@ -511,12 +514,12 @@ class OpenGroupAPISpec: QuickSpec {
                                     timeout: .milliseconds(100)
                                 )
                             expect(error?.localizedDescription).to(beNil())
-                            expect(pollResponse?.keys).to(contain(.inboxSince(id: 124)))
+                            expect(pollResponse?.data.keys).to(contain(.inboxSince(id: 124)))
                         }
                         
                         it("retrieves recent outbox messages if there was no last message") {
                             mockStorage
-                                .read { db in
+                                .readPublisherFlatMap { db in
                                     OpenGroupAPI.poll(
                                         db,
                                         server: "testserver",
@@ -525,9 +528,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                                 }
-                                .get { result in pollResponse = result }
-                                .catch { requestError in error = requestError }
-                                .retainUntilComplete()
+                                .handleEvents(receiveOutput: { result in pollResponse = result })
+                                .mapError { error.setting(to: $0) }
+                                .sinkAndStore(in: &disposables)
                             
                             expect(pollResponse)
                                 .toEventuallyNot(
@@ -535,7 +538,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     timeout: .milliseconds(100)
                                 )
                             expect(error?.localizedDescription).to(beNil())
-                            expect(pollResponse?.keys).to(contain(.outbox))
+                            expect(pollResponse?.data.keys).to(contain(.outbox))
                         }
                         
                         it("retrieves outbox messages since the last message if there was one") {
@@ -545,7 +548,7 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             
                             mockStorage
-                                .read { db in
+                                .readPublisherFlatMap { db in
                                     OpenGroupAPI.poll(
                                         db,
                                         server: "testserver",
@@ -554,9 +557,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                                 }
-                                .get { result in pollResponse = result }
-                                .catch { requestError in error = requestError }
-                                .retainUntilComplete()
+                                .handleEvents(receiveOutput: { result in pollResponse = result })
+                                .mapError { error.setting(to: $0) }
+                                .sinkAndStore(in: &disposables)
                             
                             expect(pollResponse)
                                 .toEventuallyNot(
@@ -564,7 +567,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     timeout: .milliseconds(100)
                                 )
                             expect(error?.localizedDescription).to(beNil())
-                            expect(pollResponse?.keys).to(contain(.outboxSince(id: 125)))
+                            expect(pollResponse?.data.keys).to(contain(.outboxSince(id: 125)))
                         }
                     }
                 }
@@ -575,7 +578,7 @@ class OpenGroupAPISpec: QuickSpec {
                             override class var mockResponse: Data? {
                                 let responses: [Data] = [
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: OpenGroupAPI.Capabilities(capabilities: [], missing: nil),
@@ -583,7 +586,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         )
                                     ),
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: OpenGroupAPI.PinnedMessage(id: 1, pinnedAt: 1, pinnedBy: ""),
@@ -591,7 +594,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         )
                                     ),
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: OpenGroupAPI.PinnedMessage(id: 1, pinnedAt: 1, pinnedBy: ""),
@@ -606,7 +609,7 @@ class OpenGroupAPISpec: QuickSpec {
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -615,9 +618,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .get { result in pollResponse = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(pollResponse)
                             .toEventuallyNot(
@@ -626,9 +629,9 @@ class OpenGroupAPISpec: QuickSpec {
                             )
                         expect(error?.localizedDescription).to(beNil())
                         
-                        let capabilitiesResponse: OpenGroupAPI.BatchSubResponse<OpenGroupAPI.Capabilities>? = (pollResponse?[.capabilities]?.1 as? OpenGroupAPI.BatchSubResponse<OpenGroupAPI.Capabilities>)
-                        let pollInfoResponse: OpenGroupAPI.BatchSubResponse<OpenGroupAPI.RoomPollInfo>? = (pollResponse?[.roomPollInfo("testRoom", 0)]?.1 as? OpenGroupAPI.BatchSubResponse<OpenGroupAPI.RoomPollInfo>)
-                        let messagesResponse: OpenGroupAPI.BatchSubResponse<[Failable<OpenGroupAPI.Message>]>? = (pollResponse?[.roomMessagesRecent("testRoom")]?.1 as? OpenGroupAPI.BatchSubResponse<[Failable<OpenGroupAPI.Message>]>)
+                        let capabilitiesResponse: HTTP.BatchSubResponse<OpenGroupAPI.Capabilities>? = (pollResponse?.data[.capabilities] as? HTTP.BatchSubResponse<OpenGroupAPI.Capabilities>)
+                        let pollInfoResponse: HTTP.BatchSubResponse<OpenGroupAPI.RoomPollInfo>? = (pollResponse?.data[.roomPollInfo("testRoom", 0)] as? HTTP.BatchSubResponse<OpenGroupAPI.RoomPollInfo>)
+                        let messagesResponse: HTTP.BatchSubResponse<[Failable<OpenGroupAPI.Message>]>? = (pollResponse?.data[.roomMessagesRecent("testRoom")] as? HTTP.BatchSubResponse<[Failable<OpenGroupAPI.Message>]>)
                         expect(capabilitiesResponse?.failedToParseBody).to(beFalse())
                         expect(pollInfoResponse?.failedToParseBody).to(beTrue())
                         expect(messagesResponse?.failedToParseBody).to(beTrue())
@@ -636,7 +639,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     it("errors when no data is returned") {
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -645,13 +648,13 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .get { result in pollResponse = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
-                                equal(HTTP.Error.parsingFailed.localizedDescription),
+                                equal(HTTPError.parsingFailed.localizedDescription),
                                 timeout: .milliseconds(100)
                             )
                         
@@ -665,7 +668,7 @@ class OpenGroupAPISpec: QuickSpec {
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -674,13 +677,13 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .get { result in pollResponse = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
-                                equal(HTTP.Error.parsingFailed.localizedDescription),
+                                equal(HTTPError.parsingFailed.localizedDescription),
                                 timeout: .milliseconds(100)
                             )
                         
@@ -694,7 +697,7 @@ class OpenGroupAPISpec: QuickSpec {
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -703,13 +706,13 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .get { result in pollResponse = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
-                                equal(HTTP.Error.parsingFailed.localizedDescription),
+                                equal(HTTPError.parsingFailed.localizedDescription),
                                 timeout: .milliseconds(100)
                             )
                         
@@ -723,7 +726,7 @@ class OpenGroupAPISpec: QuickSpec {
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -732,13 +735,13 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .get { result in pollResponse = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
-                                equal(HTTP.Error.parsingFailed.localizedDescription),
+                                equal(HTTPError.parsingFailed.localizedDescription),
                                 timeout: .milliseconds(100)
                             )
                         
@@ -750,7 +753,7 @@ class OpenGroupAPISpec: QuickSpec {
                             override class var mockResponse: Data? {
                                 let responses: [Data] = [
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: OpenGroupAPI.Capabilities(capabilities: [], missing: nil),
@@ -758,7 +761,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         )
                                     ),
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: try! JSONDecoder().decode(
@@ -784,7 +787,7 @@ class OpenGroupAPISpec: QuickSpec {
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.poll(
                                     db,
                                     server: "testserver",
@@ -793,13 +796,13 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .get { result in pollResponse = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in pollResponse = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
-                                equal(HTTP.Error.parsingFailed.localizedDescription),
+                                equal(HTTPError.parsingFailed.localizedDescription),
                                 timeout: .milliseconds(100)
                             )
                         
@@ -819,19 +822,19 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
-                    var response: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Capabilities)?
+                    var response: (info: ResponseInfoType, data: OpenGroupAPI.Capabilities)?
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI.capabilities(
                                 db,
                                 server: "testserver",
                                 using: dependencies
                             )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -846,7 +849,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate request data
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("GET"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/capabilities"))
                 }
             }
@@ -890,19 +892,19 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
-                    var response: (info: OnionRequestResponseInfoType, data: [OpenGroupAPI.Room])?
+                    var response: (info: ResponseInfoType, data: [OpenGroupAPI.Room])?
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI.rooms(
                                 db,
                                 server: "testserver",
                                 using: dependencies
                             )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -917,7 +919,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate request data
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("GET"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/rooms"))
                 }
             }
@@ -960,7 +961,7 @@ class OpenGroupAPISpec: QuickSpec {
                             override class var mockResponse: Data? {
                                 let responses: [Data] = [
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: capabilitiesData,
@@ -968,7 +969,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         )
                                     ),
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: roomData,
@@ -982,10 +983,10 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
-                        var response: (capabilities: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Capabilities?), room: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Room?))?
+                        var response: OpenGroupAPI.CapabilitiesAndRoomResponse?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.capabilitiesAndRoom(
                                     db,
                                     for: "testRoom",
@@ -993,9 +994,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in response = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(response)
                             .toEventuallyNot(
@@ -1005,13 +1006,12 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(error?.localizedDescription).to(beNil())
                         
                         // Validate the response data
-                        expect(response?.capabilities.data).to(equal(TestApi.capabilitiesData))
-                        expect(response?.room.data).to(equal(TestApi.roomData))
+                        expect(response?.data.capabilities.data).to(equal(TestApi.capabilitiesData))
+                        expect(response?.data.room.data).to(equal(TestApi.roomData))
                         
                         // Validate request data
-                        let requestData: TestOnionRequestAPI.RequestData? = (response?.capabilities.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
+                        let requestData: TestOnionRequestAPI.RequestData? = (response?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                         expect(requestData?.httpMethod).to(equal("POST"))
-                        expect(requestData?.server).to(equal("testserver"))
                         expect(requestData?.urlString).to(equal("testserver/sequence"))
                     }
                 }
@@ -1024,7 +1024,7 @@ class OpenGroupAPISpec: QuickSpec {
                             override class var mockResponse: Data? {
                                 let responses: [Data] = [
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: capabilitiesData,
@@ -1038,10 +1038,10 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
-                        var response: (capabilities: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Capabilities?), room: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Room?))?
+                        var response: OpenGroupAPI.CapabilitiesAndRoomResponse?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .capabilitiesAndRoom(
                                         db,
@@ -1050,13 +1050,13 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in response = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
-                                equal(HTTP.Error.parsingFailed.localizedDescription),
+                                equal(HTTPError.parsingFailed.localizedDescription),
                                 timeout: .milliseconds(100)
                             )
                         
@@ -1096,7 +1096,7 @@ class OpenGroupAPISpec: QuickSpec {
                             override class var mockResponse: Data? {
                                 let responses: [Data] = [
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: roomData,
@@ -1110,10 +1110,10 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
-                        var response: (capabilities: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Capabilities?), room: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Room?))?
+                        var response: OpenGroupAPI.CapabilitiesAndRoomResponse?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .capabilitiesAndRoom(
                                         db,
@@ -1122,13 +1122,13 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in response = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
-                                equal(HTTP.Error.parsingFailed.localizedDescription),
+                                equal(HTTPError.parsingFailed.localizedDescription),
                                 timeout: .milliseconds(100)
                             )
                         
@@ -1169,7 +1169,7 @@ class OpenGroupAPISpec: QuickSpec {
                             override class var mockResponse: Data? {
                                 let responses: [Data] = [
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: capabilitiesData,
@@ -1177,7 +1177,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         )
                                     ),
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: roomData,
@@ -1185,7 +1185,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         )
                                     ),
                                     try! JSONEncoder().encode(
-                                        OpenGroupAPI.BatchSubResponse(
+                                        HTTP.BatchSubResponse(
                                             code: 200,
                                             headers: [:],
                                             body: OpenGroupAPI.PinnedMessage(id: 1, pinnedAt: 1, pinnedBy: ""),
@@ -1199,10 +1199,10 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
-                        var response: (capabilities: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Capabilities?), room: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Room?))?
+                        var response: OpenGroupAPI.CapabilitiesAndRoomResponse?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI.capabilitiesAndRoom(
                                     db,
                                     for: "testRoom",
@@ -1210,13 +1210,13 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in response = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
-                                equal(HTTP.Error.parsingFailed.localizedDescription),
+                                equal(HTTPError.parsingFailed.localizedDescription),
                                 timeout: .milliseconds(100)
                             )
                         
@@ -1258,10 +1258,10 @@ class OpenGroupAPISpec: QuickSpec {
                 }
                 
                 it("correctly sends the message") {
-                    var response: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Message)?
+                    var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .send(
                                     db,
@@ -1274,9 +1274,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -1291,7 +1291,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate signature headers
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.0 as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("POST"))
-                    expect(requestData?.server).to(equal("testServer"))
                     expect(requestData?.urlString).to(equal("testServer/room/testRoom/message"))
                 }
                 
@@ -1304,10 +1303,10 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     
                     it("signs the message correctly") {
-                        var response: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Message)?
+                        var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .send(
                                         db,
@@ -1320,9 +1319,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in response = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(response)
                             .toEventuallyNot(
@@ -1344,10 +1343,10 @@ class OpenGroupAPISpec: QuickSpec {
                             _ = try OpenGroup.deleteAll(db)
                         }
                         
-                        var response: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Message)?
+                        var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .send(
                                         db,
@@ -1360,9 +1359,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in response = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1379,10 +1378,10 @@ class OpenGroupAPISpec: QuickSpec {
                             _ = try Identity.filter(id: .x25519PrivateKey).deleteAll(db)
                         }
                         
-                        var response: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Message)?
+                        var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .send(
                                         db,
@@ -1395,9 +1394,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in response = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1412,10 +1411,10 @@ class OpenGroupAPISpec: QuickSpec {
                         mockEd25519.reset() // The 'keyPair' value doesn't equate so have to explicitly reset
                         mockEd25519.when { try $0.sign(data: anyArray(), keyPair: any()) }.thenReturn(nil)
                         
-                        var response: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Message)?
+                        var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .send(
                                         db,
@@ -1428,9 +1427,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in response = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1452,10 +1451,10 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     
                     it("signs the message correctly") {
-                        var response: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Message)?
+                        var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .send(
                                         db,
@@ -1468,9 +1467,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in response = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(response)
                             .toEventuallyNot(
@@ -1492,10 +1491,10 @@ class OpenGroupAPISpec: QuickSpec {
                             _ = try OpenGroup.deleteAll(db)
                         }
                         
-                        var response: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Message)?
+                        var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .send(
                                         db,
@@ -1508,9 +1507,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in response = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1527,10 +1526,10 @@ class OpenGroupAPISpec: QuickSpec {
                             _ = try Identity.filter(id: .ed25519SecretKey).deleteAll(db)
                         }
                         
-                        var response: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Message)?
+                        var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .send(
                                         db,
@@ -1543,9 +1542,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in response = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1568,10 +1567,10 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .thenReturn(nil)
                         
-                        var response: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Message)?
+                        var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .send(
                                         db,
@@ -1584,9 +1583,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in response = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1621,10 +1620,10 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
-                    var response: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.Message)?
+                    var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .message(
                                     db,
@@ -1634,9 +1633,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -1651,7 +1650,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate request data
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("GET"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/room/testRoom/message/123"))
                 }
             }
@@ -1674,10 +1672,10 @@ class OpenGroupAPISpec: QuickSpec {
                 }
                 
                 it("correctly sends the update") {
-                    var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                    var response: (info: ResponseInfoType, data: Data?)?
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .messageUpdate(
                                     db,
@@ -1689,9 +1687,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -1703,7 +1701,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate signature headers
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.0 as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("PUT"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/room/testRoom/message/123"))
                 }
                 
@@ -1716,10 +1713,10 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     
                     it("signs the message correctly") {
-                        var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                        var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .messageUpdate(
                                         db,
@@ -1731,9 +1728,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in response = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(response)
                             .toEventuallyNot(
@@ -1755,10 +1752,10 @@ class OpenGroupAPISpec: QuickSpec {
                             _ = try OpenGroup.deleteAll(db)
                         }
                         
-                        var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                        var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .messageUpdate(
                                         db,
@@ -1770,9 +1767,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in response = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1789,10 +1786,10 @@ class OpenGroupAPISpec: QuickSpec {
                             _ = try Identity.filter(id: .x25519PrivateKey).deleteAll(db)
                         }
                         
-                        var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                        var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .messageUpdate(
                                         db,
@@ -1804,9 +1801,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in response = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1821,10 +1818,10 @@ class OpenGroupAPISpec: QuickSpec {
                         mockEd25519.reset() // The 'keyPair' value doesn't equate so have to explicitly reset
                         mockEd25519.when { try $0.sign(data: anyArray(), keyPair: any()) }.thenReturn(nil)
                         
-                        var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                        var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .messageUpdate(
                                         db,
@@ -1836,9 +1833,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in response = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1860,10 +1857,10 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     
                     it("signs the message correctly") {
-                        var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                        var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .messageUpdate(
                                         db,
@@ -1875,9 +1872,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in response = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(response)
                             .toEventuallyNot(
@@ -1899,10 +1896,10 @@ class OpenGroupAPISpec: QuickSpec {
                             _ = try OpenGroup.deleteAll(db)
                         }
                         
-                        var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                        var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .messageUpdate(
                                         db,
@@ -1914,9 +1911,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in response = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1933,10 +1930,10 @@ class OpenGroupAPISpec: QuickSpec {
                             _ = try Identity.filter(id: .ed25519SecretKey).deleteAll(db)
                         }
                         
-                        var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                        var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .messageUpdate(
                                         db,
@@ -1948,9 +1945,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in response = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -1973,10 +1970,10 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .thenReturn(nil)
                         
-                        var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                        var response: (info: ResponseInfoType, data: Data?)?
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .messageUpdate(
                                         db,
@@ -1988,9 +1985,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in response = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -2010,10 +2007,10 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
-                    var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                    var response: (info: ResponseInfoType, data: Data?)?
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .messageDelete(
                                     db,
@@ -2023,9 +2020,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2037,13 +2034,12 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate request data
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("DELETE"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/room/testRoom/message/123"))
                 }
             }
             
             context("when deleting all messages for a user") {
-                var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                var response: (info: ResponseInfoType, data: Data?)?
                 
                 beforeEach {
                     class TestApi: TestOnionRequestAPI {
@@ -2058,7 +2054,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("generates the request and handles the response correctly") {
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .messagesDeleteAll(
                                     db,
@@ -2068,9 +2064,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2082,7 +2078,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate request data
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("DELETE"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/room/testRoom/all/testUserId"))
                 }
             }
@@ -2096,10 +2091,10 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
-                    var response: OnionRequestResponseInfoType?
+                    var response: ResponseInfoType?
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .pinMessage(
                                     db,
@@ -2109,9 +2104,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2123,7 +2118,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate request data
                     let requestData: TestOnionRequestAPI.RequestData? = (response as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("POST"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/room/testRoom/pin/123"))
                 }
             }
@@ -2135,10 +2129,10 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
-                    var response: OnionRequestResponseInfoType?
+                    var response: ResponseInfoType?
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .unpinMessage(
                                     db,
@@ -2148,9 +2142,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2162,7 +2156,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate request data
                     let requestData: TestOnionRequestAPI.RequestData? = (response as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("POST"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/room/testRoom/unpin/123"))
                 }
             }
@@ -2174,10 +2167,10 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
-                    var response: OnionRequestResponseInfoType?
+                    var response: ResponseInfoType?
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .unpinAll(
                                     db,
@@ -2186,9 +2179,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2200,7 +2193,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate request data
                     let requestData: TestOnionRequestAPI.RequestData? = (response as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("POST"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/room/testRoom/unpin/all"))
                 }
             }
@@ -2217,7 +2209,7 @@ class OpenGroupAPISpec: QuickSpec {
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .uploadFile(
                                     db,
@@ -2227,9 +2219,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2241,7 +2233,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate signature headers
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.0 as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("POST"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/room/testRoom/file"))
                 }
                 
@@ -2254,7 +2245,7 @@ class OpenGroupAPISpec: QuickSpec {
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .uploadFile(
                                     db,
@@ -2264,9 +2255,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2277,7 +2268,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     // Validate signature headers
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.0 as? TestOnionRequestAPI.ResponseInfo)?.requestData
-                    expect(requestData?.headers[Header.contentDisposition.rawValue])
+                    expect(requestData?.headers[HTTPHeader.contentDisposition])
                         .toNot(contain("filename"))
                 }
                 
@@ -2290,7 +2281,7 @@ class OpenGroupAPISpec: QuickSpec {
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .uploadFile(
                                     db,
@@ -2301,9 +2292,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2314,7 +2305,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     // Validate signature headers
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.0 as? TestOnionRequestAPI.ResponseInfo)?.requestData
-                    expect(requestData?.headers[Header.contentDisposition.rawValue]).to(contain("TestFileName"))
+                    expect(requestData?.headers[HTTPHeader.contentDisposition]).to(contain("TestFileName"))
                 }
             }
             
@@ -2328,7 +2319,7 @@ class OpenGroupAPISpec: QuickSpec {
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .downloadFile(
                                     db,
@@ -2338,9 +2329,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2352,7 +2343,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate signature headers
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.0 as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("GET"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/room/testRoom/file/1"))
                 }
             }
@@ -2383,10 +2373,10 @@ class OpenGroupAPISpec: QuickSpec {
                 }
                 
                 it("correctly sends the message request") {
-                    var response: (info: OnionRequestResponseInfoType, data: OpenGroupAPI.SendDirectMessageResponse)?
+                    var response: (info: ResponseInfoType, data: OpenGroupAPI.SendDirectMessageResponse)?
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .send(
                                     db,
@@ -2396,9 +2386,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2413,7 +2403,6 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate signature headers
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.0 as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("POST"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/inbox/testUserId"))
                 }
             }
@@ -2421,7 +2410,7 @@ class OpenGroupAPISpec: QuickSpec {
             // MARK: - Users
             
             context("when banning a user") {
-                var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                var response: (info: ResponseInfoType, data: Data?)?
                 
                 beforeEach {
                     class TestApi: TestOnionRequestAPI {
@@ -2436,7 +2425,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("generates the request and handles the response correctly") {
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userBan(
                                     db,
@@ -2447,9 +2436,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2461,13 +2450,12 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate request data
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("POST"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/user/testUserId/ban"))
                 }
                 
                 it("does a global ban if no room tokens are provided") {
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userBan(
                                     db,
@@ -2478,9 +2466,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2499,7 +2487,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("does room specific bans if room tokens are provided") {
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userBan(
                                     db,
@@ -2510,9 +2498,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2531,7 +2519,7 @@ class OpenGroupAPISpec: QuickSpec {
             }
             
             context("when unbanning a user") {
-                var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                var response: (info: ResponseInfoType, data: Data?)?
                 
                 beforeEach {
                     class TestApi: TestOnionRequestAPI {
@@ -2546,7 +2534,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("generates the request and handles the response correctly") {
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userUnban(
                                     db,
@@ -2556,9 +2544,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2570,13 +2558,12 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate request data
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("POST"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/user/testUserId/unban"))
                 }
                 
                 it("does a global ban if no room tokens are provided") {
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userUnban(
                                     db,
@@ -2586,9 +2573,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2607,7 +2594,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("does room specific bans if room tokens are provided") {
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userUnban(
                                     db,
@@ -2617,9 +2604,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2638,7 +2625,7 @@ class OpenGroupAPISpec: QuickSpec {
             }
             
             context("when updating a users permissions") {
-                var response: (info: OnionRequestResponseInfoType, data: Data?)?
+                var response: (info: ResponseInfoType, data: Data?)?
                 
                 beforeEach {
                     class TestApi: TestOnionRequestAPI {
@@ -2653,7 +2640,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("generates the request and handles the response correctly") {
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userModeratorUpdate(
                                     db,
@@ -2666,9 +2653,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2680,13 +2667,12 @@ class OpenGroupAPISpec: QuickSpec {
                     // Validate request data
                     let requestData: TestOnionRequestAPI.RequestData? = (response?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("POST"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/user/testUserId/moderator"))
                 }
                 
                 it("does a global update if no room tokens are provided") {
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userModeratorUpdate(
                                     db,
@@ -2699,9 +2685,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2720,7 +2706,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("does room specific updates if room tokens are provided") {
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userModeratorUpdate(
                                     db,
@@ -2733,9 +2719,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2754,7 +2740,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("fails if neither moderator or admin are set") {
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userModeratorUpdate(
                                     db,
@@ -2767,13 +2753,13 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(error?.localizedDescription)
                         .toEventually(
-                            equal(HTTP.Error.generic.localizedDescription),
+                            equal(HTTPError.generic.localizedDescription),
                             timeout: .milliseconds(100)
                         )
                     
@@ -2782,14 +2768,14 @@ class OpenGroupAPISpec: QuickSpec {
             }
             
             context("when banning and deleting all messages for a user") {
-                var response: [OnionRequestResponseInfoType]?
+                var response: (info: ResponseInfoType, data: [OpenGroupAPI.Endpoint: ResponseInfoType])?
                 
                 beforeEach {
                     class TestApi: TestOnionRequestAPI {
                         override class var mockResponse: Data? {
                             let responses: [Data] = [
                                 try! JSONEncoder().encode(
-                                    OpenGroupAPI.BatchSubResponse<NoResponse>(
+                                    HTTP.BatchSubResponse<NoResponse>(
                                         code: 200,
                                         headers: [:],
                                         body: nil,
@@ -2797,7 +2783,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     )
                                 ),
                                 try! JSONEncoder().encode(
-                                    OpenGroupAPI.BatchSubResponse<NoResponse>(
+                                    HTTP.BatchSubResponse<NoResponse>(
                                         code: 200,
                                         headers: [:],
                                         body: nil,
@@ -2818,7 +2804,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("generates the request and handles the response correctly") {
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userBanAndDeleteAllMessages(
                                     db,
@@ -2828,9 +2814,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2840,15 +2826,14 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(error?.localizedDescription).to(beNil())
                     
                     // Validate request data
-                    let requestData: TestOnionRequestAPI.RequestData? = (response?.first as? TestOnionRequestAPI.ResponseInfo)?.requestData
+                    let requestData: TestOnionRequestAPI.RequestData? = (response?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("POST"))
-                    expect(requestData?.server).to(equal("testserver"))
                     expect(requestData?.urlString).to(equal("testserver/sequence"))
                 }
                 
                 it("bans the user from the specified room rather than globally") {
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .userBanAndDeleteAllMessages(
                                     db,
@@ -2858,9 +2843,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(response)
                         .toEventuallyNot(
@@ -2870,7 +2855,7 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(error?.localizedDescription).to(beNil())
                     
                     // Validate request data
-                    let requestData: TestOnionRequestAPI.RequestData? = (response?.first as? TestOnionRequestAPI.ResponseInfo)?.requestData
+                    let requestData: TestOnionRequestAPI.RequestData? = (response?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     let jsonObject: Any = try! JSONSerialization.jsonObject(
                         with: requestData!.body!,
                         options: [.fragmentsAllowed]
@@ -2905,7 +2890,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .rooms(
                                     db,
@@ -2913,9 +2898,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(error?.localizedDescription)
                         .toEventually(
@@ -2932,7 +2917,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .rooms(
                                     db,
@@ -2940,9 +2925,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(error?.localizedDescription)
                         .toEventually(
@@ -2959,7 +2944,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     
                     mockStorage
-                        .read { db in
+                        .readPublisherFlatMap { db in
                             OpenGroupAPI
                                 .rooms(
                                     db,
@@ -2967,9 +2952,9 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
-                        .get { result in response = result }
-                        .catch { requestError in error = requestError }
-                        .retainUntilComplete()
+                        .handleEvents(receiveOutput: { result in response = result })
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
                     
                     expect(error?.localizedDescription)
                         .toEventually(
@@ -2990,7 +2975,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     it("signs correctly") {
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .rooms(
                                         db,
@@ -2998,9 +2983,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in response = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(response)
                             .toEventuallyNot(
@@ -3013,21 +2998,20 @@ class OpenGroupAPISpec: QuickSpec {
                         let requestData: TestOnionRequestAPI.RequestData? = (response?.0 as? TestOnionRequestAPI.ResponseInfo)?.requestData
                         expect(requestData?.urlString).to(equal("testserver/rooms"))
                         expect(requestData?.httpMethod).to(equal("GET"))
-                        expect(requestData?.server).to(equal("testserver"))
                         expect(requestData?.publicKey).to(equal("88672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"))
                         expect(requestData?.headers).to(haveCount(4))
-                        expect(requestData?.headers[Header.sogsPubKey.rawValue])
+                        expect(requestData?.headers[HTTPHeader.sogsPubKey])
                             .to(equal("00bac6e71efd7dfa4a83c98ed24f254ab2c267f9ccdb172a5280a0444ad24e89cc"))
-                        expect(requestData?.headers[Header.sogsTimestamp.rawValue]).to(equal("1234567890"))
-                        expect(requestData?.headers[Header.sogsNonce.rawValue]).to(equal("pK6YRtQApl4NhECGizF0Cg=="))
-                        expect(requestData?.headers[Header.sogsSignature.rawValue]).to(equal("TestSignature".bytes.toBase64()))
+                        expect(requestData?.headers[HTTPHeader.sogsTimestamp]).to(equal("1234567890"))
+                        expect(requestData?.headers[HTTPHeader.sogsNonce]).to(equal("pK6YRtQApl4NhECGizF0Cg=="))
+                        expect(requestData?.headers[HTTPHeader.sogsSignature]).to(equal("TestSignature".bytes.toBase64()))
                     }
                     
                     it("fails when the signature is not generated") {
                         mockSign.when { $0.signature(message: anyArray(), secretKey: anyArray()) }.thenReturn(nil)
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .rooms(
                                         db,
@@ -3035,9 +3019,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in response = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -3060,7 +3044,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     it("signs correctly") {
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .rooms(
                                         db,
@@ -3068,9 +3052,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in response = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(response)
                             .toEventuallyNot(
@@ -3083,13 +3067,12 @@ class OpenGroupAPISpec: QuickSpec {
                         let requestData: TestOnionRequestAPI.RequestData? = (response?.0 as? TestOnionRequestAPI.ResponseInfo)?.requestData
                         expect(requestData?.urlString).to(equal("testserver/rooms"))
                         expect(requestData?.httpMethod).to(equal("GET"))
-                        expect(requestData?.server).to(equal("testserver"))
                         expect(requestData?.publicKey).to(equal("88672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"))
                         expect(requestData?.headers).to(haveCount(4))
-                        expect(requestData?.headers[Header.sogsPubKey.rawValue]).to(equal("1588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"))
-                        expect(requestData?.headers[Header.sogsTimestamp.rawValue]).to(equal("1234567890"))
-                        expect(requestData?.headers[Header.sogsNonce.rawValue]).to(equal("pK6YRtQApl4NhECGizF0Cg=="))
-                        expect(requestData?.headers[Header.sogsSignature.rawValue]).to(equal("TestSogsSignature".bytes.toBase64()))
+                        expect(requestData?.headers[HTTPHeader.sogsPubKey]).to(equal("1588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"))
+                        expect(requestData?.headers[HTTPHeader.sogsTimestamp]).to(equal("1234567890"))
+                        expect(requestData?.headers[HTTPHeader.sogsNonce]).to(equal("pK6YRtQApl4NhECGizF0Cg=="))
+                        expect(requestData?.headers[HTTPHeader.sogsSignature]).to(equal("TestSogsSignature".bytes.toBase64()))
                     }
                     
                     it("fails when the blindedKeyPair is not generated") {
@@ -3098,7 +3081,7 @@ class OpenGroupAPISpec: QuickSpec {
                             .thenReturn(nil)
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .rooms(
                                         db,
@@ -3106,9 +3089,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in response = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(
@@ -3125,7 +3108,7 @@ class OpenGroupAPISpec: QuickSpec {
                             .thenReturn(nil)
                         
                         mockStorage
-                            .read { db in
+                            .readPublisherFlatMap { db in
                                 OpenGroupAPI
                                     .rooms(
                                         db,
@@ -3133,9 +3116,9 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
-                            .get { result in response = result }
-                            .catch { requestError in error = requestError }
-                            .retainUntilComplete()
+                            .handleEvents(receiveOutput: { result in response = result })
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
                         
                         expect(error?.localizedDescription)
                             .toEventually(

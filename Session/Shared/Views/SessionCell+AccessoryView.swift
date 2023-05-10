@@ -7,15 +7,25 @@ import SessionUtilitiesKit
 import SignalUtilitiesKit
 
 extension SessionCell {
-    public class AccessoryView: UIView {
+    public class AccessoryView: UIView, UISearchBarDelegate {
+        // Note: We set a minimum width for the 'AccessoryView' so that the titles line up
+        // nicely when we have a mix of icons and switches
+        private static let minWidth: CGFloat = 50
+        
+        private var onTap: ((SessionButton?) -> Void)?
+        private var searchTermChanged: ((String?) -> Void)?
+        
         // MARK: - UI
         
+        private lazy var minWidthConstraint: NSLayoutConstraint = self.widthAnchor
+            .constraint(greaterThanOrEqualToConstant: AccessoryView.minWidth)
+        private lazy var fixedWidthConstraint: NSLayoutConstraint = self.set(.width, to: AccessoryView.minWidth)
         private lazy var imageViewConstraints: [NSLayoutConstraint] = [
             imageView.pin(.top, to: .top, of: self),
-            imageView.pin(.leading, to: .leading, of: self),
-            imageView.pin(.trailing, to: .trailing, of: self),
             imageView.pin(.bottom, to: .bottom, of: self)
         ]
+        private lazy var imageViewLeadingConstraint: NSLayoutConstraint = imageView.pin(.leading, to: .leading, of: self)
+        private lazy var imageViewTrailingConstraint: NSLayoutConstraint = imageView.pin(.trailing, to: .trailing, of: self)
         private lazy var imageViewWidthConstraint: NSLayoutConstraint = imageView.set(.width, to: 0)
         private lazy var imageViewHeightConstraint: NSLayoutConstraint = imageView.set(.height, to: 0)
         private lazy var toggleSwitchConstraints: [NSLayoutConstraint] = [
@@ -26,8 +36,8 @@ extension SessionCell {
         ]
         private lazy var dropDownStackViewConstraints: [NSLayoutConstraint] = [
             dropDownStackView.pin(.top, to: .top, of: self),
-            dropDownStackView.pin(.leading, to: .leading, of: self),
-            dropDownStackView.pin(.trailing, to: .trailing, of: self),
+            dropDownStackView.pin(.leading, to: .leading, of: self, withInset: Values.smallSpacing),
+            dropDownStackView.pin(.trailing, to: .trailing, of: self, withInset: -Values.smallSpacing),
             dropDownStackView.pin(.bottom, to: .bottom, of: self)
         ]
         private lazy var radioViewWidthConstraint: NSLayoutConstraint = radioView.set(.width, to: 0)
@@ -36,21 +46,34 @@ extension SessionCell {
         private lazy var radioBorderViewHeightConstraint: NSLayoutConstraint = radioBorderView.set(.height, to: 0)
         private lazy var radioBorderViewConstraints: [NSLayoutConstraint] = [
             radioBorderView.pin(.top, to: .top, of: self),
-            radioBorderView.pin(.leading, to: .leading, of: self),
-            radioBorderView.pin(.trailing, to: .trailing, of: self),
+            radioBorderView.center(.horizontal, in: self),
             radioBorderView.pin(.bottom, to: .bottom, of: self)
         ]
         private lazy var highlightingBackgroundLabelConstraints: [NSLayoutConstraint] = [
             highlightingBackgroundLabel.pin(.top, to: .top, of: self),
-            highlightingBackgroundLabel.pin(.leading, to: .leading, of: self),
-            highlightingBackgroundLabel.pin(.trailing, to: .trailing, of: self),
+            highlightingBackgroundLabel.pin(.leading, to: .leading, of: self, withInset: Values.smallSpacing),
+            highlightingBackgroundLabel.pin(.trailing, to: .trailing, of: self, withInset: -Values.smallSpacing),
             highlightingBackgroundLabel.pin(.bottom, to: .bottom, of: self)
         ]
+        private lazy var profilePictureViewLeadingConstraint: NSLayoutConstraint = profilePictureView.pin(.leading, to: .leading, of: self)
+        private lazy var profilePictureViewTrailingConstraint: NSLayoutConstraint = profilePictureView.pin(.trailing, to: .trailing, of: self)
         private lazy var profilePictureViewConstraints: [NSLayoutConstraint] = [
             profilePictureView.pin(.top, to: .top, of: self),
-            profilePictureView.pin(.leading, to: .leading, of: self),
-            profilePictureView.pin(.trailing, to: .trailing, of: self),
             profilePictureView.pin(.bottom, to: .bottom, of: self)
+        ]
+        private lazy var profilePictureViewWidthConstraint: NSLayoutConstraint = profilePictureView.set(.width, to: 0)
+        private lazy var profilePictureViewHeightConstraint: NSLayoutConstraint = profilePictureView.set(.height, to: 0)
+        private lazy var searchBarConstraints: [NSLayoutConstraint] = [
+            searchBar.pin(.top, to: .top, of: self),
+            searchBar.pin(.leading, to: .leading, of: self, withInset: -8),  // Removing default inset
+            searchBar.pin(.trailing, to: .trailing, of: self, withInset: 8), // Removing default inset
+            searchBar.pin(.bottom, to: .bottom, of: self)
+        ]
+        private lazy var buttonConstraints: [NSLayoutConstraint] = [
+            button.pin(.top, to: .top, of: self),
+            button.pin(.leading, to: .leading, of: self),
+            button.pin(.trailing, to: .trailing, of: self),
+            button.pin(.bottom, to: .bottom, of: self)
         ]
         
         private let imageView: UIImageView = {
@@ -143,10 +166,46 @@ extension SessionCell {
         private lazy var profilePictureView: ProfilePictureView = {
             let result: ProfilePictureView = ProfilePictureView()
             result.translatesAutoresizingMaskIntoConstraints = false
-            result.size = Values.smallProfilePictureSize
             result.isHidden = true
-            result.set(.width, to: Values.smallProfilePictureSize)
-            result.set(.height, to: Values.smallProfilePictureSize)
+            
+            return result
+        }()
+        
+        private lazy var profileIconContainerView: UIView = {
+            let result: UIView = UIView()
+            result.translatesAutoresizingMaskIntoConstraints = false
+            result.themeBackgroundColor = .primary
+            result.isHidden = true
+            result.set(.width, to: 26)
+            result.set(.height, to: 26)
+            result.layer.cornerRadius = (26 / 2)
+            
+            return result
+        }()
+        
+        private lazy var profileIconImageView: UIImageView = {
+            let result: UIImageView = UIImageView()
+            result.translatesAutoresizingMaskIntoConstraints = false
+            
+            return result
+        }()
+        
+        private lazy var searchBar: UISearchBar = {
+            let result: ContactsSearchBar = ContactsSearchBar()
+            result.themeTintColor = .textPrimary
+            result.themeBackgroundColor = .clear
+            result.searchTextField.themeBackgroundColor = .backgroundSecondary
+            result.delegate = self
+            result.isHidden = true
+            
+            return result
+        }()
+        
+        private lazy var button: SessionButton = {
+            let result: SessionButton = SessionButton(style: .bordered, size: .medium)
+            result.translatesAutoresizingMaskIntoConstraints = false
+            result.addTarget(self, action: #selector(buttonTapped), for: .touchUpInside)
+            result.isHidden = true
             
             return result
         }()
@@ -174,18 +233,29 @@ extension SessionCell {
             addSubview(radioBorderView)
             addSubview(highlightingBackgroundLabel)
             addSubview(profilePictureView)
+            addSubview(profileIconContainerView)
+            addSubview(button)
+            addSubview(searchBar)
             
             dropDownStackView.addArrangedSubview(dropDownImageView)
             dropDownStackView.addArrangedSubview(dropDownLabel)
             
             radioBorderView.addSubview(radioView)
             radioView.center(in: radioBorderView)
+            
+            profileIconContainerView.addSubview(profileIconImageView)
+            
+            profileIconContainerView.pin(.bottom, to: .bottom, of: profilePictureView)
+            profileIconContainerView.pin(.trailing, to: .trailing, of: profilePictureView)
+            profileIconImageView.pin(to: profileIconContainerView, withInset: Values.verySmallSpacing)
         }
         
         // MARK: - Content
         
         func prepareForReuse() {
-            self.isHidden = true
+            isHidden = true
+            onTap = nil
+            searchTermChanged = nil
             
             imageView.image = nil
             imageView.themeTintColor = .textPrimary
@@ -207,7 +277,16 @@ extension SessionCell {
             radioView.isHidden = true
             highlightingBackgroundLabel.isHidden = true
             profilePictureView.isHidden = true
+            profileIconContainerView.isHidden = true
+            button.isHidden = true
+            searchBar.isHidden = true
             
+            minWidthConstraint.constant = AccessoryView.minWidth
+            minWidthConstraint.isActive = false
+            fixedWidthConstraint.constant = AccessoryView.minWidth
+            fixedWidthConstraint.isActive = false
+            imageViewLeadingConstraint.isActive = false
+            imageViewTrailingConstraint.isActive = false
             imageViewWidthConstraint.isActive = false
             imageViewHeightConstraint.isActive = false
             imageViewConstraints.forEach { $0.isActive = false }
@@ -219,14 +298,19 @@ extension SessionCell {
             radioBorderViewHeightConstraint.isActive = false
             radioBorderViewConstraints.forEach { $0.isActive = false }
             highlightingBackgroundLabelConstraints.forEach { $0.isActive = false }
+            profilePictureViewLeadingConstraint.isActive = false
+            profilePictureViewTrailingConstraint.isActive = false
+            profilePictureViewWidthConstraint.isActive = false
+            profilePictureViewHeightConstraint.isActive = false
             profilePictureViewConstraints.forEach { $0.isActive = false }
+            searchBarConstraints.forEach { $0.isActive = false }
+            buttonConstraints.forEach { $0.isActive = false }
         }
         
         public func update(
             with accessory: Accessory?,
             tintColor: ThemeValue,
-            isEnabled: Bool,
-            accessibilityLabel: String?
+            isEnabled: Bool
         ) {
             guard let accessory: Accessory = accessory else { return }
             
@@ -234,8 +318,9 @@ extension SessionCell {
             self.isHidden = false
 
             switch accessory {
-                case .icon(let image, let iconSize, let customTint, let shouldFill):
-                    imageView.accessibilityLabel = accessibilityLabel
+                case .icon(let image, let iconSize, let customTint, let shouldFill, let accessibility):
+                    imageView.accessibilityIdentifier = accessibility?.identifier
+                    imageView.accessibilityLabel = accessibility?.label
                     imageView.image = image
                     imageView.themeTintColor = (customTint ?? tintColor)
                     imageView.contentMode = (shouldFill ? .scaleAspectFill : .scaleAspectFit)
@@ -244,21 +329,30 @@ extension SessionCell {
                     switch iconSize {
                         case .fit:
                             imageView.sizeToFit()
+                            fixedWidthConstraint.constant = (imageView.bounds.width + (shouldFill ? 0 : (Values.smallSpacing * 2)))
+                            fixedWidthConstraint.isActive = true
                             imageViewWidthConstraint.constant = imageView.bounds.width
                             imageViewHeightConstraint.constant = imageView.bounds.height
 
                         default:
+                            fixedWidthConstraint.isActive = (iconSize.size <= fixedWidthConstraint.constant)
                             imageViewWidthConstraint.constant = iconSize.size
                             imageViewHeightConstraint.constant = iconSize.size
                     }
                     
+                    minWidthConstraint.isActive = !fixedWidthConstraint.isActive
+                    imageViewLeadingConstraint.constant = (shouldFill ? 0 : Values.smallSpacing)
+                    imageViewTrailingConstraint.constant = (shouldFill ? 0 : -Values.smallSpacing)
+                    imageViewLeadingConstraint.isActive = true
+                    imageViewTrailingConstraint.isActive = true
                     imageViewWidthConstraint.isActive = true
                     imageViewHeightConstraint.isActive = true
                     imageViewConstraints.forEach { $0.isActive = true }
                 
-                case .iconAsync(let iconSize, let customTint, let shouldFill, let setter):
+                case .iconAsync(let iconSize, let customTint, let shouldFill, let accessibility, let setter):
                     setter(imageView)
-                    imageView.accessibilityLabel = accessibilityLabel
+                    imageView.accessibilityIdentifier = accessibility?.identifier
+                    imageView.accessibilityLabel = accessibility?.label
                     imageView.themeTintColor = (customTint ?? tintColor)
                     imageView.contentMode = (shouldFill ? .scaleAspectFill : .scaleAspectFit)
                     imageView.isHidden = false
@@ -266,22 +360,33 @@ extension SessionCell {
                     switch iconSize {
                         case .fit:
                             imageView.sizeToFit()
+                            fixedWidthConstraint.constant = (imageView.bounds.width + (shouldFill ? 0 : (Values.smallSpacing * 2)))
+                            fixedWidthConstraint.isActive = true
                             imageViewWidthConstraint.constant = imageView.bounds.width
                             imageViewHeightConstraint.constant = imageView.bounds.height
 
                         default:
+                            fixedWidthConstraint.isActive = (iconSize.size <= fixedWidthConstraint.constant)
                             imageViewWidthConstraint.constant = iconSize.size
                             imageViewHeightConstraint.constant = iconSize.size
                     }
                     
+                    minWidthConstraint.isActive = !fixedWidthConstraint.isActive
+                    imageViewLeadingConstraint.constant = (shouldFill ? 0 : Values.smallSpacing)
+                    imageViewTrailingConstraint.constant = (shouldFill ? 0 : -Values.smallSpacing)
+                    imageViewLeadingConstraint.isActive = true
+                    imageViewTrailingConstraint.isActive = true
                     imageViewWidthConstraint.isActive = true
                     imageViewHeightConstraint.isActive = true
                     imageViewConstraints.forEach { $0.isActive = true }
                     
-                case .toggle(let dataSource):
-                    toggleSwitch.accessibilityLabel = accessibilityLabel
+                case .toggle(let dataSource, let accessibility):
+                    toggleSwitch.accessibilityIdentifier = accessibility?.identifier
+                    toggleSwitch.accessibilityLabel = accessibility?.label
                     toggleSwitch.isHidden = false
                     toggleSwitch.isEnabled = isEnabled
+                    
+                    fixedWidthConstraint.isActive = true
                     toggleSwitchConstraints.forEach { $0.isActive = true }
                     
                     let newValue: Bool = dataSource.currentBoolValue
@@ -290,13 +395,15 @@ extension SessionCell {
                         toggleSwitch.setOn(newValue, animated: true)
                     }
                     
-                case .dropDown(let dataSource):
-                    dropDownLabel.accessibilityLabel = accessibilityLabel
+                case .dropDown(let dataSource, let accessibility):
+                    dropDownLabel.accessibilityIdentifier = accessibility?.identifier
+                    dropDownLabel.accessibilityLabel = accessibility?.label
                     dropDownLabel.text = dataSource.currentStringValue
                     dropDownStackView.isHidden = false
                     dropDownStackViewConstraints.forEach { $0.isActive = true }
+                    minWidthConstraint.isActive = true
                     
-                case .radio(let size, let isSelectedRetriever, let storedSelection):
+                case .radio(let size, let isSelectedRetriever, let storedSelection, let accessibility):
                     let isSelected: Bool = isSelectedRetriever()
                     let wasOldSelection: Bool = (!isSelected && storedSelection)
                     
@@ -312,7 +419,8 @@ extension SessionCell {
                     
                     radioBorderView.layer.cornerRadius = (size.borderSize / 2)
                     
-                    radioView.accessibilityLabel = accessibilityLabel
+                    radioView.accessibilityIdentifier = accessibility?.identifier
+                    radioView.accessibilityLabel = accessibility?.label
                     radioView.alpha = (wasOldSelection ? 0.3 : 1)
                     radioView.isHidden = (!isSelected && !storedSelection)
                     radioView.themeBackgroundColor = {
@@ -335,32 +443,90 @@ extension SessionCell {
                     radioBorderViewWidthConstraint.constant = size.borderSize
                     radioBorderViewHeightConstraint.constant = size.borderSize
                     
+                    fixedWidthConstraint.isActive = true
                     radioViewWidthConstraint.isActive = true
                     radioViewHeightConstraint.isActive = true
                     radioBorderViewWidthConstraint.isActive = true
                     radioBorderViewHeightConstraint.isActive = true
                     radioBorderViewConstraints.forEach { $0.isActive = true }
                     
-                case .highlightingBackgroundLabel(let title):
-                    highlightingBackgroundLabel.accessibilityLabel = accessibilityLabel
+                case .highlightingBackgroundLabel(let title, let accessibility):
+                    highlightingBackgroundLabel.accessibilityIdentifier = accessibility?.identifier
+                    highlightingBackgroundLabel.accessibilityLabel = accessibility?.label
                     highlightingBackgroundLabel.text = title
                     highlightingBackgroundLabel.themeTextColor = tintColor
                     highlightingBackgroundLabel.isHidden = false
                     highlightingBackgroundLabelConstraints.forEach { $0.isActive = true }
+                    minWidthConstraint.isActive = true
                     
-                case .profile(let profileId, let profile):
-                    profilePictureView.accessibilityLabel = accessibilityLabel
+                case .profile(
+                    let profileId,
+                    let profileSize,
+                    let threadVariant,
+                    let customImageData,
+                    let profile,
+                    let additionalProfile,
+                    let cornerIcon,
+                    let accessibility
+                ):
+                    // Note: We MUST set the 'size' property before triggering the 'update'
+                    // function or the profile picture won't layout correctly
+                    switch profileSize {
+                        case .fit:
+                            profilePictureView.size = IconSize.large.size
+                            profilePictureViewWidthConstraint.constant = IconSize.large.size
+                            profilePictureViewHeightConstraint.constant = IconSize.large.size
+
+                        default:
+                            profilePictureView.size = profileSize.size
+                            profilePictureViewWidthConstraint.constant = profileSize.size
+                            profilePictureViewHeightConstraint.constant = profileSize.size
+                    }
+                    
+                    profilePictureView.accessibilityIdentifier = accessibility?.identifier
+                    profilePictureView.accessibilityLabel = accessibility?.label
+                    profilePictureView.isAccessibilityElement = (accessibility != nil)
                     profilePictureView.update(
                         publicKey: profileId,
+                        threadVariant: threadVariant,
+                        customImageData: customImageData,
                         profile: profile,
-                        threadVariant: .contact
+                        additionalProfile: additionalProfile
                     )
                     profilePictureView.isHidden = false
+                    profileIconContainerView.isHidden = (cornerIcon == nil)
+                    profileIconImageView.image = cornerIcon
+                    
+                    fixedWidthConstraint.constant = profilePictureViewWidthConstraint.constant
+                    fixedWidthConstraint.isActive = true
+                    profilePictureViewLeadingConstraint.constant = (profilePictureView.size > AccessoryView.minWidth ? 0 : Values.smallSpacing)
+                    profilePictureViewTrailingConstraint.constant = (profilePictureView.size > AccessoryView.minWidth ? 0 : -Values.smallSpacing)
+                    profilePictureViewLeadingConstraint.isActive = true
+                    profilePictureViewTrailingConstraint.isActive = true
+                    profilePictureViewWidthConstraint.isActive = true
+                    profilePictureViewHeightConstraint.isActive = true
                     profilePictureViewConstraints.forEach { $0.isActive = true }
                     
-                case .customView(let viewGenerator):
+                case .search(let placeholder, let accessibility, let searchTermChanged):
+                    self.searchTermChanged = searchTermChanged
+                    searchBar.accessibilityIdentifier = accessibility?.identifier
+                    searchBar.accessibilityLabel = accessibility?.label
+                    searchBar.placeholder = placeholder
+                    searchBar.isHidden = false
+                    searchBarConstraints.forEach { $0.isActive = true }
+                    
+                case .button(let style, let title, let accessibility, let onTap):
+                    self.onTap = onTap
+                    button.accessibilityIdentifier = accessibility?.identifier
+                    button.accessibilityLabel = accessibility?.label
+                    button.setTitle(title, for: .normal)
+                    button.setStyle(style)
+                    button.isHidden = false
+                    minWidthConstraint.isActive = true
+                    buttonConstraints.forEach { $0.isActive = true }
+                    
+                case .customView(_, let viewGenerator):
                     let generatedView: UIView = viewGenerator()
-                    generatedView.accessibilityLabel = accessibilityLabel
                     addSubview(generatedView)
                     
                     generatedView.pin(.top, to: .top, of: self)
@@ -368,10 +534,9 @@ extension SessionCell {
                     generatedView.pin(.trailing, to: .trailing, of: self)
                     generatedView.pin(.bottom, to: .bottom, of: self)
                     
-                    self.customView?.removeFromSuperview()  // Just in case
-                    self.customView = generatedView
-                
-                case .threadInfo: break
+                    customView?.removeFromSuperview()  // Just in case
+                    customView = generatedView
+                    minWidthConstraint.isActive = true
             }
         }
         
@@ -384,6 +549,27 @@ extension SessionCell {
         func setSelected(_ selected: Bool, animated: Bool) {
             highlightingBackgroundLabel.setSelected(selected, animated: animated)
         }
+        
+        @objc private func buttonTapped() {
+            onTap?(button)
+        }
+        
+        // MARK: - UISearchBarDelegate
+        
+        public func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+            searchTermChanged?(searchText)
+        }
+        
+        public func searchBarTextDidBeginEditing(_ searchBar: UISearchBar) {
+            searchBar.setShowsCancelButton(true, animated: true)
+        }
+        
+        public func searchBarTextDidEndEditing(_ searchBar: UISearchBar) {
+            searchBar.setShowsCancelButton(false, animated: true)
+        }
+        
+        public func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
+            searchBar.endEditing(true)
+        }
     }
-
 }

@@ -68,7 +68,7 @@ extension Sodium {
     }
     
     /// Constructs a "blinded" key pair (`ka, kA`) based on an open group server `publicKey` and an ed25519 `keyPair`
-    public func blindedKeyPair(serverPublicKey: String, edKeyPair: Box.KeyPair, genericHash: GenericHashType) -> Box.KeyPair? {
+    public func blindedKeyPair(serverPublicKey: String, edKeyPair: KeyPair, genericHash: GenericHashType) -> KeyPair? {
         guard edKeyPair.publicKey.count == Sodium.publicKeyLength && edKeyPair.secretKey.count == Sodium.secretKeyLength else {
             return nil
         }
@@ -97,7 +97,7 @@ extension Sodium {
         
         guard crypto_scalarmult_ed25519_base_noclamp(kAPtr, kaPtr) == 0 else { return nil }
         
-        return Box.KeyPair(
+        return KeyPair(
             publicKey: Data(bytes: kAPtr, count: Sodium.publicKeyLength).bytes,
             secretKey: Data(bytes: kaPtr, count: Sodium.secretKeyLength).bytes
         )
@@ -275,14 +275,5 @@ extension AeadXChaCha20Poly1305IetfType {
         guard result == 0 else { return nil }
 
         return authenticatedCipherText
-    }
-}
-
-extension Box.KeyPair: Equatable {
-    public static func == (lhs: Box.KeyPair, rhs: Box.KeyPair) -> Bool {
-        return (
-            lhs.publicKey == rhs.publicKey &&
-            lhs.secretKey == rhs.secretKey
-        )
     }
 }

@@ -59,7 +59,7 @@ class SessionFooterView: UITableViewHeaderFooterView {
     // MARK: - Content
     
     public func update(
-        style: SessionCell.Style = .rounded,
+        style: SessionCell.BackgroundStyle = .rounded,
         title: String?
     ) {
         let titleIsEmpty: Bool = (title ?? "").isEmpty
@@ -69,7 +69,7 @@ class SessionFooterView: UITableViewHeaderFooterView {
                     // Align to the start of the text in the cell
                     return (Values.largeSpacing + Values.mediumSpacing)
                 
-                case .edgeToEdge, .roundedEdgeToEdge: return Values.largeSpacing
+                case .edgeToEdge, .noBackground: return Values.largeSpacing
             }
         }()
         

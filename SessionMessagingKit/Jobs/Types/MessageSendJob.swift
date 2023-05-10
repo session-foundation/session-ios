@@ -1,8 +1,8 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
-import PromiseKit
 import SignalCoreKit
 import SessionUtilitiesKit
 import SessionSnodeKit
@@ -158,53 +158,61 @@ public enum MessageSendJob: JobExecutor {
         // Store the sentTimestamp from the message in case it fails due to a clockOutOfSync error
         let originalSentTimestamp: UInt64? = details.message.sentTimestamp
         
-        // Add the threadId to the message if there isn't one set
-        details.message.threadId = (details.message.threadId ?? job.threadId)
-        
-        // Perform the actual message sending
-        Storage.shared.writeAsync { db -> Promise<Void> in
-            try MessageSender.sendImmediate(
-                db,
-                message: details.message,
-                to: details.destination
-                    .with(fileIds: messageFileIds),
-                interactionId: job.interactionId,
-                isSyncMessage: (details.isSyncMessage == true)
-            )
-        }
-        .done(on: queue) { _ in success(job, false) }
-        .catch(on: queue) { error in
-            SNLog("Couldn't send message due to error: \(error).")
-            
-            switch error {
-                case let senderError as MessageSenderError where !senderError.isRetryable:
-                    failure(job, error, true)
-                    
-                case OnionRequestAPIError.httpRequestFailedAtDestination(let statusCode, _, _) where statusCode == 429: // Rate limited
-                    failure(job, error, true)
-                    
-                case SnodeAPIError.clockOutOfSync:
-                    SNLog("\(originalSentTimestamp != nil ? "Permanently Failing" : "Failing") to send \(type(of: details.message)) due to clock out of sync issue.")
-                    failure(job, error, (originalSentTimestamp != nil))
-                    
-                default:
-                    SNLog("Failed to send \(type(of: details.message)).")
-                    
-                    if details.message is VisibleMessage {
-                        guard
-                            let interactionId: Int64 = job.interactionId,
-                            Storage.shared.read({ db in try Interaction.exists(db, id: interactionId) }) == true
-                        else {
-                            // The message has been deleted so permanently fail the job
-                            failure(job, error, true)
-                            return
-                        }
-                    }
-                    
-                    failure(job, error, false)
+        /// Perform the actual message sending
+        ///
+        /// **Note:** No need to upload attachments as part of this process as the above logic splits that out into it's own job
+        /// so we shouldn't get here until attachments have already been uploaded
+        Storage.shared
+            .writePublisher { db in
+                try MessageSender.preparedSendData(
+                    db,
+                    message: details.message,
+                    to: details.destination,
+                    namespace: details.destination.defaultNamespace,
+                    interactionId: job.interactionId,
+                    isSyncMessage: details.isSyncMessage
+                )
             }
-        }
-        .retainUntilComplete()
+            .map { sendData in sendData.with(fileIds: messageFileIds) }
+            .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
+            .receive(on: queue)
+            .sinkUntilComplete(
+                receiveCompletion: { result in
+                    switch result {
+                        case .finished: success(job, false)
+                        case .failure(let error):
+                            SNLog("Couldn't send message due to error: \(error).")
+                            
+                            switch error {
+                                case let senderError as MessageSenderError where !senderError.isRetryable:
+                                    failure(job, error, true)
+                                    
+                                case OnionRequestAPIError.httpRequestFailedAtDestination(let statusCode, _, _) where statusCode == 429: // Rate limited
+                                    failure(job, error, true)
+                                    
+                                case SnodeAPIError.clockOutOfSync:
+                                    SNLog("\(originalSentTimestamp != nil ? "Permanently Failing" : "Failing") to send \(type(of: details.message)) due to clock out of sync issue.")
+                                    failure(job, error, (originalSentTimestamp != nil))
+                                    
+                                default:
+                                    SNLog("Failed to send \(type(of: details.message)).")
+                                    
+                                    if details.message is VisibleMessage {
+                                        guard
+                                            let interactionId: Int64 = job.interactionId,
+                                            Storage.shared.read({ db in try Interaction.exists(db, id: interactionId) }) == true
+                                        else {
+                                            // The message has been deleted so permanently fail the job
+                                            failure(job, error, true)
+                                            return
+                                        }
+                                    }
+                                    
+                                    failure(job, error, false)
+                            }
+                    }
+                }
+            )
     }
 }
 
@@ -221,7 +229,7 @@ extension MessageSendJob {
         
         public let destination: Message.Destination
         public let message: Message
-        public let isSyncMessage: Bool?
+        public let isSyncMessage: Bool
         public let variant: Message.Variant?
         
         // MARK: - Initialization
@@ -229,7 +237,7 @@ extension MessageSendJob {
         public init(
             destination: Message.Destination,
             message: Message,
-            isSyncMessage: Bool? = nil
+            isSyncMessage: Bool = false
         ) {
             self.destination = destination
             self.message = message
@@ -250,7 +258,7 @@ extension MessageSendJob {
             self = Details(
                 destination: try container.decode(Message.Destination.self, forKey: .destination),
                 message: try variant.decode(from: container, forKey: .message),
-                isSyncMessage: try? container.decode(Bool.self, forKey: .isSyncMessage)
+                isSyncMessage: ((try? container.decode(Bool.self, forKey: .isSyncMessage)) ?? false)
             )
         }
         
@@ -264,7 +272,7 @@ extension MessageSendJob {
 
             try container.encode(destination, forKey: .destination)
             try container.encode(message, forKey: .message)
-            try container.encodeIfPresent(isSyncMessage, forKey: .isSyncMessage)
+            try container.encode(isSyncMessage, forKey: .isSyncMessage)
             try container.encode(variant, forKey: .variant)
         }
     }

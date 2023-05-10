@@ -15,6 +15,7 @@ public class TypingIndicators {
     
     private class Indicator {
         fileprivate let threadId: String
+        fileprivate let threadVariant: SessionThread.Variant
         fileprivate let direction: Direction
         fileprivate let timestampMs: Int64
         
@@ -24,6 +25,7 @@ public class TypingIndicators {
         init?(
             threadId: String,
             threadVariant: SessionThread.Variant,
+            threadIsBlocked: Bool,
             threadIsMessageRequest: Bool,
             direction: Direction,
             timestampMs: Int64?
@@ -33,14 +35,21 @@ public class TypingIndicators {
             // or show typing indicators for other users
             //
             // We also don't want to show/send typing indicators for message requests
-            guard Storage.shared[.typingIndicatorsEnabled] && !threadIsMessageRequest else {
-                return nil
-            }
+            guard
+                Storage.shared[.typingIndicatorsEnabled] &&
+                !threadIsBlocked &&
+                !threadIsMessageRequest
+            else { return nil }
             
             // Don't send typing indicators in group threads
-            guard threadVariant != .closedGroup && threadVariant != .openGroup else { return nil }
+            guard
+                threadVariant != .legacyGroup &&
+                threadVariant != .group &&
+                threadVariant != .community
+            else { return nil }
             
             self.threadId = threadId
+            self.threadVariant = threadVariant
             self.direction = direction
             self.timestampMs = (timestampMs ?? SnodeAPI.currentOffsetTimestampMs())
         }
@@ -71,15 +80,12 @@ public class TypingIndicators {
             
             switch direction {
                 case .outgoing:
-                    guard let thread: SessionThread = try? SessionThread.fetchOne(db, id: self.threadId) else {
-                        return
-                    }
-                    
                     try? MessageSender.send(
                         db,
                         message: TypingIndicator(kind: .stopped),
                         interactionId: nil,
-                        in: thread
+                        threadId: threadId,
+                        threadVariant: threadVariant
                     )
                     
                 case .incoming:
@@ -107,15 +113,12 @@ public class TypingIndicators {
         
         private func scheduleRefreshCallback(_ db: Database, shouldSend: Bool = true) {
             if shouldSend {
-                guard let thread: SessionThread = try? SessionThread.fetchOne(db, id: self.threadId) else {
-                    return
-                }
-                
                 try? MessageSender.send(
                     db,
                     message: TypingIndicator(kind: .started),
                     interactionId: nil,
-                    in: thread
+                    threadId: threadId,
+                    threadVariant: threadVariant
                 )
             }
             
@@ -143,6 +146,7 @@ public class TypingIndicators {
     public static func didStartTypingNeedsToStart(
         threadId: String,
         threadVariant: SessionThread.Variant,
+        threadIsBlocked: Bool,
         threadIsMessageRequest: Bool,
         direction: Direction,
         timestampMs: Int64?
@@ -159,6 +163,7 @@ public class TypingIndicators {
                 let newIndicator: Indicator? = Indicator(
                     threadId: threadId,
                     threadVariant: threadVariant,
+                    threadIsBlocked: threadIsBlocked,
                     threadIsMessageRequest: threadIsMessageRequest,
                     direction: direction,
                     timestampMs: timestampMs
@@ -179,6 +184,7 @@ public class TypingIndicators {
                 let newIndicator: Indicator? = Indicator(
                     threadId: threadId,
                     threadVariant: threadVariant,
+                    threadIsBlocked: threadIsBlocked,
                     threadIsMessageRequest: threadIsMessageRequest,
                     direction: direction,
                     timestampMs: timestampMs

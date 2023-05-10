@@ -7,7 +7,6 @@ import SessionUIKit
 import SessionMessagingKit
 
 public final class ProfilePictureView: UIView {
-    private var hasTappableProfilePicture: Bool = false
     public var size: CGFloat = 0
     
     // Constraints
@@ -51,6 +50,7 @@ public final class ProfilePictureView: UIView {
         result.clipsToBounds = true
         result.themeBackgroundColor = .primary
         result.themeBorderColor = .backgroundPrimary
+        result.layer.borderWidth = 1
         result.layer.cornerRadius = (Values.smallProfilePictureSize / 2)
         result.isHidden = true
         
@@ -132,60 +132,29 @@ public final class ProfilePictureView: UIView {
         additionalProfilePlaceholderImageView.pin(.right, to: .right, of: additionalImageContainerView)
         additionalProfilePlaceholderImageView.pin(.bottom, to: .bottom, of: additionalImageContainerView, withInset: 5)
     }
-
-    public func update(
-        publicKey: String = "",
-        profile: Profile? = nil,
-        additionalProfile: Profile? = nil,
-        threadVariant: SessionThread.Variant,
-        openGroupProfilePictureData: Data? = nil,
-        useFallbackPicture: Bool = false,
-        showMultiAvatarForClosedGroup: Bool = false
-    ) {
-        AssertIsOnMainThread()
-        guard !useFallbackPicture else {
-            switch self.size {
-                case Values.smallProfilePictureSize..<Values.mediumProfilePictureSize: imageView.image = #imageLiteral(resourceName: "SessionWhite16")
-                case Values.mediumProfilePictureSize..<Values.largeProfilePictureSize: imageView.image = #imageLiteral(resourceName: "SessionWhite24")
-                default: imageView.image = #imageLiteral(resourceName: "SessionWhite40")
-            }
-            
-            imageView.contentMode = .center
-            imageView.isHidden = false
-            animatedImageView.isHidden = true
-            imageContainerView.themeBackgroundColorForced = .theme(.classicDark, color: .borderSeparator)
-            imageContainerView.layer.cornerRadius = (self.size / 2)
-            imageViewWidthConstraint.constant = self.size
-            imageViewHeightConstraint.constant = self.size
-            additionalImageContainerView.isHidden = true
-            animatedImageView.image = nil
-            additionalImageView.image = nil
-            additionalAnimatedImageView.image = nil
-            additionalImageView.isHidden = true
-            additionalAnimatedImageView.isHidden = true
-            additionalProfilePlaceholderImageView.isHidden = true
-            return
-        }
-        guard !publicKey.isEmpty || openGroupProfilePictureData != nil else { return }
-        
-        func getProfilePicture(of size: CGFloat, for publicKey: String, profile: Profile?) -> (image: UIImage?, animatedImage: YYImage?, isTappable: Bool) {
-            if let profile: Profile = profile, let profileData: Data = ProfileManager.profileAvatar(profile: profile) {
-                let format: ImageFormat = profileData.guessedImageFormat
-                
-                let image: UIImage? = (format == .gif || format == .webp ?
-                    nil :
-                    UIImage(data: profileData)
-                )
-                let animatedImage: YYImage? = (format != .gif && format != .webp ?
-                    nil :
-                    YYImage(data: profileData)
-                )
-                
-                if image != nil || animatedImage != nil {
-                    return (image, animatedImage, true)
-                }
-            }
-            
+    
+    private func prepareForReuse() {
+        imageView.contentMode = .scaleAspectFill
+        imageView.isHidden = true
+        animatedImageView.contentMode = .scaleAspectFill
+        animatedImageView.isHidden = true
+        imageContainerView.themeBackgroundColor = .backgroundSecondary
+        additionalImageContainerView.isHidden = true
+        animatedImageView.image = nil
+        additionalImageView.image = nil
+        additionalAnimatedImageView.image = nil
+        additionalImageView.isHidden = true
+        additionalAnimatedImageView.isHidden = true
+        additionalProfilePlaceholderImageView.isHidden = true
+    }
+    
+    private func getProfilePicture(
+        of size: CGFloat,
+        for publicKey: String,
+        profile: Profile?,
+        threadVariant: SessionThread.Variant
+    ) -> (image: UIImage?, animatedImage: YYImage?) {
+        guard let profile: Profile = profile, let profileData: Data = ProfileManager.profileAvatar(profile: profile) else {
             return (
                 Identicon.generatePlaceholderIcon(
                     seed: publicKey,
@@ -193,37 +162,113 @@ public final class ProfilePictureView: UIView {
                         .defaulting(to: publicKey),
                     size: size
                 ),
-                nil,
-                false
+                nil
             )
         }
         
-        // Calulate the sizes (and set the additional image content)
-        let targetSize: CGFloat
+        switch profileData.guessedImageFormat {
+            case .gif, .webp: return (nil, YYImage(data: profileData))
+            default: return (UIImage(data: profileData), nil)
+        }
+    }
+    
+    public func update(
+        publicKey: String,
+        threadVariant: SessionThread.Variant,
+        customImageData: Data?,
+        profile: Profile?,
+        additionalProfile: Profile?
+    ) {
+        prepareForReuse()
         
-        switch (threadVariant, showMultiAvatarForClosedGroup) {
-            case (.closedGroup, true):
-                if self.size == 40 {
-                    targetSize = 32
-                }
-                else if self.size == Values.largeProfilePictureSize {
-                    targetSize = 56
-                }
-                else {
-                    targetSize = Values.smallProfilePictureSize
+        // If we are given 'customImageData' then only use that
+        if let customImageData: Data = customImageData {
+            switch customImageData.guessedImageFormat {
+                case .gif, .webp:
+                    animatedImageView.image = YYImage(data: customImageData)
+                    animatedImageView.isHidden = false
+                    
+                default:
+                    imageView.image = UIImage(data: customImageData)
+                    imageView.isHidden = false
+            }
+            
+            imageViewWidthConstraint.constant = self.size
+            imageViewHeightConstraint.constant = self.size
+            imageContainerView.layer.cornerRadius = (self.size / 2)
+            return
+        }
+        
+        // Otherwise there are conversation-type-specific behaviours
+        switch threadVariant {
+            case .community:
+                switch self.size {
+                    case Values.smallProfilePictureSize..<Values.mediumProfilePictureSize:
+                        imageView.image = #imageLiteral(resourceName: "SessionWhite16")
+                        
+                    case Values.mediumProfilePictureSize..<Values.largeProfilePictureSize:
+                        imageView.image = #imageLiteral(resourceName: "SessionWhite24")
+                        
+                    default: imageView.image = #imageLiteral(resourceName: "SessionWhite40")
                 }
                 
+                imageView.contentMode = .center
+                imageView.isHidden = false
+                imageContainerView.themeBackgroundColorForced = .theme(.classicDark, color: .borderSeparator)
+                imageViewWidthConstraint.constant = self.size
+                imageViewHeightConstraint.constant = self.size
+                imageContainerView.layer.cornerRadius = (self.size / 2)
+                
+            case .legacyGroup, .group:
+                guard !publicKey.isEmpty else { return }
+                
+                // If the `publicKey` we were given matches the first profile id then we have
+                // provided a "ClosedGroupProfile" (which is essentially a profile object populated
+                // with `ClosedGroup` data) so we don't want to add the 'additionalProfile' content
+                let isCustomGroupImage: Bool = (publicKey == profile?.id)
+                
+                let targetSize: CGFloat = {
+                    guard !isCustomGroupImage else { return self.size }
+                    
+                    switch self.size {
+                        case 40: return 32
+                        case 80: return 64
+                        case Values.largeProfilePictureSize: return 56
+                        default: return Values.smallProfilePictureSize
+                    }
+                }()
+                
+                // Set the content for the first `profile` object
+                let (image, animatedImage): (UIImage?, YYImage?) = getProfilePicture(
+                    of: targetSize,
+                    for: publicKey,
+                    profile: profile,
+                    threadVariant: threadVariant
+                )
+                imageView.image = image
+                imageView.isHidden = (animatedImage != nil)
+                animatedImageView.image = animatedImage
+                animatedImageView.isHidden = (animatedImage == nil)
                 imageViewWidthConstraint.constant = targetSize
                 imageViewHeightConstraint.constant = targetSize
+                imageContainerView.layer.cornerRadius = (targetSize / 2)
+                
+                // If the `publicKey` we were given matches the first profile id then we have
+                // provided a "ClosedGroupProfile" (which is essentially a profile object populated
+                // with `ClosedGroup` data) so we don't want to add the 'additionalProfile' content
+                guard !isCustomGroupImage else { return }
+                
                 additionalImageViewWidthConstraint.constant = targetSize
                 additionalImageViewHeightConstraint.constant = targetSize
+                additionalImageContainerView.layer.cornerRadius = (targetSize / 2)
                 additionalImageContainerView.isHidden = false
                 
                 if let additionalProfile: Profile = additionalProfile {
-                    let (image, animatedImage, _): (UIImage?, YYImage?, Bool) = getProfilePicture(
+                    let (image, animatedImage): (UIImage?, YYImage?) = getProfilePicture(
                         of: targetSize,
                         for: additionalProfile.id,
-                        profile: additionalProfile
+                        profile: additionalProfile,
+                        threadVariant: threadVariant
                     )
                     
                     // Set the images and show the appropriate imageView (non-animated should be
@@ -232,68 +277,27 @@ public final class ProfilePictureView: UIView {
                     additionalAnimatedImageView.image = animatedImage
                     additionalImageView.isHidden = (animatedImage != nil)
                     additionalAnimatedImageView.isHidden = (animatedImage == nil)
-                    additionalProfilePlaceholderImageView.isHidden = true
                 }
                 else {
-                    additionalImageView.isHidden = true
-                    additionalAnimatedImageView.isHidden = true
                     additionalProfilePlaceholderImageView.isHidden = false
                 }
                 
-            default:
-                targetSize = self.size
-                imageViewWidthConstraint.constant = targetSize
-                imageViewHeightConstraint.constant = targetSize
-                additionalImageContainerView.isHidden = true
-                additionalImageView.image = nil
-                additionalImageView.isHidden = true
-                additionalAnimatedImageView.image = nil
-                additionalAnimatedImageView.isHidden = true
-                additionalProfilePlaceholderImageView.isHidden = true
+            case .contact:
+                guard !publicKey.isEmpty else { return }
+                
+                let (image, animatedImage): (UIImage?, YYImage?) = getProfilePicture(
+                    of: self.size,
+                    for: publicKey,
+                    profile: profile,
+                    threadVariant: threadVariant
+                )
+                imageView.image = image
+                imageView.isHidden = (animatedImage != nil)
+                animatedImageView.image = animatedImage
+                animatedImageView.isHidden = (animatedImage == nil)
+                imageViewWidthConstraint.constant = self.size
+                imageViewHeightConstraint.constant = self.size
+                imageContainerView.layer.cornerRadius = (self.size / 2)
         }
-        
-        // Set the image
-        if let openGroupProfilePictureData: Data = openGroupProfilePictureData {
-            let format: ImageFormat = openGroupProfilePictureData.guessedImageFormat
-            
-            let image: UIImage? = (format == .gif || format == .webp ?
-                nil :
-                UIImage(data: openGroupProfilePictureData)
-            )
-            let animatedImage: YYImage? = (format != .gif && format != .webp ?
-                nil :
-                YYImage(data: openGroupProfilePictureData)
-            )
-            
-            imageView.image = image
-            animatedImageView.image = animatedImage
-            imageView.isHidden = (animatedImage != nil)
-            animatedImageView.isHidden = (animatedImage == nil)
-            hasTappableProfilePicture = true
-        }
-        else {
-            let (image, animatedImage, isTappable): (UIImage?, YYImage?, Bool) = getProfilePicture(
-                of: targetSize,
-                for: publicKey,
-                profile: profile
-            )
-            imageView.image = image
-            animatedImageView.image = animatedImage
-            imageView.isHidden = (animatedImage != nil)
-            animatedImageView.isHidden = (animatedImage == nil)
-            hasTappableProfilePicture = isTappable
-        }
-        
-        imageView.contentMode = .scaleAspectFill
-        animatedImageView.contentMode = .scaleAspectFill
-        imageContainerView.themeBackgroundColor = .backgroundSecondary
-        imageContainerView.layer.cornerRadius = (targetSize / 2)
-        additionalImageContainerView.layer.cornerRadius = (targetSize / 2)
-    }
-    
-    // MARK: - Convenience
-    
-    @objc public func getProfilePicture() -> UIImage? {
-        return (hasTappableProfilePicture ? imageView.image : nil)
     }
 }

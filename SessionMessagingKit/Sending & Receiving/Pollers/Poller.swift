@@ -1,221 +1,359 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
-import PromiseKit
 import Sodium
 import SessionSnodeKit
 import SessionUtilitiesKit
 
-public final class Poller {
-    private var isPolling: Atomic<Bool> = Atomic(false)
-    private var usedSnodes = Set<Snode>()
-    private var pollCount = 0
-
+public class Poller {
+    private var timers: Atomic<[String: Timer]> = Atomic([:])
+    internal var isPolling: Atomic<[String: Bool]> = Atomic([:])
+    internal var pollCount: Atomic<[String: Int]> = Atomic([:])
+    internal var failureCount: Atomic<[String: Int]> = Atomic([:])
+    
     // MARK: - Settings
     
-    private static let pollInterval: TimeInterval = 1.5
-    private static let retryInterval: TimeInterval = 0.25
-    private static let maxRetryInterval: TimeInterval = 15
+    /// The namespaces which this poller queries
+    internal var namespaces: [SnodeAPI.Namespace] {
+        preconditionFailure("abstract class - override in subclass")
+    }
     
-    /// After polling a given snode this many times we always switch to a new one.
-    ///
-    /// The reason for doing this is that sometimes a snode will be giving us successful responses while
-    /// it isn't actually getting messages from other snodes.
-    private static let maxPollCount: UInt = 6
-
-    // MARK: - Error
-    
-    private enum Error: LocalizedError {
-        case pollLimitReached
-
-        var localizedDescription: String {
-            switch self {
-                case .pollLimitReached: return "Poll limit reached for current snode."
-            }
-        }
+    /// The number of times the poller can poll before swapping to a new snode
+    internal var maxNodePollCount: UInt {
+        preconditionFailure("abstract class - override in subclass")
     }
 
     // MARK: - Public API
     
     public init() {}
     
-    public func startIfNeeded() {
-        guard !isPolling.wrappedValue else { return }
+    public func stopAllPollers() {
+        let pollers: [String] = Array(isPolling.wrappedValue.keys)
         
-        SNLog("Started polling.")
-        isPolling.mutate { $0 = true }
-        setUpPolling()
+        pollers.forEach { groupPublicKey in
+            self.stopPolling(for: groupPublicKey)
+        }
     }
-
-    public func stop() {
-        SNLog("Stopped polling.")
-        isPolling.mutate { $0 = false }
-        usedSnodes.removeAll()
+    
+    public func stopPolling(for publicKey: String) {
+        isPolling.mutate { $0[publicKey] = false }
+        timers.mutate { $0[publicKey]?.invalidate() }
+    }
+    
+    // MARK: - Abstract Methods
+    
+    /// The name for this poller to appear in the logs
+    internal func pollerName(for publicKey: String) -> String {
+        preconditionFailure("abstract class - override in subclass")
+    }
+    
+    internal func nextPollDelay(for publicKey: String) -> TimeInterval {
+        preconditionFailure("abstract class - override in subclass")
+    }
+    
+    internal func getSnodeForPolling(
+        for publicKey: String
+    ) -> AnyPublisher<Snode, Error> {
+        preconditionFailure("abstract class - override in subclass")
+    }
+    
+    internal func handlePollError(_ error: Error, for publicKey: String) {
+        preconditionFailure("abstract class - override in subclass")
     }
 
     // MARK: - Private API
     
-    private func setUpPolling(delay: TimeInterval = Poller.retryInterval) {
-        guard isPolling.wrappedValue else { return }
-        
-        Threading.pollerQueue.async {
-            let _ = SnodeAPI.getSwarm(for: getUserHexEncodedPublicKey())
-                .then(on: Threading.pollerQueue) { [weak self] _ -> Promise<Void> in
-                    let (promise, seal) = Promise<Void>.pending()
-                    
-                    self?.usedSnodes.removeAll()
-                    self?.pollNextSnode(seal: seal)
-                    
-                    return promise
-                }
-                .done(on: Threading.pollerQueue) { [weak self] in
-                    guard self?.isPolling.wrappedValue == true else { return }
-                    
-                    Timer.scheduledTimerOnMainThread(withTimeInterval: Poller.retryInterval, repeats: false) { _ in
-                        self?.setUpPolling()
-                    }
-                }
-                .catch(on: Threading.pollerQueue) { [weak self] _ in
-                    guard self?.isPolling.wrappedValue == true else { return }
-                    
-                    let nextDelay: TimeInterval = min(Poller.maxRetryInterval, (delay * 1.2))
-                    Timer.scheduledTimerOnMainThread(withTimeInterval: nextDelay, repeats: false) { _ in
-                        self?.setUpPolling()
-                    }
-                }
+    internal func startIfNeeded(for publicKey: String) {
+        // Run on the 'pollerQueue' to ensure any 'Atomic' access doesn't block the main thread
+        // on startup
+        Threading.pollerQueue.async { [weak self] in
+            guard self?.isPolling.wrappedValue[publicKey] != true else { return }
+            
+            // Might be a race condition that the setUpPolling finishes too soon,
+            // and the timer is not created, if we mark the group as is polling
+            // after setUpPolling. So the poller may not work, thus misses messages
+            self?.isPolling.mutate { $0[publicKey] = true }
+            self?.setUpPolling(for: publicKey)
         }
     }
-
-    private func pollNextSnode(seal: Resolver<Void>) {
-        let userPublicKey = getUserHexEncodedPublicKey()
-        let swarm = SnodeAPI.swarmCache.wrappedValue[userPublicKey] ?? []
-        let unusedSnodes = swarm.subtracting(usedSnodes)
+    
+    /// We want to initially trigger a poll against the target service node and then run the recursive polling,
+    /// if an error is thrown during the poll then this should automatically restart the polling
+    internal func setUpPolling(for publicKey: String) {
+        guard isPolling.wrappedValue[publicKey] == true else { return }
         
-        guard !unusedSnodes.isEmpty else {
-            seal.fulfill(())
-            return
-        }
+        let namespaces: [SnodeAPI.Namespace] = self.namespaces
         
-        // randomElement() uses the system's default random generator, which is cryptographically secure
-        let nextSnode = unusedSnodes.randomElement()!
-        usedSnodes.insert(nextSnode)
-        
-        poll(nextSnode, seal: seal)
-            .done2 {
-                seal.fulfill(())
+        getSnodeForPolling(for: publicKey)
+            .subscribe(on: Threading.pollerQueue)
+            .flatMap { snode -> AnyPublisher<[Message], Error> in
+                Poller.poll(
+                    namespaces: namespaces,
+                    from: snode,
+                    for: publicKey,
+                    on: Threading.pollerQueue,
+                    poller: self
+                )
             }
-            .catch2 { [weak self] error in
-                if let error = error as? Error, error == .pollLimitReached {
-                    self?.pollCount = 0
-                }
-                else if UserDefaults.sharedLokiProject?[.isMainAppActive] != true {
-                    // Do nothing when an error gets throws right after returning from the background (happens frequently)
-                }
-                else {
-                    SNLog("Polling \(nextSnode) failed; dropping it and switching to next snode.")
-                    SnodeAPI.dropSnodeFromSwarmIfNeeded(nextSnode, publicKey: userPublicKey)
-                }
-                
-                Threading.pollerQueue.async {
-                    self?.pollNextSnode(seal: seal)
-                }
-            }
-    }
-
-    private func poll(_ snode: Snode, seal longTermSeal: Resolver<Void>) -> Promise<Void> {
-        guard isPolling.wrappedValue else { return Promise { $0.fulfill(()) } }
-        
-        let userPublicKey: String = getUserHexEncodedPublicKey()
-        
-        return SnodeAPI.getMessages(from: snode, associatedWith: userPublicKey)
-            .then(on: Threading.pollerQueue) { [weak self] messages, lastHash -> Promise<Void> in
-                guard self?.isPolling.wrappedValue == true else { return Promise { $0.fulfill(()) } }
-                
-                if !messages.isEmpty {
-                    var messageCount: Int = 0
-                    var hadValidHashUpdate: Bool = false
-                    
-                    Storage.shared.write { db in
-                        messages
-                            .compactMap { message -> ProcessedMessage? in
-                                do {
-                                    return try Message.processRawReceivedMessage(db, rawMessage: message)
-                                }
-                                catch {
-                                    switch error {
-                                        // Ignore duplicate & selfSend message errors (and don't bother logging
-                                        // them as there will be a lot since we each service node duplicates messages)
-                                        case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
-                                            MessageReceiverError.duplicateMessage,
-                                            MessageReceiverError.duplicateControlMessage,
-                                            MessageReceiverError.selfSend:
-                                            break
-                                            
-                                        case MessageReceiverError.duplicateMessageNewSnode:
-                                            hadValidHashUpdate = true
-                                            break
-                                            
-                                        case DatabaseError.SQLITE_ABORT:
-                                            SNLog("Failed to the database being suspended (running in background with no background task).")
-                                            break
-
-                                        default: SNLog("Failed to deserialize envelope due to error: \(error).")
-                                    }
-                                    
-                                    return nil
-                                }
-                            }
-                            .grouped { threadId, _, _ in (threadId ?? Message.nonThreadMessageId) }
-                            .forEach { threadId, threadMessages in
-                                messageCount += threadMessages.count
-                                
-                                JobRunner.add(
-                                    db,
-                                    job: Job(
-                                        variant: .messageReceive,
-                                        behaviour: .runOnce,
-                                        threadId: threadId,
-                                        details: MessageReceiveJob.Details(
-                                            messages: threadMessages.map { $0.messageInfo },
-                                            calledFromBackgroundPoller: false
-                                        )
-                                    )
-                                )
-                            }
-                        
-                        if messageCount == 0 && !hadValidHashUpdate, let lastHash: String = lastHash {
-                            SNLog("Received \(messages.count) new message\(messages.count == 1 ? "" : "s"), all duplicates - marking the hash we polled with as invalid")
+            .receive(on: Threading.pollerQueue)
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self] result in
+                    switch result {
+                        case .finished: self?.pollRecursively(for: publicKey)
+                        case .failure(let error):
+                            guard self?.isPolling.wrappedValue[publicKey] == true else { return }
                             
-                            // Update the cached validity of the messages
-                            try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
-                                db,
-                                potentiallyInvalidHashes: [lastHash],
-                                otherKnownValidHashes: messages.map { $0.info.hash }
-                            )
-                        }
-                        else {
-                            SNLog("Received \(messageCount) new message\(messageCount == 1 ? "" : "s") (duplicates:  \(messages.count - messageCount))")
-                        }
+                            self?.handlePollError(error, for: publicKey)
                     }
                 }
-                else {
-                    SNLog("Received no new messages")
-                }
-                
-                self?.pollCount += 1
-                
-                guard (self?.pollCount ?? 0) < Poller.maxPollCount else {
-                    throw Error.pollLimitReached
-                }
-                
-                return withDelay(Poller.pollInterval, completionQueue: Threading.pollerQueue) {
-                    guard let strongSelf = self, strongSelf.isPolling.wrappedValue else {
-                        return Promise { $0.fulfill(()) }
+            )
+    }
+
+    private func pollRecursively(for publicKey: String) {
+        guard isPolling.wrappedValue[publicKey] == true else { return }
+        
+        let namespaces: [SnodeAPI.Namespace] = self.namespaces
+        let nextPollInterval: TimeInterval = nextPollDelay(for: publicKey)
+        
+        timers.mutate {
+            $0[publicKey] = Timer.scheduledTimerOnMainThread(
+                withTimeInterval: nextPollInterval,
+                repeats: false
+            ) { [weak self] timer in
+                timer.invalidate()
+
+                self?.getSnodeForPolling(for: publicKey)
+                    .subscribe(on: Threading.pollerQueue)
+                    .flatMap { snode -> AnyPublisher<[Message], Error> in
+                        Poller.poll(
+                            namespaces: namespaces,
+                            from: snode,
+                            for: publicKey,
+                            on: Threading.pollerQueue,
+                            poller: self
+                        )
                     }
-                    
-                    return strongSelf.poll(snode, seal: longTermSeal)
-                }
+                    .receive(on: Threading.pollerQueue)
+                    .sinkUntilComplete(
+                        receiveCompletion: { result in
+                            switch result {
+                                case .failure(let error): self?.handlePollError(error, for: publicKey)
+                                case .finished:
+                                    let maxNodePollCount: UInt = (self?.maxNodePollCount ?? 0)
+
+                                    // If we have polled this service node more than the
+                                    // maximum allowed then throw an error so the parent
+                                    // loop can restart the polling
+                                    if maxNodePollCount > 0 {
+                                        let pollCount: Int = (self?.pollCount.wrappedValue[publicKey] ?? 0)
+                                        self?.pollCount.mutate { $0[publicKey] = (pollCount + 1) }
+                                        
+                                        guard pollCount < maxNodePollCount else {
+                                            let newSnodeNextPollInterval: TimeInterval = (self?.nextPollDelay(for: publicKey) ?? nextPollInterval)
+                                            
+                                            self?.timers.mutate {
+                                                $0[publicKey] = Timer.scheduledTimerOnMainThread(
+                                                    withTimeInterval: newSnodeNextPollInterval,
+                                                    repeats: false
+                                                ) { [weak self] timer in
+                                                    timer.invalidate()
+                                                    
+                                                    self?.pollCount.mutate { $0[publicKey] = 0 }
+                                                    self?.setUpPolling(for: publicKey)
+                                                }
+                                            }
+                                            return
+                                        }
+                                    }
+
+                                    // Otherwise just loop
+                                    self?.pollRecursively(for: publicKey)
+                            }
+                        }
+                    )
             }
+        }
+    }
+    
+    /// Polls the specified namespaces and processes any messages, returning an array of messages that were
+    /// successfully processed
+    ///
+    /// **Note:** The returned messages will have already been processed by the `Poller`, they are only returned
+    /// for cases where we need explicit/custom behaviours to occur (eg. Onboarding)
+    public static func poll(
+        namespaces: [SnodeAPI.Namespace],
+        from snode: Snode,
+        for publicKey: String,
+        on queue: DispatchQueue,
+        calledFromBackgroundPoller: Bool = false,
+        isBackgroundPollValid: @escaping (() -> Bool) = { true },
+        poller: Poller? = nil
+    ) -> AnyPublisher<[Message], Error> {
+        // If the polling has been cancelled then don't continue
+        guard
+            (calledFromBackgroundPoller && isBackgroundPollValid()) ||
+            poller?.isPolling.wrappedValue[publicKey] == true
+        else {
+            return Just([])
+                .setFailureType(to: Error.self)
+                .eraseToAnyPublisher()
+        }
+        
+        let pollerName: String = (
+            poller?.pollerName(for: publicKey) ??
+            "poller with public key \(publicKey)"
+        )
+        let configHashes: [String] = SessionUtil.configHashes(for: publicKey)
+        
+        // Fetch the messages
+        return SnodeAPI
+            .poll(
+                namespaces: namespaces,
+                refreshingConfigHashes: configHashes,
+                from: snode,
+                associatedWith: publicKey
+            )
+            .flatMap { namespacedResults -> AnyPublisher<[Message], Error> in
+                guard
+                    (calledFromBackgroundPoller && isBackgroundPollValid()) ||
+                    poller?.isPolling.wrappedValue[publicKey] == true
+                else {
+                    return Just([])
+                        .setFailureType(to: Error.self)
+                        .eraseToAnyPublisher()
+                }
+                
+                let allMessages: [SnodeReceivedMessage] = namespacedResults
+                    .compactMap { _, result -> [SnodeReceivedMessage]? in result.data?.messages }
+                    .flatMap { $0 }
+                
+                // No need to do anything if there are no messages
+                guard !allMessages.isEmpty else {
+                    if !calledFromBackgroundPoller { SNLog("Received no new messages in \(pollerName)") }
+                    
+                    return Just([])
+                        .setFailureType(to: Error.self)
+                        .eraseToAnyPublisher()
+                }
+                
+                // Otherwise process the messages and add them to the queue for handling
+                let lastHashes: [String] = namespacedResults
+                    .compactMap { $0.value.data?.lastHash }
+                let otherKnownHashes: [String] = namespacedResults
+                    .filter { $0.key.shouldDedupeMessages }
+                    .compactMap { $0.value.data?.messages.map { $0.info.hash } }
+                    .reduce([], +)
+                var messageCount: Int = 0
+                var processedMessages: [Message] = []
+                var hadValidHashUpdate: Bool = false
+                var jobsToRun: [Job] = []
+                
+                Storage.shared.write { db in
+                    allMessages
+                        .compactMap { message -> ProcessedMessage? in
+                            do {
+                                return try Message.processRawReceivedMessage(db, rawMessage: message)
+                            }
+                            catch {
+                                switch error {
+                                    // Ignore duplicate & selfSend message errors (and don't bother logging
+                                    // them as there will be a lot since we each service node duplicates messages)
+                                    case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
+                                        MessageReceiverError.duplicateMessage,
+                                        MessageReceiverError.duplicateControlMessage,
+                                        MessageReceiverError.selfSend:
+                                        break
+                                        
+                                    case MessageReceiverError.duplicateMessageNewSnode:
+                                        hadValidHashUpdate = true
+                                        break
+                                        
+                                    case DatabaseError.SQLITE_ABORT:
+                                        // In the background ignore 'SQLITE_ABORT' (it generally means
+                                        // the BackgroundPoller has timed out
+                                        if !calledFromBackgroundPoller {
+                                            SNLog("Failed to the database being suspended (running in background with no background task).")
+                                        }
+                                        break
+                                        
+                                    default: SNLog("Failed to deserialize envelope due to error: \(error).")
+                                }
+                                
+                                return nil
+                            }
+                        }
+                        .grouped { threadId, _, _, _ in threadId }
+                        .forEach { threadId, threadMessages in
+                            messageCount += threadMessages.count
+                            processedMessages += threadMessages.map { $0.messageInfo.message }
+                            
+                            let jobToRun: Job? = Job(
+                                variant: .messageReceive,
+                                behaviour: .runOnce,
+                                threadId: threadId,
+                                details: MessageReceiveJob.Details(
+                                    messages: threadMessages.map { $0.messageInfo },
+                                    calledFromBackgroundPoller: calledFromBackgroundPoller
+                                )
+                            )
+                            jobsToRun = jobsToRun.appending(jobToRun)
+                            
+                            // If we are force-polling then add to the JobRunner so they are
+                            // persistent and will retry on the next app run if they fail but
+                            // don't let them auto-start
+                            JobRunner.add(db, job: jobToRun, canStartJob: !calledFromBackgroundPoller)
+                        }
+                    
+                    // Clean up message hashes and add some logs about the poll results
+                    if allMessages.isEmpty && !hadValidHashUpdate {
+                        if !calledFromBackgroundPoller {
+                            SNLog("Received \(allMessages.count) new message\(allMessages.count == 1 ? "" : "s"), all duplicates - marking the hash we polled with as invalid")
+                        }
+                        
+                        // Update the cached validity of the messages
+                        try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
+                            db,
+                            potentiallyInvalidHashes: lastHashes,
+                            otherKnownValidHashes: otherKnownHashes
+                        )
+                    }
+                    else if !calledFromBackgroundPoller {
+                        SNLog("Received \(messageCount) new message\(messageCount == 1 ? "" : "s") in \(pollerName) (duplicates: \(allMessages.count - messageCount))")
+                    }
+                }
+                
+                // If we aren't runing in a background poller then just finish immediately
+                guard calledFromBackgroundPoller else {
+                    return Just(processedMessages)
+                        .setFailureType(to: Error.self)
+                        .eraseToAnyPublisher()
+                }
+                
+                // We want to try to handle the receive jobs immediately in the background
+                return Publishers
+                    .MergeMany(
+                        jobsToRun.map { job -> AnyPublisher<Void, Error> in
+                            Deferred {
+                                Future<Void, Error> { resolver in
+                                    // Note: In the background we just want jobs to fail silently
+                                    MessageReceiveJob.run(
+                                        job,
+                                        queue: queue,
+                                        success: { _, _ in resolver(Result.success(())) },
+                                        failure: { _, _, _ in resolver(Result.success(())) },
+                                        deferred: { _ in resolver(Result.success(())) }
+                                    )
+                                }
+                            }
+                            .eraseToAnyPublisher()
+                        }
+                    )
+                    .collect()
+                    .map { _ in processedMessages }
+                    .eraseToAnyPublisher()
+            }
+            .eraseToAnyPublisher()
     }
 }

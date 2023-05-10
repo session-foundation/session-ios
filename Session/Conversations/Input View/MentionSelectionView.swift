@@ -92,6 +92,11 @@ final class MentionSelectionView: UIView, UITableViewDataSource, UITableViewDele
             ),
             isLast: (indexPath.row == (candidates.count - 1))
         )
+        cell.accessibilityIdentifier = "Contact"
+        cell.accessibilityLabel = candidates[indexPath.row].profile.displayName(
+            for: candidates[indexPath.row].threadVariant
+        )
+        cell.isAccessibilityElement = true
         
         return cell
     }
@@ -199,8 +204,10 @@ private extension MentionSelectionView {
             displayNameLabel.text = profile.displayName(for: threadVariant)
             profilePictureView.update(
                 publicKey: profile.id,
+                threadVariant: .contact,
+                customImageData: nil,
                 profile: profile,
-                threadVariant: threadVariant
+                additionalProfile: nil
             )
             moderatorIconImageView.isHidden = !isUserModeratorOrAdmin
             separator.isHidden = isLast

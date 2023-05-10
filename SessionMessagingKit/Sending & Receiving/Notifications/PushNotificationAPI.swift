@@ -1,12 +1,12 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
+import Foundation
+import Combine
 import GRDB
-import PromiseKit
 import SessionSnodeKit
 import SessionUtilitiesKit
 
-@objc(LKPushNotificationAPI)
-public final class PushNotificationAPI : NSObject {
+public enum PushNotificationAPI {
     struct RegistrationRequestBody: Codable {
         let token: String
         let pubKey: String?
@@ -28,13 +28,14 @@ public final class PushNotificationAPI : NSObject {
     }
 
     // MARK: - Settings
+    
     public static let server = "https://live.apns.getsession.org"
     public static let serverPublicKey = "642a6585919742e5a2d4dc51244964fbcd8bcab2b75612407de58b810740d049"
     
-    private static let maxRetryCount: UInt = 4
+    private static let maxRetryCount: Int = 4
     private static let tokenExpirationInterval: TimeInterval = 12 * 60 * 60
 
-    @objc public enum ClosedGroupOperation : Int {
+    public enum ClosedGroupOperation: Int {
         case subscribe, unsubscribe
         
         public var endpoint: String {
@@ -44,174 +45,215 @@ public final class PushNotificationAPI : NSObject {
             }
         }
     }
-
-    // MARK: - Initialization
     
-    private override init() { }
-
     // MARK: - Registration
     
-    public static func unregister(_ token: Data) -> Promise<Void> {
+    public static func unregister(_ token: Data) -> AnyPublisher<Void, Error> {
         let requestBody: RegistrationRequestBody = RegistrationRequestBody(token: token.toHexString(), pubKey: nil)
         
         guard let body: Data = try? JSONEncoder().encode(requestBody) else {
-            return Promise(error: HTTP.Error.invalidJSON)
+            return Fail(error: HTTPError.invalidJSON)
+                .eraseToAnyPublisher()
         }
         
+        // Unsubscribe from all closed groups (including ones the user is no longer a member of,
+        // just in case)
+        Storage.shared
+            .readPublisher { db -> (String, Set<String>) in
+                (
+                    getUserHexEncodedPublicKey(db),
+                    try ClosedGroup
+                        .select(.threadId)
+                        .asRequest(of: String.self)
+                        .fetchSet(db)
+                )
+            }
+            .flatMap { userPublicKey, closedGroupPublicKeys in
+                Publishers
+                    .MergeMany(
+                        closedGroupPublicKeys
+                            .map { closedGroupPublicKey -> AnyPublisher<Void, Error> in
+                                PushNotificationAPI
+                                    .performOperation(
+                                        .unsubscribe,
+                                        for: closedGroupPublicKey,
+                                        publicKey: userPublicKey
+                                    )
+                            }
+                    )
+                    .collect()
+                    .eraseToAnyPublisher()
+            }
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+            .sinkUntilComplete()
+        
+        // Unregister for normal push notifications
         let url = URL(string: "\(server)/unregister")!
         var request: URLRequest = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.allHTTPHeaderFields = [ Header.contentType.rawValue: "application/json" ]
+        request.allHTTPHeaderFields = [ HTTPHeader.contentType: "application/json" ]
         request.httpBody = body
         
-        let promise: Promise<Void> = attempt(maxRetryCount: maxRetryCount, recoveringOn: DispatchQueue.global()) {
-            OnionRequestAPI.sendOnionRequest(request, to: server, with: serverPublicKey)
-                .map2 { _, data in
-                    guard let response: PushServerResponse = try? data?.decoded(as: PushServerResponse.self) else {
-                        return SNLog("Couldn't unregister from push notifications.")
-                    }
-                    guard response.code != 0 else {
-                        return SNLog("Couldn't unregister from push notifications due to error: \(response.message ?? "nil").")
+        return OnionRequestAPI
+            .sendOnionRequest(request, to: server, with: serverPublicKey)
+            .map { _, data -> Void in
+                guard let response: PushServerResponse = try? data?.decoded(as: PushServerResponse.self) else {
+                    return SNLog("Couldn't unregister from push notifications.")
+                }
+                guard response.code != 0 else {
+                    return SNLog("Couldn't unregister from push notifications due to error: \(response.message ?? "nil").")
+                }
+                
+                return ()
+            }
+            .retry(maxRetryCount)
+            .handleEvents(
+                receiveCompletion: { result in
+                    switch result {
+                        case .finished: break
+                        case .failure: SNLog("Couldn't unregister from push notifications.")
                     }
                 }
-        }
-        promise.catch2 { error in
-            SNLog("Couldn't unregister from push notifications.")
-        }
-        
-        // Unsubscribe from all closed groups (including ones the user is no longer a member of, just in case)
-        Storage.shared.read { db in
-            let userPublicKey: String = getUserHexEncodedPublicKey(db)
-            
-            try ClosedGroup
-                .select(.threadId)
-                .asRequest(of: String.self)
-                .fetchAll(db)
-                .forEach { closedGroupPublicKey in
-                    performOperation(.unsubscribe, for: closedGroupPublicKey, publicKey: userPublicKey)
-                }
-        }
-        
-        return promise
+            )
+            .eraseToAnyPublisher()
     }
-
-    @objc(unregisterToken:)
-    public static func objc_unregister(token: Data) -> AnyPromise {
-        return AnyPromise.from(unregister(token))
-    }
-
-    public static func register(with token: Data, publicKey: String, isForcedUpdate: Bool) -> Promise<Void> {
+    
+    public static func register(
+        with token: Data,
+        publicKey: String,
+        isForcedUpdate: Bool
+    ) -> AnyPublisher<Void, Error> {
         let hexEncodedToken: String = token.toHexString()
         let requestBody: RegistrationRequestBody = RegistrationRequestBody(token: hexEncodedToken, pubKey: publicKey)
         
         guard let body: Data = try? JSONEncoder().encode(requestBody) else {
-            return Promise(error: HTTP.Error.invalidJSON)
+            return Fail(error: HTTPError.invalidJSON)
+                .eraseToAnyPublisher()
         }
         
-        let userDefaults = UserDefaults.standard
-        let oldToken = userDefaults[.deviceToken]
-        let lastUploadTime = userDefaults[.lastDeviceTokenUpload]
-        let now = Date().timeIntervalSince1970
+        let oldToken: String? = UserDefaults.standard[.deviceToken]
+        let lastUploadTime: Double = UserDefaults.standard[.lastDeviceTokenUpload]
+        let now: TimeInterval = Date().timeIntervalSince1970
+        
         guard isForcedUpdate || hexEncodedToken != oldToken || now - lastUploadTime > tokenExpirationInterval else {
             SNLog("Device token hasn't changed or expired; no need to re-upload.")
-            return Promise<Void> { $0.fulfill(()) }
+            return Just(())
+                .setFailureType(to: Error.self)
+                .eraseToAnyPublisher()
         }
         
         let url = URL(string: "\(server)/register")!
         var request: URLRequest = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.allHTTPHeaderFields = [ Header.contentType.rawValue: "application/json" ]
+        request.allHTTPHeaderFields = [ HTTPHeader.contentType: "application/json" ]
         request.httpBody = body
         
-        var promises: [Promise<Void>] = []
-        
-        promises.append(
-            attempt(maxRetryCount: maxRetryCount, recoveringOn: DispatchQueue.global()) {
-                OnionRequestAPI.sendOnionRequest(request, to: server, with: serverPublicKey)
-                    .map2 { _, data -> Void in
-                        guard let response: PushServerResponse = try? data?.decoded(as: PushServerResponse.self) else {
-                            return SNLog("Couldn't register device token.")
+        return Publishers
+            .MergeMany(
+                [
+                    OnionRequestAPI
+                        .sendOnionRequest(request, to: server, with: serverPublicKey)
+                        .map { _, data -> Void in
+                            guard let response: PushServerResponse = try? data?.decoded(as: PushServerResponse.self) else {
+                                return SNLog("Couldn't register device token.")
+                            }
+                            guard response.code != 0 else {
+                                return SNLog("Couldn't register device token due to error: \(response.message ?? "nil").")
+                            }
+                            
+                            UserDefaults.standard[.deviceToken] = hexEncodedToken
+                            UserDefaults.standard[.lastDeviceTokenUpload] = now
+                            UserDefaults.standard[.isUsingFullAPNs] = true
+                            return ()
                         }
-                        guard response.code != 0 else {
-                            return SNLog("Couldn't register device token due to error: \(response.message ?? "nil").")
-                        }
-                        
-                        userDefaults[.deviceToken] = hexEncodedToken
-                        userDefaults[.lastDeviceTokenUpload] = now
-                        userDefaults[.isUsingFullAPNs] = true
-                    }
-            }
-        )
-        promises.first?.catch2 { error in
-            SNLog("Couldn't register device token.")
-        }
-        
-        // Subscribe to all closed groups
-        promises.append(
-            contentsOf: Storage.shared
-                .read { db -> [String] in
-                    try ClosedGroup
-                        .select(.threadId)
-                        .joining(
-                            required: ClosedGroup.members
-                                .filter(GroupMember.Columns.profileId == getUserHexEncodedPublicKey(db))
+                        .retry(maxRetryCount)
+                        .handleEvents(
+                            receiveCompletion: { result in
+                                switch result {
+                                    case .finished: break
+                                    case .failure: SNLog("Couldn't register device token.")
+                                }
+                            }
                         )
-                        .asRequest(of: String.self)
-                        .fetchAll(db)
-                }
-                .defaulting(to: [])
-                .map { closedGroupPublicKey -> Promise<Void> in
-                    performOperation(.subscribe, for: closedGroupPublicKey, publicKey: publicKey)
-                }
-        )
-        
-        return when(fulfilled: promises)
+                        .eraseToAnyPublisher()
+                ].appending(
+                    contentsOf: Storage.shared
+                        .read { db -> [String] in
+                            try ClosedGroup
+                                .select(.threadId)
+                                .joining(
+                                    required: ClosedGroup.members
+                                        .filter(GroupMember.Columns.profileId == getUserHexEncodedPublicKey(db))
+                                )
+                                .asRequest(of: String.self)
+                                .fetchAll(db)
+                        }
+                        .defaulting(to: [])
+                        .map { closedGroupPublicKey -> AnyPublisher<Void, Error> in
+                            PushNotificationAPI
+                                .performOperation(
+                                    .subscribe,
+                                    for: closedGroupPublicKey,
+                                    publicKey: publicKey
+                                )
+                        }
+                )
+            )
+            .collect()
+            .map { _ in () }
+            .eraseToAnyPublisher()
     }
 
-    @objc(registerWithToken:hexEncodedPublicKey:isForcedUpdate:)
-    public static func objc_register(with token: Data, publicKey: String, isForcedUpdate: Bool) -> AnyPromise {
-        return AnyPromise.from(register(with: token, publicKey: publicKey, isForcedUpdate: isForcedUpdate))
-    }
-
-    @discardableResult
-    public static func performOperation(_ operation: ClosedGroupOperation, for closedGroupPublicKey: String, publicKey: String) -> Promise<Void> {
+    public static func performOperation(
+        _ operation: ClosedGroupOperation,
+        for closedGroupPublicKey: String,
+        publicKey: String
+    ) -> AnyPublisher<Void, Error> {
         let isUsingFullAPNs = UserDefaults.standard[.isUsingFullAPNs]
         let requestBody: ClosedGroupRequestBody = ClosedGroupRequestBody(
             closedGroupPublicKey: closedGroupPublicKey,
             pubKey: publicKey
         )
         
-        guard isUsingFullAPNs else { return Promise<Void> { $0.fulfill(()) } }
+        guard isUsingFullAPNs else {
+            return Just(())
+                .setFailureType(to: Error.self)
+                .eraseToAnyPublisher()
+        }
         guard let body: Data = try? JSONEncoder().encode(requestBody) else {
-            return Promise(error: HTTP.Error.invalidJSON)
+            return Fail(error: HTTPError.invalidJSON)
+                .eraseToAnyPublisher()
         }
         
         let url = URL(string: "\(server)/\(operation.endpoint)")!
         var request: URLRequest = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.allHTTPHeaderFields = [ Header.contentType.rawValue: "application/json" ]
+        request.allHTTPHeaderFields = [ HTTPHeader.contentType: "application/json" ]
         request.httpBody = body
         
-        let promise: Promise<Void> = attempt(maxRetryCount: maxRetryCount, recoveringOn: DispatchQueue.global()) {
-            OnionRequestAPI.sendOnionRequest(request, to: server, with: serverPublicKey)
-                .map2 { _, data in
-                    guard let response: PushServerResponse = try? data?.decoded(as: PushServerResponse.self) else {
-                        return SNLog("Couldn't subscribe/unsubscribe for closed group: \(closedGroupPublicKey).")
-                    }
-                    guard response.code != 0 else {
-                        return SNLog("Couldn't subscribe/unsubscribe for closed group: \(closedGroupPublicKey) due to error: \(response.message ?? "nil").")
+        return OnionRequestAPI
+            .sendOnionRequest(request, to: server, with: serverPublicKey)
+            .map { _, data in
+                guard let response: PushServerResponse = try? data?.decoded(as: PushServerResponse.self) else {
+                    return SNLog("Couldn't subscribe/unsubscribe for closed group: \(closedGroupPublicKey).")
+                }
+                guard response.code != 0 else {
+                    return SNLog("Couldn't subscribe/unsubscribe for closed group: \(closedGroupPublicKey) due to error: \(response.message ?? "nil").")
+                }
+                
+                return ()
+            }
+            .retry(maxRetryCount)
+            .handleEvents(
+                receiveCompletion: { result in
+                    switch result {
+                        case .finished: break
+                        case .failure:
+                            SNLog("Couldn't subscribe/unsubscribe for closed group: \(closedGroupPublicKey).")
                     }
                 }
-        }
-        promise.catch2 { error in
-            SNLog("Couldn't subscribe/unsubscribe for closed group: \(closedGroupPublicKey).")
-        }
-        return promise
-    }
-    
-    @objc(performOperation:forClosedGroupWithPublicKey:userPublicKey:)
-    public static func objc_performOperation(_ operation: ClosedGroupOperation, for closedGroupPublicKey: String, publicKey: String) -> AnyPromise {
-        return AnyPromise.from(performOperation(operation, for: closedGroupPublicKey, publicKey: publicKey))
+            )
+            .eraseToAnyPublisher()
     }
     
     // MARK: - Notify
@@ -219,34 +261,34 @@ public final class PushNotificationAPI : NSObject {
     public static func notify(
         recipient: String,
         with message: String,
-        maxRetryCount: UInt? = nil,
-        queue: DispatchQueue = DispatchQueue.global()
-    ) -> Promise<Void> {
+        maxRetryCount: Int? = nil
+    ) -> AnyPublisher<Void, Error> {
         let requestBody: NotifyRequestBody = NotifyRequestBody(data: message, sendTo: recipient)
         
         guard let body: Data = try? JSONEncoder().encode(requestBody) else {
-            return Promise(error: HTTP.Error.invalidJSON)
+            return Fail(error: HTTPError.invalidJSON)
+                .eraseToAnyPublisher()
         }
         
         let url = URL(string: "\(server)/notify")!
         var request: URLRequest = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.allHTTPHeaderFields = [ Header.contentType.rawValue: "application/json" ]
+        request.allHTTPHeaderFields = [ HTTPHeader.contentType: "application/json" ]
         request.httpBody = body
         
-        let retryCount: UInt = (maxRetryCount ?? PushNotificationAPI.maxRetryCount)
-        let promise: Promise<Void> = attempt(maxRetryCount: retryCount, recoveringOn: queue) {
-            OnionRequestAPI.sendOnionRequest(request, to: server, with: serverPublicKey)
-                .map2 { _, data in
-                    guard let response: PushServerResponse = try? data?.decoded(as: PushServerResponse.self) else {
-                        return SNLog("Couldn't send push notification.")
-                    }
-                    guard response.code != 0 else {
-                        return SNLog("Couldn't send push notification due to error: \(response.message ?? "nil").")
-                    }
+        return OnionRequestAPI
+            .sendOnionRequest(request, to: server, with: serverPublicKey)
+            .map { _, data -> Void in
+                guard let response: PushServerResponse = try? data?.decoded(as: PushServerResponse.self) else {
+                    return SNLog("Couldn't send push notification.")
                 }
-        }
-        
-        return promise
+                guard response.code != 0 else {
+                    return SNLog("Couldn't send push notification due to error: \(response.message ?? "nil").")
+                }
+                
+                return ()
+            }
+            .retry(maxRetryCount ?? PushNotificationAPI.maxRetryCount)
+            .eraseToAnyPublisher()
     }
 }

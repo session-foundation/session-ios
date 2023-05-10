@@ -3,9 +3,10 @@
 import Foundation
 import GRDB
 import DifferenceKit
-import SignalCoreKit
 import SessionUtilitiesKit
 
+/// This type is duplicate in both the database and within the SessionUtil config so should only ever have it's data changes via the
+/// `updateAllAndConfig` function. Updating it elsewhere could result in issues with syncing data between devices
 public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible, CustomStringConvertible, Differentiable {
     public static var databaseTableName: String { "profile" }
     internal static let interactionForeignKey = ForeignKey([Columns.id], to: [Interaction.Columns.authorId])
@@ -42,7 +43,7 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
     public let profilePictureFileName: String?
 
     /// The key with which the profile is encrypted.
-    public let profileEncryptionKey: OWSAES256Key?
+    public let profileEncryptionKey: Data?
     
     // MARK: - Initialization
     
@@ -52,7 +53,7 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
         nickname: String? = nil,
         profilePictureUrl: String? = nil,
         profilePictureFileName: String? = nil,
-        profileEncryptionKey: OWSAES256Key? = nil
+        profileEncryptionKey: Data? = nil
     ) {
         self.id = id
         self.name = name
@@ -68,7 +69,7 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
         """
         Profile(
             name: \(name),
-            profileKey: \(profileEncryptionKey?.keyData.description ?? "null"),
+            profileKey: \(profileEncryptionKey?.description ?? "null"),
             profilePictureUrl: \(profilePictureUrl ?? "null")
         )
         """
@@ -81,7 +82,7 @@ public extension Profile {
     init(from decoder: Decoder) throws {
         let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
         
-        var profileKey: OWSAES256Key?
+        var profileKey: Data?
         var profilePictureUrl: String?
         
         // If we have both a `profileKey` and a `profilePicture` then the key MUST be valid
@@ -89,12 +90,7 @@ public extension Profile {
             let profileKeyData: Data = try? container.decode(Data.self, forKey: .profileEncryptionKey),
             let profilePictureUrlValue: String = try? container.decode(String.self, forKey: .profilePictureUrl)
         {
-            guard let validProfileKey: OWSAES256Key = OWSAES256Key(data: profileKeyData) else {
-                owsFailDebug("Failed to make profile key for key data")
-                throw StorageError.decodingFailed
-            }
-            
-            profileKey = validProfileKey
+            profileKey = profileKeyData
             profilePictureUrl = profilePictureUrlValue
         }
         
@@ -113,10 +109,10 @@ public extension Profile {
 
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
-        try container.encode(nickname, forKey: .nickname)
-        try container.encode(profilePictureUrl, forKey: .profilePictureUrl)
-        try container.encode(profilePictureFileName, forKey: .profilePictureFileName)
-        try container.encode(profileEncryptionKey?.keyData, forKey: .profileEncryptionKey)
+        try container.encodeIfPresent(nickname, forKey: .nickname)
+        try container.encodeIfPresent(profilePictureUrl, forKey: .profilePictureUrl)
+        try container.encodeIfPresent(profilePictureFileName, forKey: .profilePictureFileName)
+        try container.encodeIfPresent(profileEncryptionKey, forKey: .profileEncryptionKey)
     }
 }
 
@@ -126,17 +122,12 @@ public extension Profile {
     static func fromProto(_ proto: SNProtoDataMessage, id: String) -> Profile? {
         guard let profileProto = proto.profile, let displayName = profileProto.displayName else { return nil }
         
-        var profileKey: OWSAES256Key?
+        var profileKey: Data?
         var profilePictureUrl: String?
         
         // If we have both a `profileKey` and a `profilePicture` then the key MUST be valid
         if let profileKeyData: Data = proto.profileKey, profileProto.profilePicture != nil {
-            guard let validProfileKey: OWSAES256Key = OWSAES256Key(data: profileKeyData) else {
-                owsFailDebug("Failed to make profile key for key data")
-                return nil
-            }
-            
-            profileKey = validProfileKey
+            profileKey = profileKeyData
             profilePictureUrl = profileProto.profilePicture
         }
         
@@ -155,8 +146,8 @@ public extension Profile {
         let profileProto = SNProtoLokiProfile.builder()
         profileProto.setDisplayName(name)
         
-        if let profileKey: OWSAES256Key = profileEncryptionKey, let profilePictureUrl: String = profilePictureUrl {
-            dataMessageProto.setProfileKey(profileKey.keyData)
+        if let profileKey: Data = profileEncryptionKey, let profilePictureUrl: String = profilePictureUrl {
+            dataMessageProto.setProfileKey(profileKey)
             profileProto.setProfilePicture(profilePictureUrl)
         }
         
@@ -168,26 +159,6 @@ public extension Profile {
             SNLog("Couldn't construct profile proto from: \(self).")
             return nil
         }
-    }
-}
-
-// MARK: - Mutation
-
-public extension Profile {
-    func with(
-        name: String? = nil,
-        profilePictureUrl: Updatable<String?> = .existing,
-        profilePictureFileName: Updatable<String?> = .existing,
-        profileEncryptionKey: Updatable<OWSAES256Key> = .existing
-    ) -> Profile {
-        return Profile(
-            id: id,
-            name: (name ?? self.name),
-            nickname: self.nickname,
-            profilePictureUrl: (profilePictureUrl ?? self.profilePictureUrl),
-            profilePictureFileName: (profilePictureFileName ?? self.profilePictureFileName),
-            profileEncryptionKey: (profileEncryptionKey ?? self.profileEncryptionKey)
-        )
     }
 }
 
@@ -258,24 +229,14 @@ public extension Profile {
     ///
     /// **Note:** This method intentionally does **not** save the newly created Profile,
     /// it will need to be explicitly saved after calling
-    static func fetchOrCreateCurrentUser() -> Profile {
-        var userPublicKey: String = ""
-        
-        let exisingProfile: Profile? = Storage.shared.read { db in
-            userPublicKey = getUserHexEncodedPublicKey(db)
-            
-            return try Profile.fetchOne(db, id: userPublicKey)
-        }
-        
-        return (exisingProfile ?? defaultFor(userPublicKey))
-    }
-    
-    /// Fetches or creates a Profile for the current user
-    ///
-    /// **Note:** This method intentionally does **not** save the newly created Profile,
-    /// it will need to be explicitly saved after calling
-    static func fetchOrCreateCurrentUser(_ db: Database) -> Profile {
+    static func fetchOrCreateCurrentUser(_ db: Database? = nil) -> Profile {
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        
+        guard let db: Database = db else {
+            return Storage.shared
+                .read { db in fetchOrCreateCurrentUser(db) }
+                .defaulting(to: defaultFor(userPublicKey))
+        }
         
         return (
             (try? Profile.fetchOne(db, id: userPublicKey)) ??
@@ -353,42 +314,12 @@ public extension Profile {
         }
         
         switch threadVariant {
-            case .contact, .closedGroup: return name
+            case .contact, .legacyGroup, .group: return name
                 
-            case .openGroup:
+            case .community:
                 // In open groups, where it's more likely that multiple users have the same name,
                 // we display a bit of the Session ID after a user's display name for added context
                 return "\(name) (\(Profile.truncated(id: id, truncating: .middle)))"
         }
-    }
-}
-
-// MARK: - Objective-C Support
-
-// FIXME: Remove when possible
-
-@objc(SMKProfile)
-public class SMKProfile: NSObject {
-    @objc public static func displayName(id: String) -> String {
-        return Profile.displayName(id: id)
-    }
-    
-    @objc public static func displayName(id: String, customFallback: String) -> String {
-        return Profile.displayName(id: id, customFallback: customFallback)
-    }
-    
-    @objc(displayNameAfterSavingNickname:forProfileId:)
-    public static func displayNameAfterSaving(nickname: String?, for profileId: String) -> String {
-        return Storage.shared.write { db in
-            let profile: Profile = Profile.fetchOrCreate(id: profileId)
-            let targetNickname: String? = ((nickname ?? "").count > 0 ? nickname : nil)
-            
-            try Profile
-                .filter(id: profile.id)
-                .updateAll(db, Profile.Columns.nickname.set(to: targetNickname))
-            
-            return (targetNickname ?? profile.name)
-        }
-        .defaulting(to: "")
     }
 }

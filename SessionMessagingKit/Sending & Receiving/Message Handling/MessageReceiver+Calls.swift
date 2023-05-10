@@ -7,7 +7,15 @@ import SessionUtilitiesKit
 import SessionSnodeKit
 
 extension MessageReceiver {
-    public static func handleCallMessage(_ db: Database, message: CallMessage) throws {
+    public static func handleCallMessage(
+        _ db: Database,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        message: CallMessage
+    ) throws {
+        // Only support calls from contact threads
+        guard threadVariant == .contact else { return }
+        
         switch message.kind {
             case .preOffer: try MessageReceiver.handleNewCallMessage(db, message: message)
             case .offer: MessageReceiver.handleOfferCallMessage(db, message: message)
@@ -43,12 +51,18 @@ extension MessageReceiver {
         guard
             CurrentAppContext().isMainApp,
             let sender: String = message.sender,
-            (try? Contact.fetchOne(db, id: sender))?.isApproved == true
+            (try? Contact
+                .filter(id: sender)
+                .select(.isApproved)
+                .asRequest(of: Bool.self)
+                .fetchOne(db))
+                .defaulting(to: false)
         else { return }
         guard let timestamp = message.sentTimestamp, TimestampUtils.isWithinOneMinute(timestamp: timestamp) else {
             // Add missed call message for call offer messages from more than one minute
             if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .missed) {
-                let thread: SessionThread = try SessionThread.fetchOrCreate(db, id: sender, variant: .contact)
+                let thread: SessionThread = try SessionThread
+                    .fetchOrCreate(db, id: sender, variant: .contact, shouldBeVisible: nil)
                 
                 Environment.shared?.notificationsManager.wrappedValue?
                     .notifyUser(
@@ -62,7 +76,8 @@ extension MessageReceiver {
         
         guard db[.areCallsEnabled] else {
             if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .permissionDenied) {
-                let thread: SessionThread = try SessionThread.fetchOrCreate(db, id: sender, variant: .contact)
+                let thread: SessionThread = try SessionThread
+                    .fetchOrCreate(db, id: sender, variant: .contact, shouldBeVisible: nil)
                 
                 Environment.shared?.notificationsManager.wrappedValue?
                     .notifyUser(
@@ -195,19 +210,24 @@ extension MessageReceiver {
         )
         .inserted(db)
         
-        try MessageSender
-            .sendNonDurably(
-                db,
-                message: CallMessage(
-                    uuid: message.uuid,
-                    kind: .endCall,
-                    sdps: [],
-                    sentTimestampMs: nil // Explicitly nil as it's a separate message from above
-                ),
-                interactionId: nil,      // Explicitly nil as it's a separate message from above
-                in: thread
-            )
-            .retainUntilComplete()
+        MessageSender.sendImmediate(
+            preparedSendData: try MessageSender
+                .preparedSendData(
+                    db,
+                    message: CallMessage(
+                        uuid: message.uuid,
+                        kind: .endCall,
+                        sdps: [],
+                        sentTimestampMs: nil // Explicitly nil as it's a separate message from above
+                    ),
+                    to: try Message.Destination.from(db, threadId: thread.id, threadVariant: thread.variant),
+                    namespace: try Message.Destination
+                        .from(db, threadId: thread.id, threadVariant: thread.variant)
+                        .defaultNamespace,
+                    interactionId: nil      // Explicitly nil as it's a separate message from above
+                )
+        )
+        .sinkUntilComplete()
     }
     
     @discardableResult public static func insertCallInfoMessage(

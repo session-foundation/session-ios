@@ -3,7 +3,6 @@
 import UIKit
 import AVFoundation
 import GRDB
-import Curve25519Kit
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -174,8 +173,35 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
     fileprivate func startNewDMIfPossible(with onsNameOrPublicKey: String) {
         let maybeSessionId: SessionId? = SessionId(from: onsNameOrPublicKey)
         
-        if ECKeyPair.isValidHexEncodedPublicKey(candidate: onsNameOrPublicKey) && maybeSessionId?.prefix == .standard {
-            startNewDM(with: onsNameOrPublicKey)
+        if KeyPair.isValidHexEncodedPublicKey(candidate: onsNameOrPublicKey) {
+            switch maybeSessionId?.prefix {
+                case .standard:
+                    startNewDM(with: onsNameOrPublicKey)
+                    
+                case .blinded:
+                    let modal: ConfirmationModal = ConfirmationModal(
+                        targetView: self.view,
+                        info: ConfirmationModal.Info(
+                            title: "ALERT_ERROR_TITLE".localized(),
+                            explanation: "DM_ERROR_DIRECT_BLINDED_ID".localized(),
+                            cancelTitle: "BUTTON_OK".localized(),
+                            cancelStyle: .alert_text
+                        )
+                    )
+                    self.present(modal, animated: true)
+                    
+                default:
+                    let modal: ConfirmationModal = ConfirmationModal(
+                        targetView: self.view,
+                        info: ConfirmationModal.Info(
+                            title: "ALERT_ERROR_TITLE".localized(),
+                            explanation: "DM_ERROR_INVALID".localized(),
+                            cancelTitle: "BUTTON_OK".localized(),
+                            cancelStyle: .alert_text
+                        )
+                    )
+                    self.present(modal, animated: true)
+            }
             return
         }
         
@@ -183,51 +209,49 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
         ModalActivityIndicatorViewController
             .present(fromViewController: navigationController!, canCancel: false) { [weak self] modalActivityIndicator in
             SnodeAPI
-                    .getSessionID(for: onsNameOrPublicKey)
-                    .done { sessionID in
+                .getSessionID(for: onsNameOrPublicKey)
+                .receive(on: DispatchQueue.main)
+                .sinkUntilComplete(
+                    receiveCompletion: { result in
+                        switch result {
+                            case .finished: break
+                            case .failure(let error):
+                                modalActivityIndicator.dismiss {
+                                    var messageOrNil: String?
+                                    if let error = error as? SnodeAPIError {
+                                        switch error {
+                                            case .decryptionFailed, .hashingFailed, .validationFailed:
+                                                messageOrNil = error.errorDescription
+                                            default: break
+                                        }
+                                    }
+                                    
+                                    let modal: ConfirmationModal = ConfirmationModal(
+                                        targetView: self?.view,
+                                        info: ConfirmationModal.Info(
+                                            title: "ALERT_ERROR_TITLE".localized(),
+                                            explanation: (messageOrNil ?? "DM_ERROR_INVALID".localized()),
+                                            cancelTitle: "BUTTON_OK".localized(),
+                                            cancelStyle: .alert_text
+                                        )
+                                    )
+                                    self?.present(modal, animated: true)
+                                }
+                        }
+                    },
+                    receiveValue: { sessionId in
                         modalActivityIndicator.dismiss {
-                            self?.startNewDM(with: sessionID)
+                            self?.startNewDM(with: sessionId)
                         }
                     }
-                    .catch { error in
-                        modalActivityIndicator.dismiss {
-                            var messageOrNil: String?
-                            if let error = error as? SnodeAPIError {
-                                switch error {
-                                    case .decryptionFailed, .hashingFailed, .validationFailed:
-                                        messageOrNil = error.errorDescription
-                                    default: break
-                                }
-                            }
-                            let message: String = {
-                                if let messageOrNil: String = messageOrNil {
-                                    return messageOrNil
-                                }
-                                
-                                return (maybeSessionId?.prefix == .blinded ?
-                                    "DM_ERROR_DIRECT_BLINDED_ID".localized() :
-                                    "DM_ERROR_INVALID".localized()
-                                )
-                            }()
-                            
-                            let modal: ConfirmationModal = ConfirmationModal(
-                                targetView: self?.view,
-                                info: ConfirmationModal.Info(
-                                    title: "ALERT_ERROR_TITLE".localized(),
-                                    explanation: message,
-                                    cancelTitle: "BUTTON_OK".localized(),
-                                    cancelStyle: .alert_text
-                                )
-                            )
-                            self?.present(modal, animated: true)
-                        }
-                    }
+                )
         }
     }
 
     private func startNewDM(with sessionId: String) {
         let maybeThread: SessionThread? = Storage.shared.write { db in
-            try SessionThread.fetchOrCreate(db, id: sessionId, variant: .contact)
+            try SessionThread
+                .fetchOrCreate(db, id: sessionId, variant: .contact, shouldBeVisible: nil)
         }
         
         guard maybeThread != nil else { return }

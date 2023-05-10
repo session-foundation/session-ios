@@ -407,7 +407,6 @@
 "MESSAGE_REQUESTS_NOTIFICATION" = "Sinulla on uusi viestipyyntö";
 "TXT_HIDE_TITLE" = "Piilota";
 "TXT_DELETE_ACCEPT" = "Hyväksy";
-"TXT_DECLINE_TITLE" = "Decline";
 "TXT_BLOCK_USER_TITLE" = "Block User";
 "ALERT_ERROR_TITLE" = "Virhe";
 "modal_call_permission_request_title" = "Call Permissions Required";
@@ -629,5 +628,18 @@
 "group_you_leaving" = "Leaving...";
 "group_leave_error" = "Failed to leave Group!";
 "group_unable_to_leave" = "Unable to leave the Group, please try again";
-"delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
+"delete_group_confirmation_alert_title" = "Delete Group";
+"delete_group_confirmation_alert_message" = "Are you sure you want to delete %@?";
 "delete_conversation_confirmation_alert_title" = "Delete Conversation";
+"delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
+"hide_note_to_self_confirmation_alert_title" = "Hide Note to Self";
+"hide_note_to_self_confirmation_alert_message" = "Are you sure you want to hide %@?";
+"REMOVE_AVATAR" = "Remove";
+"CONTACT_NICKNAME_PLACEHOLDER" = "Enter a name";
+"MARK_AS_READ" = "Mark Read";
+"MARK_AS_UNREAD" = "Mark Unread";
+"CONVERSATION_EMPTY_STATE" = "You have no messages from %@. Send a message to start the conversation!";
+"CONVERSATION_EMPTY_STATE_READ_ONLY" = "There are no messages in %@.";
+"CONVERSATION_EMPTY_STATE_NOTE_TO_SELF" = "You have no messages in %@.";
+"USER_CONFIG_OUTDATED_WARNING" = "Some of your devices are using outdated versions. Syncing may be unreliable until they are updated.";
+"UPDATE_PROFILE_TITLE" = "Update Profile Picture";

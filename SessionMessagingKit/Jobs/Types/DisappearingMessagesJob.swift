@@ -1,10 +1,10 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
 import SessionUtilitiesKit
 import SessionSnodeKit
-import PromiseKit
 
 public enum DisappearingMessagesJob: JobExecutor {
     public static let maxFailureCount: Int = -1
@@ -108,33 +108,48 @@ public extension DisappearingMessagesJob {
         guard (changeCount ?? 0) > 0 else { return nil }
         
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let updateExpiryPublishers: [AnyPublisher<[String: UpdateExpiryResponseResult], Error>] = interactionExpirationInfosByExpiresInSeconds
+            .map { expiresInSeconds, expirationInfos -> AnyPublisher<[String: UpdateExpiryResponseResult], Error> in
+                let expirationTimestampMs: UInt64 = UInt64(ceil(startedAtMs + expiresInSeconds * 1000))
+                
+                return SnodeAPI
+                    .updateExpiry(
+                        publicKey: userPublicKey,
+                        serverHashes: expirationInfos.map { $0.serverHash },
+                        updatedExpiryMs: expirationTimestampMs,
+                        shortenOnly: true
+                    )
+            }
         
-        interactionExpirationInfosByExpiresInSeconds.forEach { expiresInSeconds, expirationInfos in
-            let expirationTimestampMs: Int64 = Int64(ceil(startedAtMs + expiresInSeconds * 1000))
-            
-            SnodeAPI.updateExpiry(
-                publicKey: userPublicKey,
-                updatedExpiryMs: expirationTimestampMs,
-                serverHashes: expirationInfos.map { $0.serverHash },
-                shortenOnly: true
-            ).map { results in
-                var unchangedMessages: [String: UInt64] = [:]
-                results.forEach { _, result in
-                    guard let unchanged = result.unchanged else { return }
-                    unchangedMessages.merge(unchanged) { (current, _) in current }
+        Publishers
+            .MergeMany(updateExpiryPublishers)
+            .collect()
+            .sinkUntilComplete(
+                receiveValue: { allResults in
+                    guard
+                        let results: [UpdateExpiryResponseResult] = allResults
+                            .compactMap({ result in result.first(where: { _, value in !value.didError })?.value })
+                            .nullIfEmpty(),
+                        let unchangedMessages: [UInt64: [String]] = results
+                            .reduce([:], { result, next in result.updated(with: next.unchanged) })
+                            .groupedByValue()
+                            .nullIfEmpty()
+                    else { return }
+                    
+                    Storage.shared.writeAsync { db in
+                        try unchangedMessages.forEach { updatedExpiry, hashes in
+                            let expiresInSeconds: TimeInterval = ((TimeInterval(updatedExpiry) - startedAtMs) / 1000)
+                            
+                            _ = try Interaction
+                                .filter(hashes.contains(Interaction.Columns.serverHash))
+                                .updateAll(
+                                    db,
+                                    Interaction.Columns.expiresInSeconds.set(to: expiresInSeconds)
+                                )
+                        }
+                    }
                 }
-
-                guard !unchangedMessages.isEmpty else { return }
-
-                unchangedMessages.forEach { serverHash, serverExpirationTimestampMs in
-                    let expiresInSeconds: TimeInterval = (TimeInterval(serverExpirationTimestampMs) - startedAtMs) / 1000
-
-                    _ = try? Interaction
-                        .filter(Interaction.Columns.serverHash == serverHash)
-                        .updateAll(db, Interaction.Columns.expiresInSeconds.set(to: expiresInSeconds))
-                }
-            }.retainUntilComplete()
-        }
+            )
         
         return updateNextRunIfNeeded(db)
     }

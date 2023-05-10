@@ -26,13 +26,14 @@ class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSe
         var style: SessionTableSectionStyle {
             switch self {
                 case .content: return .padding
-                default: return .title
+                default: return .titleRoundedContent
             }
         }
     }
     
     public enum Setting: Differentiable {
         case strategyUseFastMode
+        case strategyDeviceSettings
         case styleSound
         case styleSoundWhenAppIsOpen
         case content
@@ -42,10 +43,7 @@ class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSe
     
     override var title: String { "NOTIFICATIONS_TITLE".localized() }
     
-    private var _settingsData: [SectionModel] = []
-    public override var settingsData: [SectionModel] { _settingsData }
-    
-    public override var observableSettingsData: ObservableData { _observableSettingsData }
+    public override var observableTableData: ObservableData { _observableTableData }
     
     /// This is all the data the screen needs to populate itself, please see the following link for tips to help optimise
     /// performance https://github.com/groue/GRDB.swift#valueobservation-performance
@@ -54,7 +52,7 @@ class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSe
     /// this is due to the behaviour of `ValueConcurrentObserver.asyncStartObservation` which triggers it's own
     /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
-    private lazy var _observableSettingsData: ObservableData = ValueObservation
+    private lazy var _observableTableData: ObservableData = ValueObservation
         .trackingConstantRegion { db -> [SectionModel] in
             let notificationSound: Preferences.Sound = db[.defaultNotificationSound]
                 .defaulting(to: Preferences.Sound.defaultNotificationSound)
@@ -72,9 +70,9 @@ class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSe
                             rightAccessory: .toggle(
                                 .userDefaults(UserDefaults.standard, key: "isUsingFullAPNs")
                             ),
-                            extraAction: SessionCell.ExtraAction(
-                                title: "NOTIFICATIONS_STRATEGY_FAST_MODE_ACTION".localized(),
-                                onTap: { UIApplication.shared.openSystemSettings() }
+                            styling: SessionCell.StyleInfo(
+                                allowedSeparators: [.top],
+                                customPadding: SessionCell.Padding(bottom: Values.verySmallSpacing)
                             ),
                             onTap: {
                                 UserDefaults.standard.set(
@@ -85,6 +83,19 @@ class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSe
                                 // Force sync the push tokens on change
                                 SyncPushTokensJob.run(uploadOnlyIfStale: false)
                             }
+                        ),
+                        SessionCell.Info(
+                            id: .strategyDeviceSettings,
+                            title: SessionCell.TextInfo(
+                                "NOTIFICATIONS_STRATEGY_FAST_MODE_ACTION".localized(),
+                                font: .subtitleBold
+                            ),
+                            styling: SessionCell.StyleInfo(
+                                tintColor: .settings_tertiaryAction,
+                                allowedSeparators: [.bottom],
+                                customPadding: SessionCell.Padding(top: Values.verySmallSpacing)
+                            ),
+                            onTap: { UIApplication.shared.openSystemSettings() }
                         )
                     ]
                 ),
@@ -137,10 +148,5 @@ class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSe
         }
         .removeDuplicates()
         .publisher(in: Storage.shared)
-    
-    // MARK: - Functions
-
-    public override func updateSettings(_ updatedSettings: [SectionModel]) {
-        self._settingsData = updatedSettings
-    }
+        .mapToSessionTableViewData(for: self)
 }

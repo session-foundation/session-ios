@@ -69,6 +69,7 @@ internal enum Theme_OceanDark: ThemeColors {
         .solidButton_background: .oceanDark2,
         
         // Settings
+        .settings_tertiaryAction: .primary,
         .settings_tabBackground: .oceanDark1,
         
         // Appearance
@@ -89,6 +90,7 @@ internal enum Theme_OceanDark: ThemeColors {
         .conversationButton_swipeDestructive: .dangerDark,
         .conversationButton_swipeSecondary: .oceanDark2,
         .conversationButton_swipeTertiary: Theme.PrimaryColor.orange.color,
+        .conversationButton_swipeRead: .primary,
         
         // InputButton
         .inputButton_background: .oceanDark4,

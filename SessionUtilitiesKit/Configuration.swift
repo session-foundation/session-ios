@@ -17,7 +17,9 @@ public enum SNUtilitiesKit { // Just to make the external API nice
                 ],
                 [], // Other DB migrations
                 [], // Legacy DB removal
-                []
+                [
+                    _004_AddJobPriority.self
+                ]
             ]
         )
     }

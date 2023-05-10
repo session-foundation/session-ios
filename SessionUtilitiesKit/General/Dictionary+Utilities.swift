@@ -36,7 +36,7 @@ public extension Dictionary {
     
     func getting(_ key: Key?) -> Value? {
         guard let key: Key = key else { return nil }
-
+        
         return self[key]
     }
     
@@ -45,7 +45,7 @@ public extension Dictionary {
         
         var updatedDictionary: [Key: Value] = self
         updatedDictionary[key] = value
-
+        
         return updatedDictionary
     }
     
@@ -55,7 +55,7 @@ public extension Dictionary {
         other.forEach { key, value in
             updatedDictionary[key] = value
         }
-
+        
         return updatedDictionary
     }
     
@@ -64,7 +64,21 @@ public extension Dictionary {
         
         var updatedDictionary: [Key: Value] = self
         updatedDictionary.removeValue(forKey: key)
-
+        
         return updatedDictionary
+    }
+    
+    func nullIfEmpty() -> [Key: Value]? {
+        guard !isEmpty else { return nil }
+        
+        return self
+    }
+}
+ 
+public extension Dictionary where Value: Hashable {
+    func groupedByValue() -> [Value: [Key]] {
+        return self.reduce(into: [:]) { result, next in
+            result[next.value, default: []].append(next.key)
+        }
     }
 }

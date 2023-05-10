@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import SignalCoreKit
 
 public protocol JobExecutor {
     /// The maximum number of times the job can fail before it fails permanently
@@ -67,7 +66,8 @@ public final class JobRunner {
                 jobVariants.remove(.messageSend),
                 jobVariants.remove(.notifyPushServer),
                 jobVariants.remove(.sendReadReceipts),
-                jobVariants.remove(.groupLeaving)
+                jobVariants.remove(.groupLeaving),
+                jobVariants.remove(.configurationSync)
             ].compactMap { $0 }
         )
         let messageReceiveQueue: JobQueue = JobQueue(
@@ -144,7 +144,7 @@ public final class JobRunner {
         guard canStartJob else { return }
         
         // Start the job runner if needed
-        db.afterNextTransaction { _ in
+        db.afterNextTransactionNestedOnce(dedupeId: "JobRunner-Start: \(updatedJob.variant)") { _ in
             queues.wrappedValue[updatedJob.variant]?.start()
         }
     }
@@ -167,7 +167,7 @@ public final class JobRunner {
         guard canStartJob else { return }
         
         // Start the job runner if needed
-        db.afterNextTransaction { _ in
+        db.afterNextTransactionNestedOnce(dedupeId: "JobRunner-Start: \(job.variant)") { _ in
             queues.wrappedValue[job.variant]?.start()
         }
     }
@@ -212,7 +212,10 @@ public final class JobRunner {
                         ].contains(Job.Columns.behaviour)
                     )
                     .filter(Job.Columns.shouldBlock == true)
-                    .order(Job.Columns.id)
+                    .order(
+                        Job.Columns.priority.desc,
+                        Job.Columns.id
+                    )
                     .fetchAll(db)
                 let nonblockingJobs: [Job] = try Job
                     .filter(
@@ -222,7 +225,10 @@ public final class JobRunner {
                         ].contains(Job.Columns.behaviour)
                     )
                     .filter(Job.Columns.shouldBlock == false)
-                    .order(Job.Columns.id)
+                    .order(
+                        Job.Columns.priority.desc,
+                        Job.Columns.id
+                    )
                     .fetchAll(db)
                 
                 return (blockingJobs, nonblockingJobs)
@@ -261,7 +267,10 @@ public final class JobRunner {
             .read { db in
                 return try Job
                     .filter(Job.Columns.behaviour == Job.Behaviour.recurringOnActive)
-                    .order(Job.Columns.id)
+                    .order(
+                        Job.Columns.priority.desc,
+                        Job.Columns.id
+                    )
                     .fetchAll(db)
             }
             .defaulting(to: [])
@@ -651,8 +660,12 @@ private final class JobQueue {
     
     fileprivate func start(force: Bool = false) {
         // We only want the JobRunner to run in the main app
-        guard CurrentAppContext().isMainApp else { return }
-        guard JobRunner.canStartQueues.wrappedValue else { return }
+        guard
+            HasAppContext() &&
+            CurrentAppContext().isMainApp &&
+            !CurrentAppContext().isRunningTests &&
+            JobRunner.canStartQueues.wrappedValue
+        else { return }
         guard force || !isRunning.wrappedValue else { return }
         
         // The JobRunner runs synchronously we need to ensure this doesn't start
@@ -825,9 +838,27 @@ private final class JobQueue {
         detailsForCurrentlyRunningJobs.mutate { $0 = $0.setting(nextJob.id, nextJob.details) }
         SNLog("[JobRunner] \(queueContext) started \(nextJob.variant) job (\(executionType == .concurrent ? "\(numJobsRunning) currently running, " : "")\(numJobsRemaining) remaining)")
         
+        /// As it turns out Combine doesn't plat too nicely with concurrent Dispatch Queues, in Combine events are dispatched asynchronously to
+        /// the queue which means an odd situation can occasionally occur where the `finished` event can actually run before the `output`
+        /// event - this can result in unexpected behaviours (for more information see https://github.com/groue/GRDB.swift/issues/1334)
+        ///
+        /// Due to this if a job is meant to run on a concurrent queue then we actually want to create a temporary serial queue just for the execution
+        /// of that job
+        let targetQueue: DispatchQueue = {
+            guard executionType == .concurrent else { return internalQueue }
+            
+            return DispatchQueue(
+                label: "\(self.queueContext)-serial",
+                qos: self.qosClass,
+                attributes: [],
+                autoreleaseFrequency: .inherit,
+                target: nil
+            )
+        }()
+        
         jobExecutor.run(
             nextJob,
-            queue: internalQueue,
+            queue: targetQueue,
             success: handleJobSucceeded,
             failure: handleJobFailed,
             deferred: handleJobDeferred

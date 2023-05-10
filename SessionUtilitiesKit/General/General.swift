@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import Curve25519Kit
 
 public protocol GeneralCacheType {
     var encodedPublicKey: String? { get set }
@@ -21,6 +20,7 @@ public enum General {
 public enum GeneralError: Error {
     case invalidSeed
     case keyGenerationFailed
+    case randomGenerationFailed
 }
 
 public func getUserHexEncodedPublicKey(_ db: Database? = nil, dependencies: Dependencies = Dependencies()) -> String {

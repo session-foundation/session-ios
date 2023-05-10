@@ -3,7 +3,6 @@
 import Foundation
 import GRDB
 import Sodium
-import SignalCoreKit
 import SessionUtilitiesKit
 import SessionSnodeKit
 
@@ -20,7 +19,7 @@ public enum MessageReceiver {
         isOutgoing: Bool? = nil,
         otherBlindedPublicKey: String? = nil,
         dependencies: SMKDependencies = SMKDependencies()
-    ) throws -> (Message, SNProtoContent, String) {
+    ) throws -> (Message, SNProtoContent, String, SessionThread.Variant) {
         let userPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
         let isOpenGroupMessage: Bool = (openGroupId != nil)
         
@@ -40,7 +39,7 @@ public enum MessageReceiver {
                     // Default to 'standard' as the old code didn't seem to require an `envelope.source`
                     switch (SessionId.Prefix(from: envelope.source) ?? .standard) {
                         case .standard, .unblinded:
-                            guard let userX25519KeyPair: Box.KeyPair = Identity.fetchUserKeyPair(db) else {
+                            guard let userX25519KeyPair: KeyPair = Identity.fetchUserKeyPair(db) else {
                                 throw MessageReceiverError.noUserX25519KeyPair
                             }
                             
@@ -53,7 +52,7 @@ public enum MessageReceiver {
                             guard let openGroupServerPublicKey: String = openGroupServerPublicKey else {
                                 throw MessageReceiverError.invalidGroupPublicKey
                             }
-                            guard let userEd25519KeyPair: Box.KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
+                            guard let userEd25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
                                 throw MessageReceiverError.noUserED25519KeyPair
                             }
                             
@@ -75,7 +74,9 @@ public enum MessageReceiver {
                         throw MessageReceiverError.invalidGroupPublicKey
                     }
                     guard
-                        let encryptionKeyPairs: [ClosedGroupKeyPair] = try? closedGroup.keyPairs.order(ClosedGroupKeyPair.Columns.receivedTimestamp.desc).fetchAll(db),
+                        let encryptionKeyPairs: [ClosedGroupKeyPair] = try? closedGroup.keyPairs
+                            .order(ClosedGroupKeyPair.Columns.receivedTimestamp.desc)
+                            .fetchAll(db),
                         !encryptionKeyPairs.isEmpty
                     else {
                         throw MessageReceiverError.noGroupKeyPair
@@ -92,7 +93,7 @@ public enum MessageReceiver {
                         do {
                             return try decryptWithSessionProtocol(
                                 ciphertext: ciphertext,
-                                using: Box.KeyPair(
+                                using: KeyPair(
                                     publicKey: keyPair.publicKey.bytes,
                                     secretKey: keyPair.secretKey.bytes
                                 )
@@ -146,7 +147,6 @@ public enum MessageReceiver {
         message.recipient = userPublicKey
         message.sentTimestamp = envelope.timestamp
         message.receivedTimestamp = UInt64(SnodeAPI.currentOffsetTimestampMs())
-        message.groupPublicKey = groupPublicKey
         message.openGroupServerMessageId = openGroupMessageServerId.map { UInt64($0) }
         
         // Validate
@@ -160,30 +160,37 @@ public enum MessageReceiver {
         }
         
         // Extract the proper threadId for the message
-        let threadId: String = {
-            if let groupPublicKey: String = groupPublicKey { return groupPublicKey }
-            if let openGroupId: String = openGroupId { return openGroupId }
+        let (threadId, threadVariant): (String, SessionThread.Variant) = {
+            if let groupPublicKey: String = groupPublicKey { return (groupPublicKey, .legacyGroup) }
+            if let openGroupId: String = openGroupId { return (openGroupId, .community) }
             
             switch message {
-                case let message as VisibleMessage: return (message.syncTarget ?? sender)
-                case let message as ExpirationTimerUpdate: return (message.syncTarget ?? sender)
-                default: return sender
+                case let message as VisibleMessage: return ((message.syncTarget ?? sender), .contact)
+                case let message as ExpirationTimerUpdate: return ((message.syncTarget ?? sender), .contact)
+                default: return (sender, .contact)
             }
         }()
         
-        return (message, proto, threadId)
+        return (message, proto, threadId, threadVariant)
     }
     
     // MARK: - Handling
     
     public static func handle(
         _ db: Database,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
         message: Message,
         serverExpirationTimestamp: TimeInterval?,
         associatedWithProto proto: SNProtoContent,
-        openGroupId: String?,
         dependencies: SMKDependencies = SMKDependencies()
     ) throws {
+        // Check if the message requires an existing conversation (if it does and the conversation isn't in
+        // the config then the message will be dropped)
+        guard
+            !Message.requiresExistingConversation(message: message, threadVariant: threadVariant) ||
+            SessionUtil.conversationInConfig(threadId: threadId, threadVariant: threadVariant, visibleOnly: false)
+        else { throw MessageReceiverError.requiredThreadNotInConfig }
         
         // Update any disappearing messages configuration if needed.
         // We need to update this before processing the messages, because
@@ -191,8 +198,9 @@ public enum MessageReceiver {
         // follow the new config.
         try MessageReceiver.updateDisappearingMessagesConfigurationIfNeeded(
             db,
+            threadId: threadId,
+            threadVariant: threadVariant,
             message: message,
-            openGroupId: openGroupId,
             proto: proto
         )
         
@@ -205,48 +213,86 @@ public enum MessageReceiver {
                 )
                 
             case let message as TypingIndicator:
-                try MessageReceiver.handleTypingIndicator(db, message: message)
+                try MessageReceiver.handleTypingIndicator(
+                    db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    message: message
+                )
                 
             case let message as ClosedGroupControlMessage:
-                try MessageReceiver.handleClosedGroupControlMessage(db, message)
+                try MessageReceiver.handleClosedGroupControlMessage(
+                    db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    message: message
+                )
                 
             case let message as DataExtractionNotification:
-                try MessageReceiver.handleDataExtractionNotification(db, message: message)
+                try MessageReceiver.handleDataExtractionNotification(
+                    db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    message: message
+                )
                 
             case let message as ExpirationTimerUpdate:
-                try MessageReceiver.handleExpirationTimerUpdate(db, message: message)
+                try MessageReceiver.handleExpirationTimerUpdate(
+                    db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    message: message
+                )
                 
             case let message as ConfigurationMessage:
-                try MessageReceiver.handleConfigurationMessage(db, message: message)
+                try MessageReceiver.handleLegacyConfigurationMessage(db, message: message)
                 
             case let message as UnsendRequest:
-                try MessageReceiver.handleUnsendRequest(db, message: message)
+                try MessageReceiver.handleUnsendRequest(
+                    db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    message: message
+                )
                 
             case let message as CallMessage:
-                try MessageReceiver.handleCallMessage(db, message: message)
+                try MessageReceiver.handleCallMessage(
+                    db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    message: message
+                )
                 
             case let message as MessageRequestResponse:
-                try MessageReceiver.handleMessageRequestResponse(db, message: message, dependencies: dependencies)
+                try MessageReceiver.handleMessageRequestResponse(
+                    db,
+                    message: message,
+                    dependencies: dependencies
+                )
                 
             case let message as VisibleMessage:
                 try MessageReceiver.handleVisibleMessage(
                     db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
                     message: message,
-                    associatedWithProto: proto,
-                    openGroupId: openGroupId
+                    associatedWithProto: proto
                 )
+                
+            // SharedConfigMessages should be handled by the 'SharedUtil' instead of this
+            case is SharedConfigMessage: throw MessageReceiverError.invalidSharedConfigMessageHandling
                 
             default: fatalError()
         }
         
         // Perform any required post-handling logic
-        try MessageReceiver.postHandleMessage(db, message: message, openGroupId: openGroupId)
+        try MessageReceiver.postHandleMessage(db, threadId: threadId, message: message)
     }
     
     public static func postHandleMessage(
         _ db: Database,
-        message: Message,
-        openGroupId: String?
+        threadId: String,
+        message: Message
     ) throws {
         // When handling any non-typing indicator message we want to make sure the thread becomes
         // visible (the only other spot this flag gets set is when sending messages)
@@ -254,21 +300,30 @@ public enum MessageReceiver {
             case is TypingIndicator: break
                 
             default:
-                guard let threadInfo: (id: String, variant: SessionThread.Variant) = threadInfo(db, message: message, openGroupId: openGroupId) else {
-                    return
-                }
+                // Only update the `shouldBeVisible` flag if the thread is currently not visible
+                // as we don't want to trigger a config update if not needed
+                let isCurrentlyVisible: Bool = try SessionThread
+                    .filter(id: threadId)
+                    .select(.shouldBeVisible)
+                    .asRequest(of: Bool.self)
+                    .fetchOne(db)
+                    .defaulting(to: false)
                 
-                _ = try SessionThread
-                    .fetchOrCreate(db, id: threadInfo.id, variant: threadInfo.variant)
-                    .with(shouldBeVisible: true)
-                    .saved(db)
-
                 // Start the disappearing messages timer if needed
                 // For disappear after send, this is necessary so the message will disappear even if it is not read
                 JobRunner.upsert(
                     db,
                     job: DisappearingMessagesJob.updateNextRunIfNeeded(db)
                 )
+
+                guard !isCurrentlyVisible else { return }
+                
+                try SessionThread
+                    .filter(id: threadId)
+                    .updateAllAndConfig(
+                        db,
+                        SessionThread.Columns.shouldBeVisible.set(to: true)
+                    )
         }
     }
     
@@ -294,180 +349,6 @@ public enum MessageReceiver {
         
         for reaction in openGroupReactions {
             try reaction.with(interactionId: interactionId).insert(db)
-        }
-    }
-    
-    // MARK: - Convenience
-    
-    internal static func threadInfo(_ db: Database, message: Message, openGroupId: String?) -> (id: String, variant: SessionThread.Variant)? {
-        if let openGroupId: String = openGroupId {
-            // Note: We don't want to create a thread for an open group if it doesn't exist
-            if (try? SessionThread.exists(db, id: openGroupId)) != true { return nil }
-            
-            return (openGroupId, .openGroup)
-        }
-        
-        if let groupPublicKey: String = message.groupPublicKey {
-            // Note: We don't want to create a thread for a closed group if it doesn't exist
-            if (try? SessionThread.exists(db, id: groupPublicKey)) != true { return nil }
-            
-            return (groupPublicKey, .closedGroup)
-        }
-        
-        // Extract the 'syncTarget' value if there is one
-        let maybeSyncTarget: String?
-        
-        switch message {
-            case let message as VisibleMessage: maybeSyncTarget = message.syncTarget
-            case let message as ExpirationTimerUpdate: maybeSyncTarget = message.syncTarget
-            default: maybeSyncTarget = nil
-        }
-        
-        // Note: We don't want to create a thread for a closed group if it doesn't exist
-        guard let contactId: String = (maybeSyncTarget ?? message.sender) else { return nil }
-        
-        return (contactId, .contact)
-    }
-    
-    internal static func updateDisappearingMessagesConfigurationIfNeeded(
-        _ db: Database,
-        message: Message,
-        openGroupId: String?,
-        proto: SNProtoContent
-    ) throws {
-        guard let sender: String = message.sender else { return }
-        
-        // Check the contact's client version based on this received message
-        let contact: Contact = Contact.fetchOrCreate(db, id: sender)
-        let lastKnowClientVersion: SessionVersion.FeatureVersion = !proto.hasExpirationTimer ? .legacyDisappearingMessages : .newDisappearingMessages
-        _ = try? contact
-            .with(lastKnownClientVersion: lastKnowClientVersion)
-            .saved(db)
-        
-        guard
-            Features.useNewDisappearingMessagesConfig,
-            let (threadId, _) = MessageReceiver.threadInfo(db, message: message, openGroupId: openGroupId),
-            proto.hasLastDisappearingMessageChangeTimestamp
-        else { return }
-        
-        let protoLastChangeTimestampMs: Int64 = Int64(proto.lastDisappearingMessageChangeTimestamp)
-        let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
-            .fetchOne(db, id: threadId)
-            .defaulting(to: DisappearingMessagesConfiguration.defaultWith(threadId))
-        
-        guard
-            let localLastChangeTimestampMs = localConfig.lastChangeTimestampMs,
-            protoLastChangeTimestampMs > localLastChangeTimestampMs
-        else { return }
-        
-        let durationSeconds: TimeInterval = proto.hasExpirationTimer ? TimeInterval(proto.expirationTimer) : 0
-        let isEnable: Bool = (durationSeconds != 0)
-        let type: DisappearingMessagesConfiguration.DisappearingMessageType? = proto.hasExpirationType ? .init(protoType: proto.expirationType) : nil
-        let remoteConfig: DisappearingMessagesConfiguration = localConfig.with(
-            isEnabled: isEnable,
-            durationSeconds: durationSeconds,
-            type: type,
-            lastChangeTimestampMs: protoLastChangeTimestampMs
-        )
-        
-        _ = try remoteConfig.save(db)
-        
-        _ = try Interaction
-            .filter(Interaction.Columns.threadId == threadId)
-            .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-            .deleteAll(db)
-
-        _ = try Interaction(
-            serverHash: message.serverHash,
-            threadId: threadId,
-            authorId: sender,
-            variant: .infoDisappearingMessagesUpdate,
-            body: remoteConfig.messageInfoString(
-                with: (sender != getUserHexEncodedPublicKey(db) ?
-                    Profile.displayName(db, id: sender) :
-                    nil
-                ),
-                isPreviousOff: !localConfig.isEnabled
-            ),
-            timestampMs: protoLastChangeTimestampMs,
-            expiresInSeconds: remoteConfig.isEnabled ? nil : localConfig.durationSeconds,
-            expiresStartedAtMs: (!remoteConfig.isEnabled && localConfig.type == .disappearAfterSend) ? Double(protoLastChangeTimestampMs) : nil
-        ).inserted(db)
-    }
-    
-    internal static func updateProfileIfNeeded(
-        _ db: Database,
-        publicKey: String,
-        name: String?,
-        profilePictureUrl: String?,
-        profileKey: OWSAES256Key?,
-        sentTimestamp: TimeInterval,
-        dependencies: Dependencies = Dependencies()
-    ) throws {
-        let isCurrentUser = (publicKey == getUserHexEncodedPublicKey(db, dependencies: dependencies))
-        let profile: Profile = Profile.fetchOrCreate(id: publicKey)
-        var updatedProfile: Profile = profile
-        
-        // Name
-        if let name = name, !name.isEmpty, name != profile.name {
-            let shouldUpdate: Bool
-            if isCurrentUser {
-                shouldUpdate = UserDefaults.standard[.lastDisplayNameUpdate]
-                    .map { sentTimestamp > $0.timeIntervalSince1970 }
-                    .defaulting(to: true)
-            }
-            else {
-                shouldUpdate = true
-            }
-            
-            if shouldUpdate {
-                if isCurrentUser {
-                    UserDefaults.standard[.lastDisplayNameUpdate] = Date(timeIntervalSince1970: sentTimestamp)
-                }
-                
-                updatedProfile = updatedProfile.with(name: name)
-            }
-        }
-        
-        // Profile picture & profile key
-        if
-            let profileKey: OWSAES256Key = profileKey,
-            let profilePictureUrl: String = profilePictureUrl,
-            profileKey.keyData.count == kAES256_KeyByteLength,
-            profileKey != profile.profileEncryptionKey
-        {
-            let shouldUpdate: Bool
-            if isCurrentUser {
-                shouldUpdate = UserDefaults.standard[.lastProfilePictureUpdate]
-                    .map { sentTimestamp > $0.timeIntervalSince1970 }
-                    .defaulting(to: true)
-            }
-            else {
-                shouldUpdate = true
-            }
-            
-            if shouldUpdate {
-                if isCurrentUser {
-                    UserDefaults.standard[.lastProfilePictureUpdate] = Date(timeIntervalSince1970: sentTimestamp)
-                }
-                
-                updatedProfile = updatedProfile.with(
-                    profilePictureUrl: .update(profilePictureUrl),
-                    profileEncryptionKey: .update(profileKey)
-                )
-            }
-        }
-        
-        // Persist any changes
-        if updatedProfile != profile {
-            try updatedProfile.save(db)
-        }
-        
-        // Download the profile picture if needed
-        if updatedProfile.profilePictureUrl != profile.profilePictureUrl || updatedProfile.profileEncryptionKey != profile.profileEncryptionKey {
-            db.afterNextTransaction { _ in
-                ProfileManager.downloadAvatar(for: updatedProfile)
-            }
         }
     }
 }

@@ -1,19 +1,4 @@
 PODS:
-  - AFNetworking (4.0.1):
-    - AFNetworking/NSURLSession (= 4.0.1)
-    - AFNetworking/Reachability (= 4.0.1)
-    - AFNetworking/Security (= 4.0.1)
-    - AFNetworking/Serialization (= 4.0.1)
-    - AFNetworking/UIKit (= 4.0.1)
-  - AFNetworking/NSURLSession (4.0.1):
-    - AFNetworking/Reachability
-    - AFNetworking/Security
-    - AFNetworking/Serialization
-  - AFNetworking/Reachability (4.0.1)
-  - AFNetworking/Security (4.0.1)
-  - AFNetworking/Serialization (4.0.1)
-  - AFNetworking/UIKit (4.0.1):
-    - AFNetworking/NSURLSession
   - CocoaLumberjack (3.8.0):
     - CocoaLumberjack/Core (= 3.8.0)
   - CocoaLumberjack/Core (3.8.0)
@@ -43,15 +28,6 @@ PODS:
     - NVActivityIndicatorView/Base (= 5.1.1)
   - NVActivityIndicatorView/Base (5.1.1)
   - OpenSSL-Universal (1.1.1300)
-  - PromiseKit (6.15.3):
-    - PromiseKit/CorePromise (= 6.15.3)
-    - PromiseKit/Foundation (= 6.15.3)
-    - PromiseKit/UIKit (= 6.15.3)
-  - PromiseKit/CorePromise (6.15.3)
-  - PromiseKit/Foundation (6.15.3):
-    - PromiseKit/CorePromise
-  - PromiseKit/UIKit (6.15.3):
-    - PromiseKit/CorePromise
   - PureLayout (3.1.9)
   - Quick (5.0.1)
   - Reachability (3.2)
@@ -139,14 +115,12 @@ PODS:
   - ZXingObjC/All (3.6.5)
 
 DEPENDENCIES:
-  - AFNetworking
   - CryptoSwift
   - Curve25519Kit (from `https://github.com/oxen-io/session-ios-curve-25519-kit.git`, branch `session-version`)
   - DifferenceKit
   - GRDB.swift/SQLCipher
   - Nimble
   - NVActivityIndicatorView
-  - PromiseKit
   - PureLayout (~> 3.1.8)
   - Quick
   - Reachability
@@ -163,7 +137,6 @@ DEPENDENCIES:
 
 SPEC REPOS:
   https://github.com/CocoaPods/Specs.git:
-    - AFNetworking
     - CocoaLumberjack
     - CryptoSwift
     - DifferenceKit
@@ -172,7 +145,6 @@ SPEC REPOS:
     - Nimble
     - NVActivityIndicatorView
     - OpenSSL-Universal
-    - PromiseKit
     - PureLayout
     - Quick
     - Reachability
@@ -217,7 +189,6 @@ CHECKOUT OPTIONS:
     :git: https://github.com/signalapp/YYImage
 
 SPEC CHECKSUMS:
-  AFNetworking: 3bd23d814e976cd148d7d44c3ab78017b744cd58
   CocoaLumberjack: 78abfb691154e2a9df8ded4350d504ee19d90732
   CryptoSwift: a532e74ed010f8c95f611d00b8bbae42e9fe7c17
   Curve25519Kit: e63f9859ede02438ae3defc5e1a87e09d1ec7ee6
@@ -227,7 +198,6 @@ SPEC CHECKSUMS:
   Nimble: 5316ef81a170ce87baf72dd961f22f89a602ff84
   NVActivityIndicatorView: 1f6c5687f1171810aa27a3296814dc2d7dec3667
   OpenSSL-Universal: e7311447fd2419f57420c79524b641537387eff2
-  PromiseKit: 3b2b6995e51a954c46dbc550ce3da44fbfb563c5
   PureLayout: 5fb5e5429519627d60d079ccb1eaa7265ce7cf88
   Quick: 749aa754fd1e7d984f2000fe051e18a3a9809179
   Reachability: 33e18b67625424e47b6cde6d202dce689ad7af96
@@ -242,6 +212,6 @@ SPEC CHECKSUMS:
   YYImage: f1ddd15ac032a58b78bbed1e012b50302d318331
   ZXingObjC: fdbb269f25dd2032da343e06f10224d62f537bdb
 
-PODFILE CHECKSUM: e9443a8235dbff1fc342aa9bf08bbc66923adf68
+PODFILE CHECKSUM: f461937f78a0482496fea6fc4b2bb5d1351fe044
 
 COCOAPODS: 1.11.3

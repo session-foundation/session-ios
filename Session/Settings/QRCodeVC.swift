@@ -2,7 +2,6 @@
 
 import UIKit
 import AVFoundation
-import Curve25519Kit
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -126,7 +125,7 @@ final class QRCodeVC : BaseVC, UIPageViewControllerDataSource, UIPageViewControl
     }
     
     fileprivate func startNewPrivateChatIfPossible(with hexEncodedPublicKey: String) {
-        if !ECKeyPair.isValidHexEncodedPublicKey(candidate: hexEncodedPublicKey) {
+        if !KeyPair.isValidHexEncodedPublicKey(candidate: hexEncodedPublicKey) {
             let modal: ConfirmationModal = ConfirmationModal(
                 targetView: self.view,
                 info: ConfirmationModal.Info(
@@ -140,7 +139,8 @@ final class QRCodeVC : BaseVC, UIPageViewControllerDataSource, UIPageViewControl
         }
         else {
             let maybeThread: SessionThread? = Storage.shared.write { db in
-                try SessionThread.fetchOrCreate(db, id: hexEncodedPublicKey, variant: .contact)
+                try SessionThread
+                    .fetchOrCreate(db, id: hexEncodedPublicKey, variant: .contact, shouldBeVisible: nil)
             }
             
             guard maybeThread != nil else { return }

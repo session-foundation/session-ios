@@ -1,12 +1,11 @@
-//
-//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
-//
+// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import AVFoundation
-import PromiseKit
 import CoreServices
 import SessionMessagingKit
+import SessionUtilitiesKit
 
 protocol PhotoCaptureDelegate: AnyObject {
     func photoCapture(_ photoCapture: PhotoCapture, didFinishProcessingAttachment attachment: SignalAttachment)
@@ -83,77 +82,93 @@ class PhotoCapture: NSObject {
         Environment.shared?.audioSession.endAudioActivity(recordingAudioActivity)
     }
 
-    func startCapture() -> Promise<Void> {
-        return sessionQueue.async(.promise) { [weak self] in
-            guard let self = self else { return }
+    func startCapture() -> AnyPublisher<Void, Error> {
+        return Just(())
+            .subscribe(on: sessionQueue)
+            .setFailureType(to: Error.self)
+            .tryMap { [weak self] _ -> Void in
+                self?.session.beginConfiguration()
+                defer { self?.session.commitConfiguration() }
 
-            self.session.beginConfiguration()
-            defer { self.session.commitConfiguration() }
+                try self?.updateCurrentInput(position: .back)
 
-            try self.updateCurrentInput(position: .back)
-
-            guard let photoOutput = self.captureOutput.photoOutput else {
-                throw PhotoCaptureError.initializationFailed
-            }
-
-            guard self.session.canAddOutput(photoOutput) else {
-                throw PhotoCaptureError.initializationFailed
-            }
-
-            if let connection = photoOutput.connection(with: .video) {
-                if connection.isVideoStabilizationSupported {
-                    connection.preferredVideoStabilizationMode = .auto
+                guard
+                    let photoOutput = self?.captureOutput.photoOutput,
+                    self?.session.canAddOutput(photoOutput) == true
+                else {
+                    throw PhotoCaptureError.initializationFailed
                 }
-            }
 
-            self.session.addOutput(photoOutput)
-
-            let movieOutput = self.captureOutput.movieOutput
-
-            if self.session.canAddOutput(movieOutput) {
-                self.session.addOutput(movieOutput)
-                self.session.sessionPreset = .high
-                if let connection = movieOutput.connection(with: .video) {
+                if let connection = photoOutput.connection(with: .video) {
                     if connection.isVideoStabilizationSupported {
                         connection.preferredVideoStabilizationMode = .auto
                     }
                 }
+
+                self?.session.addOutput(photoOutput)
+                
+                if
+                    let movieOutput = self?.captureOutput.movieOutput,
+                    self?.session.canAddOutput(movieOutput) == true
+                {
+                    self?.session.addOutput(movieOutput)
+                    self?.session.sessionPreset = .high
+                    
+                    if let connection = movieOutput.connection(with: .video) {
+                        if connection.isVideoStabilizationSupported {
+                            connection.preferredVideoStabilizationMode = .auto
+                        }
+                    }
+                }
+                
+                return ()
             }
-        }.done(on: sessionQueue) {
-            self.session.startRunning()
-        }
+            .handleEvents(
+                receiveCompletion: { [weak self] result in
+                    switch result {
+                        case .failure: break
+                        case .finished: self?.session.startRunning()
+                    }
+                }
+            )
+            .eraseToAnyPublisher()
     }
 
-    func stopCapture() -> Guarantee<Void> {
-        return sessionQueue.async(.promise) {
-            self.session.stopRunning()
-        }
+    func stopCapture() -> AnyPublisher<Void, Never> {
+        return Just(())
+            .subscribe(on: sessionQueue)
+            .handleEvents(
+                receiveOutput: { [weak self] in self?.session.stopRunning() }
+            )
+            .eraseToAnyPublisher()
     }
 
     func assertIsOnSessionQueue() {
         assertOnQueue(sessionQueue)
     }
 
-    func switchCamera() -> Promise<Void> {
+    func switchCamera() -> AnyPublisher<Void, Error> {
         AssertIsOnMainThread()
-        let newPosition: AVCaptureDevice.Position
-        switch desiredPosition {
-        case .front:
-            newPosition = .back
-        case .back:
-            newPosition = .front
-        case .unspecified:
-            newPosition = .front
-        }
-        desiredPosition = newPosition
 
-        return sessionQueue.async(.promise) { [weak self] in
-            guard let self = self else { return }
-
-            self.session.beginConfiguration()
-            defer { self.session.commitConfiguration() }
-            try self.updateCurrentInput(position: newPosition)
-        }
+        desiredPosition = {
+            switch desiredPosition {
+                case .front: return .back
+                case .back: return .front
+                case .unspecified: return .front
+            }
+        }()
+        
+        return Just(())
+            .setFailureType(to: Error.self)
+            .subscribe(on: sessionQueue)
+            .tryMap { [weak self, newPosition = self.desiredPosition] _ -> Void in
+                self?.session.beginConfiguration()
+                defer { self?.session.commitConfiguration() }
+                
+                try self?.updateCurrentInput(position: newPosition)
+                return ()
+            }
+            .eraseToAnyPublisher()
     }
 
     // This method should be called on the serial queue,
@@ -179,20 +194,29 @@ class PhotoCapture: NSObject {
         resetFocusAndExposure()
     }
 
-    func switchFlashMode() -> Guarantee<Void> {
-        return sessionQueue.async(.promise) {
-            switch self.captureOutput.flashMode {
-            case .auto:
-                Logger.debug("new flashMode: on")
-                self.captureOutput.flashMode = .on
-            case .on:
-                Logger.debug("new flashMode: off")
-                self.captureOutput.flashMode = .off
-            case .off:
-                Logger.debug("new flashMode: auto")
-                self.captureOutput.flashMode = .auto
-            }
-        }
+    func switchFlashMode() -> AnyPublisher<Void, Never> {
+        return Just(())
+            .subscribe(on: sessionQueue)
+            .handleEvents(
+                receiveOutput: { [weak self] _ in
+                    switch self?.captureOutput.flashMode {
+                        case .auto:
+                            Logger.debug("new flashMode: on")
+                            self?.captureOutput.flashMode = .on
+                            
+                        case .on:
+                            Logger.debug("new flashMode: off")
+                            self?.captureOutput.flashMode = .off
+                            
+                        case .off:
+                            Logger.debug("new flashMode: auto")
+                            self?.captureOutput.flashMode = .auto
+                            
+                        default: break
+                    }
+                }
+            )
+            .eraseToAnyPublisher()
     }
 
     func focus(with focusMode: AVCaptureDevice.FocusMode,
@@ -325,14 +349,23 @@ extension PhotoCapture: CaptureButtonDelegate {
         AssertIsOnMainThread()
 
         Logger.verbose("")
-        sessionQueue.async(.promise) {
-            try self.startAudioCapture()
-            self.captureOutput.beginVideo(delegate: self)
-        }.done {
-            self.delegate?.photoCaptureDidBeginVideo(self)
-        }.catch { error in
-            self.delegate?.photoCapture(self, processingDidError: error)
-        }.retainUntilComplete()
+        
+        Just(())
+            .subscribe(on: sessionQueue)
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self] _ in
+                    guard let strongSelf = self else { return }
+                    
+                    do {
+                        try strongSelf.startAudioCapture()
+                        strongSelf.captureOutput.beginVideo(delegate: strongSelf)
+                        strongSelf.delegate?.photoCaptureDidBeginVideo(strongSelf)
+                    }
+                    catch {
+                        strongSelf.delegate?.photoCapture(strongSelf, processingDidError: error)
+                    }
+                }
+            )
     }
 
     func didCompleteLongPressCaptureButton(_ captureButton: CaptureButton) {

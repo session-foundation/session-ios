@@ -1,8 +1,7 @@
-//
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
-//
 
 import Foundation
+import SignalCoreKit
 
 extension UIAlertController {
     @objc

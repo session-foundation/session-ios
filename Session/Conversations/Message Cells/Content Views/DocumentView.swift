@@ -46,7 +46,7 @@ final class DocumentView: UIView {
         // Size label
         let sizeLabel = UILabel()
         sizeLabel.font = .systemFont(ofSize: Values.verySmallFontSize)
-        sizeLabel.text = OWSFormat.formatFileSize(attachment.byteCount)
+        sizeLabel.text = Format.fileSize(attachment.byteCount)
         sizeLabel.themeTextColor = textColor
         sizeLabel.lineBreakMode = .byTruncatingTail
         

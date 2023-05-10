@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Combine
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -10,6 +11,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     
     private static let linkPreviewViewInset: CGFloat = 6
 
+    private var disposables: Set<AnyCancellable> = Set()
     private let threadVariant: SessionThread.Variant
     private weak var delegate: InputViewDelegate?
     
@@ -91,7 +93,6 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         let result: UIView = UIView()
         result.accessibilityLabel = "Mentions list"
         result.accessibilityIdentifier = "Mentions list"
-        result.isAccessibilityElement = true
         result.alpha = 0
         
         let backgroundView = UIView()
@@ -332,19 +333,26 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         
         // Build the link preview
         LinkPreview.tryToBuildPreviewInfo(previewUrl: linkPreviewURL)
-            .done { [weak self] draft in
-                guard self?.linkPreviewInfo?.url == linkPreviewURL else { return } // Obsolete
-                
-                self?.linkPreviewInfo = (url: linkPreviewURL, draft: draft)
-                self?.linkPreviewView.update(with: LinkPreview.DraftState(linkPreviewDraft: draft), isOutgoing: false)
-            }
-            .catch { [weak self] _ in
-                guard self?.linkPreviewInfo?.url == linkPreviewURL else { return } // Obsolete
-                
-                self?.linkPreviewInfo = nil
-                self?.additionalContentContainer.subviews.forEach { $0.removeFromSuperview() }
-            }
-            .retainUntilComplete()
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { [weak self] result in
+                    switch result {
+                        case .finished: break
+                        case .failure:
+                            guard self?.linkPreviewInfo?.url == linkPreviewURL else { return } // Obsolete
+                            
+                            self?.linkPreviewInfo = nil
+                            self?.additionalContentContainer.subviews.forEach { $0.removeFromSuperview() }
+                    }
+                },
+                receiveValue: { [weak self] draft in
+                    guard self?.linkPreviewInfo?.url == linkPreviewURL else { return } // Obsolete
+                    
+                    self?.linkPreviewInfo = (url: linkPreviewURL, draft: draft)
+                    self?.linkPreviewView.update(with: LinkPreview.DraftState(linkPreviewDraft: draft), isOutgoing: false)
+                }
+            )
+            .store(in: &disposables)
     }
 
     func setEnabledMessageTypes(_ messageTypes: MessageInputTypes, message: String?) {

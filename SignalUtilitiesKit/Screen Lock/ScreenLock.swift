@@ -4,6 +4,7 @@ import Foundation
 import GRDB
 import LocalAuthentication
 import SessionMessagingKit
+import SignalCoreKit
 
 public class ScreenLock {
     public enum Outcome {

@@ -1,0 +1,3 @@
+[submodule "LibSession-Util"]
+	path = LibSession-Util
+	url = git@github.com:oxen-io/libsession-util.git

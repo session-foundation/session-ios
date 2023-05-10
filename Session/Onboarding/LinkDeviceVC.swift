@@ -2,7 +2,6 @@
 
 import UIKit
 import AVFoundation
-import PromiseKit
 import SessionUIKit
 import SessionUtilitiesKit
 import SessionSnodeKit
@@ -92,10 +91,6 @@ final class LinkDeviceVC: BaseVC, UIPageViewControllerDataSource, UIPageViewCont
         tabBarTopConstraint.constant = navigationController!.navigationBar.height()
     }
     
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
-    
     // MARK: - General
     
     func pageViewController(_ pageViewController: UIPageViewController, viewControllerBefore viewController: UIViewController) -> UIViewController? {
@@ -155,32 +150,17 @@ final class LinkDeviceVC: BaseVC, UIPageViewControllerDataSource, UIPageViewCont
             return
         }
         let (ed25519KeyPair, x25519KeyPair) = try! Identity.generate(from: seed)
-        Onboarding.Flow.link.preregister(with: seed, ed25519KeyPair: ed25519KeyPair, x25519KeyPair: x25519KeyPair)
         
-        Identity.didRegister()
+        Onboarding.Flow.link
+            .preregister(
+                with: seed,
+                ed25519KeyPair: ed25519KeyPair,
+                x25519KeyPair: x25519KeyPair
+            )
         
-        // Now that we have registered get the Snode pool
-        GetSnodePoolJob.run()
-        
-        NotificationCenter.default.addObserver(self, selector: #selector(handleInitialConfigurationMessageReceived), name: .initialConfigurationMessageReceived, object: nil)
-        
-        ModalActivityIndicatorViewController
-            .present(
-                // There was some crashing here due to force-unwrapping so just falling back to
-                // using self if there is no nav controller
-                fromViewController: (self.navigationController ?? self)
-            ) { [weak self] modal in
-                self?.activityIndicatorModal = modal
-            }
-    }
-    
-    @objc private func handleInitialConfigurationMessageReceived(_ notification: Notification) {
-        DispatchQueue.main.async {
-            self.navigationController!.dismiss(animated: true) {
-                let pnModeVC = PNModeVC()
-                self.navigationController!.setViewControllers([ pnModeVC ], animated: true)
-            }
-        }
+            // Otherwise continue on to request push notifications permissions
+            let pnModeVC: PNModeVC = PNModeVC(flow: .link)
+            self.navigationController?.pushViewController(pnModeVC, animated: true)
     }
 }
 

@@ -98,7 +98,10 @@ public class MediaGalleryViewModel {
                     currentDataRetriever: { self?.galleryData },
                     onDataChange: self?.onGalleryChange,
                     onUnobservedDataChange: { updatedData, changeset in
-                        self?.unobservedGalleryDataChanges = (updatedData, changeset)
+                        self?.unobservedGalleryDataChanges = (changeset.isEmpty ?
+                            nil :
+                            (updatedData, changeset)
+                        )
                     }
                 )
             }
@@ -620,30 +623,6 @@ public class MediaGalleryViewModel {
         return AllMediaViewController(
             mediaTitleViewController: mediaTitleViewController,
             documentTitleViewController: documentTitleViewController
-        )
-    }
-}
-
-// MARK: - Objective-C Support
-
-// FIXME: Remove when we can
-
-@objc(SNMediaGallery)
-public class SNMediaGallery: NSObject {
-    @objc(pushTileViewWithSliderEnabledForThreadId:isClosedGroup:isOpenGroup:fromNavController:)
-    static func pushTileView(threadId: String, isClosedGroup: Bool, isOpenGroup: Bool, fromNavController: UINavigationController) {
-        fromNavController.pushViewController(
-            MediaGalleryViewModel.createAllMediaViewController(
-                threadId: threadId,
-                threadVariant: {
-                    if isClosedGroup { return .closedGroup }
-                    if isOpenGroup { return .openGroup }
-
-                    return .contact
-                }(),
-                focusedAttachmentId: nil
-            ),
-            animated: true
         )
     }
 }

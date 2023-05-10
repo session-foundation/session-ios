@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import SignalCoreKit
 import SessionUtilitiesKit
 
 public enum UpdateProfilePictureJob: JobExecutor {
@@ -37,6 +36,7 @@ public enum UpdateProfilePictureJob: JobExecutor {
                         .updateAll(db, Job.Columns.nextRunTimestamp.set(to: 0))
                 }
             }
+            SNLog("[UpdateProfilePictureJob] Deferred as not enough time has passed since the last update")
             deferred(job)
             return
         }
@@ -49,11 +49,8 @@ public enum UpdateProfilePictureJob: JobExecutor {
         ProfileManager.updateLocal(
             queue: queue,
             profileName: profile.name,
-            image: nil,
-            imageFilePath: profileFilePath,
-            success: { db, _ in
-                try MessageSender.syncConfiguration(db, forceSyncNow: true).retainUntilComplete()
-                
+            avatarUpdate: (profileFilePath.map { .uploadFilePath($0) } ?? .none),
+            success: { db in
                 // Need to call the 'success' closure asynchronously on the queue to prevent a reentrancy
                 // issue as it will write to the database and this closure is already called within
                 // another database write

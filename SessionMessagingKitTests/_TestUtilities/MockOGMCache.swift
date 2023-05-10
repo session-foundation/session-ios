@@ -1,19 +1,19 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import PromiseKit
+import Combine
 import SessionUtilitiesKit
 
 @testable import SessionMessagingKit
 
 class MockOGMCache: Mock<OGMCacheType>, OGMCacheType {
-    var defaultRoomsPromise: Promise<[OpenGroupAPI.Room]>? {
-        get { return accept() as? Promise<[OpenGroupAPI.Room]> }
+    var defaultRoomsPublisher: AnyPublisher<[OpenGroupAPI.Room], Error>? {
+        get { return accept() as? AnyPublisher<[OpenGroupAPI.Room], Error> }
         set { accept(args: [newValue]) }
     }
     
-    var groupImagePromises: [String: Promise<Data>] {
-        get { return accept() as! [String: Promise<Data>] }
+    var groupImagePublishers: [String: AnyPublisher<Data, Error>] {
+        get { return accept() as! [String: AnyPublisher<Data, Error>] }
         set { accept(args: [newValue]) }
     }
     

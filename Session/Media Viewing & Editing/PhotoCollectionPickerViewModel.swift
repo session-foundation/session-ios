@@ -34,12 +34,9 @@ class PhotoCollectionPickerViewModel: SessionTableViewModel<NoNav, PhotoCollecti
     // MARK: - Content
 
     override var title: String { "NOTIFICATIONS_STYLE_SOUND_TITLE".localized() }
+    override var observableTableData: ObservableData { _observableTableData }
 
-    private var _settingsData: [SectionModel] = []
-    public override var settingsData: [SectionModel] { _settingsData }
-    public override var observableSettingsData: ObservableData { _observableSettingsData }
-
-    private lazy var _observableSettingsData: ObservableData = {
+    private lazy var _observableTableData: ObservableData = {
         self.photoCollections
             .map { collections in
                 [
@@ -49,15 +46,15 @@ class PhotoCollectionPickerViewModel: SessionTableViewModel<NoNav, PhotoCollecti
                             let contents: PhotoCollectionContents = collection.contents()
                             let photoMediaSize: PhotoMediaSize = PhotoMediaSize(
                                 thumbnailSize: CGSize(
-                                    width: IconSize.veryLarge.size,
-                                    height: IconSize.veryLarge.size
+                                    width: IconSize.extraLarge.size,
+                                    height: IconSize.extraLarge.size
                                 )
                             )
                             let lastAssetItem: PhotoPickerAssetItem? = contents.lastAssetItem(photoMediaSize: photoMediaSize)
                             
                             return SessionCell.Info(
                                 id: Item(id: collection.id),
-                                leftAccessory: .iconAsync(size: .veryLarge, shouldFill: true) { imageView in
+                                leftAccessory: .iconAsync(size: .extraLarge, shouldFill: true) { imageView in
                                     // Note: We need to capture 'lastAssetItem' otherwise it'll be released and we won't
                                     // be able to load the thumbnail
                                     lastAssetItem?.asyncThumbnail { [weak imageView] image in
@@ -76,14 +73,9 @@ class PhotoCollectionPickerViewModel: SessionTableViewModel<NoNav, PhotoCollecti
             }
             .removeDuplicates()
             .eraseToAnyPublisher()
+            .mapToSessionTableViewData(for: self)
     }()
-
-    // MARK: - Functions
-
-    public override func updateSettings(_ updatedSettings: [SectionModel]) {
-        self._settingsData = updatedSettings
-    }
-
+    
     // MARK: PhotoLibraryDelegate
 
     func photoLibraryDidChange(_ photoLibrary: PhotoLibrary) {

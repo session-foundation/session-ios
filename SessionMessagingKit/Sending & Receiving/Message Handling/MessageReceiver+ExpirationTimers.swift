@@ -5,13 +5,17 @@ import GRDB
 import SessionUtilitiesKit
 
 extension MessageReceiver {
-    internal static func handleExpirationTimerUpdate(_ db: Database, message: ExpirationTimerUpdate) throws {
-        // Get the target thread
+    internal static func handleExpirationTimerUpdate(
+        _ db: Database,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        message: ExpirationTimerUpdate
+    ) throws {
         guard
             !Features.useNewDisappearingMessagesConfig,
-            let targetId: String = MessageReceiver.threadInfo(db, message: message, openGroupId: nil)?.id,
-            let sender: String = message.sender,
-            let thread: SessionThread = try? SessionThread.fetchOne(db, id: targetId)
+            // Only process these for contact and legacy groups (new groups handle it separately)
+            (threadVariant == .contact || threadVariant == .legacyGroup),
+            let sender: String = message.sender
         else { return }
         
         // Update the configuration
@@ -19,29 +23,27 @@ extension MessageReceiver {
         // Note: Messages which had been sent during the previous configuration will still
         // use it's settings (so if you enable, send a message and then disable disappearing
         // message then the message you had sent will still disappear)
-        
-        let defaultType: DisappearingMessagesConfiguration.DisappearingMessageType? = {
-            switch thread.variant {
-                case .contact:
-                    if thread.id == getUserHexEncodedPublicKey() { fallthrough }
-                    return .disappearAfterRead
-                case .closedGroup:
-                    return .disappearAfterSend
-                case .openGroup:
-                    return nil // Shouldn't happen
+        let maybeDefaultType: DisappearingMessagesConfiguration.DisappearingMessageType? = {
+            switch (threadVariant, threadId == getUserHexEncodedPublicKey(db)) {
+                case (.contact, false): return .disappearAfterRead
+                case (.legacyGroup, _), (.group, _), (_, true): return .disappearAfterSend
+                case (.community, _): return nil // Shouldn't happen
             }
         }()
+
+        guard let defaultType: DisappearingMessagesConfiguration.DisappearingMessageType = maybeDefaultType else { return }
         
-        let localConfig: DisappearingMessagesConfiguration = try thread.disappearingMessagesConfiguration
+        let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
+            .filter(id: threadId)
             .fetchOne(db)
-            .defaulting(to: DisappearingMessagesConfiguration.defaultWith(thread.id))
+            .defaulting(to: DisappearingMessagesConfiguration.defaultWith(threadId))
         
         let remoteConfig: DisappearingMessagesConfiguration = localConfig.with(
             // If there is no duration then we should disable the expiration timer
             isEnabled: ((message.duration ?? 0) > 0),
             durationSeconds: (
                 message.duration.map { TimeInterval($0) } ??
-                DisappearingMessagesConfiguration.DisappearingMessageType.disappearAfterSend.defaultDuration
+                defaultType.defaultDuration
             ),
             type: defaultType
         )
@@ -50,14 +52,28 @@ extension MessageReceiver {
         
         // Remove previous info messages
         _ = try Interaction
-            .filter(Interaction.Columns.threadId == thread.id)
+            .filter(Interaction.Columns.threadId == threadId)
             .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
             .deleteAll(db)
+        
+        // Legacy closed groups need to update the SessionUtil
+        // TODO: I assume we need to update the contact config here?
+        switch threadVariant {
+            case .legacyGroup:
+                try SessionUtil
+                    .update(
+                        db,
+                        groupPublicKey: threadId,
+                        disappearingConfig: remoteConfig
+                    )
+                
+            default: break
+        }
         
         // Add an info message for the user
         _ = try Interaction(
             serverHash: nil, // Intentionally null so sync messages are seen as duplicates
-            threadId: thread.id,
+            threadId: threadId,
             authorId: sender,
             variant: .infoDisappearingMessagesUpdate,
             body: remoteConfig.messageInfoString(
@@ -68,7 +84,98 @@ extension MessageReceiver {
                 isPreviousOff: false
             ),
             timestampMs: Int64(message.sentTimestamp ?? 0),   // Default to `0` if not set
-            expiresInSeconds: remoteConfig.isEnabled ? nil : localConfig.durationSeconds
+            expiresInSeconds: (remoteConfig.isEnabled ? nil : localConfig.durationSeconds)
+        ).inserted(db)
+    }
+    
+    internal static func updateDisappearingMessagesConfigurationIfNeeded(
+        _ db: Database,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        message: Message,
+        proto: SNProtoContent
+    ) throws {
+        guard let sender: String = message.sender else { return }
+        
+        // Check the contact's client version based on this received message
+        let lastKnownClientVersion: SessionVersion.FeatureVersion = (!proto.hasExpirationTimer ?
+            .legacyDisappearingMessages :
+            .newDisappearingMessages
+        )
+        _ = try? Contact
+            .filter(id: sender)
+            .updateAllAndConfig(
+                db,
+                Contact.Columns.lastKnownClientVersion.set(to: lastKnownClientVersion)
+            )
+        
+        guard
+            Features.useNewDisappearingMessagesConfig,
+            proto.hasLastDisappearingMessageChangeTimestamp
+        else { return }
+        
+        let protoLastChangeTimestampMs: Int64 = Int64(proto.lastDisappearingMessageChangeTimestamp)
+        let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
+            .fetchOne(db, id: threadId)
+            .defaulting(to: DisappearingMessagesConfiguration.defaultWith(threadId))
+        
+        guard
+            let localLastChangeTimestampMs = localConfig.lastChangeTimestampMs,
+            protoLastChangeTimestampMs > localLastChangeTimestampMs
+        else { return }
+        
+        let durationSeconds: TimeInterval = (proto.hasExpirationTimer ? TimeInterval(proto.expirationTimer) : 0)
+        let isEnable: Bool = (durationSeconds != 0)
+        let disappearingType: DisappearingMessagesConfiguration.DisappearingMessageType? = (proto.hasExpirationType ?
+            .init(protoType: proto.expirationType) :
+            nil
+        )
+        let remoteConfig: DisappearingMessagesConfiguration = localConfig.with(
+            isEnabled: isEnable,
+            durationSeconds: durationSeconds,
+            type: disappearingType,
+            lastChangeTimestampMs: protoLastChangeTimestampMs
+        )
+        
+        _ = try remoteConfig.save(db)
+        
+        _ = try Interaction
+            .filter(Interaction.Columns.threadId == threadId)
+            .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+            .deleteAll(db)
+        
+        // Legacy closed groups need to update the SessionUtil
+        // TODO: I assume we need to update the contact config here?
+        switch threadVariant {
+            case .legacyGroup:
+                try SessionUtil
+                    .update(
+                        db,
+                        groupPublicKey: threadId,
+                        disappearingConfig: remoteConfig
+                    )
+                
+            default: break
+        }
+
+        _ = try Interaction(
+            serverHash: message.serverHash,
+            threadId: threadId,
+            authorId: sender,
+            variant: .infoDisappearingMessagesUpdate,
+            body: remoteConfig.messageInfoString(
+                with: (sender != getUserHexEncodedPublicKey(db) ?
+                    Profile.displayName(db, id: sender) :
+                    nil
+                ),
+                isPreviousOff: !localConfig.isEnabled
+            ),
+            timestampMs: protoLastChangeTimestampMs,
+            expiresInSeconds: (remoteConfig.isEnabled ? nil : localConfig.durationSeconds),
+            expiresStartedAtMs: (!remoteConfig.isEnabled && localConfig.type == .disappearAfterSend ?
+                Double(protoLastChangeTimestampMs) :
+                nil
+            )
         ).inserted(db)
     }
 }
