@@ -87,6 +87,10 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         
         // MARK: - Convenience
         
+        public static let variantsToIncrementUnreadCount: [Variant] = [
+            .standardIncoming, .infoCall
+        ]
+        
         public var isInfoMessage: Bool {
             switch self {
                 case .infoClosedGroupCreated, .infoClosedGroupUpdated,

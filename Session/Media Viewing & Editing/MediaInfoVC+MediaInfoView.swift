@@ -3,6 +3,8 @@
 import UIKit
 import SessionUIKit
 import SessionUtilitiesKit
+import SessionMessagingKit
+import SignalUtilitiesKit
 
 extension MediaInfoVC {
     final class MediaInfoView: UIView {

@@ -446,19 +446,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             
             guard CurrentAppContext().isMainApp else { return }
             
-            CurrentAppContext().setMainAppBadgeNumber(
-                Storage.shared
+            /// On application startup the `Storage.read` can be slightly slow while GRDB spins up it's database
+            /// read pools (up to a few seconds), since this read is blocking we want to dispatch it to run async to ensure
+            /// we don't block user interaction while it's running
+            DispatchQueue.global(qos: .default).async {
+                let unreadCount: Int = Storage.shared
                     .read { db in
                         let userPublicKey: String = getUserHexEncodedPublicKey(db)
                         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
                         
                         return try Interaction
                             .filter(Interaction.Columns.wasRead == false)
-                            .filter(
-                                // Exclude outgoing and deleted messages from the count
-                                Interaction.Columns.variant != Interaction.Variant.standardOutgoing &&
-                                Interaction.Columns.variant != Interaction.Variant.standardIncomingDeleted
-                            )
+                            .filter(Interaction.Variant.variantsToIncrementUnreadCount.contains(Interaction.Columns.variant))
                             .filter(
                                 // Only count mentions if 'onlyNotifyForMentions' is set
                                 thread[.onlyNotifyForMentions] == false ||
@@ -482,7 +481,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                             .fetchCount(db)
                     }
                     .defaulting(to: 0)
-            )
+                
+                DispatchQueue.main.async {
+                    CurrentAppContext().setMainAppBadgeNumber(unreadCount)
+                }
+            }
         }
     }
     
