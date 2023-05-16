@@ -1299,7 +1299,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                                     targetView: self?.view,
                                     info: ConfirmationModal.Info(
                                         title: CommonStrings.errorAlertTitle,
-                                        explanation: "INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE".localized(),
+                                        body: .text("INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE".localized()),
                                         cancelTitle: "BUTTON_OK".localized(),
                                         cancelStyle: .alert_text
                                     )
