@@ -20,11 +20,13 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatabl
     }
     
     public enum DisappearingMessageType: Int, Codable, Hashable, DatabaseValueConvertible {
+        case legacy
         case disappearAfterRead
         case disappearAfterSend
         
         public var defaultDuration: TimeInterval {
             switch self {
+                case .legacy:             return (12 * 60 * 60)
                 case .disappearAfterRead: return (12 * 60 * 60)
                 case .disappearAfterSend: return (24 * 60 * 60)
             }
@@ -32,6 +34,7 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatabl
         
         init(protoType: SNProtoContent.SNProtoContentExpirationType) {
             switch protoType {
+                case .legacy:          self = .legacy
                 case .deleteAfterRead: self = .disappearAfterRead
                 case .deleteAfterSend: self = .disappearAfterSend
             }
@@ -39,6 +42,7 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatabl
         
         func toProto() -> SNProtoContent.SNProtoContentExpirationType {
             switch self {
+                case .legacy:             return .legacy
                 case .disappearAfterRead: return .deleteAfterRead
                 case .disappearAfterSend: return .deleteAfterSend
             }
@@ -211,7 +215,7 @@ extension DisappearingMessagesConfiguration {
     
     public static func validDurationsSeconds(_ type: DisappearingMessageType) -> [TimeInterval] {
         switch type {
-            case .disappearAfterRead:
+            case .legacy, .disappearAfterRead:
                 return [
                     60, // TODO: remove this, for test purpose only
                     (5 * 60),
