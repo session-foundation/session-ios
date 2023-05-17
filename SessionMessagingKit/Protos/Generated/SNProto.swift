@@ -588,12 +588,14 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
     // MARK: - SNProtoContentExpirationType
 
     @objc public enum SNProtoContentExpirationType: Int32 {
+        case legacy = 0
         case deleteAfterRead = 1
         case deleteAfterSend = 2
     }
 
     private class func SNProtoContentExpirationTypeWrap(_ value: SessionProtos_Content.ExpirationType) -> SNProtoContentExpirationType {
         switch value {
+        case .legacy: return .legacy
         case .deleteAfterRead: return .deleteAfterRead
         case .deleteAfterSend: return .deleteAfterSend
         }
@@ -601,6 +603,7 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
 
     private class func SNProtoContentExpirationTypeUnwrap(_ value: SNProtoContentExpirationType) -> SessionProtos_Content.ExpirationType {
         switch value {
+        case .legacy: return .legacy
         case .deleteAfterRead: return .deleteAfterRead
         case .deleteAfterSend: return .deleteAfterSend
         }
