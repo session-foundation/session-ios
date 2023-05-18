@@ -593,7 +593,7 @@ public struct ProfileManager {
                     )
             }
             // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-            else if !SessionUtil.userConfigsEnabled {
+            else if !SessionUtil.userConfigsEnabled(db) {
                 // If we have a contact record for the profile (ie. it's a synced profile) then
                 // should should send an updated config message, otherwise we should just update
                 // the local state (the shared util has this logic build in to it's handling)
