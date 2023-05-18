@@ -3,6 +3,7 @@
 import UIKit
 import SessionUIKit
 import SessionMessagingKit
+import SessionUtilitiesKit
 
 final class QuoteView: UIView {
     static let thumbnailSize: CGFloat = 48
@@ -237,17 +238,27 @@ final class QuoteView: UIView {
         .compactMap { $0 }
         .asSet()
         .contains(authorId)
+        
         let authorLabel = UILabel()
         authorLabel.font = .boldSystemFont(ofSize: Values.smallFontSize)
-        authorLabel.text = (isCurrentUser ?
-            "MEDIA_GALLERY_SENDER_NAME_YOU".localized() :
-            Profile.displayName(
+        authorLabel.text = {
+            guard !isCurrentUser else { return "MEDIA_GALLERY_SENDER_NAME_YOU".localized() }
+            guard body != nil else {
+                // When we can't find the quoted message we want to hide the author label
+                return Profile.displayNameNoFallback(
+                    id: authorId,
+                    threadVariant: threadVariant
+                )
+            }
+            
+            return Profile.displayName(
                 id: authorId,
                 threadVariant: threadVariant
             )
-        )
+        }()
         authorLabel.themeTextColor = targetThemeColor
         authorLabel.lineBreakMode = .byTruncatingTail
+        authorLabel.isHidden = (authorLabel.text == nil)
         
         let authorLabelSize = authorLabel.systemLayoutSizeFitting(availableSpace)
         authorLabel.set(.height, to: authorLabelSize.height)

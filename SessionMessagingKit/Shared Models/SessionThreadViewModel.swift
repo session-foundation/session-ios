@@ -100,8 +100,14 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public var canWrite: Bool {
         switch threadVariant {
             case .contact: return true
-            case .closedGroup: return (currentUserIsClosedGroupMember == true) && (interactionVariant?.isGroupLeavingStatus != true)
-            case .openGroup: return openGroupPermissions?.contains(.write) ?? false
+            case .closedGroup:
+                return (
+                    currentUserIsClosedGroupMember == true &&
+                    interactionVariant?.isGroupLeavingStatus != true
+                )
+                
+            case .openGroup:
+                return (openGroupPermissions?.contains(.write) ?? false)
         }
     }
     
@@ -241,6 +247,7 @@ public extension SessionThreadViewModel {
         threadIsNoteToSelf: Bool = false,
         contactProfile: Profile? = nil,
         currentUserIsClosedGroupMember: Bool? = nil,
+        openGroupPermissions: OpenGroup.Permissions? = nil,
         unreadCount: UInt = 0
     ) {
         self.rowId = -1
@@ -279,7 +286,7 @@ public extension SessionThreadViewModel {
         self.openGroupPublicKey = nil
         self.openGroupProfilePictureData = nil
         self.openGroupUserCount = nil
-        self.openGroupPermissions = nil
+        self.openGroupPermissions = openGroupPermissions
         
         // Interaction display info
         

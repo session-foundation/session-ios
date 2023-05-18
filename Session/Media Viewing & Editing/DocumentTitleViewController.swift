@@ -119,7 +119,10 @@ public class DocumentTileViewController: UIViewController, UITableViewDelegate, 
     }
     
     @objc func applicationDidBecomeActive(_ notification: Notification) {
-        startObservingChanges()
+        /// Need to dispatch to the next run loop to prevent a possible crash caused by the database resuming mid-query
+        DispatchQueue.main.async { [weak self] in
+            self?.startObservingChanges()
+        }
     }
     
     @objc func applicationDidResignActive(_ notification: Notification) {
