@@ -87,7 +87,7 @@ public extension DisappearingMessagesConfiguration {
             threadId: threadId,
             isEnabled: (isEnabled ?? self.isEnabled),
             durationSeconds: (durationSeconds ?? self.durationSeconds),
-            type: (isEnabled == false) ? nil : (type ?? self.type),
+            type: (isEnabled == false) ? .unknown : (type ?? self.type),
             lastChangeTimestampMs: (lastChangeTimestampMs ?? self.lastChangeTimestampMs)
         )
     }

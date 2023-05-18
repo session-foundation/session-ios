@@ -141,7 +141,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                                             .with(
                                                 isEnabled: false,
                                                 durationSeconds: 0,
-                                                type: nil,
+                                                type: .unknown,
                                                 lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
                                             )
                                         self?.shouldShowConfirmButton.send(updatedConfig != config)
@@ -315,7 +315,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                                                 .with(
                                                     isEnabled: false,
                                                     durationSeconds: 0,
-                                                    type: nil,
+                                                    type: .unknown,
                                                     lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
                                                 )
                                             self?.shouldShowConfirmButton.send(updatedConfig != config)
@@ -425,7 +425,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                                                     .with(
                                                         isEnabled: false,
                                                         durationSeconds: 0,
-                                                        type: nil,
+                                                        type: .unknown,
                                                         lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
                                                     )
                                                 self?.shouldShowConfirmButton.send(updatedConfig != config)
