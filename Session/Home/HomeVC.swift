@@ -752,7 +752,7 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                             let confirmationModal: ConfirmationModal = ConfirmationModal(
                                 info: ConfirmationModal.Info(
                                     title: "delete_conversation_confirmation_alert_title".localized(),
-                                    attributedExplanation: confirmationModalExplanation,
+                                    body: .attributedText(confirmationModalExplanation),
                                     confirmTitle: "TXT_DELETE_TITLE".localized(),
                                     confirmStyle: .danger,
                                     cancelStyle: .alert_text,
@@ -837,7 +837,7 @@ final class HomeVC: BaseVC, UITableViewDataSource, UITableViewDelegate, SeedRemi
                             let confirmationModal: ConfirmationModal = ConfirmationModal(
                                 info: ConfirmationModal.Info(
                                     title: confirmationModalTitle,
-                                    attributedExplanation: confirmationModalExplanation,
+                                    body: .attributedText(confirmationModalExplanation),
                                     confirmTitle: "LEAVE_BUTTON_TITLE".localized(),
                                     confirmStyle: .danger,
                                     cancelStyle: .alert_text,

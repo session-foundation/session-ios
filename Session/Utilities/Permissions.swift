@@ -3,7 +3,9 @@
 import UIKit
 import Photos
 import PhotosUI
+import SessionUIKit
 import SessionUtilitiesKit
+import SessionMessagingKit
 
 public enum Permissions {
     @discardableResult public static func requestCameraPermissionIfNeeded(
@@ -21,9 +23,11 @@ public enum Permissions {
                 let confirmationModal: ConfirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(
                         title: "Session",
-                        explanation: String(
-                            format: "modal_permission_explanation".localized(),
-                            "modal_permission_camera".localized()
+                        body: .text(
+                            String(
+                                format: "modal_permission_explanation".localized(),
+                                "modal_permission_camera".localized()
+                            )
                         ),
                         confirmTitle: "modal_permission_settings_title".localized(),
                         dismissOnConfirm: false
@@ -59,9 +63,11 @@ public enum Permissions {
                 let confirmationModal: ConfirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(
                         title: "Session",
-                        explanation: String(
-                            format: "modal_permission_explanation".localized(),
-                            "modal_permission_microphone".localized()
+                        body: .text(
+                            String(
+                                format: "modal_permission_explanation".localized(),
+                                "modal_permission_microphone".localized()
+                            )
                         ),
                         confirmTitle: "modal_permission_settings_title".localized(),
                         dismissOnConfirm: false,
@@ -128,9 +134,11 @@ public enum Permissions {
                 let confirmationModal: ConfirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(
                         title: "Session",
-                        explanation: String(
-                            format: "modal_permission_explanation".localized(),
-                            "modal_permission_library".localized()
+                        body: .text(
+                            String(
+                                format: "modal_permission_explanation".localized(),
+                                "modal_permission_library".localized()
+                            )
                         ),
                         confirmTitle: "modal_permission_settings_title".localized(),
                         dismissOnConfirm: false

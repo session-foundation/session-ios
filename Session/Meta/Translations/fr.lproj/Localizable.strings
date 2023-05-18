@@ -623,3 +623,6 @@
 "group_unable_to_leave" = "Unable to leave the Group, please try again";
 "delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
 "delete_conversation_confirmation_alert_title" = "Delete Conversation";
+"update_profile_modal_title" = "Set Display Picture";
+"update_profile_modal_upload" = "Upload";
+"update_profile_modal_remove" = "Remove";
