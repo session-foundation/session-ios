@@ -535,7 +535,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                     value: {
                         switch avatarUpdate {
                             case .uploadImage(let image): return image
-                            case .uploadFilePath(let filePath): UIImage(contentsOfFile: filePath)
+                            case .uploadFilePath(let filePath): return UIImage(contentsOfFile: filePath)
                             default: return nil
                         }
                     }(),

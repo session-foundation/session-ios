@@ -578,9 +578,6 @@
 		FD245C6B2850667400B966DD /* VisibleMessage+Profile.swift in Sources */ = {isa = PBXBuildFile; fileRef = C300A5B12554AF9800555489 /* VisibleMessage+Profile.swift */; };
 		FD245C6C2850669200B966DD /* MessageReceiveJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = C352A31225574F5200338F3E /* MessageReceiveJob.swift */; };
 		FD245C6D285066A400B966DD /* NotifyPushServerJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = C352A32E2557549C00338F3E /* NotifyPushServerJob.swift */; };
-		FD26FA5E291CAFF9005801D8 /* (null) in Sources */ = {isa = PBXBuildFile; };
-		FD26FA6D291DADAE005801D8 /* (null) in Sources */ = {isa = PBXBuildFile; };
-		FD26FA7B291DF8F3005801D8 /* (null) in Sources */ = {isa = PBXBuildFile; };
 		FD2AAAED28ED3E1000A49611 /* MockGeneralCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFD645C27F273F300808CA1 /* MockGeneralCache.swift */; };
 		FD2AAAEE28ED3E1100A49611 /* MockGeneralCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFD645C27F273F300808CA1 /* MockGeneralCache.swift */; };
 		FD2AAAF028ED57B500A49611 /* SynchronousStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */; };
@@ -4604,8 +4601,8 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = C3C2A6F925539DE700C340D1 /* Build configuration list for PBXNativeTarget "SessionMessagingKit" */;
 			buildPhases = (
-				FDFC4E1729F14F7A00992FB6 /* Validate pre-build actions */,
 				2014435DF351DF6C60122751 /* [CP] Check Pods Manifest.lock */,
+				FDFC4E1729F14F7A00992FB6 /* Validate pre-build actions */,
 				C3C2A6EB25539DE700C340D1 /* Headers */,
 				C3C2A6EC25539DE700C340D1 /* Sources */,
 				C3C2A6ED25539DE700C340D1 /* Frameworks */,
@@ -5547,7 +5544,6 @@
 				FDF848D129405C5B007DCAE5 /* SnodeSwarmItem.swift in Sources */,
 				FDF848DD29405C5B007DCAE5 /* LegacySendMessageRequest.swift in Sources */,
 				FDF848BD29405C5A007DCAE5 /* GetMessagesRequest.swift in Sources */,
-				FD26FA7B291DF8F3005801D8 /* (null) in Sources */,
 				FDF848DB29405C5B007DCAE5 /* DeleteMessagesResponse.swift in Sources */,
 				FDF848E629405D6E007DCAE5 /* OnionRequestAPIDestination.swift in Sources */,
 				FDF848CC29405C5B007DCAE5 /* SnodeReceivedMessage.swift in Sources */,
@@ -5557,7 +5553,6 @@
 				FDF848D229405C5B007DCAE5 /* LegacyGetMessagesRequest.swift in Sources */,
 				FDF848CB29405C5B007DCAE5 /* SnodePoolResponse.swift in Sources */,
 				FDF848C429405C5A007DCAE5 /* RevokeSubkeyResponse.swift in Sources */,
-				FD26FA6D291DADAE005801D8 /* (null) in Sources */,
 				FDF848E529405D6E007DCAE5 /* SnodeAPIError.swift in Sources */,
 				FDF848D529405C5B007DCAE5 /* DeleteAllMessagesResponse.swift in Sources */,
 				FDF848E329405D6E007DCAE5 /* OnionRequestAPIVersion.swift in Sources */,
@@ -5691,7 +5686,6 @@
 				FDF8488929405B27007DCAE5 /* Data+Utilities.swift in Sources */,
 				FD09797227FAA2F500936362 /* Optional+Utilities.swift in Sources */,
 				FD7162DB281B6C440060647B /* TypedTableAlias.swift in Sources */,
-				FD26FA5E291CAFF9005801D8 /* (null) in Sources */,
 				FD7115F828C8151C00B47552 /* DisposableBarButtonItem.swift in Sources */,
 				FD17D7E727F6A16700122BE0 /* _003_YDBToGRDBMigration.swift in Sources */,
 			);

@@ -67,7 +67,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             
             // If we have a specified 'focusedInteractionInfo' then use that, otherwise retrieve the oldest
             // unread interaction and start focused around that one
-            let targetInteractionInfo: Int64? = (focusedInteractionInfo != nil ? focusedInteractionInfo :
+            let targetInteractionInfo: Interaction.TimestampInfo? = (focusedInteractionInfo != nil ? focusedInteractionInfo :
                 try Interaction
                     .select(.id, .timestampMs)
                     .filter(interaction[.wasRead] == false)
@@ -76,7 +76,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                     .asRequest(of: Interaction.TimestampInfo.self)
                     .fetchOne(db)
             )
-            let threadIsBlocked: Bool= (threadVariant != .contact ? false :
+            let threadIsBlocked: Bool = (threadVariant != .contact ? false :
                 try Contact
                     .filter(id: threadId)
                     .select(.isBlocked)
@@ -85,7 +85,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                     .defaulting(to: false)
             )
             let currentUserIsClosedGroupMember: Bool? = (![.legacyGroup, .group].contains(threadVariant) ? nil :
-                try GroupMember
+                GroupMember
                     .filter(groupMember[.groupId] == threadId)
                     .filter(groupMember[.profileId] == getUserHexEncodedPublicKey(db))
                     .filter(groupMember[.role] == GroupMember.Role.standard)
@@ -115,12 +115,12 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         
         self.threadId = threadId
         self.initialThreadVariant = threadVariant
-        self.focusedInteractionInfo = targetInteractionInfo
+        self.focusedInteractionInfo = initialData?.targetInteractionInfo
         self.threadData = SessionThreadViewModel(
             threadId: threadId,
             threadVariant: threadVariant,
             threadIsNoteToSelf: (self.threadId == getUserHexEncodedPublicKey()),
-            threadIsBlocked: threadIsBlocked,
+            threadIsBlocked: initialData?.threadIsBlocked,
             currentUserIsClosedGroupMember: initialData?.currentUserIsClosedGroupMember,
             openGroupPermissions: initialData?.openGroupPermissions
         ).populatingCurrentUserBlindedKey(currentUserBlindedPublicKeyForThisThread: initialData?.blindedKey)
@@ -143,7 +143,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             // If we don't have a `initialFocusedInfo` then default to `.pageBefore` (it'll query
             // from a `0` offset)
-            guard let initialFocusedInfo: Interaction.TimestampInfo = targetInteractionInfo else {
+            guard let initialFocusedInfo: Interaction.TimestampInfo = initialData?.targetInteractionInfo else {
                 self?.pagedDataObserver?.load(.pageBefore)
                 return
             }

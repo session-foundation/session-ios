@@ -183,7 +183,7 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
                         targetView: self.view,
                         info: ConfirmationModal.Info(
                             title: "ALERT_ERROR_TITLE".localized(),
-                            explanation: "DM_ERROR_DIRECT_BLINDED_ID".localized(),
+                            body: .text("DM_ERROR_DIRECT_BLINDED_ID".localized()),
                             cancelTitle: "BUTTON_OK".localized(),
                             cancelStyle: .alert_text
                         )
@@ -195,7 +195,7 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
                         targetView: self.view,
                         info: ConfirmationModal.Info(
                             title: "ALERT_ERROR_TITLE".localized(),
-                            explanation: "DM_ERROR_INVALID".localized(),
+                            body: .text("DM_ERROR_INVALID".localized()),
                             cancelTitle: "BUTTON_OK".localized(),
                             cancelStyle: .alert_text
                         )

@@ -818,11 +818,11 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     format: "BLOCK_LIST_VIEW_BLOCKED_ALERT_MESSAGE_FORMAT".localized(),
                                     displayName
                                 )
-                            ),
+                            )),
                             accessibility: Accessibility(
                                 identifier: "Test_name",
                                 label: (oldBlockedState == false ? "User blocked" : "Confirm unblock")
-                            )),
+                            ),
                             cancelTitle: "BUTTON_OK".localized(),
                             cancelAccessibility: Accessibility(identifier: "OK_BUTTON"),
                             cancelStyle: .alert_text
