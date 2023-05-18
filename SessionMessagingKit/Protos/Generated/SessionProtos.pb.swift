@@ -358,7 +358,7 @@ struct SessionProtos_Content {
   mutating func clearSharedConfigMessage() {_uniqueStorage()._sharedConfigMessage = nil}
 
   var expirationType: SessionProtos_Content.ExpirationType {
-    get {return _storage._expirationType ?? .legacy}
+    get {return _storage._expirationType ?? .unknown}
     set {_uniqueStorage()._expirationType = newValue}
   }
   /// Returns true if `expirationType` has been explicitly set.
@@ -388,17 +388,17 @@ struct SessionProtos_Content {
 
   enum ExpirationType: SwiftProtobuf.Enum {
     typealias RawValue = Int
-    case legacy // = 0
+    case unknown // = 0
     case deleteAfterRead // = 1
     case deleteAfterSend // = 2
 
     init() {
-      self = .legacy
+      self = .unknown
     }
 
     init?(rawValue: Int) {
       switch rawValue {
-      case 0: self = .legacy
+      case 0: self = .unknown
       case 1: self = .deleteAfterRead
       case 2: self = .deleteAfterSend
       default: return nil
@@ -407,7 +407,7 @@ struct SessionProtos_Content {
 
     var rawValue: Int {
       switch self {
-      case .legacy: return 0
+      case .unknown: return 0
       case .deleteAfterRead: return 1
       case .deleteAfterSend: return 2
       }
@@ -2121,7 +2121,7 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
 
 extension SessionProtos_Content.ExpirationType: SwiftProtobuf._ProtoNameProviding {
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    0: .same(proto: "LEGACY"),
+    0: .same(proto: "UNKNOWN"),
     1: .same(proto: "DELETE_AFTER_READ"),
     2: .same(proto: "DELETE_AFTER_SEND"),
   ]

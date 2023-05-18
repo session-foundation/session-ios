@@ -9,5 +9,5 @@ public final class Features {
     public static let useSharedUtilForUserConfig: Bool = true   // TODO: Base this off a timestamp
 
 //    public static let useNewDisappearingMessagesConfig: Bool = Date().timeIntervalSince1970 > 1671062400 // 15/12/2022
-    public static let useNewDisappearingMessagesConfig: Bool = true
+    public static let useNewDisappearingMessagesConfig: Bool = false
 }
