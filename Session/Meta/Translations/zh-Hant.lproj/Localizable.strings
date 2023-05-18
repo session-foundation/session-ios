@@ -626,7 +626,14 @@
 "delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
 "hide_note_to_self_confirmation_alert_title" = "Hide Note to Self";
 "hide_note_to_self_confirmation_alert_message" = "Are you sure you want to hide %@?";
-"REMOVE_AVATAR" = "Remove";
+"update_profile_modal_title" = "Set Display Picture";
+"update_profile_modal_upload" = "Upload";
+"update_profile_modal_remove" = "Remove";
+"update_profile_modal_remove_error_title" = "Unable to remove avatar image";
+"update_profile_modal_max_size_error_title" = "Maximum File Size Exceeded";
+"update_profile_modal_max_size_error_message" = "Please select a smaller photo and try again";
+"update_profile_modal_error_title" = "Couldn't Update Profile";
+"update_profile_modal_error_message" = "Please check your internet connection and try again";
 "CONTACT_NICKNAME_PLACEHOLDER" = "Enter a name";
 "MARK_AS_READ" = "Mark Read";
 "MARK_AS_UNREAD" = "Mark Unread";
@@ -634,4 +641,3 @@
 "CONVERSATION_EMPTY_STATE_READ_ONLY" = "There are no messages in %@.";
 "CONVERSATION_EMPTY_STATE_NOTE_TO_SELF" = "You have no messages in %@.";
 "USER_CONFIG_OUTDATED_WARNING" = "Some of your devices are using outdated versions. Syncing may be unreliable until they are updated.";
-"UPDATE_PROFILE_TITLE" = "Update Profile Picture";

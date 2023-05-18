@@ -73,7 +73,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
         onImagePicked: { [weak self] resultImage in
             guard let oldDisplayName: String = self?.oldDisplayName else { return }
             
-            self?.updateProfile(
+            self?.updatedProfilePictureSelected(
                 name: oldDisplayName,
                 avatarUpdate: .uploadImage(resultImage)
             )
@@ -81,7 +81,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
         onImageFilePicked: { [weak self] resultImagePath in
             guard let oldDisplayName: String = self?.oldDisplayName else { return }
             
-            self?.updateProfile(
+            self?.updatedProfilePictureSelected(
                 name: oldDisplayName,
                 avatarUpdate: .uploadFilePath(resultImagePath)
             )
@@ -89,6 +89,8 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     )
     fileprivate var oldDisplayName: String
     private var editedDisplayName: String?
+    private var editProfilePictureModal: ConfirmationModal?
+    private var editProfilePictureModalInfo: ConfirmationModal.Info?
     
     // MARK: - Initialization
     
@@ -153,11 +155,13 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     }
     
     override var rightNavItems: AnyPublisher<[NavItem]?, Never> {
-       navState
-           .map { [weak self] navState -> [NavItem] in
-               switch navState {
-                   case .standard:
-                       return [
+        let userSessionId: String = self.userSessionId
+        
+        return navState
+            .map { [weak self] navState -> [NavItem] in
+                switch navState {
+                    case .standard:
+                        return [
                             NavItem(
                                 id: .qrCode,
                                 image: UIImage(named: "QRCode")?
@@ -168,10 +172,10 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                                     self?.transitionToScreen(QRCodeVC())
                                 }
                             )
-                       ]
+                        ]
                        
-                   case .editing:
-                       return [
+                    case .editing:
+                        return [
                             NavItem(
                                 id: .done,
                                 systemItem: .done,
@@ -258,11 +262,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                                 label: "Profile picture"
                             ),
                             onTap: {
-                                self?.updateProfilePicture(
-                                    hasCustomImage: ProfileManager.hasProfileImageData(
-                                        with: profile.profilePictureFileName
-                                    )
-                                )
+                                self?.updateProfilePicture(currentFileName: profile.profilePictureFileName)
                             }
                         ),
                         SessionCell.Info(
@@ -485,32 +485,73 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     
     // MARK: - Functions
     
-    private func updateProfilePicture(hasCustomImage: Bool) {
-        let actionSheet: UIAlertController = UIAlertController(
-            title: "UPDATE_PROFILE_TITLE".localized(),
-            message: nil,
-            preferredStyle: .actionSheet
-        )
-        actionSheet.addAction(UIAlertAction(
-            title: "MEDIA_FROM_LIBRARY_BUTTON".localized(),
-            style: .default,
-            handler: { [weak self] _ in
-                self?.showPhotoLibraryForAvatar()
+    private func updateProfilePicture(currentFileName: String?) {
+        let existingDisplayName: String = self.oldDisplayName
+        
+        let existingImage: UIImage? = currentFileName
+            .map { ProfileManager.loadProfileData(with: $0) }
+            .map { UIImage(data: $0) }
+        let editProfilePictureModalInfo: ConfirmationModal.Info = ConfirmationModal.Info(
+            title: "update_profile_modal_title".localized(),
+            body: .image(
+                placeholder: UIImage(named: "profile_placeholder"),
+                value: existingImage,
+                style: .circular,
+                onClick: { [weak self] in self?.showPhotoLibraryForAvatar() }
+            ),
+            confirmTitle: "update_profile_modal_upload".localized(),
+            confirmEnabled: false,
+            cancelTitle: "update_profile_modal_remove".localized(),
+            cancelEnabled: (existingImage != nil),
+            hasCloseButton: true,
+            dismissOnConfirm: false,
+            onConfirm: { modal in modal.close() },
+            onCancel: { [weak self] modal in
+                self?.updateProfile(
+                    name: existingDisplayName,
+                    avatarUpdate: .remove,
+                    onComplete: { [weak modal] in modal?.close() }
+                )
+            },
+            afterClosed: { [weak self] in
+                self?.editProfilePictureModal = nil
+                self?.editProfilePictureModalInfo = nil
             }
-        ))
+        )
+        let modal: ConfirmationModal = ConfirmationModal(info: editProfilePictureModalInfo)
+            
+        self.editProfilePictureModalInfo = editProfilePictureModalInfo
+        self.editProfilePictureModal = modal
+        self.transitionToScreen(modal, transitionType: .present)
+    }
+    
+    fileprivate func updatedProfilePictureSelected(name: String, avatarUpdate: ProfileManager.AvatarUpdate) {
+        guard let info: ConfirmationModal.Info = self.editProfilePictureModalInfo else { return }
         
-        // Only have the 'remove' button if there is a custom avatar set
-        if hasCustomImage {
-            actionSheet.addAction(UIAlertAction(
-                title: "REMOVE_AVATAR".localized(),
-                style: .destructive,
-                handler: { [weak self] _ in self?.removeProfileImage() }
-            ))
-        }
-        
-        actionSheet.addAction(UIAlertAction(title: "cancel".localized(), style: .cancel, handler: nil))
-        
-        self.transitionToScreen(actionSheet, transitionType: .present)
+        self.editProfilePictureModal?.updateContent(
+            with: info.with(
+                body: .image(
+                    placeholder: UIImage(named: "profile_placeholder"),
+                    value: {
+                        switch avatarUpdate {
+                            case .uploadImage(let image): return image
+                            case .uploadFilePath(let filePath): UIImage(contentsOfFile: filePath)
+                            default: return nil
+                        }
+                    }(),
+                    style: .circular,
+                    onClick: { [weak self] in self?.showPhotoLibraryForAvatar() }
+                ),
+                confirmEnabled: true,
+                onConfirm: { [weak self] modal in
+                    self?.updateProfile(
+                        name: name,
+                        avatarUpdate: avatarUpdate,
+                        onComplete: { [weak modal] in modal?.close() }
+                    )
+                }
+            )
+        )
     }
     
     private func showPhotoLibraryForAvatar() {
@@ -526,47 +567,10 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
         }
     }
     
-    private func removeProfileImage() {
-        let oldDisplayName: String = self.oldDisplayName
-        
-        let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self] modalActivityIndicator in
-            ProfileManager.updateLocal(
-                queue: DispatchQueue.global(qos: .default),
-                profileName: oldDisplayName,
-                avatarUpdate: .remove,
-                success: { db in
-                    // Wait for the database transaction to complete before updating the UI
-                    db.afterNextTransactionNested { _ in
-                        DispatchQueue.main.async {
-                            modalActivityIndicator.dismiss(completion: {})
-                        }
-                    }
-                },
-                failure: { [weak self] _ in
-                    DispatchQueue.main.async {
-                        modalActivityIndicator.dismiss {
-                            self?.transitionToScreen(
-                                ConfirmationModal(
-                                    info: ConfirmationModal.Info(
-                                        title: "Unable to remove avatar image",
-                                        cancelTitle: "BUTTON_OK".localized(),
-                                        cancelStyle: .alert_text
-                                    )
-                                ),
-                                transitionType: .present
-                            )
-                        }
-                    }
-                }
-            )
-        }
-        
-        self.transitionToScreen(viewController, transitionType: .present)
-    }
-    
     fileprivate func updateProfile(
         name: String,
-        avatarUpdate: ProfileManager.AvatarUpdate
+        avatarUpdate: ProfileManager.AvatarUpdate,
+        onComplete: (() -> ())? = nil
     ) {
         let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self] modalActivityIndicator in
             ProfileManager.updateLocal(
@@ -577,28 +581,42 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                     // Wait for the database transaction to complete before updating the UI
                     db.afterNextTransactionNested { _ in
                         DispatchQueue.main.async {
-                            modalActivityIndicator.dismiss(completion: {})
+                            modalActivityIndicator.dismiss(completion: {
+                                onComplete?()
+                            })
                         }
                     }
                 },
                 failure: { [weak self] error in
                     DispatchQueue.main.async {
                         modalActivityIndicator.dismiss {
-                            let isMaxFileSizeExceeded: Bool = (error == .avatarUploadMaxFileSizeExceeded)
+                            let title: String = {
+                                switch (avatarUpdate, error) {
+                                    case (.remove, _): return "update_profile_modal_remove_error_title".localized()
+                                    case (_, .avatarUploadMaxFileSizeExceeded):
+                                        return "update_profile_modal_max_size_error_title".localized()
+                                    
+                                    default: return "update_profile_modal_error_title".localized()
+                                }
+                            }()
+                            let message: String? = {
+                                switch (avatarUpdate, error) {
+                                    case (.remove, _): return nil
+                                    case (_, .avatarUploadMaxFileSizeExceeded):
+                                        return "update_profile_modal_max_size_error_message".localized()
+                                    
+                                    default: return "update_profile_modal_error_message".localized()
+                                }
+                            }()
                             
                             self?.transitionToScreen(
                                 ConfirmationModal(
                                     info: ConfirmationModal.Info(
-                                        title: (isMaxFileSizeExceeded ?
-                                            "Maximum File Size Exceeded" :
-                                            "Couldn't Update Profile"
-                                        ),
-                                        explanation: (isMaxFileSizeExceeded ?
-                                            "Please select a smaller photo and try again" :
-                                            "Please check your internet connection and try again"
-                                        ),
+                                        title: title,
+                                        body: (message.map { .text($0) } ?? .none),
                                         cancelTitle: "BUTTON_OK".localized(),
-                                        cancelStyle: .alert_text
+                                        cancelStyle: .alert_text,
+                                        dismissType: .single
                                     )
                                 ),
                                 transitionType: .present

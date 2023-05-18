@@ -111,7 +111,7 @@ public struct ProfileManager {
             .fileExists(atPath: ProfileManager.profileAvatarFilepath(filename: fileName))
     }
     
-    private static func loadProfileData(with fileName: String) -> Data? {
+    public static func loadProfileData(with fileName: String) -> Data? {
         let filePath: String = ProfileManager.profileAvatarFilepath(filename: fileName)
         
         return try? Data(contentsOf: URL(fileURLWithPath: filePath))

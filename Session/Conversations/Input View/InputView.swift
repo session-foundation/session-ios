@@ -39,8 +39,6 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         set { inputTextView.selectedRange = newValue }
     }
     
-    var inputTextViewIsFirstResponder: Bool { inputTextView.isFirstResponder }
-    
     var enabledMessageTypes: MessageInputTypes = .all {
         didSet {
             setEnabledMessageTypes(enabledMessageTypes, message: nil)
@@ -447,10 +445,6 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
 
     override func resignFirstResponder() -> Bool {
         inputTextView.resignFirstResponder()
-    }
-    
-    func inputTextViewBecomeFirstResponder() {
-        inputTextView.becomeFirstResponder()
     }
 
     func handleLongPress(_ gestureRecognizer: UITapGestureRecognizer) {

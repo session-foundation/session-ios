@@ -101,14 +101,17 @@ class GlobalSearchViewController: BaseVC, SessionUtilRespondingViewController, U
         setupNavigationBar()
     }
 
-    public override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
+    public override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
         searchBar.becomeFirstResponder()
     }
 
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        searchBar.resignFirstResponder()
+        
+        UIView.performWithoutAnimation {
+            searchBar.resignFirstResponder()
+        }
     }
     
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
@@ -148,10 +151,6 @@ class GlobalSearchViewController: BaseVC, SessionUtilRespondingViewController, U
         }
     }
 
-    private func reloadTableData() {
-        tableView.reloadData()
-    }
-
     // MARK: - Update Search Results
 
     private func refreshSearchResults() {
@@ -165,9 +164,11 @@ class GlobalSearchViewController: BaseVC, SessionUtilRespondingViewController, U
         let searchText = rawSearchText.stripped
         
         guard searchText.count > 0 else {
+            guard searchText != (lastSearchText ?? "") else { return }
+            
             searchResultSet = defaultSearchResults
             lastSearchText = nil
-            reloadTableData()
+            tableView.reloadData()
             return
         }
         guard force || lastSearchText != searchText else { return }
@@ -229,7 +230,7 @@ class GlobalSearchViewController: BaseVC, SessionUtilRespondingViewController, U
                         .compactMap { $0 }
                         .flatMap { $0 }
                         self?.isLoading = false
-                        self?.reloadTableData()
+                        self?.tableView.reloadData()
                         self?.refreshTimer = nil
                         
                     default: break
@@ -310,18 +311,12 @@ extension GlobalSearchViewController {
             return
         }
         
-        if let presentedVC = self.presentedViewController {
-            presentedVC.dismiss(animated: false, completion: nil)
-        }
-        
-        let viewControllers: [UIViewController] = (self.navigationController?
-            .viewControllers)
-            .defaulting(to: [])
-            .appending(
-                ConversationVC(threadId: threadId, threadVariant: threadVariant, focusedInteractionInfo: focusedInteractionInfo)
-            )
-        
-        self.navigationController?.setViewControllers(viewControllers, animated: true)
+        let viewController: ConversationVC = ConversationVC(
+            threadId: threadId,
+            threadVariant: threadVariant,
+            focusedInteractionInfo: focusedInteractionInfo
+        )
+        self.navigationController?.pushViewController(viewController, animated: true)
     }
 
     // MARK: - UITableViewDataSource

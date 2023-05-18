@@ -306,7 +306,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
             let modal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: title,
-                    explanation: message,
+                    body: .text(message),
                     cancelTitle: "BUTTON_OK".localized(),
                     cancelStyle: .alert_text
                     

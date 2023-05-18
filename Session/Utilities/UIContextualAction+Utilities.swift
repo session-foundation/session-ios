@@ -402,7 +402,7 @@ public extension UIContextualAction {
                             let confirmationModal: ConfirmationModal = ConfirmationModal(
                                 info: ConfirmationModal.Info(
                                     title: confirmationModalTitle,
-                                    attributedExplanation: confirmationModalExplanation,
+                                    body: .attributedText(confirmationModalExplanation),
                                     confirmTitle: "LEAVE_BUTTON_TITLE".localized(),
                                     confirmAccessibility: Accessibility(
                                         identifier: "Leave"
@@ -500,7 +500,7 @@ public extension UIContextualAction {
                             let confirmationModal: ConfirmationModal = ConfirmationModal(
                                 info: ConfirmationModal.Info(
                                     title: confirmationModalTitle,
-                                    attributedExplanation: confirmationModalExplanation,
+                                    body: .attributedText(confirmationModalExplanation),
                                     confirmTitle: "TXT_DELETE_TITLE".localized(),
                                     confirmAccessibility: Accessibility(
                                         identifier: "Confirm delete"

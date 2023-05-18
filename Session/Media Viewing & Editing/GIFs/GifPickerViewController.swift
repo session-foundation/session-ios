@@ -370,7 +370,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
                                 targetView: self?.view,
                                 info: ConfirmationModal.Info(
                                     title: "GIF_PICKER_FAILURE_ALERT_TITLE".localized(),
-                                    explanation: error.localizedDescription,
+                                    body: .text(error.localizedDescription),
                                     confirmTitle: CommonStrings.retryButton,
                                     cancelTitle: CommonStrings.dismissButton,
                                     cancelStyle: .alert_text,
@@ -461,7 +461,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
                 targetView: self.view,
                 info: ConfirmationModal.Info(
                     title: CommonStrings.errorAlertTitle,
-                    explanation: "GIF_PICKER_VIEW_MISSING_QUERY".localized(),
+                    body: .text("GIF_PICKER_VIEW_MISSING_QUERY".localized()),
                     cancelTitle: "BUTTON_OK".localized(),
                     cancelStyle: .alert_text
                 )

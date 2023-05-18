@@ -9,6 +9,11 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
     public static let mutePrefix: String = "\u{e067}  "
     public static let unreadCountViewSize: CGFloat = 20
     private static let statusIndicatorSize: CGFloat = 14
+    // If a message is much too long, it will take forever to calculate its width and
+    // cause the app to be frozen. So if a search result string is longer than 100
+    // characters, we assume it cannot be shown within one line and need to be truncated
+    // to avoid the calculation.
+    private static let maxApproxCharactersCanBeShownInOneLine: Int = 100
     
     // MARK: - UI
     
@@ -738,14 +743,25 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                 return authorPrefix
                     .appending(
                         truncatingIfNeeded(
-                            approxWidth: (authorPrefix.size().width + result.size().width),
+                            approxWidth: (
+                                authorPrefix.size().width +
+                                (
+                                    result.length > Self.maxApproxCharactersCanBeShownInOneLine ?
+                                    bounds.width :
+                                    result.size().width
+                                )
+                            ),
                             content: result
                         )
                     )
             }
             .defaulting(
                 to: truncatingIfNeeded(
-                    approxWidth: result.size().width,
+                    approxWidth: (
+                        result.length > Self.maxApproxCharactersCanBeShownInOneLine ?
+                        bounds.width :
+                        result.size().width
+                    ),
                     content: result
                 )
             )

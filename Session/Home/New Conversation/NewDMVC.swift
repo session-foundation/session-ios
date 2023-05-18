@@ -225,12 +225,22 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
                                             default: break
                                         }
                                     }
+                                    let message: String = {
+                                        if let messageOrNil: String = messageOrNil {
+                                            return messageOrNil
+                                        }
+                                        
+                                        return (maybeSessionId?.prefix == .blinded ?
+                                            "DM_ERROR_DIRECT_BLINDED_ID".localized() :
+                                            "DM_ERROR_INVALID".localized()
+                                        )
+                                    }()
                                     
                                     let modal: ConfirmationModal = ConfirmationModal(
                                         targetView: self?.view,
                                         info: ConfirmationModal.Info(
                                             title: "ALERT_ERROR_TITLE".localized(),
-                                            explanation: (messageOrNil ?? "DM_ERROR_INVALID".localized()),
+                                            body: .text(message),
                                             cancelTitle: "BUTTON_OK".localized(),
                                             cancelStyle: .alert_text
                                         )

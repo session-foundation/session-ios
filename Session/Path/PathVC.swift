@@ -218,9 +218,21 @@ final class PathVC: BaseVC {
     }
 
     private func getPathRow(snode: Snode, location: LineView.Location, dotAnimationStartDelay: Double, dotAnimationRepeatInterval: Double, isGuardSnode: Bool) -> UIStackView {
-        let country = IP2Country.isInitialized ? (IP2Country.shared.countryNamesCache[snode.ip] ?? "Resolving...") : "Resolving..."
-        let title = isGuardSnode ? NSLocalizedString("vc_path_guard_node_row_title", comment: "") : NSLocalizedString("vc_path_service_node_row_title", comment: "")
-        return getPathRow(title: title, subtitle: country, location: location, dotAnimationStartDelay: dotAnimationStartDelay, dotAnimationRepeatInterval: dotAnimationRepeatInterval)
+        let country: String = (IP2Country.isInitialized ?
+            IP2Country.shared.countryNamesCache.wrappedValue[snode.ip].defaulting(to: "Resolving...") :
+            "Resolving..."
+        )
+        
+        return getPathRow(
+            title: (isGuardSnode ?
+                "vc_path_guard_node_row_title".localized() :
+                "vc_path_service_node_row_title".localized()
+            ),
+            subtitle: country,
+            location: location,
+            dotAnimationStartDelay: dotAnimationStartDelay,
+            dotAnimationRepeatInterval: dotAnimationRepeatInterval
+        )
     }
     
     // MARK: - Interaction

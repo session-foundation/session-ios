@@ -2,7 +2,9 @@
 
 import UIKit
 import SessionUIKit
+import SessionMessagingKit
 import SessionUtilitiesKit
+import SignalUtilitiesKit
 
 final class MediaInfoVC: BaseVC, SessionCarouselViewDelegate {
     internal static let mediaSize: CGFloat = UIScreen.main.bounds.width - 2 * Values.veryLargeSpacing

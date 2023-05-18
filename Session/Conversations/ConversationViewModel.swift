@@ -53,29 +53,77 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     // MARK: - Initialization
     
     init(threadId: String, threadVariant: SessionThread.Variant, focusedInteractionInfo: Interaction.TimestampInfo?) {
-        // If we have a specified 'focusedInteractionId' then use that, otherwise retrieve the oldest
-        // unread interaction and start focused around that one
-        let targetInteractionInfo: Interaction.TimestampInfo? = {
-            if let focusedInteractionInfo: Interaction.TimestampInfo = focusedInteractionInfo {
-                return focusedInteractionInfo
-            }
+        typealias InitialData = (
+            targetInteractionInfo: Interaction.TimestampInfo?,
+            threadIsBlocked: Bool,
+            currentUserIsClosedGroupMember: Bool?,
+            openGroupPermissions: OpenGroup.Permissions?,
+            blindedKey: String?
+        )
+        
+        let initialData: InitialData? = Storage.shared.read { db -> InitialData in
+            let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
+            let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
             
-            return Storage.shared.read { db in
-                let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
-                
-                return try Interaction
+            // If we have a specified 'focusedInteractionInfo' then use that, otherwise retrieve the oldest
+            // unread interaction and start focused around that one
+            let targetInteractionInfo: Int64? = (focusedInteractionInfo != nil ? focusedInteractionInfo :
+                try Interaction
                     .select(.id, .timestampMs)
                     .filter(interaction[.wasRead] == false)
                     .filter(interaction[.threadId] == threadId)
                     .order(interaction[.timestampMs].asc)
                     .asRequest(of: Interaction.TimestampInfo.self)
                     .fetchOne(db)
-            }
-        }()
+            )
+            let threadIsBlocked: Bool= (threadVariant != .contact ? false :
+                try Contact
+                    .filter(id: threadId)
+                    .select(.isBlocked)
+                    .asRequest(of: Bool.self)
+                    .fetchOne(db)
+                    .defaulting(to: false)
+            )
+            let currentUserIsClosedGroupMember: Bool? = (![.legacyGroup, .group].contains(threadVariant) ? nil :
+                try GroupMember
+                    .filter(groupMember[.groupId] == threadId)
+                    .filter(groupMember[.profileId] == getUserHexEncodedPublicKey(db))
+                    .filter(groupMember[.role] == GroupMember.Role.standard)
+                    .isNotEmpty(db)
+            )
+            let openGroupPermissions: OpenGroup.Permissions? = (threadVariant != .community ? nil :
+                try OpenGroup
+                    .filter(id: threadId)
+                    .select(.permissions)
+                    .asRequest(of: OpenGroup.Permissions.self)
+                    .fetchOne(db)
+            )
+            let blindedKey: String? = SessionThread.getUserHexEncodedBlindedKey(
+                db,
+                threadId: threadId,
+                threadVariant: threadVariant
+            )
+            
+            return (
+                targetInteractionInfo,
+                threadIsBlocked,
+                currentUserIsClosedGroupMember,
+                openGroupPermissions,
+                blindedKey
+            )
+        }
         
         self.threadId = threadId
         self.initialThreadVariant = threadVariant
         self.focusedInteractionInfo = targetInteractionInfo
+        self.threadData = SessionThreadViewModel(
+            threadId: threadId,
+            threadVariant: threadVariant,
+            threadIsNoteToSelf: (self.threadId == getUserHexEncodedPublicKey()),
+            threadIsBlocked: threadIsBlocked,
+            currentUserIsClosedGroupMember: initialData?.currentUserIsClosedGroupMember,
+            openGroupPermissions: initialData?.openGroupPermissions
+        ).populatingCurrentUserBlindedKey(currentUserBlindedPublicKeyForThisThread: initialData?.blindedKey)
         self.pagedDataObserver = nil
         
         // Note: Since this references self we need to finish initializing before setting it, we
@@ -93,7 +141,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         
         // Run the initial query on a background thread so we don't block the push transition
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            // If we don't have a `initialFocusedId` then default to `.pageBefore` (it'll query
+            // If we don't have a `initialFocusedInfo` then default to `.pageBefore` (it'll query
             // from a `0` offset)
             guard let initialFocusedInfo: Interaction.TimestampInfo = targetInteractionInfo else {
                 self?.pagedDataObserver?.load(.pageBefore)
@@ -107,40 +155,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     // MARK: - Thread Data
     
     /// This value is the current state of the view
-    public private(set) lazy var threadData: SessionThreadViewModel = SessionThreadViewModel(
-        threadId: self.threadId,
-        threadVariant: self.initialThreadVariant,
-        threadIsNoteToSelf: (self.threadId == getUserHexEncodedPublicKey()),
-        threadIsBlocked: (self.initialThreadVariant != .contact ? false :
-            Storage.shared.read { db in
-                try Contact
-                    .filter(id: self.threadId)
-                    .select(.isBlocked)
-                    .asRequest(of: Bool.self)
-                    .fetchOne(db)
-                    .defaulting(to: false)
-            }
-        ),
-        currentUserIsClosedGroupMember: (![.legacyGroup, .group].contains(self.initialThreadVariant) ? nil :
-            Storage.shared.read { db in
-                GroupMember
-                    .filter(GroupMember.Columns.groupId == self.threadId)
-                    .filter(GroupMember.Columns.profileId == getUserHexEncodedPublicKey(db))
-                    .filter(GroupMember.Columns.role == GroupMember.Role.standard)
-                    .isNotEmpty(db)
-            }
-        ),
-        openGroupPermissions: (self.initialThreadVariant != .community ? nil :
-            Storage.shared.read { db in
-                try OpenGroup
-                    .filter(id: threadId)
-                    .select(.permissions)
-                    .asRequest(of: OpenGroup.Permissions.self)
-                    .fetchOne(db)
-            }
-        )
-    )
-    .populatingCurrentUserBlindedKey()
+    public private(set) var threadData: SessionThreadViewModel
     
     /// This is all the data the screen needs to populate itself, please see the following link for tips to help optimise
     /// performance https://github.com/groue/GRDB.swift#valueobservation-performance

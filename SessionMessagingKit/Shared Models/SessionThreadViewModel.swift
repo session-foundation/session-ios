@@ -103,8 +103,14 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public var canWrite: Bool {
         switch threadVariant {
             case .contact: return true
-            case .legacyGroup, .group: return (currentUserIsClosedGroupMember == true && interactionVariant?.isGroupLeavingStatus != true)
-            case .community: return (openGroupPermissions?.contains(.write) ?? false)
+            case .legacyGroup, .group:
+                return (
+                    currentUserIsClosedGroupMember == true &&
+                    interactionVariant?.isGroupLeavingStatus != true
+                )
+                
+            case .community:
+                return (openGroupPermissions?.contains(.write) ?? false)
         }
     }
     
