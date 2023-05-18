@@ -50,6 +50,10 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     private lazy var imagePickerHandler: ImagePickerHandler = ImagePickerHandler(viewModel: self)
     fileprivate var oldDisplayName: String
     private var editedDisplayName: String?
+    private var editProfilePictureModal: ConfirmationModal?
+    private var editProfilePictureModalInfo: ConfirmationModal.Info?
+    private var editedProfilePicture: UIImage?
+    private var editedProfilePictureFileName: String?
     
     // MARK: - Initialization
     
@@ -102,11 +106,13 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     }
     
     override var rightNavItems: AnyPublisher<[NavItem]?, Never> {
-       navState
-           .map { [weak self] navState -> [NavItem] in
-               switch navState {
-                   case .standard:
-                       return [
+        let userSessionId: String = self.userSessionId
+        
+        return navState
+            .map { [weak self] navState -> [NavItem] in
+                switch navState {
+                    case .standard:
+                        return [
                             NavItem(
                                 id: .qrCode,
                                 image: UIImage(named: "QRCode")?
@@ -117,10 +123,10 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                                     self?.transitionToScreen(QRCodeVC())
                                 }
                             )
-                       ]
+                        ]
                        
-                   case .editing:
-                       return [
+                    case .editing:
+                        return [
                             NavItem(
                                 id: .done,
                                 systemItem: .done,
@@ -161,7 +167,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                                 self?.updateProfile(
                                     name: updatedNickname,
                                     profilePicture: nil,
-                                    profilePictureFilePath: nil,
+                                    profilePictureFilePath: ProfileManager.profileAvatarFilepath(id: userSessionId),
                                     isUpdatingDisplayName: true,
                                     isUpdatingProfilePicture: false
                                 )
@@ -389,23 +395,90 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     }
     
     private func updateProfilePicture() {
-        let actionSheet: UIAlertController = UIAlertController(
-            title: "Update Profile Picture",
-            message: nil,
-            preferredStyle: .actionSheet
-        )
-        let action = UIAlertAction(
-            title: "MEDIA_FROM_LIBRARY_BUTTON".localized(),
-            style: .default,
-            handler: { [weak self] _ in
-                self?.showPhotoLibraryForAvatar()
+        let existingDisplayName: String = self.oldDisplayName
+        let existingImage: UIImage? = ProfileManager
+            .profileAvatar(id: self.userSessionId)
+            .map { UIImage(data: $0) }
+        let editProfilePictureModalInfo: ConfirmationModal.Info = ConfirmationModal.Info(
+            title: "update_profile_modal_title".localized(),
+            body: .image(
+                placeholder: UIImage(named: "profile_placeholder"),
+                value: existingImage,
+                style: .circular,
+                onClick: { [weak self] in self?.showPhotoLibraryForAvatar() }
+            ),
+            confirmTitle: "update_profile_modal_upload".localized(),
+            confirmEnabled: false,
+            cancelTitle: "update_profile_modal_remove".localized(),
+            cancelEnabled: (existingImage != nil),
+            hasCloseButton: true,
+            dismissOnConfirm: false,
+            onConfirm: { [weak self] modal in
+                self?.updateProfile(
+                    name: existingDisplayName,
+                    profilePicture: self?.editedProfilePicture,
+                    profilePictureFilePath: self?.editedProfilePictureFileName,
+                    isUpdatingDisplayName: false,
+                    isUpdatingProfilePicture: true,
+                    onComplete: { [weak modal] in modal?.close() }
+                )
+            },
+            onCancel: { [weak self] modal in
+                self?.updateProfile(
+                    name: existingDisplayName,
+                    profilePicture: nil,
+                    profilePictureFilePath: nil,
+                    isUpdatingDisplayName: false,
+                    isUpdatingProfilePicture: true,
+                    onComplete: { [weak modal] in modal?.close() }
+                )
+            },
+            afterClosed: { [weak self] in
+                self?.editedProfilePicture = nil
+                self?.editedProfilePictureFileName = nil
+                self?.editProfilePictureModal = nil
+                self?.editProfilePictureModalInfo = nil
             }
         )
-        action.accessibilityLabel = "Photo library"
-        actionSheet.addAction(action)
-        actionSheet.addAction(UIAlertAction(title: "cancel".localized(), style: .cancel, handler: nil))
+        let modal: ConfirmationModal = ConfirmationModal(info: editProfilePictureModalInfo)
+            
+        self.editProfilePictureModalInfo = editProfilePictureModalInfo
+        self.editProfilePictureModal = modal
+        self.transitionToScreen(modal, transitionType: .present)
+    }
+            
+    fileprivate func updatedProfilePictureSelected(image: UIImage?, filePath: String?) {
+        guard let info: ConfirmationModal.Info = self.editProfilePictureModalInfo else { return }
         
-        self.transitionToScreen(actionSheet, transitionType: .present)
+        self.editedProfilePicture = image
+        self.editedProfilePictureFileName = filePath
+        
+        if let image: UIImage = image {
+            self.editProfilePictureModal?.updateContent(
+                with: info.with(
+                    body: .image(
+                        placeholder: UIImage(named: "profile_placeholder"),
+                        value: image,
+                        style: .circular,
+                        onClick: { [weak self] in self?.showPhotoLibraryForAvatar() }
+                    ),
+                    confirmEnabled: true
+                )
+            )
+        }
+        else if let filePath: String = filePath {
+            self.editProfilePictureModal?.updateContent(
+                with: info.with(
+                    body: .image(
+                        placeholder: UIImage(named: "profile_placeholder"),
+                        value: UIImage(contentsOfFile: filePath),
+                        style: .circular,
+                        onClick: { [weak self] in self?.showPhotoLibraryForAvatar() }
+                    ),
+                    confirmEnabled: true
+                )
+            )
+        }
     }
     
     private func showPhotoLibraryForAvatar() {
@@ -421,24 +494,20 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
         }
     }
     
-    fileprivate func updateProfile(
+    private func updateProfile(
         name: String,
         profilePicture: UIImage?,
         profilePictureFilePath: String?,
         isUpdatingDisplayName: Bool,
-        isUpdatingProfilePicture: Bool
+        isUpdatingProfilePicture: Bool,
+        onComplete: (() -> ())? = nil
     ) {
-        let imageFilePath: String? = (
-            profilePictureFilePath ??
-            ProfileManager.profileAvatarFilepath(id: self.userSessionId)
-        )
-        
         let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self] modalActivityIndicator in
             ProfileManager.updateLocal(
                 queue: DispatchQueue.global(qos: .default),
                 profileName: name,
                 image: profilePicture,
-                imageFilePath: imageFilePath,
+                imageFilePath: profilePictureFilePath,
                 success: { db, updatedProfile in
                     if isUpdatingDisplayName {
                         UserDefaults.standard[.lastDisplayNameUpdate] = Date()
@@ -453,7 +522,9 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                     // Wait for the database transaction to complete before updating the UI
                     db.afterNextTransaction { _ in
                         DispatchQueue.main.async {
-                            modalActivityIndicator.dismiss(completion: {})
+                            modalActivityIndicator.dismiss(completion: {
+                                onComplete?()
+                            })
                         }
                     }
                 },
@@ -469,12 +540,13 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                                             "Maximum File Size Exceeded" :
                                             "Couldn't Update Profile"
                                         ),
-                                        explanation: (isMaxFileSizeExceeded ?
+                                        body: .text(isMaxFileSizeExceeded ?
                                             "Please select a smaller photo and try again" :
                                             "Please check your internet connection and try again"
                                         ),
                                         cancelTitle: "BUTTON_OK".localized(),
-                                        cancelStyle: .alert_text
+                                        cancelStyle: .alert_text,
+                                        dismissType: .single
                                     )
                                 ),
                                 transitionType: .present
@@ -496,8 +568,6 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
         // Ensure we are on the main thread just in case
         DispatchQueue.main.async {
             button.isUserInteractionEnabled = false
-            
-            
             
             UIView.transition(
                 with: button,
@@ -560,7 +630,6 @@ class ImagePickerHandler: NSObject, UIImagePickerControllerDelegate & UINavigati
             picker.presentingViewController?.dismiss(animated: true)
             return
         }
-        let name: String = self.viewModel.oldDisplayName
         
         picker.presentingViewController?.dismiss(animated: true) { [weak self] in
             // Check if the user selected an animated image (if so then don't crop, just
@@ -574,12 +643,9 @@ class ImagePickerHandler: NSObject, UIImagePickerControllerDelegate & UINavigati
                 let viewController: CropScaleImageViewController = CropScaleImageViewController(
                     srcImage: rawAvatar,
                     successCompletion: { resultImage in
-                        self?.viewModel.updateProfile(
-                            name: name,
-                            profilePicture: resultImage,
-                            profilePictureFilePath: nil,
-                            isUpdatingDisplayName: false,
-                            isUpdatingProfilePicture: true
+                        self?.viewModel.updatedProfilePictureSelected(
+                            image: resultImage,
+                            filePath: nil
                         )
                     }
                 )
@@ -587,12 +653,9 @@ class ImagePickerHandler: NSObject, UIImagePickerControllerDelegate & UINavigati
                 return
             }
             
-            self?.viewModel.updateProfile(
-                name: name,
-                profilePicture: nil,
-                profilePictureFilePath: imageUrl.path,
-                isUpdatingDisplayName: false,
-                isUpdatingProfilePicture: true
+            self?.viewModel.updatedProfilePictureSelected(
+                image: nil,
+                filePath: imageUrl.path
             )
         }
     }

@@ -214,7 +214,7 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
                                 targetView: self?.view,
                                 info: ConfirmationModal.Info(
                                     title: "ALERT_ERROR_TITLE".localized(),
-                                    explanation: message,
+                                    body: .text(message),
                                     cancelTitle: "BUTTON_OK".localized(),
                                     cancelStyle: .alert_text
                                 )

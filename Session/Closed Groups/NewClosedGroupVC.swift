@@ -305,7 +305,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
             let modal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: title,
-                    explanation: message,
+                    body: .text(message),
                     cancelTitle: "BUTTON_OK".localized(),
                     cancelStyle: .alert_text
                     
@@ -350,7 +350,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                         targetView: self?.view,
                         info: ConfirmationModal.Info(
                             title: "GROUP_CREATION_ERROR_TITLE".localized(),
-                            explanation: "GROUP_CREATION_ERROR_MESSAGE".localized(),
+                            body: .text("GROUP_CREATION_ERROR_MESSAGE".localized()),
                             cancelTitle: "BUTTON_OK".localized(),
                             cancelStyle: .alert_text
                         )

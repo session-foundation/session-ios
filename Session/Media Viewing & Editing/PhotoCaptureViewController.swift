@@ -315,7 +315,7 @@ class PhotoCaptureViewController: OWSViewController {
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: CommonStrings.errorAlertTitle,
-                explanation: error.localizedDescription,
+                body: .text(error.localizedDescription),
                 cancelTitle: CommonStrings.dismissButton,
                 cancelStyle: .alert_text,
                 afterClosed: { [weak self] in self?.dismiss(animated: true) }

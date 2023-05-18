@@ -34,7 +34,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         let linkPreview: TypedTableAlias<LinkPreview> = TypedTableAlias()
         let halfResolution: Double = LinkPreview.timstampResolution
 
-        return "(\(interaction[.timestampMs]) BETWEEN (\(linkPreview[.timestamp]) - \(halfResolution)) AND (\(linkPreview[.timestamp]) + \(halfResolution)))"
+        return "(\(interaction[.timestampMs]) BETWEEN (\(linkPreview[.timestamp]) - \(halfResolution)) * 1000 AND (\(linkPreview[.timestamp]) + \(halfResolution)) * 1000)"
     }()
     public static let recipientStates = hasMany(RecipientState.self, using: RecipientState.interactionForeignKey)
     
@@ -86,6 +86,10 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         case infoCall = 5000
         
         // MARK: - Convenience
+        
+        public static let variantsToIncrementUnreadCount: [Variant] = [
+            .standardIncoming, .infoCall
+        ]
         
         public var isInfoMessage: Bool {
             switch self {
@@ -247,12 +251,11 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
     public var linkPreview: QueryInterfaceRequest<LinkPreview> {
         /// **Note:** This equation **MUST** match the `linkPreviewFilterLiteral` logic
         let halfResolution: Double = LinkPreview.timstampResolution
-        let roundedTimestamp: Double = (round(((Double(timestampMs) / 1000) / 100000) - 0.5) * 100000)
         
         return request(for: Interaction.linkPreview)
             .filter(
-                (Interaction.Columns.timestampMs >= (LinkPreview.Columns.timestamp - halfResolution)) &&
-                (Interaction.Columns.timestampMs <= (LinkPreview.Columns.timestamp + halfResolution))
+                (timestampMs >= (LinkPreview.Columns.timestamp - halfResolution) * 1000) &&
+                (timestampMs <= (LinkPreview.Columns.timestamp + halfResolution) * 1000)
             )
     }
     

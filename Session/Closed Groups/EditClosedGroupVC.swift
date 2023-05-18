@@ -485,7 +485,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
             targetView: self.view,
             info: ConfirmationModal.Info(
                 title: title,
-                explanation: message,
+                body: .text(message),
                 cancelTitle: "BUTTON_OK".localized(),
                 cancelStyle: .alert_text
             )

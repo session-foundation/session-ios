@@ -209,8 +209,8 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                             accessibilityLabel: "Allow voice and video calls",
                             confirmationInfo: ConfirmationModal.Info(
                                 title: "PRIVACY_CALLS_WARNING_TITLE".localized(),
-                                explanation: "PRIVACY_CALLS_WARNING_DESCRIPTION".localized(),
-                                stateToShow: .whenDisabled,
+                                body: .text("PRIVACY_CALLS_WARNING_DESCRIPTION".localized()),
+                                showCondition: .disabled,
                                 confirmTitle: "continue_2".localized(),
                                 confirmAccessibilityLabel: "Enable",
                                 confirmStyle: .textPrimary,

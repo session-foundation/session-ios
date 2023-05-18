@@ -6,6 +6,12 @@ import SessionUtilitiesKit
 open class Modal: UIViewController, UIGestureRecognizerDelegate {
     private static let cornerRadius: CGFloat = 11
     
+    public enum DismissType: Equatable, Hashable {
+        case single
+        case recursive
+    }
+    
+    private let dismissType: DismissType
     private let afterClosed: (() -> ())?
     
     // MARK: - Components
@@ -47,14 +53,19 @@ open class Modal: UIViewController, UIGestureRecognizerDelegate {
     
     public lazy var cancelButton: UIButton = {
         let result: UIButton = Modal.createButton(title: "cancel".localized(), titleColor: .textPrimary)
-        result.addTarget(self, action: #selector(close), for: .touchUpInside)
+        result.addTarget(self, action: #selector(cancel), for: .touchUpInside)
                 
         return result
     }()
     
     // MARK: - Lifecycle
     
-    public init(targetView: UIView? = nil, afterClosed: (() -> ())? = nil) {
+    public init(
+        targetView: UIView? = nil,
+        dismissType: DismissType = .recursive,
+        afterClosed: (() -> ())? = nil
+    ) {
+        self.dismissType = dismissType
         self.afterClosed = afterClosed
         
         super.init(nibName: nil, bundle: nil)
@@ -129,13 +140,22 @@ open class Modal: UIViewController, UIGestureRecognizerDelegate {
     
     // MARK: - Interaction
     
-    @objc func close() {
+    @objc public func cancel() {
+        close()
+    }
+    
+    @objc public final func close() {
         // Recursively dismiss all modals (ie. find the first modal presented by a non-modal
         // and get that to dismiss it's presented view controller)
         var targetViewController: UIViewController? = self
         
-        while targetViewController?.presentingViewController is Modal {
-            targetViewController = targetViewController?.presentingViewController
+        switch dismissType {
+            case .single: break
+            
+            case .recursive:
+                while targetViewController?.presentingViewController is Modal {
+                    targetViewController = targetViewController?.presentingViewController
+                }
         }
         
         targetViewController?.presentingViewController?.dismiss(animated: true) { [weak self] in

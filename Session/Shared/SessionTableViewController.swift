@@ -132,7 +132,10 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
     }
     
     @objc func applicationDidBecomeActive(_ notification: Notification) {
-        startObservingChanges()
+        /// Need to dispatch to the next run loop to prevent a possible crash caused by the database resuming mid-query
+        DispatchQueue.main.async { [weak self] in
+            self?.startObservingChanges()
+        }
     }
     
     @objc func applicationDidResignActive(_ notification: Notification) {
@@ -336,13 +339,15 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
                         self?.navigationController?.pushViewController(viewController, animated: true)
                     
                     case .present:
+                        let presenter: UIViewController? = (self?.presentedViewController ?? self)
+                        
                         if UIDevice.current.isIPad {
                             viewController.popoverPresentationController?.permittedArrowDirections = []
-                            viewController.popoverPresentationController?.sourceView = self?.view
-                            viewController.popoverPresentationController?.sourceRect = (self?.view.bounds ?? UIScreen.main.bounds)
+                            viewController.popoverPresentationController?.sourceView = presenter?.view
+                            viewController.popoverPresentationController?.sourceRect = (presenter?.view.bounds ?? UIScreen.main.bounds)
                         }
                         
-                        self?.present(viewController, animated: true)
+                        presenter?.present(viewController, animated: true)
                 }
             }
             .store(in: &disposables)
@@ -520,7 +525,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
         
         guard
             let confirmationInfo: ConfirmationModal.Info = info.confirmationInfo,
-            confirmationInfo.stateToShow.shouldShow(for: info.currentBoolValue)
+            confirmationInfo.showCondition.shouldShow(for: info.currentBoolValue)
         else {
             performAction()
             return

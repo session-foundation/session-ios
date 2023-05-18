@@ -169,7 +169,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     }()
 
     lazy var snInputView: InputView = InputView(
-        threadVariant: self.viewModel.threadData.threadVariant,
+        threadVariant: self.viewModel.initialThreadVariant,
         delegate: self
     )
 
@@ -180,6 +180,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         result.layer.cornerRadius = (ConversationVC.unreadCountViewSize / 2)
         result.set(.width, greaterThanOrEqualTo: ConversationVC.unreadCountViewSize)
         result.set(.height, to: ConversationVC.unreadCountViewSize)
+        result.isHidden = true
         
         return result
     }()
@@ -361,12 +362,12 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         scrollButton.pin(.right, to: .right, of: view, withInset: -20)
         messageRequestView.pin(.left, to: .left, of: view)
         messageRequestView.pin(.right, to: .right, of: view)
-        self.messageRequestsViewBotomConstraint = messageRequestView.pin(.bottom, to: .bottom, of: view, withInset: -16)
-        self.scrollButtonBottomConstraint = scrollButton.pin(.bottom, to: .bottom, of: view, withInset: -16)
-        self.scrollButtonBottomConstraint?.isActive = false // Note: Need to disable this to avoid a conflict with the other bottom constraint
-        self.scrollButtonMessageRequestsBottomConstraint = scrollButton.pin(.bottom, to: .top, of: messageRequestView, withInset: -16)
-        self.scrollButtonPendingMessageRequestInfoBottomConstraint = scrollButton.pin(.bottom, to: .top, of: pendingMessageRequestExplanationLabel, withInset: -16)
-        
+        messageRequestsViewBotomConstraint = messageRequestView.pin(.bottom, to: .bottom, of: view, withInset: -16)
+        scrollButtonBottomConstraint = scrollButton.pin(.bottom, to: .bottom, of: view, withInset: -16)
+        scrollButtonBottomConstraint?.isActive = false // Note: Need to disable this to avoid a conflict with the other bottom constraint
+        scrollButtonMessageRequestsBottomConstraint = scrollButton.pin(.bottom, to: .top, of: messageRequestView, withInset: -16)
+        scrollButtonPendingMessageRequestInfoBottomConstraint = scrollButton.pin(.bottom, to: .top, of: pendingMessageRequestExplanationLabel, withInset: -16)
+
         messageRequestBlockButton.pin(.top, to: .top, of: messageRequestView, withInset: 10)
         messageRequestBlockButton.center(.horizontal, in: messageRequestView)
         
@@ -483,7 +484,11 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     }
     
     @objc func applicationDidBecomeActive(_ notification: Notification) {
-        startObservingChanges(didReturnFromBackground: true)
+        /// Need to dispatch to the next run loop to prevent a possible crash caused by the database resuming mid-query
+        DispatchQueue.main.async { [weak self] in
+            self?.startObservingChanges(didReturnFromBackground: true)
+        }
+        
         recoverInputView()
         
         if !isShowingSearchUI {
@@ -1299,7 +1304,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                                     targetView: self?.view,
                                     info: ConfirmationModal.Info(
                                         title: CommonStrings.errorAlertTitle,
-                                        explanation: "INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE".localized(),
+                                        body: .text("INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE".localized()),
                                         cancelTitle: "BUTTON_OK".localized(),
                                         cancelStyle: .alert_text
                                     )
