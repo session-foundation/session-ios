@@ -94,6 +94,7 @@ abstract_target 'GlobalDependencies' do
   target 'SessionUIKit' do
     pod 'GRDB.swift/SQLCipher'
     pod 'DifferenceKit'
+    pod 'YYImage/libwebp', git: 'https://github.com/signalapp/YYImage'
   end
 end
 

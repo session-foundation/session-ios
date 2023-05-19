@@ -175,7 +175,7 @@ public extension ConfigurationSyncJob {
         
     static func enqueue(_ db: Database, publicKey: String) {
         // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard SessionUtil.userConfigsEnabled else {
+        guard SessionUtil.userConfigsEnabled(db) else {
             // If we don't have a userKeyPair (or name) yet then there is no need to sync the
             // configuration as the user doesn't fully exist yet (this will get triggered on
             // the first launch of a fresh install due to the migrations getting run and a few
