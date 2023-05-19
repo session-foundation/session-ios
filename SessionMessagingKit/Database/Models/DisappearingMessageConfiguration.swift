@@ -19,19 +19,28 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatabl
         case lastChangeTimestampMs
     }
     
-    public enum DisappearingMessageType: Int, Codable, Hashable, DatabaseValueConvertible {
+    public enum DefaultDuration {
+        case off
         case unknown
+        case legacy
         case disappearAfterRead
         case disappearAfterSend
         
-        public var defaultDuration: TimeInterval {
+        public var seconds: TimeInterval {
             switch self {
-                case .unknown:            return 0
+                case .off, .unknown:      return 0
+                case .legacy:             return (24 * 60 * 60)
                 case .disappearAfterRead: return (12 * 60 * 60)
                 case .disappearAfterSend: return (24 * 60 * 60)
             }
         }
-        
+    }
+    
+    public enum DisappearingMessageType: Int, Codable, Hashable, DatabaseValueConvertible {
+        case unknown
+        case disappearAfterRead
+        case disappearAfterSend
+
         init(protoType: SNProtoContent.SNProtoContentExpirationType) {
             switch protoType {
                 case .unknown:         self = .unknown
@@ -71,8 +80,8 @@ public extension DisappearingMessagesConfiguration {
         return DisappearingMessagesConfiguration(
             threadId: threadId,
             isEnabled: false,
-            durationSeconds: DisappearingMessageType.disappearAfterSend.defaultDuration,
-            type: nil,
+            durationSeconds: DefaultDuration.unknown.seconds,
+            type: .unknown,
             lastChangeTimestampMs: 0
         )
     }
@@ -109,19 +118,19 @@ public extension DisappearingMessagesConfiguration {
             guard let senderName: String = senderName else {
                 // Changed by this device or via synced transcript
                 guard isEnabled, durationSeconds > 0 else {
-                    return "YOU_DISAPPERING_MESSAGES_INFO_DISABLE".localized()
+                    return "YOU_DISAPPEARING_MESSAGES_INFO_DISABLE".localized()
                 }
                 
                 guard isPreviousOff == true else {
                     return String(
-                        format: "YOU_DISAPPERING_MESSAGES_INFO_UPDATE".localized(),
+                        format: "YOU_DISAPPEARING_MESSAGES_INFO_UPDATE".localized(),
                         floor(durationSeconds).formatted(format: .long),
                         (type == .disappearAfterRead ? "MESSAGE_STATE_READ".localized() : "MESSAGE_STATE_SENT".localized())
                     )
                 }
                 
                 return String(
-                    format: "YOU_DISAPPERING_MESSAGES_INFO_ENABLE".localized(),
+                    format: "YOU_DISAPPEARING_MESSAGES_INFO_ENABLE".localized(),
                     floor(durationSeconds).formatted(format: .long),
                     (type == .disappearAfterRead ? "MESSAGE_STATE_READ".localized() : "MESSAGE_STATE_SENT".localized())
                 )

@@ -140,7 +140,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                                         let updatedConfig: DisappearingMessagesConfiguration = currentSelection
                                             .with(
                                                 isEnabled: false,
-                                                durationSeconds: 0,
+                                                durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.off.seconds,
                                                 lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
                                             )
                                         self?.shouldShowConfirmButton.send(updatedConfig != config)
@@ -166,10 +166,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                                                 return currentSelection
                                                     .with(
                                                         isEnabled: true,
-                                                        durationSeconds: DisappearingMessagesConfiguration
-                                                            .DisappearingMessageType
-                                                            .disappearAfterRead
-                                                            .defaultDuration,
+                                                        durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.legacy.seconds,
                                                         type: .disappearAfterRead, // Default for 1-1
                                                         lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
                                                     )
@@ -209,10 +206,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                                             return currentSelection
                                                 .with(
                                                     isEnabled: true,
-                                                    durationSeconds: DisappearingMessagesConfiguration
-                                                        .DisappearingMessageType
-                                                        .disappearAfterRead
-                                                        .defaultDuration,
+                                                    durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.disappearAfterRead.seconds,
                                                     type: .disappearAfterRead,
                                                     lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
                                                 )
@@ -251,10 +245,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                                             return currentSelection
                                                 .with(
                                                     isEnabled: true,
-                                                    durationSeconds: DisappearingMessagesConfiguration
-                                                        .DisappearingMessageType
-                                                        .disappearAfterSend
-                                                        .defaultDuration,
+                                                    durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.disappearAfterSend.seconds,
                                                     type: .disappearAfterSend,
                                                     lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
                                                 )
@@ -328,7 +319,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                                             let updatedConfig: DisappearingMessagesConfiguration = currentSelection
                                                 .with(
                                                     isEnabled: false,
-                                                    durationSeconds: 0,
+                                                    durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.off.seconds,
                                                     lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
                                                 )
                                             self?.shouldShowConfirmButton.send(updatedConfig != config)
@@ -357,10 +348,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                                                 return currentSelection
                                                     .with(
                                                         isEnabled: true,
-                                                        durationSeconds: DisappearingMessagesConfiguration
-                                                            .DisappearingMessageType
-                                                            .disappearAfterSend
-                                                            .defaultDuration,
+                                                        durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.legacy.seconds,
                                                         type: .disappearAfterSend, // Default for closed group & note to self
                                                         lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
                                                     )
@@ -412,7 +400,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                                                 let updatedConfig: DisappearingMessagesConfiguration = currentSelection
                                                     .with(
                                                         isEnabled: false,
-                                                        durationSeconds: 0,
+                                                        durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.off.seconds,
                                                         lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
                                                     )
                                                 self?.shouldShowConfirmButton.send(updatedConfig != config)

@@ -33,6 +33,14 @@ extension MessageReceiver {
 
         guard let defaultType: DisappearingMessagesConfiguration.DisappearingMessageType = maybeDefaultType else { return }
         
+        let defaultDuration: DisappearingMessagesConfiguration.DefaultDuration = {
+            switch defaultType {
+                case .unknown: return .unknown
+                case .disappearAfterRead: return .disappearAfterRead
+                case .disappearAfterSend: return .disappearAfterSend
+            }
+        }()
+        
         let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
             .filter(id: threadId)
             .fetchOne(db)
@@ -43,7 +51,7 @@ extension MessageReceiver {
             isEnabled: ((message.duration ?? 0) > 0),
             durationSeconds: (
                 message.duration.map { TimeInterval($0) } ??
-                defaultType.defaultDuration
+                defaultDuration.seconds
             ),
             type: defaultType
         )
