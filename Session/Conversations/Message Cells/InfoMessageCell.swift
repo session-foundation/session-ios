@@ -70,7 +70,7 @@ final class InfoMessageCell: MessageCell {
     ) {
         guard cellViewModel.variant.isInfoMessage else { return }
         
-        self.accessibilityIdentifier = "Configuration message"
+        self.accessibilityIdentifier = "Control message"
         self.isAccessibilityElement = true
         self.viewModel = cellViewModel
         

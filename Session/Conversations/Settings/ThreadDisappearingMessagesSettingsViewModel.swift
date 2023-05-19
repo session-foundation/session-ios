@@ -106,6 +106,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                     title: "DISAPPERING_MESSAGES_SAVE_TITLE".localized(),
                     isEnabled: true,
                     accessibilityIdentifier: "Set button",
+                    accessibilityLabel: "Set button",
                     minWidth: 110,
                     onTap: {
                         self?.saveChanges()
@@ -133,8 +134,8 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                                         isSelected: { (self?.currentSelection.value.isEnabled == false) }
                                     ),
                                     accessibility: Accessibility(
-                                        identifier: "Off option",
-                                        label: "Off option"
+                                        identifier: "Disable disappearing messages (Off option)",
+                                        label: "Disable disappearing messages (Off option)"
                                     ),
                                     onTap: {
                                         let updatedConfig: DisappearingMessagesConfiguration = currentSelection

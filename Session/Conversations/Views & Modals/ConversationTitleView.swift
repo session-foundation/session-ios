@@ -29,6 +29,7 @@ final class ConversationTitleView: UIView {
     private lazy var titleLabel: UILabel = {
         let result: UILabel = UILabel()
         result.accessibilityIdentifier = "Conversation header name"
+        result.accessibilityLabel = "Conversation header name"
         result.isAccessibilityElement = true
         result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
         result.themeTextColor = .textPrimary
@@ -161,7 +162,7 @@ final class ConversationTitleView: UIView {
                 labelInfos.append(
                     SessionLabelCarouselView.LabelInfo(
                         attributedText: notificationSettingsLabelString,
-                        accessibilityIdentifier: nil,
+                        accessibility: nil, // TODO: Add accessibility
                         type: .notificationSettings
                     )
                 )
@@ -183,7 +184,7 @@ final class ConversationTitleView: UIView {
                 labelInfos.append(
                     SessionLabelCarouselView.LabelInfo(
                         attributedText: notificationSettingsLabelString,
-                        accessibilityIdentifier: nil,
+                        accessibility: nil, // TODO: Add accessibility
                         type: .notificationSettings
                     )
                 )
@@ -199,7 +200,7 @@ final class ConversationTitleView: UIView {
                                 attributedText: NSAttributedString(
                                     string: "\(userCount) member\(userCount == 1 ? "" : "s")"
                                 ),
-                                accessibilityIdentifier: nil,
+                                accessibility: nil, // TODO: Add accessibility
                                 type: .userCount
                             )
                         )
@@ -210,7 +211,7 @@ final class ConversationTitleView: UIView {
                                 attributedText: NSAttributedString(
                                     string: "\(userCount) active member\(userCount == 1 ? "" : "s")"
                                 ),
-                                accessibilityIdentifier: nil,
+                                accessibility: nil, // TODO: Add accessibility
                                 type: .userCount
                             )
                         )
@@ -247,7 +248,10 @@ final class ConversationTitleView: UIView {
                 labelInfos.append(
                     SessionLabelCarouselView.LabelInfo(
                         attributedText: disappearingMessageSettingLabelString,
-                        accessibilityIdentifier: "Disappearing messages type and time",
+                        accessibility: Accessibility(
+                            identifier: "Disappearing messages type and time",
+                            label: "Disappearing messages type and time"
+                        ),
                         type: .disappearingMessageSetting
                     )
                 )
