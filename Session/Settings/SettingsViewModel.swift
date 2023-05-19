@@ -3,6 +3,7 @@
 import Foundation
 import Combine
 import GRDB
+import YYImage
 import DifferenceKit
 import SessionUIKit
 import SessionMessagingKit
@@ -155,9 +156,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     }
     
     override var rightNavItems: AnyPublisher<[NavItem]?, Never> {
-        let userSessionId: String = self.userSessionId
-        
-        return navState
+        navState
             .map { [weak self] navState -> [NavItem] in
                 switch navState {
                     case .standard:
@@ -488,21 +487,31 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     private func updateProfilePicture(currentFileName: String?) {
         let existingDisplayName: String = self.oldDisplayName
         
-        let existingImage: UIImage? = currentFileName
+        let existingImageData: (image: UIImage?, animatedImage: YYImage?)? = currentFileName
             .map { ProfileManager.loadProfileData(with: $0) }
-            .map { UIImage(data: $0) }
+            .map { imageData in
+                switch imageData.guessedImageFormat {
+                    case .gif, .webp: return (nil, YYImage(data: imageData))
+                    default: return (UIImage(data: imageData), nil)
+                }
+            }
         let editProfilePictureModalInfo: ConfirmationModal.Info = ConfirmationModal.Info(
             title: "update_profile_modal_title".localized(),
             body: .image(
                 placeholder: UIImage(named: "profile_placeholder"),
-                value: existingImage,
+                value: existingImageData?.image,
+                animatedValue: existingImageData?.animatedImage,
                 style: .circular,
+                accessibility: Accessibility(
+                    identifier: "Image picker",
+                    label: "Image picker"
+                ),
                 onClick: { [weak self] in self?.showPhotoLibraryForAvatar() }
             ),
             confirmTitle: "update_profile_modal_upload".localized(),
             confirmEnabled: false,
             cancelTitle: "update_profile_modal_remove".localized(),
-            cancelEnabled: (existingImage != nil),
+            cancelEnabled: (existingImageData != nil),
             hasCloseButton: true,
             dismissOnConfirm: false,
             onConfirm: { modal in modal.close() },
@@ -535,11 +544,20 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                     value: {
                         switch avatarUpdate {
                             case .uploadImage(let image): return image
-                            case .uploadFilePath(let filePath): return UIImage(contentsOfFile: filePath)
+                            default: return nil
+                        }
+                    }(),
+                    animatedValue: {
+                        switch avatarUpdate {
+                            case .uploadFilePath(let filePath): return YYImage(contentsOfFile: filePath)
                             default: return nil
                         }
                     }(),
                     style: .circular,
+                    accessibility: Accessibility(
+                        identifier: "Image picker",
+                        label: "Image picker"
+                    ),
                     onClick: { [weak self] in self?.showPhotoLibraryForAvatar() }
                 ),
                 confirmEnabled: true,

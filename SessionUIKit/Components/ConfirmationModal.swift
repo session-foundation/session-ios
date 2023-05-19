@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import YYImage
 import SessionUtilitiesKit
 
 // FIXME: Refactor as part of the Groups Rebuild
@@ -41,6 +42,12 @@ public class ConfirmationModal: Modal {
         let result: UIView = UIView()
         result.isHidden = true
         
+        let gestureRecogniser: UITapGestureRecognizer = UITapGestureRecognizer(
+            target: self,
+            action: #selector(imageViewTapped)
+        )
+        result.addGestureRecognizer(gestureRecogniser)
+        
         return result
     }()
     
@@ -50,6 +57,18 @@ public class ConfirmationModal: Modal {
         result.contentMode = .scaleAspectFill
         result.set(.width, to: ConfirmationModal.imageSize)
         result.set(.height, to: ConfirmationModal.imageSize)
+        result.isHidden = true
+        
+        return result
+    }()
+    
+    private lazy var animatedImageView: YYAnimatedImageView = {
+        let result: YYAnimatedImageView = YYAnimatedImageView()
+        result.clipsToBounds = true
+        result.contentMode = .scaleAspectFill
+        result.set(.width, to: ConfirmationModal.imageSize)
+        result.set(.height, to: ConfirmationModal.imageSize)
+        result.isHidden = true
         
         return result
     }()
@@ -84,12 +103,6 @@ public class ConfirmationModal: Modal {
             right: Values.largeSpacing
         )
         
-        let gestureRecogniser: UITapGestureRecognizer = UITapGestureRecognizer(
-            target: self,
-            action: #selector(bodyTapped)
-        )
-        result.addGestureRecognizer(gestureRecogniser)
-        
         return result
     }()
     
@@ -115,6 +128,9 @@ public class ConfirmationModal: Modal {
             bottom: 6,
             right: 6
         )
+        result.isAccessibilityElement = true
+        result.accessibilityIdentifier = "Close button"
+        result.accessibilityLabel = "Close button"
         result.set(.width, to: ConfirmationModal.closeSize)
         result.set(.height, to: ConfirmationModal.closeSize)
         result.addTarget(self, action: #selector(close), for: .touchUpInside)
@@ -145,6 +161,11 @@ public class ConfirmationModal: Modal {
         imageView.center(.horizontal, in: imageViewContainer)
         imageView.pin(.top, to: .top, of: imageViewContainer, withInset: 15)
         imageView.pin(.bottom, to: .bottom, of: imageViewContainer, withInset: -15)
+        
+        imageViewContainer.addSubview(animatedImageView)
+        animatedImageView.center(.horizontal, in: imageViewContainer)
+        animatedImageView.pin(.top, to: .top, of: imageViewContainer, withInset: 15)
+        animatedImageView.pin(.bottom, to: .bottom, of: imageViewContainer, withInset: -15)
         
         mainStackView.pin(to: contentView)
         closeButton.pin(.top, to: .top, of: contentView, withInset: 8)
@@ -185,15 +206,32 @@ public class ConfirmationModal: Modal {
                 explanationLabel.attributedText = attributedText
                 explanationLabel.isHidden = false
                 
-            case .image(let placeholder, let value, let style, let onClick):
+            case .image(let placeholder, let value, let animatedValue, let style, let accessibility, let onClick):
+                imageViewContainer.isAccessibilityElement = (accessibility != nil)
+                imageViewContainer.accessibilityIdentifier = accessibility?.identifier
+                imageViewContainer.accessibilityLabel = accessibility?.label
                 mainStackView.spacing = 0
-                imageView.image = (value ?? placeholder)
-                imageView.layer.cornerRadius = (style == .circular ?
-                    (ConfirmationModal.imageSize / 2) :
-                    0
-                )
                 imageViewContainer.isHidden = false
                 internalOnBodyTap = onClick
+                
+                if let animatedValue: YYImage = animatedValue {
+                    imageView.isHidden = true
+                    animatedImageView.image = animatedValue
+                    animatedImageView.isHidden = false
+                    animatedImageView.layer.cornerRadius = (style == .circular ?
+                        (ConfirmationModal.imageSize / 2) :
+                        0
+                    )
+                }
+                else {
+                    animatedImageView.isHidden = true
+                    imageView.image = (value ?? placeholder)
+                    imageView.isHidden = false
+                    imageView.layer.cornerRadius = (style == .circular ?
+                        (ConfirmationModal.imageSize / 2) :
+                        0
+                    )
+                }
         }
         
         confirmButton.accessibilityLabel = info.confirmAccessibility?.label
@@ -219,7 +257,7 @@ public class ConfirmationModal: Modal {
     
     // MARK: - Interaction
     
-    @objc private func bodyTapped() {
+    @objc private func imageViewTapped() {
         internalOnBodyTap?()
     }
     
@@ -407,7 +445,9 @@ public extension ConfirmationModal.Info {
         case image(
             placeholder: UIImage?,
             value: UIImage?,
+            animatedValue: YYImage?,
             style: ImageStyle,
+            accessibility: Accessibility?,
             onClick: (() -> ())
         )
         
@@ -431,11 +471,13 @@ public extension ConfirmationModal.Info {
                 //        lhsOptions.map { "\($0.0)-\($0.1)" } == rhsValue.map { "\($0.0)-\($0.1)" }
                 //    )
                     
-                case (.image(let lhsPlaceholder, let lhsValue, let lhsStyle, _), .image(let rhsPlaceholder, let rhsValue, let rhsStyle, _)):
+                case (.image(let lhsPlaceholder, let lhsValue, let lhsAnimatedValue, let lhsStyle, let lhsAccessibility, _), .image(let rhsPlaceholder, let rhsValue, let rhsAnimatedValue, let rhsStyle, let rhsAccessibility, _)):
                     return (
                         lhsPlaceholder == rhsPlaceholder &&
                         lhsValue == rhsValue &&
-                        lhsStyle == rhsStyle
+                        lhsAnimatedValue == rhsAnimatedValue &&
+                        lhsStyle == rhsStyle &&
+                        lhsAccessibility == rhsAccessibility
                     )
                     
                 default: return false
@@ -448,10 +490,12 @@ public extension ConfirmationModal.Info {
                 case .text(let text): text.hash(into: &hasher)
                 case .attributedText(let text): text.hash(into: &hasher)
                 
-                case .image(let placeholder, let value, let style, _):
+                case .image(let placeholder, let value, let animatedValue, let style, let accessibility, _):
                     placeholder.hash(into: &hasher)
                     value.hash(into: &hasher)
+                    animatedValue.hash(into: &hasher)
                     style.hash(into: &hasher)
+                    accessibility.hash(into: &hasher)
             }
         }
     }
