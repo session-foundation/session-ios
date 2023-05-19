@@ -1075,7 +1075,7 @@ public extension SessionThreadViewModel {
                 \(interaction[.id]) AS \(ViewModel.interactionIdKey),
                 \(interaction[.variant]) AS \(ViewModel.interactionVariantKey),
                 \(interaction[.timestampMs]) AS \(ViewModel.interactionTimestampMsKey),
-                \(interaction[.body]) AS \(ViewModel.interactionBodyKey),
+                snippet(\(interactionFullTextSearch), -1, '', '', '...', 15) AS \(ViewModel.interactionBodyKey),
         
                 \(interaction[.authorId]),
                 IFNULL(\(profile[.nickname]), \(profile[.name])) AS \(ViewModel.authorNameInternalKey),
