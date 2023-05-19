@@ -299,12 +299,13 @@ internal extension SessionUtil {
 
 public extension SessionUtil {
     static func conversationInConfig(
+        _ db: Database? = nil,
         threadId: String,
         threadVariant: SessionThread.Variant,
         visibleOnly: Bool
     ) -> Bool {
         // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard SessionUtil.userConfigsEnabled else { return true }
+        guard SessionUtil.userConfigsEnabled(db) else { return true }
         
         let configVariant: ConfigDump.Variant = {
             switch threadVariant {

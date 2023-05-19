@@ -125,7 +125,6 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     
     var scrollButtonBottomConstraint: NSLayoutConstraint?
     var scrollButtonMessageRequestsBottomConstraint: NSLayoutConstraint?
-    var scrollButtonPendingMessageRequestInfoBottomConstraint: NSLayoutConstraint?
     var messageRequestsViewBotomConstraint: NSLayoutConstraint?
     var messageRequestDescriptionLabelBottomConstraint: NSLayoutConstraint?
     
@@ -171,7 +170,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     }()
 
     lazy var snInputView: InputView = InputView(
-        threadVariant: self.viewModel.threadData.threadVariant,
+        threadVariant: self.viewModel.initialThreadVariant,
         delegate: self
     )
 
@@ -182,6 +181,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         result.layer.cornerRadius = (ConversationVC.unreadCountViewSize / 2)
         result.set(.width, greaterThanOrEqualTo: ConversationVC.unreadCountViewSize)
         result.set(.height, to: ConversationVC.unreadCountViewSize)
+        result.isHidden = true
         
         return result
     }()
@@ -435,7 +435,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         emptyStateLabel.pin(.top, to: .top, of: view, withInset: Values.largeSpacing)
         emptyStateLabel.pin(.leading, to: .leading, of: view, withInset: Values.veryLargeSpacing)
         emptyStateLabel.pin(.trailing, to: .trailing, of: view, withInset: -Values.veryLargeSpacing)
-
+        
         messageRequestStackView.addArrangedSubview(messageRequestBlockButton)
         messageRequestStackView.addArrangedSubview(messageRequestDescriptionContainerView)
         messageRequestStackView.addArrangedSubview(messageRequestActionStackView)
@@ -456,6 +456,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         messageRequestDescriptionLabel.pin(.trailing, to: .trailing, of: messageRequestDescriptionContainerView, withInset: -20)
         self.messageRequestDescriptionLabelBottomConstraint = messageRequestDescriptionLabel.pin(.bottom, to: .bottom, of: messageRequestDescriptionContainerView, withInset: -20)
         messageRequestActionStackView.pin(.top, to: .bottom, of: messageRequestDescriptionContainerView)
+
         messageRequestDeleteButton.set(.width, to: .width, of: messageRequestAcceptButton)
         messageRequestBackgroundView.pin(.top, to: .top, of: messageRequestStackView)
         messageRequestBackgroundView.pin(.leading, to: .leading, of: view)
@@ -584,7 +585,11 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     }
     
     @objc func applicationDidBecomeActive(_ notification: Notification) {
-        startObservingChanges(didReturnFromBackground: true)
+        /// Need to dispatch to the next run loop to prevent a possible crash caused by the database resuming mid-query
+        DispatchQueue.main.async { [weak self] in
+            self?.startObservingChanges(didReturnFromBackground: true)
+        }
+        
         recoverInputView()
         
         if !isShowingSearchUI && self.presentedViewController == nil {
@@ -898,15 +903,18 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
             self.viewModel.updateInteractionData(updatedData)
             self.tableView.reloadData()
             
-            // We need to dispatch to the next run loop because it seems trying to scroll immediately after
-            // triggering a 'reloadData' doesn't work
-            DispatchQueue.main.async { [weak self] in
-                self?.scrollToBottom(isAnimated: false)
-                
-                // Note: The scroll button alpha won't get set correctly in this case so we forcibly set it to
-                // have an alpha of 0 to stop it appearing buggy
-                self?.scrollButton.alpha = 0
-                self?.unreadCountView.alpha = 0
+            // If we just sent a message then we want to jump to the bottom of the conversation instantly
+            if didSendMessageBeforeUpdate {
+                // We need to dispatch to the next run loop because it seems trying to scroll immediately after
+                // triggering a 'reloadData' doesn't work
+                DispatchQueue.main.async { [weak self] in
+                    self?.scrollToBottom(isAnimated: false)
+                    
+                    // Note: The scroll button alpha won't get set correctly in this case so we forcibly set it to
+                    // have an alpha of 0 to stop it appearing buggy
+                    self?.scrollButton.alpha = 0
+                    self?.unreadCountView.alpha = 0
+                }
             }
             return
         }
@@ -1488,7 +1496,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                                     targetView: self?.view,
                                     info: ConfirmationModal.Info(
                                         title: CommonStrings.errorAlertTitle,
-                                        explanation: "INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE".localized(),
+                                        body: .text("INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE".localized()),
                                         cancelTitle: "BUTTON_OK".localized(),
                                         cancelStyle: .alert_text
                                     )

@@ -9,7 +9,7 @@ import SessionUtilitiesKit
 extension MessageReceiver {
     internal static func handleLegacyConfigurationMessage(_ db: Database, message: ConfigurationMessage) throws {
         // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard !SessionUtil.userConfigsEnabled else {
+        guard !SessionUtil.userConfigsEnabled(db) else {
             TopBannerController.show(warning: .outdatedUserConfig)
             return
         }

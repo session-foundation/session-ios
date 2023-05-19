@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
@@ -272,7 +273,7 @@ class ScreenLockUI {
             targetView: screenBlockingWindow.rootViewController?.view,
             info: ConfirmationModal.Info(
                 title: "SCREEN_LOCK_UNLOCK_FAILED".localized(),
-                explanation: message,
+                body: .text(message),
                 cancelTitle: "BUTTON_OK".localized(),
                 cancelStyle: .alert_text,
                 afterClosed: { [weak self] in self?.ensureUI() } // After the alert, update the UI

@@ -3,6 +3,7 @@
 import Foundation
 import Combine
 import GRDB
+import YYImage
 import DifferenceKit
 import SessionUIKit
 import SessionMessagingKit
@@ -498,7 +499,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 ),
                                 confirmationInfo: ConfirmationModal.Info(
                                     title: "leave_group_confirmation_alert_title".localized(),
-                                    attributedExplanation: {
+                                    body: .attributedText({
                                         if currentUserIsClosedGroupAdmin {
                                             return NSAttributedString(string: "admin_group_leave_warning".localized())
                                         }
@@ -515,7 +516,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                             range: (mutableAttributedString.string as NSString).range(of: threadViewModel.displayName)
                                         )
                                         return mutableAttributedString
-                                    }(),
+                                    }()),
                                     confirmTitle: "LEAVE_BUTTON_TITLE".localized(),
                                     confirmStyle: .danger,
                                     cancelStyle: .alert_text
@@ -669,9 +670,8 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                             threadViewModel.displayName
                                         )
                                     }(),
-                                    explanation: (threadViewModel.threadIsBlocked == true ?
-                                        nil :
-                                        "BLOCK_USER_BEHAVIOR_EXPLANATION".localized()
+                                    body: (threadViewModel.threadIsBlocked == true ? .none :
+                                        .text("BLOCK_USER_BEHAVIOR_EXPLANATION".localized())
                                     ),
                                     confirmTitle: (threadViewModel.threadIsBlocked == true ?
                                         "BLOCK_LIST_UNBLOCK_BUTTON".localized() :
@@ -808,13 +808,12 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     displayName
                                 )
                             ),
-                            explanation: (oldBlockedState == false ?
+                            body: (oldBlockedState == true ? .none : .text(
                                 String(
                                     format: "BLOCK_LIST_VIEW_BLOCKED_ALERT_MESSAGE_FORMAT".localized(),
                                     displayName
-                                ) :
-                                nil
-                            ),
+                                )
+                            )),
                             accessibility: Accessibility(
                                 identifier: "Test_name",
                                 label: (oldBlockedState == false ? "User blocked" : "Confirm unblock")

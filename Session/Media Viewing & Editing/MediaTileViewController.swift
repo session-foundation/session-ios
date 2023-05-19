@@ -176,7 +176,10 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
     }
     
     @objc func applicationDidBecomeActive(_ notification: Notification) {
-        startObservingChanges(didReturnFromBackground: true)
+        /// Need to dispatch to the next run loop to prevent a possible crash caused by the database resuming mid-query
+        DispatchQueue.main.async { [weak self] in
+            self?.startObservingChanges(didReturnFromBackground: true)
+        }
     }
     
     @objc func applicationDidResignActive(_ notification: Notification) {

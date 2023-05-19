@@ -25,8 +25,8 @@
 # Need to set the path or we won't find cmake
 PATH=${PATH}:/usr/local/bin:/opt/homebrew/bin:/sbin/md5
 
-# Direct the output to a log file
-exec > "${TARGET_BUILD_DIR}/libsession_util_output.log" 2>&1
+# Ensure the build directory exists (in case we need it before XCode creates it)
+mkdir -p "${TARGET_BUILD_DIR}"
 
 # Remove any old build errors
 rm -rf "${TARGET_BUILD_DIR}/libsession_util_error.log"
@@ -35,11 +35,15 @@ rm -rf "${TARGET_BUILD_DIR}/libsession_util_error.log"
 echo "info: Validating build requirements"
 
 if ! which cmake > /dev/null; then
+  touch "${TARGET_BUILD_DIR}/libsession_util_error.log"
+  echo "error: cmake is required to build, please install (can install via homebrew with 'brew install cmake')."
   echo "error: cmake is required to build, please install (can install via homebrew with 'brew install cmake')." > "${TARGET_BUILD_DIR}/libsession_util_error.log"
   exit 0
 fi
 
 if [ ! -d "${SRCROOT}/LibSession-Util" ] || [ ! -d "${SRCROOT}/LibSession-Util/src" ]; then
+  touch "${TARGET_BUILD_DIR}/libsession_util_error.log"
+  echo "error: Need to fetch LibSession-Util submodule."
   echo "error: Need to fetch LibSession-Util submodule." > "${TARGET_BUILD_DIR}/libsession_util_error.log"
   exit 1
 fi
@@ -71,12 +75,14 @@ if [ "${NEW_SOURCE_HASH}" != "${OLD_SOURCE_HASH}" ] || [ "${NEW_HEADER_HASH}" !=
   rm -rf "${TARGET_BUILD_DIR}/libsession-util.a"
   rm -rf "${TARGET_BUILD_DIR}/libsession-util.xcframework"
   rm -rf "${BUILD_DIR}/libsession-util.xcframework"
-  
+
   # Trigger the new build
   cd "${SRCROOT}/LibSession-Util"
   result=$(./utils/ios.sh "libsession-util" false)
 
   if [ $? -ne 0 ]; then
+    touch "${TARGET_BUILD_DIR}/libsession_util_error.log"
+    echo "error: Failed to build libsession-util (See details in '${TARGET_BUILD_DIR}/pre-action-output.log')."
     echo "error: Failed to build libsession-util (See details in '${TARGET_BUILD_DIR}/pre-action-output.log')." > "${TARGET_BUILD_DIR}/libsession_util_error.log"
     exit 0
   fi

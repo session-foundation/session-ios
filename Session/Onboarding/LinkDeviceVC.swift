@@ -138,7 +138,7 @@ final class LinkDeviceVC: BaseVC, UIPageViewControllerDataSource, UIPageViewCont
             let modal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "invalid_recovery_phrase".localized(),
-                    explanation: "INVALID_RECOVERY_PHRASE_MESSAGE".localized(),
+                    body: .text("INVALID_RECOVERY_PHRASE_MESSAGE".localized()),
                     cancelTitle: "BUTTON_OK".localized(),
                     cancelStyle: .alert_text,
                     afterClosed: { [weak self] in
@@ -301,7 +301,7 @@ private final class RecoveryPhraseVC: UIViewController {
                 targetView: self.view,
                 info: ConfirmationModal.Info(
                     title: title,
-                    explanation: message,
+                    body: .text(message),
                     cancelTitle: "BUTTON_OK".localized(),
                     cancelStyle: .alert_text
                 )

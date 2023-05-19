@@ -11,8 +11,8 @@ import SignalUtilitiesKit
 final class NukeDataModal: Modal {
     // MARK: - Initialization
     
-    override init(targetView: UIView? = nil, afterClosed: (() -> ())? = nil) {
-        super.init(targetView: targetView, afterClosed: afterClosed)
+    override init(targetView: UIView? = nil, dismissType: DismissType = .recursive, afterClosed: (() -> ())? = nil) {
+        super.init(targetView: targetView, dismissType: dismissType, afterClosed: afterClosed)
         
         self.modalPresentationStyle = .overFullScreen
         self.modalTransitionStyle = .crossDissolve
@@ -137,7 +137,7 @@ final class NukeDataModal: Modal {
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: "modal_clear_all_data_title".localized(),
-                explanation: "modal_clear_all_data_explanation_2".localized(),
+                body: .text("modal_clear_all_data_explanation_2".localized()),
                 confirmTitle: "modal_clear_all_data_confirm".localized(),
                 confirmStyle: .danger,
                 cancelStyle: .alert_text,
@@ -204,7 +204,7 @@ final class NukeDataModal: Modal {
                                         targetView: self?.view,
                                         info: ConfirmationModal.Info(
                                             title: "ALERT_ERROR_TITLE".localized(),
-                                            explanation: error.localizedDescription,
+                                            body: .text(error.localizedDescription),
                                             cancelTitle: "BUTTON_OK".localized(),
                                             cancelStyle: .alert_text
                                         )
@@ -236,7 +236,7 @@ final class NukeDataModal: Modal {
                                 targetView: self?.view,
                                 info: ConfirmationModal.Info(
                                     title: "ALERT_ERROR_TITLE".localized(),
-                                    explanation: message,
+                                    body: .text(message),
                                     cancelTitle: "BUTTON_OK".localized(),
                                     cancelStyle: .alert_text
                                 )

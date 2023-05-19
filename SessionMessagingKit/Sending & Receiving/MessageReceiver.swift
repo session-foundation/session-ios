@@ -189,7 +189,7 @@ public enum MessageReceiver {
         // the config then the message will be dropped)
         guard
             !Message.requiresExistingConversation(message: message, threadVariant: threadVariant) ||
-            SessionUtil.conversationInConfig(threadId: threadId, threadVariant: threadVariant, visibleOnly: false)
+            SessionUtil.conversationInConfig(db, threadId: threadId, threadVariant: threadVariant, visibleOnly: false)
         else { throw MessageReceiverError.requiredThreadNotInConfig }
         
         // Update any disappearing messages configuration if needed.

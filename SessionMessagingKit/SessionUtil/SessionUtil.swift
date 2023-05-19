@@ -6,6 +6,28 @@ import SessionSnodeKit
 import SessionUtil
 import SessionUtilitiesKit
 
+// MARK: - Features
+
+public extension Features {
+    static func useSharedUtilForUserConfig(_ db: Database? = nil) -> Bool {
+        // TODO: Need to set this timestamp to the correct date
+        guard Date().timeIntervalSince1970 < 1893456000 else { return true }
+        guard !SessionUtil.hasCheckedMigrationsCompleted.wrappedValue else {
+            return SessionUtil.userConfigsEnabledIgnoringFeatureFlag
+        }
+        
+        if let db: Database = db {
+            return SessionUtil.refreshingUserConfigsEnabled(db)
+        }
+        
+        return Storage.shared
+            .read { db in SessionUtil.refreshingUserConfigsEnabled(db) }
+            .defaulting(to: false)
+    }
+}
+
+// MARK: - SessionUtil
+
 public enum SessionUtil {
     public struct ConfResult {
         let needsPush: Bool
@@ -63,6 +85,7 @@ public enum SessionUtil {
     
     public static var libSessionVersion: String { String(cString: LIBSESSION_UTIL_VERSION_STR) }
     
+    fileprivate static let hasCheckedMigrationsCompleted: Atomic<Bool> = Atomic(false)
     private static let requiredMigrationsCompleted: Atomic<Bool> = Atomic(false)
     private static let requiredMigrationIdentifiers: Set<String> = [
         TargetMigrations.Identifier.messagingKit.key(with: _013_SessionUtilChanges.self),
@@ -70,8 +93,16 @@ public enum SessionUtil {
     ]
     
     public static var userConfigsEnabled: Bool {
-        Features.useSharedUtilForUserConfig &&
-        requiredMigrationsCompleted.wrappedValue
+        return userConfigsEnabled(nil)
+    }
+    
+    public static func userConfigsEnabled(_ db: Database?) -> Bool {
+        Features.useSharedUtilForUserConfig(db) &&
+        SessionUtil.userConfigsEnabledIgnoringFeatureFlag
+    }
+    
+    public static var userConfigsEnabledIgnoringFeatureFlag: Bool {
+        SessionUtil.requiredMigrationsCompleted.wrappedValue
     }
     
     internal static func userConfigsEnabled(
@@ -80,9 +111,9 @@ public enum SessionUtil {
     ) -> Bool {
         // First check if we are enabled regardless of what we want to ignore
         guard
-            Features.useSharedUtilForUserConfig,
-            !requiredMigrationsCompleted.wrappedValue,
-            !refreshingUserConfigsEnabled(db),
+            Features.useSharedUtilForUserConfig(db),
+            !SessionUtil.requiredMigrationsCompleted.wrappedValue,
+            !SessionUtil.refreshingUserConfigsEnabled(db),
             ignoreRequirementsForRunningMigrations,
             let currentlyRunningMigration: (identifier: TargetMigrations.Identifier, migration: Migration.Type) = Storage.shared.currentlyRunningMigration
         else { return true }
@@ -99,6 +130,7 @@ public enum SessionUtil {
             .isSuperset(of: SessionUtil.requiredMigrationIdentifiers)
         
         requiredMigrationsCompleted.mutate { $0 = result }
+        hasCheckedMigrationsCompleted.mutate { $0 = true }
         
         return result
     }
@@ -375,7 +407,7 @@ public enum SessionUtil {
         publicKey: String
     ) throws {
         // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard SessionUtil.userConfigsEnabled else { return }
+        guard SessionUtil.userConfigsEnabled(db) else { return }
         guard !messages.isEmpty else { return }
         guard !publicKey.isEmpty else { throw MessageReceiverError.noThread }
         

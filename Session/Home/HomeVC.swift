@@ -315,7 +315,10 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     }
     
     @objc func applicationDidBecomeActive(_ notification: Notification) {
-        startObservingChanges(didReturnFromBackground: true)
+        /// Need to dispatch to the next run loop to prevent a possible crash caused by the database resuming mid-query
+        DispatchQueue.main.async { [weak self] in
+            self?.startObservingChanges(didReturnFromBackground: true)
+        }
     }
     
     @objc func applicationDidResignActive(_ notification: Notification) {
@@ -400,8 +403,18 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         // in from a frame of CGRect.zero)
         guard hasLoadedInitialThreadData else {
             hasLoadedInitialThreadData = true
-            UIView.performWithoutAnimation {
-                handleThreadUpdates(updatedData, changeset: changeset, initialLoad: true)
+            
+            UIView.performWithoutAnimation { [weak self] in
+                // Hide the 'loading conversations' label (now that we have received conversation data)
+                self?.loadingConversationsLabel.isHidden = true
+                
+                // Show the empty state if there is no data
+                self?.emptyStateView.isHidden = (
+                    !updatedData.isEmpty &&
+                    updatedData.contains(where: { !$0.elements.isEmpty })
+                )
+                
+                self?.viewModel.updateThreadData(updatedData)
             }
             return
         }
@@ -656,7 +669,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
                         viewController: self
                     )
                 )
-
+            
             default: return nil
         }
     }
