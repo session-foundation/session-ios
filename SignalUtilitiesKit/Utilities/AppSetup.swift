@@ -63,6 +63,14 @@ public enum AppSetup {
         migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
         migrationsCompletion: @escaping (Result<Void, Error>, Bool) -> ()
     ) {
+        // If the database can't be initialised into a valid state then error
+        guard Storage.shared.isValid else {
+            DispatchQueue.main.async {
+                migrationsCompletion(Result.failure(StorageError.databaseInvalid), false)
+            }
+            return
+        }
+        
         var backgroundTask: OWSBackgroundTask? = (backgroundTask ?? OWSBackgroundTask(labelStr: #function))
         
         Storage.shared.perform(

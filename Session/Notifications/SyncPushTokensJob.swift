@@ -155,15 +155,15 @@ extension SyncPushTokensJob {
             .setFailureType(to: Error.self)
             .flatMap { pushTokenAsData -> AnyPublisher<Bool, Error> in
                 guard isUsingFullAPNs else {
-                    return PushNotificationAPI.unregister(pushTokenAsData)
+                    return PushNotificationAPI
+                        .unsubscribe(token: pushTokenAsData)
                         .map { _ in true }
                         .eraseToAnyPublisher()
                 }
                 
                 return PushNotificationAPI
-                    .register(
-                        with: pushTokenAsData,
-                        publicKey: getUserHexEncodedPublicKey(),
+                    .subscribe(
+                        token: pushTokenAsData,
                         isForcedUpdate: isForcedUpdate
                     )
                     .map { _ in true }

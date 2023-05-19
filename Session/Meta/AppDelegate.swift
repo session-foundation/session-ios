@@ -74,7 +74,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             },
             migrationsCompletion: { [weak self] result, needsConfigSync in
                 if case .failure(let error) = result {
-                    self?.showFailedMigrationAlert(calledFrom: .finishLaunching, error: error)
+                    self?.showDatabaseSetupFailureModal(calledFrom: .finishLaunching, error: error)
                     return
                 }
                 
@@ -145,7 +145,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 },
                 migrationsCompletion: { [weak self] result, needsConfigSync in
                     if case .failure(let error) = result {
-                        self?.showFailedMigrationAlert(calledFrom: .enterForeground, error: error)
+                        self?.showDatabaseSetupFailureModal(calledFrom: .enterForeground, error: error)
                         return
                     }
                     
@@ -330,15 +330,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
     }
     
-    private func showFailedMigrationAlert(calledFrom lifecycleMethod: LifecycleMethod, error: Error?) {
+    private func showDatabaseSetupFailureModal(calledFrom lifecycleMethod: LifecycleMethod, error: Error?) {
         let alert = UIAlertController(
             title: "Session",
-            message: "DATABASE_MIGRATION_FAILED".localized(),
+            message: {
+                switch (error as? StorageError) {
+                    case .databaseInvalid: return "DATABASE_SETUP_FAILED".localized()
+                    default: return "DATABASE_MIGRATION_FAILED".localized()
+                }
+            }(),
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "HELP_REPORT_BUG_ACTION_TITLE".localized(), style: .default) { _ in
             HelpViewModel.shareLogs(viewControllerToDismiss: alert) { [weak self] in
-                self?.showFailedMigrationAlert(calledFrom: lifecycleMethod, error: error)
+                self?.showDatabaseSetupFailureModal(calledFrom: lifecycleMethod, error: error)
             }
         })
         alert.addAction(UIAlertAction(title: "vc_restore_title".localized(), style: .destructive) { _ in
@@ -359,7 +364,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 },
                 migrationsCompletion: { [weak self] result, needsConfigSync in
                     if case .failure(let error) = result {
-                        self?.showFailedMigrationAlert(calledFrom: lifecycleMethod, error: error)
+                        self?.showDatabaseSetupFailureModal(calledFrom: lifecycleMethod, error: error)
                         return
                     }
                     

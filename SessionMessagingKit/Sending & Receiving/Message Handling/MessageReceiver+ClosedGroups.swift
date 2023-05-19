@@ -192,8 +192,13 @@ extension MessageReceiver {
         // Start polling
         ClosedGroupPoller.shared.startIfNeeded(for: groupPublicKey)
         
-        // Notify the PN server
-        let _ = PushNotificationAPI.performOperation(.subscribe, for: groupPublicKey, publicKey: getUserHexEncodedPublicKey(db))
+        // Subscribe for push notifications
+        PushNotificationAPI
+            .subscribeToLegacyGroup(
+                legacyGroupId: groupPublicKey,
+                currentUserPublicKey: getUserHexEncodedPublicKey(db)
+            )
+            .sinkUntilComplete()
     }
 
     /// Extracts and adds the new encryption key pair to our list of key pairs if there is one for our public key, AND the message was
@@ -479,11 +484,12 @@ extension MessageReceiver {
                         .keyPairs
                         .deleteAll(db)
                     
-                    let _ = PushNotificationAPI.performOperation(
-                        .unsubscribe,
-                        for: threadId,
-                        publicKey: userPublicKey
-                    )
+                    PushNotificationAPI
+                        .unsubscribeFromLegacyGroup(
+                            legacyGroupId: threadId,
+                            currentUserPublicKey: userPublicKey
+                        )
+                        .sinkUntilComplete()
                 }
             }
         )

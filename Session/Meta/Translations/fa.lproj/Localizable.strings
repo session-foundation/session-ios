@@ -414,6 +414,7 @@
 "DEFAULT_OPEN_GROUP_LOAD_ERROR_TITLE" = "متاسفانه خطایی رخ داده است";
 "DEFAULT_OPEN_GROUP_LOAD_ERROR_SUBTITLE" = "لطفا بعدا دوباره تلاش کنید";
 "LOADING_CONVERSATIONS" = "درحال بارگزاری پیام ها...";
+"DATABASE_SETUP_FAILED" = "An error occurred when opening the database, please restart to try again\n\nIf you contineu to see this error you can export your application logs to be able to share for troubleshooting or you can restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
 "DATABASE_MIGRATION_FAILED" = "هنگام بهینه‌سازی پایگاه داده خطایی روی داد\n\nشما می‌توانید گزارش‌های برنامه خود را صادر کنید تا بتوانید برای عیب‌یابی به اشتراک بگذارید یا می‌توانید دستگاه خود را بازیابی کنید\n\nهشدار: بازیابی دستگاه شما منجر به از دست رفتن داده‌های قدیمی‌تر از دو هفته می‌شود.";
 "RECOVERY_PHASE_ERROR_GENERIC" = "مشکلی پیش آمد. لطفاً عبارت بازیابی خود را بررسی کنید و دوباره امتحان کنید.";
 "RECOVERY_PHASE_ERROR_LENGTH" = "به نظر می رسد کلمات کافی وارد نکرده اید. لطفاً عبارت بازیابی خود را بررسی کنید و دوباره امتحان کنید.";
@@ -641,3 +642,4 @@
 "CONVERSATION_EMPTY_STATE_READ_ONLY" = "There are no messages in %@.";
 "CONVERSATION_EMPTY_STATE_NOTE_TO_SELF" = "You have no messages in %@.";
 "USER_CONFIG_OUTDATED_WARNING" = "Some of your devices are using outdated versions. Syncing may be unreliable until they are updated.";
+"database_inaccessible_error" = "There is an issue opening the database. Please restart the app and try again.";

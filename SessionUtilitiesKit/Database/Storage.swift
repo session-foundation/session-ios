@@ -56,20 +56,25 @@ open class Storage {
             return
         }
         
-        // Generate the database KeySpec if needed (this MUST be done before we try to access the database
-        // as a different thread might attempt to access the database before the key is successfully created)
-        //
-        // Note: We reset the bytes immediately after generation to ensure the database key doesn't hang
-        // around in memory unintentionally
-        var tmpKeySpec: Data = Storage.getOrGenerateDatabaseKeySpec()
-        tmpKeySpec.resetBytes(in: 0..<tmpKeySpec.count)
+        /// Generate the database KeySpec if needed (this MUST be done before we try to access the database as a different thread
+        /// might attempt to access the database before the key is successfully created)
+        ///
+        /// We reset the bytes immediately after generation to ensure the database key doesn't hang around in memory unintentionally
+        ///
+        /// **Note:** If we fail to get/generate the keySpec then don't bother continuing to setup the Database as it'll just be invalid,
+        /// in this case the App/Extensions will have logic that checks the `isValid` flag of the database
+        do {
+            var tmpKeySpec: Data = try Storage.getOrGenerateDatabaseKeySpec()
+            tmpKeySpec.resetBytes(in: 0..<tmpKeySpec.count)
+        }
+        catch { return }
         
         // Configure the database and create the DatabasePool for interacting with the database
         var config = Configuration()
         config.maximumReaderCount = 10  // Increase the max read connection limit - Default is 5
         config.observesSuspensionNotifications = true // Minimise `0xDEAD10CC` exceptions
         config.prepareDatabase { db in
-            var keySpec: Data = Storage.getOrGenerateDatabaseKeySpec()
+            var keySpec: Data = try Storage.getOrGenerateDatabaseKeySpec()
             defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
             
             // Use a raw key spec, where the 96 hexadecimal digits are provided
@@ -252,7 +257,7 @@ open class Storage {
         return try SSKDefaultKeychainStorage.shared.data(forService: keychainService, key: dbCipherKeySpecKey)
     }
     
-    @discardableResult private static func getOrGenerateDatabaseKeySpec() -> Data {
+    @discardableResult private static func getOrGenerateDatabaseKeySpec() throws -> Data {
         do {
             var keySpec: Data = try getDatabaseCipherKeySpec()
             defer { keySpec.resetBytes(in: 0..<keySpec.count) }
@@ -283,8 +288,9 @@ open class Storage {
                         return keySpec
                     }
                     catch {
+                        SNLog("Setting keychain value failed with error: \(error.localizedDescription)")
                         Thread.sleep(forTimeInterval: 15)    // Sleep to allow any background behaviours to complete
-                        fatalError("Setting keychain value failed with error: \(error.localizedDescription)")
+                        throw StorageError.keySpecCreationFailed
                     }
                     
                 default:
@@ -294,15 +300,18 @@ open class Storage {
                     // just terminate by throwing an uncaught exception
                     if CurrentAppContext().isMainApp || CurrentAppContext().isInBackground() {
                         let appState: UIApplication.State = CurrentAppContext().reportedApplicationState
+                        SNLog("CipherKeySpec inaccessible. New install or no unlock since device restart?, ApplicationState: \(NSStringForUIApplicationState(appState))")
                         
-                        // In this case we should have already detected the situation earlier and exited gracefully (in the
-                        // app delegate) using isDatabasePasswordAccessible, but we want to stop the app running here anyway
+                        // In this case we should have already detected the situation earlier and exited
+                        // gracefully (in the app delegate) using isDatabasePasswordAccessible, but we
+                        // want to stop the app running here anyway
                         Thread.sleep(forTimeInterval: 5)    // Sleep to allow any background behaviours to complete
-                        fatalError("CipherKeySpec inaccessible. New install or no unlock since device restart?, ApplicationState: \(NSStringForUIApplicationState(appState))")
+                        throw StorageError.keySpecInaccessible
                     }
                     
+                    SNLog("CipherKeySpec inaccessible; not main app.")
                     Thread.sleep(forTimeInterval: 5)    // Sleep to allow any background behaviours to complete
-                    fatalError("CipherKeySpec inaccessible; not main app.")
+                    throw StorageError.keySpecInaccessible
             }
         }
     }
@@ -422,7 +431,10 @@ open class Storage {
         onError: @escaping (Error) -> Void,
         onChange: @escaping (Reducer.Value) -> Void
     ) -> DatabaseCancellable {
-        guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return AnyDatabaseCancellable(cancel: {}) }
+        guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
+            onError(StorageError.databaseInvalid)
+            return AnyDatabaseCancellable(cancel: {})
+        }
         
         return observation.start(
             in: dbWriter,

@@ -8,7 +8,7 @@ import SessionUIKit
 import SignalCoreKit
 
 final class ShareNavController: UINavigationController, ShareViewDelegate {
-    private var areVersionMigrationsComplete = false
+    private static let areVersionMigrationsComplete: Atomic<Bool> = Atomic(false)
     public static var attachmentPrepPublisher: AnyPublisher<[SignalAttachment], Error>?
     
     // MARK: - Error
@@ -24,6 +24,8 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     
     override func loadView() {
         super.loadView()
+        
+        view.themeBackgroundColor = .backgroundPrimary
 
         // This should be the first thing we do (Note: If you leave the share context and return to it
         // the context will already exist, trying to override it results in the share context crashing
@@ -72,6 +74,12 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
             name: .OWSApplicationDidEnterBackground,
             object: nil
         )
+        
+        /// **Note:** If the user opens, dismisses and re-opens the share extension it'll actually use the same instance which
+        /// results in the `AppSetup` not actually running (and the UI not actually being loaded correctly) - in order to avoid this
+        /// we call `checkIsAppReady` explicitly here assuming that either the `AppSetup` _hasn't_ complete or won't ever
+        /// get run
+        checkIsAppReady()
     }
     
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -88,7 +96,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
 
         Logger.debug("")
 
-        areVersionMigrationsComplete = true
+        ShareNavController.areVersionMigrationsComplete.mutate { $0 = true }
         
         // If we need a config sync then trigger it now
         if needsConfigSync {
@@ -105,10 +113,15 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         AssertIsOnMainThread()
 
         // App isn't ready until storage is ready AND all version migrations are complete.
-        guard areVersionMigrationsComplete else { return }
-        guard Storage.shared.isValid else { return }
+        guard ShareNavController.areVersionMigrationsComplete.wrappedValue else { return }
+        guard Storage.shared.isValid else {
+            // If the database is invalid then the UI will handle it
+            showLockScreenOrMainContent()
+            return
+        }
         guard !AppReadiness.isAppReady() else {
             // Only mark the app as ready once.
+            showLockScreenOrMainContent()
             return
         }
 

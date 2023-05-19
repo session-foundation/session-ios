@@ -758,6 +758,15 @@
 		FDBB25E12983909300F1508E /* ConfigConvoInfoVolatileSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBB25E02983909300F1508E /* ConfigConvoInfoVolatileSpec.swift */; };
 		FDBB25E32988B13800F1508E /* _004_AddJobPriority.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBB25E22988B13800F1508E /* _004_AddJobPriority.swift */; };
 		FDBB25E72988BBBE00F1508E /* UIContextualAction+Theming.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBB25E62988BBBD00F1508E /* UIContextualAction+Theming.swift */; };
+		FDC13D472A16E4CA007267C7 /* SubscribeRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D462A16E4CA007267C7 /* SubscribeRequest.swift */; };
+		FDC13D492A16EC20007267C7 /* Service.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D482A16EC20007267C7 /* Service.swift */; };
+		FDC13D4B2A16ECBA007267C7 /* SubscribeResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D4A2A16ECBA007267C7 /* SubscribeResponse.swift */; };
+		FDC13D502A16EE50007267C7 /* PushNotificationAPIEndpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D4F2A16EE50007267C7 /* PushNotificationAPIEndpoint.swift */; };
+		FDC13D522A16F22E007267C7 /* PushNotificationAPIRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D512A16F22E007267C7 /* PushNotificationAPIRequest.swift */; };
+		FDC13D542A16FF29007267C7 /* LegacyGroupRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D532A16FF29007267C7 /* LegacyGroupRequest.swift */; };
+		FDC13D562A171FE4007267C7 /* UnsubscribeRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D552A171FE4007267C7 /* UnsubscribeRequest.swift */; };
+		FDC13D582A17207D007267C7 /* UnsubscribeResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D572A17207D007267C7 /* UnsubscribeResponse.swift */; };
+		FDC13D5A2A1721C5007267C7 /* LegacyNotifyRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D592A1721C5007267C7 /* LegacyNotifyRequest.swift */; };
 		FDC2908727D7047F005DAE71 /* RoomSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC2908627D7047F005DAE71 /* RoomSpec.swift */; };
 		FDC2908927D70656005DAE71 /* RoomPollInfoSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC2908827D70656005DAE71 /* RoomPollInfoSpec.swift */; };
 		FDC2908B27D707F3005DAE71 /* SendMessageRequestSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC2908A27D707F3005DAE71 /* SendMessageRequestSpec.swift */; };
@@ -778,7 +787,7 @@
 		FDC4381527B329CE00C60D73 /* NonceGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC4381427B329CE00C60D73 /* NonceGenerator.swift */; };
 		FDC4381727B32EC700C60D73 /* Personalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC4381627B32EC700C60D73 /* Personalization.swift */; };
 		FDC4382027B36ADC00C60D73 /* SOGSEndpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC4381F27B36ADC00C60D73 /* SOGSEndpoint.swift */; };
-		FDC4382F27B383AF00C60D73 /* PushServerResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC4382E27B383AF00C60D73 /* PushServerResponse.swift */; };
+		FDC4382F27B383AF00C60D73 /* LegacyPushServerResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC4382E27B383AF00C60D73 /* LegacyPushServerResponse.swift */; };
 		FDC4383827B3863200C60D73 /* VersionResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC4383727B3863200C60D73 /* VersionResponse.swift */; };
 		FDC4385D27B4C18900C60D73 /* Room.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC4385C27B4C18900C60D73 /* Room.swift */; };
 		FDC4385F27B4C4A200C60D73 /* PinnedMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC4385E27B4C4A200C60D73 /* PinnedMessage.swift */; };
@@ -1890,6 +1899,15 @@
 		FDBB25E02983909300F1508E /* ConfigConvoInfoVolatileSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigConvoInfoVolatileSpec.swift; sourceTree = "<group>"; };
 		FDBB25E22988B13800F1508E /* _004_AddJobPriority.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _004_AddJobPriority.swift; sourceTree = "<group>"; };
 		FDBB25E62988BBBD00F1508E /* UIContextualAction+Theming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIContextualAction+Theming.swift"; sourceTree = "<group>"; };
+		FDC13D462A16E4CA007267C7 /* SubscribeRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscribeRequest.swift; sourceTree = "<group>"; };
+		FDC13D482A16EC20007267C7 /* Service.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Service.swift; sourceTree = "<group>"; };
+		FDC13D4A2A16ECBA007267C7 /* SubscribeResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscribeResponse.swift; sourceTree = "<group>"; };
+		FDC13D4F2A16EE50007267C7 /* PushNotificationAPIEndpoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationAPIEndpoint.swift; sourceTree = "<group>"; };
+		FDC13D512A16F22E007267C7 /* PushNotificationAPIRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationAPIRequest.swift; sourceTree = "<group>"; };
+		FDC13D532A16FF29007267C7 /* LegacyGroupRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyGroupRequest.swift; sourceTree = "<group>"; };
+		FDC13D552A171FE4007267C7 /* UnsubscribeRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsubscribeRequest.swift; sourceTree = "<group>"; };
+		FDC13D572A17207D007267C7 /* UnsubscribeResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsubscribeResponse.swift; sourceTree = "<group>"; };
+		FDC13D592A1721C5007267C7 /* LegacyNotifyRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyNotifyRequest.swift; sourceTree = "<group>"; };
 		FDC2908627D7047F005DAE71 /* RoomSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomSpec.swift; sourceTree = "<group>"; };
 		FDC2908827D70656005DAE71 /* RoomPollInfoSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomPollInfoSpec.swift; sourceTree = "<group>"; };
 		FDC2908A27D707F3005DAE71 /* SendMessageRequestSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendMessageRequestSpec.swift; sourceTree = "<group>"; };
@@ -1909,7 +1927,7 @@
 		FDC4381427B329CE00C60D73 /* NonceGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NonceGenerator.swift; sourceTree = "<group>"; };
 		FDC4381627B32EC700C60D73 /* Personalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Personalization.swift; sourceTree = "<group>"; };
 		FDC4381F27B36ADC00C60D73 /* SOGSEndpoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOGSEndpoint.swift; sourceTree = "<group>"; };
-		FDC4382E27B383AF00C60D73 /* PushServerResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushServerResponse.swift; sourceTree = "<group>"; };
+		FDC4382E27B383AF00C60D73 /* LegacyPushServerResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyPushServerResponse.swift; sourceTree = "<group>"; };
 		FDC4383727B3863200C60D73 /* VersionResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionResponse.swift; sourceTree = "<group>"; };
 		FDC4383D27B4708600C60D73 /* Atomic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Atomic.swift; sourceTree = "<group>"; };
 		FDC4385C27B4C18900C60D73 /* Room.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Room.swift; sourceTree = "<group>"; };
@@ -3151,6 +3169,7 @@
 		C379DC6825672B5E0002D4EB /* Notifications */ = {
 			isa = PBXGroup;
 			children = (
+				FDC13D4E2A16EE41007267C7 /* Types */,
 				FDC4382D27B383A600C60D73 /* Models */,
 				FDF0B7502807BA56004C14C5 /* NotificationsProtocol.swift */,
 				C33FDBDE255A581900E217F9 /* PushNotificationAPI.swift */,
@@ -4140,6 +4159,15 @@
 			path = Configs;
 			sourceTree = "<group>";
 		};
+		FDC13D4E2A16EE41007267C7 /* Types */ = {
+			isa = PBXGroup;
+			children = (
+				FDC13D482A16EC20007267C7 /* Service.swift */,
+				FDC13D4F2A16EE50007267C7 /* PushNotificationAPIEndpoint.swift */,
+			);
+			path = Types;
+			sourceTree = "<group>";
+		};
 		FDC2909227D710A9005DAE71 /* Types */ = {
 			isa = PBXGroup;
 			children = (
@@ -4192,7 +4220,14 @@
 		FDC4382D27B383A600C60D73 /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				FDC4382E27B383AF00C60D73 /* PushServerResponse.swift */,
+				FDC13D512A16F22E007267C7 /* PushNotificationAPIRequest.swift */,
+				FDC13D462A16E4CA007267C7 /* SubscribeRequest.swift */,
+				FDC13D4A2A16ECBA007267C7 /* SubscribeResponse.swift */,
+				FDC13D552A171FE4007267C7 /* UnsubscribeRequest.swift */,
+				FDC13D572A17207D007267C7 /* UnsubscribeResponse.swift */,
+				FDC13D532A16FF29007267C7 /* LegacyGroupRequest.swift */,
+				FDC4382E27B383AF00C60D73 /* LegacyPushServerResponse.swift */,
+				FDC13D592A1721C5007267C7 /* LegacyNotifyRequest.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -5703,6 +5738,7 @@
 				FD245C672850665E00B966DD /* AttachmentDownloadJob.swift in Sources */,
 				C300A5D32554B05A00555489 /* TypingIndicator.swift in Sources */,
 				7B521E0A29BFF84400C3C36A /* GroupLeavingJob.swift in Sources */,
+				FDC13D582A17207D007267C7 /* UnsubscribeResponse.swift in Sources */,
 				FD09799927FFC1A300936362 /* Attachment.swift in Sources */,
 				FD245C5F2850662200B966DD /* OWSWindowManager.m in Sources */,
 				C3471ECB2555356A00297E91 /* MessageSender+Encryption.swift in Sources */,
@@ -5749,6 +5785,7 @@
 				FD37EA0F28AB3330003AE748 /* _006_FixHiddenModAdminSupport.swift in Sources */,
 				FD2B4AFD294688D000AB4848 /* SessionUtil+Contacts.swift in Sources */,
 				7B81682328A4C1210069F315 /* UpdateTypes.swift in Sources */,
+				FDC13D472A16E4CA007267C7 /* SubscribeRequest.swift in Sources */,
 				FD2B4AFF2946C93200AB4848 /* ConfigurationSyncJob.swift in Sources */,
 				FDC438A627BB113A00C60D73 /* UserUnbanRequest.swift in Sources */,
 				FD5C72FB284F0EA10029977D /* MessageReceiver+DataExtractionNotification.swift in Sources */,
@@ -5757,6 +5794,7 @@
 				C379DCF4256735770002D4EB /* VisibleMessage+Attachment.swift in Sources */,
 				FDB4BBC72838B91E00B7C95D /* LinkPreviewError.swift in Sources */,
 				FD09798327FD1A1500936362 /* ClosedGroup.swift in Sources */,
+				FDC13D542A16FF29007267C7 /* LegacyGroupRequest.swift in Sources */,
 				B8B320B7258C30D70020074B /* HTMLMetadata.swift in Sources */,
 				FD8ECF8B2935DB4B00C0D1BB /* SharedConfigMessage.swift in Sources */,
 				FD09798727FD1B7800936362 /* GroupMember.swift in Sources */,
@@ -5766,6 +5804,7 @@
 				FD17D79927F40AB800122BE0 /* _003_YDBToGRDBMigration.swift in Sources */,
 				FDF0B7512807BA56004C14C5 /* NotificationsProtocol.swift in Sources */,
 				B8DE1FB426C22F2F0079C9CE /* WebRTCSession.swift in Sources */,
+				FDC13D5A2A1721C5007267C7 /* LegacyNotifyRequest.swift in Sources */,
 				FDC6D6F32860607300B04575 /* Environment.swift in Sources */,
 				C3A3A171256E1D25004D228D /* SSKReachabilityManager.swift in Sources */,
 				FD245C59285065FC00B966DD /* ControlMessage.swift in Sources */,
@@ -5794,16 +5833,18 @@
 				FD6A7A692818BE7300035AC1 /* RetrieveDefaultOpenGroupRoomsJob.swift in Sources */,
 				FD09798D27FD1D8900936362 /* DisappearingMessageConfiguration.swift in Sources */,
 				FDF0B75A2807F3A3004C14C5 /* MessageSenderError.swift in Sources */,
-				FDC4382F27B383AF00C60D73 /* PushServerResponse.swift in Sources */,
+				FDC4382F27B383AF00C60D73 /* LegacyPushServerResponse.swift in Sources */,
 				FDC4386327B4D94E00C60D73 /* SOGSMessage.swift in Sources */,
 				FD245C692850666800B966DD /* ExpirationTimerUpdate.swift in Sources */,
 				FD42F9A8285064B800A0C77D /* PushNotificationAPI.swift in Sources */,
 				FD245C6C2850669200B966DD /* MessageReceiveJob.swift in Sources */,
 				FD43EE9D297A5190009C87C5 /* SessionUtil+UserGroups.swift in Sources */,
 				FD83B9CC27D179BC005E1583 /* FSEndpoint.swift in Sources */,
+				FDC13D4B2A16ECBA007267C7 /* SubscribeResponse.swift in Sources */,
 				FD7115F228C6CB3900B47552 /* _010_AddThreadIdToFTS.swift in Sources */,
 				FD716E6428502DDD00C96BF4 /* CallManagerProtocol.swift in Sources */,
 				FDC438C727BB6DF000C60D73 /* DirectMessage.swift in Sources */,
+				FDC13D502A16EE50007267C7 /* PushNotificationAPIEndpoint.swift in Sources */,
 				FD432434299C6985008A0213 /* PendingReadReceipt.swift in Sources */,
 				FDC4381727B32EC700C60D73 /* Personalization.swift in Sources */,
 				FD245C51285065CC00B966DD /* MessageReceiver.swift in Sources */,
@@ -5831,7 +5872,9 @@
 				FD09796E27FA6D0000936362 /* Contact.swift in Sources */,
 				C38D5E8D2575011E00B6A65C /* MessageSender+ClosedGroups.swift in Sources */,
 				FD5C72F7284F0E560029977D /* MessageReceiver+ReadReceipts.swift in Sources */,
+				FDC13D492A16EC20007267C7 /* Service.swift in Sources */,
 				FD778B6429B189FF001BAC6B /* _014_GenerateInitialUserConfigDumps.swift in Sources */,
+				FDC13D562A171FE4007267C7 /* UnsubscribeRequest.swift in Sources */,
 				C32C598A256D0664003C73A2 /* SNProtoEnvelope+Conversion.swift in Sources */,
 				FDC438CB27BB7DB100C60D73 /* UpdateMessageRequest.swift in Sources */,
 				FD8ECF7F2934298100C0D1BB /* ConfigDump.swift in Sources */,
@@ -5854,6 +5897,7 @@
 				FD245C682850666300B966DD /* Message+Destination.swift in Sources */,
 				FDF8488029405994007DCAE5 /* HTTPQueryParam+OpenGroup.swift in Sources */,
 				FD09798527FD1A6500936362 /* ClosedGroupKeyPair.swift in Sources */,
+				FDC13D522A16F22E007267C7 /* PushNotificationAPIRequest.swift in Sources */,
 				FD245C632850664600B966DD /* Configuration.swift in Sources */,
 				C32C5DBF256DD743003C73A2 /* ClosedGroupPoller.swift in Sources */,
 				C352A35B2557824E00338F3E /* AttachmentUploadJob.swift in Sources */,

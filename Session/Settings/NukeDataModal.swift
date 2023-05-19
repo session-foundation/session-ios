@@ -225,8 +225,9 @@ final class NukeDataModal: Modal {
         let maybeDeviceToken: String? = UserDefaults.standard[.deviceToken]
         
         if isUsingFullAPNs, let deviceToken: String = maybeDeviceToken {
-            let data: Data = Data(hex: deviceToken)
-            PushNotificationAPI.unregister(data).sinkUntilComplete()
+            PushNotificationAPI
+                .unsubscribe(token: Data(hex: deviceToken))
+                .sinkUntilComplete()
         }
         
         // Clear the app badge and notifications

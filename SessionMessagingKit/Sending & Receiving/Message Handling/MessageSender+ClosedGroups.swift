@@ -117,11 +117,10 @@ extension MessageSender {
                 memberSendData
                     .map { MessageSender.sendImmediate(preparedSendData: $0) }
                     .appending(
-                        // Notify the PN server
-                        PushNotificationAPI.performOperation(
-                            .subscribe,
-                            for: groupPublicKey,
-                            publicKey: userPublicKey
+                        // Subscribe for push notifications (if enabled)
+                        PushNotificationAPI.subscribeToLegacyGroup(
+                            legacyGroupId: groupPublicKey,
+                            currentUserPublicKey: userPublicKey
                         )
                     )
             )

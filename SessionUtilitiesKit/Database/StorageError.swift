@@ -7,6 +7,8 @@ public enum StorageError: Error {
     case databaseInvalid
     case migrationFailed
     case invalidKeySpec
+    case keySpecCreationFailed
+    case keySpecInaccessible
     case decodingFailed
     
     case failedToSave
