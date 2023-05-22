@@ -115,7 +115,42 @@ public enum PushNotificationAPI {
                                         }
                                     }
                                 )
-                                .map { _ in () }
+                                .flatMap { _ in
+                                    guard UserDefaults.standard[.hasUnregisteredForLegacyPushNotifications] != true else {
+                                        return Just(())
+                                            .setFailureType(to: Error.self)
+                                            .eraseToAnyPublisher()
+                                    }
+                                    
+                                    return PushNotificationAPI
+                                        .send(
+                                            request: PushNotificationAPIRequest(
+                                                endpoint: .legacyUnregister,
+                                                body: LegacyUnsubscribeRequest(
+                                                    token: hexEncodedToken
+                                                )
+                                            )
+                                        )
+                                        .retry(maxRetryCount)
+                                        .handleEvents(
+                                            receiveCompletion: { result in
+                                                switch result {
+                                                    case .finished:
+                                                        /// Save that we've already unsubscribed
+                                                        ///
+                                                        /// **Note:** The server can return an error (`response.code != 0`) but
+                                                        /// that means the server properly processed the request and the error is likely
+                                                        /// due to the device not actually being previously subscribed for notifications
+                                                        /// rather than actually failing to unsubscribe
+                                                        UserDefaults.standard[.hasUnregisteredForLegacyPushNotifications] = true
+                                                        
+                                                    case .failure: SNLog("Couldn't unsubscribe for legacy notifications.")
+                                                }
+                                            }
+                                        )
+                                        .map { _ in () }
+                                        .eraseToAnyPublisher()
+                                }
                                 .eraseToAnyPublisher()
                         ].appending(
                             // FIXME: Remove this once legacy groups are deprecated

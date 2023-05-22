@@ -31,6 +31,7 @@ public enum SNUserDefaults {
         case hasSeenCallIPExposureWarning
         case hasSeenCallMissedTips
         case isUsingFullAPNs
+        case hasUnregisteredForLegacyPushNotifications
         case wasUnlinked
         case isMainAppActive
         case isCallOngoing
