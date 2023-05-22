@@ -10,6 +10,7 @@ import SessionUtilitiesKit
 
 public extension Features {
     static func useSharedUtilForUserConfig(_ db: Database? = nil) -> Bool {
+        return true
         // TODO: Need to set this timestamp to the correct date (currently start of 2030)
 //        guard Date().timeIntervalSince1970 < 1893456000 else { return true }
         guard !SessionUtil.hasCheckedMigrationsCompleted.wrappedValue else {
@@ -140,6 +141,15 @@ public enum SessionUtil {
     }
     
     // MARK: - Loading
+    
+    public static func clearMemoryState() {
+        // Ensure we have a loaded state before we continue
+        guard !SessionUtil.configStore.wrappedValue.isEmpty else { return }
+        
+        SessionUtil.configStore.mutate { confStore in
+            confStore.removeAll()
+        }
+    }
     
     public static func loadState(
         _ db: Database? = nil,

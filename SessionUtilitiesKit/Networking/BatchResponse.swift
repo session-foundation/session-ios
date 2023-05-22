@@ -78,7 +78,7 @@ public extension Decodable {
     }
 }
 
-public extension AnyPublisher where Output == (ResponseInfoType, Data?), Failure == Error {
+public extension Publisher where Output == (ResponseInfoType, Data?), Failure == Error {
     func decoded(
         as types: HTTP.BatchResponseTypes,
         requireAllResults: Bool = true,

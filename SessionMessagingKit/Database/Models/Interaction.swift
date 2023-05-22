@@ -846,10 +846,9 @@ public extension Interaction {
                         .asRequest(of: Attachment.DescriptionInfo.self)
                         .fetchOne(db),
                     attachmentCount: try? attachments.fetchCount(db),
-                    isOpenGroupInvitation: (try? linkPreview
+                    isOpenGroupInvitation: linkPreview
                         .filter(LinkPreview.Columns.variant == LinkPreview.Variant.openGroupInvitation)
-                        .isNotEmpty(db))
-                        .defaulting(to: false)
+                        .isNotEmpty(db)
                 )
 
             case .infoMediaSavedNotification, .infoScreenshotNotification, .infoCall:

@@ -1921,6 +1921,10 @@ extension ConversationVC:
                 }
                 
             case .contact, .legacyGroup, .group:
+                let targetPublicKey: String = (cellViewModel.threadVariant == .contact ?
+                    userPublicKey :
+                    cellViewModel.threadId
+                )
                 let serverHash: String? = Storage.shared.read { db -> String? in
                     try Interaction
                         .select(.serverHash)
@@ -1996,16 +2000,7 @@ extension ConversationVC:
                     accessibilityIdentifier: "Delete for everyone",
                     style: .destructive
                 ) { [weak self] _ in
-                    deleteRemotely(
-                        from: self,
-                        request: SnodeAPI
-                            .deleteMessages(
-                                publicKey: cellViewModel.threadId,
-                                serverHashes: [serverHash]
-                            )
-                            .map { _ in () }
-                            .eraseToAnyPublisher()
-                    ) { [weak self] in
+                    let completeServerDeletion = { [weak self] in
                         Storage.shared.writeAsync { db in
                             try MessageSender
                                 .send(
@@ -2019,6 +2014,22 @@ extension ConversationVC:
                         
                         self?.showInputAccessoryView()
                     }
+                    
+                    // We can only delete messages on the server for `contact` and `group` conversations
+                    guard cellViewModel.threadVariant == .contact || cellViewModel.threadVariant == .group else {
+                        return completeServerDeletion()
+                    }
+                    
+                    deleteRemotely(
+                        from: self,
+                        request: SnodeAPI
+                            .deleteMessages(
+                                publicKey: targetPublicKey,
+                                serverHashes: [serverHash]
+                            )
+                            .map { _ in () }
+                            .eraseToAnyPublisher()
+                    ) { completeServerDeletion() }
                 })
 
                 actionSheet.addAction(UIAlertAction.init(title: "TXT_CANCEL_TITLE".localized(), style: .cancel) { [weak self] _ in

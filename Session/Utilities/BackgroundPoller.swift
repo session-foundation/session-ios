@@ -67,10 +67,8 @@ public final class BackgroundPoller {
         return SnodeAPI.getSwarm(for: userPublicKey)
             .subscribeOnMain(immediately: true)
             .receiveOnMain(immediately: true)
-            .tryFlatMap { swarm -> AnyPublisher<[Message], Error> in
-                guard let snode = swarm.randomElement() else { throw SnodeAPIError.generic }
-                
-                return CurrentUserPoller.poll(
+            .tryFlatMapWithRandomSnode { snode -> AnyPublisher<[Message], Error> in
+                CurrentUserPoller.poll(
                     namespaces: CurrentUserPoller.namespaces,
                     from: snode,
                     for: userPublicKey,

@@ -86,6 +86,12 @@ final class LinkDeviceVC: BaseVC, UIPageViewControllerDataSource, UIPageViewCont
         scanQRCodePlaceholderVC.constrainHeight(to: height)
     }
     
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        Onboarding.Flow.register.unregister()
+    }
+    
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         tabBarTopConstraint.constant = navigationController!.navigationBar.height()

@@ -537,6 +537,11 @@ private final class JobQueue {
         }
         
         queue.mutate { $0.append(job) }
+        
+        // If this is a concurrent queue then we should immediately start the next job
+        guard executionType == .concurrent else { return }
+        
+        runNextJob()
     }
     
     /// Upsert a job onto the queue, if the queue isn't currently running and 'canStartJob' is true then this will start

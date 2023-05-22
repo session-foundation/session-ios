@@ -71,7 +71,8 @@ public struct SessionApp {
         // This _should_ be wiped out below.
         Logger.error("")
         DDLog.flushLog()
-
+        
+        SessionUtil.clearMemoryState()
         Storage.resetAllStorage()
         ProfileManager.resetProfileStorage()
         Attachment.resetAttachmentStorage()
