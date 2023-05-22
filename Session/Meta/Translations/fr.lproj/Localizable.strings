@@ -572,6 +572,8 @@
 "COMMUNITY_ERROR_INVALID_URL" = "Veuillez vérifier l'URL et réessayez";
 "COMMUNITY_ERROR_GENERIC" = "Impossible de rejoindre";
 "DISAPPERING_MESSAGES_TITLE" = "Messages éphémères";
+"DISAPPERING_MESSAGES_SUBTITLE_CONTACTS" = "This setting applies to everyone in this conversation.";
+"DISAPPERING_MESSAGES_SUBTITLE_GROUPS" = "Messages disappear after they have been sent.";
 "DISAPPERING_MESSAGES_TYPE_TITLE" = "Type de suppression";
 "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE" = "Disparaît après lecture";
 "DISAPPERING_MESSAGES_TYPE_AFTER_READ_DESCRIPTION" = "Les messages disparaissent une fois lus.";
@@ -587,7 +589,13 @@
 "DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ a désactivé les messages éphémères.";
 "MESSAGE_STATE_READ" = "Lu";
 "MESSAGE_STATE_SENT" = "Envoyé";
+"YOU_DISAPPEARING_MESSAGES_INFO_ENABLE" = "You have set messages to disappear %@ after they have been %@";
+"YOU_DISAPPEARING_MESSAGES_INFO_UPDATE" = "You have changed messages to disappear %@ after they have been %@";
+"YOU_DISAPPEARING_MESSAGES_INFO_DISABLE" = "You have turned off disappearing messages";
 "MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "Vous pourrez envoyer des messages et des pièces jointes une fois que le destinataire aura approuvé votre demande.";
+"DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE" = "Legacy";
+"DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION" = "Original version of disappearing messages.";
+"DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER" = "%@ is using an outdated client. Disappearing messages may not work as expected.";
 "MESSAGE_DELIVERY_STATUS_SENDING" = "Envoi";
 "MESSAGE_DELIVERY_STATUS_SENT" = "Envoyé";
 "MESSAGE_DELIVERY_STATUS_READ" = "Lu";

@@ -110,7 +110,7 @@ func validateMatchKeys(_ files: [LocalizationStringsFile]) {
     files.forEach {
         guard let extraKey = Set(base.keys).symmetricDifference($0.keys).first else { return }
         let incorrectFile = $0.keys.contains(extraKey) ? $0 : base
-        printPretty("error: Found extra key: \(extraKey) in file: \(incorrectFile.path)")
+        printPretty("error: Found extra key: \(extraKey) in file: \(incorrectFile.path) comparing \($0.path) to \(base.path)")
     }
 }
 
