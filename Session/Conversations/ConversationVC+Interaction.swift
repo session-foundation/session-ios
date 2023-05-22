@@ -1800,8 +1800,10 @@ extension ConversationVC:
             // Show a loading indicator
             Deferred {
                 Future<Void, Error> { resolver in
-                    ModalActivityIndicatorViewController.present(fromViewController: viewController, canCancel: false) { _ in
-                        resolver(Result.success(()))
+                    DispatchQueue.main.async {
+                        ModalActivityIndicatorViewController.present(fromViewController: viewController, canCancel: false) { _ in
+                            resolver(Result.success(()))
+                        }
                     }
                 }
             }

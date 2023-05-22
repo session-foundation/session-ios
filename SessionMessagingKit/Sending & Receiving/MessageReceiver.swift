@@ -294,10 +294,22 @@ public enum MessageReceiver {
         threadId: String,
         message: Message
     ) throws {
-        // When handling any non-typing indicator message we want to make sure the thread becomes
+        // When handling any message type which has related UI we want to make sure the thread becomes
         // visible (the only other spot this flag gets set is when sending messages)
         switch message {
+            case is ReadReceipt: break
             case is TypingIndicator: break
+            case is ConfigurationMessage: break
+            case is UnsendRequest: break
+                
+            case let message as ClosedGroupControlMessage:
+                // Only re-show a legacy group conversation if we are going to add a control text message
+                switch message.kind {
+                    case .new, .encryptionKeyPair, .encryptionKeyPairRequest: return
+                    default: break
+                }
+                
+                fallthrough
                 
             default:
                 // Only update the `shouldBeVisible` flag if the thread is currently not visible
