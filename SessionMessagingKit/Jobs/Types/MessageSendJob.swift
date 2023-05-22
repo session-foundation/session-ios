@@ -31,7 +31,16 @@ public enum MessageSendJob: JobExecutor {
         // so extract them from any associated attachments
         var messageFileIds: [String] = []
         
-        if details.message is VisibleMessage {
+        /// Ensure any associated attachments have already been uploaded before sending the message
+        ///
+        /// **Note:** Reactions reference their original message so we need to ignore this logic for reaction messages to ensure we don't
+        /// incorrectly re-upload incoming attachments that the user reacted to, we also want to exclude "sync" messages since they should
+        /// already have attachments in a valid state
+        if
+            details.message is VisibleMessage,
+            (details.message as? VisibleMessage)?.reaction == nil &&
+            details.isSyncMessage == false
+        {
             guard
                 let jobId: Int64 = job.id,
                 let interactionId: Int64 = job.interactionId
