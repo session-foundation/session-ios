@@ -19,8 +19,9 @@ public final class FileServerAPI: NSObject {
     /// exactly will be fine but a single byte more will result in an error
     public static let maxFileSize = 10_000_000
     
-    /// Standard timeout is 10 seconds which is a little too short fir file upload/download with slightly larger files
-    public static let fileTimeout: TimeInterval = 30
+    /// Standard timeout is 10 seconds which is a little too short for file upload/download with slightly larger files
+    public static let fileDownloadTimeout: TimeInterval = 30
+    public static let fileUploadTimeout: TimeInterval = 60
     
     // MARK: - File Storage
     
@@ -36,7 +37,7 @@ public final class FileServerAPI: NSObject {
             body: Array(file)
         )
 
-        return send(request, serverPublicKey: serverPublicKey)
+        return send(request, serverPublicKey: serverPublicKey, timeout: FileServerAPI.fileUploadTimeout)
             .decoded(as: FileUploadResponse.self, on: .global(qos: .userInitiated))
     }
     
@@ -47,7 +48,7 @@ public final class FileServerAPI: NSObject {
             endpoint: .fileIndividual(fileId: fileId)
         )
         
-        return send(request, serverPublicKey: serverPublicKey)
+        return send(request, serverPublicKey: serverPublicKey, timeout: FileServerAPI.fileDownloadTimeout)
     }
 
     public static func getVersion(_ platform: String) -> Promise<String> {
@@ -59,14 +60,18 @@ public final class FileServerAPI: NSObject {
             ]
         )
         
-        return send(request, serverPublicKey: serverPublicKey)
+        return send(request, serverPublicKey: serverPublicKey, timeout: HTTP.timeout)
             .decoded(as: VersionResponse.self, on: .global(qos: .userInitiated))
             .map { response in response.version }
     }
     
     // MARK: - Convenience
     
-    private static func send<T: Encodable>(_ request: Request<T, Endpoint>, serverPublicKey: String) -> Promise<Data> {
+    private static func send<T: Encodable>(
+        _ request: Request<T, Endpoint>,
+        serverPublicKey: String,
+        timeout: TimeInterval
+    ) -> Promise<Data> {
         let urlRequest: URLRequest
         
         do {
@@ -76,7 +81,13 @@ public final class FileServerAPI: NSObject {
             return Promise(error: error)
         }
         
-        return OnionRequestAPI.sendOnionRequest(urlRequest, to: request.server, with: serverPublicKey, timeout: FileServerAPI.fileTimeout)
+        return OnionRequestAPI
+            .sendOnionRequest(
+                urlRequest,
+                to: request.server,
+                with: serverPublicKey,
+                timeout: timeout
+            )
             .map2 { _, response in
                 guard let response: Data = response else { throw HTTP.Error.parsingFailed }
                 

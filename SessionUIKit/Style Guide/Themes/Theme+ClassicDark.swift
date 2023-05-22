@@ -48,6 +48,9 @@ internal enum Theme_ClassicDark: ThemeColors {
         .radioButton_unselectedBackground: .clear,
         .radioButton_selectedBorder: .classicDark6,
         .radioButton_unselectedBorder: .classicDark6,
+        .radioButton_disabledSelectedBackground: .disabledDark,
+        .radioButton_disabledUnselectedBackground: .clear,
+        .radioButton_disabledBorder: .disabledDark,
         
         // SessionButton
         .sessionButton_text: .primary,

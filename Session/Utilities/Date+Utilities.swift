@@ -29,6 +29,14 @@ public extension Date {
         
         return "DATE_NOW".localized()
     }
+    
+    var fromattedForMessageInfo: String {
+        let formatter: DateFormatter = DateFormatter()
+        formatter.locale = Locale.current
+        formatter.dateFormat = "h:mm a EEE, DD/MM/YYYY"
+        
+        return formatter.string(from: self)
+    }
 }
 
 // MARK: - Formatters

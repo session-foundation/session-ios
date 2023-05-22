@@ -164,7 +164,9 @@ final class ContextMenuVC: UIViewController {
         let menuStackView = UIStackView(
             arrangedSubviews: actions
                 .filter { !$0.isEmojiAction && !$0.isEmojiPlus && !$0.isDismissAction }
-                .map { action -> ActionView in ActionView(for: action, dismiss: snDismiss) }
+                .map { action -> ActionView in
+                    ActionView(for: action, dismiss: snDismiss)
+                }
         )
         menuStackView.axis = .vertical
         menuBackgroundView.addSubview(menuStackView)

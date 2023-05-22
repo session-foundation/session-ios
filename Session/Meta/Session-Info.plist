@@ -66,17 +66,17 @@
 	<dict>
 		<key>NSExceptionDomains</key>
 		<dict>
-			<key>public.loki.foundation</key>
+			<key>seed1.getsession.org</key>
 			<dict>
 				<key>NSExceptionRequiresForwardSecrecy</key>
 				<false/>
 			</dict>
-			<key>storage.seed1.loki.network</key>
+			<key>seed2.getsession.org</key>
 			<dict>
 				<key>NSExceptionRequiresForwardSecrecy</key>
 				<false/>
 			</dict>
-			<key>storage.seed3.loki.network</key>
+			<key>seed3.getsession.org</key>
 			<dict>
 				<key>NSExceptionRequiresForwardSecrecy</key>
 				<false/>
@@ -84,21 +84,19 @@
 		</dict>
 	</dict>
 	<key>NSAppleMusicUsageDescription</key>
-	<string>Signal needs to use Apple Music to play media attachments.</string>
+	<string>Session needs to use Apple Music to play media attachments.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Session needs camera access to take pictures and scan QR codes.</string>
-	<key>NSContactsUsageDescription</key>
-	<string>Signal uses your contacts to find users you know. We do not store your contacts on the server.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Session's Screen Lock feature uses Face ID.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>com.loki-project.loki-messenger</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Session needs access to your microphone to record media.</string>
+	<string>Session needs access to your microphone for calls and to send to audio messages.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Session needs access to your library to save photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Session needs access to your library to send photos.</string>
+	<string>Session needs access to your library to update your avatar and send photos.</string>
 	<key>PHPhotoLibraryPreventAutomaticLimitedAccessAlert</key>
 	<true/>
 	<key>UIAppFonts</key>

@@ -226,7 +226,7 @@ final class ShareVC: UINavigationController, ShareViewDelegate {
             targetView: self.view,
             info: ConfirmationModal.Info(
                 title: "Session",
-                explanation: error.localizedDescription,
+                body: .text(error.localizedDescription),
                 cancelTitle: "BUTTON_OK".localized(),
                 cancelStyle: .alert_text,
                 afterClosed: { [weak self] in self?.extensionContext?.cancelRequest(withError: error) }

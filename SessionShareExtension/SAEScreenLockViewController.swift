@@ -163,7 +163,7 @@ final class SAEScreenLockViewController: ScreenLockViewController {
             targetView: self.view,
             info: ConfirmationModal.Info(
                 title: "SCREEN_LOCK_UNLOCK_FAILED".localized(),
-                explanation: message,
+                body: .text(message),
                 cancelTitle: "BUTTON_OK".localized(),
                 cancelStyle: .alert_text,
                 afterClosed: { [weak self] in self?.ensureUI() } // After the alert, update the UI

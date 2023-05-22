@@ -68,7 +68,7 @@ extension ConversationVC:
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "modal_call_permission_request_title".localized(),
-                    explanation: "modal_call_permission_request_explanation".localized(),
+                    body: .text("modal_call_permission_request_explanation".localized()),
                     confirmTitle: "vc_settings_title".localized(),
                     confirmAccessibilityLabel: "Settings",
                     cancelAccessibilityLabel: "Cancel",
@@ -132,11 +132,13 @@ extension ConversationVC:
                     format: "modal_blocked_title".localized(),
                     self.viewModel.threadData.displayName
                 ),
-                attributedExplanation: NSAttributedString(string: message)
-                    .adding(
-                        attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.smallFontSize) ],
-                        range: (message as NSString).range(of: self.viewModel.threadData.displayName)
-                    ),
+                body: .attributedText(
+                    NSAttributedString(string: message)
+                        .adding(
+                            attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.smallFontSize) ],
+                            range: (message as NSString).range(of: self.viewModel.threadData.displayName)
+                        )
+                ),
                 confirmTitle: "modal_blocked_button_title".localized(),
                 confirmAccessibilityLabel: "Confirm block",
                 cancelAccessibilityLabel: "Cancel block",
@@ -205,7 +207,7 @@ extension ConversationVC:
             let modal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "GIPHY_PERMISSION_TITLE".localized(),
-                    explanation: "GIPHY_PERMISSION_MESSAGE".localized(),
+                    body: .text("GIPHY_PERMISSION_MESSAGE".localized()),
                     confirmTitle: "continue_2".localized()
                 ) { [weak self] _ in
                     Storage.shared.writeAsync(
@@ -295,7 +297,7 @@ extension ConversationVC:
                     targetView: self?.view,
                     info: ConfirmationModal.Info(
                         title: "Session",
-                        explanation: "An error occurred.",
+                        body: .text("An error occurred."),
                         cancelTitle: "BUTTON_OK".localized(),
                         cancelStyle: .alert_text
                     )
@@ -312,7 +314,7 @@ extension ConversationVC:
                     targetView: self?.view,
                     info: ConfirmationModal.Info(
                         title: "ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_TITLE".localized(),
-                        explanation: "ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_BODY".localized(),
+                        body: .text("ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_BODY".localized()),
                         cancelTitle: "BUTTON_OK".localized(),
                         cancelStyle: .alert_text
                     )
@@ -410,7 +412,7 @@ extension ConversationVC:
             let modal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "modal_send_seed_title".localized(),
-                    explanation: "modal_send_seed_explanation".localized(),
+                    body: .text("modal_send_seed_explanation".localized()),
                     confirmTitle: "modal_send_seed_send_button_title".localized(),
                     confirmStyle: .danger,
                     cancelStyle: .alert_text,
@@ -540,7 +542,7 @@ extension ConversationVC:
             let modal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "modal_send_seed_title".localized(),
-                    explanation: "modal_send_seed_explanation".localized(),
+                    body: .text("modal_send_seed_explanation".localized()),
                     confirmTitle: "modal_send_seed_send_button_title".localized(),
                     confirmStyle: .danger,
                     cancelStyle: .alert_text,
@@ -646,7 +648,7 @@ extension ConversationVC:
         let linkPreviewModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: "modal_link_previews_title".localized(),
-                explanation: "modal_link_previews_explanation".localized(),
+                body: .text("modal_link_previews_explanation".localized()),
                 confirmTitle: "modal_link_previews_button_title".localized()
             ) { [weak self] _ in
                 Storage.shared.writeAsync { db in
@@ -661,6 +663,10 @@ extension ConversationVC:
     }
     
     func inputTextViewDidChangeContent(_ inputTextView: InputTextView) {
+        // Note: If there is a 'draft' message then we don't want it to trigger the typing indicator to
+        // appear (as that is not expected/correct behaviour)
+        guard !viewIsAppearing else { return }
+        
         let newText: String = (inputTextView.text ?? "")
         
         if !newText.isEmpty {
@@ -886,11 +892,13 @@ extension ConversationVC:
                         format: "modal_download_attachment_title".localized(),
                         cellViewModel.authorName
                     ),
-                    attributedExplanation: NSAttributedString(string: message)
-                        .adding(
-                            attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.smallFontSize) ],
-                            range: (message as NSString).range(of: cellViewModel.authorName)
-                        ),
+                    body: .attributedText(
+                        NSAttributedString(string: message)
+                            .adding(
+                                attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.smallFontSize) ],
+                                range: (message as NSString).range(of: cellViewModel.authorName)
+                            )
+                    ),
                     confirmTitle: "modal_download_button_title".localized(),
                     confirmAccessibilityLabel: "Download media",
                     cancelAccessibilityLabel: "Don't download media",
@@ -1537,11 +1545,13 @@ extension ConversationVC:
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: "Join \(finalName)?",
-                attributedExplanation: NSMutableAttributedString(string: message)
-                    .adding(
-                        attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.smallFontSize) ],
-                        range: (message as NSString).range(of: finalName)
-                    ),
+                body: .attributedText(
+                    NSMutableAttributedString(string: message)
+                        .adding(
+                            attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.smallFontSize) ],
+                            range: (message as NSString).range(of: finalName)
+                        )
+                ),
                 confirmTitle: "JOIN_COMMUNITY_BUTTON_TITLE".localized(),
                 onConfirm: { modal in
                     guard let presentingViewController: UIViewController = modal.presentingViewController else {
@@ -1578,7 +1588,7 @@ extension ConversationVC:
                             let errorModal: ConfirmationModal = ConfirmationModal(
                                 info: ConfirmationModal.Info(
                                     title: "COMMUNITY_ERROR_GENERIC".localized(),
-                                    explanation: error.localizedDescription,
+                                    body: .text(error.localizedDescription),
                                     cancelTitle: "BUTTON_OK".localized(),
                                     cancelStyle: .alert_text
                                 )
@@ -1596,6 +1606,17 @@ extension ConversationVC:
     
     // MARK: - ContextMenuActionDelegate
     
+    func info(_ cellViewModel: MessageViewModel) {
+        let mediaInfoVC = MediaInfoVC(
+            attachments: (cellViewModel.attachments ?? []),
+            isOutgoing: (cellViewModel.variant == .standardOutgoing),
+            threadId: self.viewModel.threadData.threadId,
+            threadVariant: self.viewModel.threadData.threadVariant,
+            interactionId: cellViewModel.id
+        )
+        navigationController?.pushViewController(mediaInfoVC, animated: true)
+    }
+
     func retry(_ cellViewModel: MessageViewModel) {
         Storage.shared.writeAsync { [weak self] db in
             guard
@@ -2033,7 +2054,7 @@ extension ConversationVC:
             targetView: self.view,
             info: ConfirmationModal.Info(
                 title: "Session",
-                explanation: "This will ban the selected user from this room. It won't ban them from other rooms.",
+                body: .text("This will ban the selected user from this room. It won't ban them from other rooms."),
                 confirmTitle: "BUTTON_OK".localized(),
                 cancelStyle: .alert_text,
                 onConfirm: { [weak self] _ in
@@ -2057,7 +2078,7 @@ extension ConversationVC:
                                 targetView: self?.view,
                                 info: ConfirmationModal.Info(
                                     title: CommonStrings.errorAlertTitle,
-                                    explanation: "context_menu_ban_user_error_alert_message".localized(),
+                                    body: .text("context_menu_ban_user_error_alert_message".localized()),
                                     cancelTitle: "BUTTON_OK".localized(),
                                     cancelStyle: .alert_text
                                 )
@@ -2082,7 +2103,7 @@ extension ConversationVC:
             targetView: self.view,
             info: ConfirmationModal.Info(
                 title: "Session",
-                explanation: "This will ban the selected user from this room and delete all messages sent by them. It won't ban them from other rooms or delete the messages they sent there.",
+                body: .text("This will ban the selected user from this room and delete all messages sent by them. It won't ban them from other rooms or delete the messages they sent there."),
                 confirmTitle: "BUTTON_OK".localized(),
                 cancelStyle: .alert_text,
                 onConfirm: { [weak self] _ in
@@ -2106,7 +2127,7 @@ extension ConversationVC:
                                 targetView: self?.view,
                                 info: ConfirmationModal.Info(
                                     title: CommonStrings.errorAlertTitle,
-                                    explanation: "context_menu_ban_user_error_alert_message".localized(),
+                                    body: .text("context_menu_ban_user_error_alert_message".localized()),
                                     cancelTitle: "BUTTON_OK".localized(),
                                     cancelStyle: .alert_text
                                 )
@@ -2216,7 +2237,7 @@ extension ConversationVC:
                 targetView: self.view,
                 info: ConfirmationModal.Info(
                     title: "VOICE_MESSAGE_TOO_SHORT_ALERT_TITLE".localized(),
-                    explanation: "VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE".localized(),
+                    body: .text("VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE".localized()),
                     cancelTitle: "BUTTON_OK".localized(),
                     cancelStyle: .alert_text
                 )
@@ -2287,7 +2308,7 @@ extension ConversationVC:
             targetView: self.view,
             info: ConfirmationModal.Info(
                 title: "ATTACHMENT_ERROR_ALERT_TITLE".localized(),
-                explanation: (attachment.localizedErrorDescription ?? SignalAttachment.missingDataErrorMessage),
+                body: .text(attachment.localizedErrorDescription ?? SignalAttachment.missingDataErrorMessage),
                 cancelTitle: "BUTTON_OK".localized(),
                 cancelStyle: .alert_text,
                 afterClosed: onDismiss
