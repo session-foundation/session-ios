@@ -110,7 +110,7 @@ public extension DisappearingMessagesJob {
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         let updateExpiryPublishers: [AnyPublisher<[String: UpdateExpiryResponseResult], Error>] = interactionExpirationInfosByExpiresInSeconds
             .map { expiresInSeconds, expirationInfos -> AnyPublisher<[String: UpdateExpiryResponseResult], Error> in
-                let expirationTimestampMs: UInt64 = UInt64(ceil(startedAtMs + expiresInSeconds * 1000))
+                let expirationTimestampMs: Int64 = Int64(ceil(startedAtMs + expiresInSeconds * 1000))
                 
                 return SnodeAPI
                     .updateExpiry(

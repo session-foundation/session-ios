@@ -794,7 +794,7 @@ public final class SnodeAPI {
     public static func updateExpiry(
         publicKey: String,
         serverHashes: [String],
-        updatedExpiryMs: UInt64,
+        updatedExpiryMs: Int64,
         shortenOnly: Bool? = nil,
         extendOnly: Bool? = nil,
         using dependencies: SSKDependencies = SSKDependencies()
@@ -810,7 +810,7 @@ public final class SnodeAPI {
                 .eraseToAnyPublisher()
         }
         
-        let updatedExpiryMsWithNetworkOffset: UInt64 = (updatedExpiryMs + UInt64(SnodeAPI.clockOffsetMs.wrappedValue))
+        let updatedExpiryMsWithNetworkOffset: UInt64 = UInt64(updatedExpiryMs + SnodeAPI.clockOffsetMs.wrappedValue)
         
         return getSwarm(for: publicKey)
             .subscribe(on: Threading.workQueue)
