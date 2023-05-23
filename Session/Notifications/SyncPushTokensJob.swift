@@ -26,6 +26,7 @@ public enum SyncPushTokensJob: JobExecutor {
             (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false),
             Identity.userCompletedRequiredOnboarding()
         else {
+            SNLog("[SyncPushTokensJob] Deferred due to incomplete registration")
             deferred(job) // Don't need to do anything if it's not the main app
             return
         }
@@ -62,6 +63,7 @@ public enum SyncPushTokensJob: JobExecutor {
             !UIApplication.shared.isRegisteredForRemoteNotifications ||
             Date().timeIntervalSince(lastPushNotificationSync) >= SyncPushTokensJob.maxFrequency
         else {
+            SNLog("[SyncPushTokensJob] Deferred due to Fast Mode disabled or recent-enough registration")
             deferred(job) // Don't need to do anything if push notifications are already registered
             return
         }
@@ -86,9 +88,12 @@ public enum SyncPushTokensJob: JobExecutor {
                 .handleEvents(
                     receiveCompletion: { result in
                         switch result {
-                            case .failure: break
+                            case .failure(let error):
+                                SNLog("[SyncPushTokensJob] Failed to register due to error: \(error)")
+                            
                             case .finished:
                                 Logger.warn("Recording push tokens locally. pushToken: \(redact(pushToken)), voipToken: \(redact(voipToken))")
+                                SNLog("[SyncPushTokensJob] Completed")
 
                                 Storage.shared.write { db in
                                     db[.lastRecordedPushToken] = pushToken

@@ -31,6 +31,7 @@ public enum AttachmentUploadJob: JobExecutor {
                 return (attachment, try OpenGroup.fetchOne(db, id: threadId))
             })
         else {
+            SNLog("[AttachmentUploadJob] Failed due to missing details")
             failure(job, JobRunnerError.missingRequiredDetails, true)
             return
         }
@@ -38,12 +39,14 @@ public enum AttachmentUploadJob: JobExecutor {
         // If the original interaction no longer exists then don't bother uploading the attachment (ie. the
         // message was deleted before it even got sent)
         guard Storage.shared.read({ db in try Interaction.exists(db, id: interactionId) }) == true else {
+            SNLog("[AttachmentUploadJob] Failed due to missing interaction")
             failure(job, StorageError.objectNotFound, true)
             return
         }
         
         // If the attachment is still pending download the hold off on running this job
         guard attachment.state != .pendingDownload && attachment.state != .downloading else {
+            SNLog("[AttachmentUploadJob] Deferred as attachment is still being downloaded")
             deferred(job)
             return
         }
@@ -98,6 +101,7 @@ public enum AttachmentUploadJob: JobExecutor {
                                 )
                             }
                             
+                            SNLog("[AttachmentUploadJob] Failed due to error: \(error)")
                             failure(job, error, false)
                         
                         case .finished: success(job, false)

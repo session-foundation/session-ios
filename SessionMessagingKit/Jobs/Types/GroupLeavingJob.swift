@@ -25,6 +25,7 @@ public enum GroupLeavingJob: JobExecutor {
             let threadId: String = job.threadId,
             let interactionId: Int64 = job.interactionId
         else {
+            SNLog("[GroupLeavingJob] Failed due to missing details")
             failure(job, JobRunnerError.missingRequiredDetails, true)
             return
         }
@@ -34,10 +35,11 @@ public enum GroupLeavingJob: JobExecutor {
         Storage.shared
             .writePublisher { db in
                 guard (try? SessionThread.exists(db, id: threadId)) == true else {
-                    SNLog("Can't update nonexistent closed group.")
+                    SNLog("[GroupLeavingJob] Failed due to non-existent group conversation")
                     throw MessageSenderError.noThread
                 }
                 guard (try? ClosedGroup.exists(db, id: threadId)) == true else {
+                    SNLog("[GroupLeavingJob] Failed due to non-existent group")
                     throw MessageSenderError.invalidClosedGroupUpdate
                 }
                 

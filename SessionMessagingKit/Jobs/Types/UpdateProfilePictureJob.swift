@@ -55,10 +55,14 @@ public enum UpdateProfilePictureJob: JobExecutor {
                 // issue as it will write to the database and this closure is already called within
                 // another database write
                 queue.async {
+                    SNLog("[UpdateProfilePictureJob] Profile successfully updated")
                     success(job, false)
                 }
             },
-            failure: { error in failure(job, error, false) }
+            failure: { error in
+                SNLog("[UpdateProfilePictureJob] Failed to update profile")
+                failure(job, error, false)
+            }
         )
     }
 }

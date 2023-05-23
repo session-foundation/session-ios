@@ -49,6 +49,7 @@ public enum ConfigurationSyncJob: JobExecutor {
         // If there are no pending changes then the job can just complete (next time something
         // is updated we want to try and run immediately so don't scuedule another run in this case)
         guard !pendingConfigChanges.isEmpty else {
+            SNLog("[ConfigurationSyncJob] Completed with no pending changes")
             success(job, true)
             return
         }
@@ -118,8 +119,10 @@ public enum ConfigurationSyncJob: JobExecutor {
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {
-                        case .finished: break
-                        case .failure(let error): failure(job, error, false)
+                        case .finished: SNLog("[ConfigurationSyncJob] Completed")
+                        case .failure(let error):
+                            SNLog("[ConfigurationSyncJob] Failed due to error: \(error)")
+                            failure(job, error, false)
                     }
                 },
                 receiveValue: { (configDumps: [ConfigDump]) in
