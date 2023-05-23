@@ -1104,7 +1104,7 @@ private final class JobQueue {
                     updatedFailureCount <= maxFailureCount
                 )
             else {
-                SNLog("[JobRunner] \(queueContext) \(job.variant) failed permanently\(maxFailureCount >= 0 ? "; too many retries" : "")")
+                SNLog("[JobRunner] \(queueContext) \(job.variant) failed permanently\(maxFailureCount >= 0 && updatedFailureCount > maxFailureCount ? "; too many retries" : "")")
                 
                 // If the job permanently failed or we have performed all of our retry attempts
                 // then delete the job and all of it's dependant jobs (it'll probably never succeed)

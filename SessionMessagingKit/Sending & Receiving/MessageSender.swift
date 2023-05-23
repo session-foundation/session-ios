@@ -1073,7 +1073,7 @@ public final class MessageSender {
         {
             if let message = message as? VisibleMessage { message.syncTarget = publicKey }
             if let message = message as? ExpirationTimerUpdate { message.syncTarget = publicKey }
-            
+            SNLog("[MessageSendDebugging] Send sync message for interactionId \(interactionId)")
             JobRunner.add(
                 db,
                 job: Job(

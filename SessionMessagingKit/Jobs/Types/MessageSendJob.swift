@@ -55,6 +55,7 @@ public enum MessageSendJob: JobExecutor {
             // message was deleted before it even got sent)
             guard Storage.shared.read({ db in try Interaction.exists(db, id: interactionId) }) == true else {
                 SNLog("[MessageSendJob] Failing due to missing interaction")
+                SNLog("[MessageSendDebugging] Failed with interactionId \(interactionId)")
                 failure(job, StorageError.objectNotFound, true)
                 return
             }
