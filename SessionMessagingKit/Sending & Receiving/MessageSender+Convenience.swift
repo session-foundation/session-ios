@@ -69,7 +69,7 @@ extension MessageSender {
             )
             return
         }
-        SNLog("[MessageSendDebugging] Add send job for interactionId: \(interactionId)\n\(Thread.callStackSymbols)")
+        
         JobRunner.add(
             db,
             job: Job(

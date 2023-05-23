@@ -421,7 +421,6 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
     }
     
     public mutating func didInsert(_ inserted: InsertionSuccess) {
-        SNLog("[MessageSendDebugging] didInsert interaction for id: \(inserted.rowID)")
         self.id = inserted.rowID
     }
 }

@@ -608,9 +608,7 @@ extension ConversationVC:
                         .fetchOne(db)
                 ).inserted(db)
                 
-                guard let interactionId: Int64 = interaction.id else {
-                    return
-                }
+                guard let interactionId: Int64 = interaction.id else { return }
                 
                 // Prepare any attachments
                 try Attachment.prepare(
