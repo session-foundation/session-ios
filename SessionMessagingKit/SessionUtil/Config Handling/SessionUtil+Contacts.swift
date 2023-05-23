@@ -89,9 +89,6 @@ internal extension SessionUtil {
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         let targetContactData: ContactData = contactData.filter { $0.key != userPublicKey }
         
-        // If we only updated the current user contact then no need to continue
-        guard !targetContactData.isEmpty else { return }
-        
         // Since we don't sync 100% of the data stored against the contact and profile objects we
         // need to only update the data we do have to ensure we don't overwrite anything that doesn't
         // get synced

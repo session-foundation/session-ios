@@ -119,9 +119,6 @@ internal extension SessionUtil {
         }
         user_groups_iterator_free(groupsIterator) // Need to free the iterator
         
-        // If we don't have any conversations then no need to continue
-        guard !communities.isEmpty || !legacyGroups.isEmpty else { return }
-        
         // Extract all community/legacyGroup/group thread priorities
         let existingThreadInfo: [String: PriorityVisibilityInfo] = (try? SessionThread
             .select(.id, .variant, .pinnedPriority, .shouldBeVisible)

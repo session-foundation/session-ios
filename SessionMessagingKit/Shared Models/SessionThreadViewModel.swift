@@ -255,6 +255,8 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
         let threadId: String = self.threadId
         let threadWasMarkedUnread: Bool? = self.threadWasMarkedUnread
         let markThreadAsReadIfNeeded: () -> () = {
+            // Only make this change if needed (want to avoid triggering a thread update
+            // if not needed)
             guard threadWasMarkedUnread == true else { return }
             
             Storage.shared.writeAsync { db in
@@ -289,16 +291,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
                 let threadIsMessageRequest: Bool? = self.threadIsMessageRequest
                 
                 Storage.shared.writeAsync { db in
-                    // Only make this change if needed (want to avoid triggering a thread update
-                    // if not needed)
-                    if threadWasMarkedUnread == true {
-                        try SessionThread
-                            .filter(id: threadId)
-                            .updateAllAndConfig(
-                                db,
-                                SessionThread.Columns.markedAsUnread.set(to: false)
-                            )
-                    }
+                    markThreadAsReadIfNeeded()
                     
                     try Interaction.markAsRead(
                         db,
