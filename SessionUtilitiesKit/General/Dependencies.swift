@@ -40,6 +40,12 @@ open class Dependencies {
         set { _date.mutate { $0 = newValue } }
     }
     
+    public var _fixedTime: Atomic<Int?>
+    public var fixedTime: Int {
+        get { Dependencies.getValueSettingIfNull(&_fixedTime) { 0 } }
+        set { _fixedTime.mutate { $0 = newValue } }
+    }
+    
     // MARK: - Initialization
     
     public init(
@@ -48,7 +54,8 @@ open class Dependencies {
         jobRunner: JobRunnerType? = nil,
         scheduler: ValueObservationScheduler? = nil,
         standardUserDefaults: UserDefaultsType? = nil,
-        date: Date? = nil
+        date: Date? = nil,
+        fixedTime: Int? = nil
     ) {
         _generalCache = Atomic(generalCache)
         _storage = Atomic(storage)
@@ -56,6 +63,7 @@ open class Dependencies {
         _scheduler = Atomic(scheduler)
         _standardUserDefaults = Atomic(standardUserDefaults)
         _date = Atomic(date)
+        _fixedTime = Atomic(fixedTime)
     }
     
     // MARK: - Convenience

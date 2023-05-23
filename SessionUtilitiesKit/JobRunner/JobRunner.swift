@@ -475,10 +475,7 @@ public final class JobRunner: JobRunnerType {
             return
         }
         
-        queues.mutate {
-            $0[updatedJob.variant]?
-                .add(updatedJob, canStartJob: canStartJob, dependencies: dependencies)
-        }
+        queues.wrappedValue[updatedJob.variant]?.add(db, job: updatedJob, canStartJob: canStartJob, dependencies: dependencies)
         
         // Don't start the queue if the job can't be started
         guard canStartJob else { return }
@@ -501,7 +498,7 @@ public final class JobRunner: JobRunnerType {
             return
         }
         
-        queues.wrappedValue[job.variant]?.upsert(job, canStartJob: canStartJob, dependencies: dependencies)
+        queues.wrappedValue[job.variant]?.upsert(db, job: job, canStartJob: canStartJob, dependencies: dependencies)
         
         // Don't start the queue if the job can't be started
         guard canStartJob else { return }
@@ -618,14 +615,28 @@ public final class JobQueue {
             /// on our random queue threads results in the timer never firing, the `start` method will redirect itself to
             /// the correct thread
             let trigger: Trigger = Trigger()
-            trigger.fireTimestamp = max(1, (timestamp - Date().timeIntervalSince1970))
-            trigger.timer = Timer.scheduledTimerOnMainThread(
-                withTimeInterval: trigger.fireTimestamp,
-                repeats: false,
-                block: { [weak queue] _ in
-                    queue?.start(dependencies: dependencies)
-                }
-            )
+            trigger.fireTimestamp = max(1, (timestamp - dependencies.date.timeIntervalSince1970))
+            
+            switch HasAppContext() && CurrentAppContext().isRunningTests {
+                case true:
+                    // When running unit tests don't schedule a proper Timer, use a while loop instead
+                    DispatchQueue.global(qos: .default).async { [weak queue] in
+                        while timestamp < dependencies.date.timeIntervalSince1970 {
+                            Thread.sleep(forTimeInterval: 0.01) // Wait for 10ms
+                        }
+                        
+                        queue?.start(dependencies: dependencies)
+                    }
+                    
+                case false:
+                    trigger.timer = Timer.scheduledTimerOnMainThread(
+                        withTimeInterval: trigger.fireTimestamp,
+                        repeats: false,
+                        block: { [weak queue] _ in
+                            queue?.start(dependencies: dependencies)
+                        }
+                    )
+            }
             
             return trigger
         }
@@ -711,12 +722,12 @@ public final class JobQueue {
     
     // MARK: - Execution
     
-    fileprivate func add(_ job: Job, canStartJob: Bool = true, dependencies: Dependencies) {
+    fileprivate func add(_ db: Database, job: Job, canStartJob: Bool = true, dependencies: Dependencies) {
         // Check if the job should be added to the queue
         guard
             canStartJob,
             job.behaviour != .runOnceNextLaunch,
-            job.nextRunTimestamp <= Date().timeIntervalSince1970
+            job.nextRunTimestamp <= dependencies.date.timeIntervalSince1970
         else { return }
         guard job.id != nil else {
             SNLog("[JobRunner] Prevented attempt to add \(job.variant) job without id to queue")
@@ -724,6 +735,15 @@ public final class JobQueue {
         }
         
         pendingJobsQueue.mutate { $0.append(job) }
+        
+        // If this is a concurrent queue then we should immediately start the next job
+        guard executionType == .concurrent else { return }
+        
+        // Ensure that the database commit has completed and then trigger the next job to run (need
+        // to ensure any interactions have been correctly inserted first)
+        db.afterNextTransactionNestedOnce(dedupeId: "JobRunner-Add: \(job.variant)") { [weak self] _ in
+            self?.runNextJob(dependencies: dependencies)
+        }
     }
     
     /// Upsert a job onto the queue, if the queue isn't currently running and 'canStartJob' is true then this will start
@@ -731,7 +751,7 @@ public final class JobQueue {
     ///
     /// **Note:** If the job has a `behaviour` of `runOnceNextLaunch` or the `nextRunTimestamp`
     /// is in the future then the job won't be started
-    fileprivate func upsert(_ job: Job, canStartJob: Bool = true, dependencies: Dependencies) {
+    fileprivate func upsert(_ db: Database, job: Job, canStartJob: Bool = true, dependencies: Dependencies) {
         guard let jobId: Int64 = job.id else {
             SNLog("[JobRunner] Prevented attempt to upsert \(job.variant) job without id to queue")
             return
@@ -754,7 +774,7 @@ public final class JobQueue {
         // If we didn't update an existing job then we need to add it to the pendingJobsQueue
         guard !didUpdateExistingJob else { return }
         
-        add(job, canStartJob: canStartJob, dependencies: dependencies)
+        add(db, job: job, canStartJob: canStartJob, dependencies: dependencies)
     }
     
     fileprivate func insert(_ job: Job, before otherJob: Job, dependencies: Dependencies) {
@@ -790,7 +810,11 @@ public final class JobQueue {
         }
     }
     
-    fileprivate func appDidBecomeActive(with jobs: [Job], canStart: Bool) {
+    fileprivate func appDidBecomeActive(
+        with jobs: [Job],
+        canStart: Bool,
+        dependencies: Dependencies
+    ) {
         let currentlyRunningJobIds: Set<Int64> = jobsCurrentlyRunning.wrappedValue
         
         pendingJobsQueue.mutate { queue in
@@ -826,7 +850,7 @@ public final class JobQueue {
     fileprivate func hasPendingOrRunningJob(with detailsData: Data?) -> Bool {
         guard let detailsData: Data = detailsData else { return false }
         
-        let pendingJobs: [Job] = queue.wrappedValue
+        let pendingJobs: [Job] = pendingJobsQueue.wrappedValue
         
         guard !pendingJobs.contains(where: { job in job.details == detailsData }) else { return true }
         
@@ -1013,7 +1037,7 @@ public final class JobQueue {
             ///
             /// **Note:** We don't add the current job back the the queue because it should only be re-added if it's dependencies
             /// are successfully completed
-            let currentlyRunningJobIds: [Int64] = Array(detailsForCurrentlyRunningJobs.wrappedValue.keys)
+            let currentlyRunningJobIds: [Int64] = Array(detailsForCurrentlyRunningJobs.wrappedValue.keys.map { $0.id })
             let dependencyJobsNotCurrentlyRunning: [Job] = dependencyInfo.jobs
                 .filter { job in !currentlyRunningJobIds.contains(job.id ?? -1) }
                 .sorted { lhs, rhs in (lhs.id ?? -1) < (rhs.id ?? -1) }
@@ -1023,7 +1047,7 @@ public final class JobQueue {
                     .filter { !dependencyJobsNotCurrentlyRunning.contains($0) }
                     .inserting(contentsOf: dependencyJobsNotCurrentlyRunning, at: 0)
             }
-            handleJobDeferred(nextJob)
+            handleJobDeferred(nextJob, dependencies: dependencies)
             return
         }
         
@@ -1105,7 +1129,7 @@ public final class JobQueue {
         }
         
         // If the next job isn't scheduled in the future then just restart the JobRunner immediately
-        let secondsUntilNextJob: TimeInterval = (nextJobTimestamp - Date().timeIntervalSince1970)
+        let secondsUntilNextJob: TimeInterval = (nextJobTimestamp - dependencies.date.timeIntervalSince1970)
         
         guard secondsUntilNextJob > 0 else {
             // Only log that the queue is getting restarted if this queue had actually been about to stop
@@ -1218,7 +1242,7 @@ public final class JobQueue {
         /// **Note:** If any of these `dependantJobs` have other dependencies then when they attempt to start they will be
         /// removed from the queue, replaced by their dependencies
         if !dependantJobs.isEmpty {
-            let currentlyRunningJobIds: [Int64] = Array(detailsForCurrentlyRunningJobs.wrappedValue.keys)
+            let currentlyRunningJobIds: [Int64] = Array(detailsForCurrentlyRunningJobs.wrappedValue.keys.map { $0.id })
             let dependantJobsNotCurrentlyRunning: [Job] = dependantJobs
                 .filter { job in !currentlyRunningJobIds.contains(job.id ?? -1) }
                 .sorted { lhs, rhs in (lhs.id ?? -1) < (rhs.id ?? -1) }
@@ -1288,7 +1312,7 @@ public final class JobQueue {
         
         // Get the max failure count for the job (a value of '-1' means it will retry indefinitely)
         let maxFailureCount: Int = (executorMap.wrappedValue[job.variant]?.maxFailureCount ?? 0)
-        let nextRunTimestamp: TimeInterval = (Date().timeIntervalSince1970 + JobRunner.getRetryInterval(for: job))
+        let nextRunTimestamp: TimeInterval = (dependencies.date.timeIntervalSince1970 + JobRunner.getRetryInterval(for: job))
         
         dependencies.storage.write { db in
             /// Remove any dependant jobs from the queue (shouldn't be in there but filter the queue just in case so we don't try
@@ -1313,7 +1337,7 @@ public final class JobQueue {
                     updatedFailureCount <= maxFailureCount
                 )
             else {
-                SNLog("[JobRunner] \(queueContext) \(job.variant) failed permanently\(maxFailureCount >= 0 ? "; too many retries" : "")")
+                SNLog("[JobRunner] \(queueContext) \(job.variant) failed permanently\(maxFailureCount >= 0 && updatedFailureCount > maxFailureCount ? "; too many retries" : "")")
                 
                 // If the job permanently failed or we have performed all of our retry attempts
                 // then delete the job and all of it's dependant jobs (it'll probably never succeed)
@@ -1364,12 +1388,12 @@ public final class JobQueue {
             guard let lastRecord: (count: Int, times: [TimeInterval]) = $0[job.id] else {
                 $0 = $0.setting(
                     job.id,
-                    (1, [Date().timeIntervalSince1970])
+                    (1, [dependencies.date.timeIntervalSince1970])
                 )
                 return
             }
             
-            let timeNow: TimeInterval = Date().timeIntervalSince1970
+            let timeNow: TimeInterval = dependencies.date.timeIntervalSince1970
             stuckInDeferLoop = (
                 lastRecord.count >= JobQueue.deferralLoopThreshold &&
                 (timeNow - lastRecord.times[0]) < CGFloat(lastRecord.count)

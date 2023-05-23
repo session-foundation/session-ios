@@ -9,97 +9,89 @@ import Nimble
 @testable import SessionUtilitiesKit
 
 class JobRunnerSpec: QuickSpec {
-    enum TestSuccessfulJob: JobExecutor {
-        static let maxFailureCount: Int = 0
-        static let requiresThreadId: Bool = false
-        static let requiresInteractionId: Bool = false
-        
-        static func run(
-            _ job: Job,
-            queue: DispatchQueue,
-            success: @escaping (Job, Bool, Dependencies) -> (),
-            failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
-            deferred: @escaping (Job, Dependencies) -> (),
-            dependencies: Dependencies
-        ) {
-            guard dependencies.date.timeIntervalSinceNow > 0 else { return success(job, true, dependencies) }
-            
-            queue.asyncAfter(deadline: .now() + .milliseconds(Int(dependencies.date.timeIntervalSinceNow * 1000))) {
-                success(job, true, dependencies)
-            }
-        }
-    }
-    
-    enum TestFailedJob: JobExecutor {
-        static let maxFailureCount: Int = 1
-        static let requiresThreadId: Bool = false
-        static let requiresInteractionId: Bool = false
-        
-        static func run(
-            _ job: Job,
-            queue: DispatchQueue,
-            success: @escaping (Job, Bool, Dependencies) -> (),
-            failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
-            deferred: @escaping (Job, Dependencies) -> (),
-            dependencies: Dependencies
-        ) {
-            guard dependencies.date.timeIntervalSinceNow > 0 else { return failure(job, nil, false, dependencies) }
-            
-            queue.asyncAfter(deadline: .now() + .milliseconds(Int(dependencies.date.timeIntervalSinceNow * 1000))) {
-                failure(job, nil, false, dependencies)
-            }
-        }
-    }
-    
-    enum TestPermanentFailureJob: JobExecutor {
-        static let maxFailureCount: Int = 1
-        static let requiresThreadId: Bool = false
-        static let requiresInteractionId: Bool = false
-        
-        static func run(
-            _ job: Job,
-            queue: DispatchQueue,
-            success: @escaping (Job, Bool, Dependencies) -> (),
-            failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
-            deferred: @escaping (Job, Dependencies) -> (),
-            dependencies: Dependencies
-        ) {
-            guard dependencies.date.timeIntervalSinceNow > 0 else { return failure(job, nil, true, dependencies) }
-            
-            queue.asyncAfter(deadline: .now() + .milliseconds(Int(dependencies.date.timeIntervalSinceNow * 1000))) {
-                failure(job, nil, true, dependencies)
-            }
-        }
-    }
-    
-    enum TestDeferredJob: JobExecutor {
-        static let maxFailureCount: Int = 0
-        static let requiresThreadId: Bool = false
-        static let requiresInteractionId: Bool = false
-        
-        static func run(
-            _ job: Job,
-            queue: DispatchQueue,
-            success: @escaping (Job, Bool, Dependencies) -> (),
-            failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
-            deferred: @escaping (Job, Dependencies) -> (),
-            dependencies: Dependencies
-        ) {
-            guard dependencies.date.timeIntervalSinceNow > 0 else { return deferred(job, dependencies) }
-            
-            queue.asyncAfter(deadline: .now() + .milliseconds(Int(dependencies.date.timeIntervalSinceNow * 1000))) {
-                deferred(job, dependencies)
-            }
-        }
-    }
-    
     struct TestDetails: Codable {
+        enum ResultType: Codable {
+            case success
+            case failure
+            case permanentFailure
+            case deferred
+        }
+        
+        public let result: ResultType
+        public let completeTime: Int
         public let intValue: Int64
         public let stringValue: String
+        
+        init(
+            result: ResultType = .success,
+            completeTime: Int = 0,
+            intValue: Int64 = 100,
+            stringValue: String = "200"
+        ) {
+            self.result = result
+            self.completeTime = completeTime
+            self.intValue = intValue
+            self.stringValue = stringValue
+        }
     }
     
     struct InvalidDetails: Codable {
         func encode(to encoder: Encoder) throws { throw HTTP.Error.parsingFailed }
+    }
+    
+    enum TestJob: JobExecutor {
+        static let maxFailureCount: Int = 1
+        static let requiresThreadId: Bool = false
+        static let requiresInteractionId: Bool = false
+        
+        static func run(
+            _ job: Job,
+            queue: DispatchQueue,
+            success: @escaping (Job, Bool, Dependencies) -> (),
+            failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
+            deferred: @escaping (Job, Dependencies) -> (),
+            dependencies: Dependencies
+        ) {
+            guard
+                let detailsData: Data = job.details,
+                let details: TestDetails = try? JSONDecoder().decode(TestDetails.self, from: detailsData)
+            else { return success(job, true, dependencies) }
+            
+            let completeJob: () -> () = {
+                // Need to auto-increment the 'completeTime' and 'nextRunTimestamp' to prevent the job
+                // from immediately being run again
+                let updatedJob: Job = job
+                    .with(nextRunTimestamp: (max(1234567890, job.nextRunTimestamp) + 0.5))
+                    .with(
+                        details: TestDetails(
+                            result: details.result,
+                            completeTime: (details.completeTime + 1),
+                            intValue: details.intValue,
+                            stringValue: details.stringValue
+                        )
+                    )!
+                dependencies.storage.write { db in try _ = updatedJob.saved(db) }
+                
+                switch details.result {
+                    case .success: success(job, true, dependencies)
+                    case .failure: failure(job, nil, false, dependencies)
+                    case .permanentFailure: failure(job, nil, true, dependencies)
+                    case .deferred: deferred(updatedJob, dependencies)
+                }
+            }
+            
+            guard dependencies.fixedTime < details.completeTime else { return completeJob() }
+            
+            DispatchQueue.global(qos: .default).async {
+                while dependencies.fixedTime < details.completeTime {
+                    Thread.sleep(forTimeInterval: 0.01) // Wait for 10ms
+                }
+                
+                queue.async {
+                    completeJob()
+                }
+            }
+        }
     }
     
     // MARK: - Spec
@@ -108,7 +100,6 @@ class JobRunnerSpec: QuickSpec {
         var jobRunner: JobRunnerType!
         var job1: Job!
         var job2: Job!
-        var jobDetails: TestDetails!
         var mockStorage: Storage!
         var dependencies: Dependencies!
         
@@ -142,10 +133,6 @@ class JobRunnerSpec: QuickSpec {
                     interactionId: nil,
                     details: nil
                 )
-                jobDetails = TestDetails(
-                    intValue: 100,
-                    stringValue: "200"
-                )
                 job2 = Job(
                     id: 101,
                     failureCount: 0,
@@ -156,16 +143,21 @@ class JobRunnerSpec: QuickSpec {
                     nextRunTimestamp: 0,
                     threadId: nil,
                     interactionId: nil,
-                    details: try! JSONEncoder().encode(jobDetails)
+                    details: nil
                 )
                 
                 jobRunner = JobRunner(isTestingJobRunner: true, dependencies: dependencies)
+                jobRunner.setExecutor(TestJob.self, for: .messageSend)
+                jobRunner.setExecutor(TestJob.self, for: .attachmentUpload)
+                jobRunner.setExecutor(TestJob.self, for: .attachmentDownload)
                 
                 // Need to assign this to ensure it's used by nested dependencies
                 dependencies.jobRunner = jobRunner
             }
             
             afterEach {
+                /// We **must** set `fixedTime` to ensure we break any loops within the `TestJob` executor
+                dependencies.fixedTime = Int.max
                 jobRunner.stopAndClearPendingJobs()
                 jobRunner = nil
                 mockStorage = nil
@@ -175,10 +167,36 @@ class JobRunnerSpec: QuickSpec {
             
             context("when configuring") {
                 it("adds an executor correctly") {
+                    job1 = Job(
+                        id: 101,
+                        failureCount: 0,
+                        variant: .getSnodePool,
+                        behaviour: .runOnce,
+                        shouldBlock: false,
+                        shouldSkipLaunchBecomeActive: false,
+                        nextRunTimestamp: 0,
+                        threadId: nil,
+                        interactionId: nil,
+                        details: try? JSONEncoder().encode(TestDetails(completeTime: 1))
+                    )
                     jobRunner.appDidFinishLaunching(dependencies: dependencies)
                     
-                    // First check that it fails to start
-                    dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
+                    mockStorage.write { db in
+                        jobRunner.upsert(
+                            db,
+                            job: job1,
+                            canStartJob: true,
+                            dependencies: dependencies
+                        )
+                    }
+                    
+                    expect(jobRunner.isCurrentlyRunning(job1))
+                        .toEventually(
+                            beFalse(),
+                            timeout: .milliseconds(50)
+                        )
+                    
+                    jobRunner.setExecutor(TestJob.self, for: .getSnodePool)
                     
                     mockStorage.write { db in
                         jobRunner.upsert(
@@ -192,27 +210,7 @@ class JobRunnerSpec: QuickSpec {
                     expect(jobRunner.isCurrentlyRunning(job1))
                         .toEventually(
                             beFalse(),
-                            timeout: .milliseconds(10)
-                        )
-                    
-                    jobRunner.setExecutor(TestSuccessfulJob.self, for: .messageSend)
-                    
-                    // Then check that it succeeded to start
-                    dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
-                    
-                    mockStorage.write { db in
-                        jobRunner.upsert(
-                            db,
-                            job: job1,
-                            canStartJob: true,
-                            dependencies: dependencies
-                        )
-                    }
-                    
-                    expect(jobRunner.isCurrentlyRunning(job1))
-                        .toEventually(
-                            beFalse(),
-                            timeout: .milliseconds(10)
+                            timeout: .milliseconds(50)
                         )
                 }
             }
@@ -224,10 +222,6 @@ class JobRunnerSpec: QuickSpec {
                 // MARK: ---- by checking if a job is currently running
                 
                 context("by checking if a job is currently running") {
-                    beforeEach {
-                        jobRunner.setExecutor(TestSuccessfulJob.self, for: .messageSend)
-                    }
-                    
                     it("returns false when not given a job") {
                         expect(jobRunner.isCurrentlyRunning(nil)).to(beFalse())
                     }
@@ -243,9 +237,8 @@ class JobRunnerSpec: QuickSpec {
                     }
                     
                     it("returns true when given a non blocking job that is running") {
+                        job1 = job1.with(details: TestDetails(completeTime: 1))
                         jobRunner.appDidFinishLaunching(dependencies: dependencies)
-                        
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
                         
                         mockStorage.write { db in
                             jobRunner.upsert(
@@ -259,7 +252,7 @@ class JobRunnerSpec: QuickSpec {
                         expect(jobRunner.isCurrentlyRunning(job1))
                             .toEventually(
                                 beTrue(),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
                     }
                     
@@ -274,7 +267,7 @@ class JobRunnerSpec: QuickSpec {
                             nextRunTimestamp: 0,
                             threadId: nil,
                             interactionId: nil,
-                            details: nil
+                            details: try? JSONEncoder().encode(TestDetails(completeTime: 1))
                         )
                         
                         mockStorage.write { db in
@@ -288,13 +281,12 @@ class JobRunnerSpec: QuickSpec {
                             )
                         }
                         
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
                         jobRunner.appDidFinishLaunching(dependencies: dependencies)
                         
                         expect(jobRunner.isCurrentlyRunning(job2))
                             .toEventually(
                                 beTrue(),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
                     }
                 }
@@ -302,20 +294,12 @@ class JobRunnerSpec: QuickSpec {
                 // MARK: ---- by getting the details for jobs
                 
                 context("by getting the details for jobs") {
-                    beforeEach {
-                        jobRunner.setExecutor(TestSuccessfulJob.self, for: .messageSend)
-                        jobRunner.setExecutor(TestSuccessfulJob.self, for: .attachmentUpload)
-                        jobRunner.setExecutor(TestSuccessfulJob.self, for: .attachmentDownload)
-                    }
-                    
                     it("returns an empty dictionary when there are no jobs") {
                         expect(jobRunner.details()).to(equal([:]))
                     }
                     
                     it("returns an empty dictionary when there are no jobs matching the filters") {
                         jobRunner.appDidFinishLaunching(dependencies: dependencies)
-                        
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
                         
                         mockStorage.write { db in
                             jobRunner.upsert(
@@ -329,7 +313,7 @@ class JobRunnerSpec: QuickSpec {
                         expect(jobRunner.detailsFor(state: .running, variant: .messageSend))
                             .toEventually(
                                 equal([:]),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
                     }
                     
@@ -350,7 +334,7 @@ class JobRunnerSpec: QuickSpec {
                         expect(jobRunner.details())
                             .toEventuallyNot(
                                 beEmpty(),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
                         expect(jobRunner.detailsFor(jobs: [job1])).to(equal([:]))
                         expect(jobRunner.detailsFor(jobs: [job2])).to(equal([101: job2.details]))
@@ -367,7 +351,7 @@ class JobRunnerSpec: QuickSpec {
                             nextRunTimestamp: 0,
                             threadId: nil,
                             interactionId: nil,
-                            details: try! JSONEncoder().encode(jobDetails)
+                            details: try? JSONEncoder().encode(TestDetails(completeTime: 1))
                         )
                         job2 = Job(
                             id: 101,
@@ -379,9 +363,8 @@ class JobRunnerSpec: QuickSpec {
                             nextRunTimestamp: 0,
                             threadId: nil,
                             interactionId: nil,
-                            details: nil
+                            details: try? JSONEncoder().encode(TestDetails(completeTime: 1))
                         )
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
                         jobRunner.appDidFinishLaunching(dependencies: dependencies)
                         
                         mockStorage.write { db in
@@ -398,7 +381,7 @@ class JobRunnerSpec: QuickSpec {
                             jobRunner.upsert(
                                 db,
                                 job: job2,
-                                canStartJob: true,
+                                canStartJob: false,
                                 dependencies: dependencies
                             )
                         }
@@ -406,8 +389,8 @@ class JobRunnerSpec: QuickSpec {
                         // Wait for there to be data and the validate the filtering works
                         expect(jobRunner.detailsFor(state: .running))
                             .toEventually(
-                                equal([100: try! JSONEncoder().encode(jobDetails)]),
-                                timeout: .milliseconds(10)
+                                equal([100: try! JSONEncoder().encode(TestDetails(completeTime: 1))]),
+                                timeout: .milliseconds(50)
                             )
                         expect(Array(jobRunner.details().keys).sorted()).to(equal([100, 101]))
                     }
@@ -423,7 +406,7 @@ class JobRunnerSpec: QuickSpec {
                             nextRunTimestamp: 0,
                             threadId: nil,
                             interactionId: nil,
-                            details: nil
+                            details: try? JSONEncoder().encode(TestDetails(completeTime: 1))
                         )
                         job2 = Job(
                             id: 101,
@@ -435,9 +418,8 @@ class JobRunnerSpec: QuickSpec {
                             nextRunTimestamp: 0,
                             threadId: nil,
                             interactionId: nil,
-                            details: try! JSONEncoder().encode(jobDetails)
+                            details: try? JSONEncoder().encode(TestDetails(completeTime: 1))
                         )
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
                         jobRunner.appDidFinishLaunching(dependencies: dependencies)
                         
                         mockStorage.write { db in
@@ -462,14 +444,15 @@ class JobRunnerSpec: QuickSpec {
                         // Wait for there to be data and the validate the filtering works
                         expect(jobRunner.detailsFor(state: .pending))
                             .toEventually(
-                                equal([101: try! JSONEncoder().encode(jobDetails)]),
-                                timeout: .milliseconds(10)
+                                equal([101: try! JSONEncoder().encode(TestDetails(completeTime: 1))]),
+                                timeout: .milliseconds(50)
                             )
                         expect(Array(jobRunner.details().keys).sorted()).to(equal([100, 101]))
                     }
                     
                     it("can filter to specific variants") {
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
+                        job1 = job1.with(details: TestDetails(completeTime: 1))
+                        job2 = job2.with(details: TestDetails(completeTime: 2))
                         jobRunner.appDidFinishLaunching(dependencies: dependencies)
                         
                         mockStorage.write { db in
@@ -494,16 +477,19 @@ class JobRunnerSpec: QuickSpec {
                         // Wait for there to be data and the validate the filtering works
                         expect(jobRunner.detailsFor(variant: .attachmentUpload))
                             .toEventually(
-                                equal([101: try! JSONEncoder().encode(jobDetails)]),
-                                timeout: .milliseconds(10)
+                                equal([101: try! JSONEncoder().encode(TestDetails(completeTime: 2))]),
+                                timeout: .milliseconds(50)
                             )
-                        expect(Array(jobRunner.details().keys).sorted()).to(equal([100, 101]))
+                        expect(Array(jobRunner.details().keys).sorted())
+                            .toEventually(
+                                equal([100, 101]),
+                                timeout: .milliseconds(50)
+                            )
                     }
                     
                     it("includes non blocking jobs") {
+                        job2 = job2.with(details: TestDetails(completeTime: 1))
                         jobRunner.appDidFinishLaunching(dependencies: dependencies)
-                        
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
                         
                         mockStorage.write { db in
                             jobRunner.upsert(
@@ -516,8 +502,8 @@ class JobRunnerSpec: QuickSpec {
                         
                         expect(jobRunner.detailsFor(state: .running, variant: .attachmentUpload))
                             .toEventually(
-                                equal([101: try! JSONEncoder().encode(jobDetails)]),
-                                timeout: .milliseconds(10)
+                                equal([101: try! JSONEncoder().encode(TestDetails(completeTime: 1))]),
+                                timeout: .milliseconds(50)
                             )
                     }
                     
@@ -532,7 +518,7 @@ class JobRunnerSpec: QuickSpec {
                             nextRunTimestamp: 0,
                             threadId: nil,
                             interactionId: nil,
-                            details: try! JSONEncoder().encode(jobDetails)
+                            details: try! JSONEncoder().encode(TestDetails(completeTime: 1))
                         )
                         
                         mockStorage.write { db in
@@ -546,13 +532,12 @@ class JobRunnerSpec: QuickSpec {
                             )
                         }
                         
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
                         jobRunner.appDidFinishLaunching(dependencies: dependencies)
                         
                         expect(jobRunner.detailsFor(state: .running, variant: .attachmentUpload))
                             .toEventually(
-                                equal([101: try! JSONEncoder().encode(jobDetails)]),
-                                timeout: .milliseconds(10)
+                                equal([101: try! JSONEncoder().encode(TestDetails(completeTime: 1))]),
+                                timeout: .milliseconds(50)
                             )
                     }
                 }
@@ -560,10 +545,6 @@ class JobRunnerSpec: QuickSpec {
                 // MARK: ---- by checking for an existing job
                 
                 context("by checking for an existing job") {
-                    beforeEach {
-                        jobRunner.setExecutor(TestSuccessfulJob.self, for: .attachmentUpload)
-                    }
-                    
                     it("returns false for a queue that doesn't exist") {
                         jobRunner = JobRunner(
                             isTestingJobRunner: true,
@@ -571,7 +552,7 @@ class JobRunnerSpec: QuickSpec {
                             dependencies: dependencies
                         )
                         
-                        expect(jobRunner.hasJob(of: .attachmentUpload, with: jobDetails))
+                        expect(jobRunner.hasJob(of: .attachmentUpload, with: TestDetails()))
                             .to(beFalse())
                     }
                     
@@ -581,11 +562,12 @@ class JobRunnerSpec: QuickSpec {
                     }
                     
                     it("returns false when there is not a pending or running job") {
-                        expect(jobRunner.hasJob(of: .attachmentUpload, with: jobDetails))
+                        expect(jobRunner.hasJob(of: .attachmentUpload, with: TestDetails()))
                             .to(beFalse())
                     }
                     
                     it("returns true when there is a pending job") {
+                        job2 = job2.with(details: TestDetails(completeTime: 1))
                         mockStorage.write { db in
                             jobRunner.upsert(
                                 db,
@@ -601,16 +583,15 @@ class JobRunnerSpec: QuickSpec {
                         expect(Array(jobRunner.detailsFor(state: .pending, variant: .attachmentUpload).keys))
                             .toEventually(
                                 equal([101]),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
-                        expect(jobRunner.hasJob(of: .attachmentUpload, with: jobDetails))
+                        expect(jobRunner.hasJob(of: .attachmentUpload, with: TestDetails(completeTime: 1)))
                             .to(beTrue())
                     }
                     
                     it("returns true when there is a running job") {
+                        job2 = job2.with(details: TestDetails(completeTime: 1))
                         jobRunner.appDidFinishLaunching(dependencies: dependencies)
-                        
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
                         
                         mockStorage.write { db in
                             jobRunner.upsert(
@@ -624,9 +605,9 @@ class JobRunnerSpec: QuickSpec {
                         expect(Array(jobRunner.detailsFor(state: .running, variant: .attachmentUpload).keys))
                             .toEventually(
                                 equal([101]),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
-                        expect(jobRunner.hasJob(of: .attachmentUpload, with: jobDetails))
+                        expect(jobRunner.hasJob(of: .attachmentUpload, with: TestDetails(completeTime: 1)))
                             .to(beTrue())
                     }
                     
@@ -641,7 +622,7 @@ class JobRunnerSpec: QuickSpec {
                             nextRunTimestamp: 0,
                             threadId: nil,
                             interactionId: nil,
-                            details: try! JSONEncoder().encode(jobDetails)
+                            details: try! JSONEncoder().encode(TestDetails(completeTime: 1))
                         )
                         
                         mockStorage.write { db in
@@ -655,20 +636,19 @@ class JobRunnerSpec: QuickSpec {
                             )
                         }
                         
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
                         jobRunner.appDidFinishLaunching(dependencies: dependencies)
                         
                         expect(Array(jobRunner.detailsFor(state: .running, variant: .attachmentUpload).keys))
                             .toEventually(
                                 equal([101]),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
-                        expect(jobRunner.hasJob(of: .attachmentUpload, with: jobDetails))
+                        expect(jobRunner.hasJob(of: .attachmentUpload, with: TestDetails(completeTime: 1)))
                             .to(beTrue())
                     }
                     
                     it("returns true when there is a non blocking job") {
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
+                        job2 = job2.with(details: TestDetails(completeTime: 1))
                         jobRunner.appDidFinishLaunching(dependencies: dependencies)
                         
                         mockStorage.write { db in
@@ -683,9 +663,9 @@ class JobRunnerSpec: QuickSpec {
                         expect(Array(jobRunner.detailsFor(state: .running, variant: .attachmentUpload).keys))
                             .toEventually(
                                 equal([101]),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
-                        expect(jobRunner.hasJob(of: .attachmentUpload, with: jobDetails))
+                        expect(jobRunner.hasJob(of: .attachmentUpload, with: TestDetails(completeTime: 1)))
                             .to(beTrue())
                     }
                 }
@@ -693,12 +673,8 @@ class JobRunnerSpec: QuickSpec {
                 // MARK: ---- by being notified of app launch
                 
                 context("by being notified of app launch") {
-                    beforeEach {
-                        jobRunner.setExecutor(TestSuccessfulJob.self, for: .messageSend)
-                    }
-                    
                     it("does not start a job before getting the app launch call") {
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
+                        job1 = job1.with(details: TestDetails(completeTime: 1))
                         
                         mockStorage.write { db in
                             jobRunner.upsert(
@@ -712,12 +688,12 @@ class JobRunnerSpec: QuickSpec {
                         expect(jobRunner.isCurrentlyRunning(job1))
                             .toEventually(
                                 beFalse(),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
                     }
                     
                     it("does nothing if there are no app launch jobs") {
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
+                        job1 = job1.with(details: TestDetails(completeTime: 1))
                         
                         mockStorage.write { db in
                             jobRunner.upsert(
@@ -733,11 +709,12 @@ class JobRunnerSpec: QuickSpec {
                         expect(jobRunner.isCurrentlyRunning(job1))
                             .toEventually(
                                 beFalse(),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
                     }
                     
                     it("starts the job queues after completing blocking app launch jobs") {
+                        job1 = job1.with(details: TestDetails(completeTime: 2))
                         job2 = Job(
                             id: 101,
                             failureCount: 0,
@@ -748,7 +725,7 @@ class JobRunnerSpec: QuickSpec {
                             nextRunTimestamp: 0,
                             threadId: nil,
                             interactionId: nil,
-                            details: nil
+                            details: try! JSONEncoder().encode(TestDetails(completeTime: 1))
                         )
                         
                         mockStorage.write { db in
@@ -772,32 +749,34 @@ class JobRunnerSpec: QuickSpec {
                         expect(jobRunner.isCurrentlyRunning(job1))
                             .toEventually(
                                 beFalse(),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
                         expect(jobRunner.isCurrentlyRunning(job2)).to(beFalse())
                         
                         // Make sure it starts
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
                         jobRunner.appDidFinishLaunching(dependencies: dependencies)
                         
                         // Blocking job running but blocked job not
                         expect(jobRunner.isCurrentlyRunning(job2))
                             .toEventually(
                                 beTrue(),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
                         expect(jobRunner.isCurrentlyRunning(job1)).to(beFalse())
                         
+                        // Complete 'job2'
+                        dependencies.fixedTime = 1
+                        
                         // Blocked job eventually starts
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
                         expect(jobRunner.isCurrentlyRunning(job1))
                             .toEventually(
                                 beTrue(),
-                                timeout: .milliseconds(20)
+                                timeout: .milliseconds(50)
                             )
                     }
                     
                     it("starts the job queues alongside non blocking app launch jobs") {
+                        job1 = job1.with(details: TestDetails(completeTime: 1))
                         job2 = Job(
                             id: 101,
                             failureCount: 0,
@@ -808,7 +787,7 @@ class JobRunnerSpec: QuickSpec {
                             nextRunTimestamp: 0,
                             threadId: nil,
                             interactionId: nil,
-                            details: nil
+                            details: try! JSONEncoder().encode(TestDetails(completeTime: 1))
                         )
                         
                         mockStorage.write { db in
@@ -832,22 +811,21 @@ class JobRunnerSpec: QuickSpec {
                         expect(jobRunner.isCurrentlyRunning(job1))
                             .toEventually(
                                 beFalse(),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
                         
                         // Make sure it starts
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
                         jobRunner.appDidFinishLaunching(dependencies: dependencies)
                         
                         expect(jobRunner.isCurrentlyRunning(job1))
                             .toEventually(
                                 beTrue(),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
                         expect(jobRunner.isCurrentlyRunning(job2))
                             .toEventually(
                                 beTrue(),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
                     }
                 }
@@ -855,12 +833,8 @@ class JobRunnerSpec: QuickSpec {
                 // MARK: ---- by being notified of app becoming active
                 
                 context("by being notified of app becoming active") {
-                    beforeEach {
-                        jobRunner.setExecutor(TestSuccessfulJob.self, for: .messageSend)
-                    }
-                    
                     it("does not start a job before getting the app active call") {
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
+                        job1 = job1.with(details: TestDetails(completeTime: 1))
                         
                         mockStorage.write { db in
                             jobRunner.upsert(
@@ -874,11 +848,12 @@ class JobRunnerSpec: QuickSpec {
                         expect(jobRunner.isCurrentlyRunning(job1))
                             .toEventually(
                                 beFalse(),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
                     }
                     
                     it("does not start the job queues if there are no app active jobs and blocking jobs are running") {
+                        job1 = job1.with(details: TestDetails(completeTime: 2))
                         job2 = Job(
                             id: 101,
                             failureCount: 0,
@@ -889,7 +864,7 @@ class JobRunnerSpec: QuickSpec {
                             nextRunTimestamp: 0,
                             threadId: nil,
                             interactionId: nil,
-                            details: nil
+                            details: try? JSONEncoder().encode(TestDetails(completeTime: 1))
                         )
                         
                         mockStorage.write { db in
@@ -913,26 +888,19 @@ class JobRunnerSpec: QuickSpec {
                         expect(jobRunner.isCurrentlyRunning(job1))
                             .toEventually(
                                 beFalse(),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
                         
                         // Start the blocking job
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
                         jobRunner.appDidFinishLaunching(dependencies: dependencies)
                         
                         // Make sure the other queues don't start
-                        dependencies.date = Date().addingTimeInterval(30 / 1000)    // Complete job after delay
                         jobRunner.appDidBecomeActive(dependencies: dependencies)
                         
                         expect(jobRunner.isCurrentlyRunning(job1))
                             .toEventually(
                                 beFalse(),
-                                timeout: .milliseconds(10)
-                            )
-                        expect(jobRunner.isCurrentlyRunning(job1))
-                            .toEventually(
-                                beFalse(),
-                                timeout: .milliseconds(20)
+                                timeout: .milliseconds(50)
                             )
                     }
                     
@@ -947,7 +915,7 @@ class JobRunnerSpec: QuickSpec {
                             nextRunTimestamp: 0,
                             threadId: nil,
                             interactionId: nil,
-                            details: nil
+                            details: try? JSONEncoder().encode(TestDetails(completeTime: 2))
                         )
                         job2 = Job(
                             id: 101,
@@ -959,7 +927,7 @@ class JobRunnerSpec: QuickSpec {
                             nextRunTimestamp: 0,
                             threadId: nil,
                             interactionId: nil,
-                            details: nil
+                            details: try? JSONEncoder().encode(TestDetails(completeTime: 1))
                         )
                         
                         mockStorage.write { db in
@@ -984,31 +952,24 @@ class JobRunnerSpec: QuickSpec {
                         expect(jobRunner.isCurrentlyRunning(job1))
                             .toEventually(
                                 beFalse(),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
                         
                         // Start the blocking queue
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
                         jobRunner.appDidFinishLaunching(dependencies: dependencies)
                         
                         // Make sure the other queues don't start
-                        dependencies.date = Date().addingTimeInterval(30 / 1000)    // Complete job after delay
                         jobRunner.appDidBecomeActive(dependencies: dependencies)
                         
                         expect(jobRunner.isCurrentlyRunning(job1))
                             .toEventually(
                                 beFalse(),
-                                timeout: .milliseconds(10)
-                            )
-                        expect(jobRunner.isCurrentlyRunning(job1))
-                            .toEventually(
-                                beFalse(),
-                                timeout: .milliseconds(20)
+                                timeout: .milliseconds(50)
                             )
                     }
                     
                     it("starts the job queues if there are no app active jobs") {
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
+                        job1 = job1.with(details: TestDetails(completeTime: 1))
                         
                         mockStorage.write { db in
                             jobRunner.upsert(
@@ -1024,7 +985,7 @@ class JobRunnerSpec: QuickSpec {
                         expect(jobRunner.isCurrentlyRunning(job1))
                             .toEventually(
                                 beTrue(),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
                     }
                     
@@ -1039,7 +1000,7 @@ class JobRunnerSpec: QuickSpec {
                             nextRunTimestamp: 0,
                             threadId: nil,
                             interactionId: nil,
-                            details: nil
+                            details: try? JSONEncoder().encode(TestDetails(completeTime: 1))
                         )
                         job2 = Job(
                             id: 101,
@@ -1051,7 +1012,7 @@ class JobRunnerSpec: QuickSpec {
                             nextRunTimestamp: 0,
                             threadId: nil,
                             interactionId: nil,
-                            details: nil
+                            details: try? JSONEncoder().encode(TestDetails(completeTime: 1))
                         )
                         
                         mockStorage.write { db in
@@ -1076,17 +1037,16 @@ class JobRunnerSpec: QuickSpec {
                         expect(jobRunner.isCurrentlyRunning(job1))
                             .toEventually(
                                 beFalse(),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
                         
                         // Make sure the queues are started
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
                         jobRunner.appDidBecomeActive(dependencies: dependencies)
                         
                         expect(jobRunner.isCurrentlyRunning(job1))
                             .toEventually(
                                 beTrue(),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
                         expect(jobRunner.isCurrentlyRunning(job2)).to(beTrue())
                     }
@@ -1097,16 +1057,36 @@ class JobRunnerSpec: QuickSpec {
             
             context("when running jobs") {
                 beforeEach {
-                    jobRunner.setExecutor(TestSuccessfulJob.self, for: .messageSend)
-                    jobRunner.setExecutor(TestSuccessfulJob.self, for: .attachmentUpload)
                     jobRunner.appDidFinishLaunching(dependencies: dependencies)
                 }
                 
+                // MARK: ---- by adding
+                
+                context("by adding") {
+                    it("does not start until after the db transaction completes") {
+                        job1 = job1.with(details: TestDetails(completeTime: 1))
+                        
+                        mockStorage.write { db in
+                            jobRunner.add(db, job: job1, canStartJob: true, dependencies: dependencies)
+                            
+                            // Wait for 10ms to give the job the chance to be added
+                            Thread.sleep(forTimeInterval: 0.01)
+                            expect(Array(jobRunner.detailsFor(state: .running).keys))
+                                .to(beEmpty())
+                        }
+                        
+                        // Wait for 10ms for the job to actually be added
+                        Thread.sleep(forTimeInterval: 0.01)
+                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                            .to(equal([100]))
+                    }
+                }
                 // MARK: ---- with dependencies
                 
                 context("with dependencies") {
                     it("starts dependencies first") {
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
+                        job1 = job1.with(details: TestDetails(completeTime: 1))
+                        job2 = job2.with(details: TestDetails(completeTime: 2))
                         
                         mockStorage.write { db in
                             try job1.insert(db)
@@ -1120,12 +1100,13 @@ class JobRunnerSpec: QuickSpec {
                         expect(Array(jobRunner.detailsFor(state: .running, variant: .attachmentUpload).keys))
                             .toEventually(
                                 equal([101]),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
                     }
                     
                     it("removes the initial job from the queue") {
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
+                        job1 = job1.with(details: TestDetails(completeTime: 1))
+                        job2 = job2.with(details: TestDetails(completeTime: 2))
                         
                         mockStorage.write { db in
                             try job1.insert(db)
@@ -1139,13 +1120,14 @@ class JobRunnerSpec: QuickSpec {
                         expect(Array(jobRunner.detailsFor(state: .running, variant: .attachmentUpload).keys))
                             .toEventually(
                                 equal([101]),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
                         expect(jobRunner.detailsFor(state: .running, variant: .messageSend).keys).toNot(contain(100))
                     }
                 
                     it("starts the initial job when the dependencies succeed") {
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
+                        job1 = job1.with(details: TestDetails(completeTime: 2))
+                        job2 = job2.with(details: TestDetails(completeTime: 1))
                         
                         mockStorage.write { db in
                             try job1.insert(db)
@@ -1159,23 +1141,51 @@ class JobRunnerSpec: QuickSpec {
                         expect(Array(jobRunner.detailsFor(state: .running, variant: .attachmentUpload).keys))
                             .toEventually(
                                 equal([101]),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
                         expect(jobRunner.detailsFor(state: .running, variant: .messageSend).keys).toNot(contain(100))
                         
                         // Make sure the initial job starts
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Complete job after delay
+                        dependencies.fixedTime = 1
                         expect(Array(jobRunner.detailsFor(state: .running, variant: .messageSend).keys))
                             .toEventually(
                                 equal([100]),
-                                timeout: .milliseconds(20)
+                                timeout: .milliseconds(50)
+                            )
+                    }
+                    
+                    it("does not start the initial job if the dependencies are deferred") {
+                        job1 = job1.with(details: TestDetails(result: .failure, completeTime: 2))
+                        job2 = job2.with(details: TestDetails(result: .deferred, completeTime: 1))
+                        
+                        mockStorage.write { db in
+                            try job1.insert(db)
+                            try job2.insert(db)
+                            try JobDependencies(jobId: job1.id!, dependantId: job2.id!).insert(db)
+                            
+                            jobRunner.upsert(db, job: job1, canStartJob: true, dependencies: dependencies)
+                        }
+                        
+                        // Make sure the dependency is run
+                        expect(Array(jobRunner.detailsFor(state: .running, variant: .attachmentUpload).keys))
+                            .toEventually(
+                                equal([101]),
+                                timeout: .milliseconds(50)
+                            )
+                        expect(jobRunner.detailsFor(state: .running, variant: .messageSend).keys).toNot(contain(100))
+                        
+                        // Make sure there are no running jobs
+                        dependencies.fixedTime = 1
+                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                            .toEventually(
+                                beEmpty(),
+                                timeout: .milliseconds(50)
                             )
                     }
                     
                     it("does not start the initial job if the dependencies fail") {
-                        jobRunner.setExecutor(TestFailedJob.self, for: .attachmentUpload)
-                        
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Fail job after delay
+                        job1 = job1.with(details: TestDetails(result: .failure, completeTime: 2))
+                        job2 = job2.with(details: TestDetails(result: .failure, completeTime: 1))
                         
                         mockStorage.write { db in
                             try job1.insert(db)
@@ -1189,22 +1199,22 @@ class JobRunnerSpec: QuickSpec {
                         expect(Array(jobRunner.detailsFor(state: .running, variant: .attachmentUpload).keys))
                             .toEventually(
                                 equal([101]),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
                         expect(jobRunner.detailsFor(state: .running, variant: .messageSend).keys).toNot(contain(100))
                         
                         // Make sure there are no running jobs
+                        dependencies.fixedTime = 1
                         expect(Array(jobRunner.detailsFor(state: .running).keys))
                             .toEventually(
                                 beEmpty(),
-                                timeout: .milliseconds(20)
+                                timeout: .milliseconds(50)
                             )
                     }
                     
                     it("does not delete the initial job if the dependencies fail") {
-                        jobRunner.setExecutor(TestFailedJob.self, for: .attachmentUpload)
-                        
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Fail job after delay
+                        job1 = job1.with(details: TestDetails(result: .failure, completeTime: 2))
+                        job2 = job2.with(details: TestDetails(result: .failure, completeTime: 1))
                         
                         mockStorage.write { db in
                             try job1.insert(db)
@@ -1218,16 +1228,16 @@ class JobRunnerSpec: QuickSpec {
                         expect(Array(jobRunner.detailsFor(state: .running, variant: .attachmentUpload).keys))
                             .toEventually(
                                 equal([101]),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
                         expect(jobRunner.detailsFor(state: .running, variant: .messageSend).keys).toNot(contain(100))
                         
                         // Make sure there are no running jobs
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Delay subsequent runs
+                        dependencies.fixedTime = 1
                         expect(Array(jobRunner.detailsFor(state: .running, variant: .attachmentUpload).keys))
                             .toEventually(
                                 beEmpty(),
-                                timeout: .milliseconds(20)
+                                timeout: .milliseconds(50)
                             )
                         
                         // Stop the queues so it doesn't run out of retry attempts
@@ -1238,9 +1248,8 @@ class JobRunnerSpec: QuickSpec {
                     }
                     
                     it("deletes the initial job if the dependencies permanently fail") {
-                        jobRunner.setExecutor(TestPermanentFailureJob.self, for: .attachmentUpload)
-                        
-                        dependencies.date = Date().addingTimeInterval(20 / 1000)    // Fail job after delay
+                        job1 = job1.with(details: TestDetails(result: .failure, completeTime: 2))
+                        job2 = job2.with(details: TestDetails(result: .permanentFailure, completeTime: 1))
                         
                         mockStorage.write { db in
                             try job1.insert(db)
@@ -1254,15 +1263,81 @@ class JobRunnerSpec: QuickSpec {
                         expect(Array(jobRunner.detailsFor(state: .running, variant: .attachmentUpload).keys))
                             .toEventually(
                                 equal([101]),
-                                timeout: .milliseconds(10)
+                                timeout: .milliseconds(50)
                             )
                         expect(jobRunner.detailsFor(state: .running, variant: .messageSend).keys).toNot(contain(100))
                         
                         // Make sure there are no running jobs
+                        dependencies.fixedTime = 1
                         expect(Array(jobRunner.detailsFor(state: .running, variant: .attachmentUpload).keys))
                             .toEventually(
                                 beEmpty(),
-                                timeout: .milliseconds(20)
+                                timeout: .milliseconds(50)
+                            )
+                        
+                        // Make sure the jobs were deleted
+                        expect(mockStorage.read { db in try Job.fetchCount(db) }).to(equal(0))
+                    }
+                }
+            }
+            
+            // MARK: -- when completing jobs
+            
+            context("when completing jobs") {
+                beforeEach {
+                    jobRunner.appDidFinishLaunching(dependencies: dependencies)
+                }
+                
+                // MARK: ---- by succeeding
+                
+                context("by succeeding") {
+                    it("removes the job from the queue") {
+                        job1 = job1.with(details: TestDetails(result: .success, completeTime: 1))
+                        
+                        mockStorage.write { db in
+                            try job1.insert(db)
+                            
+                            jobRunner.upsert(db, job: job1, canStartJob: true, dependencies: dependencies)
+                        }
+                        
+                        // Make sure the dependency is run
+                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                            .toEventually(
+                                equal([100]),
+                                timeout: .milliseconds(50)
+                            )
+                        
+                        // Make sure there are no running jobs
+                        dependencies.fixedTime = 1
+                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                            .toEventually(
+                                beEmpty(),
+                                timeout: .milliseconds(50)
+                            )
+                    }
+                    
+                    it("deletes the job") {
+                        job1 = job1.with(details: TestDetails(result: .success, completeTime: 1))
+                        
+                        mockStorage.write { db in
+                            try job1.insert(db)
+                            
+                            jobRunner.upsert(db, job: job1, canStartJob: true, dependencies: dependencies)
+                        }
+                        
+                        // Make sure the dependency is run
+                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                            .toEventually(
+                                equal([100]),
+                                timeout: .milliseconds(50)
+                            )
+                        
+                        // Make sure there are no running jobs
+                        dependencies.fixedTime = 1
+                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                            .toEventually(
+                                beEmpty(),
+                                timeout: .milliseconds(50)
                             )
                         
                         // Make sure the jobs were deleted
@@ -1270,6 +1345,259 @@ class JobRunnerSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- by deferring
+                
+                context("by deferring") {
+                    it("reschedules the job to run again later") {
+                        job1 = job1.with(details: TestDetails(result: .deferred, completeTime: 1))
+                        
+                        mockStorage.write { db in
+                            try job1.insert(db)
+                            
+                            jobRunner.upsert(db, job: job1, canStartJob: true, dependencies: dependencies)
+                        }
+                        
+                        // Make sure the dependency is run
+                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                            .toEventually(
+                                equal([100]),
+                                timeout: .milliseconds(50)
+                            )
+                        
+                        // Make sure there are no running jobs
+                        dependencies.fixedTime = 1
+                        dependencies.date = Date(timeIntervalSince1970: 1234567890 + 1)
+                        expect(jobRunner.detailsFor(state: .running))
+                            .toEventually(
+                                equal([100: try! JSONEncoder().encode(TestDetails(result: .deferred, completeTime: 2))]),
+                                timeout: .milliseconds(50)
+                            )
+                    }
+                    
+                    it("does not delete the job") {
+                        job1 = job1.with(details: TestDetails(result: .deferred, completeTime: 1))
+                        
+                        mockStorage.write { db in
+                            try job1.insert(db)
+                            
+                            jobRunner.upsert(db, job: job1, canStartJob: true, dependencies: dependencies)
+                        }
+                        
+                        // Make sure the dependency is run
+                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                            .toEventually(
+                                equal([100]),
+                                timeout: .milliseconds(50)
+                            )
+                        
+                        // Make sure there are no running jobs
+                        dependencies.fixedTime = 1
+                        dependencies.date = Date(timeIntervalSince1970: 1234567890 + 1)
+                        expect(jobRunner.detailsFor(state: .running))
+                            .toEventually(
+                                equal([100: try! JSONEncoder().encode(TestDetails(result: .deferred, completeTime: 2))]),
+                                timeout: .milliseconds(50)
+                            )
+                        
+                        // Make sure the jobs were deleted
+                        expect(mockStorage.read { db in try Job.fetchCount(db) }).toNot(equal(0))
+                    }
+                    
+                    it("fails the job if it is deferred too many times") {
+                        job1 = job1.with(details: TestDetails(result: .deferred, completeTime: 1))
+                        
+                        mockStorage.write { db in
+                            try job1.insert(db)
+                            
+                            jobRunner.upsert(db, job: job1, canStartJob: true, dependencies: dependencies)
+                        }
+                        
+                        // Make sure it runs
+                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                            .toEventually(
+                                equal([100]),
+                                timeout: .milliseconds(50)
+                            )
+                        dependencies.fixedTime = 1
+                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                            .toEventually(
+                                beEmpty(),
+                                timeout: .milliseconds(50)
+                            )
+                        
+                        // Restart the JobRunner
+                        dependencies.date = Date(timeIntervalSince1970: 1234567890 + 0.5)
+                        jobRunner.startNonBlockingQueues(dependencies: dependencies)
+                        
+                        // Make sure it finishes once
+                        expect(jobRunner.detailsFor(state: .running))
+                            .toEventually(
+                                equal([100: try! JSONEncoder().encode(TestDetails(result: .deferred, completeTime: 2))]),
+                                timeout: .milliseconds(50)
+                            )
+                        dependencies.fixedTime = 2
+                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                            .toEventually(
+                                beEmpty(),
+                                timeout: .milliseconds(50)
+                            )
+                        
+                        // Restart the JobRunner
+                        dependencies.date = Date(timeIntervalSince1970: 1234567890 + 1)
+                        jobRunner.startNonBlockingQueues(dependencies: dependencies)
+                        
+                        // Make sure it finishes twice
+                        expect(jobRunner.detailsFor(state: .running))
+                            .toEventually(
+                                equal([100: try! JSONEncoder().encode(TestDetails(result: .deferred, completeTime: 3))]),
+                                timeout: .milliseconds(50)
+                            )
+                        dependencies.fixedTime = 3
+                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                            .toEventually(
+                                beEmpty(),
+                                timeout: .milliseconds(50)
+                            )
+                        
+                        // Restart the JobRunner
+                        dependencies.date = Date(timeIntervalSince1970: 1234567890 + 1.5)
+                        jobRunner.startNonBlockingQueues(dependencies: dependencies)
+                        
+                        // Make sure it's finishes the last time
+                        expect(jobRunner.detailsFor(state: .running))
+                            .toEventually(
+                                equal([100: try! JSONEncoder().encode(TestDetails(result: .deferred, completeTime: 4))]),
+                                timeout: .milliseconds(50)
+                            )
+                        dependencies.fixedTime = 4
+                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                            .toEventually(
+                                beEmpty(),
+                                timeout: .milliseconds(50)
+                            )
+                        
+                        // Make sure the job was marked as failed
+                        expect(mockStorage.read { db in try Job.fetchOne(db, id: 100)?.failureCount }).to(equal(1))
+                    }
+                }
+                
+                // MARK: ---- by failing
+                
+                context("by failing") {
+                    it("removes the job from the queue") {
+                        job1 = job1.with(details: TestDetails(result: .failure, completeTime: 1))
+                        
+                        mockStorage.write { db in
+                            try job1.insert(db)
+                            
+                            jobRunner.upsert(db, job: job1, canStartJob: true, dependencies: dependencies)
+                        }
+                        
+                        // Make sure the dependency is run
+                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                            .toEventually(
+                                equal([100]),
+                                timeout: .milliseconds(50)
+                            )
+                        
+                        // Make sure there are no running jobs
+                        dependencies.fixedTime = 1
+                        dependencies.date = Date(timeIntervalSince1970: 1234567890 + 1)
+                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                            .toEventually(
+                                beEmpty(),
+                                timeout: .milliseconds(50)
+                            )
+                    }
+                    
+                    it("does not delete the job") {
+                        job1 = job1.with(details: TestDetails(result: .failure, completeTime: 1))
+                        
+                        mockStorage.write { db in
+                            try job1.insert(db)
+                            
+                            jobRunner.upsert(db, job: job1, canStartJob: true, dependencies: dependencies)
+                        }
+                        
+                        // Make sure the dependency is run
+                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                            .toEventually(
+                                equal([100]),
+                                timeout: .milliseconds(50)
+                            )
+                        
+                        // Make sure there are no running jobs
+                        dependencies.fixedTime = 1
+                        dependencies.date = Date(timeIntervalSince1970: 1234567890 + 1)
+                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                            .toEventually(
+                                beEmpty(),
+                                timeout: .milliseconds(50)
+                            )
+                        
+                        // Make sure the jobs were deleted
+                        expect(mockStorage.read { db in try Job.fetchCount(db) }).toNot(equal(0))
+                    }
+                }
+                
+                // MARK: ---- by permanently failing
+                
+                context("by permanently failing") {
+                    it("removes the job from the queue") {
+                        job1 = job1.with(details: TestDetails(result: .permanentFailure, completeTime: 1))
+                        
+                        mockStorage.write { db in
+                            try job1.insert(db)
+                            
+                            jobRunner.upsert(db, job: job1, canStartJob: true, dependencies: dependencies)
+                        }
+                        
+                        // Make sure the dependency is run
+                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                            .toEventually(
+                                equal([100]),
+                                timeout: .milliseconds(50)
+                            )
+                        
+                        // Make sure there are no running jobs
+                        dependencies.fixedTime = 1
+                        dependencies.date = Date(timeIntervalSince1970: 1234567890 + 1)
+                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                            .toEventually(
+                                beEmpty(),
+                                timeout: .milliseconds(50)
+                            )
+                    }
+                    
+                    it("deletes the job") {
+                        job1 = job1.with(details: TestDetails(result: .permanentFailure, completeTime: 1))
+                        
+                        mockStorage.write { db in
+                            try job1.insert(db)
+                            
+                            jobRunner.upsert(db, job: job1, canStartJob: true, dependencies: dependencies)
+                        }
+                        
+                        // Make sure the dependency is run
+                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                            .toEventually(
+                                equal([100]),
+                                timeout: .milliseconds(50)
+                            )
+                        
+                        // Make sure there are no running jobs
+                        dependencies.fixedTime = 1
+                        dependencies.date = Date(timeIntervalSince1970: 1234567890 + 1)
+                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                            .toEventually(
+                                beEmpty(),
+                                timeout: .milliseconds(50)
+                            )
+                        
+                        // Make sure the jobs were deleted
+                        expect(mockStorage.read { db in try Job.fetchCount(db) }).to(equal(0))
+                    }
+                }
             }
         }
     }
