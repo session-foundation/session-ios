@@ -105,20 +105,22 @@ public extension DisappearingMessagesJob {
                     of: messageHashes
                 )
             }
-            .map { response in
-                Storage.shared.writeAsync { db in
-                    try response.1.expiries.forEach { hash, exipreAtMs in
-                        let expiresInSeconds: TimeInterval = TimeInterval((exipreAtMs - UInt64(lastReadTimestampMs)) / 1000)
-                        
-                        _ = try Interaction
-                            .filter(Interaction.Columns.serverHash == hash)
-                            .updateAll(
-                                db,
-                                Interaction.Columns.expiresInSeconds.set(to: expiresInSeconds)
-                            )
+            .sinkUntilComplete (
+                receiveValue: { response in
+                    Storage.shared.writeAsync { db in
+                        try response.1.expiries.forEach { hash, exipreAtMs in
+                            let expiresInSeconds: TimeInterval = TimeInterval((exipreAtMs - UInt64(lastReadTimestampMs)) / 1000)
+                            
+                            _ = try Interaction
+                                .filter(Interaction.Columns.serverHash == hash)
+                                .updateAll(
+                                    db,
+                                    Interaction.Columns.expiresInSeconds.set(to: expiresInSeconds)
+                                )
+                        }
                     }
                 }
-            }
+            )
         
         return updateNextRunIfNeeded(db)
     }
