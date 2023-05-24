@@ -400,11 +400,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         )
         
         // Swipe to reply
-        if cellViewModel.variant == .standardIncomingDeleted || cellViewModel.variant == .infoCall {
-            removeGestureRecognizer(panGestureRecognizer)
+        if ContextMenuVC.viewModelCanReply(cellViewModel) {
+            addGestureRecognizer(panGestureRecognizer)
         }
         else {
-            addGestureRecognizer(panGestureRecognizer)
+            removeGestureRecognizer(panGestureRecognizer)
         }
         
         // Under bubble content
