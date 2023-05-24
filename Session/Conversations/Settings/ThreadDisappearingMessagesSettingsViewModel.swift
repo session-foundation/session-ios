@@ -313,8 +313,8 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                                             currentUserIsClosedGroupMember == true
                                         ),
                                         accessibility: Accessibility(
-                                            identifier: "Off option",
-                                            label: "Off option"
+                                            identifier: "Disable disappearing messages (Off option)",
+                                            label: "Disable disappearing messages (Off option)"
                                         ),
                                         onTap: {
                                             let updatedConfig: DisappearingMessagesConfiguration = currentSelection
@@ -394,8 +394,8 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                                                 currentUserIsClosedGroupMember == true
                                             ),
                                             accessibility: Accessibility(
-                                                identifier: "Off option",
-                                                label: "Off option"
+                                                identifier: "Disable disappearing messages (Off option)",
+                                                label: "Disable disappearing messages (Off option)"
                                             ),
                                             onTap: {
                                                 let updatedConfig: DisappearingMessagesConfiguration = currentSelection
