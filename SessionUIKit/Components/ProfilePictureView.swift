@@ -393,7 +393,7 @@ public final class ProfilePictureView: UIView {
                     withConfiguration: UIImage.SymbolConfiguration(weight: .semibold)
                 )
                 imageView.themeTintColor = .black
-                backgroundView.themeBackgroundColorForced = .primary(.green)
+                backgroundView.themeBackgroundColor = .primary
         }
     }
     
