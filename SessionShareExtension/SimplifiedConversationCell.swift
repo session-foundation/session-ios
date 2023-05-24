@@ -39,7 +39,7 @@ final class SimplifiedConversationCell: UITableViewCell {
     }()
     
     private lazy var profilePictureView: ProfilePictureView = {
-        let view: ProfilePictureView = ProfilePictureView()
+        let view: ProfilePictureView = ProfilePictureView(size: .list)
         view.translatesAutoresizingMaskIntoConstraints = false
         
         return view
@@ -78,10 +78,6 @@ final class SimplifiedConversationCell: UITableViewCell {
     private func setupLayout() {
         accentLineView.set(.width, to: Values.accentLineThickness)
         accentLineView.set(.height, to: 68)
-        
-        profilePictureView.set(.width, to: Values.mediumProfilePictureSize)
-        profilePictureView.set(.height, to: Values.mediumProfilePictureSize)
-        profilePictureView.size = Values.mediumProfilePictureSize
         
         stackView.pin(to: self)
     }

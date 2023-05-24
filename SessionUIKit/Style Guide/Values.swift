@@ -25,11 +25,6 @@ public final class Values : NSObject {
     
     @objc public static let accentLineThickness = CGFloat(4)
     
-    @objc public static let verySmallProfilePictureSize = CGFloat(26)
-    @objc public static let smallProfilePictureSize = CGFloat(33)
-    @objc public static let mediumProfilePictureSize = CGFloat(45)
-    @objc public static let largeProfilePictureSize = CGFloat(75)
-    
     @objc public static let searchBarHeight = CGFloat(36)
 
     @objc public static var separatorThickness: CGFloat { return 1 / UIScreen.main.scale }

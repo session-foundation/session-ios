@@ -4,6 +4,7 @@ import UIKit
 import WebRTC
 import SessionUIKit
 import SessionMessagingKit
+import SignalUtilitiesKit
 
 final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
     private static let swipeToOperateThreshold: CGFloat = 60
@@ -20,14 +21,7 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
         return result
     }()
     
-    private lazy var profilePictureView: ProfilePictureView = {
-        let result = ProfilePictureView()
-        let size: CGFloat = 60
-        result.size = size
-        result.set(.width, to: size)
-        result.set(.height, to: size)
-        return result
-    }()
+    private lazy var profilePictureView: ProfilePictureView = ProfilePictureView(size: .list)
     
     private lazy var displayNameLabel: UILabel = {
         let result = UILabel()

@@ -108,6 +108,11 @@ internal enum Theme_ClassicLight: ThemeColors {
         .reactions_contextMoreBackground: .classicLight6,
         
         // NewConversation
-        .newConversation_background: .classicLight6
+        .newConversation_background: .classicLight6,
+        
+        // Profile
+        .profileIcon: .primary,
+        .profileIcon_greenPrimaryColor: .primary,
+        .profileIcon_background: .black
     ]
 }

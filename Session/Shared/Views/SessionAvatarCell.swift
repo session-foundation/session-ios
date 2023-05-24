@@ -51,11 +51,10 @@ class SessionAvatarCell: UITableViewCell {
     }()
     
     fileprivate let profilePictureView: ProfilePictureView = {
-        let view: ProfilePictureView = ProfilePictureView()
+        let view: ProfilePictureView = ProfilePictureView(size: .hero)
         view.accessibilityLabel = "Profile picture"
         view.isAccessibilityElement = true
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.size = Values.largeProfilePictureSize
         
         return view
     }()
@@ -147,9 +146,6 @@ class SessionAvatarCell: UITableViewCell {
     
     private func setupLayout() {
         stackView.pin(to: contentView)
-        
-        profilePictureView.set(.width, to: profilePictureView.size)
-        profilePictureView.set(.height, to: profilePictureView.size)
         
         displayNameLabel.pin(to: displayNameContainer)
         displayNameTextField.center(in: displayNameContainer)

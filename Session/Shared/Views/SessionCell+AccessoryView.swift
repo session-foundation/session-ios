@@ -141,12 +141,8 @@ extension SessionCell {
         }()
         
         private lazy var profilePictureView: ProfilePictureView = {
-            let result: ProfilePictureView = ProfilePictureView()
-            result.translatesAutoresizingMaskIntoConstraints = false
-            result.size = Values.smallProfilePictureSize
+            let result: ProfilePictureView = ProfilePictureView(size: .list)
             result.isHidden = true
-            result.set(.width, to: Values.smallProfilePictureSize)
-            result.set(.height, to: Values.smallProfilePictureSize)
             
             return result
         }()

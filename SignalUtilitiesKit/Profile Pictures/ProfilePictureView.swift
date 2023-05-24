@@ -7,14 +7,107 @@ import SessionUIKit
 import SessionMessagingKit
 
 public final class ProfilePictureView: UIView {
-    private var hasTappableProfilePicture: Bool = false
-    public var size: CGFloat = 0
+    public enum Size {
+        case navigation
+        case message
+        case list
+        case hero
+        
+        public var viewSize: CGFloat {
+            switch self {
+                case .navigation, .message: return 26
+                case .list: return 46
+                case .hero: return 110
+            }
+        }
+        
+        var imageSize: CGFloat {
+            switch self {
+                case .navigation, .message: return 26
+                case .list: return 46
+                case .hero: return 80
+            }
+        }
+        
+        var multiImageSize: CGFloat {
+            switch self {
+                case .navigation, .message: return 18  // Shouldn't be used
+                case .list: return 32
+                case .hero: return 80
+            }
+        }
+        
+        var iconSize: CGFloat {
+            switch self {
+                case .navigation, .message: return 8
+                case .list: return 16
+                case .hero: return 24
+            }
+        }
+        
+        var iconVerticalInset: CGFloat {
+            switch self {
+                case .navigation, .message: return 1
+                case .list: return 3
+                case .hero: return 5
+            }
+        }
+    }
     
-    // Constraints
+    public enum ProfileIcon {
+        case none
+        case crown
+        case rightPlus
+    }
+    
+    public var size: Size {
+        didSet {
+            widthConstraint.constant = (customWidth ?? size.viewSize)
+            heightConstraint.constant = size.viewSize
+            profileIconTopConstraint.constant = size.iconVerticalInset
+            profileIconBottomConstraint.constant = -size.iconVerticalInset
+            profileIconBackgroundWidthConstraint.constant = size.iconSize
+            profileIconBackgroundHeightConstraint.constant = size.iconSize
+            additionalProfileIconTopConstraint.constant = size.iconVerticalInset
+            additionalProfileIconBottomConstraint.constant = -size.iconVerticalInset
+            additionalProfileIconBackgroundWidthConstraint.constant = size.iconSize
+            additionalProfileIconBackgroundHeightConstraint.constant = size.iconSize
+            
+            profileIconBackgroundView.layer.cornerRadius = (size.iconSize / 2)
+            additionalProfileIconBackgroundView.layer.cornerRadius = (size.iconSize / 2)
+        }
+    }
+    public var customWidth: CGFloat? {
+        didSet {
+            self.widthConstraint.constant = (customWidth ?? self.size.viewSize)
+        }
+    }
+    private var hasTappableProfilePicture: Bool = false
+    
+    // MARK: - Constraints
+    
+    private var widthConstraint: NSLayoutConstraint!
+    private var heightConstraint: NSLayoutConstraint!
+    private var imageViewTopConstraint: NSLayoutConstraint!
+    private var imageViewLeadingConstraint: NSLayoutConstraint!
+    private var imageViewCenterXConstraint: NSLayoutConstraint!
+    private var imageViewCenterYConstraint: NSLayoutConstraint!
     private var imageViewWidthConstraint: NSLayoutConstraint!
     private var imageViewHeightConstraint: NSLayoutConstraint!
     private var additionalImageViewWidthConstraint: NSLayoutConstraint!
     private var additionalImageViewHeightConstraint: NSLayoutConstraint!
+    private var profileIconTopConstraint: NSLayoutConstraint!
+    private var profileIconBottomConstraint: NSLayoutConstraint!
+    private var profileIconBackgroundLeftAlignConstraint: NSLayoutConstraint!
+    private var profileIconBackgroundRightAlignConstraint: NSLayoutConstraint!
+    private var profileIconBackgroundWidthConstraint: NSLayoutConstraint!
+    private var profileIconBackgroundHeightConstraint: NSLayoutConstraint!
+    private var additionalProfileIconTopConstraint: NSLayoutConstraint!
+    private var additionalProfileIconBottomConstraint: NSLayoutConstraint!
+    private var additionalProfileIconBackgroundLeftAlignConstraint: NSLayoutConstraint!
+    private var additionalProfileIconBackgroundRightAlignConstraint: NSLayoutConstraint!
+    private var additionalProfileIconBackgroundWidthConstraint: NSLayoutConstraint!
+    private var additionalProfileIconBackgroundHeightConstraint: NSLayoutConstraint!
     
     // MARK: - Components
     
@@ -51,7 +144,6 @@ public final class ProfilePictureView: UIView {
         result.clipsToBounds = true
         result.themeBackgroundColor = .primary
         result.themeBorderColor = .backgroundPrimary
-        result.layer.cornerRadius = (Values.smallProfilePictureSize / 2)
         result.isHidden = true
         
         return result
@@ -88,33 +180,72 @@ public final class ProfilePictureView: UIView {
         return result
     }()
     
+    private lazy var profileIconBackgroundView: UIView = {
+        let result: UIView = UIView()
+        result.isHidden = true
+        
+        return result
+    }()
+    
+    private lazy var profileIconImageView: UIImageView = {
+        let result: UIImageView = UIImageView()
+        result.contentMode = .scaleAspectFit
+        
+        return result
+    }()
+    
+    private lazy var additionalProfileIconBackgroundView: UIView = {
+        let result: UIView = UIView()
+        result.isHidden = true
+        
+        return result
+    }()
+    
+    private lazy var additionalProfileIconImageView: UIImageView = {
+        let result: UIImageView = UIImageView()
+        result.contentMode = .scaleAspectFit
+        
+        return result
+    }()
+    
     // MARK: - Lifecycle
     
-    public override init(frame: CGRect) {
-        super.init(frame: frame)
+    public init(size: Size) {
+        self.size = size
+        
+        super.init(frame: CGRect(x: 0, y: 0, width: size.viewSize, height: size.viewSize))
+        
         setUpViewHierarchy()
     }
     
     public required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        setUpViewHierarchy()
+        preconditionFailure("Use init(size:) instead.")
     }
     
     private func setUpViewHierarchy() {
-        let imageViewSize = CGFloat(Values.mediumProfilePictureSize)
-        let additionalImageViewSize = CGFloat(Values.smallProfilePictureSize)
-        
         addSubview(imageContainerView)
+        addSubview(profileIconBackgroundView)
         addSubview(additionalImageContainerView)
+        addSubview(additionalProfileIconBackgroundView)
         
-        imageContainerView.pin(.leading, to: .leading, of: self)
-        imageContainerView.pin(.top, to: .top, of: self)
-        imageViewWidthConstraint = imageContainerView.set(.width, to: imageViewSize)
-        imageViewHeightConstraint = imageContainerView.set(.height, to: imageViewSize)
+        profileIconBackgroundView.addSubview(profileIconImageView)
+        additionalProfileIconBackgroundView.addSubview(additionalProfileIconImageView)
+        
+        widthConstraint = self.set(.width, to: self.size.viewSize)
+        heightConstraint = self.set(.height, to: self.size.viewSize)
+        
+        imageViewTopConstraint = imageContainerView.pin(.top, to: .top, of: self)
+        imageViewLeadingConstraint = imageContainerView.pin(.leading, to: .leading, of: self)
+        imageViewCenterXConstraint = imageContainerView.center(.horizontal, in: self)
+        imageViewCenterXConstraint.isActive = false
+        imageViewCenterYConstraint = imageContainerView.center(.vertical, in: self)
+        imageViewCenterYConstraint.isActive = false
+        imageViewWidthConstraint = imageContainerView.set(.width, to: size.imageSize)
+        imageViewHeightConstraint = imageContainerView.set(.height, to: size.imageSize)
         additionalImageContainerView.pin(.trailing, to: .trailing, of: self)
         additionalImageContainerView.pin(.bottom, to: .bottom, of: self)
-        additionalImageViewWidthConstraint = additionalImageContainerView.set(.width, to: additionalImageViewSize)
-        additionalImageViewHeightConstraint = additionalImageContainerView.set(.height, to: additionalImageViewSize)
+        additionalImageViewWidthConstraint = additionalImageContainerView.set(.width, to: size.multiImageSize)
+        additionalImageViewHeightConstraint = additionalImageContainerView.set(.height, to: size.multiImageSize)
         
         imageContainerView.addSubview(imageView)
         imageContainerView.addSubview(animatedImageView)
@@ -131,32 +262,137 @@ public final class ProfilePictureView: UIView {
         additionalProfilePlaceholderImageView.pin(.left, to: .left, of: additionalImageContainerView)
         additionalProfilePlaceholderImageView.pin(.right, to: .right, of: additionalImageContainerView)
         additionalProfilePlaceholderImageView.pin(.bottom, to: .bottom, of: additionalImageContainerView, withInset: 5)
+        
+        profileIconTopConstraint = profileIconImageView.pin(
+            .top,
+            to: .top,
+            of: profileIconBackgroundView,
+            withInset: size.iconVerticalInset
+        )
+        profileIconImageView.pin(.left, to: .left, of: profileIconBackgroundView)
+        profileIconImageView.pin(.right, to: .right, of: profileIconBackgroundView)
+        profileIconBottomConstraint = profileIconImageView.pin(
+            .bottom,
+            to: .bottom,
+            of: profileIconBackgroundView,
+            withInset: -size.iconVerticalInset
+        )
+        profileIconBackgroundLeftAlignConstraint = profileIconBackgroundView.pin(.leading, to: .leading, of: imageContainerView)
+        profileIconBackgroundRightAlignConstraint = profileIconBackgroundView.pin(.trailing, to: .trailing, of: imageContainerView)
+        profileIconBackgroundView.pin(.bottom, to: .bottom, of: imageContainerView)
+        profileIconBackgroundWidthConstraint = profileIconBackgroundView.set(.width, to: size.iconSize)
+        profileIconBackgroundHeightConstraint = profileIconBackgroundView.set(.height, to: size.iconSize)
+        profileIconBackgroundLeftAlignConstraint.isActive = false
+        profileIconBackgroundRightAlignConstraint.isActive = false
+        
+        additionalProfileIconTopConstraint = additionalProfileIconImageView.pin(
+            .top,
+            to: .top,
+            of: additionalProfileIconBackgroundView,
+            withInset: size.iconVerticalInset
+        )
+        additionalProfileIconImageView.pin(.left, to: .left, of: additionalProfileIconBackgroundView)
+        additionalProfileIconImageView.pin(.right, to: .right, of: additionalProfileIconBackgroundView)
+        additionalProfileIconBottomConstraint = additionalProfileIconImageView.pin(
+            .bottom,
+            to: .bottom,
+            of: additionalProfileIconBackgroundView,
+            withInset: -size.iconVerticalInset
+        )
+        additionalProfileIconBackgroundLeftAlignConstraint = additionalProfileIconBackgroundView.pin(.leading, to: .leading, of: additionalImageContainerView)
+        additionalProfileIconBackgroundRightAlignConstraint = additionalProfileIconBackgroundView.pin(.trailing, to: .trailing, of: additionalImageContainerView)
+        additionalProfileIconBackgroundView.pin(.bottom, to: .bottom, of: additionalImageContainerView)
+        additionalProfileIconBackgroundWidthConstraint = additionalProfileIconBackgroundView.set(.width, to: size.iconSize)
+        additionalProfileIconBackgroundHeightConstraint = additionalProfileIconBackgroundView.set(.height, to: size.iconSize)
+        additionalProfileIconBackgroundLeftAlignConstraint.isActive = false
+        additionalProfileIconBackgroundRightAlignConstraint.isActive = false
+    }
+    
+    // MARK: - Content
+    
+    private func updateIconView(
+        icon: ProfileIcon,
+        imageView: UIImageView,
+        backgroundView: UIView,
+        leftAlignConstraint: NSLayoutConstraint,
+        rightAlignConstraint: NSLayoutConstraint
+    ) {
+        backgroundView.isHidden = (icon == .none)
+        leftAlignConstraint.isActive = (
+            icon == .none ||
+            icon == .crown
+        )
+        rightAlignConstraint.isActive = (
+            icon == .rightPlus
+        )
+        
+        switch icon {
+            case .none: imageView.image = nil
+            
+            case .crown:
+                imageView.image = UIImage(systemName: "crown.fill")
+                backgroundView.themeBackgroundColor = .profileIcon_background
+                
+                ThemeManager.onThemeChange(observer: imageView) { [weak imageView] _, primaryColor in
+                    let targetColor: ThemeValue = (primaryColor == .green ?
+                        .profileIcon_greenPrimaryColor :
+                        .profileIcon
+                    )
+                    
+                    guard imageView?.themeTintColor != targetColor else { return }
+                    
+                    imageView?.themeTintColor = targetColor
+                }
+                
+            case .rightPlus:
+                imageView.image = UIImage(systemName: "plus")
+                imageView.themeTintColor = .black
+                backgroundView.themeBackgroundColor = .primary
+        }
     }
 
     public func update(
         publicKey: String = "",
         profile: Profile? = nil,
+        icon: ProfileIcon = .none,
         additionalProfile: Profile? = nil,
+        additionalIcon: ProfileIcon = .none,
         threadVariant: SessionThread.Variant,
         openGroupProfilePictureData: Data? = nil,
         useFallbackPicture: Bool = false,
         showMultiAvatarForClosedGroup: Bool = false
     ) {
         AssertIsOnMainThread()
+        
+        // Sort out the profile icon first
+        updateIconView(
+            icon: icon,
+            imageView: profileIconImageView,
+            backgroundView: profileIconBackgroundView,
+            leftAlignConstraint: profileIconBackgroundLeftAlignConstraint,
+            rightAlignConstraint: profileIconBackgroundRightAlignConstraint
+        )
+        
         guard !useFallbackPicture else {
             switch self.size {
-                case Values.smallProfilePictureSize..<Values.mediumProfilePictureSize: imageView.image = #imageLiteral(resourceName: "SessionWhite16")
-                case Values.mediumProfilePictureSize..<Values.largeProfilePictureSize: imageView.image = #imageLiteral(resourceName: "SessionWhite24")
-                default: imageView.image = #imageLiteral(resourceName: "SessionWhite40")
+                case .navigation, .message: imageView.image = #imageLiteral(resourceName: "SessionWhite16")
+                case .list: imageView.image = #imageLiteral(resourceName: "SessionWhite24")
+                case .hero: imageView.image = #imageLiteral(resourceName: "SessionWhite40")
             }
             
             imageView.contentMode = .center
             imageView.isHidden = false
             animatedImageView.isHidden = true
             imageContainerView.themeBackgroundColorForced = .theme(.classicDark, color: .borderSeparator)
-            imageContainerView.layer.cornerRadius = (self.size / 2)
-            imageViewWidthConstraint.constant = self.size
-            imageViewHeightConstraint.constant = self.size
+            imageContainerView.layer.cornerRadius = (self.size.imageSize / 2)
+            imageViewWidthConstraint.constant = self.size.imageSize
+            imageViewHeightConstraint.constant = self.size.imageSize
+            profileIconBackgroundWidthConstraint.constant = self.size.iconSize
+            profileIconBackgroundHeightConstraint.constant = self.size.iconSize
+            profileIconBackgroundView.layer.cornerRadius = (self.size.iconSize / 2)
+            additionalProfileIconBackgroundWidthConstraint.constant = self.size.iconSize
+            additionalProfileIconBackgroundHeightConstraint.constant = self.size.iconSize
+            additionalProfileIconBackgroundView.layer.cornerRadius = (self.size.iconSize / 2)
             additionalImageContainerView.isHidden = true
             animatedImageView.image = nil
             additionalImageView.image = nil
@@ -203,29 +439,29 @@ public final class ProfilePictureView: UIView {
         
         switch (threadVariant, showMultiAvatarForClosedGroup) {
             case (.closedGroup, true):
-                if self.size == 40 {
-                    targetSize = 32
-                }
-                else if self.size == Values.largeProfilePictureSize {
-                    targetSize = 56
-                }
-                else {
-                    targetSize = Values.smallProfilePictureSize
-                }
-                
-                imageViewWidthConstraint.constant = targetSize
-                imageViewHeightConstraint.constant = targetSize
-                additionalImageViewWidthConstraint.constant = targetSize
-                additionalImageViewHeightConstraint.constant = targetSize
+                targetSize = self.size.multiImageSize
                 additionalImageContainerView.isHidden = false
+                imageViewTopConstraint.isActive = true
+                imageViewLeadingConstraint.isActive = true
+                imageViewCenterXConstraint.isActive = false
+                imageViewCenterYConstraint.isActive = false
+                
+                // Sort out the additinoal profile icon if needed
+                updateIconView(
+                    icon: additionalIcon,
+                    imageView: additionalProfileIconImageView,
+                    backgroundView: additionalProfileIconBackgroundView,
+                    leftAlignConstraint: additionalProfileIconBackgroundLeftAlignConstraint,
+                    rightAlignConstraint: additionalProfileIconBackgroundRightAlignConstraint
+                )
                 
                 if let additionalProfile: Profile = additionalProfile {
                     let (image, animatedImage, _): (UIImage?, YYImage?, Bool) = getProfilePicture(
-                        of: targetSize,
+                        of: self.size.multiImageSize,
                         for: additionalProfile.id,
                         profile: additionalProfile
                     )
-                    
+
                     // Set the images and show the appropriate imageView (non-animated should be
                     // visible if there is no image)
                     additionalImageView.image = image
@@ -241,15 +477,19 @@ public final class ProfilePictureView: UIView {
                 }
                 
             default:
-                targetSize = self.size
-                imageViewWidthConstraint.constant = targetSize
-                imageViewHeightConstraint.constant = targetSize
+                targetSize = self.size.imageSize
+                
                 additionalImageContainerView.isHidden = true
+                additionalProfileIconBackgroundView.isHidden = true
                 additionalImageView.image = nil
                 additionalImageView.isHidden = true
                 additionalAnimatedImageView.image = nil
                 additionalAnimatedImageView.isHidden = true
                 additionalProfilePlaceholderImageView.isHidden = true
+                imageViewTopConstraint.isActive = false
+                imageViewLeadingConstraint.isActive = false
+                imageViewCenterXConstraint.isActive = true
+                imageViewCenterYConstraint.isActive = true
         }
         
         // Set the image
@@ -287,8 +527,14 @@ public final class ProfilePictureView: UIView {
         imageView.contentMode = .scaleAspectFill
         animatedImageView.contentMode = .scaleAspectFill
         imageContainerView.themeBackgroundColor = .backgroundSecondary
+        imageViewWidthConstraint.constant = targetSize
+        imageViewHeightConstraint.constant = targetSize
         imageContainerView.layer.cornerRadius = (targetSize / 2)
+        additionalImageViewWidthConstraint.constant = targetSize
+        additionalImageViewHeightConstraint.constant = targetSize
         additionalImageContainerView.layer.cornerRadius = (targetSize / 2)
+        profileIconBackgroundView.layer.cornerRadius = (size.iconSize / 2)
+        additionalProfileIconBackgroundView.layer.cornerRadius = (size.iconSize / 2)
     }
     
     // MARK: - Convenience

@@ -1104,15 +1104,13 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             
             switch threadData.threadVariant {
                 case .contact:
-                    let profilePictureView = ProfilePictureView()
-                    profilePictureView.size = Values.verySmallProfilePictureSize
+                    let profilePictureView = ProfilePictureView(size: .navigation)
                     profilePictureView.update(
                         publicKey: threadData.threadId,  // Contact thread uses the contactId
                         profile: threadData.profile,
                         threadVariant: threadData.threadVariant
                     )
-                    profilePictureView.set(.width, to: (44 - 16))   // Width of the standard back button
-                    profilePictureView.set(.height, to: Values.verySmallProfilePictureSize)
+                    profilePictureView.customWidth = (44 - 16)   // Width of the standard back button
 
                     let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(openSettings))
                     profilePictureView.addGestureRecognizer(tapGestureRecognizer)

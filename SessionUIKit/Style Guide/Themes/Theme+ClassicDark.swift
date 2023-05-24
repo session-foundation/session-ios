@@ -108,6 +108,11 @@ internal enum Theme_ClassicDark: ThemeColors {
         .reactions_contextMoreBackground: .classicDark1,
         
         // NewConversation
-        .newConversation_background: .classicDark1
+        .newConversation_background: .classicDark1,
+        
+        // Profile
+        .profileIcon: .primary,
+        .profileIcon_greenPrimaryColor: .black,
+        .profileIcon_background: .white
     ]
 }

@@ -108,6 +108,11 @@ internal enum Theme_OceanDark: ThemeColors {
         .reactions_contextMoreBackground: .oceanDark2,
         
         // NewConversation
-        .newConversation_background: .oceanDark3
+        .newConversation_background: .oceanDark3,
+        
+        // Profile
+        .profileIcon: .primary,
+        .profileIcon_greenPrimaryColor: .black,
+        .profileIcon_background: .white
     ]
 }

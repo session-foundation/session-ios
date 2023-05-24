@@ -2,6 +2,7 @@
 
 import UIKit
 import SessionUIKit
+import SignalUtilitiesKit
 
 class MessageRequestsCell: UITableViewCell {
     static let reuseIdentifier = "MessageRequestsCell"
@@ -29,7 +30,7 @@ class MessageRequestsCell: UITableViewCell {
         result.translatesAutoresizingMaskIntoConstraints = false
         result.clipsToBounds = true
         result.themeBackgroundColor = .conversationButton_unreadBubbleBackground
-        result.layer.cornerRadius = (Values.mediumProfilePictureSize / 2)
+        result.layer.cornerRadius = (ProfilePictureView.Size.list.viewSize / 2)
         
         return result
     }()
@@ -100,8 +101,8 @@ class MessageRequestsCell: UITableViewCell {
                 constant: (Values.accentLineThickness + Values.mediumSpacing)
             ),
             iconContainerView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-            iconContainerView.widthAnchor.constraint(equalToConstant: Values.mediumProfilePictureSize),
-            iconContainerView.heightAnchor.constraint(equalToConstant: Values.mediumProfilePictureSize),
+            iconContainerView.widthAnchor.constraint(equalToConstant: ProfilePictureView.Size.list.viewSize),
+            iconContainerView.heightAnchor.constraint(equalToConstant: ProfilePictureView.Size.list.viewSize),
             
             iconImageView.centerXAnchor.constraint(equalTo: iconContainerView.centerXAnchor),
             iconImageView.centerYAnchor.constraint(equalTo: iconContainerView.centerYAnchor),
