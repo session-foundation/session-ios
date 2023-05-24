@@ -52,7 +52,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     private var editedDisplayName: String?
     private var editProfilePictureModal: ConfirmationModal?
     private var editProfilePictureModalInfo: ConfirmationModal.Info?
-    private var editedProfilePicture: UIImage?
+    private var editedProfilePictureData: Data?
     private var editedProfilePictureFileName: String?
     
     // MARK: - Initialization
@@ -166,7 +166,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                                 self?.oldDisplayName = updatedNickname
                                 self?.updateProfile(
                                     name: updatedNickname,
-                                    profilePicture: nil,
+                                    profilePictureData: nil,
                                     profilePictureFilePath: ProfileManager.profileAvatarFilepath(id: userSessionId),
                                     isUpdatingDisplayName: true,
                                     isUpdatingProfilePicture: false
@@ -396,27 +396,27 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     
     private func updateProfilePicture() {
         let existingDisplayName: String = self.oldDisplayName
-        let existingImage: UIImage? = ProfileManager
+        let existingImageData: Data? = ProfileManager
             .profileAvatar(id: self.userSessionId)
-            .map { UIImage(data: $0) }
         let editProfilePictureModalInfo: ConfirmationModal.Info = ConfirmationModal.Info(
             title: "update_profile_modal_title".localized(),
             body: .image(
-                placeholder: UIImage(named: "profile_placeholder"),
-                value: existingImage,
+                placeholderData: UIImage(named: "profile_placeholder")?.pngData(),
+                valueData: existingImageData,
+                icon: .rightPlus,
                 style: .circular,
                 onClick: { [weak self] in self?.showPhotoLibraryForAvatar() }
             ),
-            confirmTitle: "update_profile_modal_upload".localized(),
+            confirmTitle: "update_profile_modal_save".localized(),
             confirmEnabled: false,
             cancelTitle: "update_profile_modal_remove".localized(),
-            cancelEnabled: (existingImage != nil),
+            cancelEnabled: (existingImageData != nil),
             hasCloseButton: true,
             dismissOnConfirm: false,
             onConfirm: { [weak self] modal in
                 self?.updateProfile(
                     name: existingDisplayName,
-                    profilePicture: self?.editedProfilePicture,
+                    profilePictureData: self?.editedProfilePictureData,
                     profilePictureFilePath: self?.editedProfilePictureFileName,
                     isUpdatingDisplayName: false,
                     isUpdatingProfilePicture: true,
@@ -426,7 +426,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
             onCancel: { [weak self] modal in
                 self?.updateProfile(
                     name: existingDisplayName,
-                    profilePicture: nil,
+                    profilePictureData: nil,
                     profilePictureFilePath: nil,
                     isUpdatingDisplayName: false,
                     isUpdatingProfilePicture: true,
@@ -434,7 +434,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                 )
             },
             afterClosed: { [weak self] in
-                self?.editedProfilePicture = nil
+                self?.editedProfilePictureData = nil
                 self?.editedProfilePictureFileName = nil
                 self?.editProfilePictureModal = nil
                 self?.editProfilePictureModalInfo = nil
@@ -447,18 +447,19 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
         self.transitionToScreen(modal, transitionType: .present)
     }
             
-    fileprivate func updatedProfilePictureSelected(image: UIImage?, filePath: String?) {
+    fileprivate func updatedProfilePictureSelected(imageData: Data?, filePath: String?) {
         guard let info: ConfirmationModal.Info = self.editProfilePictureModalInfo else { return }
         
-        self.editedProfilePicture = image
+        self.editedProfilePictureData = imageData
         self.editedProfilePictureFileName = filePath
         
-        if let image: UIImage = image {
+        if let imageData: Data = imageData {
             self.editProfilePictureModal?.updateContent(
                 with: info.with(
                     body: .image(
-                        placeholder: UIImage(named: "profile_placeholder"),
-                        value: image,
+                        placeholderData: UIImage(named: "profile_placeholder")?.pngData(),
+                        valueData: imageData,
+                        icon: .rightPlus,
                         style: .circular,
                         onClick: { [weak self] in self?.showPhotoLibraryForAvatar() }
                     ),
@@ -470,8 +471,9 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
             self.editProfilePictureModal?.updateContent(
                 with: info.with(
                     body: .image(
-                        placeholder: UIImage(named: "profile_placeholder"),
-                        value: UIImage(contentsOfFile: filePath),
+                        placeholderData: UIImage(named: "profile_placeholder")?.pngData(),
+                        valueData: FileManager.default.contents(atPath: filePath),
+                        icon: .rightPlus,
                         style: .circular,
                         onClick: { [weak self] in self?.showPhotoLibraryForAvatar() }
                     ),
@@ -496,7 +498,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     
     private func updateProfile(
         name: String,
-        profilePicture: UIImage?,
+        profilePictureData: Data?,
         profilePictureFilePath: String?,
         isUpdatingDisplayName: Bool,
         isUpdatingProfilePicture: Bool,
@@ -506,7 +508,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
             ProfileManager.updateLocal(
                 queue: DispatchQueue.global(qos: .default),
                 profileName: name,
-                image: profilePicture,
+                image: profilePictureData.map { UIImage(data: $0) },
                 imageFilePath: profilePictureFilePath,
                 success: { db, updatedProfile in
                     if isUpdatingDisplayName {
@@ -642,9 +644,9 @@ class ImagePickerHandler: NSObject, UIImagePickerControllerDelegate & UINavigati
             else {
                 let viewController: CropScaleImageViewController = CropScaleImageViewController(
                     srcImage: rawAvatar,
-                    successCompletion: { resultImage in
+                    successCompletion: { resultImageData in
                         self?.viewModel.updatedProfilePictureSelected(
-                            image: resultImage,
+                            imageData: resultImageData,
                             filePath: nil
                         )
                     }
@@ -654,7 +656,7 @@ class ImagePickerHandler: NSObject, UIImagePickerControllerDelegate & UINavigati
             }
             
             self?.viewModel.updatedProfilePictureSelected(
-                image: nil,
+                imageData: nil,
                 filePath: imageUrl.path
             )
         }

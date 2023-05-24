@@ -381,9 +381,6 @@
 		C38EF24C255B6D67007E1867 /* NSAttributedString+OWS.h in Headers */ = {isa = PBXBuildFile; fileRef = C38EF23F255B6D67007E1867 /* NSAttributedString+OWS.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C38EF24D255B6D67007E1867 /* UIView+OWS.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF240255B6D67007E1867 /* UIView+OWS.swift */; };
 		C38EF24E255B6D67007E1867 /* Collection+OWS.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF241255B6D67007E1867 /* Collection+OWS.swift */; };
-		C38EF2A5255B6D93007E1867 /* Identicon+ObjC.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF2A2255B6D93007E1867 /* Identicon+ObjC.swift */; };
-		C38EF2A6255B6D93007E1867 /* PlaceholderIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF2A3255B6D93007E1867 /* PlaceholderIcon.swift */; };
-		C38EF2A7255B6D93007E1867 /* ProfilePictureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF2A4255B6D93007E1867 /* ProfilePictureView.swift */; };
 		C38EF2B3255B6D9C007E1867 /* UIViewController+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF2B1255B6D9C007E1867 /* UIViewController+Utilities.swift */; };
 		C38EF30C255B6DBF007E1867 /* ScreenLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF2E2255B6DB9007E1867 /* ScreenLock.swift */; };
 		C38EF31C255B6DBF007E1867 /* Searcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF2F2255B6DBC007E1867 /* Searcher.swift */; };
@@ -547,6 +544,9 @@
 		FD09C5E828264937000CE219 /* MediaDetailViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD09C5E728264937000CE219 /* MediaDetailViewController.swift */; };
 		FD09C5EA282A1BB2000CE219 /* ThreadTypingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD09C5E9282A1BB2000CE219 /* ThreadTypingIndicator.swift */; };
 		FD09C5EC282B8F18000CE219 /* AttachmentError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD09C5EB282B8F17000CE219 /* AttachmentError.swift */; };
+		FD16AB5B2A1DD7CA0083D849 /* PlaceholderIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF2A3255B6D93007E1867 /* PlaceholderIcon.swift */; };
+		FD16AB5F2A1DD98F0083D849 /* ProfilePictureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF2A4255B6D93007E1867 /* ProfilePictureView.swift */; };
+		FD16AB612A1DD9B60083D849 /* ProfilePictureView+Convenience.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD16AB602A1DD9B60083D849 /* ProfilePictureView+Convenience.swift */; };
 		FD17D79927F40AB800122BE0 /* _003_YDBToGRDBMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D79827F40AB800122BE0 /* _003_YDBToGRDBMigration.swift */; };
 		FD17D79C27F40B2E00122BE0 /* SMKLegacy.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D79B27F40B2E00122BE0 /* SMKLegacy.swift */; };
 		FD17D7A027F40CC800122BE0 /* _001_InitialSetupMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D79F27F40CC800122BE0 /* _001_InitialSetupMigration.swift */; };
@@ -1489,9 +1489,8 @@
 		C38EF240255B6D67007E1867 /* UIView+OWS.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = "UIView+OWS.swift"; path = "SignalUtilitiesKit/Utilities/UIView+OWS.swift"; sourceTree = SOURCE_ROOT; };
 		C38EF241255B6D67007E1867 /* Collection+OWS.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = "Collection+OWS.swift"; path = "SignalUtilitiesKit/Utilities/Collection+OWS.swift"; sourceTree = SOURCE_ROOT; };
 		C38EF281255B6D84007E1867 /* OWSAudioSession.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = OWSAudioSession.swift; path = SessionMessagingKit/Utilities/OWSAudioSession.swift; sourceTree = SOURCE_ROOT; };
-		C38EF2A2255B6D93007E1867 /* Identicon+ObjC.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = "Identicon+ObjC.swift"; path = "SignalUtilitiesKit/Profile Pictures/Identicon+ObjC.swift"; sourceTree = SOURCE_ROOT; };
-		C38EF2A3255B6D93007E1867 /* PlaceholderIcon.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = PlaceholderIcon.swift; path = "SignalUtilitiesKit/Profile Pictures/PlaceholderIcon.swift"; sourceTree = SOURCE_ROOT; };
-		C38EF2A4255B6D93007E1867 /* ProfilePictureView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ProfilePictureView.swift; path = "SignalUtilitiesKit/Profile Pictures/ProfilePictureView.swift"; sourceTree = SOURCE_ROOT; };
+		C38EF2A3255B6D93007E1867 /* PlaceholderIcon.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = PlaceholderIcon.swift; path = SessionUIKit/Components/PlaceholderIcon.swift; sourceTree = SOURCE_ROOT; };
+		C38EF2A4255B6D93007E1867 /* ProfilePictureView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ProfilePictureView.swift; path = SessionUIKit/Components/ProfilePictureView.swift; sourceTree = SOURCE_ROOT; };
 		C38EF2B1255B6D9C007E1867 /* UIViewController+Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = "UIViewController+Utilities.swift"; path = "SignalUtilitiesKit/Utilities/UIViewController+Utilities.swift"; sourceTree = SOURCE_ROOT; };
 		C38EF2E2255B6DB9007E1867 /* ScreenLock.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ScreenLock.swift; path = "SignalUtilitiesKit/Screen Lock/ScreenLock.swift"; sourceTree = SOURCE_ROOT; };
 		C38EF2EC255B6DBA007E1867 /* ProximityMonitoringManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ProximityMonitoringManager.swift; path = SessionMessagingKit/Utilities/ProximityMonitoringManager.swift; sourceTree = SOURCE_ROOT; };
@@ -1673,6 +1672,7 @@
 		FD09C5E728264937000CE219 /* MediaDetailViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaDetailViewController.swift; sourceTree = "<group>"; };
 		FD09C5E9282A1BB2000CE219 /* ThreadTypingIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadTypingIndicator.swift; sourceTree = "<group>"; };
 		FD09C5EB282B8F17000CE219 /* AttachmentError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentError.swift; sourceTree = "<group>"; };
+		FD16AB602A1DD9B60083D849 /* ProfilePictureView+Convenience.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ProfilePictureView+Convenience.swift"; sourceTree = "<group>"; };
 		FD17D79527F3E04600122BE0 /* _001_InitialSetupMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _001_InitialSetupMigration.swift; sourceTree = "<group>"; };
 		FD17D79827F40AB800122BE0 /* _003_YDBToGRDBMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _003_YDBToGRDBMigration.swift; sourceTree = "<group>"; };
 		FD17D79B27F40B2E00122BE0 /* SMKLegacy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMKLegacy.swift; sourceTree = "<group>"; };
@@ -2857,6 +2857,8 @@
 				C38EF3EE255B6DF6007E1867 /* GradientView.swift */,
 				B86BD08323399ACF000F5AE3 /* Modal.swift */,
 				FD52090628B49738006098F6 /* ConfirmationModal.swift */,
+				C38EF2A3255B6D93007E1867 /* PlaceholderIcon.swift */,
+				C38EF2A4255B6D93007E1867 /* ProfilePictureView.swift */,
 				FD71165A28E6DDBC00B47552 /* StyledNavigationController.swift */,
 			);
 			path = Components;
@@ -2867,7 +2869,7 @@
 			children = (
 				C33FD9B7255A54A300E217F9 /* Meta */,
 				C36096ED25AD20FD008B62B2 /* Media Viewing & Editing */,
-				C36096EF25AD2268008B62B2 /* Profile Pictures */,
+				FD16AB5D2A1DD8E70083D849 /* Profile Pictures */,
 				C36096EE25AD21BC008B62B2 /* Screen Lock */,
 				C3851CD225624B060061EEB0 /* Shared Views */,
 				C360970125AD22D3008B62B2 /* Shared View Controllers */,
@@ -3046,16 +3048,6 @@
 			path = "Screen Lock";
 			sourceTree = "<group>";
 		};
-		C36096EF25AD2268008B62B2 /* Profile Pictures */ = {
-			isa = PBXGroup;
-			children = (
-				C38EF2A3255B6D93007E1867 /* PlaceholderIcon.swift */,
-				C38EF2A4255B6D93007E1867 /* ProfilePictureView.swift */,
-				C38EF2A2255B6D93007E1867 /* Identicon+ObjC.swift */,
-			);
-			path = "Profile Pictures";
-			sourceTree = "<group>";
-		};
 		C360970125AD22D3008B62B2 /* Shared View Controllers */ = {
 			isa = PBXGroup;
 			children = (
@@ -3174,6 +3166,7 @@
 				FDC4386827B4E6B700C60D73 /* String+Utlities.swift */,
 				FDC4387327B5BB9B00C60D73 /* Promise+Utilities.swift */,
 				FD772899284AF1BD0018502F /* Sodium+Utilities.swift */,
+				FD16AB602A1DD9B60083D849 /* ProfilePictureView+Convenience.swift */,
 				C3A3A170256E1D25004D228D /* SSKReachabilityManager.swift */,
 				C3ECBF7A257056B700EA7FCE /* Threading.swift */,
 			);
@@ -3556,6 +3549,13 @@
 				FD432433299C6985008A0213 /* PendingReadReceipt.swift */,
 			);
 			path = Models;
+			sourceTree = "<group>";
+		};
+		FD16AB5D2A1DD8E70083D849 /* Profile Pictures */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = "Profile Pictures";
 			sourceTree = "<group>";
 		};
 		FD17D79427F3E03300122BE0 /* Migrations */ = {
@@ -5171,6 +5171,7 @@
 				C331FFB92558FA8D00070591 /* UIView+Constraints.swift in Sources */,
 				FD37E9F628A5F106003AE748 /* Configuration.swift in Sources */,
 				C331FFE02558FB0000070591 /* SearchBar.swift in Sources */,
+				FD16AB5B2A1DD7CA0083D849 /* PlaceholderIcon.swift in Sources */,
 				FD71162C28E1451400B47552 /* Position.swift in Sources */,
 				FD52090328B4680F006098F6 /* RadioButton.swift in Sources */,
 				C331FFE82558FB0000070591 /* TextView.swift in Sources */,
@@ -5181,6 +5182,7 @@
 				FD37E9C328A1C6F3003AE748 /* ThemeManager.swift in Sources */,
 				C331FF9A2558FA6B00070591 /* Values.swift in Sources */,
 				FD37E9C628A1D4EC003AE748 /* Theme+ClassicDark.swift in Sources */,
+				FD16AB5F2A1DD98F0083D849 /* ProfilePictureView.swift in Sources */,
 				C331FFE42558FB0000070591 /* SessionButton.swift in Sources */,
 				C331FFE92558FB0000070591 /* Separator.swift in Sources */,
 				FD71163228E2C42A00B47552 /* IconSize.swift in Sources */,
@@ -5199,7 +5201,6 @@
 				C38EF247255B6D67007E1867 /* NSAttributedString+OWS.m in Sources */,
 				C33FDD49255A582000E217F9 /* ParamParser.swift in Sources */,
 				C38EF3C5255B6DE7007E1867 /* OWSViewController+ImageEditor.swift in Sources */,
-				C38EF2A5255B6D93007E1867 /* Identicon+ObjC.swift in Sources */,
 				C38EF385255B6DD2007E1867 /* AttachmentTextToolbar.swift in Sources */,
 				C33FDD23255A582000E217F9 /* FeatureFlags.swift in Sources */,
 				FD71161E28D9772700B47552 /* UIViewController+OWS.swift in Sources */,
@@ -5220,12 +5221,10 @@
 				C3F0A530255C80BC007BE2A3 /* NoopNotificationsManager.swift in Sources */,
 				C33FDD8D255A582000E217F9 /* OWSSignalAddress.swift in Sources */,
 				C38EF388255B6DD2007E1867 /* AttachmentApprovalViewController.swift in Sources */,
-				C38EF2A7255B6D93007E1867 /* ProfilePictureView.swift in Sources */,
 				C38EF22C255B6D5D007E1867 /* OWSVideoPlayer.swift in Sources */,
 				C33FDC29255A581F00E217F9 /* ReachabilityManager.swift in Sources */,
 				C38EF407255B6DF7007E1867 /* Toast.swift in Sources */,
 				C38EF38C255B6DD2007E1867 /* ApprovalRailCellView.swift in Sources */,
-				C38EF2A6255B6D93007E1867 /* PlaceholderIcon.swift in Sources */,
 				C33FDD92255A582000E217F9 /* SignalIOS.pb.swift in Sources */,
 				C33FDC45255A581F00E217F9 /* AppVersion.m in Sources */,
 				C38EF3C7255B6DE7007E1867 /* ImageEditorCanvasView.swift in Sources */,
@@ -5558,6 +5557,7 @@
 				C32C598A256D0664003C73A2 /* SNProtoEnvelope+Conversion.swift in Sources */,
 				FDC438CB27BB7DB100C60D73 /* UpdateMessageRequest.swift in Sources */,
 				C352A2FF25574B6300338F3E /* MessageSendJob.swift in Sources */,
+				FD16AB612A1DD9B60083D849 /* ProfilePictureView+Convenience.swift in Sources */,
 				FDC438C327BB512200C60D73 /* SodiumProtocols.swift in Sources */,
 				B8856D11256F112A001CE70E /* OWSAudioSession.swift in Sources */,
 				C3DB66C3260ACCE6001EFC55 /* OpenGroupPoller.swift in Sources */,

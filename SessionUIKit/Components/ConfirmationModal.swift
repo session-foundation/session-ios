@@ -5,7 +5,6 @@ import SessionUtilitiesKit
 
 // FIXME: Refactor as part of the Groups Rebuild
 public class ConfirmationModal: Modal {
-    private static let imageSize: CGFloat = 80
     private static let closeSize: CGFloat = 24
     
     private var internalOnConfirm: ((ConfirmationModal) -> ())? = nil
@@ -37,22 +36,7 @@ public class ConfirmationModal: Modal {
         return result
     }()
     
-    private lazy var imageViewContainer: UIView = {
-        let result: UIView = UIView()
-        result.isHidden = true
-        
-        return result
-    }()
-    
-    private lazy var imageView: UIImageView = {
-        let result: UIImageView = UIImageView()
-        result.clipsToBounds = true
-        result.contentMode = .scaleAspectFill
-        result.set(.width, to: ConfirmationModal.imageSize)
-        result.set(.height, to: ConfirmationModal.imageSize)
-        
-        return result
-    }()
+    private lazy var profileView: ProfilePictureView = ProfilePictureView(size: .hero)
     
     private lazy var confirmButton: UIButton = {
         let result: UIButton = Modal.createButton(
@@ -73,7 +57,7 @@ public class ConfirmationModal: Modal {
     }()
     
     private lazy var contentStackView: UIStackView = {
-        let result = UIStackView(arrangedSubviews: [ titleLabel, explanationLabel, imageViewContainer ])
+        let result = UIStackView(arrangedSubviews: [ titleLabel, explanationLabel, profileView ])
         result.axis = .vertical
         result.spacing = Values.smallSpacing
         result.isLayoutMarginsRelativeArrangement = true
@@ -141,11 +125,6 @@ public class ConfirmationModal: Modal {
         contentView.addSubview(mainStackView)
         contentView.addSubview(closeButton)
         
-        imageViewContainer.addSubview(imageView)
-        imageView.center(.horizontal, in: imageViewContainer)
-        imageView.pin(.top, to: .top, of: imageViewContainer, withInset: 15)
-        imageView.pin(.bottom, to: .bottom, of: imageViewContainer, withInset: -15)
-        
         mainStackView.pin(to: contentView)
         closeButton.pin(.top, to: .top, of: contentView, withInset: 8)
         closeButton.pin(.right, to: .right, of: contentView, withInset: -8)
@@ -185,14 +164,16 @@ public class ConfirmationModal: Modal {
                 explanationLabel.attributedText = attributedText
                 explanationLabel.isHidden = false
                 
-            case .image(let placeholder, let value, let style, let onClick):
+            case .image(let placeholder, let value, let icon, let style, let onClick):
                 mainStackView.spacing = 0
-                imageView.image = (value ?? placeholder)
-                imageView.layer.cornerRadius = (style == .circular ?
-                    (ConfirmationModal.imageSize / 2) :
-                    0
+                profileView.clipsToBounds = (style == .circular)
+                profileView.update(
+                    ProfilePictureView.Info(
+                        imageData: (value ?? placeholder),
+                        icon: icon
+                    )
                 )
-                imageViewContainer.isHidden = false
+                profileView.isHidden = false
                 internalOnBodyTap = onClick
         }
         
@@ -406,8 +387,9 @@ public extension ConfirmationModal.Info {
         // case input(placeholder: String, value: String?)
         // case radio(explanation: NSAttributedString?, options: [(title: String, selected: Bool)])
         case image(
-            placeholder: UIImage?,
-            value: UIImage?,
+            placeholderData: Data?,
+            valueData: Data?,
+            icon: ProfilePictureView.ProfileIcon = .none,
             style: ImageStyle,
             onClick: (() -> ())
         )
@@ -432,10 +414,11 @@ public extension ConfirmationModal.Info {
                 //        lhsOptions.map { "\($0.0)-\($0.1)" } == rhsValue.map { "\($0.0)-\($0.1)" }
                 //    )
                     
-                case (.image(let lhsPlaceholder, let lhsValue, let lhsStyle, _), .image(let rhsPlaceholder, let rhsValue, let rhsStyle, _)):
+                case (.image(let lhsPlaceholder, let lhsValue, let lhsIcon, let lhsStyle, _), .image(let rhsPlaceholder, let rhsValue, let rhsIcon, let rhsStyle, _)):
                     return (
                         lhsPlaceholder == rhsPlaceholder &&
                         lhsValue == rhsValue &&
+                        lhsIcon == rhsIcon &&
                         lhsStyle == rhsStyle
                     )
                     
@@ -449,9 +432,10 @@ public extension ConfirmationModal.Info {
                 case .text(let text): text.hash(into: &hasher)
                 case .attributedText(let text): text.hash(into: &hasher)
                 
-                case .image(let placeholder, let value, let style, _):
+                case .image(let placeholder, let value, let icon, let style, _):
                     placeholder.hash(into: &hasher)
                     value.hash(into: &hasher)
+                    icon.hash(into: &hasher)
                     style.hash(into: &hasher)
             }
         }
