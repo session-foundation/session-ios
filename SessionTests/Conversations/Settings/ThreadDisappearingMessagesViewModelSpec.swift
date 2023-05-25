@@ -116,7 +116,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                             )
                         )
                     )
-                // Last option is always Disappear After Send`
+                // Last option is always Disappear After Send
                 expect(viewModel.tableData.first?.elements.last)
                     .to(
                         equal(
@@ -281,9 +281,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                             )
                         )
                 }
-                
-                // TODO: Continue to work from here
-                
+
                 context("and saving") {
                     it("dismisses the screen") {
                         var didDismissScreen: Bool = false
