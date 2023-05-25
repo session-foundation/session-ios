@@ -158,6 +158,7 @@ internal extension SessionUtil {
                 /// If the contact's `hidden` flag doesn't match the visibility of their conversation then create/delete the
                 /// associated contact conversation accordingly
                 let threadInfo: PriorityVisibilityInfo? = try? SessionThread
+                    .filter(id: sessionId)
                     .select(.id, .variant, .pinnedPriority, .shouldBeVisible)
                     .asRequest(of: PriorityVisibilityInfo.self)
                     .fetchOne(db)
@@ -166,12 +167,12 @@ internal extension SessionUtil {
 
                 switch (updatedShouldBeVisible, threadExists) {
                     case (false, true):
-                        SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: [contact.id])
+                        SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: [sessionId])
                         
                         try SessionThread
                             .deleteOrLeave(
                                 db,
-                                threadId: contact.id,
+                                threadId: sessionId,
                                 threadVariant: .contact,
                                 groupLeaveType: .forced,
                                 calledFromConfigHandling: true
@@ -179,7 +180,7 @@ internal extension SessionUtil {
                         
                     case (true, false):
                         try SessionThread(
-                            id: contact.id,
+                            id: sessionId,
                             variant: .contact,
                             creationDateTimestamp: data.created,
                             shouldBeVisible: true,
@@ -197,7 +198,7 @@ internal extension SessionUtil {
                         ].compactMap { $0 }
                         
                         try SessionThread
-                            .filter(id: contact.id)
+                            .filter(id: sessionId)
                             .updateAll( // Handling a config update so don't use `updateAllAndConfig`
                                 db,
                                 changes
