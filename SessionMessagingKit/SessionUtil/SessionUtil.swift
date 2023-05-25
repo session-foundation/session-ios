@@ -450,7 +450,8 @@ public enum SessionUtil {
                                     try SessionUtil.handleContactsUpdate(
                                         db,
                                         in: conf,
-                                        mergeNeedsDump: config_needs_dump(conf)
+                                        mergeNeedsDump: config_needs_dump(conf),
+                                        latestConfigUpdateSentTimestamp: messageSentTimestamp
                                     )
                                     
                                 case .convoInfoVolatile:

@@ -31,12 +31,14 @@ internal extension SessionUtil {
     static func handleContactsUpdate(
         _ db: Database,
         in conf: UnsafeMutablePointer<config_object>?,
-        mergeNeedsDump: Bool
+        mergeNeedsDump: Bool,
+        latestConfigUpdateSentTimestamp: TimeInterval
     ) throws {
         typealias ContactData = [
             String: (
                 contact: Contact,
                 profile: Profile,
+                disappearingMessagesConfiguration: DisappearingMessagesConfiguration,
                 priority: Int32,
                 created: TimeInterval
             )
@@ -73,10 +75,18 @@ internal extension SessionUtil {
                     )
                 )
             )
+            let disappearingMessagesConfigResult: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
+                threadId: contactId,
+                isEnabled: contact.exp_seconds > 0,
+                durationSeconds: TimeInterval(contact.exp_seconds),
+                type: DisappearingMessagesConfiguration.DisappearingMessageType(sessionUtilType: contact.exp_mode),
+                lastChangeTimestampMs: Int64(latestConfigUpdateSentTimestamp)
+            )
             
             contactData[contactId] = (
                 contactResult,
                 profileResult,
+                disappearingMessagesConfigResult,
                 contact.priority,
                 TimeInterval(contact.created)
             )
@@ -158,9 +168,28 @@ internal extension SessionUtil {
                         )
                 }
                 
+                // Update disappearing messages configuration if needed
+                let localDisappearingMessagesConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
+                    .fetchOne(db, id: sessionId)
+                    .defaulting(to: DisappearingMessagesConfiguration.defaultWith(sessionId))
+                
+                if
+                    let remoteLastChangeTimestampMs = data.disappearingMessagesConfiguration.lastChangeTimestampMs,
+                    let localLastChangeTimestampMs = localDisappearingMessagesConfig.lastChangeTimestampMs,
+                    remoteLastChangeTimestampMs > localLastChangeTimestampMs
+                {
+                    _ = try localDisappearingMessagesConfig.with(
+                        isEnabled: data.disappearingMessagesConfiguration.isEnabled,
+                        durationSeconds: data.disappearingMessagesConfiguration.durationSeconds,
+                        type: data.disappearingMessagesConfiguration.type,
+                        lastChangeTimestampMs: data.disappearingMessagesConfiguration.lastChangeTimestampMs
+                    ).save(db)
+                }
+                
                 /// If the contact's `hidden` flag doesn't match the visibility of their conversation then create/delete the
                 /// associated contact conversation accordingly
                 let threadInfo: PriorityVisibilityInfo? = try? SessionThread
+                    .filter(id: sessionId)
                     .select(.id, .variant, .pinnedPriority, .shouldBeVisible)
                     .asRequest(of: PriorityVisibilityInfo.self)
                     .fetchOne(db)

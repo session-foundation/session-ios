@@ -2,6 +2,7 @@
 
 import Foundation
 import GRDB
+import SessionUtil
 import SessionUtilitiesKit
 import SessionSnodeKit
 
@@ -46,6 +47,14 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatabl
                 case .unknown:         self = .unknown
                 case .deleteAfterRead: self = .disappearAfterRead
                 case .deleteAfterSend: self = .disappearAfterSend
+            }
+        }
+        
+        init(sessionUtilType: CONVO_EXPIRATION_MODE) {
+            switch sessionUtilType {
+                case CONVO_EXPIRATION_AFTER_SEND: self = .disappearAfterRead
+                case CONVO_EXPIRATION_AFTER_SEND: self = .disappearAfterSend
+                default:                          self = .unknown
             }
         }
         
