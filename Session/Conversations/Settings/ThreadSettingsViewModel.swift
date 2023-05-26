@@ -244,12 +244,13 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                             id: .avatar,
                             accessory: .profile(
                                 id: threadViewModel.id,
-                                size: .extraLarge,
+                                size: .hero,
                                 threadVariant: threadVariant,
                                 customImageData: threadViewModel.openGroupProfilePictureData,
                                 profile: threadViewModel.profile,
+                                profileIcon: .none,
                                 additionalProfile: threadViewModel.additionalProfile,
-                                cornerIcon: nil,
+                                additionalProfileIcon: .none,
                                 accessibility: nil
                             ),
                             styling: SessionCell.StyleInfo(

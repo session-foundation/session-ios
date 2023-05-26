@@ -19,7 +19,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
     
     private let accentLineView: UIView = UIView()
 
-    private lazy var profilePictureView: ProfilePictureView = ProfilePictureView()
+    private lazy var profilePictureView: ProfilePictureView = ProfilePictureView(size: .list)
 
     private lazy var displayNameLabel: UILabel = {
         let result: UILabel = UILabel()
@@ -203,12 +203,6 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         // Accent line view
         accentLineView.set(.width, to: Values.accentLineThickness)
         accentLineView.set(.height, to: cellHeight)
-        
-        // Profile picture view
-        let profilePictureViewSize = Values.mediumProfilePictureSize
-        profilePictureView.set(.width, to: profilePictureViewSize)
-        profilePictureView.set(.height, to: profilePictureViewSize)
-        profilePictureView.size = profilePictureViewSize
         
         // Unread count view
         unreadCountView.addSubview(unreadCountLabel)
@@ -721,7 +715,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         // This method determines if the content is probably too long and returns the truncated or untruncated
         // content accordingly
         func truncatingIfNeeded(approxWidth: CGFloat, content: NSAttributedString) -> NSAttributedString {
-            let approxFullWidth: CGFloat = (approxWidth + profilePictureView.size + (Values.mediumSpacing * 3))
+            let approxFullWidth: CGFloat = (approxWidth + profilePictureView.size.viewSize + (Values.mediumSpacing * 3))
             
             guard ((bounds.width - approxFullWidth) < 0) else { return content }
             

@@ -61,8 +61,6 @@ extension SessionCell {
             profilePictureView.pin(.top, to: .top, of: self),
             profilePictureView.pin(.bottom, to: .bottom, of: self)
         ]
-        private lazy var profilePictureViewWidthConstraint: NSLayoutConstraint = profilePictureView.set(.width, to: 0)
-        private lazy var profilePictureViewHeightConstraint: NSLayoutConstraint = profilePictureView.set(.height, to: 0)
         private lazy var searchBarConstraints: [NSLayoutConstraint] = [
             searchBar.pin(.top, to: .top, of: self),
             searchBar.pin(.leading, to: .leading, of: self, withInset: -8),  // Removing default inset
@@ -164,28 +162,9 @@ extension SessionCell {
         }()
         
         private lazy var profilePictureView: ProfilePictureView = {
-            let result: ProfilePictureView = ProfilePictureView()
+            let result: ProfilePictureView = ProfilePictureView(size: .list)
             result.translatesAutoresizingMaskIntoConstraints = false
             result.isHidden = true
-            
-            return result
-        }()
-        
-        private lazy var profileIconContainerView: UIView = {
-            let result: UIView = UIView()
-            result.translatesAutoresizingMaskIntoConstraints = false
-            result.themeBackgroundColor = .primary
-            result.isHidden = true
-            result.set(.width, to: 26)
-            result.set(.height, to: 26)
-            result.layer.cornerRadius = (26 / 2)
-            
-            return result
-        }()
-        
-        private lazy var profileIconImageView: UIImageView = {
-            let result: UIImageView = UIImageView()
-            result.translatesAutoresizingMaskIntoConstraints = false
             
             return result
         }()
@@ -233,7 +212,6 @@ extension SessionCell {
             addSubview(radioBorderView)
             addSubview(highlightingBackgroundLabel)
             addSubview(profilePictureView)
-            addSubview(profileIconContainerView)
             addSubview(button)
             addSubview(searchBar)
             
@@ -242,12 +220,6 @@ extension SessionCell {
             
             radioBorderView.addSubview(radioView)
             radioView.center(in: radioBorderView)
-            
-            profileIconContainerView.addSubview(profileIconImageView)
-            
-            profileIconContainerView.pin(.bottom, to: .bottom, of: profilePictureView)
-            profileIconContainerView.pin(.trailing, to: .trailing, of: profilePictureView)
-            profileIconImageView.pin(to: profileIconContainerView, withInset: Values.verySmallSpacing)
         }
         
         // MARK: - Content
@@ -277,7 +249,6 @@ extension SessionCell {
             radioView.isHidden = true
             highlightingBackgroundLabel.isHidden = true
             profilePictureView.isHidden = true
-            profileIconContainerView.isHidden = true
             button.isHidden = true
             searchBar.isHidden = true
             
@@ -300,8 +271,6 @@ extension SessionCell {
             highlightingBackgroundLabelConstraints.forEach { $0.isActive = false }
             profilePictureViewLeadingConstraint.isActive = false
             profilePictureViewTrailingConstraint.isActive = false
-            profilePictureViewWidthConstraint.isActive = false
-            profilePictureViewHeightConstraint.isActive = false
             profilePictureViewConstraints.forEach { $0.isActive = false }
             searchBarConstraints.forEach { $0.isActive = false }
             buttonConstraints.forEach { $0.isActive = false }
@@ -465,46 +434,34 @@ extension SessionCell {
                     let threadVariant,
                     let customImageData,
                     let profile,
+                    let profileIcon,
                     let additionalProfile,
-                    let cornerIcon,
+                    let additionalProfileIcon,
                     let accessibility
                 ):
                     // Note: We MUST set the 'size' property before triggering the 'update'
                     // function or the profile picture won't layout correctly
-                    switch profileSize {
-                        case .fit:
-                            profilePictureView.size = IconSize.large.size
-                            profilePictureViewWidthConstraint.constant = IconSize.large.size
-                            profilePictureViewHeightConstraint.constant = IconSize.large.size
-
-                        default:
-                            profilePictureView.size = profileSize.size
-                            profilePictureViewWidthConstraint.constant = profileSize.size
-                            profilePictureViewHeightConstraint.constant = profileSize.size
-                    }
-                    
                     profilePictureView.accessibilityIdentifier = accessibility?.identifier
                     profilePictureView.accessibilityLabel = accessibility?.label
                     profilePictureView.isAccessibilityElement = (accessibility != nil)
+                    profilePictureView.size = profileSize
                     profilePictureView.update(
                         publicKey: profileId,
                         threadVariant: threadVariant,
                         customImageData: customImageData,
                         profile: profile,
-                        additionalProfile: additionalProfile
+                        profileIcon: profileIcon,
+                        additionalProfile: additionalProfile,
+                        additionalProfileIcon: additionalProfileIcon
                     )
                     profilePictureView.isHidden = false
-                    profileIconContainerView.isHidden = (cornerIcon == nil)
-                    profileIconImageView.image = cornerIcon
                     
-                    fixedWidthConstraint.constant = profilePictureViewWidthConstraint.constant
+                    fixedWidthConstraint.constant = profileSize.viewSize
                     fixedWidthConstraint.isActive = true
-                    profilePictureViewLeadingConstraint.constant = (profilePictureView.size > AccessoryView.minWidth ? 0 : Values.smallSpacing)
-                    profilePictureViewTrailingConstraint.constant = (profilePictureView.size > AccessoryView.minWidth ? 0 : -Values.smallSpacing)
+                    profilePictureViewLeadingConstraint.constant = (profileSize.viewSize > AccessoryView.minWidth ? 0 : Values.smallSpacing)
+                    profilePictureViewTrailingConstraint.constant = (profileSize.viewSize > AccessoryView.minWidth ? 0 : -Values.smallSpacing)
                     profilePictureViewLeadingConstraint.isActive = true
                     profilePictureViewTrailingConstraint.isActive = true
-                    profilePictureViewWidthConstraint.isActive = true
-                    profilePictureViewHeightConstraint.isActive = true
                     profilePictureViewConstraints.forEach { $0.isActive = true }
                     
                 case .search(let placeholder, let accessibility, let searchTermChanged):

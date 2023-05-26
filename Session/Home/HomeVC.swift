@@ -484,12 +484,10 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     
     private func updateNavBarButtons() {
         // Profile picture view
-        let profilePictureSize = Values.verySmallProfilePictureSize
-        let profilePictureView = ProfilePictureView()
+        let profilePictureView = ProfilePictureView(size: .navigation)
         profilePictureView.accessibilityIdentifier = "User settings"
         profilePictureView.accessibilityLabel = "User settings"
         profilePictureView.isAccessibilityElement = true
-        profilePictureView.size = profilePictureSize
         profilePictureView.update(
             publicKey: getUserHexEncodedPublicKey(),
             threadVariant: .contact,
@@ -497,8 +495,6 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
             profile: Profile.fetchOrCreateCurrentUser(),
             additionalProfile: nil
         )
-        profilePictureView.set(.width, to: profilePictureSize)
-        profilePictureView.set(.height, to: profilePictureSize)
         
         let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(openSettings))
         profilePictureView.addGestureRecognizer(tapGestureRecognizer)

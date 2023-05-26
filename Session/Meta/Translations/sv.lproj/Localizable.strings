@@ -627,7 +627,7 @@
 "hide_note_to_self_confirmation_alert_title" = "Hide Note to Self";
 "hide_note_to_self_confirmation_alert_message" = "Are you sure you want to hide %@?";
 "update_profile_modal_title" = "Set Display Picture";
-"update_profile_modal_upload" = "Upload";
+"update_profile_modal_save" = "Save";
 "update_profile_modal_remove" = "Remove";
 "update_profile_modal_remove_error_title" = "Unable to remove avatar image";
 "update_profile_modal_max_size_error_title" = "Maximum File Size Exceeded";
