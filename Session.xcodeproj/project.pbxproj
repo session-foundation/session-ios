@@ -654,6 +654,7 @@
 		FD6A7A692818BE7300035AC1 /* RetrieveDefaultOpenGroupRoomsJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A7A682818BE7300035AC1 /* RetrieveDefaultOpenGroupRoomsJob.swift */; };
 		FD6A7A6B2818C17C00035AC1 /* UpdateProfilePictureJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A7A6A2818C17C00035AC1 /* UpdateProfilePictureJob.swift */; };
 		FD6A7A6D2818C61500035AC1 /* _002_SetupStandardJobs.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A7A6C2818C61500035AC1 /* _002_SetupStandardJobs.swift */; };
+		FD6E4C8A2A1AEE4700C7C243 /* LegacyUnsubscribeRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6E4C892A1AEE4700C7C243 /* LegacyUnsubscribeRequest.swift */; };
 		FD705A92278D051200F16121 /* ReusableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD705A91278D051200F16121 /* ReusableView.swift */; };
 		FD7115EB28C5D78E00B47552 /* ThreadSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7115EA28C5D78E00B47552 /* ThreadSettingsViewModel.swift */; };
 		FD7115F228C6CB3900B47552 /* _010_AddThreadIdToFTS.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7115F128C6CB3900B47552 /* _010_AddThreadIdToFTS.swift */; };
@@ -817,6 +818,7 @@
 		FDD2506E283711D600198BDA /* DifferenceKit+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD2506D283711D600198BDA /* DifferenceKit+Utilities.swift */; };
 		FDD250702837199200198BDA /* GarbageCollectionJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD2506F2837199200198BDA /* GarbageCollectionJob.swift */; };
 		FDD250722837234B00198BDA /* MediaGalleryNavigationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD250712837234B00198BDA /* MediaGalleryNavigationController.swift */; };
+		FDD82C3F2A205D0A00425F05 /* ProcessResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD82C3E2A205D0A00425F05 /* ProcessResult.swift */; };
 		FDDC08F229A300E800BF9681 /* LibSessionTypeConversionUtilitiesSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDC08F129A300E800BF9681 /* LibSessionTypeConversionUtilitiesSpec.swift */; };
 		FDDCBDA829E776BF00303C38 /* seed2-2023-2y.crt in Resources */ = {isa = PBXBuildFile; fileRef = FDDCBDA229E776BF00303C38 /* seed2-2023-2y.crt */; };
 		FDDCBDA929E776BF00303C38 /* seed1-2023-2y.crt in Resources */ = {isa = PBXBuildFile; fileRef = FDDCBDA329E776BF00303C38 /* seed1-2023-2y.crt */; };
@@ -910,6 +912,9 @@
 		FDF848F329413DB0007DCAE5 /* ImagePickerHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848F229413DB0007DCAE5 /* ImagePickerHandler.swift */; };
 		FDF848F529413EEC007DCAE5 /* SessionCell+Styling.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848F429413EEC007DCAE5 /* SessionCell+Styling.swift */; };
 		FDF848F729414477007DCAE5 /* CurrentUserPoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848F629414477007DCAE5 /* CurrentUserPoller.swift */; };
+		FDFBB74B2A1EFF4900CA7350 /* Bencode.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFBB74A2A1EFF4900CA7350 /* Bencode.swift */; };
+		FDFBB74D2A1F3C4E00CA7350 /* NotificationMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFBB74C2A1F3C4E00CA7350 /* NotificationMetadata.swift */; };
+		FDFBB7542A2023EB00CA7350 /* BencodeSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFBB7532A2023EB00CA7350 /* BencodeSpec.swift */; };
 		FDFC4D9A29F0C51500992FB6 /* String+Trimming.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2A5D22553860900C340D1 /* String+Trimming.swift */; };
 		FDFC4E1929F1F9A600992FB6 /* libsession-util.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = FDFC4E1829F1F9A600992FB6 /* libsession-util.xcframework */; };
 		FDFD645927F26C6800808CA1 /* Array+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2A5D12553860800C340D1 /* Array+Utilities.swift */; };
@@ -1802,6 +1807,7 @@
 		FD6A7A682818BE7300035AC1 /* RetrieveDefaultOpenGroupRoomsJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetrieveDefaultOpenGroupRoomsJob.swift; sourceTree = "<group>"; };
 		FD6A7A6A2818C17C00035AC1 /* UpdateProfilePictureJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateProfilePictureJob.swift; sourceTree = "<group>"; };
 		FD6A7A6C2818C61500035AC1 /* _002_SetupStandardJobs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _002_SetupStandardJobs.swift; sourceTree = "<group>"; };
+		FD6E4C892A1AEE4700C7C243 /* LegacyUnsubscribeRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyUnsubscribeRequest.swift; sourceTree = "<group>"; };
 		FD705A91278D051200F16121 /* ReusableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReusableView.swift; sourceTree = "<group>"; };
 		FD7115EA28C5D78E00B47552 /* ThreadSettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadSettingsViewModel.swift; sourceTree = "<group>"; };
 		FD7115EF28C5D7DE00B47552 /* SessionHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionHeaderView.swift; sourceTree = "<group>"; };
@@ -1958,6 +1964,7 @@
 		FDD2506D283711D600198BDA /* DifferenceKit+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DifferenceKit+Utilities.swift"; sourceTree = "<group>"; };
 		FDD2506F2837199200198BDA /* GarbageCollectionJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarbageCollectionJob.swift; sourceTree = "<group>"; };
 		FDD250712837234B00198BDA /* MediaGalleryNavigationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaGalleryNavigationController.swift; sourceTree = "<group>"; };
+		FDD82C3E2A205D0A00425F05 /* ProcessResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessResult.swift; sourceTree = "<group>"; };
 		FDDC08F129A300E800BF9681 /* LibSessionTypeConversionUtilitiesSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionTypeConversionUtilitiesSpec.swift; sourceTree = "<group>"; };
 		FDDCBDA229E776BF00303C38 /* seed2-2023-2y.crt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "seed2-2023-2y.crt"; sourceTree = "<group>"; };
 		FDDCBDA329E776BF00303C38 /* seed1-2023-2y.crt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "seed1-2023-2y.crt"; sourceTree = "<group>"; };
@@ -2054,6 +2061,9 @@
 		FDF848F229413DB0007DCAE5 /* ImagePickerHandler.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ImagePickerHandler.swift; sourceTree = "<group>"; };
 		FDF848F429413EEC007DCAE5 /* SessionCell+Styling.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "SessionCell+Styling.swift"; sourceTree = "<group>"; };
 		FDF848F629414477007DCAE5 /* CurrentUserPoller.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CurrentUserPoller.swift; sourceTree = "<group>"; };
+		FDFBB74A2A1EFF4900CA7350 /* Bencode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bencode.swift; sourceTree = "<group>"; };
+		FDFBB74C2A1F3C4E00CA7350 /* NotificationMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationMetadata.swift; sourceTree = "<group>"; };
+		FDFBB7532A2023EB00CA7350 /* BencodeSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BencodeSpec.swift; sourceTree = "<group>"; };
 		FDFC4E1829F1F9A600992FB6 /* libsession-util.xcframework */ = {isa = PBXFileReference; explicitFileType = wrapper.xcframework; includeInIndex = 0; path = "libsession-util.xcframework"; sourceTree = BUILD_DIR; };
 		FDFD645A27F26D4600808CA1 /* Data+Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Data+Utilities.swift"; sourceTree = "<group>"; };
 		FDFD645C27F273F300808CA1 /* MockGeneralCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockGeneralCache.swift; sourceTree = "<group>"; };
@@ -3612,6 +3622,7 @@
 		FD09796527F6B0A800936362 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
+				FDFBB74A2A1EFF4900CA7350 /* Bencode.swift */,
 				FDA8EB0F280F8238002B68E5 /* Codable+Utilities.swift */,
 				FD09796A27F6C67500936362 /* Failable.swift */,
 				FD09797127FAA2F500936362 /* Optional+Utilities.swift */,
@@ -4045,6 +4056,7 @@
 				FD37EA1228AB3F60003AE748 /* Database */,
 				FD83B9B927CF20A5005E1583 /* General */,
 				FD9B30F1293EA0AF008DEE3E /* Networking */,
+				FDFBB7522A2023DE00CA7350 /* Utilities */,
 			);
 			path = SessionUtilitiesKitTests;
 			sourceTree = "<group>";
@@ -4163,6 +4175,7 @@
 			isa = PBXGroup;
 			children = (
 				FDC13D482A16EC20007267C7 /* Service.swift */,
+				FDD82C3E2A205D0A00425F05 /* ProcessResult.swift */,
 				FDC13D4F2A16EE50007267C7 /* PushNotificationAPIEndpoint.swift */,
 			);
 			path = Types;
@@ -4225,9 +4238,11 @@
 				FDC13D4A2A16ECBA007267C7 /* SubscribeResponse.swift */,
 				FDC13D552A171FE4007267C7 /* UnsubscribeRequest.swift */,
 				FDC13D572A17207D007267C7 /* UnsubscribeResponse.swift */,
+				FD6E4C892A1AEE4700C7C243 /* LegacyUnsubscribeRequest.swift */,
 				FDC13D532A16FF29007267C7 /* LegacyGroupRequest.swift */,
 				FDC4382E27B383AF00C60D73 /* LegacyPushServerResponse.swift */,
 				FDC13D592A1721C5007267C7 /* LegacyNotifyRequest.swift */,
+				FDFBB74C2A1F3C4E00CA7350 /* NotificationMetadata.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -4423,6 +4438,14 @@
 				FDF8489C29405C5A007DCAE5 /* GetServiceNodesRequest.swift */,
 			);
 			path = Models;
+			sourceTree = "<group>";
+		};
+		FDFBB7522A2023DE00CA7350 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				FDFBB7532A2023EB00CA7350 /* BencodeSpec.swift */,
+			);
+			path = Utilities;
 			sourceTree = "<group>";
 		};
 		FDFDE122282D04E30098B17F /* Transitions */ = {
@@ -5644,6 +5667,7 @@
 				C3D9E4C02567767F0040E4F3 /* DataSource.m in Sources */,
 				C32C5DD2256DD9E5003C73A2 /* LRUCache.swift in Sources */,
 				FD71160228C8255900B47552 /* UIControl+Combine.swift in Sources */,
+				FDFBB74B2A1EFF4900CA7350 /* Bencode.swift in Sources */,
 				FD9004152818B46300ABAAF6 /* JobRunner.swift in Sources */,
 				FDF8487929405906007DCAE5 /* HTTPQueryParam.swift in Sources */,
 				FD17D7CA27F546D900122BE0 /* _001_InitialSetupMigration.swift in Sources */,
@@ -5758,6 +5782,7 @@
 				FD245C5A2850660100B966DD /* LinkPreviewDraft.swift in Sources */,
 				FDD250702837199200198BDA /* GarbageCollectionJob.swift in Sources */,
 				FD6A7A6B2818C17C00035AC1 /* UpdateProfilePictureJob.swift in Sources */,
+				FDD82C3F2A205D0A00425F05 /* ProcessResult.swift in Sources */,
 				FD716E6A2850327900C96BF4 /* EndCallMode.swift in Sources */,
 				FDF0B75C2807F41D004C14C5 /* MessageSender+Convenience.swift in Sources */,
 				7B81682A28B6F1420069F315 /* ReactionResponse.swift in Sources */,
@@ -5771,6 +5796,7 @@
 				FD245C57285065F100B966DD /* Poller.swift in Sources */,
 				FDA8EAFE280E8B78002B68E5 /* FailedMessageSendsJob.swift in Sources */,
 				FD245C6A2850666F00B966DD /* FileServerAPI.swift in Sources */,
+				FDFBB74D2A1F3C4E00CA7350 /* NotificationMetadata.swift in Sources */,
 				FDC4386927B4E6B800C60D73 /* String+Utlities.swift in Sources */,
 				FD716E6628502EE200C96BF4 /* CurrentCallProtocol.swift in Sources */,
 				FD8ECF9029381FC200C0D1BB /* SessionUtil+UserProfile.swift in Sources */,
@@ -5808,6 +5834,7 @@
 				FDC6D6F32860607300B04575 /* Environment.swift in Sources */,
 				C3A3A171256E1D25004D228D /* SSKReachabilityManager.swift in Sources */,
 				FD245C59285065FC00B966DD /* ControlMessage.swift in Sources */,
+				FD6E4C8A2A1AEE4700C7C243 /* LegacyUnsubscribeRequest.swift in Sources */,
 				B8DE1FB626C22FCB0079C9CE /* CallMessage.swift in Sources */,
 				FD245C50285065C700B966DD /* VisibleMessage+Quote.swift in Sources */,
 				FD8ECF892935AB7200C0D1BB /* SessionUtilError.swift in Sources */,
@@ -6155,6 +6182,7 @@
 				FD2AAAF228ED57B500A49611 /* SynchronousStorage.swift in Sources */,
 				FD078E4927E02576000769AF /* CommonMockedExtensions.swift in Sources */,
 				FD83B9BF27CF2294005E1583 /* TestConstants.swift in Sources */,
+				FDFBB7542A2023EB00CA7350 /* BencodeSpec.swift in Sources */,
 				FD83B9BB27CF20AF005E1583 /* SessionIdSpec.swift in Sources */,
 				FDC290A927D9B46D005DAE71 /* NimbleExtensions.swift in Sources */,
 				FD23EA6328ED0B260058676E /* CombineExtensions.swift in Sources */,

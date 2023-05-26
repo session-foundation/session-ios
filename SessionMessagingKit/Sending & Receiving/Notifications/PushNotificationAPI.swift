@@ -54,13 +54,13 @@ public enum PushNotificationAPI {
                 }
                 
                 let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
-                let previewType: Preferences.NotificationPreviewType = db[.preferencesNotificationPreviewType]
-                    .defaulting(to: Preferences.NotificationPreviewType.defaultPreviewType)
-                
                 let request: SubscribeRequest = SubscribeRequest(
                     pubkey: currentUserPublicKey,
                     namespaces: [.default],
-                    includeMessageData: (previewType == .nameAndPreview), // TODO: Test resubscribing when changing the type
+                    // Note: Unfortunately we always need the message content because without the content
+                    // control messages can't be distinguished from visible messages which results in the
+                    // 'generic' notification being shown when receiving things like typing indicator updates
+                    includeMessageData: true,
                     serviceInfo: SubscribeRequest.ServiceInfo(
                         token: hexEncodedToken
                     ),
@@ -349,14 +349,6 @@ public enum PushNotificationAPI {
     ) -> AnyPublisher<Void, Error> {
         let isUsingFullAPNs = UserDefaults.standard[.isUsingFullAPNs]
         
-        // TODO: Need to validate if this is actually desired behaviour - would this check prevent the app from unsubscribing if the user switches off fast mode??? (this is what the app is currently doing)
-        // TODO: This flag seems like it might actually be buggy... should double check it
-        guard isUsingFullAPNs else {
-            return Just(())
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
-        }
-        
         return PushNotificationAPI
             .send(
                 request: PushNotificationAPIRequest(
@@ -385,11 +377,70 @@ public enum PushNotificationAPI {
             .map { _ in () }
             .eraseToAnyPublisher()
     }
+    
+    // MARK: - Notification Handling
+    
+    public static func processNotification(
+        notificationContent: UNNotificationContent,
+        dependencies: SMKDependencies = SMKDependencies()
+    ) -> (envelope: SNProtoEnvelope?, result: ProcessResult) {
+        // Make sure the notification is from the updated push server
+        guard notificationContent.userInfo["spns"] != nil else {
+            guard
+                let base64EncodedData: String = notificationContent.userInfo["ENCRYPTED_DATA"] as? String,
+                let data: Data = Data(base64Encoded: base64EncodedData),
+                let envelope: SNProtoEnvelope = try? MessageWrapper.unwrap(data: data)
+            else { return (nil, .legacyFailure) }
+            
+            // We only support legacy notifications for legacy group conversations
+            guard envelope.type == .closedGroupMessage else { return (envelope, .legacyForceSilent) }
+
+            return (envelope, .legacySuccess)
+        }
+        
+        guard
+            let base64EncodedEncString: String = notificationContent.userInfo["enc_payload"] as? String,
+            let encData: Data = Data(base64Encoded: base64EncodedEncString),
+            let notificationsEncryptionKey: Data = try? getOrGenerateEncryptionKey(),
+            encData.count > dependencies.aeadXChaCha20Poly1305Ietf.NonceBytes
+        else { return (nil, .failure) }
+        
+        let nonce: Data = encData[0..<dependencies.aeadXChaCha20Poly1305Ietf.NonceBytes]
+        let payload: Data = encData[dependencies.aeadXChaCha20Poly1305Ietf.NonceBytes...]
+        
+        guard
+            let paddedData: [UInt8] = dependencies.aeadXChaCha20Poly1305Ietf.decrypt(
+                authenticatedCipherText: payload.bytes,
+                secretKey: notificationsEncryptionKey.bytes,
+                nonce: nonce.bytes
+            )
+        else { return (nil, .failure) }
+        
+        let decryptedData: Data = Data(paddedData.reversed().drop(while: { $0 == 0 }).reversed())
+        
+        // Decode the decrypted data
+        guard let notification: BencodeResponse<NotificationMetadata> = try? Bencode.decodeResponse(from: decryptedData) else {
+            return (nil, .failure)
+        }
+        
+        // If the metadata says that the message was too large then we should show the generic
+        // notification (this is a valid case)
+        guard !notification.info.dataTooLong else { return (nil, .success) }
+        
+        // Check that the body we were given is valid
+        guard
+            let notificationData: Data = notification.data,
+            notification.info.dataLength == notificationData.count,
+            let envelope = try? MessageWrapper.unwrap(data: notificationData)
+        else { return (nil, .failure) }
+        
+        // Success, we have the notification content
+        return (envelope, .success)
+    }
                         
     // MARK: - Security
     
     @discardableResult private static func getOrGenerateEncryptionKey() throws -> Data {
-        // TODO: May want to work this differently (will break after a phone restart if the device hasn't been unlocked yet)
         do {
             var encryptionKey: Data = try SSKDefaultKeychainStorage.shared.data(
                 forService: keychainService,

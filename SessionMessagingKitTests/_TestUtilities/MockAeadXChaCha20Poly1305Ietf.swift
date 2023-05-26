@@ -8,6 +8,7 @@ import Sodium
 class MockAeadXChaCha20Poly1305Ietf: Mock<AeadXChaCha20Poly1305IetfType>, AeadXChaCha20Poly1305IetfType {
     var KeyBytes: Int = 32
     var ABytes: Int = 16
+    var NonceBytes: Int = 24
     
     func encrypt(message: Bytes, secretKey: Bytes, nonce: Bytes, additionalData: Bytes?) -> Bytes? {
         return accept(args: [message, secretKey, nonce, additionalData]) as? Bytes

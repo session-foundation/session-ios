@@ -45,6 +45,7 @@ public final class JobRunner {
     private static let blockingQueue: Atomic<JobQueue?> = Atomic(
         JobQueue(
             type: .blocking,
+            executionType: .serial,
             qos: .default,
             jobVariants: [],
             onQueueDrained: {
@@ -85,6 +86,7 @@ public final class JobRunner {
         )
         let attachmentDownloadQueue: JobQueue = JobQueue(
             type: .attachmentDownload,
+            executionType: .serial,
             qos: .utility,
             jobVariants: [
                 jobVariants.remove(.attachmentDownload)
@@ -92,6 +94,7 @@ public final class JobRunner {
         )
         let generalQueue: JobQueue = JobQueue(
             type: .general(number: 0),
+            executionType: .serial,
             qos: .utility,
             jobVariants: Array(jobVariants)
         )
@@ -509,7 +512,7 @@ private final class JobQueue {
     
     init(
         type: QueueType,
-        executionType: ExecutionType = .serial,
+        executionType: ExecutionType,
         qos: DispatchQoS,
         jobVariants: [Job.Variant],
         onQueueDrained: (() -> ())? = nil

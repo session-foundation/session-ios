@@ -24,6 +24,7 @@ public protocol SodiumType {
 public protocol AeadXChaCha20Poly1305IetfType {
     var KeyBytes: Int { get }
     var ABytes: Int { get }
+    var NonceBytes: Int { get }
     
     func encrypt(message: Bytes, secretKey: Bytes, nonce: Bytes, additionalData: Bytes?) -> Bytes?
     func decrypt(authenticatedCipherText: Bytes, secretKey: Bytes, nonce: Bytes, additionalData: Bytes?) -> Bytes?

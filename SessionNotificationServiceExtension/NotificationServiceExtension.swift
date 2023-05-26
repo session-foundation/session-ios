@@ -57,12 +57,22 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     )
             }
             
+            let (maybeEnvelope, result) = PushNotificationAPI.processNotification(
+                notificationContent: notificationContent
+            )
+            
             guard
-                let base64EncodedData: String = notificationContent.userInfo["ENCRYPTED_DATA"] as? String,
-                let data: Data = Data(base64Encoded: base64EncodedData),
-                let envelope = try? MessageWrapper.unwrap(data: data)
+                (result == .success || result == .legacySuccess),
+                let envelope: SNProtoEnvelope = maybeEnvelope
             else {
-                return self.handleFailure(for: notificationContent)
+                switch result {
+                    // If we got an explicit failure, or we got a success but no content then show
+                    // the fallback notification
+                    case .success, .legacySuccess, .failure, .legacyFailure:
+                        return self.handleFailure(for: notificationContent)
+                    
+                    case .legacyForceSilent: return
+                }
             }
             
             // HACK: It is important to use write synchronously here to avoid a race condition
