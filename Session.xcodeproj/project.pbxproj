@@ -4626,6 +4626,7 @@
 				D221A085169C9E5E00537ABF /* Sources */,
 				D221A086169C9E5E00537ABF /* Frameworks */,
 				D221A087169C9E5E00537ABF /* Resources */,
+				FDD82C422A2085B900425F05 /* Add Commit Hash To Build Info Plist */,
 				453518771FC635DD00210559 /* Embed Foundation Extensions */,
 				4535189F1FC63DBF00210559 /* Embed Frameworks */,
 				90DF4725BB1271EBA2C66A12 /* [CP] Embed Pods Frameworks */,
@@ -5317,6 +5318,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		FDD82C422A2085B900425F05 /* Add Commit Hash To Build Info Plist */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				$BUILT_PRODUCTS_DIR/$INFOPLIST_PATH,
+				$TARGET_BUILD_DIR/$INFOPLIST_PATH,
+			);
+			name = "Add Commit Hash To Build Info Plist";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "INFO_PLIST=\"${TARGET_BUILD_DIR}\"/\"${INFOPLIST_PATH}\"\n\n# Query and save the value; suppress any error message, if key not found.\nvalue=$(/usr/libexec/PlistBuddy -c 'print :GitCommitHash' \"${INFO_PLIST}\" 2>/dev/null)\n\n# Check if value is empty\nif [ -z \"$value\" ] \nthen\n   /usr/libexec/PlistBuddy -c \"Add :GitCommitHash string\" \"${INFO_PLIST}\"\nfi\n\n/usr/libexec/PlistBuddy -c \"Set :GitCommitHash `git rev-parse --short=7 HEAD`\" \"${INFO_PLIST}\"\n";
 			showEnvVarsInLog = 0;
 		};
 		FDE7214D287E50820093DF33 /* Lint Localizable.strings */ = {

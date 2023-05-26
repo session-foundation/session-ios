@@ -150,7 +150,19 @@ class HelpViewModel: SessionTableViewModel<NoNav, HelpViewModel.Section, HelpVie
     ) {
         let version: String = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String)
             .defaulting(to: "")
-        OWSLogger.info("[Version] iOS \(UIDevice.current.systemVersion), App: \(version), libSession: \(SessionUtil.libSessionVersion)")
+        #if DEBUG
+        let commitInfo: String? = (Bundle.main.infoDictionary?["GitCommitHash"] as? String).map { "Commit: \($0)" }
+        #else
+        let commitInfo: String? = nil
+        #endif
+        
+        let versionInfo: [String] = [
+            "iOS \(UIDevice.current.systemVersion)",
+            "App: \(version)",
+            "libSession: \(SessionUtil.libSessionVersion)",
+            commitInfo
+        ].compactMap { $0 }
+        OWSLogger.info("[Version] \(versionInfo.joined(separator: ", "))")
         DDLog.flushLog()
         
         let logFilePaths: [String] = AppEnvironment.shared.fileLogger.logFileManager.sortedLogFilePaths
