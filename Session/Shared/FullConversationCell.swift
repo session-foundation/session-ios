@@ -9,11 +9,6 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
     public static let mutePrefix: String = "\u{e067}  "
     public static let unreadCountViewSize: CGFloat = 20
     private static let statusIndicatorSize: CGFloat = 14
-    // If a message is much too long, it will take forever to calculate its width and
-    // cause the app to be frozen. So if a search result string is longer than 100
-    // characters, we assume it cannot be shown within one line and need to be truncated
-    // to avoid the calculation.
-    private static let maxApproxCharactersCanBeShownInOneLine: Int = 100
     
     // MARK: - UI
     
@@ -695,69 +690,18 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                     }
             }
         
-        // We then want to truncate the content so the first matching term is visible
-        let startOfSnippet: String.Index = (
-            firstMatchRange.map {
-                max(
-                    mentionReplacedContent.startIndex,
-                    mentionReplacedContent
-                        .index(
-                            $0.lowerBound,
-                            offsetBy: -10,
-                            limitedBy: mentionReplacedContent.startIndex
-                        )
-                        .defaulting(to: mentionReplacedContent.startIndex)
-                )
-            } ??
-            mentionReplacedContent.startIndex
-        )
-        
-        // This method determines if the content is probably too long and returns the truncated or untruncated
-        // content accordingly
-        func truncatingIfNeeded(approxWidth: CGFloat, content: NSAttributedString) -> NSAttributedString {
-            let approxFullWidth: CGFloat = (approxWidth + profilePictureView.size.viewSize + (Values.mediumSpacing * 3))
-            
-            guard ((bounds.width - approxFullWidth) < 0) else { return content }
-            
-            return content.attributedSubstring(
-                from: NSRange(startOfSnippet..<normalizedSnippet.endIndex, in: normalizedSnippet)
-            )
-        }
-        
         // Now that we have generated the focused snippet add the author name as a prefix (if provided)
         return authorName
             .map { authorName -> NSAttributedString? in
                 guard !authorName.isEmpty else { return nil }
                 
                 let authorPrefix: NSAttributedString = NSAttributedString(
-                    string: "\(authorName): ...",
+                    string: "\(authorName): ",
                     attributes: [ .foregroundColor: textColor ]
                 )
                 
-                return authorPrefix
-                    .appending(
-                        truncatingIfNeeded(
-                            approxWidth: (
-                                authorPrefix.size().width +
-                                (
-                                    result.length > Self.maxApproxCharactersCanBeShownInOneLine ?
-                                    bounds.width :
-                                    result.size().width
-                                )
-                            ),
-                            content: result
-                        )
-                    )
+                return authorPrefix.appending(result)
             }
-            .defaulting(
-                to: truncatingIfNeeded(
-                    approxWidth: (
-                        result.length > Self.maxApproxCharactersCanBeShownInOneLine ?
-                        bounds.width :
-                        result.size().width
-                    ),
-                    content: result
-                )
-            )
+            .defaulting(to: result)
     }
 }
