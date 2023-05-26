@@ -23,7 +23,10 @@ internal extension SessionUtil {
         Profile.Columns.name,
         Profile.Columns.nickname,
         Profile.Columns.profilePictureUrl,
-        Profile.Columns.profileEncryptionKey
+        Profile.Columns.profileEncryptionKey,
+        DisappearingMessagesConfiguration.Columns.isEnabled,
+        DisappearingMessagesConfiguration.Columns.type,
+        DisappearingMessagesConfiguration.Columns.durationSeconds
     ]
     
     // MARK: - Incoming Changes
@@ -38,7 +41,7 @@ internal extension SessionUtil {
             String: (
                 contact: Contact,
                 profile: Profile,
-                disappearingMessagesConfiguration: DisappearingMessagesConfiguration,
+                disappearingMessagesConfig: DisappearingMessagesConfiguration,
                 priority: Int32,
                 created: TimeInterval
             )
@@ -174,15 +177,15 @@ internal extension SessionUtil {
                     .defaulting(to: DisappearingMessagesConfiguration.defaultWith(sessionId))
                 
                 if
-                    let remoteLastChangeTimestampMs = data.disappearingMessagesConfiguration.lastChangeTimestampMs,
+                    let remoteLastChangeTimestampMs = data.disappearingMessagesConfig.lastChangeTimestampMs,
                     let localLastChangeTimestampMs = localDisappearingMessagesConfig.lastChangeTimestampMs,
                     remoteLastChangeTimestampMs > localLastChangeTimestampMs
                 {
                     _ = try localDisappearingMessagesConfig.with(
-                        isEnabled: data.disappearingMessagesConfiguration.isEnabled,
-                        durationSeconds: data.disappearingMessagesConfiguration.durationSeconds,
-                        type: data.disappearingMessagesConfiguration.type,
-                        lastChangeTimestampMs: data.disappearingMessagesConfiguration.lastChangeTimestampMs
+                        isEnabled: data.disappearingMessagesConfig.isEnabled,
+                        durationSeconds: data.disappearingMessagesConfig.durationSeconds,
+                        type: data.disappearingMessagesConfig.type,
+                        lastChangeTimestampMs: data.disappearingMessagesConfig.lastChangeTimestampMs
                     ).save(db)
                 }
                 
@@ -379,6 +382,15 @@ internal extension SessionUtil {
                     contacts_set(conf, &contact)
                 }
                 
+                // Assign all properties to match the updated disappearing messages configuration (if there is one)
+                if
+                    let updatedDisappearingMessageConfig: DisappearingMessagesConfiguration = info.disappearingMessagesConfig,
+                    let exp_mode: CONVO_EXPIRATION_MODE = updatedDisappearingMessageConfig.type?.toSessionUtilType()
+                {
+                    contact.exp_mode = exp_mode
+                    contact.exp_seconds = Int32(updatedDisappearingMessageConfig.durationSeconds)
+                }
+                
                 // Store the updated contact (can't be sure if we made any changes above)
                 contact.priority = (info.priority ?? contact.priority)
                 contacts_set(conf, &contact)
@@ -463,7 +475,7 @@ internal extension SessionUtil {
         // to do a config sync)
         guard !existingContactIds.isEmpty else { return updated }
         
-        // Get the user public key (updating their profile is handled separately
+        // Get the user public key (updating their profile is handled separately)
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         let targetProfiles: [Profile] = updatedProfiles
             .filter {
@@ -495,6 +507,28 @@ internal extension SessionUtil {
                 .upsert(
                     contactData: targetProfiles
                         .map { SyncedContactInfo(id: $0.id, profile: $0) },
+                    in: conf
+                )
+        }
+        
+        return updated
+    }
+    
+    static func updatingDisappearingMessagesConfigs<T>(_ db: Database, _ updated: [T]) throws -> [T] {
+        guard let updatedDisappearingMessagesConfigs: [DisappearingMessagesConfiguration] = updated as? [DisappearingMessagesConfiguration] else { throw StorageError.generic }
+        
+        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        guard !updatedDisappearingMessagesConfigs.isEmpty else { return updated }
+        
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .contacts,
+            publicKey: userPublicKey
+        ) { conf in
+            try SessionUtil
+                .upsert(
+                    contactData: updatedDisappearingMessagesConfigs
+                        .map { SyncedContactInfo(id: $0.id, disappearingMessagesConfig: $0) },
                     in: conf
                 )
         }
@@ -551,17 +585,20 @@ extension SessionUtil {
         let id: String
         let contact: Contact?
         let profile: Profile?
+        let disappearingMessagesConfig: DisappearingMessagesConfiguration?
         let priority: Int32?
         
         init(
             id: String,
             contact: Contact? = nil,
             profile: Profile? = nil,
+            disappearingMessagesConfig: DisappearingMessagesConfiguration? = nil,
             priority: Int32? = nil
         ) {
             self.id = id
             self.contact = contact
             self.profile = profile
+            self.disappearingMessagesConfig = disappearingMessagesConfig
             self.priority = priority
         }
     }

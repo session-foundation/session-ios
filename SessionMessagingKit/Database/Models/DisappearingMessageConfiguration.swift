@@ -52,7 +52,7 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatabl
         
         init(sessionUtilType: CONVO_EXPIRATION_MODE) {
             switch sessionUtilType {
-                case CONVO_EXPIRATION_AFTER_SEND: self = .disappearAfterRead
+                case CONVO_EXPIRATION_AFTER_READ: self = .disappearAfterRead
                 case CONVO_EXPIRATION_AFTER_SEND: self = .disappearAfterSend
                 default:                          self = .unknown
             }
@@ -63,6 +63,14 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatabl
                 case .unknown:            return .unknown
                 case .disappearAfterRead: return .deleteAfterRead
                 case .disappearAfterSend: return .deleteAfterSend
+            }
+        }
+        
+        func toSessionUtilType() -> CONVO_EXPIRATION_MODE {
+            switch self {
+                case .unknown:            return CONVO_EXPIRATION_NONE
+                case .disappearAfterRead: return CONVO_EXPIRATION_AFTER_READ
+                case .disappearAfterSend: return CONVO_EXPIRATION_AFTER_SEND
             }
         }
     }
