@@ -516,8 +516,16 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                 threadVariant: threadVariant
             )
             
-            // Legacy closed groups
+            // Contacts & legacy closed groups need to update the SessionUtil
             switch threadVariant {
+                case .contact:
+                    try SessionUtil
+                        .update(
+                            db,
+                            sessionId: threadId,
+                            disappearingMessagesConfig: updatedConfig
+                        )
+                
                 case .legacyGroup:
                     try SessionUtil
                         .update(

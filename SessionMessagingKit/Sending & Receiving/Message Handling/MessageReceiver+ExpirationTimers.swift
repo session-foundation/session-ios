@@ -64,9 +64,16 @@ extension MessageReceiver {
             .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
             .deleteAll(db)
         
-        // Legacy closed groups need to update the SessionUtil
-        // TODO: I assume we need to update the contact config here?
+        // Contacts & legacy closed groups need to update the SessionUtil
         switch threadVariant {
+            case .contact:
+                try SessionUtil
+                    .update(
+                        db,
+                        sessionId: threadId,
+                        disappearingMessagesConfig: remoteConfig
+                    )
+            
             case .legacyGroup:
                 try SessionUtil
                     .update(
@@ -152,9 +159,16 @@ extension MessageReceiver {
             .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
             .deleteAll(db)
         
-        // Legacy closed groups need to update the SessionUtil
-        // TODO: I assume we need to update the contact config here?
+        // Contacts & legacy closed groups need to update the SessionUtil
         switch threadVariant {
+            case .contact:
+                try SessionUtil
+                    .update(
+                        db,
+                        sessionId: threadId,
+                        disappearingMessagesConfig: remoteConfig
+                    )
+            
             case .legacyGroup:
                 try SessionUtil
                     .update(

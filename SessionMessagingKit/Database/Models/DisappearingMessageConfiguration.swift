@@ -66,7 +66,7 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatabl
             }
         }
         
-        func toSessionUtilType() -> CONVO_EXPIRATION_MODE {
+        func toLibSession() -> CONVO_EXPIRATION_MODE {
             switch self {
                 case .unknown:            return CONVO_EXPIRATION_NONE
                 case .disappearAfterRead: return CONVO_EXPIRATION_AFTER_READ
