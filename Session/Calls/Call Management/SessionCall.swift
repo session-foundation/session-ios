@@ -6,6 +6,7 @@ import Combine
 import CallKit
 import GRDB
 import WebRTC
+import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
 
@@ -157,7 +158,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         self.contactName = Profile.displayName(db, id: sessionId, threadVariant: .contact)
         self.profilePicture = avatarData
             .map { UIImage(data: $0) }
-            .defaulting(to: Identicon.generatePlaceholderIcon(seed: sessionId, text: self.contactName, size: 300))
+            .defaulting(to: PlaceholderIcon.generate(seed: sessionId, text: self.contactName, size: 300))
         self.animatedProfilePicture = avatarData
             .map { data in
                 switch data.guessedImageFormat {

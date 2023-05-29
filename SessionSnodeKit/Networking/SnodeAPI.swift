@@ -675,10 +675,8 @@ public final class SnodeAPI {
         }
         
         return getSwarm(for: publicKey)
-            .tryFlatMap { swarm -> AnyPublisher<(ResponseInfoType, SendMessagesResponse), Error> in
-                guard let snode: Snode = swarm.randomElement() else { throw SnodeAPIError.generic }
-                
-                return try sendMessage(to: snode)
+            .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<(ResponseInfoType, SendMessagesResponse), Error> in
+                try sendMessage(to: snode)
                     .tryMap { info, response -> (ResponseInfoType, SendMessagesResponse) in
                         try response.validateResultMap(
                             sodium: sodium.wrappedValue,
@@ -687,11 +685,8 @@ public final class SnodeAPI {
                         
                         return (info, response)
                     }
-                    .retry(maxRetryCount)
                     .eraseToAnyPublisher()
             }
-            .retry(maxRetryCount)
-            .eraseToAnyPublisher()
     }
     
     public static func sendConfigMessages(
@@ -768,10 +763,8 @@ public final class SnodeAPI {
         let responseTypes = requests.map { $0.responseType }
         
         return getSwarm(for: publicKey)
-            .tryFlatMap { swarm -> AnyPublisher<HTTP.BatchResponse, Error> in
-                guard let snode: Snode = swarm.randomElement() else { throw SnodeAPIError.generic }
-                
-                return SnodeAPI
+            .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<HTTP.BatchResponse, Error> in
+                SnodeAPI
                     .send(
                         request: SnodeRequest(
                             endpoint: .sequence,
@@ -785,8 +778,6 @@ public final class SnodeAPI {
                     .decoded(as: responseTypes, requireAllResults: false, using: dependencies)
                     .eraseToAnyPublisher()
             }
-            .retry(maxRetryCount)
-            .eraseToAnyPublisher()
     }
     
     // MARK: - Edit
@@ -814,10 +805,8 @@ public final class SnodeAPI {
         
         return getSwarm(for: publicKey)
             .subscribe(on: Threading.workQueue)
-            .tryFlatMap { swarm -> AnyPublisher<[String: UpdateExpiryResponseResult], Error> in
-                guard let snode: Snode = swarm.randomElement() else { throw SnodeAPIError.generic }
-                
-                return SnodeAPI
+            .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: UpdateExpiryResponseResult], Error> in
+                SnodeAPI
                     .send(
                         request: SnodeRequest(
                             endpoint: .expire,
@@ -844,11 +833,8 @@ public final class SnodeAPI {
                             validationData: serverHashes
                         )
                     }
-                    .retry(maxRetryCount)
                     .eraseToAnyPublisher()
             }
-            .retry(maxRetryCount)
-            .eraseToAnyPublisher()
     }
     
     public static func revokeSubkey(
@@ -863,10 +849,8 @@ public final class SnodeAPI {
         
         return getSwarm(for: publicKey)
             .subscribe(on: Threading.workQueue)
-            .tryFlatMap { swarm -> AnyPublisher<Void, Error> in
-                guard let snode: Snode = swarm.randomElement() else { throw SnodeAPIError.generic }
-                
-                return SnodeAPI
+            .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<Void, Error> in
+                SnodeAPI
                     .send(
                         request: SnodeRequest(
                             endpoint: .revokeSubkey,
@@ -891,11 +875,8 @@ public final class SnodeAPI {
                         
                         return ()
                     }
-                    .retry(maxRetryCount)
                     .eraseToAnyPublisher()
             }
-            .retry(maxRetryCount)
-            .eraseToAnyPublisher()
     }
     
     // MARK: Delete
@@ -914,61 +895,46 @@ public final class SnodeAPI {
         
         return getSwarm(for: publicKey)
             .subscribe(on: Threading.workQueue)
-            .flatMap { swarm -> AnyPublisher<[String: Bool], Error> in
-                Just(())
-                    .setFailureType(to: Error.self)
-                    .tryMap { _ -> Snode in
-                        guard let snode: Snode = swarm.randomElement() else { throw SnodeAPIError.generic }
-                        
-                        return snode
-                    }
-                    .flatMap { snode -> AnyPublisher<[String: Bool], Error> in
-                        SnodeAPI
-                            .send(
-                                request: SnodeRequest(
-                                    endpoint: .deleteMessages,
-                                    body: DeleteMessagesRequest(
-                                        messageHashes: serverHashes,
-                                        requireSuccessfulDeletion: false,
-                                        pubkey: userX25519PublicKey,
-                                        ed25519PublicKey: userED25519KeyPair.publicKey,
-                                        ed25519SecretKey: userED25519KeyPair.secretKey
-                                    )
-                                ),
-                                to: snode,
-                                associatedWith: publicKey,
-                                using: dependencies
+            .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: Bool], Error> in
+                SnodeAPI
+                    .send(
+                        request: SnodeRequest(
+                            endpoint: .deleteMessages,
+                            body: DeleteMessagesRequest(
+                                messageHashes: serverHashes,
+                                requireSuccessfulDeletion: false,
+                                pubkey: userX25519PublicKey,
+                                ed25519PublicKey: userED25519KeyPair.publicKey,
+                                ed25519SecretKey: userED25519KeyPair.secretKey
                             )
-                            .subscribe(on: Threading.workQueue)
-                            .eraseToAnyPublisher()
-                            .decoded(as: DeleteMessagesResponse.self, using: dependencies)
-                            .tryMap { _, response -> [String: Bool] in
-                                let validResultMap: [String: Bool] = try response.validResultMap(
-                                    sodium: sodium.wrappedValue,
-                                    userX25519PublicKey: userX25519PublicKey,
-                                    validationData: serverHashes
-                                )
-                                
-                                // If `validResultMap` didn't throw then at least one service node
-                                // deleted successfully so we should mark the hash as invalid so we
-                                // don't try to fetch updates using that hash going forward (if we
-                                // do we would end up re-fetching all old messages)
-                                Storage.shared.writeAsync { db in
-                                    try? SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
-                                        db,
-                                        potentiallyInvalidHashes: serverHashes
-                                    )
-                                }
-                                
-                                return validResultMap
-                            }
-                            .retry(maxRetryCount)
-                            .eraseToAnyPublisher()
+                        ),
+                        to: snode,
+                        associatedWith: publicKey,
+                        using: dependencies
+                    )
+                    .decoded(as: DeleteMessagesResponse.self, using: dependencies)
+                    .tryMap { _, response -> [String: Bool] in
+                        let validResultMap: [String: Bool] = try response.validResultMap(
+                            sodium: sodium.wrappedValue,
+                            userX25519PublicKey: userX25519PublicKey,
+                            validationData: serverHashes
+                        )
+                        
+                        // If `validResultMap` didn't throw then at least one service node
+                        // deleted successfully so we should mark the hash as invalid so we
+                        // don't try to fetch updates using that hash going forward (if we
+                        // do we would end up re-fetching all old messages)
+                        Storage.shared.writeAsync { db in
+                            try? SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
+                                db,
+                                potentiallyInvalidHashes: serverHashes
+                            )
+                        }
+                        
+                        return validResultMap
                     }
                     .eraseToAnyPublisher()
             }
-            .retry(maxRetryCount)
-            .eraseToAnyPublisher()
     }
     
     /// Clears all the user's data from their swarm. Returns a dictionary of snode public key to deletion confirmation.
@@ -985,10 +951,8 @@ public final class SnodeAPI {
         
         return getSwarm(for: userX25519PublicKey)
             .subscribe(on: Threading.workQueue)
-            .tryFlatMap { swarm -> AnyPublisher<[String: Bool], Error> in
-                guard let snode: Snode = swarm.randomElement() else { throw SnodeAPIError.generic }
-                
-                return getNetworkTime(from: snode)
+            .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: Bool], Error> in
+                getNetworkTime(from: snode)
                     .flatMap { timestampMs -> AnyPublisher<[String: Bool], Error> in
                         SnodeAPI
                             .send(
@@ -1016,11 +980,8 @@ public final class SnodeAPI {
                             }
                             .eraseToAnyPublisher()
                     }
-                    .retry(maxRetryCount)
                     .eraseToAnyPublisher()
             }
-            .retry(maxRetryCount)
-            .eraseToAnyPublisher()
     }
     
     /// Clears all the user's data from their swarm. Returns a dictionary of snode public key to deletion confirmation.
@@ -1038,10 +999,8 @@ public final class SnodeAPI {
         
         return getSwarm(for: userX25519PublicKey)
             .subscribe(on: Threading.workQueue)
-            .tryFlatMap { swarm -> AnyPublisher<[String: Bool], Error> in
-                guard let snode: Snode = swarm.randomElement() else { throw SnodeAPIError.generic }
-                
-                return getNetworkTime(from: snode)
+            .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: Bool], Error> in
+                getNetworkTime(from: snode)
                     .flatMap { timestampMs -> AnyPublisher<[String: Bool], Error> in
                         SnodeAPI
                             .send(
@@ -1070,11 +1029,8 @@ public final class SnodeAPI {
                             }
                             .eraseToAnyPublisher()
                     }
-                    .retry(maxRetryCount)
                     .eraseToAnyPublisher()
             }
-            .retry(maxRetryCount)
-            .eraseToAnyPublisher()
     }
     
     // MARK: - Internal API
@@ -1429,5 +1385,33 @@ public final class SNSnodeAPI: NSObject {
     @objc(currentOffsetTimestampMs)
     public static func currentOffsetTimestampMs() -> UInt64 {
         return UInt64(SnodeAPI.currentOffsetTimestampMs())
+    }
+}
+
+// MARK: - Convenience
+
+public extension Publisher where Output == Set<Snode> {
+    func tryFlatMapWithRandomSnode<T, P>(
+        maxPublishers: Subscribers.Demand = .unlimited,
+        retry retries: Int = 0,
+        _ transform: @escaping (Snode) throws -> P
+    ) -> AnyPublisher<T, Error> where T == P.Output, P: Publisher, P.Failure == Error {
+        return self
+            .mapError { $0 }
+            .flatMap(maxPublishers: maxPublishers) { swarm -> AnyPublisher<T, Error> in
+                var remainingSnodes: Set<Snode> = swarm
+                
+                return Just(())
+                    .setFailureType(to: Error.self)
+                    .tryFlatMap(maxPublishers: maxPublishers) { _ -> AnyPublisher<T, Error> in
+                        let snode: Snode = try remainingSnodes.popRandomElement() ?? { throw SnodeAPIError.generic }()
+                        
+                        return try transform(snode)
+                            .eraseToAnyPublisher()
+                    }
+                    .retry(retries)
+                    .eraseToAnyPublisher()
+            }
+            .eraseToAnyPublisher()
     }
 }

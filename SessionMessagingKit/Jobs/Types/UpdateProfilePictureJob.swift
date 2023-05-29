@@ -43,22 +43,26 @@ public enum UpdateProfilePictureJob: JobExecutor {
         
         // Note: The user defaults flag is updated in ProfileManager
         let profile: Profile = Profile.fetchOrCreateCurrentUser()
-        let profileFilePath: String? = profile.profilePictureFileName
-            .map { ProfileManager.profileAvatarFilepath(filename: $0) }
+        let profilePictureData: Data? = profile.profilePictureFileName
+            .map { ProfileManager.loadProfileData(with: $0) }
         
         ProfileManager.updateLocal(
             queue: queue,
             profileName: profile.name,
-            avatarUpdate: (profileFilePath.map { .uploadFilePath($0) } ?? .none),
+            avatarUpdate: (profilePictureData.map { .uploadImageData($0) } ?? .none),
             success: { db in
                 // Need to call the 'success' closure asynchronously on the queue to prevent a reentrancy
                 // issue as it will write to the database and this closure is already called within
                 // another database write
                 queue.async {
+                    SNLog("[UpdateProfilePictureJob] Profile successfully updated")
                     success(job, false)
                 }
             },
-            failure: { error in failure(job, error, false) }
+            failure: { error in
+                SNLog("[UpdateProfilePictureJob] Failed to update profile")
+                failure(job, error, false)
+            }
         )
     }
 }

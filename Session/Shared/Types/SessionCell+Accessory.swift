@@ -43,12 +43,13 @@ extension SessionCell {
         )
         case profile(
             id: String,
-            size: IconSize,
+            size: ProfilePictureView.Size,
             threadVariant: SessionThread.Variant,
             customImageData: Data?,
             profile: Profile?,
+            profileIcon: ProfilePictureView.ProfileIcon,
             additionalProfile: Profile?,
-            cornerIcon: UIImage?,
+            additionalProfileIcon: ProfilePictureView.ProfileIcon,
             accessibility: Accessibility?
         )
         
@@ -127,8 +128,9 @@ extension SessionCell {
                     let threadVariant,
                     let customImageData,
                     let profile,
+                    let profileIcon,
                     let additionalProfile,
-                    let cornerIcon,
+                    let additionalProfileIcon,
                     let accessibility
                 ):
                     profileId.hash(into: &hasher)
@@ -136,8 +138,9 @@ extension SessionCell {
                     threadVariant.hash(into: &hasher)
                     customImageData.hash(into: &hasher)
                     profile.hash(into: &hasher)
+                    profileIcon.hash(into: &hasher)
                     additionalProfile.hash(into: &hasher)
-                    cornerIcon.hash(into: &hasher)
+                    additionalProfileIcon.hash(into: &hasher)
                     accessibility.hash(into: &hasher)
                     
                 case .search(let placeholder, let accessibility, _):
@@ -204,20 +207,22 @@ extension SessionCell {
                         let lhsProfileId,
                         let lhsSize,
                         let lhsThreadVariant,
-                        let lhsProfile,
-                        let lhsAdditionalProfile,
                         let lhsCustomImageData,
-                        let lhsCornerIcon,
+                        let lhsProfile,
+                        let lhsProfileIcon,
+                        let lhsAdditionalProfile,
+                        let lhsAdditionalProfileIcon,
                         let lhsAccessibility
                     ),
                     .profile(
                         let rhsProfileId,
                         let rhsSize,
                         let rhsThreadVariant,
-                        let rhsProfile,
-                        let rhsAdditionalProfile,
                         let rhsCustomImageData,
-                        let rhsCornerIcon,
+                        let rhsProfile,
+                        let rhsProfileIcon,
+                        let rhsAdditionalProfile,
+                        let rhsAdditionalProfileIcon,
                         let rhsAccessibility
                     )
                 ):
@@ -225,10 +230,11 @@ extension SessionCell {
                         lhsProfileId == rhsProfileId &&
                         lhsSize == rhsSize &&
                         lhsThreadVariant == rhsThreadVariant &&
-                        lhsProfile == rhsProfile &&
-                        lhsAdditionalProfile == rhsAdditionalProfile &&
                         lhsCustomImageData == rhsCustomImageData &&
-                        lhsCornerIcon == rhsCornerIcon &&
+                        lhsProfile == rhsProfile &&
+                        lhsProfileIcon == rhsProfileIcon &&
+                        lhsAdditionalProfile == rhsAdditionalProfile &&
+                        lhsAdditionalProfileIcon == rhsAdditionalProfileIcon &&
                         lhsAccessibility == rhsAccessibility
                     )
                     
@@ -346,25 +352,27 @@ extension SessionCell.Accessory {
     public static func profile(id: String, profile: Profile?) -> SessionCell.Accessory {
         return .profile(
             id: id,
-            size: .veryLarge,
+            size: .list,
             threadVariant: .contact,
             customImageData: nil,
             profile: profile,
+            profileIcon: .none,
             additionalProfile: nil,
-            cornerIcon: nil,
+            additionalProfileIcon: .none,
             accessibility: nil
         )
     }
     
-    public static func profile(id: String, size: IconSize, profile: Profile?) -> SessionCell.Accessory {
+    public static func profile(id: String, size: ProfilePictureView.Size, profile: Profile?) -> SessionCell.Accessory {
         return .profile(
             id: id,
             size: size,
             threadVariant: .contact,
             customImageData: nil,
             profile: profile,
+            profileIcon: .none,
             additionalProfile: nil,
-            cornerIcon: nil,
+            additionalProfileIcon: .none,
             accessibility: nil
         )
     }

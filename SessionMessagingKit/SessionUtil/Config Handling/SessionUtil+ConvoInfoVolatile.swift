@@ -85,9 +85,6 @@ internal extension SessionUtil {
             convo_info_volatile_iterator_advance(convoIterator)
         }
         convo_info_volatile_iterator_free(convoIterator) // Need to free the iterator
-
-        // If we don't have any conversations then no need to continue
-        guard !volatileThreadInfo.isEmpty else { return }
         
         // Get the local volatile thread info from all conversations
         let localVolatileThreadInfo: [String: VolatileThreadInfo] = VolatileThreadInfo.fetchAll(db)

@@ -102,9 +102,6 @@ internal extension SessionUtil {
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         let targetContactData: ContactData = contactData.filter { $0.key != userPublicKey }
         
-        // If we only updated the current user contact then no need to continue
-        guard !targetContactData.isEmpty else { return }
-        
         // Since we don't sync 100% of the data stored against the contact and profile objects we
         // need to only update the data we do have to ensure we don't overwrite anything that doesn't
         // get synced
@@ -201,12 +198,12 @@ internal extension SessionUtil {
 
                 switch (updatedShouldBeVisible, threadExists) {
                     case (false, true):
-                        SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: [contact.id])
+                        SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: [sessionId])
                         
                         try SessionThread
                             .deleteOrLeave(
                                 db,
-                                threadId: contact.id,
+                                threadId: sessionId,
                                 threadVariant: .contact,
                                 groupLeaveType: .forced,
                                 calledFromConfigHandling: true
@@ -214,7 +211,7 @@ internal extension SessionUtil {
                         
                     case (true, false):
                         try SessionThread(
-                            id: contact.id,
+                            id: sessionId,
                             variant: .contact,
                             creationDateTimestamp: data.created,
                             shouldBeVisible: true,
@@ -232,7 +229,7 @@ internal extension SessionUtil {
                         ].compactMap { $0 }
                         
                         try SessionThread
-                            .filter(id: contact.id)
+                            .filter(id: sessionId)
                             .updateAll( // Handling a config update so don't use `updateAllAndConfig`
                                 db,
                                 changes

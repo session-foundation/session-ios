@@ -47,8 +47,13 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {
-                        case .finished: success(job, false)
-                        case .failure(let error): failure(job, error, false)
+                        case .finished:
+                            SNLog("[RetrieveDefaultOpenGroupRoomsJob] Successfully retrieved default Community rooms")
+                            success(job, false)
+                            
+                        case .failure(let error):
+                            SNLog("[RetrieveDefaultOpenGroupRoomsJob] Failed to get default Community rooms")
+                            failure(job, error, false)
                     }
                 }
             )

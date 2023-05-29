@@ -137,7 +137,7 @@ public extension AnyPublisher {
 
 // MARK: - Data Decoding
 
-public extension AnyPublisher where Output == Data, Failure == Error {
+public extension Publisher where Output == Data, Failure == Error {
     func decoded<R: Decodable>(
         as type: R.Type,
         using dependencies: Dependencies = Dependencies()
@@ -148,7 +148,7 @@ public extension AnyPublisher where Output == Data, Failure == Error {
     }
 }
 
-public extension AnyPublisher where Output == (ResponseInfoType, Data?), Failure == Error {
+public extension Publisher where Output == (ResponseInfoType, Data?), Failure == Error {
     func decoded<R: Decodable>(
         as type: R.Type,
         using dependencies: Dependencies = Dependencies()

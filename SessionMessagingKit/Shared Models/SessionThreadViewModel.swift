@@ -265,6 +265,8 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
         let threadId: String = self.threadId
         let threadWasMarkedUnread: Bool? = self.threadWasMarkedUnread
         let markThreadAsReadIfNeeded: () -> () = {
+            // Only make this change if needed (want to avoid triggering a thread update
+            // if not needed)
             guard threadWasMarkedUnread == true else { return }
             
             Storage.shared.writeAsync { db in
@@ -299,16 +301,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
                 let threadIsMessageRequest: Bool? = self.threadIsMessageRequest
                 
                 Storage.shared.writeAsync { db in
-                    // Only make this change if needed (want to avoid triggering a thread update
-                    // if not needed)
-                    if threadWasMarkedUnread == true {
-                        try SessionThread
-                            .filter(id: threadId)
-                            .updateAllAndConfig(
-                                db,
-                                SessionThread.Columns.markedAsUnread.set(to: false)
-                            )
-                    }
+                    markThreadAsReadIfNeeded()
                     
                     try Interaction.markAsRead(
                         db,
@@ -1216,7 +1209,7 @@ public extension SessionThreadViewModel {
                 \(interaction[.id]) AS \(ViewModel.interactionIdKey),
                 \(interaction[.variant]) AS \(ViewModel.interactionVariantKey),
                 \(interaction[.timestampMs]) AS \(ViewModel.interactionTimestampMsKey),
-                \(interaction[.body]) AS \(ViewModel.interactionBodyKey),
+                snippet(\(interactionFullTextSearch), -1, '', '', '...', 6) AS \(ViewModel.interactionBodyKey),
         
                 \(interaction[.authorId]),
                 IFNULL(\(profile[.nickname]), \(profile[.name])) AS \(ViewModel.authorNameInternalKey),
@@ -1297,12 +1290,18 @@ public extension SessionThreadViewModel {
     /// - Closed group member name
     /// - Open group name
     /// - "Note to self" text match
+    /// - Hidden contact nickname
+    /// - Hidden contact name
+    ///
+    /// **Note 2:** Since the "Hidden Contact" records don't have associated threads the `rowId` value in the
+    /// returned results will always be `-1` for those results
     static func contactsAndGroupsQuery(userPublicKey: String, pattern: FTS5Pattern, searchTerm: String) -> AdaptedFetchRequest<SQLRequest<SessionThreadViewModel>> {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
         let openGroup: TypedTableAlias<OpenGroup> = TypedTableAlias()
         let profile: TypedTableAlias<Profile> = TypedTableAlias()
+        let contact: TypedTableAlias<Contact> = TypedTableAlias()
         let profileIdColumnLiteral: SQL = SQL(stringLiteral: Profile.Columns.id.name)
         let profileNicknameColumnLiteral: SQL = SQL(stringLiteral: Profile.Columns.nickname.name)
         let profileNameColumnLiteral: SQL = SQL(stringLiteral: Profile.Columns.name.name)
@@ -1612,6 +1611,83 @@ public extension SessionThreadViewModel {
         
             WHERE \(SQL("\(thread[.id]) = \(userPublicKey)"))
         """
+        
+        // MARK: --Contacts without threads
+        let hiddenContactQuery: SQL = """
+            SELECT
+                IFNULL(\(Column.rank), 100) AS \(Column.rank),
+                
+                -1 AS \(ViewModel.rowIdKey),
+                \(contact[.id]) AS \(ViewModel.threadIdKey),
+                \(SQL("\(SessionThread.Variant.contact)")) AS \(ViewModel.threadVariantKey),
+                0 AS \(ViewModel.threadCreationDateTimestampKey),
+                \(groupMemberInfoLiteral).\(ViewModel.threadMemberNamesKey),
+                
+                false AS \(ViewModel.threadIsNoteToSelfKey),
+                -1 AS \(ViewModel.threadPinnedPriorityKey),
+                
+                \(ViewModel.contactProfileKey).*,
+                \(ViewModel.closedGroupProfileFrontKey).*,
+                \(ViewModel.closedGroupProfileBackKey).*,
+                \(ViewModel.closedGroupProfileBackFallbackKey).*,
+                \(closedGroup[.name]) AS \(ViewModel.closedGroupNameKey),
+                \(openGroup[.name]) AS \(ViewModel.openGroupNameKey),
+                \(openGroup[.imageData]) AS \(ViewModel.openGroupProfilePictureDataKey),
+                
+                \(SQL("\(userPublicKey)")) AS \(ViewModel.currentUserPublicKeyKey)
+
+            FROM \(Contact.self)
+        """
+        let hiddenContactQueryCommonJoins: SQL = """
+            JOIN \(Profile.self) AS \(ViewModel.contactProfileKey) ON \(ViewModel.contactProfileKey).\(profileIdColumnLiteral) = \(contact[.id])
+            LEFT JOIN \(SessionThread.self) ON \(thread[.id]) = \(contact[.id])
+            LEFT JOIN \(Profile.self) AS \(ViewModel.closedGroupProfileFrontKey) ON false
+            LEFT JOIN \(Profile.self) AS \(ViewModel.closedGroupProfileBackKey) ON false
+            LEFT JOIN \(Profile.self) AS \(ViewModel.closedGroupProfileBackFallbackKey) ON false
+            LEFT JOIN \(ClosedGroup.self) ON false
+            LEFT JOIN \(OpenGroup.self) ON false
+            LEFT JOIN (
+                SELECT
+                    \(groupMember[.groupId]),
+                    '' AS \(ViewModel.threadMemberNamesKey)
+                FROM \(GroupMember.self)
+            ) AS \(groupMemberInfoLiteral) ON false
+        
+            WHERE \(thread[.id]) IS NULL
+            GROUP BY \(contact[.id])
+        """
+        
+        // Hidden contact by nickname
+        sqlQuery += """
+        
+            UNION ALL
+        
+        """
+        sqlQuery += hiddenContactQuery
+        sqlQuery += """
+        
+            JOIN \(profileFullTextSearch) ON (
+                \(profileFullTextSearch).rowid = \(ViewModel.contactProfileKey).rowid AND
+                \(profileFullTextSearch).\(profileNicknameColumnLiteral) MATCH \(pattern)
+            )
+        """
+        sqlQuery += hiddenContactQueryCommonJoins
+        
+        // Hidden contact by name
+        sqlQuery += """
+        
+            UNION ALL
+        
+        """
+        sqlQuery += hiddenContactQuery
+        sqlQuery += """
+        
+            JOIN \(profileFullTextSearch) ON (
+                \(profileFullTextSearch).rowid = \(ViewModel.contactProfileKey).rowid AND
+                \(profileFullTextSearch).\(profileNameColumnLiteral) MATCH \(pattern)
+            )
+        """
+        sqlQuery += hiddenContactQueryCommonJoins
         
         // Group everything by 'threadId' (the same thread can be found in multiple queries due
         // to seaerching both nickname and name), then order everything by 'rank' (relevance)

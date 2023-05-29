@@ -549,7 +549,7 @@ extension MessageReceiver {
                     try ClosedGroup.removeKeysAndUnsubscribe(
                         db,
                         threadId: threadId,
-                        removeGroupData: false,
+                        removeGroupData: (sender == userPublicKey),
                         calledFromConfigHandling: false
                     )
                 }

@@ -131,6 +131,16 @@ extension ContextMenuVC {
             ) { delegate?.contextMenuDismissed() }
         }
     }
+    
+    static func viewModelCanReply(_ cellViewModel: MessageViewModel) -> Bool {
+        return (
+            cellViewModel.variant == .standardIncoming || (
+                cellViewModel.variant == .standardOutgoing &&
+                cellViewModel.state != .failed &&
+                cellViewModel.state != .sending
+            )
+        )
+    }
 
     static func actions(
         for cellViewModel: MessageViewModel,
@@ -159,12 +169,6 @@ extension ContextMenuVC {
                     cellViewModel.threadVariant == .contact &&
                     cellViewModel.state == .failedToSync
                 )
-            )
-        )
-        let canReply: Bool = (
-            cellViewModel.variant != .standardOutgoing || (
-                cellViewModel.state != .failed &&
-                cellViewModel.state != .sending
             )
         )
         let canCopy: Bool = (
@@ -219,7 +223,7 @@ extension ContextMenuVC {
         
         let generatedActions: [Action] = [
             (canRetry ? Action.retry(cellViewModel, delegate) : nil),
-            (canReply ? Action.reply(cellViewModel, delegate) : nil),
+            (viewModelCanReply(cellViewModel) ? Action.reply(cellViewModel, delegate) : nil),
             (canCopy ? Action.copy(cellViewModel, delegate) : nil),
             (canSave ? Action.save(cellViewModel, delegate) : nil),
             (canCopySessionId ? Action.copySessionID(cellViewModel, delegate) : nil),

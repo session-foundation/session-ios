@@ -11,23 +11,8 @@ public struct ProfileManager {
     public enum AvatarUpdate {
         case none
         case remove
-        case uploadImage(UIImage)
-        case uploadFilePath(String)
+        case uploadImageData(Data)
         case updateTo(url: String, key: Data, fileName: String?)
-        
-        var image: UIImage? {
-            switch self {
-                case .uploadImage(let image): return image
-                default: return nil
-            }
-        }
-        
-        var filePath: String? {
-            switch self {
-                case .uploadFilePath(let filePath): return filePath
-                default: return nil
-            }
-        }
     }
     
     // The max bytes for a user's profile name, encoded in UTF8.
@@ -339,11 +324,10 @@ public struct ProfileManager {
                     try success?(db)
                 }
                 
-            case .uploadFilePath, .uploadImage:
+            case .uploadImageData(let data):
                 prepareAndUploadAvatarImage(
                     queue: queue,
-                    image: avatarUpdate.image,
-                    imageFilePath: avatarUpdate.filePath,
+                    imageData: data,
                     success: { downloadUrl, fileName, newProfileKey in
                         Storage.shared.writeAsync { db in
                             try ProfileManager.updateProfileIfNeeded(
@@ -365,8 +349,7 @@ public struct ProfileManager {
     
     private static func prepareAndUploadAvatarImage(
         queue: DispatchQueue,
-        image: UIImage?,
-        imageFilePath: String?,
+        imageData: Data,
         success: @escaping ((downloadUrl: String, fileName: String, profileKey: Data)) -> (),
         failure: ((ProfileManagerError) -> ())? = nil
     ) {
@@ -374,30 +357,33 @@ public struct ProfileManager {
             // If the profile avatar was updated or removed then encrypt with a new profile key
             // to ensure that other users know that our profile picture was updated
             let newProfileKey: Data
-            let avatarImageData: Data?
+            let avatarImageData: Data
+            let fileExtension: String
             
             do {
-                newProfileKey = try Randomness.generateRandomBytes(numberBytes: ProfileManager.avatarAES256KeyByteLength)
+                let guessedFormat: ImageFormat = imageData.guessedImageFormat
                 
                 avatarImageData = try {
-                    guard var image: UIImage = image else {
-                        guard let imageFilePath: String = imageFilePath else {
-                            throw ProfileManagerError.invalidCall
-                        }
-                        
-                        let data: Data = try Data(contentsOf: URL(fileURLWithPath: imageFilePath))
-                        
-                        guard data.count <= maxAvatarBytes else {
-                            // Our avatar dimensions are so small that it's incredibly unlikely we wouldn't
-                            // be able to fit our profile photo (eg. generating pure noise at our resolution
-                            // compresses to ~200k)
-                            SNLog("Animated profile avatar was too large.")
-                            SNLog("Updating service with profile failed.")
-                            throw ProfileManagerError.avatarUploadMaxFileSizeExceeded
-                        }
-                        
-                        return data
+                    switch guessedFormat {
+                        case .gif, .webp:
+                            // Animated images can't be resized so if the data is too large we should error
+                            guard imageData.count <= maxAvatarBytes else {
+                                // Our avatar dimensions are so small that it's incredibly unlikely we wouldn't
+                                // be able to fit our profile photo (eg. generating pure noise at our resolution
+                                // compresses to ~200k)
+                                SNLog("Animated profile avatar was too large.")
+                                SNLog("Updating service with profile failed.")
+                                throw ProfileManagerError.avatarUploadMaxFileSizeExceeded
+                            }
+                            
+                            return imageData
+                            
+                        default: break
                     }
+                    
+                    // Process the image to ensure it meets our standards for size and compress it to
+                    // standardise the formwat and remove any metadata
+                    guard var image: UIImage = UIImage(data: imageData) else { throw ProfileManagerError.invalidCall }
                     
                     if image.size.width != maxAvatarDiameter || image.size.height != maxAvatarDiameter {
                         // To help ensure the user is being shown the same cropping of their avatar as
@@ -422,19 +408,19 @@ public struct ProfileManager {
                     
                     return data
                 }()
+                
+                newProfileKey = try Randomness.generateRandomBytes(numberBytes: ProfileManager.avatarAES256KeyByteLength)
+                fileExtension = {
+                    switch guessedFormat {
+                        case .gif: return "gif"
+                        case .webp: return "webp"
+                        default: return "jpg"
+                    }
+                }()
             }
-            catch {
-                if let profileManagerError: ProfileManagerError = error as? ProfileManagerError {
-                    failure?(profileManagerError)
-                }
-                return
-            } 
-            
-            // If we have no image then we should succeed (database changes happen in the callback)
-            guard let data: Data = avatarImageData else {
-                failure?(ProfileManagerError.invalidCall)
-                return
-            }
+            // TODO: Test that this actually works
+            catch let error as ProfileManagerError { return (failure?(error) ?? {}()) }
+            catch { return (failure?(ProfileManagerError.invalidCall) ?? {}()) }
 
             // If we have a new avatar image, we must first:
             //
@@ -444,16 +430,11 @@ public struct ProfileManager {
             // * Send asset service info to Signal Service
             OWSLogger.verbose("Updating local profile on service with new avatar.")
             
-            let fileName: String = UUID().uuidString
-                .appendingFileExtension(
-                    imageFilePath
-                        .map { URL(fileURLWithPath: $0).pathExtension }
-                        .defaulting(to: "jpg")
-                )
+            let fileName: String = UUID().uuidString.appendingFileExtension(fileExtension)
             let filePath: String = ProfileManager.profileAvatarFilepath(filename: fileName)
             
             // Write the avatar to disk
-            do { try data.write(to: URL(fileURLWithPath: filePath), options: [.atomic]) }
+            do { try avatarImageData.write(to: URL(fileURLWithPath: filePath), options: [.atomic]) }
             catch {
                 SNLog("Updating service with profile failed.")
                 failure?(.avatarWriteFailed)
@@ -461,7 +442,7 @@ public struct ProfileManager {
             }
             
             // Encrypt the avatar for upload
-            guard let encryptedAvatarData: Data = encryptData(data: data, key: newProfileKey) else {
+            guard let encryptedAvatarData: Data = encryptData(data: avatarImageData, key: newProfileKey) else {
                 SNLog("Updating service with profile failed.")
                 failure?(.avatarEncryptionFailed)
                 return
@@ -489,7 +470,7 @@ public struct ProfileManager {
                         let downloadUrl: String = "\(FileServerAPI.server)/file/\(fileUploadResponse.id)"
                         
                         // Update the cached avatar image value
-                        profileAvatarCache.mutate { $0[fileName] = data }
+                        profileAvatarCache.mutate { $0[fileName] = avatarImageData }
                         UserDefaults.standard[.lastProfilePictureUpload] = Date()
                         
                         SNLog("Successfully uploaded avatar image.")
@@ -545,7 +526,7 @@ public struct ProfileManager {
         if shouldUpdateAvatar {
             switch avatarUpdate {
                 case .none: break
-                case .uploadImage, .uploadFilePath: preconditionFailure("Invalid options for this function")
+                case .uploadImageData: preconditionFailure("Invalid options for this function")
                     
                 case .remove:
                     if isCurrentUser {

@@ -23,6 +23,7 @@ public enum MessageSendJob: JobExecutor {
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
         else {
+            SNLog("[MessageSendJob] Failing due to missing details")
             failure(job, JobRunnerError.missingRequiredDetails, true)
             return
         }
@@ -31,11 +32,21 @@ public enum MessageSendJob: JobExecutor {
         // so extract them from any associated attachments
         var messageFileIds: [String] = []
         
-        if details.message is VisibleMessage {
+        /// Ensure any associated attachments have already been uploaded before sending the message
+        ///
+        /// **Note:** Reactions reference their original message so we need to ignore this logic for reaction messages to ensure we don't
+        /// incorrectly re-upload incoming attachments that the user reacted to, we also want to exclude "sync" messages since they should
+        /// already have attachments in a valid state
+        if
+            details.message is VisibleMessage,
+            (details.message as? VisibleMessage)?.reaction == nil &&
+            details.isSyncMessage == false
+        {
             guard
                 let jobId: Int64 = job.id,
                 let interactionId: Int64 = job.interactionId
             else {
+                SNLog("[MessageSendJob] Failing due to missing details")
                 failure(job, JobRunnerError.missingRequiredDetails, true)
                 return
             }
@@ -43,6 +54,7 @@ public enum MessageSendJob: JobExecutor {
             // If the original interaction no longer exists then don't bother sending the message (ie. the
             // message was deleted before it even got sent)
             guard Storage.shared.read({ db in try Interaction.exists(db, id: interactionId) }) == true else {
+                SNLog("[MessageSendJob] Failing due to missing interaction")
                 failure(job, StorageError.objectNotFound, true)
                 return
             }
@@ -141,12 +153,14 @@ public enum MessageSendJob: JobExecutor {
             // Note: If we have gotten to this point then any dependant attachment upload
             // jobs will have permanently failed so this message send should also do so
             guard attachmentState?.shouldFail == false else {
+                SNLog("[MessageSendJob] Failing due to failed attachment upload")
                 failure(job, AttachmentError.notUploaded, true)
                 return
             }
 
             // Defer the job if we found incomplete uploads
             guard attachmentState?.shouldDefer == false else {
+                SNLog("[MessageSendJob] Deferring pending attachment uploads")
                 deferred(job)
                 return
             }
@@ -181,7 +195,7 @@ public enum MessageSendJob: JobExecutor {
                     switch result {
                         case .finished: success(job, false)
                         case .failure(let error):
-                            SNLog("Couldn't send message due to error: \(error).")
+                            SNLog("[MessageSendJob] Couldn't send message due to error: \(error).")
                             
                             switch error {
                                 case let senderError as MessageSenderError where !senderError.isRetryable:
@@ -191,11 +205,11 @@ public enum MessageSendJob: JobExecutor {
                                     failure(job, error, true)
                                     
                                 case SnodeAPIError.clockOutOfSync:
-                                    SNLog("\(originalSentTimestamp != nil ? "Permanently Failing" : "Failing") to send \(type(of: details.message)) due to clock out of sync issue.")
+                                    SNLog("[MessageSendJob] \(originalSentTimestamp != nil ? "Permanently Failing" : "Failing") to send \(type(of: details.message)) due to clock out of sync issue.")
                                     failure(job, error, (originalSentTimestamp != nil))
                                     
                                 default:
-                                    SNLog("Failed to send \(type(of: details.message)).")
+                                    SNLog("[MessageSendJob] Failed to send \(type(of: details.message)).")
                                     
                                     if details.message is VisibleMessage {
                                         guard

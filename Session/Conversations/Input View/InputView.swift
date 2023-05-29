@@ -5,6 +5,7 @@ import Combine
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
+import SignalUtilitiesKit
 
 final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, MentionSelectionViewDelegate {
     // MARK: - Variables
@@ -499,7 +500,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     func showMentionsUI(for candidates: [MentionInfo]) {
         mentionsView.candidates = candidates
         
-        let mentionCellHeight = (Values.smallProfilePictureSize + 2 * Values.smallSpacing)
+        let mentionCellHeight = (ProfilePictureView.Size.message.viewSize + 2 * Values.smallSpacing)
         mentionsViewHeightConstraint.constant = CGFloat(min(3, candidates.count)) * mentionCellHeight
         layoutIfNeeded()
         

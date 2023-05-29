@@ -71,20 +71,12 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     private let userSessionId: String
     private lazy var imagePickerHandler: ImagePickerHandler = ImagePickerHandler(
         onTransition: { [weak self] in self?.transitionToScreen($0, transitionType: $1) },
-        onImagePicked: { [weak self] resultImage in
+        onImageDataPicked: { [weak self] resultImageData in
             guard let oldDisplayName: String = self?.oldDisplayName else { return }
             
             self?.updatedProfilePictureSelected(
                 name: oldDisplayName,
-                avatarUpdate: .uploadImage(resultImage)
-            )
-        },
-        onImageFilePicked: { [weak self] resultImagePath in
-            guard let oldDisplayName: String = self?.oldDisplayName else { return }
-            
-            self?.updatedProfilePictureSelected(
-                name: oldDisplayName,
-                avatarUpdate: .uploadFilePath(resultImagePath)
+                avatarUpdate: .uploadImageData(resultImageData)
             )
         }
     )
@@ -249,7 +241,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                             id: .avatar,
                             accessory: .profile(
                                 id: profile.id,
-                                size: .extraLarge,
+                                size: .hero,
                                 profile: profile
                             ),
                             styling: SessionCell.StyleInfo(
@@ -486,21 +478,14 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     
     private func updateProfilePicture(currentFileName: String?) {
         let existingDisplayName: String = self.oldDisplayName
-        
-        let existingImageData: (image: UIImage?, animatedImage: YYImage?)? = currentFileName
-            .map { ProfileManager.loadProfileData(with: $0) }
-            .map { imageData in
-                switch imageData.guessedImageFormat {
-                    case .gif, .webp: return (nil, YYImage(data: imageData))
-                    default: return (UIImage(data: imageData), nil)
-                }
-            }
+        let existingImageData: Data? = ProfileManager
+            .profileAvatar(id: self.userSessionId)
         let editProfilePictureModalInfo: ConfirmationModal.Info = ConfirmationModal.Info(
             title: "update_profile_modal_title".localized(),
             body: .image(
-                placeholder: UIImage(named: "profile_placeholder"),
-                value: existingImageData?.image,
-                animatedValue: existingImageData?.animatedImage,
+                placeholderData: UIImage(named: "profile_placeholder")?.pngData(),
+                valueData: existingImageData,
+                icon: .rightPlus,
                 style: .circular,
                 accessibility: Accessibility(
                     identifier: "Image picker",
@@ -508,7 +493,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                 ),
                 onClick: { [weak self] in self?.showPhotoLibraryForAvatar() }
             ),
-            confirmTitle: "update_profile_modal_upload".localized(),
+            confirmTitle: "update_profile_modal_save".localized(),
             confirmEnabled: false,
             cancelTitle: "update_profile_modal_remove".localized(),
             cancelEnabled: (existingImageData != nil),
@@ -533,26 +518,21 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
         self.editProfilePictureModal = modal
         self.transitionToScreen(modal, transitionType: .present)
     }
-    
+
     fileprivate func updatedProfilePictureSelected(name: String, avatarUpdate: ProfileManager.AvatarUpdate) {
         guard let info: ConfirmationModal.Info = self.editProfilePictureModalInfo else { return }
         
         self.editProfilePictureModal?.updateContent(
             with: info.with(
                 body: .image(
-                    placeholder: UIImage(named: "profile_placeholder"),
-                    value: {
+                    placeholderData: UIImage(named: "profile_placeholder")?.pngData(),
+                    valueData: {
                         switch avatarUpdate {
-                            case .uploadImage(let image): return image
+                            case .uploadImageData(let imageData): return imageData
                             default: return nil
                         }
                     }(),
-                    animatedValue: {
-                        switch avatarUpdate {
-                            case .uploadFilePath(let filePath): return YYImage(contentsOfFile: filePath)
-                            default: return nil
-                        }
-                    }(),
+                    icon: .rightPlus,
                     style: .circular,
                     accessibility: Accessibility(
                         identifier: "Image picker",
