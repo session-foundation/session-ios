@@ -536,13 +536,13 @@ extension ConversationVC:
                 )
                 
                 // Trigger disappear after read
-                try Interaction.markAsRead(
+                JobRunner.upsert(
                     db,
-                    interactionId: interactionId,
-                    threadId: threadId,
-                    threadVariant: threadVariant,
-                    includingOlder: false,
-                    trySendReadReceipt: false
+                    job: DisappearingMessagesJob.updateNextRunIfNeeded(
+                        db,
+                        interaction: interaction,
+                        startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs())
+                    )
                 )
             }
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
@@ -647,13 +647,13 @@ extension ConversationVC:
                 )
                 
                 // Trigger disappear after read
-                try Interaction.markAsRead(
+                JobRunner.upsert(
                     db,
-                    interactionId: interactionId,
-                    threadId: threadId,
-                    threadVariant: threadVariant,
-                    includingOlder: false,
-                    trySendReadReceipt: false
+                    job: DisappearingMessagesJob.updateNextRunIfNeeded(
+                        db,
+                        interaction: interaction,
+                        startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs())
+                    )
                 )
             }
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
