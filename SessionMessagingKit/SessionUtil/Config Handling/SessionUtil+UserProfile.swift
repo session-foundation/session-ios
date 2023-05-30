@@ -121,7 +121,7 @@ internal extension SessionUtil {
             isEnabled: targetIsEnable,
             durationSeconds: TimeInterval(targetExpiry),
             type: targetIsEnable ? .disappearAfterSend : .unknown,
-            lastChangeTimestampMs: Int64(latestConfigUpdateSentTimestamp)
+            lastChangeTimestampMs: Int64(latestConfigUpdateSentTimestamp * 1000)
         )
         let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
             .fetchOne(db, id: userPublicKey)
