@@ -54,49 +54,6 @@ internal extension SessionUtil {
             calledFromConfigHandling: true
         )
         
-        // Update the 'Note to Self' disappearing messages configuration
-        var contact: contacts_contact = contacts_contact()
-        let contactIterator: UnsafeMutablePointer<contacts_iterator> = contacts_iterator_new(conf)
-        var config: DisappearingMessagesConfiguration?
-        while !contacts_iterator_done(contactIterator, &contact) {
-            let contactId: String = String(cString: withUnsafeBytes(of: contact.session_id) { [UInt8]($0) }
-                .map { CChar($0) }
-                .nullTerminated()
-            )
-            
-            guard contactId == userPublicKey else { continue }
-            
-            config = DisappearingMessagesConfiguration(
-                threadId: contactId,
-                isEnabled: contact.exp_seconds > 0,
-                durationSeconds: TimeInterval(contact.exp_seconds),
-                type: DisappearingMessagesConfiguration.DisappearingMessageType(sessionUtilType: contact.exp_mode),
-                lastChangeTimestampMs: Int64(latestConfigUpdateSentTimestamp)
-            )
-            
-            break
-        }
-        contacts_iterator_free(contactIterator) // Need to free the iterator
-        
-        if let targetConfig: DisappearingMessagesConfiguration = config {
-            let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
-                .fetchOne(db, id: userPublicKey)
-                .defaulting(to: DisappearingMessagesConfiguration.defaultWith(userPublicKey))
-            
-            if
-                let remoteLastChangeTimestampMs = targetConfig.lastChangeTimestampMs,
-                let localLastChangeTimestampMs = localConfig.lastChangeTimestampMs,
-                remoteLastChangeTimestampMs > localLastChangeTimestampMs
-            {
-                _ = try localConfig.with(
-                    isEnabled: targetConfig.isEnabled,
-                    durationSeconds: targetConfig.durationSeconds,
-                    type: targetConfig.type,
-                    lastChangeTimestampMs: targetConfig.lastChangeTimestampMs
-                ).save(db)
-            }
-        }
-        
         // Update the 'Note to Self' visibility and priority
         let threadInfo: PriorityVisibilityInfo? = try? SessionThread
             .filter(id: userPublicKey)
@@ -156,6 +113,33 @@ internal extension SessionUtil {
             }
         }
         
+        // Update the 'Note to Self' disappearing messages configuration
+        let targetExpiry: Int32 = user_profile_get_nts_expiry(conf)
+        let targetIsEnable: Bool = targetExpiry > 0
+        let targetConfig: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
+            threadId: userPublicKey,
+            isEnabled: targetIsEnable,
+            durationSeconds: TimeInterval(targetExpiry),
+            type: targetIsEnable ? .disappearAfterSend : .unknown,
+            lastChangeTimestampMs: Int64(latestConfigUpdateSentTimestamp)
+        )
+        let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
+            .fetchOne(db, id: userPublicKey)
+            .defaulting(to: DisappearingMessagesConfiguration.defaultWith(userPublicKey))
+        
+        if
+            let remoteLastChangeTimestampMs = targetConfig.lastChangeTimestampMs,
+            let localLastChangeTimestampMs = localConfig.lastChangeTimestampMs,
+            remoteLastChangeTimestampMs > localLastChangeTimestampMs
+        {
+            _ = try localConfig.with(
+                isEnabled: targetConfig.isEnabled,
+                durationSeconds: targetConfig.durationSeconds,
+                type: targetConfig.type,
+                lastChangeTimestampMs: targetConfig.lastChangeTimestampMs
+            ).save(db)
+        }
+        
         // Create a contact for the current user if needed (also force-approve the current user
         // in case the account got into a weird state or restored directly from a migration)
         let userContact: Contact = Contact.fetchOrCreate(db, id: userPublicKey)
@@ -203,20 +187,8 @@ internal extension SessionUtil {
             user_profile_set_nts_priority(conf, priority)
         }
         
-        // TODO: Make this into LibSession like user_profile_set_nts_priority()
-        if
-            let config: DisappearingMessagesConfiguration = disappearingMessagesConfig,
-            let exp_mode: CONVO_EXPIRATION_MODE = config.type?.toLibSession()
-        {
-            var userPublicKey: String = getUserHexEncodedPublicKey()
-            var userContact: contacts_contact = contacts_contact()
-            guard contacts_get_or_construct(conf, &userContact, &userPublicKey) else {
-                SNLog("Unable to upsert note-to-self to SessionUtil: \(SessionUtil.lastError(conf))")
-                throw SessionUtilError.getOrConstructFailedUnexpectedly
-            }
-            userContact.exp_mode = exp_mode
-            userContact.exp_seconds = Int32(config.durationSeconds)
-            contacts_set(conf, &userContact)
+        if let config: DisappearingMessagesConfiguration = disappearingMessagesConfig {
+            user_profile_set_nts_expiry(conf, Int32(config.durationSeconds))
         }
     }
 }
