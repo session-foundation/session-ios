@@ -119,6 +119,12 @@ public final class ProfilePictureView: UIView {
             imageContainerView.layer.cornerRadius = (clipsToBounds ? (size.multiImageSize / 2) : 0)
         }
     }
+    public override var isHidden: Bool {
+        didSet {
+            widthConstraint.constant = (isHidden ? 0 : size.viewSize)
+            heightConstraint.constant = (isHidden ? 0 : size.viewSize)
+        }
+    }
     
     // MARK: - Constraints
     
