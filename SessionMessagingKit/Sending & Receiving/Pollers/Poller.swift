@@ -248,10 +248,11 @@ public class Poller {
                 var messageCount: Int = 0
                 var processedMessages: [Message] = []
                 var hadValidHashUpdate: Bool = false
-                var jobsToRun: [Job] = []
+                var configMessageJobsToRun: [Job] = []
+                var standardMessageJobsToRun: [Job] = []
                 
                 Storage.shared.write { db in
-                    allMessages
+                    let allProcessedMessages: [ProcessedMessage] = allMessages
                         .compactMap { message -> ProcessedMessage? in
                             do {
                                 return try Message.processRawReceivedMessage(db, rawMessage: message)
@@ -284,6 +285,39 @@ public class Poller {
                                 return nil
                             }
                         }
+                    
+                    // Add a job to process the config messages first
+                    let configJobIds: [Int64] = allProcessedMessages
+                        .filter { $0.messageInfo.variant == .sharedConfigMessage }
+                        .grouped { threadId, _, _, _ in threadId }
+                        .compactMap { threadId, threadMessages in
+                            messageCount += threadMessages.count
+                            processedMessages += threadMessages.map { $0.messageInfo.message }
+                            
+                            let jobToRun: Job? = Job(
+                                variant: .configMessageReceive,
+                                behaviour: .runOnce,
+                                threadId: threadId,
+                                details: ConfigMessageReceiveJob.Details(
+                                    messages: threadMessages.map { $0.messageInfo },
+                                    calledFromBackgroundPoller: calledFromBackgroundPoller
+                                )
+                            )
+                            configMessageJobsToRun = configMessageJobsToRun.appending(jobToRun)
+                            
+                            // If we are force-polling then add to the JobRunner so they are
+                            // persistent and will retry on the next app run if they fail but
+                            // don't let them auto-start
+                            let updatedJob: Job? = JobRunner
+                                .add(db, job: jobToRun, canStartJob: !calledFromBackgroundPoller)
+                                
+                            return updatedJob?.id
+                        }
+                    
+                    // Add jobs for processing non-config messages which are dependant on the config message
+                    // processing jobs
+                    allProcessedMessages
+                        .filter { $0.messageInfo.variant != .sharedConfigMessage }
                         .grouped { threadId, _, _, _ in threadId }
                         .forEach { threadId, threadMessages in
                             messageCount += threadMessages.count
@@ -298,12 +332,29 @@ public class Poller {
                                     calledFromBackgroundPoller: calledFromBackgroundPoller
                                 )
                             )
-                            jobsToRun = jobsToRun.appending(jobToRun)
+                            standardMessageJobsToRun = standardMessageJobsToRun.appending(jobToRun)
                             
                             // If we are force-polling then add to the JobRunner so they are
                             // persistent and will retry on the next app run if they fail but
                             // don't let them auto-start
-                            JobRunner.add(db, job: jobToRun, canStartJob: !calledFromBackgroundPoller)
+                            let updatedJob: Job? = JobRunner
+                                .add(db, job: jobToRun, canStartJob: !calledFromBackgroundPoller)
+                            
+                            // Create the dependency between the jobs
+                            if let updatedJobId: Int64 = updatedJob?.id {
+                                do {
+                                    try configJobIds.forEach { configJobId in
+                                        try JobDependencies(
+                                            jobId: updatedJobId,
+                                            dependantId: configJobId
+                                        )
+                                        .insert(db)
+                                    }
+                                }
+                                catch {
+                                    SNLog("Failed to add dependency between config processing and non-config processing messageReceive jobs.")
+                                }
+                            }
                         }
                     
                     // Clean up message hashes and add some logs about the poll results
@@ -334,11 +385,11 @@ public class Poller {
                 // We want to try to handle the receive jobs immediately in the background
                 return Publishers
                     .MergeMany(
-                        jobsToRun.map { job -> AnyPublisher<Void, Error> in
+                        configMessageJobsToRun.map { job -> AnyPublisher<Void, Error> in
                             Deferred {
                                 Future<Void, Error> { resolver in
                                     // Note: In the background we just want jobs to fail silently
-                                    MessageReceiveJob.run(
+                                    ConfigMessageReceiveJob.run(
                                         job,
                                         queue: queue,
                                         success: { _, _ in resolver(Result.success(())) },
@@ -351,6 +402,27 @@ public class Poller {
                         }
                     )
                     .collect()
+                    .flatMap { _ in
+                        Publishers
+                            .MergeMany(
+                                standardMessageJobsToRun.map { job -> AnyPublisher<Void, Error> in
+                                    Deferred {
+                                        Future<Void, Error> { resolver in
+                                            // Note: In the background we just want jobs to fail silently
+                                            MessageReceiveJob.run(
+                                                job,
+                                                queue: queue,
+                                                success: { _, _ in resolver(Result.success(())) },
+                                                failure: { _, _, _ in resolver(Result.success(())) },
+                                                deferred: { _ in resolver(Result.success(())) }
+                                            )
+                                        }
+                                    }
+                                    .eraseToAnyPublisher()
+                                }
+                            )
+                            .collect()
+                    }
                     .map { _ in processedMessages }
                     .eraseToAnyPublisher()
             }

@@ -42,13 +42,14 @@ public final class SharedConfigMessage: ControlMessage {
     public init(
         kind: Kind,
         seqNo: Int64,
-        data: Data
+        data: Data,
+        sentTimestamp: UInt64? = nil
     ) {
         self.kind = kind
         self.seqNo = seqNo
         self.data = data
         
-        super.init()
+        super.init(sentTimestamp: sentTimestamp)
     }
     
     // MARK: - Codable

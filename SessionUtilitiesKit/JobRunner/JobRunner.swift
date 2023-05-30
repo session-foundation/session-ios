@@ -80,7 +80,8 @@ public final class JobRunner {
             executionType: .serial,
             qos: .default,
             jobVariants: [
-                jobVariants.remove(.messageReceive)
+                jobVariants.remove(.messageReceive),
+                jobVariants.remove(.configMessageReceive)
             ].compactMap { $0 }
         )
         let attachmentDownloadQueue: JobQueue = JobQueue(
@@ -127,15 +128,15 @@ public final class JobRunner {
     ///
     /// **Note:** If the job has a `behaviour` of `runOnceNextLaunch` or the `nextRunTimestamp`
     /// is in the future then the job won't be started
-    public static func add(_ db: Database, job: Job?, canStartJob: Bool = true) {
+    @discardableResult public static func add(_ db: Database, job: Job?, canStartJob: Bool = true) -> Job? {
         // Store the job into the database (getting an id for it)
         guard let updatedJob: Job = try? job?.inserted(db) else {
             SNLog("[JobRunner] Unable to add \(job.map { "\($0.variant)" } ?? "unknown") job")
-            return
+            return nil
         }
         guard !canStartJob || updatedJob.id != nil else {
             SNLog("[JobRunner] Not starting \(job.map { "\($0.variant)" } ?? "unknown") job due to missing id")
-            return
+            return nil
         }
         
         // Wait until the transaction has been completed before updating the queue (to ensure anything
@@ -149,6 +150,8 @@ public final class JobRunner {
             
             queues.wrappedValue[updatedJob.variant]?.start()
         }
+        
+        return updatedJob
     }
     
     /// Upsert a job onto the queue, if the queue isn't currently running and 'canStartJob' is true then this will start

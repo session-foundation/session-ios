@@ -111,6 +111,11 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         /// This is a job that runs once whenever the user config or a closed group config changes, it retrieves the
         /// state of all config objects and syncs any that are flagged as needing to be synced
         case configurationSync
+        
+        /// This is a job that runs once whenever a config message is received to attempt to decode it and update the
+        /// config state with the changes; this job will generally be scheduled along since a `messageReceive` job
+        /// and will block the standard message receive job
+        case configMessageReceive
     }
     
     public enum Behaviour: Int, Codable, DatabaseValueConvertible, CaseIterable {

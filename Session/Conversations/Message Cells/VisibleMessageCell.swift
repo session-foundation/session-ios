@@ -299,8 +299,14 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         )
         
         // Profile picture view (should always be handled as a standard 'contact' profile picture)
+        let profileShouldBeVisible: Bool = (
+            cellViewModel.canHaveProfile &&
+            cellViewModel.shouldShowProfile &&
+            cellViewModel.profile != nil
+        )
         profilePictureViewLeadingConstraint.constant = (isGroupThread ? VisibleMessageCell.groupThreadHSpacing : 0)
-        profilePictureView.isHidden = (!cellViewModel.shouldShowProfile || cellViewModel.profile == nil)
+        profilePictureView.isHidden = !cellViewModel.canHaveProfile
+        profilePictureView.alpha = (profileShouldBeVisible ? 1 : 0)
         profilePictureView.update(
             publicKey: cellViewModel.authorId,
             threadVariant: .contact,    // Always show the display picture in 'contact' mode

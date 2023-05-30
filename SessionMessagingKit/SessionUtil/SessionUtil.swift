@@ -260,7 +260,8 @@ public enum SessionUtil {
     internal static func createDump(
         conf: UnsafeMutablePointer<config_object>?,
         for variant: ConfigDump.Variant,
-        publicKey: String
+        publicKey: String,
+        timestampMs: Int64
     ) throws -> ConfigDump? {
         guard conf != nil else { throw SessionUtilError.nilConfigObject }
         
@@ -279,7 +280,8 @@ public enum SessionUtil {
         return ConfigDump(
             variant: variant,
             publicKey: publicKey,
-            data: dumpData
+            data: dumpData,
+            timestampMs: timestampMs
         )
     }
     
@@ -363,7 +365,8 @@ public enum SessionUtil {
                 return try? SessionUtil.createDump(
                     conf: conf,
                     for: message.kind.configDumpVariant,
-                    publicKey: publicKey
+                    publicKey: publicKey,
+                    timestampMs: (message.sentTimestamp.map { Int64($0) } ?? 0)
                 )
             }
     }
@@ -427,9 +430,7 @@ public enum SessionUtil {
         let needsPush: Bool = try groupedMessages
             .sorted { lhs, rhs in lhs.key.processingOrder < rhs.key.processingOrder }
             .reduce(false) { prevNeedsPush, next -> Bool in
-                let messageSentTimestamp: TimeInterval = TimeInterval(
-                    (next.value.compactMap { $0.sentTimestamp }.max() ?? 0) / 1000
-                )
+                let latestConfigSentTimestampMs: Int64 = Int64(next.value.compactMap { $0.sentTimestamp }.max() ?? 0)
                 let needsPush: Bool = try SessionUtil
                     .config(for: next.key, publicKey: publicKey)
                     .mutate { conf in
@@ -453,7 +454,7 @@ public enum SessionUtil {
                                         db,
                                         in: conf,
                                         mergeNeedsDump: config_needs_dump(conf),
-                                        latestConfigUpdateSentTimestamp: messageSentTimestamp
+                                        latestConfigSentTimestampMs: latestConfigSentTimestampMs
                                     )
                                     
                                 case .contacts:
@@ -475,7 +476,7 @@ public enum SessionUtil {
                                         db,
                                         in: conf,
                                         mergeNeedsDump: config_needs_dump(conf),
-                                        latestConfigUpdateSentTimestamp: messageSentTimestamp
+                                        latestConfigSentTimestampMs: latestConfigSentTimestampMs
                                     )
                             }
                         }
@@ -486,12 +487,25 @@ public enum SessionUtil {
                         
                         // Need to check if the config needs to be dumped (this might have changed
                         // after handling the merge changes)
-                        guard config_needs_dump(conf) else { return config_needs_push(conf) }
+                        guard config_needs_dump(conf) else {
+                            try ConfigDump
+                                .filter(
+                                    ConfigDump.Columns.variant == next.key &&
+                                    ConfigDump.Columns.publicKey == publicKey
+                                )
+                                .updateAll(
+                                    db,
+                                    ConfigDump.Columns.timestampMs.set(to: latestConfigSentTimestampMs)
+                                )
+                            
+                            return config_needs_push(conf)
+                        }
                         
                         try SessionUtil.createDump(
                             conf: conf,
                             for: next.key,
-                            publicKey: publicKey
+                            publicKey: publicKey,
+                            timestampMs: latestConfigSentTimestampMs
                         )?.save(db)
                 
                         return config_needs_push(conf)

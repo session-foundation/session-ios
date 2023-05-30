@@ -154,6 +154,8 @@ enum _013_SessionUtilChanges: Migration {
                 .indexed()
             t.column(.data, .blob)
                 .notNull()
+            t.column(.timestampMs, .integer)
+                .notNull()
             
             t.primaryKey([.variant, .publicKey])
         }

@@ -25,10 +25,17 @@ public enum MessageReceiveJob: JobExecutor {
             return
         }
         
+        // Ensure no config messages are sent through this job
+        guard !details.messages.contains(where: { $0.variant == .sharedConfigMessage }) else {
+            SNLog("[MessageReceiveJob] Config messages incorrectly sent to the 'messageReceive' job")
+            failure(job, MessageReceiverError.invalidSharedConfigMessageHandling, true)
+            return
+        }
+        
         var updatedJob: Job = job
         var lastError: Error?
         var remainingMessagesToProcess: [Details.MessageInfo] = []
-        let nonConfigMessages: [(info: Details.MessageInfo, proto: SNProtoContent)] = details.messages
+        let messageData: [(info: Details.MessageInfo, proto: SNProtoContent)] = details.messages
             .filter { $0.variant != .sharedConfigMessage }
             .compactMap { messageInfo -> (info: Details.MessageInfo, proto: SNProtoContent)? in
                 do {
@@ -44,19 +51,9 @@ public enum MessageReceiveJob: JobExecutor {
                     return nil
                 }
             }
-        let sharedConfigMessages: [SharedConfigMessage] = details.messages
-            .compactMap { $0.message as? SharedConfigMessage }
         
         Storage.shared.write { db in
-            // Send any SharedConfigMessages to the SessionUtil to handle it
-            try SessionUtil.handleConfigMessages(
-                db,
-                messages: sharedConfigMessages,
-                publicKey: (job.threadId ?? "")
-            )
-            
-            // Handle the remaining messages
-            for (messageInfo, protoContent) in nonConfigMessages {
+            for (messageInfo, protoContent) in messageData {
                 do {
                     try MessageReceiver.handle(
                         db,
@@ -98,6 +95,8 @@ public enum MessageReceiveJob: JobExecutor {
             
             // If any messages failed to process then we want to update the job to only include
             // those failed messages
+            guard !remainingMessagesToProcess.isEmpty else { return }
+            
             updatedJob = try job
                 .with(
                     details: Details(
