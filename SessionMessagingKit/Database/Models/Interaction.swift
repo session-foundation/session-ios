@@ -379,7 +379,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
            disappearingMessagesConfiguration.isEnabled
         {
             self.expiresInSeconds = disappearingMessagesConfiguration.durationSeconds
-            if self.variant == .standardOutgoing || disappearingMessagesConfiguration.type == .disappearAfterSend {
+            if disappearingMessagesConfiguration.type == .disappearAfterSend {
                 self.expiresStartedAtMs = Double(self.timestampMs)
             }
         }

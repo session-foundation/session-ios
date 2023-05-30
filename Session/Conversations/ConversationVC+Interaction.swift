@@ -515,8 +515,10 @@ extension ConversationVC:
                     ).insert(db)
                 }
                 
-                // If there is a Quote the insert it now
-                if let interactionId: Int64 = interaction.id, let quoteModel: QuotedReplyModel = quoteModel {
+                guard let interactionId: Int64 = interaction.id else { return }
+                
+                // If there is a Quote then insert it now
+                if let quoteModel: QuotedReplyModel = quoteModel {
                     try Quote(
                         interactionId: interactionId,
                         authorId: quoteModel.authorId,
@@ -531,6 +533,16 @@ extension ConversationVC:
                     interaction: interaction,
                     threadId: threadId,
                     threadVariant: threadVariant
+                )
+                
+                // Trigger disappear after read
+                try Interaction.markAsRead(
+                    db,
+                    interactionId: interactionId,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    includingOlder: false,
+                    trySendReadReceipt: false
                 )
             }
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
@@ -632,6 +644,16 @@ extension ConversationVC:
                     interaction: interaction,
                     threadId: threadId,
                     threadVariant: threadVariant
+                )
+                
+                // Trigger disappear after read
+                try Interaction.markAsRead(
+                    db,
+                    interactionId: interactionId,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    includingOlder: false,
+                    trySendReadReceipt: false
                 )
             }
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
