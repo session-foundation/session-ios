@@ -640,6 +640,9 @@ extension MessageReceiver {
             }
         }
         
+        // Ensure the group still exists before inserting the info message
+        guard ClosedGroup.filter(id: threadId).isNotEmpty(db) else { return }
+        
         // Insert the info message for this group control message
         _ = try Interaction(
             serverHash: message.serverHash,
