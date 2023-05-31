@@ -28,6 +28,7 @@ var localizableFiles: [String] = {
         .filter {
             $0.hasSuffix("Localizable.strings") &&
             !$0.contains(".app/") &&                        // Exclude Built Localizable.strings files
+            !$0.contains(".appex/") &&                      // Exclude Built Localizable.strings extension files
             !$0.contains("Pods")                            // Exclude Pods
         }
 }()
@@ -38,6 +39,7 @@ var executableFiles: [String] = {
     return pathFiles.filter {
         !$0.localizedCaseInsensitiveContains("test") &&     // Exclude test files
         !$0.contains(".app/") &&                            // Exclude Built Localizable.strings files
+        !$0.contains(".appex/") &&                          // Exclude Built Localizable.strings extension files
         !$0.contains("Pods") &&                             // Exclude Pods
         (
             NSString(string: $0).pathExtension == "swift" ||
