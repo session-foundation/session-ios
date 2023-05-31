@@ -111,7 +111,7 @@ public extension DisappearingMessagesJob {
                                 .filter(Interaction.Columns.serverHash == hash)
                                 .updateAll(
                                     db,
-                                    Interaction.Columns.expiresStartedAtMs.set(to: Double(lastReadTimestampMs))
+                                    Interaction.Columns.expiresStartedAtMs.set(to: Double(lastReadTimestampMs)),
                                     Interaction.Columns.expiresInSeconds.set(to: expiresInSeconds)
                                 )
                         }
