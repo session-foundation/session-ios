@@ -93,14 +93,6 @@ public extension DisappearingMessagesJob {
         // If there were no message hashes then none of the messages sent before lastReadTimestampMs are expiring messages
         guard (messageHashes.count > 0) else { return nil }
         
-        // Update the expiring messages expiresStartedAtMs value
-        _ = try? Interaction
-            .filter(messageHashes.contains(Interaction.Columns.serverHash))
-            .updateAll(
-                db,
-                Interaction.Columns.expiresStartedAtMs.set(to: Double(lastReadTimestampMs))
-            )
-
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         SnodeAPI.getSwarm(for: userPublicKey)
             .tryFlatMap { swarm -> AnyPublisher<Void, Error> in
@@ -119,6 +111,7 @@ public extension DisappearingMessagesJob {
                                 .filter(Interaction.Columns.serverHash == hash)
                                 .updateAll(
                                     db,
+                                    Interaction.Columns.expiresStartedAtMs.set(to: Double(lastReadTimestampMs))
                                     Interaction.Columns.expiresInSeconds.set(to: expiresInSeconds)
                                 )
                         }
