@@ -21,13 +21,14 @@ public enum MessageReceiverError: LocalizedError {
     case noGroupKeyPair
     case invalidSharedConfigMessageHandling
     case requiredThreadNotInConfig
+    case outdatedMessage
 
     public var isRetryable: Bool {
         switch self {
             case .duplicateMessage, .duplicateMessageNewSnode, .duplicateControlMessage,
                 .invalidMessage, .unknownMessage, .unknownEnvelopeType, .invalidSignature,
                 .noData, .senderBlocked, .noThread, .selfSend, .decryptionFailed,
-                .invalidSharedConfigMessageHandling, .requiredThreadNotInConfig:
+                .invalidSharedConfigMessageHandling, .requiredThreadNotInConfig, .outdatedMessage:
                 return false
                 
             default: return true
@@ -57,6 +58,7 @@ public enum MessageReceiverError: LocalizedError {
                 
             case .invalidSharedConfigMessageHandling: return "Invalid handling of a shared config message."
             case .requiredThreadNotInConfig: return "Required thread not in config."
+            case .outdatedMessage: return "Message was sent before a config change which would have removed the message."
         }
     }
 }

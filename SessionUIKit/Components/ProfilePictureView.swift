@@ -65,7 +65,7 @@ public final class ProfilePictureView: UIView {
         
         var iconSize: CGFloat {
             switch self {
-                case .navigation, .message: return 8
+                case .navigation, .message: return 10   // Intentionally not a multiple of 4
                 case .list: return 16
                 case .hero: return 24
             }

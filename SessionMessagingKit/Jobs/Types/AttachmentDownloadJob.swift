@@ -42,11 +42,11 @@ public enum AttachmentDownloadJob: JobExecutor {
         // if an attachment ends up stuck in a "downloading" state incorrectly
         guard attachment.state != .downloading else {
             let otherCurrentJobAttachmentIds: Set<String> = JobRunner
-                .defailsForCurrentlyRunningJobs(of: .attachmentDownload)
+                .infoForCurrentlyRunningJobs(of: .attachmentDownload)
                 .filter { key, _ in key != job.id }
                 .values
-                .compactMap { data -> String? in
-                    guard let data: Data = data else { return nil }
+                .compactMap { info -> String? in
+                    guard let data: Data = info.detailsData else { return nil }
                     
                     return (try? JSONDecoder().decode(Details.self, from: data))?
                         .attachmentId

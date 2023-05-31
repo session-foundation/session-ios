@@ -20,6 +20,16 @@ enum _013_SessionUtilChanges: Migration {
             t.add(.pinnedPriority, .integer)
         }
         
+        // Add `lastNameUpdate` and `lastProfilePictureUpdate` columns to the profile table
+        try db.alter(table: Profile.self) { t in
+            t.add(.lastNameUpdate, .integer)
+                .notNull()
+                .defaults(to: 0)
+            t.add(.lastProfilePictureUpdate, .integer)
+                .notNull()
+                .defaults(to: 0)
+        }
+        
         // SQLite doesn't support adding a new primary key after creation so we need to create a new table with
         // the setup we want, copy data from the old table over, drop the old table and rename the new table
         struct TmpGroupMember: Codable, TableRecord, FetchableRecord, PersistableRecord, ColumnExpressible {

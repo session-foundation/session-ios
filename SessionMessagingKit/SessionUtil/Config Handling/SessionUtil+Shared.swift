@@ -326,7 +326,7 @@ internal extension SessionUtil {
             .defaulting(to: 0)
         
         // Ensure the change occurred after the last config message was handled (minus the buffer period)
-        return (changeTimestampMs > (configDumpTimestampMs - Int64(SessionUtil.configChangeBufferPeriod * 1000)))
+        return (changeTimestampMs >= (configDumpTimestampMs - Int64(SessionUtil.configChangeBufferPeriod * 1000)))
     }
 }
 

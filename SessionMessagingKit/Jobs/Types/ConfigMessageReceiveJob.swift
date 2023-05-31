@@ -16,17 +16,38 @@ public enum ConfigMessageReceiveJob: JobExecutor {
         failure: @escaping (Job, Error?, Bool) -> (),
         deferred: @escaping (Job) -> ()
     ) {
+        /// When the `configMessageReceive` job fails we want to unblock any `messageReceive` jobs it was blocking
+        /// to ensure the user isn't losing any messages - this generally _shouldn't_ happen but if it does then having a temporary
+        /// "outdated" state due to standard messages which would have been invalidated by a config change incorrectly being
+        /// processed is less severe then dropping a bunch on messages just because they were processed in the same poll as
+        /// invalid config messages
+        let removeDependencyOnMessageReceiveJobs: () -> () = {
+            guard let jobId: Int64 = job.id else { return }
+            
+            Storage.shared.write { db in
+                try JobDependencies
+                    .filter(JobDependencies.Columns.dependantId == jobId)
+                    .joining(
+                        required: JobDependencies.job
+                            .filter(Job.Columns.variant == Job.Variant.messageReceive)
+                    )
+                    .deleteAll(db)
+            }
+        }
+        
         guard
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
         else {
+            removeDependencyOnMessageReceiveJobs()
             failure(job, JobRunnerError.missingRequiredDetails, true)
             return
         }
-        
+
         // Ensure no standard messages are sent through this job
         guard !details.messages.contains(where: { $0.variant != .sharedConfigMessage }) else {
             SNLog("[ConfigMessageReceiveJob] Standard messages incorrectly sent to the 'configMessageReceive' job")
+            removeDependencyOnMessageReceiveJobs()
             failure(job, MessageReceiverError.invalidMessage, true)
             return
         }
@@ -49,8 +70,10 @@ public enum ConfigMessageReceiveJob: JobExecutor {
         
         // Handle the result
         switch lastError {
-            case let error as MessageReceiverError where !error.isRetryable: failure(job, error, true)
-            case .some(let error): failure(job, error, false)
+            case .some(let error):
+                removeDependencyOnMessageReceiveJobs()
+                failure(job, error, true)
+
             case .none: success(job, false)
         }
     }

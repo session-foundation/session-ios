@@ -20,11 +20,13 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
         case id
         
         case name
+        case lastNameUpdate
         case nickname
         
         case profilePictureUrl
         case profilePictureFileName
         case profileEncryptionKey
+        case lastProfilePictureUpdate
     }
 
     /// The id for the user that owns the profile (Note: This could be a sessionId, a blindedId or some future variant)
@@ -32,6 +34,9 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
     
     /// The name of the contact. Use this whenever you need the "real", underlying name of a user (e.g. when sending a message).
     public let name: String
+    
+    /// The timestamp (in seconds since epoch) that the name was last updated
+    public let lastNameUpdate: TimeInterval
     
     /// A custom name for the profile set by the current user
     public let nickname: String?
@@ -45,22 +50,29 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
     /// The key with which the profile is encrypted.
     public let profileEncryptionKey: Data?
     
+    /// The timestamp (in seconds since epoch) that the profile picture was last updated
+    public let lastProfilePictureUpdate: TimeInterval
+    
     // MARK: - Initialization
     
     public init(
         id: String,
         name: String,
+        lastNameUpdate: TimeInterval,
         nickname: String? = nil,
         profilePictureUrl: String? = nil,
         profilePictureFileName: String? = nil,
-        profileEncryptionKey: Data? = nil
+        profileEncryptionKey: Data? = nil,
+        lastProfilePictureUpdate: TimeInterval
     ) {
         self.id = id
         self.name = name
+        self.lastNameUpdate = lastNameUpdate
         self.nickname = nickname
         self.profilePictureUrl = profilePictureUrl
         self.profilePictureFileName = profilePictureFileName
         self.profileEncryptionKey = profileEncryptionKey
+        self.lastProfilePictureUpdate = lastProfilePictureUpdate
     }
     
     // MARK: - Description
@@ -97,10 +109,12 @@ public extension Profile {
         self = Profile(
             id: try container.decode(String.self, forKey: .id),
             name: try container.decode(String.self, forKey: .name),
+            lastNameUpdate: try container.decode(TimeInterval.self, forKey: .lastNameUpdate),
             nickname: try? container.decode(String.self, forKey: .nickname),
             profilePictureUrl: profilePictureUrl,
             profilePictureFileName: try? container.decode(String.self, forKey: .profilePictureFileName),
-            profileEncryptionKey: profileKey
+            profileEncryptionKey: profileKey,
+            lastProfilePictureUpdate: try container.decode(TimeInterval.self, forKey: .lastProfilePictureUpdate)
         )
     }
     
@@ -109,10 +123,12 @@ public extension Profile {
 
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
+        try container.encode(lastNameUpdate, forKey: .lastNameUpdate)
         try container.encodeIfPresent(nickname, forKey: .nickname)
         try container.encodeIfPresent(profilePictureUrl, forKey: .profilePictureUrl)
         try container.encodeIfPresent(profilePictureFileName, forKey: .profilePictureFileName)
         try container.encodeIfPresent(profileEncryptionKey, forKey: .profileEncryptionKey)
+        try container.encode(lastProfilePictureUpdate, forKey: .lastProfilePictureUpdate)
     }
 }
 
@@ -124,6 +140,7 @@ public extension Profile {
         
         var profileKey: Data?
         var profilePictureUrl: String?
+        let sentTimestamp: TimeInterval = (proto.hasTimestamp ? (TimeInterval(proto.timestamp) / 1000) : 0)
         
         // If we have both a `profileKey` and a `profilePicture` then the key MUST be valid
         if let profileKeyData: Data = proto.profileKey, profileProto.profilePicture != nil {
@@ -134,10 +151,12 @@ public extension Profile {
         return Profile(
             id: id,
             name: displayName,
+            lastNameUpdate: sentTimestamp,
             nickname: nil,
             profilePictureUrl: profilePictureUrl,
             profilePictureFileName: nil,
-            profileEncryptionKey: profileKey
+            profileEncryptionKey: profileKey,
+            lastProfilePictureUpdate: sentTimestamp
         )
     }
 
@@ -218,10 +237,12 @@ public extension Profile {
         return Profile(
             id: id,
             name: "",
+            lastNameUpdate: 0,
             nickname: nil,
             profilePictureUrl: nil,
             profilePictureFileName: nil,
-            profileEncryptionKey: nil
+            profileEncryptionKey: nil,
+            lastProfilePictureUpdate: 0
         )
     }
     

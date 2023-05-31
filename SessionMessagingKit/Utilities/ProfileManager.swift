@@ -495,47 +495,28 @@ public struct ProfileManager {
         
         // Name
         if let name: String = name, !name.isEmpty, name != profile.name {
-            let shouldUpdate: Bool = {
-                guard isCurrentUser else { return true }
-                
-                return UserDefaults.standard[.lastDisplayNameUpdate]
-                    .map { sentTimestamp > $0.timeIntervalSince1970 }
-                    .defaulting(to: true)
-            }()
-            
-            if shouldUpdate {
-                if isCurrentUser {
-                    UserDefaults.standard[.lastDisplayNameUpdate] = Date(timeIntervalSince1970: sentTimestamp)
-                }
-                
+            // FIXME: Remove the `userConfigsEnabled` check once `useSharedUtilForUserConfig` is permanent
+            if sentTimestamp > profile.lastNameUpdate || (isCurrentUser && (calledFromConfigHandling || !SessionUtil.userConfigsEnabled(db))) {
                 profileChanges.append(Profile.Columns.name.set(to: name))
+                profileChanges.append(Profile.Columns.lastNameUpdate.set(to: sentTimestamp))
             }
         }
         
         // Profile picture & profile key
         var avatarNeedsDownload: Bool = false
         var targetAvatarUrl: String? = nil
-        let shouldUpdateAvatar: Bool = {
-            guard isCurrentUser else { return true }
-            
-            return UserDefaults.standard[.lastProfilePictureUpdate]
-                .map { sentTimestamp > $0.timeIntervalSince1970 }
-                .defaulting(to: true)
-        }()
         
-        if shouldUpdateAvatar {
+        // FIXME: Remove the `userConfigsEnabled` check once `useSharedUtilForUserConfig` is permanent
+        if sentTimestamp > profile.lastProfilePictureUpdate || (isCurrentUser && (calledFromConfigHandling || !SessionUtil.userConfigsEnabled(db))) {
             switch avatarUpdate {
                 case .none: break
                 case .uploadImageData: preconditionFailure("Invalid options for this function")
                     
                 case .remove:
-                    if isCurrentUser {
-                        UserDefaults.standard[.lastProfilePictureUpdate] = Date(timeIntervalSince1970: sentTimestamp)
-                    }
-                    
                     profileChanges.append(Profile.Columns.profilePictureUrl.set(to: nil))
                     profileChanges.append(Profile.Columns.profileEncryptionKey.set(to: nil))
                     profileChanges.append(Profile.Columns.profilePictureFileName.set(to: nil))
+                    profileChanges.append(Profile.Columns.lastProfilePictureUpdate.set(to: sentTimestamp))
                     
                 case .updateTo(let url, let key, let fileName):
                     if url != profile.profilePictureUrl {
@@ -558,6 +539,9 @@ public struct ProfileManager {
                             !ProfileManager.hasProfileImageData(with: fileName)
                         )
                     }
+                    
+                    // Update the 'lastProfilePictureUpdate' timestamp for either external or local changes
+                    profileChanges.append(Profile.Columns.lastProfilePictureUpdate.set(to: sentTimestamp))
             }
         }
         

@@ -77,7 +77,28 @@ extension MessageReceiver {
                 targetConfig: .userGroups,
                 changeTimestampMs: Int64(sentTimestamp)
             )
-        else { return SNLog("Ignoring outdated NEW legacy group message due to more recent config state") }
+        else {
+            // If the closed group already exists then store the encryption keys (just in case - there can be
+            // some weird edge-cases where we don't have keys we need if we don't store them)
+            let groupPublicKey: String = publicKeyAsData.toHexString()
+            let receivedTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
+            let newKeyPair: ClosedGroupKeyPair = ClosedGroupKeyPair(
+                threadId: groupPublicKey,
+                publicKey: Data(encryptionKeyPair.publicKey),
+                secretKey: Data(encryptionKeyPair.secretKey),
+                receivedTimestamp: receivedTimestamp
+            )
+            
+            guard
+                ClosedGroup.filter(id: groupPublicKey).isNotEmpty(db),
+                !ClosedGroupKeyPair
+                    .filter(ClosedGroupKeyPair.Columns.threadKeyPairHash == newKeyPair.threadKeyPairHash)
+                    .isNotEmpty(db)
+            else { return SNLog("Ignoring outdated NEW legacy group message due to more recent config state") }
+            
+            try newKeyPair.insert(db)
+            return
+        }
         
         try handleNewClosedGroup(
             db,
@@ -591,9 +612,10 @@ extension MessageReceiver {
             message.sentTimestamp.map { Int64($0) } ??
             SnodeAPI.currentOffsetTimestampMs()
         )
+        
         // Only actually make the change if SessionUtil says we can (we always want to insert the info
         // message though)
-        if SessionUtil.canPerformChange(db, threadId: threadId, targetConfig: .userGroups, changeTimestampMs: timestampMs ) {
+        if SessionUtil.canPerformChange(db, threadId: threadId, targetConfig: .userGroups, changeTimestampMs: timestampMs) {
             // Legacy groups used these control messages for making changes, new groups only use them
             // for information purposes
             switch threadVariant {
