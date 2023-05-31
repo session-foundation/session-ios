@@ -14,37 +14,40 @@ let currentPath = (
 
 /// List of files in currentPath - recursive
 var pathFiles: [String] = {
-    guard let enumerator = fileManager.enumerator(atPath: currentPath), let files = enumerator.allObjects as? [String] else {
-        fatalError("Could not locate files in path directory: \(currentPath)")
-    }
+    guard
+        let enumerator = fileManager.enumerator(atPath: currentPath),
+        let files = enumerator.allObjects as? [String]
+    else { fatalError("Could not locate files in path directory: \(currentPath)") }
     
     return files
+        .filter {
+            !$0.starts(with: ".") &&                                 // Exclude hidden files (.git, .DS_STORE, etc.)
+            !$0.contains("Pods/") &&                                 // Exclude files under the pods folder
+            !$0.contains(".xcassets") &&                             // Exclude asset bundles
+            !$0.contains(".app/") &&                                 // Exclude files in the app build directories
+            !$0.contains(".appex/") &&                               // Exclude files in the extension build directories
+            !$0.localizedCaseInsensitiveContains("tests/") &&        // Exclude files under test directories
+            !$0.localizedCaseInsensitiveContains("external/") && (   // Exclude files under external directories
+                // Only include relevant files
+                $0.hasSuffix("Localizable.strings") ||
+                NSString(string: $0).pathExtension == "swift" ||
+                NSString(string: $0).pathExtension == "m"
+            )
+        }
 }()
 
 
 /// List of localizable files - not including Localizable files in the Pods
 var localizableFiles: [String] = {
-    return pathFiles
-        .filter {
-            $0.hasSuffix("Localizable.strings") &&
-            !$0.contains(".app/") &&                        // Exclude Built Localizable.strings files
-            !$0.contains(".appex/") &&                      // Exclude Built Localizable.strings extension files
-            !$0.contains("Pods")                            // Exclude Pods
-        }
+    return pathFiles.filter { $0.hasSuffix("Localizable.strings") }
 }()
 
 
 /// List of executable files
 var executableFiles: [String] = {
     return pathFiles.filter {
-        !$0.localizedCaseInsensitiveContains("test") &&     // Exclude test files
-        !$0.contains(".app/") &&                            // Exclude Built Localizable.strings files
-        !$0.contains(".appex/") &&                          // Exclude Built Localizable.strings extension files
-        !$0.contains("Pods") &&                             // Exclude Pods
-        (
-            NSString(string: $0).pathExtension == "swift" ||
-            NSString(string: $0).pathExtension == "m"
-        )
+        $0.hasSuffix(".swift") ||
+        $0.hasSuffix(".m")
     }
 }()
 
