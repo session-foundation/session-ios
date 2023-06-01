@@ -69,7 +69,36 @@ extension MessageReceiver {
         guard case let .new(publicKeyAsData, name, encryptionKeyPair, membersAsData, adminsAsData, expirationTimer) = message.kind else {
             return
         }
-        guard let sentTimestamp: UInt64 = message.sentTimestamp else { return }
+        guard
+            let sentTimestamp: UInt64 = message.sentTimestamp,
+            SessionUtil.canPerformChange(
+                db,
+                threadId: publicKeyAsData.toHexString(),
+                targetConfig: .userGroups,
+                changeTimestampMs: Int64(sentTimestamp)
+            )
+        else {
+            // If the closed group already exists then store the encryption keys (just in case - there can be
+            // some weird edge-cases where we don't have keys we need if we don't store them)
+            let groupPublicKey: String = publicKeyAsData.toHexString()
+            let receivedTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
+            let newKeyPair: ClosedGroupKeyPair = ClosedGroupKeyPair(
+                threadId: groupPublicKey,
+                publicKey: Data(encryptionKeyPair.publicKey),
+                secretKey: Data(encryptionKeyPair.secretKey),
+                receivedTimestamp: receivedTimestamp
+            )
+            
+            guard
+                ClosedGroup.filter(id: groupPublicKey).isNotEmpty(db),
+                !ClosedGroupKeyPair
+                    .filter(ClosedGroupKeyPair.Columns.threadKeyPairHash == newKeyPair.threadKeyPairHash)
+                    .isNotEmpty(db)
+            else { return SNLog("Ignoring outdated NEW legacy group message due to more recent config state") }
+            
+            try newKeyPair.insert(db)
+            return
+        }
         
         try handleNewClosedGroup(
             db,
@@ -473,16 +502,11 @@ extension MessageReceiver {
                 let wasCurrentUserRemoved: Bool = !members.contains(userPublicKey)
                 
                 if wasCurrentUserRemoved {
-                    ClosedGroupPoller.shared.stopPolling(for: threadId)
-                    
-                    _ = try closedGroup
-                        .keyPairs
-                        .deleteAll(db)
-                    
-                    let _ = PushNotificationAPI.performOperation(
-                        .unsubscribe,
-                        for: threadId,
-                        publicKey: userPublicKey
+                    try ClosedGroup.removeKeysAndUnsubscribe(
+                        db,
+                        threadId: threadId,
+                        removeGroupData: true,
+                        calledFromConfigHandling: false
                     )
                 }
             }
@@ -584,28 +608,40 @@ extension MessageReceiver {
             return SNLog("Ignoring group update for nonexistent group.")
         }
         
-        // Legacy groups used these control messages for making changes, new groups only use them
-        // for information purposes
-        switch threadVariant {
-            case .legacyGroup:
-                // Check that the message isn't from before the group was created
-                guard Double(message.sentTimestamp ?? 0) > closedGroup.formationTimestamp else {
-                    return SNLog("Ignoring legacy group update from before thread was created.")
-                }
-                
-                // If these values are missing then we probably won't be able to validly handle the message
-                guard
-                    let allMembers: [GroupMember] = try? closedGroup.allMembers.fetchAll(db),
-                    allMembers.contains(where: { $0.profileId == sender })
-                else { return SNLog("Ignoring legacy group update from non-member.") }
-                
-                try legacyGroupChanges(sender, closedGroup, allMembers)
-                
-            case .group:
-                break
-                
-            default: return // Ignore as invalid
+        let timestampMs: Int64 = (
+            message.sentTimestamp.map { Int64($0) } ??
+            SnodeAPI.currentOffsetTimestampMs()
+        )
+        
+        // Only actually make the change if SessionUtil says we can (we always want to insert the info
+        // message though)
+        if SessionUtil.canPerformChange(db, threadId: threadId, targetConfig: .userGroups, changeTimestampMs: timestampMs) {
+            // Legacy groups used these control messages for making changes, new groups only use them
+            // for information purposes
+            switch threadVariant {
+                case .legacyGroup:
+                    // Check that the message isn't from before the group was created
+                    guard Double(message.sentTimestamp ?? 0) > closedGroup.formationTimestamp else {
+                        return SNLog("Ignoring legacy group update from before thread was created.")
+                    }
+                    
+                    // If these values are missing then we probably won't be able to validly handle the message
+                    guard
+                        let allMembers: [GroupMember] = try? closedGroup.allMembers.fetchAll(db),
+                        allMembers.contains(where: { $0.profileId == sender })
+                    else { return SNLog("Ignoring legacy group update from non-member.") }
+                    
+                    try legacyGroupChanges(sender, closedGroup, allMembers)
+                    
+                case .group:
+                    break
+                    
+                default: return // Ignore as invalid
+            }
         }
+        
+        // Ensure the group still exists before inserting the info message
+        guard ClosedGroup.filter(id: threadId).isNotEmpty(db) else { return }
         
         // Insert the info message for this group control message
         _ = try Interaction(

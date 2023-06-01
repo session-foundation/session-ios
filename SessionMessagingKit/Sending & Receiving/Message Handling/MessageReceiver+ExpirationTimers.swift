@@ -16,9 +16,9 @@ extension MessageReceiver {
             // Only process these for contact and legacy groups (new groups handle it separately)
             (threadVariant == .contact || threadVariant == .legacyGroup),
             let sender: String = message.sender
-        else { return }
+        else { throw MessageReceiverError.invalidMessage }
         
-        // Update the configuration
+        // Generate an updated configuration
         //
         // Note: Messages which had been sent during the previous configuration will still
         // use it's settings (so if you enable, send a message and then disable disappearing
@@ -56,51 +56,79 @@ extension MessageReceiver {
             type: defaultType
         )
         
-        try remoteConfig.save(db)
+        let timestampMs: Int64 = Int64(message.sentTimestamp ?? 0) // Default to `0` if not set
         
-        // Remove previous info messages
-        _ = try Interaction
-            .filter(Interaction.Columns.threadId == threadId)
-            .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-            .deleteAll(db)
+        // Only actually make the change if SessionUtil says we can (we always want to insert the info
+        // message though)
+        let canPerformChange: Bool = SessionUtil.canPerformChange(
+            db,
+            threadId: threadId,
+            targetConfig: {
+                switch threadVariant {
+                    case .contact:
+                        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
+                        
+                        return (threadId == currentUserPublicKey ? .userProfile : .contacts)
+                        
+                    default: return .userGroups
+                }
+            }(),
+            changeTimestampMs: timestampMs
+        )
         
-        // Contacts & legacy closed groups need to update the SessionUtil
-        switch threadVariant {
-            case .contact:
-                try SessionUtil
-                    .update(
-                        db,
-                        sessionId: threadId,
-                        disappearingMessagesConfig: remoteConfig
-                    )
-            
-            case .legacyGroup:
-                try SessionUtil
-                    .update(
-                        db,
-                        groupPublicKey: threadId,
-                        disappearingConfig: remoteConfig
-                    )
+        // Only update libSession if we can perform the change
+        if canPerformChange {
+            // Contacts & legacy closed groups need to update the SessionUtil
+            switch threadVariant {
+                case .contact:
+                    try SessionUtil
+                        .update(
+                            db,
+                            sessionId: threadId,
+                            disappearingMessagesConfig: remoteConfig
+                        )
                 
-            default: break
+                case .legacyGroup:
+                    try SessionUtil
+                        .update(
+                            db,
+                            groupPublicKey: threadId,
+                            disappearingConfig: remoteConfig
+                        )
+                    
+                default: break
+            }
         }
         
-        // Add an info message for the user
-        _ = try Interaction(
-            serverHash: nil, // Intentionally null so sync messages are seen as duplicates
-            threadId: threadId,
-            authorId: sender,
-            variant: .infoDisappearingMessagesUpdate,
-            body: remoteConfig.messageInfoString(
-                with: (sender != getUserHexEncodedPublicKey(db) ?
-                    Profile.displayName(db, id: sender) :
-                    nil
+        // Only save the updated config if we can perform the change
+        if canPerformChange {
+            // Finally save the changes to the DisappearingMessagesConfiguration (If it's a duplicate
+            // then the interaction unique constraint will prevent the code from getting here)
+            try remoteConfig.save(db)
+            
+            // Remove previous info messages
+            _ = try Interaction
+                .filter(Interaction.Columns.threadId == threadId)
+                .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                .deleteAll(db)
+            
+            // Add an info message for the user
+            _ = try Interaction(
+                serverHash: nil, // Intentionally null so sync messages are seen as duplicates
+                threadId: threadId,
+                authorId: sender,
+                variant: .infoDisappearingMessagesUpdate,
+                body: remoteConfig.messageInfoString(
+                    with: (sender != getUserHexEncodedPublicKey(db) ?
+                        Profile.displayName(db, id: sender) :
+                        nil
+                    ),
+                    isPreviousOff: false
                 ),
-                isPreviousOff: false
-            ),
-            timestampMs: Int64(message.sentTimestamp ?? 0),   // Default to `0` if not set
-            expiresInSeconds: (remoteConfig.isEnabled ? nil : localConfig.durationSeconds)
-        ).inserted(db)
+                timestampMs: timestampMs,
+                expiresInSeconds: (remoteConfig.isEnabled ? nil : localConfig.durationSeconds)
+            ).inserted(db)
+        }
     }
     
     internal static func updateDisappearingMessagesConfigurationIfNeeded(

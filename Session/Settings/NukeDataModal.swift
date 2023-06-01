@@ -257,6 +257,12 @@ final class NukeDataModal: Modal {
             PushNotificationAPI.unregister(data).sinkUntilComplete()
         }
         
+        /// Stop and cancel all current jobs (don't want to inadvertantly have a job store data after it's table has already been cleared)
+        ///
+        /// **Note:** This is file as long as this process kills the app, if it doesn't then we need an alternate mechanism to flag that
+        /// the `JobRunner` is allowed to start it's queues again
+        JobRunner.stopAndClearPendingJobs()
+        
         // Clear the app badge and notifications
         AppEnvironment.shared.notificationPresenter.clearAllNotifications()
         CurrentAppContext().setMainAppBadgeNumber(0)

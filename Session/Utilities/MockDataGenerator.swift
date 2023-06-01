@@ -158,7 +158,9 @@ enum MockDataGenerator {
                     id: randomSessionId,
                     name: (0..<contactNameLength)
                         .compactMap { _ in stringContent.randomElement(using: &dmThreadRandomGenerator) }
-                        .joined()
+                        .joined(),
+                    lastNameUpdate: Date().timeIntervalSince1970,
+                    lastProfilePictureUpdate: Date().timeIntervalSince1970
                 )
                 .saved(db)
                 
@@ -237,7 +239,9 @@ enum MockDataGenerator {
                         id: randomSessionId,
                         name: (0..<contactNameLength)
                             .compactMap { _ in stringContent.randomElement(using: &cgThreadRandomGenerator) }
-                            .joined()
+                            .joined(),
+                        lastNameUpdate: Date().timeIntervalSince1970,
+                        lastProfilePictureUpdate: Date().timeIntervalSince1970
                     )
                     .saved(db)
                     
@@ -365,7 +369,9 @@ enum MockDataGenerator {
                         id: randomSessionId,
                         name: (0..<contactNameLength)
                             .compactMap { _ in stringContent.randomElement(using: &ogThreadRandomGenerator) }
-                            .joined()
+                            .joined(),
+                        lastNameUpdate: Date().timeIntervalSince1970,
+                        lastProfilePictureUpdate: Date().timeIntervalSince1970
                     )
                     .saved(db)
 

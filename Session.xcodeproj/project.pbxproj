@@ -592,6 +592,7 @@
 		FD2B4AFD294688D000AB4848 /* SessionUtil+Contacts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2B4AFC294688D000AB4848 /* SessionUtil+Contacts.swift */; };
 		FD2B4AFF2946C93200AB4848 /* ConfigurationSyncJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2B4AFE2946C93200AB4848 /* ConfigurationSyncJob.swift */; };
 		FD2B4B042949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2B4B032949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift */; };
+		FD3003662A25D5B300B5A5FB /* ConfigMessageReceiveJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3003652A25D5B300B5A5FB /* ConfigMessageReceiveJob.swift */; };
 		FD368A6829DE8F9C000DBF1E /* _012_AddFTSIfNeeded.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD368A6729DE8F9B000DBF1E /* _012_AddFTSIfNeeded.swift */; };
 		FD368A6A29DE9E30000DBF1E /* UIContextualAction+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD368A6929DE9E30000DBF1E /* UIContextualAction+Utilities.swift */; };
 		FD37E9C328A1C6F3003AE748 /* ThemeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD37E9C228A1C6F3003AE748 /* ThemeManager.swift */; };
@@ -1740,6 +1741,7 @@
 		FD2B4AFC294688D000AB4848 /* SessionUtil+Contacts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionUtil+Contacts.swift"; sourceTree = "<group>"; };
 		FD2B4AFE2946C93200AB4848 /* ConfigurationSyncJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationSyncJob.swift; sourceTree = "<group>"; };
 		FD2B4B032949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "QueryInterfaceRequest+Utilities.swift"; sourceTree = "<group>"; };
+		FD3003652A25D5B300B5A5FB /* ConfigMessageReceiveJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigMessageReceiveJob.swift; sourceTree = "<group>"; };
 		FD368A6729DE8F9B000DBF1E /* _012_AddFTSIfNeeded.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = _012_AddFTSIfNeeded.swift; sourceTree = "<group>"; };
 		FD368A6929DE9E30000DBF1E /* UIContextualAction+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIContextualAction+Utilities.swift"; sourceTree = "<group>"; };
 		FD37E9C228A1C6F3003AE748 /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeManager.swift; sourceTree = "<group>"; };
@@ -4322,6 +4324,7 @@
 				FDD2506F2837199200198BDA /* GarbageCollectionJob.swift */,
 				C352A2FE25574B6300338F3E /* MessageSendJob.swift */,
 				C352A31225574F5200338F3E /* MessageReceiveJob.swift */,
+				FD3003652A25D5B300B5A5FB /* ConfigMessageReceiveJob.swift */,
 				C352A32E2557549C00338F3E /* NotifyPushServerJob.swift */,
 				FDF0B74E28079E5E004C14C5 /* SendReadReceiptsJob.swift */,
 				C352A348255781F400338F3E /* AttachmentDownloadJob.swift */,
@@ -5760,6 +5763,7 @@
 				C3471ECB2555356A00297E91 /* MessageSender+Encryption.swift in Sources */,
 				FDF40CDE2897A1BC006A0CC4 /* _004_RemoveLegacyYDB.swift in Sources */,
 				FDF0B74928060D13004C14C5 /* QuotedReplyModel.swift in Sources */,
+				FD3003662A25D5B300B5A5FB /* ConfigMessageReceiveJob.swift in Sources */,
 				7B81682C28B72F480069F315 /* PendingChange.swift in Sources */,
 				FD77289A284AF1BD0018502F /* Sodium+Utilities.swift in Sources */,
 				FD5C7309285007920029977D /* BlindedIdLookup.swift in Sources */,

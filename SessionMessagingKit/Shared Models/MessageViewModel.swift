@@ -34,6 +34,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     public static let currentUserPublicKeyKey: SQL = SQL(stringLiteral: CodingKeys.currentUserPublicKey.stringValue)
     public static let cellTypeKey: SQL = SQL(stringLiteral: CodingKeys.cellType.stringValue)
     public static let authorNameKey: SQL = SQL(stringLiteral: CodingKeys.authorName.stringValue)
+    public static let canHaveProfileKey: SQL = SQL(stringLiteral: CodingKeys.canHaveProfile.stringValue)
     public static let shouldShowProfileKey: SQL = SQL(stringLiteral: CodingKeys.shouldShowProfile.stringValue)
     public static let shouldShowDateHeaderKey: SQL = SQL(stringLiteral: CodingKeys.shouldShowDateHeader.stringValue)
     public static let positionInClusterKey: SQL = SQL(stringLiteral: CodingKeys.positionInCluster.stringValue)
@@ -115,6 +116,9 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     /// **Note:** This will only be populated for incoming messages
     public let senderName: String?
 
+    /// A flag indicating whether the profile view can be displayed
+    public let canHaveProfile: Bool
+    
     /// A flag indicating whether the profile view should be displayed
     public let shouldShowProfile: Bool
 
@@ -191,6 +195,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             cellType: self.cellType,
             authorName: self.authorName,
             senderName: self.senderName,
+            canHaveProfile: self.canHaveProfile,
             shouldShowProfile: self.shouldShowProfile,
             shouldShowDateHeader: self.shouldShowDateHeader,
             containsOnlyEmoji: self.containsOnlyEmoji,
@@ -393,6 +398,11 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
                     
                 return authorDisplayName
             }(),
+            canHaveProfile: (
+                // Only group threads and incoming messages
+                isGroupThread &&
+                self.variant == .standardIncoming
+            ),
             shouldShowProfile: (
                 // Only group threads
                 isGroupThread &&
@@ -564,6 +574,7 @@ public extension MessageViewModel {
         self.cellType = cellType
         self.authorName = ""
         self.senderName = nil
+        self.canHaveProfile = false
         self.shouldShowProfile = false
         self.shouldShowDateHeader = false
         self.containsOnlyEmoji = nil
@@ -733,6 +744,7 @@ public extension MessageViewModel {
                     -- query from crashing when decoding we need to provide default values
                     \(CellType.textOnlyMessage) AS \(ViewModel.cellTypeKey),
                     '' AS \(ViewModel.authorNameKey),
+                    false AS \(ViewModel.canHaveProfileKey),
                     false AS \(ViewModel.shouldShowProfileKey),
                     false AS \(ViewModel.shouldShowDateHeaderKey),
                     \(Position.middle) AS \(ViewModel.positionInClusterKey),

@@ -65,7 +65,7 @@ public final class ProfilePictureView: UIView {
         
         var iconSize: CGFloat {
             switch self {
-                case .navigation, .message: return 8
+                case .navigation, .message: return 10   // Intentionally not a multiple of 4
                 case .list: return 16
                 case .hero: return 24
             }
@@ -117,6 +117,12 @@ public final class ProfilePictureView: UIView {
                 0
             )
             imageContainerView.layer.cornerRadius = (clipsToBounds ? (size.multiImageSize / 2) : 0)
+        }
+    }
+    public override var isHidden: Bool {
+        didSet {
+            widthConstraint.constant = (isHidden ? 0 : size.viewSize)
+            heightConstraint.constant = (isHidden ? 0 : size.viewSize)
         }
     }
     

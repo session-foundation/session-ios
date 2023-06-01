@@ -38,8 +38,6 @@ public enum SNUserDefaults {
 
     public enum Date: Swift.String {
         case lastConfigurationSync
-        case lastDisplayNameUpdate
-        case lastProfilePictureUpdate
         case lastProfilePictureUpload
         case lastOpenGroupImageUpdate
         case lastOpen

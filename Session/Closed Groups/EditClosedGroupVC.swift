@@ -301,7 +301,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
     }
 
     private func handleMembersChanged() {
-        tableViewHeightConstraint.constant = CGFloat(membersAndZombies.count) * 72
+        tableViewHeightConstraint.constant = CGFloat(membersAndZombies.count) * 78
         tableView.reloadData()
     }
 
@@ -440,7 +440,6 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         }
         
         let threadId: String = self.threadId
-        let threadVariant: SessionThread.Variant = self.threadVariant
         let updatedName: String = self.name
         let userPublicKey: String = self.userPublicKey
         let updatedMemberIds: Set<String> = self.membersAndZombies

@@ -219,11 +219,18 @@ enum Onboarding {
         }
         
         func completeRegistration() {
-            // Set the `lastDisplayNameUpdate` to the current date, so that we don't
-            // overwrite what the user set in the display name step with whatever we
-            // find in their swarm (otherwise the user could enter a display name and
-            // have it immediately overwritten due to the config request running slow)
-            UserDefaults.standard[.lastDisplayNameUpdate] = Date()
+            // Set the `lastNameUpdate` to the current date, so that we don't overwrite
+            // what the user set in the display name step with whatever we find in their
+            // swarm (otherwise the user could enter a display name and have it immediately
+            // overwritten due to the config request running slow)
+            Storage.shared.write { db in
+                try Profile
+                    .filter(id: getUserHexEncodedPublicKey(db))
+                    .updateAllAndConfig(
+                        db,
+                        Profile.Columns.lastNameUpdate.set(to: Date().timeIntervalSince1970)
+                    )
+            }
             
             // Notify the app that registration is complete
             Identity.didRegister()

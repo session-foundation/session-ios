@@ -22,7 +22,6 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     private lazy var authorLabelTopConstraint = authorLabel.pin(.top, to: .top, of: self)
     private lazy var authorLabelHeightConstraint = authorLabel.set(.height, to: 0)
     private lazy var profilePictureViewLeadingConstraint = profilePictureView.pin(.leading, to: .leading, of: self, withInset: VisibleMessageCell.groupThreadHSpacing)
-    private lazy var profilePictureViewWidthConstraint = profilePictureView.set(.width, to: 0)
     private lazy var contentViewLeadingConstraint1 = snContentView.pin(.leading, to: .trailing, of: profilePictureView, withInset: VisibleMessageCell.groupThreadHSpacing)
     private lazy var contentViewLeadingConstraint2 = snContentView.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: VisibleMessageCell.gutterSize)
     private lazy var contentViewTopConstraint = snContentView.pin(.top, to: .bottom, of: authorLabel, withInset: VisibleMessageCell.authorLabelBottomSpacing)
@@ -300,9 +299,14 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         )
         
         // Profile picture view (should always be handled as a standard 'contact' profile picture)
+        let profileShouldBeVisible: Bool = (
+            cellViewModel.canHaveProfile &&
+            cellViewModel.shouldShowProfile &&
+            cellViewModel.profile != nil
+        )
         profilePictureViewLeadingConstraint.constant = (isGroupThread ? VisibleMessageCell.groupThreadHSpacing : 0)
-        profilePictureViewWidthConstraint.constant = (isGroupThread ? ProfilePictureView.Size.message.viewSize : 0)
-        profilePictureView.isHidden = (!cellViewModel.shouldShowProfile || cellViewModel.profile == nil)
+        profilePictureView.isHidden = !cellViewModel.canHaveProfile
+        profilePictureView.alpha = (profileShouldBeVisible ? 1 : 0)
         profilePictureView.update(
             publicKey: cellViewModel.authorId,
             threadVariant: .contact,    // Always show the display picture in 'contact' mode

@@ -9,6 +9,11 @@ import SessionUtilitiesKit
 // MARK: - Convenience
 
 internal extension SessionUtil {
+    /// This is a buffer period within which we will process messages which would result in a config change, any message which would normally
+    /// result in a config change which was sent before `lastConfigMessage.timestamp - configChangeBufferPeriod` will not
+    /// actually have it's changes applied (info messages would still be inserted though)
+    static let configChangeBufferPeriod: TimeInterval = (2 * 60)
+    
     static let columnsRelatedToThreads: [ColumnExpression] = [
         SessionThread.Columns.pinnedPriority,
         SessionThread.Columns.shouldBeVisible
@@ -66,7 +71,8 @@ internal extension SessionUtil {
                     try SessionUtil.createDump(
                         conf: conf,
                         for: variant,
-                        publicKey: publicKey
+                        publicKey: publicKey,
+                        timestampMs: Int64(Date().timeIntervalSince1970 * 1000)
                     )?.save(db)
                     
                     return config_needs_push(conf)
@@ -292,6 +298,35 @@ internal extension SessionUtil {
                 default: break
             }
         }
+    }
+    
+    static func canPerformChange(
+        _ db: Database,
+        threadId: String,
+        targetConfig: ConfigDump.Variant,
+        changeTimestampMs: Int64
+    ) -> Bool {
+        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
+        guard SessionUtil.userConfigsEnabled(db) else { return true }
+        
+        let targetPublicKey: String = {
+            switch targetConfig {
+                default: return getUserHexEncodedPublicKey(db)
+            }
+        }()
+        
+        let configDumpTimestampMs: Int64 = (try? ConfigDump
+            .filter(
+                ConfigDump.Columns.variant == targetConfig &&
+                ConfigDump.Columns.publicKey == targetPublicKey
+            )
+            .select(.timestampMs)
+            .asRequest(of: Int64.self)
+            .fetchOne(db))
+            .defaulting(to: 0)
+        
+        // Ensure the change occurred after the last config message was handled (minus the buffer period)
+        return (changeTimestampMs >= (configDumpTimestampMs - Int64(SessionUtil.configChangeBufferPeriod * 1000)))
     }
 }
 

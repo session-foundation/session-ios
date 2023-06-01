@@ -13,11 +13,37 @@ extension MessageReceiver {
         dependencies: SMKDependencies
     ) throws {
         let userPublicKey = getUserHexEncodedPublicKey(db, dependencies: dependencies)
+        let timestampMs: Int64 = (
+            message.sentTimestamp.map { Int64($0) } ??
+            SnodeAPI.currentOffsetTimestampMs()
+        )
         var blindedContactIds: [String] = []
         
         // Ignore messages which were sent from the current user
-        guard message.sender != userPublicKey else { return }
-        guard let senderId: String = message.sender else { return }
+        guard
+            message.sender != userPublicKey,
+            let senderId: String = message.sender
+        else { throw MessageReceiverError.invalidMessage }
+        
+        /// Only process the message if the thread `shouldBeVisible` or it was sent after the libSession buffer period
+        guard
+            SessionThread
+                .filter(id: senderId)
+                .filter(SessionThread.Columns.shouldBeVisible == true)
+                .isNotEmpty(db) ||
+            SessionUtil.conversationInConfig(
+                db,
+                threadId: senderId,
+                threadVariant: .contact,
+                visibleOnly: true
+            ) ||
+            SessionUtil.canPerformChange(
+                db,
+                threadId: senderId,
+                targetConfig: .contacts,
+                changeTimestampMs: timestampMs
+            )
+        else { throw MessageReceiverError.outdatedMessage }
         
         // Update profile if needed (want to do this regardless of whether the message exists or
         // not to ensure the profile info gets sync between a users devices at every chance)
@@ -134,10 +160,7 @@ extension MessageReceiver {
             threadId: unblindedThread.id,
             authorId: senderId,
             variant: .infoMessageRequestAccepted,
-            timestampMs: (
-                message.sentTimestamp.map { Int64($0) } ??
-                SnodeAPI.currentOffsetTimestampMs()
-            )
+            timestampMs: timestampMs
         ).inserted(db)
     }
     

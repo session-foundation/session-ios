@@ -55,10 +55,10 @@ extension SessionCell {
             highlightingBackgroundLabel.pin(.trailing, to: .trailing, of: self, withInset: -Values.smallSpacing),
             highlightingBackgroundLabel.pin(.bottom, to: .bottom, of: self)
         ]
-        private lazy var profilePictureViewLeadingConstraint: NSLayoutConstraint = profilePictureView.pin(.leading, to: .leading, of: self)
-        private lazy var profilePictureViewTrailingConstraint: NSLayoutConstraint = profilePictureView.pin(.trailing, to: .trailing, of: self)
         private lazy var profilePictureViewConstraints: [NSLayoutConstraint] = [
             profilePictureView.pin(.top, to: .top, of: self),
+            profilePictureView.pin(.leading, to: .leading, of: self),
+            profilePictureView.pin(.trailing, to: .trailing, of: self),
             profilePictureView.pin(.bottom, to: .bottom, of: self)
         ]
         private lazy var searchBarConstraints: [NSLayoutConstraint] = [
@@ -269,8 +269,6 @@ extension SessionCell {
             radioBorderViewHeightConstraint.isActive = false
             radioBorderViewConstraints.forEach { $0.isActive = false }
             highlightingBackgroundLabelConstraints.forEach { $0.isActive = false }
-            profilePictureViewLeadingConstraint.isActive = false
-            profilePictureViewTrailingConstraint.isActive = false
             profilePictureViewConstraints.forEach { $0.isActive = false }
             searchBarConstraints.forEach { $0.isActive = false }
             buttonConstraints.forEach { $0.isActive = false }
@@ -458,10 +456,6 @@ extension SessionCell {
                     
                     fixedWidthConstraint.constant = profileSize.viewSize
                     fixedWidthConstraint.isActive = true
-                    profilePictureViewLeadingConstraint.constant = (profileSize.viewSize > AccessoryView.minWidth ? 0 : Values.smallSpacing)
-                    profilePictureViewTrailingConstraint.constant = (profileSize.viewSize > AccessoryView.minWidth ? 0 : -Values.smallSpacing)
-                    profilePictureViewLeadingConstraint.isActive = true
-                    profilePictureViewTrailingConstraint.isActive = true
                     profilePictureViewConstraints.forEach { $0.isActive = true }
                     
                 case .search(let placeholder, let accessibility, let searchTermChanged):

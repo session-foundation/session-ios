@@ -9,7 +9,7 @@ import SessionUtilitiesKit
 
 public enum ConfigurationSyncJob: JobExecutor {
     public static let maxFailureCount: Int = -1
-    public static let requiresThreadId: Bool = false
+    public static let requiresThreadId: Bool = true
     public static let requiresInteractionId: Bool = false
     private static let maxRunFrequency: TimeInterval = 3
     
@@ -25,13 +25,29 @@ public enum ConfigurationSyncJob: JobExecutor {
             Identity.userCompletedRequiredOnboarding()
         else { return success(job, true) }
         
-        // On startup it's possible for multiple ConfigSyncJob's to run at the same time (which is
-        // redundant) so check if there is another job already running and, if so, defer this job
-        let jobDetails: [Int64: Data?] = JobRunner.defailsForCurrentlyRunningJobs(of: .configurationSync)
-        
-        guard jobDetails.setting(job.id, nil).count == 0 else {
-            deferred(job)   // We will re-enqueue when needed
-            return
+        // It's possible for multiple ConfigSyncJob's with the same target (user/group) to try to run at the
+        // same time since as soon as one is started we will enqueue a second one, rather than adding dependencies
+        // between the jobs we just continue to defer the subsequent job while the first one is running in
+        // order to prevent multiple configurationSync jobs with the same target from running at the same time
+        guard
+            JobRunner
+                .infoForCurrentlyRunningJobs(of: .configurationSync)
+                .filter({ key, info in
+                    key != job.id &&                // Exclude this job
+                    info.threadId == job.threadId   // Exclude jobs for different ids
+                })
+                .isEmpty
+        else {
+            // Defer the job to run 'maxRunFrequency' from when this one ran (if we don't it'll try start
+            // it again immediately which is pointless)
+            let updatedJob: Job? = Storage.shared.write { db in
+                try job
+                    .with(nextRunTimestamp: Date().timeIntervalSince1970 + maxRunFrequency)
+                    .saved(db)
+            }
+            
+            SNLog("[ConfigurationSyncJob] For \(job.threadId ?? "UnknownId") deferred due to in progress job")
+            return deferred(updatedJob ?? job)
         }
         
         // If we don't have a userKeyPair yet then there is no need to sync the configuration
@@ -42,16 +58,15 @@ public enum ConfigurationSyncJob: JobExecutor {
             let pendingConfigChanges: [SessionUtil.OutgoingConfResult] = Storage.shared
                 .read({ db in try SessionUtil.pendingChanges(db, publicKey: publicKey) })
         else {
-            failure(job, StorageError.generic, false)
-            return
+            SNLog("[ConfigurationSyncJob] For \(job.threadId ?? "UnknownId") failed due to invalid data")
+            return failure(job, StorageError.generic, false)
         }
         
         // If there are no pending changes then the job can just complete (next time something
         // is updated we want to try and run immediately so don't scuedule another run in this case)
         guard !pendingConfigChanges.isEmpty else {
-            SNLog("[ConfigurationSyncJob] Completed with no pending changes")
-            success(job, true)
-            return
+            SNLog("[ConfigurationSyncJob] For \(publicKey) completed with no pending changes")
+            return success(job, true)
         }
         
         // Identify the destination and merge all obsolete hashes into a single set
@@ -63,6 +78,8 @@ public enum ConfigurationSyncJob: JobExecutor {
             .map { $0.obsoleteHashes }
             .reduce([], +)
             .asSet()
+        let jobStartTimestamp: TimeInterval = Date().timeIntervalSince1970
+        SNLog("[ConfigurationSyncJob] For \(publicKey) started with \(pendingConfigChanges.count) change\(pendingConfigChanges.count == 1 ? "" : "s")")
         
         Storage.shared
             .readPublisher { db in
@@ -119,9 +136,9 @@ public enum ConfigurationSyncJob: JobExecutor {
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {
-                        case .finished: SNLog("[ConfigurationSyncJob] Completed")
+                        case .finished: SNLog("[ConfigurationSyncJob] For \(publicKey) completed")
                         case .failure(let error):
-                            SNLog("[ConfigurationSyncJob] Failed due to error: \(error)")
+                            SNLog("[ConfigurationSyncJob] For \(publicKey) failed due to error: \(error)")
                             failure(job, error, false)
                     }
                 },
@@ -137,7 +154,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                         // When we complete the 'ConfigurationSync' job we want to immediately schedule
                         // another one with a 'nextRunTimestamp' set to the 'maxRunFrequency' value to
                         // throttle the config sync requests
-                        let nextRunTimestamp: TimeInterval = (Date().timeIntervalSince1970 + maxRunFrequency)
+                        let nextRunTimestamp: TimeInterval = (jobStartTimestamp + maxRunFrequency)
                         
                         // If another 'ConfigurationSync' job was scheduled then update that one
                         // to run at 'nextRunTimestamp' and make the current job stop
@@ -146,6 +163,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                                 .filter(Job.Columns.id != job.id)
                                 .filter(Job.Columns.variant == Job.Variant.configurationSync)
                                 .filter(Job.Columns.threadId == publicKey)
+                                .order(Job.Columns.nextRunTimestamp.asc)
                                 .fetchOne(db)
                         {
                             // If the next job isn't currently running then delay it's start time
@@ -175,7 +193,6 @@ public enum ConfigurationSyncJob: JobExecutor {
 // MARK: - Convenience
 
 public extension ConfigurationSyncJob {
-        
     static func enqueue(_ db: Database, publicKey: String) {
         // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
         guard SessionUtil.userConfigsEnabled(db) else {

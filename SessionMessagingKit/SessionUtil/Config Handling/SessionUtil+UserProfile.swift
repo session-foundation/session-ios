@@ -18,7 +18,7 @@ internal extension SessionUtil {
         _ db: Database,
         in conf: UnsafeMutablePointer<config_object>?,
         mergeNeedsDump: Bool,
-        latestConfigUpdateSentTimestamp: TimeInterval
+        latestConfigSentTimestampMs: Int64
     ) throws {
         typealias ProfileData = (profileName: String, profilePictureUrl: String?, profilePictureKey: Data?)
         
@@ -50,7 +50,7 @@ internal extension SessionUtil {
                     fileName: nil
                 )
             }(),
-            sentTimestamp: latestConfigUpdateSentTimestamp,
+            sentTimestamp: (TimeInterval(latestConfigSentTimestampMs) / 1000),
             calledFromConfigHandling: true
         )
         
@@ -121,7 +121,7 @@ internal extension SessionUtil {
             isEnabled: targetIsEnable,
             durationSeconds: TimeInterval(targetExpiry),
             type: targetIsEnable ? .disappearAfterSend : .unknown,
-            lastChangeTimestampMs: Int64(latestConfigUpdateSentTimestamp * 1000)
+            lastChangeTimestampMs: latestConfigSentTimestampMs
         )
         let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
             .fetchOne(db, id: userPublicKey)

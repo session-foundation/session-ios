@@ -35,7 +35,7 @@ internal extension SessionUtil {
         _ db: Database,
         in conf: UnsafeMutablePointer<config_object>?,
         mergeNeedsDump: Bool,
-        latestConfigUpdateSentTimestamp: TimeInterval
+        latestConfigSentTimestampMs: Int64
     ) throws {
         typealias ContactData = [
             String: (
@@ -69,6 +69,7 @@ internal extension SessionUtil {
             let profileResult: Profile = Profile(
                 id: contactId,
                 name: String(libSessionVal: contact.name),
+                lastNameUpdate: (TimeInterval(latestConfigSentTimestampMs) / 1000),
                 nickname: String(libSessionVal: contact.nickname, nullIfEmpty: true),
                 profilePictureUrl: profilePictureUrl,
                 profileEncryptionKey: (profilePictureUrl == nil ? nil :
@@ -76,14 +77,15 @@ internal extension SessionUtil {
                         libSessionVal: contact.profile_pic.key,
                         count: ProfileManager.avatarAES256KeyByteLength
                     )
-                )
+                ),
+                lastProfilePictureUpdate: (TimeInterval(latestConfigSentTimestampMs) / 1000)
             )
             let configResult: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
                 threadId: contactId,
                 isEnabled: contact.exp_seconds > 0,
                 durationSeconds: TimeInterval(contact.exp_seconds),
                 type: DisappearingMessagesConfiguration.DisappearingMessageType(sessionUtilType: contact.exp_mode),
-                lastChangeTimestampMs: Int64(latestConfigUpdateSentTimestamp)
+                lastChangeTimestampMs: latestConfigSentTimestampMs
             )
             
             contactData[contactId] = (
@@ -112,12 +114,23 @@ internal extension SessionUtil {
                 // observation system can't differ between update calls which do and don't change anything)
                 let contact: Contact = Contact.fetchOrCreate(db, id: sessionId)
                 let profile: Profile = Profile.fetchOrCreate(db, id: sessionId)
+                let profileNameShouldBeUpdated: Bool = (
+                    !data.profile.name.isEmpty &&
+                    profile.name != data.profile.name &&
+                    profile.lastNameUpdate < data.profile.lastNameUpdate
+                )
+                let profilePictureShouldBeUpdated: Bool = (
+                    (
+                        profile.profilePictureUrl != data.profile.profilePictureUrl ||
+                        profile.profileEncryptionKey != data.profile.profileEncryptionKey
+                    ) &&
+                    profile.lastProfilePictureUpdate < data.profile.lastProfilePictureUpdate
+                )
                 
                 if
-                    (!data.profile.name.isEmpty && profile.name != data.profile.name) ||
+                    profileNameShouldBeUpdated ||
                     profile.nickname != data.profile.nickname ||
-                    profile.profilePictureUrl != data.profile.profilePictureUrl ||
-                    profile.profileEncryptionKey != data.profile.profileEncryptionKey
+                    profilePictureShouldBeUpdated
                 {
                     try profile.save(db)
                     try Profile
@@ -125,8 +138,11 @@ internal extension SessionUtil {
                         .updateAll( // Handling a config update so don't use `updateAllAndConfig`
                             db,
                             [
-                                (data.profile.name.isEmpty || profile.name == data.profile.name ? nil :
+                                (!profileNameShouldBeUpdated ? nil :
                                     Profile.Columns.name.set(to: data.profile.name)
+                                ),
+                                (!profileNameShouldBeUpdated ? nil :
+                                    Profile.Columns.lastNameUpdate.set(to: data.profile.lastNameUpdate)
                                 ),
                                 (profile.nickname == data.profile.nickname ? nil :
                                     Profile.Columns.nickname.set(to: data.profile.nickname)
@@ -136,6 +152,9 @@ internal extension SessionUtil {
                                 ),
                                 (profile.profileEncryptionKey != data.profile.profileEncryptionKey ? nil :
                                     Profile.Columns.profileEncryptionKey.set(to: data.profile.profileEncryptionKey)
+                                ),
+                                (!profilePictureShouldBeUpdated ? nil :
+                                    Profile.Columns.lastProfilePictureUpdate.set(to: data.profile.lastProfilePictureUpdate)
                                 )
                             ].compactMap { $0 }
                         )
