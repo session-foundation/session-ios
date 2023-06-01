@@ -187,24 +187,6 @@ internal extension SessionUtil {
                         )
                 }
                 
-                // Update disappearing messages configuration if needed
-                let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
-                    .fetchOne(db, id: sessionId)
-                    .defaulting(to: DisappearingMessagesConfiguration.defaultWith(sessionId))
-                
-                if
-                    let remoteLastChangeTimestampMs = data.config.lastChangeTimestampMs,
-                    let localLastChangeTimestampMs = localConfig.lastChangeTimestampMs,
-                    remoteLastChangeTimestampMs > localLastChangeTimestampMs
-                {
-                    _ = try localConfig.with(
-                        isEnabled: data.config.isEnabled,
-                        durationSeconds: data.config.durationSeconds,
-                        type: data.config.type,
-                        lastChangeTimestampMs: data.config.lastChangeTimestampMs
-                    ).save(db)
-                }
-                
                 /// If the contact's `hidden` flag doesn't match the visibility of their conversation then create/delete the
                 /// associated contact conversation accordingly
                 let threadInfo: PriorityVisibilityInfo? = try? SessionThread
@@ -255,6 +237,24 @@ internal extension SessionUtil {
                             )
                         
                     case (false, false): break
+                }
+                
+                // Update disappearing messages configuration if needed
+                let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
+                    .fetchOne(db, id: sessionId)
+                    .defaulting(to: DisappearingMessagesConfiguration.defaultWith(sessionId))
+                
+                if
+                    let remoteLastChangeTimestampMs = data.config.lastChangeTimestampMs,
+                    let localLastChangeTimestampMs = localConfig.lastChangeTimestampMs,
+                    remoteLastChangeTimestampMs > localLastChangeTimestampMs
+                {
+                    _ = try localConfig.with(
+                        isEnabled: data.config.isEnabled,
+                        durationSeconds: data.config.durationSeconds,
+                        type: data.config.type,
+                        lastChangeTimestampMs: data.config.lastChangeTimestampMs
+                    ).save(db)
                 }
             }
         
