@@ -150,13 +150,10 @@ internal extension SessionUtil {
                         Interaction.Columns.wasRead.set(to: true)
                     )
                 // Update old disappearing after read messages to start
-                JobRunner.upsert(
+                DisappearingMessagesJob.updateNextRunIfNeeded(
                     db,
-                    job: DisappearingMessagesJob.updateNextRunIfNeeded(
-                        db,
-                        lastReadTimestampMs: lastReadTimestampMs,
-                        threadId: threadId
-                    )
+                    lastReadTimestampMs: lastReadTimestampMs,
+                    threadId: threadId
                 )
                 return nil
             }

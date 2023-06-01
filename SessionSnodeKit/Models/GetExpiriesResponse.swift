@@ -4,7 +4,7 @@ import Foundation
 import Sodium
 import SessionUtilitiesKit
 
-public class GetExpiriesResponse: SnodeResponse {
+public class GetExpiriesResponse: Codable {
     private enum CodingKeys: String, CodingKey {
         case expiries
     }
@@ -13,11 +13,9 @@ public class GetExpiriesResponse: SnodeResponse {
     
     // MARK: - Initialization
     
-    required init(from decoder: Decoder) throws {
+    required public init(from decoder: Decoder) throws {
         let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
         
         expiries = ((try? container.decode([String: UInt64].self, forKey: .expiries)) ?? [:])
-        
-        try super.init(from: decoder)
     }
 }
