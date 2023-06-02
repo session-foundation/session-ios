@@ -55,7 +55,7 @@ public extension DisappearingMessagesJob {
         // If there is another expiring message then update the job to run 1 second after it's meant to expire
         let nextExpirationTimestampMs: Double? = try? Interaction
             .filter(Interaction.Columns.expiresStartedAtMs != nil)
-            .filter(Interaction.Columns.expiresInSeconds != nil)
+            .filter(Interaction.Columns.expiresInSeconds > 0)
             .select(Interaction.Columns.expiresStartedAtMs + (Interaction.Columns.expiresInSeconds * 1000))
             .order((Interaction.Columns.expiresStartedAtMs + (Interaction.Columns.expiresInSeconds * 1000)).asc)
             .asRequest(of: Double.self)
@@ -83,7 +83,7 @@ public extension DisappearingMessagesJob {
             .filter(
                 Interaction.Columns.threadId == threadId &&
                 Interaction.Columns.timestampMs <= lastReadTimestampMs &&
-                Interaction.Columns.expiresInSeconds != nil &&
+                Interaction.Columns.expiresInSeconds > 0 &&
                 Interaction.Columns.expiresStartedAtMs == nil
             )
             .select(Interaction.Columns.serverHash)
@@ -149,7 +149,7 @@ public extension DisappearingMessagesJob {
         let interactionExpirationInfosByExpiresInSeconds: [TimeInterval: [ExpirationInfo]] = (try? Interaction
             .filter(interactionIds.contains(Interaction.Columns.id))
             .filter(
-                Interaction.Columns.expiresInSeconds != nil &&
+                Interaction.Columns.expiresInSeconds > 0 &&
                 Interaction.Columns.expiresStartedAtMs == nil
             )
             .select(
@@ -166,7 +166,7 @@ public extension DisappearingMessagesJob {
         let changeCount: Int? = try? Interaction
             .filter(interactionIds.contains(Interaction.Columns.id))
             .filter(
-                Interaction.Columns.expiresInSeconds != nil &&
+                Interaction.Columns.expiresInSeconds > 0 &&
                 Interaction.Columns.expiresStartedAtMs == nil
             )
             .updateAll(

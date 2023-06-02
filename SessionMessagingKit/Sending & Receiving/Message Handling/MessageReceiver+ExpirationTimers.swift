@@ -105,30 +105,30 @@ extension MessageReceiver {
             // Finally save the changes to the DisappearingMessagesConfiguration (If it's a duplicate
             // then the interaction unique constraint will prevent the code from getting here)
             try remoteConfig.save(db)
-            
-            // Remove previous info messages
-            _ = try Interaction
-                .filter(Interaction.Columns.threadId == threadId)
-                .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                .deleteAll(db)
-            
-            // Add an info message for the user
-            _ = try Interaction(
-                serverHash: nil, // Intentionally null so sync messages are seen as duplicates
-                threadId: threadId,
-                authorId: sender,
-                variant: .infoDisappearingMessagesUpdate,
-                body: remoteConfig.messageInfoString(
-                    with: (sender != getUserHexEncodedPublicKey(db) ?
-                        Profile.displayName(db, id: sender) :
-                        nil
-                    ),
-                    isPreviousOff: false
-                ),
-                timestampMs: timestampMs,
-                expiresInSeconds: (remoteConfig.isEnabled ? nil : localConfig.durationSeconds)
-            ).inserted(db)
         }
+        
+        // Remove previous info messages
+        _ = try Interaction
+            .filter(Interaction.Columns.threadId == threadId)
+            .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+            .deleteAll(db)
+        
+        // Add an info message for the user
+        _ = try Interaction(
+            serverHash: nil, // Intentionally null so sync messages are seen as duplicates
+            threadId: threadId,
+            authorId: sender,
+            variant: .infoDisappearingMessagesUpdate,
+            body: remoteConfig.messageInfoString(
+                with: (sender != getUserHexEncodedPublicKey(db) ?
+                    Profile.displayName(db, id: sender) :
+                    nil
+                ),
+                isPreviousOff: false
+            ),
+            timestampMs: timestampMs,
+            expiresInSeconds: (remoteConfig.isEnabled ? nil : localConfig.durationSeconds)
+        ).inserted(db)
     }
     
     internal static func updateDisappearingMessagesConfigurationIfNeeded(
@@ -171,7 +171,7 @@ extension MessageReceiver {
         let isEnable: Bool = (durationSeconds != 0)
         let disappearingType: DisappearingMessagesConfiguration.DisappearingMessageType? = (proto.hasExpirationType ?
             .init(protoType: proto.expirationType) :
-            nil
+            .unknown
         )
         let remoteConfig: DisappearingMessagesConfiguration = localConfig.with(
             isEnabled: isEnable,

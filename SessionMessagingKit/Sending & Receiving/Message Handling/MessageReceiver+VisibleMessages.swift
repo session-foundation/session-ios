@@ -24,6 +24,7 @@ extension MessageReceiver {
         let messageSentTimestamp: TimeInterval = (TimeInterval(message.sentTimestamp ?? 0) / 1000)
         let isMainAppActive: Bool = (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false)
         let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
+        let expiresInSeconds: TimeInterval? = proto.hasExpirationTimer ? TimeInterval(proto.expirationTimer) : nil
         
         /// Only process the message if the thread `shouldBeVisible` or it was sent after the libSession buffer period
         guard
@@ -178,6 +179,7 @@ extension MessageReceiver {
                     body: message.text,
                     quoteAuthorId: dataMessage.quote?.author
                 ),
+                expiresInSeconds: expiresInSeconds,
                 // OpenGroupInvitations are stored as LinkPreview's in the database
                 linkPreviewUrl: (message.linkPreview?.url ?? message.openGroupInvitation?.url),
                 // Keep track of the open group server message ID ↔ message ID relationship
