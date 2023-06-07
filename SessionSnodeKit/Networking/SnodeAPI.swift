@@ -891,7 +891,7 @@ public final class SnodeAPI {
     
     /// Clears all the user's data from their swarm. Returns a dictionary of snode public key to deletion confirmation.
     public static func deleteAllMessages(
-        namespace: SnodeAPI.Namespace? = nil,
+        namespace: SnodeAPI.Namespace,
         using dependencies: SSKDependencies = SSKDependencies()
     ) -> AnyPublisher<[String: Bool], Error> {
         guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair() else {
@@ -939,7 +939,7 @@ public final class SnodeAPI {
     /// Clears all the user's data from their swarm. Returns a dictionary of snode public key to deletion confirmation.
     public static func deleteAllMessages(
         beforeMs: UInt64,
-        namespace: SnodeAPI.Namespace? = nil,
+        namespace: SnodeAPI.Namespace,
         using dependencies: SSKDependencies = SSKDependencies()
     ) -> AnyPublisher<[String: Bool], Error> {
         guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair() else {

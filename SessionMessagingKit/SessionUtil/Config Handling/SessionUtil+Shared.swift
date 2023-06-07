@@ -3,6 +3,7 @@
 import UIKit
 import GRDB
 import SessionUIKit
+import SessionSnodeKit
 import SessionUtil
 import SessionUtilitiesKit
 
@@ -72,7 +73,7 @@ internal extension SessionUtil {
                         conf: conf,
                         for: variant,
                         publicKey: publicKey,
-                        timestampMs: Int64(Date().timeIntervalSince1970 * 1000)
+                        timestampMs: SnodeAPI.currentOffsetTimestampMs()
                     )?.save(db)
                     
                     return config_needs_push(conf)
@@ -342,21 +343,30 @@ public extension SessionUtil {
         // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
         guard SessionUtil.userConfigsEnabled(db) else { return true }
         
+        let userPublicKey: String = getUserHexEncodedPublicKey()
         let configVariant: ConfigDump.Variant = {
             switch threadVariant {
-                case .contact: return .contacts
+                case .contact: return (threadId == userPublicKey ? .userProfile : .contacts)
                 case .legacyGroup, .group, .community: return .userGroups
             }
         }()
         
         return SessionUtil
-            .config(for: configVariant, publicKey: getUserHexEncodedPublicKey())
+            .config(for: configVariant, publicKey: userPublicKey)
             .wrappedValue
             .map { conf in
                 var cThreadId: [CChar] = threadId.cArray.nullTerminated()
                 
                 switch threadVariant {
                     case .contact:
+                        // The 'Note to Self' conversation is stored in the 'userProfile' config
+                        guard threadId != userPublicKey else {
+                            return (
+                                !visibleOnly ||
+                                SessionUtil.shouldBeVisible(priority: user_profile_get_nts_priority(conf))
+                            )
+                        }
+                        
                         var contact: contacts_contact = contacts_contact()
                         
                         guard contacts_get(conf, &contact, &cThreadId) else { return false }

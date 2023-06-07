@@ -166,6 +166,7 @@ enum _013_SessionUtilChanges: Migration {
                 .notNull()
             t.column(.timestampMs, .integer)
                 .notNull()
+                .defaults(to: 0)
             
             t.primaryKey([.variant, .publicKey])
         }

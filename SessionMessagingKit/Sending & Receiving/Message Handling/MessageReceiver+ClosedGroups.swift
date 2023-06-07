@@ -78,8 +78,11 @@ extension MessageReceiver {
                 changeTimestampMs: Int64(sentTimestamp)
             )
         else {
-            // If the closed group already exists then store the encryption keys (just in case - there can be
-            // some weird edge-cases where we don't have keys we need if we don't store them)
+            // If the closed group already exists then store the encryption keys (since the config only stores
+            // the latest key we won't be able to decrypt older messages if we were added to the group within
+            // the last two weeks and the key has been rotated - unfortunately if the user was added more than
+            // two weeks ago and the keys were rotated within the last two weeks then we won't be able to decrypt
+            // messages received before the key rotation)
             let groupPublicKey: String = publicKeyAsData.toHexString()
             let receivedTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
             let newKeyPair: ClosedGroupKeyPair = ClosedGroupKeyPair(

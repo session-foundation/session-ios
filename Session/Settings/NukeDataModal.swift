@@ -163,7 +163,7 @@ final class NukeDataModal: Modal {
     private func clearEntireAccount(presentedViewController: UIViewController) {
         ModalActivityIndicatorViewController
             .present(fromViewController: presentedViewController, canCancel: false) { [weak self] _ in
-                SnodeAPI.deleteAllMessages()
+                SnodeAPI.deleteAllMessages(namespace: .all)
                     .subscribe(on: DispatchQueue.global(qos: .default))
                     .receive(on: DispatchQueue.main)
                     .sinkUntilComplete(
