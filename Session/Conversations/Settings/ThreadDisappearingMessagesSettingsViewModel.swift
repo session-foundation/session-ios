@@ -105,8 +105,10 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                     style: .bordered,
                     title: "DISAPPERING_MESSAGES_SAVE_TITLE".localized(),
                     isEnabled: true,
-                    accessibilityIdentifier: "Set button",
-                    accessibilityLabel: "Set button",
+                    accessibility: Accessibility(
+                        identifier: "Set button",
+                        label: "Set button"
+                    ),
                     minWidth: 110,
                     onTap: {
                         self?.saveChanges()
@@ -515,8 +517,10 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                 threadId: threadId,
                 threadVariant: threadVariant
             )
-            
-            // Contacts & legacy closed groups need to update the SessionUtil
+        }
+        
+        // Contacts & legacy closed groups need to update the SessionUtil
+        dependencies.storage.writeAsync { db in
             switch threadVariant {
                 case .contact:
                     try SessionUtil
