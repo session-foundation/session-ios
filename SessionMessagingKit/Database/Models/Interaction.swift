@@ -373,22 +373,17 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         self.wasRead = (self.wasRead || !self.variant.canBeUnread)
         
         // Automatically add disapeparing messages configuration
-        if
-            self.variant.shouldFollowDisappearingMessagesConfiguration &&
-            self.expiresInSeconds == nil &&
-            self.expiresStartedAtMs == nil
-        {
-            if
+        if self.variant.shouldFollowDisappearingMessagesConfiguration {
+            guard
                 let disappearingMessagesConfiguration = try? DisappearingMessagesConfiguration.fetchOne(db, id: self.threadId),
                 disappearingMessagesConfiguration.isEnabled
-            {
-                self.expiresInSeconds = disappearingMessagesConfiguration.durationSeconds
-                if disappearingMessagesConfiguration.type == .disappearAfterSend {
-                    self.expiresStartedAtMs = Double(self.timestampMs)
-                }
-            } else {
-                self.expiresInSeconds = 0
+            else {
+                self.expiresInSeconds = self.expiresInSeconds ?? 0
+                return
             }
+            
+            self.expiresInSeconds = self.expiresInSeconds ?? disappearingMessagesConfiguration.durationSeconds
+            self.expiresStartedAtMs = disappearingMessagesConfiguration.type == .disappearAfterSend ? Double(self.timestampMs) : nil
         }
     }
     
