@@ -75,6 +75,14 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         return
                     }
                     
+                    // Throw if the message is outdated and shouldn't be processed
+                    try MessageReceiver.throwIfMessageOutdated(
+                        db,
+                        message: processedMessage.messageInfo.message,
+                        threadId: processedMessage.threadId,
+                        threadVariant: processedMessage.threadVariant
+                    )
+                    
                     switch processedMessage.messageInfo.message {
                         case let visibleMessage as VisibleMessage:
                             let interactionId: Int64 = try MessageReceiver.handleVisibleMessage(
@@ -174,7 +182,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 catch {
                     if let error = error as? MessageReceiverError, error.isRetryable {
                         switch error {
-                            case .invalidGroupPublicKey, .noGroupKeyPair: self.completeSilenty()
+                            case .invalidGroupPublicKey, .noGroupKeyPair, .outdatedMessage: self.completeSilenty()
                             default: self.handleFailure(for: notificationContent)
                         }
                     }

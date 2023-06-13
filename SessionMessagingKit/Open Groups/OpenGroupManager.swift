@@ -605,18 +605,19 @@ public final class OpenGroupManager {
             return
         }
         
-        let seqNo: Int64? = messages.map { $0.seqNo }.max()
         let sortedMessages: [OpenGroupAPI.Message] = messages
             .filter { $0.deleted != true }
             .sorted { lhs, rhs in lhs.id < rhs.id }
-        var messageServerIdsToRemove: [Int64] = messages
+        var messageServerInfoToRemove: [(id: Int64, seqNo: Int64)] = messages
             .filter { $0.deleted == true }
-            .map { $0.id }
-        
-        if let seqNo: Int64 = seqNo {
+            .map { ($0.id, $0.seqNo) }
+        let updateSeqNo: (Database, String, inout Int64, Int64, OGMDependencies) -> () = { db, openGroupId, lastValidSeqNo, seqNo, dependencies in
+            // Only update the data if the 'seqNo' is larger than the lastValidSeqNo (only want it to increase)
+            guard seqNo > lastValidSeqNo else { return }
+            
             // Update the 'openGroupSequenceNumber' value (Note: SOGS V4 uses the 'seqNo' instead of the 'serverId')
             _ = try? OpenGroup
-                .filter(id: openGroup.id)
+                .filter(id: openGroupId)
                 .updateAll(db, OpenGroup.Columns.sequenceNumber.set(to: seqNo))
             
             // Update pendingChange cache
@@ -624,13 +625,18 @@ public final class OpenGroupManager {
                 $0.pendingChanges = $0.pendingChanges
                     .filter { $0.seqNo == nil || $0.seqNo! > seqNo }
             }
+            
+            // Update the inout value
+            lastValidSeqNo = seqNo
         }
         
         // Process the messages
+        var lastValidSeqNo: Int64 = -1
         sortedMessages.forEach { message in
             if message.base64EncodedData == nil && message.reactions == nil {
-                messageServerIdsToRemove.append(Int64(message.id))
-                return
+                messageServerInfoToRemove.append((message.id, message.seqNo))
+                
+                return updateSeqNo(db, openGroup.id, &lastValidSeqNo, message.seqNo, dependencies)
             }
             
             // Handle messages
@@ -657,6 +663,7 @@ public final class OpenGroupManager {
                             associatedWithProto: try SNProtoContent.parseData(messageInfo.serializedProtoData),
                             dependencies: dependencies
                         )
+                        updateSeqNo(db, openGroup.id, &lastValidSeqNo, message.seqNo, dependencies)
                     }
                 }
                 catch {
@@ -701,6 +708,7 @@ public final class OpenGroupManager {
                         openGroupMessageServerId: message.id,
                         openGroupReactions: reactions
                     )
+                    updateSeqNo(db, openGroup.id, &lastValidSeqNo, message.seqNo, dependencies)
                 }
                 catch {
                     SNLog("Couldn't handle open group reactions due to error: \(error).")
@@ -709,12 +717,18 @@ public final class OpenGroupManager {
         }
 
         // Handle any deletions that are needed
-        guard !messageServerIdsToRemove.isEmpty else { return }
+        guard !messageServerInfoToRemove.isEmpty else { return }
         
+        let messageServerIdsToRemove: [Int64] = messageServerInfoToRemove.map { $0.id }
         _ = try? Interaction
             .filter(Interaction.Columns.threadId == openGroup.threadId)
             .filter(messageServerIdsToRemove.contains(Interaction.Columns.openGroupServerMessageId))
             .deleteAll(db)
+        
+        // Update the seqNo for deletions
+        if let lastDeletionSeqNo: Int64 = messageServerInfoToRemove.map({ $0.seqNo }).max() {
+            updateSeqNo(db, openGroup.id, &lastValidSeqNo, lastDeletionSeqNo, dependencies)
+        }
     }
     
     internal static func handleDirectMessages(

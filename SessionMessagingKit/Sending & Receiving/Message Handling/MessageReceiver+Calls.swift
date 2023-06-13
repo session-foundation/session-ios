@@ -13,31 +13,8 @@ extension MessageReceiver {
         threadVariant: SessionThread.Variant,
         message: CallMessage
     ) throws {
-        let timestampMs: Int64 = (message.sentTimestamp.map { Int64($0) } ?? SnodeAPI.currentOffsetTimestampMs())
-        
         // Only support calls from contact threads
-        guard
-            threadVariant == .contact,
-            /// Only process the message if the thread `shouldBeVisible` or it was sent after the libSession buffer period
-            (
-                SessionThread
-                    .filter(id: threadId)
-                    .filter(SessionThread.Columns.shouldBeVisible == true)
-                    .isNotEmpty(db) ||
-                SessionUtil.conversationInConfig(
-                    db,
-                    threadId: threadId,
-                    threadVariant: threadVariant,
-                    visibleOnly: true
-                ) ||
-                SessionUtil.canPerformChange(
-                    db,
-                    threadId: threadId,
-                    targetConfig: .contacts,
-                    changeTimestampMs: timestampMs
-                )
-            )
-        else { return }
+        guard threadVariant == .contact else { return }
         
         switch message.kind {
             case .preOffer: try MessageReceiver.handleNewCallMessage(db, message: message)

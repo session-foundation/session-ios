@@ -34,6 +34,19 @@ public enum MessageReceiverError: LocalizedError {
             default: return true
         }
     }
+    
+    public var shouldUpdateLastHash: Bool {
+        switch self {
+            // If we get one of these errors then we still want to update the last hash to prevent
+            // retrieving and attempting to process the same messages again (as well as ensure the
+            // next poll doesn't retrieve the same message - these errors are essentially considered
+            // "already successfully processed")
+            case .selfSend, .duplicateControlMessage, .outdatedMessage:
+                return true
+                
+            default: return false
+        }
+    }
 
     public var errorDescription: String? {
         switch self {

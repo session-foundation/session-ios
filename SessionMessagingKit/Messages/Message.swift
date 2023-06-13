@@ -277,15 +277,9 @@ public extension Message {
             return processedMessage
         }
         catch {
-            // If we get 'selfSend' or 'duplicateControlMessage' errors then we still want to insert
-            // the SnodeReceivedMessageInfo to prevent retrieving and attempting to process the same
-            // message again (as well as ensure the next poll doesn't retrieve the same message)
-            switch error {
-                case MessageReceiverError.selfSend, MessageReceiverError.duplicateControlMessage:
-                    _ = try? rawMessage.info.inserted(db)
-                    break
-                
-                default: break
+            // For some error cases we want to update the last hash so do so
+            if (error as? MessageReceiverError)?.shouldUpdateLastHash == true {
+                _ = try? rawMessage.info.inserted(db)
             }
             
             throw error
