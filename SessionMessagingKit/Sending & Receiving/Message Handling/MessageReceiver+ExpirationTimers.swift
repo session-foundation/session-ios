@@ -11,8 +11,8 @@ extension MessageReceiver {
         threadVariant: SessionThread.Variant,
         message: ExpirationTimerUpdate
     ) throws {
+        guard !Features.useNewDisappearingMessagesConfig else { return }
         guard
-            !Features.useNewDisappearingMessagesConfig,
             // Only process these for contact and legacy groups (new groups handle it separately)
             (threadVariant == .contact || threadVariant == .legacyGroup),
             let sender: String = message.sender
