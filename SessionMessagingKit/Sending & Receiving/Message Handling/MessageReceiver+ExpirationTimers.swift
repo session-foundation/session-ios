@@ -221,7 +221,7 @@ extension MessageReceiver {
                 isPreviousOff: !localConfig.isEnabled
             ),
             timestampMs: protoLastChangeTimestampMs,
-            expiresInSeconds: (remoteConfig.isEnabled ? nil : localConfig.durationSeconds),
+            expiresInSeconds: (remoteConfig.isEnabled ? remoteConfig.durationSeconds : localConfig.durationSeconds),
             expiresStartedAtMs: (!remoteConfig.isEnabled && localConfig.type == .disappearAfterSend ?
                 Double(protoLastChangeTimestampMs) :
                 nil
