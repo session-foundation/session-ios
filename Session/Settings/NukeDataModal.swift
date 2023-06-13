@@ -188,7 +188,7 @@ final class NukeDataModal: Modal {
                     .subscribe(on: DispatchQueue.global(qos: .default))
                     .flatMap { results in
                         SnodeAPI
-                            .deleteAllMessages()
+                            .deleteAllMessages(namespace: .all)
                             .map { results.reduce($0) { result, next in result.updated(with: next) } }
                             .eraseToAnyPublisher()
                     }
