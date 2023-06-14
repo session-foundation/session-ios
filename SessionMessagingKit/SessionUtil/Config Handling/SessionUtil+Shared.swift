@@ -34,11 +34,14 @@ internal extension SessionUtil {
         return !allColumnsThatTriggerConfigUpdate.isDisjoint(with: targetColumns)
     }
     
+    /// A `0` `priority` value indicates visible, but not pinned
+    static let visiblePriority: Int32 = 0
+    
     /// A negative `priority` value indicates hidden
     static let hiddenPriority: Int32 = -1
     
     static func shouldBeVisible(priority: Int32) -> Bool {
-        return (priority >= 0)
+        return (priority >= SessionUtil.visiblePriority)
     }
     
     static func performAndPushChange(
@@ -127,8 +130,8 @@ internal extension SessionUtil {
                                     guard noteToSelf.shouldBeVisible else { return SessionUtil.hiddenPriority }
                                     
                                     return noteToSelf.pinnedPriority
-                                        .map { Int32($0 == 0 ? 0 : max($0, 1)) }
-                                        .defaulting(to: 0)
+                                        .map { Int32($0 == 0 ? SessionUtil.visiblePriority : max($0, 1)) }
+                                        .defaulting(to: SessionUtil.visiblePriority)
                                 }(),
                                 in: conf
                             )
@@ -154,8 +157,8 @@ internal extension SessionUtil {
                                             guard thread.shouldBeVisible else { return SessionUtil.hiddenPriority }
                                             
                                             return thread.pinnedPriority
-                                                .map { Int32($0 == 0 ? 0 : max($0, 1)) }
-                                                .defaulting(to: 0)
+                                                .map { Int32($0 == 0 ? SessionUtil.visiblePriority : max($0, 1)) }
+                                                .defaulting(to: SessionUtil.visiblePriority)
                                         }()
                                     )
                                 },
@@ -176,8 +179,8 @@ internal extension SessionUtil {
                                         CommunityInfo(
                                             urlInfo: urlInfo,
                                             priority: thread.pinnedPriority
-                                                .map { Int32($0 == 0 ? 0 : max($0, 1)) }
-                                                .defaulting(to: 0)
+                                                .map { Int32($0 == 0 ? SessionUtil.visiblePriority : max($0, 1)) }
+                                                .defaulting(to: SessionUtil.visiblePriority)
                                         )
                                     }
                                 },
@@ -197,8 +200,8 @@ internal extension SessionUtil {
                                     LegacyGroupInfo(
                                         id: thread.id,
                                         priority: thread.pinnedPriority
-                                            .map { Int32($0 == 0 ? 0 : max($0, 1)) }
-                                            .defaulting(to: 0)
+                                            .map { Int32($0 == 0 ? SessionUtil.visiblePriority : max($0, 1)) }
+                                            .defaulting(to: SessionUtil.visiblePriority)
                                     )
                                 },
                             in: conf

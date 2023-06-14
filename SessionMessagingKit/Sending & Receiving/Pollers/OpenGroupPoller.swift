@@ -53,16 +53,32 @@ extension OpenGroupAPI {
                         .fetchOne(db)
                 }
                 .defaulting(to: 0)
+            let lastPollStart: TimeInterval = Date().timeIntervalSince1970
             let nextPollInterval: TimeInterval = getInterval(for: minPollFailureCount, minInterval: Poller.minPollInterval, maxInterval: Poller.maxPollInterval)
             
-            poll(using: dependencies).sinkUntilComplete()
-            timer = Timer.scheduledTimerOnMainThread(withTimeInterval: nextPollInterval, repeats: false) { [weak self] timer in
-                timer.invalidate()
-                
-                Threading.pollerQueue.async {
-                    self?.pollRecursively(using: dependencies)
-                }
-            }
+            // Wait until the last poll completes before polling again ensuring we don't poll any faster than
+            // the 'nextPollInterval' value
+            poll(using: dependencies)
+                .sinkUntilComplete(
+                    receiveCompletion: { [weak self] _ in
+                        let currentTime: TimeInterval = Date().timeIntervalSince1970
+                        let remainingInterval: TimeInterval = max(0, nextPollInterval - (currentTime - lastPollStart))
+                        
+                        guard remainingInterval > 0 else {
+                            return Threading.pollerQueue.async {
+                                self?.pollRecursively(using: dependencies)
+                            }
+                        }
+                        
+                        self?.timer = Timer.scheduledTimerOnMainThread(withTimeInterval: remainingInterval, repeats: false) { timer in
+                            timer.invalidate()
+                            
+                            Threading.pollerQueue.async {
+                                self?.pollRecursively(using: dependencies)
+                            }
+                        }
+                    }
+                )
         }
         
         public func poll(

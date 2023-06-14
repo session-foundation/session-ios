@@ -159,10 +159,10 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
             return
         }
         
-        joinOpenGroup(roomToken: room, server: server, publicKey: publicKey)
+        joinOpenGroup(roomToken: room, server: server, publicKey: publicKey, shouldOpenCommunity: true)
     }
 
-    fileprivate func joinOpenGroup(roomToken: String, server: String, publicKey: String, shouldOpenCommunity: Bool = false) {
+    fileprivate func joinOpenGroup(roomToken: String, server: String, publicKey: String, shouldOpenCommunity: Bool) {
         guard !isJoining, let navigationController: UINavigationController = navigationController else { return }
         
         isJoining = true

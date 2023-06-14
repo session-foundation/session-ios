@@ -1637,6 +1637,10 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         self.scrollButton.alpha = self.getScrollButtonOpacity()
         self.unreadCountView.alpha = self.scrollButton.alpha
         
+        // The initial scroll can trigger this logic but we already mark the initially focused message
+        // as read so don't run the below until the user actually scrolls after the initial layout
+        guard self.didFinishInitialLayout else { return }
+        
         // We want to mark messages as read while we scroll, so grab the newest message and mark
         // everything older as read
         //

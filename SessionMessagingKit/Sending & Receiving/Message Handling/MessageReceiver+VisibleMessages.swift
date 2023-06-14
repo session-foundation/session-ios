@@ -23,33 +23,7 @@ extension MessageReceiver {
         // seconds to maintain the accuracy)
         let messageSentTimestamp: TimeInterval = (TimeInterval(message.sentTimestamp ?? 0) / 1000)
         let isMainAppActive: Bool = (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false)
-        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
         let expiresInSeconds: TimeInterval? = proto.hasExpirationTimer ? TimeInterval(proto.expirationTimer) : nil
-        
-        /// Only process the message if the thread `shouldBeVisible` or it was sent after the libSession buffer period
-        guard
-            SessionThread
-                .filter(id: threadId)
-                .filter(SessionThread.Columns.shouldBeVisible == true)
-                .isNotEmpty(db) ||
-            SessionUtil.conversationInConfig(
-                db,
-                threadId: threadId,
-                threadVariant: threadVariant,
-                visibleOnly: true
-            ) ||
-            SessionUtil.canPerformChange(
-                db,
-                threadId: threadId,
-                targetConfig: {
-                    switch threadVariant {
-                        case .contact: return (threadId == currentUserPublicKey ? .userProfile : .contacts)
-                        default: return .userGroups
-                    }
-                }(),
-                changeTimestampMs: (message.sentTimestamp.map { Int64($0) } ?? SnodeAPI.currentOffsetTimestampMs())
-            )
-        else { throw MessageReceiverError.outdatedMessage }
         
         // Update profile if needed (want to do this regardless of whether the message exists or
         // not to ensure the profile info gets sync between a users devices at every chance)
@@ -91,6 +65,7 @@ extension MessageReceiver {
         }
         
         // Store the message variant so we can run variant-specific behaviours
+        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
         let thread: SessionThread = try SessionThread
             .fetchOrCreate(db, id: threadId, variant: threadVariant, shouldBeVisible: nil)
         let maybeOpenGroup: OpenGroup? = {
