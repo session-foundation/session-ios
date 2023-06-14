@@ -7,7 +7,6 @@
 #import <SessionUIKit/SessionUIKit.h>
 
 // Separate iOS Frameworks from other imports.
-#import "AVAudioSession+OWS.h"
 #import "OWSAudioPlayer.h"
 #import "OWSBezierPathView.h"
 #import "OWSMessageTimerView.h"
