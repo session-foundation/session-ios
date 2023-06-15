@@ -252,7 +252,7 @@ extension DisappearingMessagesConfiguration {
                     (2 * 7 * 24 * 60 * 60)
                 ]
                 .map { TimeInterval($0)  }
-                #if DEBUG
+                #if targetEnvironment(simulator)
                     result.insert(
                         TimeInterval(10),
                         at: 0
@@ -267,7 +267,7 @@ extension DisappearingMessagesConfiguration {
                     (2 * 7 * 24 * 60 * 60)
                 ]
                 .map { TimeInterval($0)  }
-                #if DEBUG
+                #if targetEnvironment(simulator)
                     result.insert(
                         TimeInterval(10),
                         at: 0
