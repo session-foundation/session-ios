@@ -240,10 +240,10 @@ extension DisappearingMessagesConfiguration {
     }()
     
     public static func validDurationsSeconds(_ type: DisappearingMessageType) -> [TimeInterval] {
+        
         switch type {
             case .disappearAfterRead:
-                return [
-                    60, // TODO: remove this, for test purpose only
+                var result =  [
                     (5 * 60),
                     (1 * 60 * 60),
                     (12 * 60 * 60),
@@ -251,14 +251,30 @@ extension DisappearingMessagesConfiguration {
                     (7 * 24 * 60 * 60),
                     (2 * 7 * 24 * 60 * 60)
                 ]
+                .map { TimeInterval($0)  }
+                #if DEBUG
+                    result.insert(
+                        TimeInterval(10),
+                        at: 0
+                    )
+                #endif
+                return result
             case .disappearAfterSend:
-                return [
-                    60, // TODO: remove this, for test purpose only
+                var result =  [
                     (12 * 60 * 60),
                     (24 * 60 * 60),
                     (7 * 24 * 60 * 60),
                     (2 * 7 * 24 * 60 * 60)
                 ]
+                .map { TimeInterval($0)  }
+                #if DEBUG
+                    result.insert(
+                        TimeInterval(10),
+                        at: 0
+                    )
+                #else
+                #endif
+                return result
             default:
                 return []
             }
