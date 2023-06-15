@@ -164,7 +164,7 @@ extension MessageReceiver {
         
         guard
             let localLastChangeTimestampMs = localConfig.lastChangeTimestampMs,
-            protoLastChangeTimestampMs > localLastChangeTimestampMs
+            protoLastChangeTimestampMs >= localLastChangeTimestampMs
         else { return }
         
         let durationSeconds: TimeInterval = (proto.hasExpirationTimer ? TimeInterval(proto.expirationTimer) : 0)
@@ -180,33 +180,35 @@ extension MessageReceiver {
             lastChangeTimestampMs: protoLastChangeTimestampMs
         )
         
-        _ = try remoteConfig.save(db)
+        if localConfig != remoteConfig {
+            _ = try remoteConfig.save(db)
+            
+            // Contacts & legacy closed groups need to update the SessionUtil
+            switch threadVariant {
+                case .contact:
+                    try SessionUtil
+                        .update(
+                            db,
+                            sessionId: threadId,
+                            disappearingMessagesConfig: remoteConfig
+                        )
+                
+                case .legacyGroup:
+                    try SessionUtil
+                        .update(
+                            db,
+                            groupPublicKey: threadId,
+                            disappearingConfig: remoteConfig
+                        )
+                    
+                default: break
+            }
+        }
         
         _ = try Interaction
             .filter(Interaction.Columns.threadId == threadId)
             .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
             .deleteAll(db)
-        
-        // Contacts & legacy closed groups need to update the SessionUtil
-        switch threadVariant {
-            case .contact:
-                try SessionUtil
-                    .update(
-                        db,
-                        sessionId: threadId,
-                        disappearingMessagesConfig: remoteConfig
-                    )
-            
-            case .legacyGroup:
-                try SessionUtil
-                    .update(
-                        db,
-                        groupPublicKey: threadId,
-                        disappearingConfig: remoteConfig
-                    )
-                
-            default: break
-        }
 
         _ = try Interaction(
             serverHash: message.serverHash,
