@@ -588,6 +588,8 @@
 		FD2B4AFF2946C93200AB4848 /* ConfigurationSyncJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2B4AFE2946C93200AB4848 /* ConfigurationSyncJob.swift */; };
 		FD2B4B042949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2B4B032949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift */; };
 		FD3003662A25D5B300B5A5FB /* ConfigMessageReceiveJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3003652A25D5B300B5A5FB /* ConfigMessageReceiveJob.swift */; };
+		FD30036A2A3ADEC100B5A5FB /* CExceptionHelper.h in Headers */ = {isa = PBXBuildFile; fileRef = FD3003692A3ADD6000B5A5FB /* CExceptionHelper.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		FD30036E2A3AE26000B5A5FB /* CExceptionHelper.mm in Sources */ = {isa = PBXBuildFile; fileRef = FD30036D2A3AE26000B5A5FB /* CExceptionHelper.mm */; };
 		FD368A6829DE8F9C000DBF1E /* _012_AddFTSIfNeeded.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD368A6729DE8F9B000DBF1E /* _012_AddFTSIfNeeded.swift */; };
 		FD368A6A29DE9E30000DBF1E /* UIContextualAction+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD368A6929DE9E30000DBF1E /* UIContextualAction+Utilities.swift */; };
 		FD37E9C328A1C6F3003AE748 /* ThemeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD37E9C228A1C6F3003AE748 /* ThemeManager.swift */; };
@@ -1727,6 +1729,8 @@
 		FD2B4AFE2946C93200AB4848 /* ConfigurationSyncJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationSyncJob.swift; sourceTree = "<group>"; };
 		FD2B4B032949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "QueryInterfaceRequest+Utilities.swift"; sourceTree = "<group>"; };
 		FD3003652A25D5B300B5A5FB /* ConfigMessageReceiveJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigMessageReceiveJob.swift; sourceTree = "<group>"; };
+		FD3003692A3ADD6000B5A5FB /* CExceptionHelper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CExceptionHelper.h; sourceTree = "<group>"; };
+		FD30036D2A3AE26000B5A5FB /* CExceptionHelper.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = CExceptionHelper.mm; sourceTree = "<group>"; };
 		FD368A6729DE8F9B000DBF1E /* _012_AddFTSIfNeeded.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = _012_AddFTSIfNeeded.swift; sourceTree = "<group>"; };
 		FD368A6929DE9E30000DBF1E /* UIContextualAction+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIContextualAction+Utilities.swift"; sourceTree = "<group>"; };
 		FD37E9C228A1C6F3003AE748 /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeManager.swift; sourceTree = "<group>"; };
@@ -3589,6 +3593,8 @@
 			isa = PBXGroup;
 			children = (
 				FDA8EB0F280F8238002B68E5 /* Codable+Utilities.swift */,
+				FD3003692A3ADD6000B5A5FB /* CExceptionHelper.h */,
+				FD30036D2A3AE26000B5A5FB /* CExceptionHelper.mm */,
 				FD09796A27F6C67500936362 /* Failable.swift */,
 				FD09797127FAA2F500936362 /* Optional+Utilities.swift */,
 				FD09797C27FBDB2000936362 /* Notification+Utilities.swift */,
@@ -4457,6 +4463,7 @@
 				B8856E1A256F1700001CE70E /* OWSMath.h in Headers */,
 				C352A3772557864000338F3E /* NSTimer+Proxying.h in Headers */,
 				C32C5B51256DC219003C73A2 /* NSNotificationCenter+OWS.h in Headers */,
+				FD30036A2A3ADEC100B5A5FB /* CExceptionHelper.h in Headers */,
 				C3C2A67D255388CC00C340D1 /* SessionUtilitiesKit.h in Headers */,
 				C32C6018256E07F9003C73A2 /* NSUserDefaults+OWS.h in Headers */,
 				B8856D8D256F1502001CE70E /* UIView+OWS.h in Headers */,
@@ -5639,6 +5646,7 @@
 				C3D9E4D12567777D0040E4F3 /* OWSMediaUtils.swift in Sources */,
 				C3BBE0AA2554D4DE0050F1E3 /* Dictionary+Utilities.swift in Sources */,
 				FD37EA1128AB34B3003AE748 /* TypedTableAlteration.swift in Sources */,
+				FD30036E2A3AE26000B5A5FB /* CExceptionHelper.mm in Sources */,
 				C3D9E4DA256778410040E4F3 /* UIImage+OWS.m in Sources */,
 				C32C600F256E07F5003C73A2 /* NSUserDefaults+OWS.m in Sources */,
 				FDE658A329418E2F00A33BC1 /* KeyPair.swift in Sources */,

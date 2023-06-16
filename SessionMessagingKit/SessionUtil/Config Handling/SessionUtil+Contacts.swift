@@ -34,63 +34,16 @@ internal extension SessionUtil {
         mergeNeedsDump: Bool,
         latestConfigSentTimestampMs: Int64
     ) throws {
-        typealias ContactData = [
-            String: (
-                contact: Contact,
-                profile: Profile,
-                priority: Int32,
-                created: TimeInterval
-            )
-        ]
-        
         guard mergeNeedsDump else { return }
         guard conf != nil else { throw SessionUtilError.nilConfigObject }
-        
-        var contactData: ContactData = [:]
-        var contact: contacts_contact = contacts_contact()
-        let contactIterator: UnsafeMutablePointer<contacts_iterator> = contacts_iterator_new(conf)
-        
-        while !contacts_iterator_done(contactIterator, &contact) {
-            let contactId: String = String(cString: withUnsafeBytes(of: contact.session_id) { [UInt8]($0) }
-                .map { CChar($0) }
-                .nullTerminated()
-            )
-            let contactResult: Contact = Contact(
-                id: contactId,
-                isApproved: contact.approved,
-                isBlocked: contact.blocked,
-                didApproveMe: contact.approved_me
-            )
-            let profilePictureUrl: String? = String(libSessionVal: contact.profile_pic.url, nullIfEmpty: true)
-            let profileResult: Profile = Profile(
-                id: contactId,
-                name: String(libSessionVal: contact.name),
-                lastNameUpdate: (TimeInterval(latestConfigSentTimestampMs) / 1000),
-                nickname: String(libSessionVal: contact.nickname, nullIfEmpty: true),
-                profilePictureUrl: profilePictureUrl,
-                profileEncryptionKey: (profilePictureUrl == nil ? nil :
-                    Data(
-                        libSessionVal: contact.profile_pic.key,
-                        count: ProfileManager.avatarAES256KeyByteLength
-                    )
-                ),
-                lastProfilePictureUpdate: (TimeInterval(latestConfigSentTimestampMs) / 1000)
-            )
-            
-            contactData[contactId] = (
-                contactResult,
-                profileResult,
-                contact.priority,
-                TimeInterval(contact.created)
-            )
-            contacts_iterator_advance(contactIterator)
-        }
-        contacts_iterator_free(contactIterator) // Need to free the iterator
         
         // The current users contact data is handled separately so exclude it if it's present (as that's
         // actually a bug)
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
-        let targetContactData: ContactData = contactData.filter { $0.key != userPublicKey }
+        let targetContactData: [String: ContactData] = extractContacts(
+            from: conf,
+            latestConfigSentTimestampMs: latestConfigSentTimestampMs
+        ).filter { $0.key != userPublicKey }
         
         // Since we don't sync 100% of the data stored against the contact and profile objects we
         // need to only update the data we do have to ensure we don't overwrite anything that doesn't
@@ -490,6 +443,121 @@ internal extension SessionUtil {
         
         return updated
     }
+    
+    // MARK: - Pruning
+    
+    static func pruningIfNeeded(
+        _ db: Database,
+        conf: UnsafeMutablePointer<config_object>?
+    ) throws {
+        // First make sure we are actually thowing the correct size constraint error (don't want to prune contacts
+        // as a result of some other random error
+        do {
+            try CExceptionHelper.performSafely { config_push(conf).deallocate() }
+            return // If we didn't error then no need to prune
+        }
+        catch {
+            guard (error as NSError).userInfo["NSLocalizedDescription"] as? String == "Config data is too large" else {
+                throw error
+            }
+        }
+        
+        // Extract the contact data from the config
+        var allContactData: [String: ContactData] = extractContacts(
+            from: conf,
+            latestConfigSentTimestampMs: 0
+        )
+        
+        // Remove the current user profile info (shouldn't be in there but just in case)
+        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        var cUserPublicKey: [CChar] = userPublicKey.cArray.nullTerminated()
+        contacts_erase(conf, &cUserPublicKey)
+        
+        /// Do the following in stages (we want to prune as few contacts as possible because we are essentially deleting data and removing these
+        /// contacts will result in not just contact data but also associated conversation data for the contact being removed from linked devices
+        ///
+        ///
+        /// **Step 1** First of all we want to try to detect spam-attacks (ie. if someone creates a bunch of accounts and messages you, and you
+        /// systematically block every one of those accounts - this can quickly add up)
+        ///
+        /// We will do this by filtering the contact data to only include blocked contacts, grouping those contacts into contacts created within the
+        /// same hour and then only including groups that have more than 10 contacts (ie. if you blocked 20 users within an hour we expect those
+        /// contacts were spammers)
+        let blockSpamBatchingResolution: TimeInterval = (60 * 60)
+        // TODO: Do we want to only do this case for contacts that were created over X time ago? (to avoid unintentionally unblocking accounts that were recently blocked
+        let likelySpammerContacts: [ContactData] = allContactData
+            .values
+            .filter { $0.contact.isBlocked }
+            .grouped(by: { $0.created / blockSpamBatchingResolution })
+            .filter { _, values in values.count > 20 }
+            .values
+            .flatMap { $0 }
+        
+        if !likelySpammerContacts.isEmpty {
+            likelySpammerContacts.forEach { contact in
+                var cSessionId: [CChar] = contact.contact.id.cArray.nullTerminated()
+                contacts_erase(conf, &cSessionId)
+                
+                allContactData.removeValue(forKey: contact.contact.id)
+            }
+            
+            // If we are no longer erroring then we can stop here
+            do { return try CExceptionHelper.performSafely { config_push(conf).deallocate() } }
+            catch {}
+        }
+        
+        /// We retrieve the `CONVO_INFO_VOLATILE` records and one-to-one conversation message counts as they will be relevant for subsequent checks
+        let volatileThreadInfo: [String: VolatileThreadInfo] = SessionUtil
+            .config(for: .convoInfoVolatile, publicKey: userPublicKey)
+            .wrappedValue
+            .map { SessionUtil.extractConvoVolatileInfo(from: $0) }
+            .defaulting(to: [])
+            .reduce(into: [:]) { result, next in result[next.threadId] = next }
+        let conversationMessageCounts: [String: Int] = try SessionThread
+            .filter(SessionThread.Columns.variant == SessionThread.Variant.contact)
+            .select(.id)
+            .annotated(with: SessionThread.interactions.count)
+            .asRequest(of: ThreadCount.self)
+            .fetchAll(db)
+            .reduce(into: [:]) { result, next in result[next.id] = next.interactionCount }
+        
+        /// **Step 2** Next up we want to remove contact records which are likely to be invalid, this means contacts which:
+        /// - Aren't blocked
+        /// - Have no `name` value
+        /// - Have no `CONVO_INFO_VOLATILE` record
+        /// - Have no messages in their one-to-one conversations
+        ///
+        /// Any contacts that meet the above criteria are likely either invalid contacts or are contacts which the user hasn't seen or interacted
+        /// with for 30+ days
+        let likelyInvalidContacts: [ContactData] = allContactData
+            .values
+            .filter { !$0.contact.isBlocked }
+            .filter { $0.profile.name.isEmpty }
+            .filter { volatileThreadInfo[$0.contact.id] == nil }
+            .filter { (conversationMessageCounts[$0.contact.id] ?? 0) == 0 }
+        
+        if !likelyInvalidContacts.isEmpty {
+            likelyInvalidContacts.forEach { contact in
+                var cSessionId: [CChar] = contact.contact.id.cArray.nullTerminated()
+                contacts_erase(conf, &cSessionId)
+                
+                allContactData.removeValue(forKey: contact.contact.id)
+            }
+            
+            // If we are no longer erroring then we can stop here
+            do { return try CExceptionHelper.performSafely { config_push(conf).deallocate() } }
+            catch {}
+        }
+        
+        
+        // TODO: Exclude contacts that have no profile info(?)
+        // TODO: Exclude contacts that have a CONVO_INFO_VOLATILE record
+        // TODO: Exclude contacts that have a conversation with messages in the database (ie. only delete "empty" contacts)
+        
+        // TODO: Start pruning valid contacts which have really old conversations...
+        
+        print("RAWR")
+    }
 }
 
 // MARK: - External Outgoing Changes
@@ -553,5 +621,73 @@ extension SessionUtil {
             self.profile = profile
             self.priority = priority
         }
+    }
+}
+
+// MARK: - ContactData
+
+private struct ContactData {
+    let contact: Contact
+    let profile: Profile
+    let priority: Int32
+    let created: TimeInterval
+}
+
+// MARK: - ThreadCount
+
+private struct ThreadCount: Codable, FetchableRecord {
+    let id: String
+    let interactionCount: Int
+}
+
+// MARK: - Convenience
+
+private extension SessionUtil {
+    static func extractContacts(
+        from conf: UnsafeMutablePointer<config_object>?,
+        latestConfigSentTimestampMs: Int64
+    ) -> [String: ContactData] {
+        var result: [String: ContactData] = [:]
+        var contact: contacts_contact = contacts_contact()
+        let contactIterator: UnsafeMutablePointer<contacts_iterator> = contacts_iterator_new(conf)
+        
+        while !contacts_iterator_done(contactIterator, &contact) {
+            let contactId: String = String(cString: withUnsafeBytes(of: contact.session_id) { [UInt8]($0) }
+                .map { CChar($0) }
+                .nullTerminated()
+            )
+            let contactResult: Contact = Contact(
+                id: contactId,
+                isApproved: contact.approved,
+                isBlocked: contact.blocked,
+                didApproveMe: contact.approved_me
+            )
+            let profilePictureUrl: String? = String(libSessionVal: contact.profile_pic.url, nullIfEmpty: true)
+            let profileResult: Profile = Profile(
+                id: contactId,
+                name: String(libSessionVal: contact.name),
+                lastNameUpdate: (TimeInterval(latestConfigSentTimestampMs) / 1000),
+                nickname: String(libSessionVal: contact.nickname, nullIfEmpty: true),
+                profilePictureUrl: profilePictureUrl,
+                profileEncryptionKey: (profilePictureUrl == nil ? nil :
+                    Data(
+                        libSessionVal: contact.profile_pic.key,
+                        count: ProfileManager.avatarAES256KeyByteLength
+                    )
+                ),
+                lastProfilePictureUpdate: (TimeInterval(latestConfigSentTimestampMs) / 1000)
+            )
+            
+            result[contactId] = ContactData(
+                contact: contactResult,
+                profile: profileResult,
+                priority: contact.priority,
+                created: TimeInterval(contact.created)
+            )
+            contacts_iterator_advance(contactIterator)
+        }
+        contacts_iterator_free(contactIterator) // Need to free the iterator
+        
+        return result
     }
 }
