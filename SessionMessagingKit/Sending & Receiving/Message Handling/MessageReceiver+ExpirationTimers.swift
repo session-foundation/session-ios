@@ -205,13 +205,15 @@ extension MessageReceiver {
             }
         }
         
+        guard message is ExpirationTimerUpdate else { return }
+        
         _ = try Interaction
             .filter(Interaction.Columns.threadId == threadId)
             .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
             .deleteAll(db)
 
         _ = try Interaction(
-            serverHash: message.serverHash,
+            serverHash: nil,
             threadId: threadId,
             authorId: sender,
             variant: .infoDisappearingMessagesUpdate,
