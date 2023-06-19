@@ -60,12 +60,13 @@ public struct Contact: Codable, Identifiable, Equatable, FetchableRecord, Persis
         isBlocked: Bool = false,
         lastKnownClientVersion: SessionVersion.FeatureVersion? = nil,
         didApproveMe: Bool = false,
-        hasBeenBlocked: Bool = false
+        hasBeenBlocked: Bool = false,
+        dependencies: Dependencies = Dependencies()
     ) {
         self.id = id
         self.isTrusted = (
             isTrusted ||
-            id == getUserHexEncodedPublicKey(db)  // Always trust ourselves
+            id == getUserHexEncodedPublicKey(dependencies: dependencies)  // Always trust ourselves
         )
         self.isApproved = isApproved
         self.isBlocked = isBlocked

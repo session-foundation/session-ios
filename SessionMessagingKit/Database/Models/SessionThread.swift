@@ -36,7 +36,7 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
         case pinnedPriority
     }
     
-    public enum Variant: Int, Codable, Hashable, DatabaseValueConvertible {
+    public enum Variant: Int, Codable, Hashable, DatabaseValueConvertible, CaseIterable {
         case contact
         case legacyGroup
         case community

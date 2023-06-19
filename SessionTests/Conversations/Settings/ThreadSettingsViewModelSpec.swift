@@ -54,15 +54,15 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     try Profile(
                         id: "05\(TestConstants.publicKey)",
                         name: "TestMe",
-                        lastNameUpdate: Date().timeIntervalSince1970,
-                        lastProfilePictureUpdate: Date().timeIntervalSince1970
+                        lastNameUpdate: 0,
+                        lastProfilePictureUpdate: 0
                     ).insert(db)
                     
                     try Profile(
                         id: "TestId",
                         name: "TestUser",
-                        lastNameUpdate: Date().timeIntervalSince1970,
-                        lastProfilePictureUpdate: Date().timeIntervalSince1970
+                        lastNameUpdate: 0,
+                        lastProfilePictureUpdate: 0
                     ).insert(db)
                 }
                 viewModel = ThreadSettingsViewModel(

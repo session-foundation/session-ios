@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import CryptoKit
 import Combine
 import GRDB
 import SignalCoreKit
@@ -492,3 +493,38 @@ public extension ValueObservation {
             .eraseToAnyPublisher()
     }
 }
+
+// MARK: - Debug Convenience
+
+#if DEBUG
+public extension Storage {
+    func exportInfo(password: String) throws -> (dbPath: String, keyPath: String) {
+        var keySpec: Data = try Storage.getOrGenerateDatabaseKeySpec()
+        defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
+        
+        guard var passwordData: Data = password.data(using: .utf8) else { throw StorageError.generic }
+        defer { passwordData.resetBytes(in: 0..<passwordData.count) } // Reset content immediately after use
+        
+        /// Encrypt the `keySpec` value using a SHA256 of the password provided and a nonce then base64-encode the encrypted
+        /// data and save it to a temporary file to share alongside the database
+        ///
+        /// Decrypt the key via the termincal on macOS by running the command in the project root directory
+        /// `swift ./Scropts/DecryptExportedKey.swift {BASE64_CIPHERTEXT} {PASSWORD}`
+        ///
+        /// Where `BASE64_CIPHERTEXT` is the content of the `key.enc` file and `PASSWORD` is the password provided via the
+        /// prompt during export
+        let nonce: ChaChaPoly.Nonce = ChaChaPoly.Nonce()
+        let hash: SHA256.Digest = SHA256.hash(data: passwordData)
+        let key: SymmetricKey = SymmetricKey(data: Data(hash.makeIterator()))
+        let sealedBox: ChaChaPoly.SealedBox = try ChaChaPoly.seal(keySpec, using: key, nonce: nonce, authenticating: Data())
+        let keyInfoPath: String = "\(NSTemporaryDirectory())key.enc"
+        let encryptedKeyBase64: String = sealedBox.combined.base64EncodedString()
+        try encryptedKeyBase64.write(toFile: keyInfoPath, atomically: true, encoding: .utf8)
+        
+        return (
+            Storage.databasePath,
+            keyInfoPath
+        )
+    }
+}
+#endif

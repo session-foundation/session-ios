@@ -55,11 +55,9 @@ enum _013_SessionUtilChanges: Migration {
             // shares the same 'id' as the 'groupId') so we can cascade delete automatically
             t.column(.groupId, .text)
                 .notNull()
-                .indexed()                                            // Quicker querying
                 .references(SessionThread.self, onDelete: .cascade)   // Delete if Thread deleted
             t.column(.profileId, .text)
                 .notNull()
-                .indexed()                                            // Quicker querying
             t.column(.role, .integer).notNull()
             t.column(.isHidden, .boolean)
                 .notNull()
@@ -79,6 +77,11 @@ enum _013_SessionUtilChanges: Migration {
         try nonDuplicateGroupMembers.forEach { try $0.save(db) }
         try db.drop(table: GroupMember.self)
         try db.rename(table: TmpGroupMember.databaseTableName, to: GroupMember.databaseTableName)
+        
+        // Need to create the indexes separately from creating 'TmpGroupMember' to ensure they
+        // have the correct names
+        try db.createIndex(on: GroupMember.self, columns: [.groupId])
+        try db.createIndex(on: GroupMember.self, columns: [.profileId])
         
         // SQLite doesn't support removing unique constraints so we need to create a new table with
         // the setup we want, copy data from the old table over, drop the old table and rename the new table
@@ -107,18 +110,16 @@ enum _013_SessionUtilChanges: Migration {
         try db.create(table: TmpClosedGroupKeyPair.self) { t in
             t.column(.threadId, .text)
                 .notNull()
-                .indexed()                                            // Quicker querying
                 .references(ClosedGroup.self, onDelete: .cascade)     // Delete if ClosedGroup deleted
             t.column(.publicKey, .blob).notNull()
             t.column(.secretKey, .blob).notNull()
             t.column(.receivedTimestamp, .double)
                 .notNull()
-                .indexed()                                            // Quicker querying
             t.column(.threadKeyPairHash, .integer)
                 .notNull()
                 .unique()
-                .indexed()
         }
+        
         // Insert into the new table, drop the old table and rename the new table to be the old one
         try ClosedGroupKeyPair
             .fetchAll(db)
@@ -144,6 +145,12 @@ enum _013_SessionUtilChanges: Migration {
         try db.rename(table: TmpClosedGroupKeyPair.databaseTableName, to: ClosedGroupKeyPair.databaseTableName)
         
         // Add an index for the 'ClosedGroupKeyPair' so we can lookup existing keys more easily
+        //
+        // Note: Need to create the indexes separately from creating 'TmpClosedGroupKeyPair' to ensure they
+        // have the correct names
+        try db.createIndex(on: ClosedGroupKeyPair.self, columns: [.threadId])
+        try db.createIndex(on: ClosedGroupKeyPair.self, columns: [.receivedTimestamp])
+        try db.createIndex(on: ClosedGroupKeyPair.self, columns: [.threadKeyPairHash])
         try db.createIndex(
             on: ClosedGroupKeyPair.self,
             columns: [.threadId, .threadKeyPairHash]
