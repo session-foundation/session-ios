@@ -65,6 +65,7 @@ public class MessageCell: UITableViewCell {
     static func cellType(for viewModel: MessageViewModel) -> MessageCell.Type {
         guard viewModel.cellType != .typingIndicator else { return TypingIndicatorCell.self }
         guard viewModel.cellType != .dateHeader else { return DateHeaderCell.self }
+        guard viewModel.cellType != .unreadMarker else { return UnreadMarkerCell.self }
         
         switch viewModel.variant {
             case .standardOutgoing, .standardIncoming, .standardIncomingDeleted:

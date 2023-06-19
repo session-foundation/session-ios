@@ -9,6 +9,13 @@ import SessionUtilitiesKit
 public class ConversationViewModel: OWSAudioPlayerDelegate {
     public typealias SectionModel = ArraySection<Section, MessageViewModel>
     
+    // MARK: - FocusBehaviour
+    
+    public enum FocusBehaviour {
+        case none
+        case highlight
+    }
+    
     // MARK: - Action
     
     public enum Action {
@@ -35,6 +42,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     public var sentMessageBeforeUpdate: Bool = false
     public var lastSearchedText: String?
     public let focusedInteractionInfo: Interaction.TimestampInfo? // Note: This is used for global search
+    public let focusBehaviour: FocusBehaviour
+    private let initialUnreadInteractionId: Int64?
     
     public lazy var blockedBannerMessage: String = {
         switch self.threadData.threadVariant {
@@ -116,6 +125,13 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         self.threadId = threadId
         self.initialThreadVariant = threadVariant
         self.focusedInteractionInfo = initialData?.targetInteractionInfo
+        self.focusBehaviour = (focusedInteractionInfo == nil ? .none : .highlight)
+        self.initialUnreadInteractionId = (focusedInteractionInfo == nil ?
+            // If we didn't provide a 'focusedInteractionInfo' then 'initialData?.targetInteractionInfo?.id' will be
+            // the oldest unread interaction
+            initialData?.targetInteractionInfo?.id :
+            nil
+        )
         self.threadData = SessionThreadViewModel(
             threadId: threadId,
             threadVariant: threadVariant,
@@ -321,6 +337,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     }
     
     private func process(data: [MessageViewModel], for pageInfo: PagedData.PageInfo) -> [SectionModel] {
+        let initialUnreadInteractionId: Int64? = self.initialUnreadInteractionId
         let typingIndicator: MessageViewModel? = data.first(where: { $0.isTypingIndicator == true })
         let sortedData: [MessageViewModel] = data
             .filter { $0.isTypingIndicator != true }
@@ -362,11 +379,20 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                             )
                         }
                         .reduce([]) { result, message in
+                            let updatedResult: [MessageViewModel] = result
+                                .appending(initialUnreadInteractionId == nil || message.id != initialUnreadInteractionId ?
+                                   nil :
+                                    MessageViewModel(
+                                        timestampMs: message.timestampMs,
+                                        cellType: .unreadMarker
+                                    )
+                            )
+                            
                             guard message.shouldShowDateHeader else {
-                                return result.appending(message)
+                                return updatedResult.appending(message)
                             }
                             
-                            return result
+                            return updatedResult
                                 .appending(
                                     MessageViewModel(
                                         timestampMs: message.timestampMs,

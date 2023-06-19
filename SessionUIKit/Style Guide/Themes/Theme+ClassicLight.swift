@@ -115,6 +115,9 @@ internal enum Theme_ClassicLight: ThemeColors {
         // Profile
         .profileIcon: .primary,
         .profileIcon_greenPrimaryColor: .primary,
-        .profileIcon_background: .black
+        .profileIcon_background: .black,
+        
+        // Unread Marker
+        .unreadMarker: .black
     ]
 }

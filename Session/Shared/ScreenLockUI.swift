@@ -15,7 +15,7 @@ class ScreenLockUI {
         result.isHidden = false
         result.windowLevel = ._Background
         result.isOpaque = true
-        result.themeBackgroundColor = .backgroundPrimary
+        result.themeBackgroundColorForced = .theme(.classicDark, color: .backgroundPrimary)
         result.rootViewController = self.screenBlockingViewController
         
         return result
@@ -291,7 +291,7 @@ class ScreenLockUI {
         window.isHidden = false
         window.windowLevel = ._Background
         window.isOpaque = true
-        window.themeBackgroundColor = .backgroundPrimary
+        window.themeBackgroundColorForced = .theme(.classicDark, color: .backgroundPrimary)
 
         let viewController: ScreenLockViewController = ScreenLockViewController { [weak self] in
             guard self?.appIsInactiveOrBackground == false else {

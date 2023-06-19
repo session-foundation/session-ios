@@ -651,9 +651,10 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         switch section.model {
             case .threads:
                 // Cannot properly sync outgoing blinded message requests so don't provide the option
-                guard SessionId(from: section.elements[indexPath.row].threadId)?.prefix == .standard else {
-                    return nil
-                }
+                guard
+                    threadViewModel.threadVariant != .contact ||
+                    SessionId(from: section.elements[indexPath.row].threadId)?.prefix == .standard
+                else { return nil }
                 
                 return UIContextualAction.configuration(
                     for: UIContextualAction.generateSwipeActions(

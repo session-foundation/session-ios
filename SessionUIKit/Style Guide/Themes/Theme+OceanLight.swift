@@ -115,6 +115,9 @@ internal enum Theme_OceanLight: ThemeColors {
         // Profile
         .profileIcon: .primary,
         .profileIcon_greenPrimaryColor: .primary,
-        .profileIcon_background: .oceanLight1
+        .profileIcon_background: .oceanLight1,
+        
+        // Unread Marker
+        .unreadMarker: .black
     ]
 }

@@ -270,7 +270,9 @@ public enum SessionUtil {
         
         var dumpResult: UnsafeMutablePointer<UInt8>? = nil
         var dumpResultLen: Int = 0
-        config_dump(conf, &dumpResult, &dumpResultLen)
+        try CExceptionHelper.performSafely {
+            config_dump(conf, &dumpResult, &dumpResultLen)
+        }
         
         guard let dumpResult: UnsafeMutablePointer<UInt8> = dumpResult else { return nil }
         
@@ -308,15 +310,40 @@ public enum SessionUtil {
         
         // Ensure we always check the required user config types for changes even if there is no dump
         // data yet (to deal with first launch cases)
-        return existingDumpVariants
+        return try existingDumpVariants
             .compactMap { variant -> OutgoingConfResult? in
-                SessionUtil
+                try SessionUtil
                     .config(for: variant, publicKey: publicKey)
                     .mutate { conf in
                         // Check if the config needs to be pushed
                         guard conf != nil && config_needs_push(conf) else { return nil }
                         
-                        let cPushData: UnsafeMutablePointer<config_push_data> = config_push(conf)
+                        var cPushData: UnsafeMutablePointer<config_push_data>!
+                        let configCountInfo: String = {
+                            var result: String = "Invalid"
+                            
+                            try? CExceptionHelper.performSafely {
+                                switch variant {
+                                    case .userProfile: result = "1 profile"
+                                    case .contacts: result = "\(contacts_size(conf)) contacts"
+                                    case .userGroups: result = "\(user_groups_size(conf)) group conversations"
+                                    case .convoInfoVolatile: result = "\(convo_info_volatile_size(conf)) volatile conversations"
+                                }
+                            }
+                            
+                            return result
+                        }()
+                        
+                        do {
+                            try CExceptionHelper.performSafely {
+                                cPushData = config_push(conf)
+                            }
+                        }
+                        catch {
+                            SNLog("[libSession] Failed to generate push data for \(variant) config data, size: \(configCountInfo), error: \(error)")
+                            throw error
+                        }
+                    
                         let pushData: Data = Data(
                             bytes: cPushData.pointee.config,
                             count: cPushData.pointee.config_len
@@ -328,6 +355,7 @@ public enum SessionUtil {
                         )
                         let seqNo: Int64 = cPushData.pointee.seqno
                         cPushData.deallocate()
+                        SNLog("[libSession - DEBUG] Push data for \(variant) config data, size: \(configCountInfo), bytes: \(pushData.count)")
                         
                         return OutgoingConfResult(
                             message: SharedConfigMessage(

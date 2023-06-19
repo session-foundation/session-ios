@@ -53,8 +53,15 @@ class ConfigContactsSpec {
                 
                 // MARK: -- it can catch size limit errors thrown when pushing
                 it("can catch size limit errors thrown when pushing") {
+                    var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
+                    
                     try (0..<10000).forEach { index in
-                        var contact: contacts_contact = try createContact(for: index, in: conf, maxing: .allProperties)
+                        var contact: contacts_contact = try createContact(
+                            for: index,
+                            in: conf,
+                            rand: &randomGenerator,
+                            maxing: .allProperties
+                        )
                         contacts_set(conf, &contact)
                     }
                     
@@ -70,12 +77,19 @@ class ConfigContactsSpec {
                 
                 // MARK: -- can catch size limit errors thrown when dumping
                 it("can catch size limit errors thrown when dumping") {
-                    try (0..<10000).forEach { index in
-                        var contact: contacts_contact = try createContact(for: index, in: conf, maxing: .allProperties)
+                    var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
+                    
+                    try (0..<100000).forEach { index in
+                        var contact: contacts_contact = try createContact(
+                            for: index,
+                            in: conf,
+                            rand: &randomGenerator,
+                            maxing: .allProperties
+                        )
                         contacts_set(conf, &contact)
                     }
                     
-                    expect(contacts_size(conf)).to(equal(10000))
+                    expect(contacts_size(conf)).to(equal(100000))
                     expect(config_needs_push(conf)).to(beTrue())
                     expect(config_needs_dump(conf)).to(beTrue())
                     
@@ -117,8 +131,14 @@ class ConfigContactsSpec {
                 
                 // MARK: -- has not changed the max empty records
                 it("has not changed the max empty records") {
-                    for index in (0..<10000) {
-                        var contact: contacts_contact = try createContact(for: index, in: conf)
+                    var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
+                    
+                    for index in (0..<100000) {
+                        var contact: contacts_contact = try createContact(
+                            for: index,
+                            in: conf,
+                            rand: &randomGenerator
+                        )
                         contacts_set(conf, &contact)
                         
                         do { try CExceptionHelper.performSafely { config_push(conf).deallocate() } }
@@ -129,13 +149,20 @@ class ConfigContactsSpec {
                     }
                     
                     // Check that the record count matches the maximum when we last checked
-                    expect(numRecords).to(equal(1775))
+                    expect(numRecords).to(equal(2370))
                 }
                 
                 // MARK: -- has not changed the max name only records
                 it("has not changed the max name only records") {
-                    for index in (0..<10000) {
-                        var contact: contacts_contact = try createContact(for: index, in: conf, maxing: [.name])
+                    var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
+                    
+                    for index in (0..<100000) {
+                        var contact: contacts_contact = try createContact(
+                            for: index,
+                            in: conf,
+                            rand: &randomGenerator,
+                            maxing: [.name]
+                        )
                         contacts_set(conf, &contact)
                         
                         do { try CExceptionHelper.performSafely { config_push(conf).deallocate() } }
@@ -146,13 +173,20 @@ class ConfigContactsSpec {
                     }
                     
                     // Check that the record count matches the maximum when we last checked
-                    expect(numRecords).to(equal(526))
+                    expect(numRecords).to(equal(796))
                 }
                 
                 // MARK: -- has not changed the max name and profile pic only records
                 it("has not changed the max name and profile pic only records") {
-                    for index in (0..<10000) {
-                        var contact: contacts_contact = try createContact(for: index, in: conf, maxing: [.name, .profile_pic])
+                    var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
+                    
+                    for index in (0..<100000) {
+                        var contact: contacts_contact = try createContact(
+                            for: index,
+                            in: conf,
+                            rand: &randomGenerator,
+                            maxing: [.name, .profile_pic]
+                        )
                         contacts_set(conf, &contact)
                         
                         do { try CExceptionHelper.performSafely { config_push(conf).deallocate() } }
@@ -163,13 +197,20 @@ class ConfigContactsSpec {
                     }
                     
                     // Check that the record count matches the maximum when we last checked
-                    expect(numRecords).to(equal(184))
+                    expect(numRecords).to(equal(290))
                 }
                 
                 // MARK: -- has not changed the max filled records
                 it("has not changed the max filled records") {
-                    for index in (0..<10000) {
-                        var contact: contacts_contact = try createContact(for: index, in: conf, maxing: .allProperties)
+                    var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
+                    
+                    for index in (0..<100000) {
+                        var contact: contacts_contact = try createContact(
+                            for: index,
+                            in: conf,
+                            rand: &randomGenerator,
+                            maxing: .allProperties
+                        )
                         contacts_set(conf, &contact)
                         
                         do { try CExceptionHelper.performSafely { config_push(conf).deallocate() } }
@@ -180,7 +221,7 @@ class ConfigContactsSpec {
                     }
                     
                     // Check that the record count matches the maximum when we last checked
-                    expect(numRecords).to(equal(134))
+                    expect(numRecords).to(equal(236))
                 }
             }
             
@@ -547,9 +588,10 @@ class ConfigContactsSpec {
     private static func createContact(
         for index: Int,
         in conf: UnsafeMutablePointer<config_object>?,
+        rand: inout ARC4RandomNumberGenerator,
         maxing properties: [ContactProperty] = []
     ) throws -> contacts_contact {
-        let postPrefixId: String = "050000000000000000000000000000000000000000000000000000000000000000"
+        let postPrefixId: String = "05\(rand.nextBytes(count: 32).toHexString())"
         let sessionId: String = ("05\(index)a" + postPrefixId.suffix(postPrefixId.count - "05\(index)a".count))
         var cSessionId: [CChar] = sessionId.cArray.nullTerminated()
         var contact: contacts_contact = contacts_contact()
@@ -569,33 +611,22 @@ class ConfigContactsSpec {
                 case .mute_until: contact.mute_until = Int64.max
                 
                 case .name:
-                    contact.name = String(
-                        data: Data(
-                            repeating: "A".data(using: .utf8)![0],
-                            count: SessionUtil.libSessionMaxNameByteLength
-                        ),
-                        encoding: .utf8
-                    ).toLibSession()
+                    contact.name = rand.nextBytes(count: SessionUtil.libSessionMaxNameByteLength)
+                        .toHexString()
+                        .toLibSession()
                 
                 case .nickname:
-                    contact.nickname = String(
-                        data: Data(
-                            repeating: "A".data(using: .utf8)![0],
-                            count: SessionUtil.libSessionMaxNameByteLength
-                        ),
-                        encoding: .utf8
-                    ).toLibSession()
+                    contact.nickname = rand.nextBytes(count: SessionUtil.libSessionMaxNameByteLength)
+                        .toHexString()
+                        .toLibSession()
                     
                 case .profile_pic:
                     contact.profile_pic = user_profile_pic(
-                        url: String(
-                            data: Data(
-                                repeating: "A".data(using: .utf8)![0],
-                                count: SessionUtil.libSessionMaxProfileUrlByteLength
-                            ),
-                            encoding: .utf8
-                        ).toLibSession(),
-                        key: "qwerty78901234567890123456789012".data(using: .utf8)!.toLibSession()
+                        url: rand.nextBytes(count: SessionUtil.libSessionMaxProfileUrlByteLength)
+                            .toHexString()
+                            .toLibSession(),
+                        key: Data(rand.nextBytes(count: 32))
+                            .toLibSession()
                     )
             }
         }
