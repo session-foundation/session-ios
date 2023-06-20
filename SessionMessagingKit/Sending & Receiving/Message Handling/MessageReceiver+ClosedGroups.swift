@@ -192,11 +192,22 @@ extension MessageReceiver {
         // Start polling
         ClosedGroupPoller.shared.startIfNeeded(for: groupPublicKey)
         
-        // Subscribe for push notifications
+        // Resubscribe for group push notifications
+        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
+        
         PushNotificationAPI
-            .subscribeToLegacyGroup(
-                legacyGroupId: groupPublicKey,
-                currentUserPublicKey: getUserHexEncodedPublicKey(db)
+            .subscribeToLegacyGroups(
+                currentUserPublicKey: currentUserPublicKey,
+                legacyGroupIds: try ClosedGroup
+                    .select(.threadId)
+                    .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%"))
+                    .joining(
+                        required: ClosedGroup.members
+                            .filter(GroupMember.Columns.profileId == currentUserPublicKey)
+                    )
+                    .asRequest(of: String.self)
+                    .fetchSet(db)
+                    .inserting(groupPublicKey)  // Insert the new key just to be sure
             )
             .sinkUntilComplete()
     }

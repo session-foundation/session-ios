@@ -118,9 +118,18 @@ extension MessageSender {
                     .map { MessageSender.sendImmediate(preparedSendData: $0) }
                     .appending(
                         // Subscribe for push notifications (if enabled)
-                        PushNotificationAPI.subscribeToLegacyGroup(
-                            legacyGroupId: groupPublicKey,
-                            currentUserPublicKey: userPublicKey
+                        PushNotificationAPI.subscribeToLegacyGroups(
+                            currentUserPublicKey: userPublicKey,
+                            legacyGroupIds: try ClosedGroup
+                                .select(.threadId)
+                                .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%"))
+                                .joining(
+                                    required: ClosedGroup.members
+                                        .filter(GroupMember.Columns.profileId == userPublicKey)
+                                )
+                                .asRequest(of: String.self)
+                                .fetchSet(db)
+                                .inserting(groupPublicKey)  // Insert the new key just to be sure
                         )
                     )
             )
