@@ -55,9 +55,9 @@ open class Storage {
         // If a custom writer was provided then use that (for unit testing)
         guard customWriter == nil else {
             dbWriter = customWriter
-            perform(migrations: (customMigrations ?? []), async: false, onProgressUpdate: nil, onComplete: { _, _ in })
             isValid = true
             Storage.internalHasCreatedValidInstance.mutate { $0 = true }
+            perform(migrations: (customMigrations ?? []), async: false, onProgressUpdate: nil, onComplete: { _, _ in })
             return
         }
         
