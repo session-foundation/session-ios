@@ -162,23 +162,53 @@ extension MessageReceiver {
             .fetchOne(db, id: threadId)
             .defaulting(to: DisappearingMessagesConfiguration.defaultWith(threadId))
         
-        guard
-            let localLastChangeTimestampMs = localConfig.lastChangeTimestampMs,
-            protoLastChangeTimestampMs >= localLastChangeTimestampMs
-        else { return }
-        
         let durationSeconds: TimeInterval = (proto.hasExpirationTimer ? TimeInterval(proto.expirationTimer) : 0)
-        let isEnable: Bool = (durationSeconds != 0)
         let disappearingType: DisappearingMessagesConfiguration.DisappearingMessageType? = (proto.hasExpirationType ?
             .init(protoType: proto.expirationType) :
             .unknown
         )
         let remoteConfig: DisappearingMessagesConfiguration = localConfig.with(
-            isEnabled: isEnable,
+            isEnabled: (durationSeconds != 0),
             durationSeconds: durationSeconds,
             type: disappearingType,
             lastChangeTimestampMs: protoLastChangeTimestampMs
         )
+        
+        let updateControlMewssage: () throws -> () = {
+            _ = try Interaction
+                .filter(Interaction.Columns.threadId == threadId)
+                .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                .deleteAll(db)
+
+            _ = try Interaction(
+                serverHash: nil,
+                threadId: threadId,
+                authorId: sender,
+                variant: .infoDisappearingMessagesUpdate,
+                body: remoteConfig.messageInfoString(
+                    with: (sender != getUserHexEncodedPublicKey(db) ?
+                        Profile.displayName(db, id: sender) :
+                        nil
+                    ),
+                    isPreviousOff: !localConfig.isEnabled
+                ),
+                timestampMs: protoLastChangeTimestampMs,
+                expiresInSeconds: (remoteConfig.isEnabled ? remoteConfig.durationSeconds : localConfig.durationSeconds),
+                expiresStartedAtMs: (!remoteConfig.isEnabled && localConfig.type == .disappearAfterSend ?
+                    Double(protoLastChangeTimestampMs) :
+                    nil
+                )
+            ).inserted(db)
+        }
+        
+        guard let localLastChangeTimestampMs = localConfig.lastChangeTimestampMs else { return }
+        
+        guard protoLastChangeTimestampMs >= localLastChangeTimestampMs else {
+            if (protoLastChangeTimestampMs + Int64(localConfig.durationSeconds * 1000)) > localLastChangeTimestampMs {
+                try updateControlMewssage()
+            }
+            return
+        }
         
         if localConfig != remoteConfig {
             _ = try remoteConfig.save(db)
@@ -207,29 +237,6 @@ extension MessageReceiver {
         
         guard message is ExpirationTimerUpdate else { return }
         
-        _ = try Interaction
-            .filter(Interaction.Columns.threadId == threadId)
-            .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-            .deleteAll(db)
-
-        _ = try Interaction(
-            serverHash: nil,
-            threadId: threadId,
-            authorId: sender,
-            variant: .infoDisappearingMessagesUpdate,
-            body: remoteConfig.messageInfoString(
-                with: (sender != getUserHexEncodedPublicKey(db) ?
-                    Profile.displayName(db, id: sender) :
-                    nil
-                ),
-                isPreviousOff: !localConfig.isEnabled
-            ),
-            timestampMs: protoLastChangeTimestampMs,
-            expiresInSeconds: (remoteConfig.isEnabled ? remoteConfig.durationSeconds : localConfig.durationSeconds),
-            expiresStartedAtMs: (!remoteConfig.isEnabled && localConfig.type == .disappearAfterSend ?
-                Double(protoLastChangeTimestampMs) :
-                nil
-            )
-        ).inserted(db)
+        try updateControlMewssage()
     }
 }
