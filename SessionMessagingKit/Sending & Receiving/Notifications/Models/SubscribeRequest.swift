@@ -54,7 +54,7 @@ extension PushNotificationAPI {
         private let subkey: String?
         
         /// The signature unix timestamp (seconds, not ms)
-        private let timestamp: TimeInterval
+        private let timestamp: Int64
         
         /// When the pubkey value starts with 05 (i.e. a session ID) this is the underlying ed25519 32-byte pubkey associated with the session
         /// ID.  When not 05, this field should not be provided.
@@ -82,7 +82,7 @@ extension PushNotificationAPI {
             self.serviceInfo = serviceInfo
             self.notificationsEncryptionKey = notificationsEncryptionKey
             self.subkey = subkey
-            self.timestamp = timestamp
+            self.timestamp = Int64(timestamp)   // Server expects rounded seconds
             self.ed25519PublicKey = ed25519PublicKey
             self.ed25519SecretKey = ed25519SecretKey
         }
@@ -99,7 +99,7 @@ extension PushNotificationAPI {
             try container.encodeIfPresent(subkey, forKey: .subkey)
             try container.encode(namespaces.map { $0.rawValue}.sorted(), forKey: .namespaces)
             try container.encode(includeMessageData, forKey: .includeMessageData)
-            try container.encode(Int64(timestamp), forKey: .timestamp) // Server expects rounded seconds
+            try container.encode(timestamp, forKey: .timestamp)
             try container.encode(signatureBase64, forKey: .signatureBase64)
             try container.encode(Service.apns, forKey: .service)
             try container.encode(serviceInfo, forKey: .serviceInfo)
@@ -126,7 +126,7 @@ extension PushNotificationAPI {
             /// the `namespaces` parameter.
             let verificationBytes: [UInt8] = "MONITOR".bytes
                 .appending(contentsOf: pubkey.bytes)
-                .appending(contentsOf: "\(Int64(timestamp))".bytes) // Server expects rounded seconds
+                .appending(contentsOf: "\(timestamp)".bytes)
                 .appending(contentsOf: (includeMessageData ? "1" : "0").bytes)
                 .appending(
                     contentsOf: namespaces

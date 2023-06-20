@@ -40,7 +40,7 @@ extension PushNotificationAPI {
         private let subkey: String?
         
         /// The signature unix timestamp (seconds, not ms)
-        private let timestamp: TimeInterval
+        private let timestamp: Int64
         
         /// When the pubkey value starts with 05 (i.e. a session ID) this is the underlying ed25519 32-byte pubkey associated with the session
         /// ID.  When not 05, this field should not be provided.
@@ -62,7 +62,7 @@ extension PushNotificationAPI {
             self.pubkey = pubkey
             self.serviceInfo = serviceInfo
             self.subkey = subkey
-            self.timestamp = timestamp
+            self.timestamp = Int64(timestamp)   // Server expects rounded seconds
             self.ed25519PublicKey = ed25519PublicKey
             self.ed25519SecretKey = ed25519SecretKey
         }
