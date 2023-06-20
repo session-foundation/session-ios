@@ -138,7 +138,7 @@ public final class JobRunner: JobRunnerType {
             isTestingJobRunner || (
                 HasAppContext() &&
                 CurrentAppContext().isMainApp &&
-                !CurrentAppContext().isRunningTests
+                !SNUtilitiesKit.isRunningTests
             )
         )
         self.blockingQueue = Atomic(
@@ -609,6 +609,19 @@ public final class JobQueue {
             timestamp: TimeInterval,
             dependencies: Dependencies
         ) -> Trigger? {
+            guard !SNUtilitiesKit.isRunningTests else {
+                /// When running unit tests don't schedule a proper Timer, use a while loop instead and base it on the `fixedTime`
+                /// value instead of `dependencies.date` to simplify things
+                DispatchQueue.global(qos: .default).async { [weak queue] in
+                    while dependencies.fixedTime < Int(timestamp) {
+                        Thread.sleep(forTimeInterval: 0.01) // Wait for 10ms
+                    }
+                    
+                    queue?.start(dependencies: dependencies)
+                }
+                return nil
+            }
+            
             /// Setup the trigger (wait at least 1 second before triggering)
             ///
             /// **Note:** We use the `Timer.scheduledTimerOnMainThread` method because running a timer
@@ -616,28 +629,13 @@ public final class JobQueue {
             /// the correct thread
             let trigger: Trigger = Trigger()
             trigger.fireTimestamp = max(1, (timestamp - dependencies.date.timeIntervalSince1970))
-            
-            switch HasAppContext() && CurrentAppContext().isRunningTests {
-                case true:
-                    // When running unit tests don't schedule a proper Timer, use a while loop instead
-                    DispatchQueue.global(qos: .default).async { [weak queue] in
-                        while timestamp < dependencies.date.timeIntervalSince1970 {
-                            Thread.sleep(forTimeInterval: 0.01) // Wait for 10ms
-                        }
-                        
-                        queue?.start(dependencies: dependencies)
-                    }
-                    
-                case false:
-                    trigger.timer = Timer.scheduledTimerOnMainThread(
-                        withTimeInterval: trigger.fireTimestamp,
-                        repeats: false,
-                        block: { [weak queue] _ in
-                            queue?.start(dependencies: dependencies)
-                        }
-                    )
-            }
-            
+            trigger.timer = Timer.scheduledTimerOnMainThread(
+                withTimeInterval: trigger.fireTimestamp,
+                repeats: false,
+                block: { [weak queue] _ in
+                    queue?.start(dependencies: dependencies)
+                }
+            )
             return trigger
         }
         
@@ -1129,7 +1127,11 @@ public final class JobQueue {
         }
         
         // If the next job isn't scheduled in the future then just restart the JobRunner immediately
-        let secondsUntilNextJob: TimeInterval = (nextJobTimestamp - dependencies.date.timeIntervalSince1970)
+        let secondsUntilNextJob: TimeInterval = {
+            guard !SNUtilitiesKit.isRunningTests else { return (nextJobTimestamp - TimeInterval(dependencies.fixedTime)) }
+            
+            return (nextJobTimestamp - dependencies.date.timeIntervalSince1970)
+        }()
         
         guard secondsUntilNextJob > 0 else {
             // Only log that the queue is getting restarted if this queue had actually been about to stop

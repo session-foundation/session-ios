@@ -3,6 +3,10 @@
 import Foundation
 
 public enum SNUtilitiesKit { // Just to make the external API nice
+    public static var isRunningTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    }
+    
     public static func migrations() -> TargetMigrations {
         return TargetMigrations(
             identifier: .utilitiesKit,
@@ -29,4 +33,5 @@ public enum SNUtilitiesKit { // Just to make the external API nice
 
 @objc public final class SNUtilitiesKitConfiguration: NSObject {
     @objc public static var maxFileSize: UInt = 0
+    @objc public static var isRunningTests: Bool { return SNUtilitiesKit.isRunningTests }
 }

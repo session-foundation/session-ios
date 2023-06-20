@@ -228,7 +228,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                                 ParentType.NavItem(
                                     id: .cancel,
                                     systemItem: .cancel,
-                                    accessibilityIdentifier: "Cancel"
+                                    accessibilityIdentifier: "Cancel button"
                                 )
                             ]))
                         expect(viewModel.rightNavItems.firstValue())

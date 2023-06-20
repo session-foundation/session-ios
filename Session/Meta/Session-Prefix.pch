@@ -10,6 +10,5 @@
 
     #import <SignalCoreKit/NSObject+OWS.h>
     #import <SignalCoreKit/OWSAsserts.h>
-    #import <SignalUtilitiesKit/SSKAsserts.h>
     #import <SessionUIKit/SessionUIKit.h>
 #endif

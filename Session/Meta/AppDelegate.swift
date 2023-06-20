@@ -84,7 +84,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
         
         // No point continuing if we are running tests
-        guard !CurrentAppContext().isRunningTests else { return true }
+        guard !SNUtilitiesKit.isRunningTests else { return true }
 
         self.window = mainWindow
         CurrentAppContext().mainWindow = mainWindow
@@ -156,7 +156,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
     
     func applicationDidBecomeActive(_ application: UIApplication) {
-        guard !CurrentAppContext().isRunningTests else { return }
+        guard !SNUtilitiesKit.isRunningTests else { return }
         
         UserDefaults.sharedLokiProject?[.isMainAppActive] = true
         

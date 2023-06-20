@@ -13,29 +13,30 @@ public enum GroupLeavingJob: JobExecutor {
     public static var requiresInteractionId: Bool = true
     
     public static func run(
-        _ job: SessionUtilitiesKit.Job,
+        _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (SessionUtilitiesKit.Job, Bool) -> (),
-        failure: @escaping (SessionUtilitiesKit.Job, Error?, Bool) -> (),
-        deferred: @escaping (SessionUtilitiesKit.Job) -> ())
-    {
+        success: @escaping (Job, Bool, Dependencies) -> (),
+        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
+        deferred: @escaping (Job, Dependencies) -> (),
+        dependencies: Dependencies = Dependencies()
+    ) {
         guard
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData),
             let interactionId: Int64 = job.interactionId
         else {
-            failure(job, JobRunnerError.missingRequiredDetails, true)
+            failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
             return
         }
         
         guard let thread: SessionThread = Storage.shared.read({ db in try? SessionThread.fetchOne(db, id: details.groupPublicKey)}) else {
             SNLog("Can't leave nonexistent closed group.")
-            failure(job, MessageSenderError.noThread, true)
+            failure(job, MessageSenderError.noThread, true, dependencies)
             return
         }
         
         guard let closedGroup: ClosedGroup = Storage.shared.read({ db in try? thread.closedGroup.fetchOne(db)}) else {
-            failure(job, MessageSenderError.invalidClosedGroupUpdate, true)
+            failure(job, MessageSenderError.invalidClosedGroupUpdate, true, dependencies)
             return
         }
         
@@ -101,7 +102,7 @@ public enum GroupLeavingJob: JobExecutor {
                         .deleteAll(db)
                 }
             }
-            success(job, false)
+            success(job, false, dependencies)
         }
         .catch(on: queue) { error in
             Storage.shared.writeAsync { db in
@@ -115,7 +116,7 @@ public enum GroupLeavingJob: JobExecutor {
                         ]
                     )
             }
-            success(job, false)
+            success(job, false, dependencies)
         }
         .retainUntilComplete()
         

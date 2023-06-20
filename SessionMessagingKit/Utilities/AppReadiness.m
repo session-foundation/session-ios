@@ -6,6 +6,7 @@
 #import "AppContext.h"
 #import <SignalCoreKit/SignalCoreKit.h>
 #import <SignalCoreKit/Threading.h>
+#import <SessionUtilitiesKit/SessionUtilitiesKit.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -60,7 +61,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)runNowOrWhenAppWillBecomeReady:(AppReadyBlock)block
 {
-    if (CurrentAppContext().isRunningTests) {
+    if ([SNUtilitiesKitConfiguration isRunningTests]) {
         // We don't need to do any "on app ready" work in the tests.
         return;
     }
@@ -82,7 +83,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)runNowOrWhenAppDidBecomeReady:(AppReadyBlock)block
 {
-    if (CurrentAppContext().isRunningTests) {
+    if ([SNUtilitiesKitConfiguration isRunningTests]) {
         // We don't need to do any "on app ready" work in the tests.
         return;
     }

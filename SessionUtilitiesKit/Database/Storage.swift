@@ -212,11 +212,8 @@ open class Storage {
         for migration: Migration.Type,
         in target: TargetMigrations.Identifier
     ) {
-        // In test builds ignore any migration progress updates (we run in a custom database writer anyway),
-        // this code should be the same as 'CurrentAppContext().isRunningTests' but since the tests can run
-        // without being attached to a host application the `CurrentAppContext` might not have been set and
-        // would crash as it gets force-unwrapped - better to just do the check explicitly instead
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        // In test builds ignore any migration progress updates (we run in a custom database writer anyway)
+        guard !SNUtilitiesKit.isRunningTests else { return }
         
         Storage.shared.migrationProgressUpdater?.wrappedValue(target.key(with: migration), progress)
     }
@@ -242,7 +239,7 @@ open class Storage {
                     // For these cases it means either the keySpec or the keychain has become corrupt so in order to
                     // get back to a "known good state" and behave like a new install we need to reset the storage
                     // and regenerate the key
-                    if !CurrentAppContext().isRunningTests {
+                    if !SNUtilitiesKit.isRunningTests {
                         // Try to reset app by deleting database.
                         resetAllStorage()
                     }

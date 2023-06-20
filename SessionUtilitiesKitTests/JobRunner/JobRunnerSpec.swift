@@ -58,14 +58,14 @@ class JobRunnerSpec: QuickSpec {
             else { return success(job, true, dependencies) }
             
             let completeJob: () -> () = {
-                // Need to auto-increment the 'completeTime' and 'nextRunTimestamp' to prevent the job
-                // from immediately being run again
+                // Need to increase the 'completeTime' and 'nextRunTimestamp' to prevent the job
+                // from immediately being run again or immediately completing afterwards
                 let updatedJob: Job = job
-                    .with(nextRunTimestamp: (max(1234567890, job.nextRunTimestamp) + 0.5))
+                    .with(nextRunTimestamp: TimeInterval(details.completeTime + 1))
                     .with(
                         details: TestDetails(
                             result: details.result,
-                            completeTime: (details.completeTime + 1),
+                            completeTime: (details.completeTime + 2),
                             intValue: details.intValue,
                             stringValue: details.stringValue
                         )
@@ -1366,12 +1366,13 @@ class JobRunnerSpec: QuickSpec {
                         
                         // Make sure there are no running jobs
                         dependencies.fixedTime = 1
-                        dependencies.date = Date(timeIntervalSince1970: 1234567890 + 1)
                         expect(jobRunner.detailsFor(state: .running))
                             .toEventually(
-                                equal([100: try! JSONEncoder().encode(TestDetails(result: .deferred, completeTime: 2))]),
+                                beEmpty(),
                                 timeout: .milliseconds(50)
                             )
+                        expect(mockStorage.read { db in try Job.select(.details).asRequest(of: Data.self).fetchOne(db) })
+                            .to(equal(try! JSONEncoder().encode(TestDetails(result: .deferred, completeTime: 3))))
                     }
                     
                     it("does not delete the job") {
@@ -1392,10 +1393,9 @@ class JobRunnerSpec: QuickSpec {
                         
                         // Make sure there are no running jobs
                         dependencies.fixedTime = 1
-                        dependencies.date = Date(timeIntervalSince1970: 1234567890 + 1)
                         expect(jobRunner.detailsFor(state: .running))
                             .toEventually(
-                                equal([100: try! JSONEncoder().encode(TestDetails(result: .deferred, completeTime: 2))]),
+                                beEmpty(),
                                 timeout: .milliseconds(50)
                             )
                         
@@ -1425,28 +1425,10 @@ class JobRunnerSpec: QuickSpec {
                                 timeout: .milliseconds(50)
                             )
                         
-                        // Restart the JobRunner
-                        dependencies.date = Date(timeIntervalSince1970: 1234567890 + 0.5)
-                        jobRunner.startNonBlockingQueues(dependencies: dependencies)
+                        // Progress the time
+                        dependencies.fixedTime = 2
                         
                         // Make sure it finishes once
-                        expect(jobRunner.detailsFor(state: .running))
-                            .toEventually(
-                                equal([100: try! JSONEncoder().encode(TestDetails(result: .deferred, completeTime: 2))]),
-                                timeout: .milliseconds(50)
-                            )
-                        dependencies.fixedTime = 2
-                        expect(Array(jobRunner.detailsFor(state: .running).keys))
-                            .toEventually(
-                                beEmpty(),
-                                timeout: .milliseconds(50)
-                            )
-                        
-                        // Restart the JobRunner
-                        dependencies.date = Date(timeIntervalSince1970: 1234567890 + 1)
-                        jobRunner.startNonBlockingQueues(dependencies: dependencies)
-                        
-                        // Make sure it finishes twice
                         expect(jobRunner.detailsFor(state: .running))
                             .toEventually(
                                 equal([100: try! JSONEncoder().encode(TestDetails(result: .deferred, completeTime: 3))]),
@@ -1459,17 +1441,32 @@ class JobRunnerSpec: QuickSpec {
                                 timeout: .milliseconds(50)
                             )
                         
-                        // Restart the JobRunner
-                        dependencies.date = Date(timeIntervalSince1970: 1234567890 + 1.5)
-                        jobRunner.startNonBlockingQueues(dependencies: dependencies)
+                        // Progress the time
+                        dependencies.fixedTime = 4
+                        
+                        // Make sure it finishes twice
+                        expect(jobRunner.detailsFor(state: .running))
+                            .toEventually(
+                                equal([100: try! JSONEncoder().encode(TestDetails(result: .deferred, completeTime: 5))]),
+                                timeout: .milliseconds(50)
+                            )
+                        dependencies.fixedTime = 5
+                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                            .toEventually(
+                                beEmpty(),
+                                timeout: .milliseconds(50)
+                            )
+                        
+                        // Progress the time
+                        dependencies.fixedTime = 6
                         
                         // Make sure it's finishes the last time
                         expect(jobRunner.detailsFor(state: .running))
                             .toEventually(
-                                equal([100: try! JSONEncoder().encode(TestDetails(result: .deferred, completeTime: 4))]),
+                                equal([100: try! JSONEncoder().encode(TestDetails(result: .deferred, completeTime: 7))]),
                                 timeout: .milliseconds(50)
                             )
-                        dependencies.fixedTime = 4
+                        dependencies.fixedTime = 7
                         expect(Array(jobRunner.detailsFor(state: .running).keys))
                             .toEventually(
                                 beEmpty(),
@@ -1502,7 +1499,6 @@ class JobRunnerSpec: QuickSpec {
                         
                         // Make sure there are no running jobs
                         dependencies.fixedTime = 1
-                        dependencies.date = Date(timeIntervalSince1970: 1234567890 + 1)
                         expect(Array(jobRunner.detailsFor(state: .running).keys))
                             .toEventually(
                                 beEmpty(),
@@ -1528,7 +1524,6 @@ class JobRunnerSpec: QuickSpec {
                         
                         // Make sure there are no running jobs
                         dependencies.fixedTime = 1
-                        dependencies.date = Date(timeIntervalSince1970: 1234567890 + 1)
                         expect(Array(jobRunner.detailsFor(state: .running).keys))
                             .toEventually(
                                 beEmpty(),
@@ -1561,7 +1556,6 @@ class JobRunnerSpec: QuickSpec {
                         
                         // Make sure there are no running jobs
                         dependencies.fixedTime = 1
-                        dependencies.date = Date(timeIntervalSince1970: 1234567890 + 1)
                         expect(Array(jobRunner.detailsFor(state: .running).keys))
                             .toEventually(
                                 beEmpty(),
@@ -1587,7 +1581,6 @@ class JobRunnerSpec: QuickSpec {
                         
                         // Make sure there are no running jobs
                         dependencies.fixedTime = 1
-                        dependencies.date = Date(timeIntervalSince1970: 1234567890 + 1)
                         expect(Array(jobRunner.detailsFor(state: .running).keys))
                             .toEventually(
                                 beEmpty(),

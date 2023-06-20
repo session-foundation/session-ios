@@ -30,7 +30,6 @@ final class ShareAppExtensionContext: NSObject, AppContext {
     }()
 
     var isRTL: Bool { return ShareAppExtensionContext._isRTL }
-    var isRunningTests: Bool { return false } // We don't need to distinguish this in the SAE
     
     var statusBarHeight: CGFloat { return 20 }
     var openSystemSettingsAction: UIAlertAction?

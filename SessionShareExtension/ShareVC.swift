@@ -5,6 +5,7 @@ import CoreServices
 import PromiseKit
 import SignalUtilitiesKit
 import SessionUIKit
+import SessionUtilitiesKit
 
 final class ShareVC: UINavigationController, ShareViewDelegate {
     private var areVersionMigrationsComplete = false
@@ -46,7 +47,7 @@ final class ShareVC: UINavigationController, ShareViewDelegate {
 
         // We don't need to use applySignalAppearence in the SAE.
 
-        if CurrentAppContext().isRunningTests {
+        if SNUtilitiesKit.isRunningTests {
             // TODO: Do we need to implement isRunningTests in the SAE context?
             return
         }
