@@ -115,54 +115,39 @@ public enum PushNotificationAPI {
                                         }
                                     }
                                 )
-                                .flatMap { _ in
-                                    guard UserDefaults.standard[.hasUnregisteredForLegacyPushNotifications] != true else {
-                                        return Just(())
-                                            .setFailureType(to: Error.self)
-                                            .eraseToAnyPublisher()
-                                    }
-                                    
-                                    return PushNotificationAPI
-                                        .send(
-                                            request: PushNotificationAPIRequest(
-                                                endpoint: .legacyUnregister,
-                                                body: LegacyUnsubscribeRequest(
-                                                    token: hexEncodedToken
-                                                )
-                                            )
-                                        )
-                                        .retry(maxRetryCount)
-                                        .handleEvents(
-                                            receiveCompletion: { result in
-                                                switch result {
-                                                    case .finished:
-                                                        /// Save that we've already unsubscribed
-                                                        ///
-                                                        /// **Note:** The server can return an error (`response.code != 0`) but
-                                                        /// that means the server properly processed the request and the error is likely
-                                                        /// due to the device not actually being previously subscribed for notifications
-                                                        /// rather than actually failing to unsubscribe
-                                                        UserDefaults.standard[.hasUnregisteredForLegacyPushNotifications] = true
-                                                        
-                                                    case .failure: SNLog("Couldn't unsubscribe for legacy notifications.")
-                                                }
-                                            }
-                                        )
-                                        .map { _ in () }
-                                        .eraseToAnyPublisher()
-                                }
-                                .eraseToAnyPublisher()
-                        ].appending(
+                                .map { _ in () }
+                                .eraseToAnyPublisher(),
                             // FIXME: Remove this once legacy groups are deprecated
-                            contentsOf: legacyGroupIds
-                                .map { legacyGroupId in
-                                    PushNotificationAPI.subscribeToLegacyGroup(
-                                        legacyGroupId: legacyGroupId,
-                                        currentUserPublicKey: currentUserPublicKey,
-                                        using: dependencies
+                            PushNotificationAPI
+                                .send(
+                                    request: PushNotificationAPIRequest(
+                                        endpoint: .legacyGroupsOnlySubscribe,
+                                        body: LegacyGroupOnlyRequest(
+                                            token: hexEncodedToken,
+                                            pubKey: currentUserPublicKey,
+                                            device: "ios",
+                                            legacyGroupPublicKeys: legacyGroupIds
+                                        )
                                     )
-                                }
-                        )
+                                )
+                                .decoded(as: LegacyPushServerResponse.self, using: dependencies)
+                                .retry(maxRetryCount)
+                                .handleEvents(
+                                    receiveOutput: { _, response in
+                                        guard response.code != 0 else {
+                                            return SNLog("Couldn't subscribe for legacy groups due to error: \(response.message ?? "nil").")
+                                        }
+                                    },
+                                    receiveCompletion: { result in
+                                        switch result {
+                                            case .finished: break
+                                            case .failure: SNLog("Couldn't subscribe for legacy groups.")
+                                        }
+                                    }
+                                )
+                                .map { _ in () }
+                                .eraseToAnyPublisher()
+                        ]
                     )
                     .collect()
                     .map { _ in () }

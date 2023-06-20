@@ -813,6 +813,7 @@
 		FDC438CD27BC641200C60D73 /* Set+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC438CC27BC641200C60D73 /* Set+Utilities.swift */; };
 		FDC6D6F32860607300B04575 /* Environment.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B7542807C4BB004C14C5 /* Environment.swift */; };
 		FDC6D7602862B3F600B04575 /* Dependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC6D75F2862B3F600B04575 /* Dependencies.swift */; };
+		FDCD2E032A41294E00964D6A /* LegacyGroupOnlyRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCD2E022A41294E00964D6A /* LegacyGroupOnlyRequest.swift */; };
 		FDCDB8DE2810F73B00352A0C /* Differentiable+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCDB8DD2810F73B00352A0C /* Differentiable+Utilities.swift */; };
 		FDCDB8E02811007F00352A0C /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCDB8DF2811007F00352A0C /* HomeViewModel.swift */; };
 		FDD2506E283711D600198BDA /* DifferenceKit+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD2506D283711D600198BDA /* DifferenceKit+Utilities.swift */; };
@@ -1959,6 +1960,7 @@
 		FDC438CA27BB7DB100C60D73 /* UpdateMessageRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateMessageRequest.swift; sourceTree = "<group>"; };
 		FDC438CC27BC641200C60D73 /* Set+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Set+Utilities.swift"; sourceTree = "<group>"; };
 		FDC6D75F2862B3F600B04575 /* Dependencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Dependencies.swift; sourceTree = "<group>"; };
+		FDCD2E022A41294E00964D6A /* LegacyGroupOnlyRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyGroupOnlyRequest.swift; sourceTree = "<group>"; };
 		FDCDB8DD2810F73B00352A0C /* Differentiable+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Differentiable+Utilities.swift"; sourceTree = "<group>"; };
 		FDCDB8DF2811007F00352A0C /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
 		FDD2506D283711D600198BDA /* DifferenceKit+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DifferenceKit+Utilities.swift"; sourceTree = "<group>"; };
@@ -4240,6 +4242,7 @@
 				FDC13D572A17207D007267C7 /* UnsubscribeResponse.swift */,
 				FD6E4C892A1AEE4700C7C243 /* LegacyUnsubscribeRequest.swift */,
 				FDC13D532A16FF29007267C7 /* LegacyGroupRequest.swift */,
+				FDCD2E022A41294E00964D6A /* LegacyGroupOnlyRequest.swift */,
 				FDC4382E27B383AF00C60D73 /* LegacyPushServerResponse.swift */,
 				FDC13D592A1721C5007267C7 /* LegacyNotifyRequest.swift */,
 				FDFBB74C2A1F3C4E00CA7350 /* NotificationMetadata.swift */,
@@ -5825,6 +5828,7 @@
 				FD8ECF8B2935DB4B00C0D1BB /* SharedConfigMessage.swift in Sources */,
 				FD09798727FD1B7800936362 /* GroupMember.swift in Sources */,
 				FDB4BBC92839BEF000B7C95D /* ProfileManagerError.swift in Sources */,
+				FDCD2E032A41294E00964D6A /* LegacyGroupOnlyRequest.swift in Sources */,
 				FD3E0C84283B5835002A425C /* SessionThreadViewModel.swift in Sources */,
 				FD09C5EC282B8F18000CE219 /* AttachmentError.swift in Sources */,
 				FD17D79927F40AB800122BE0 /* _003_YDBToGRDBMigration.swift in Sources */,
