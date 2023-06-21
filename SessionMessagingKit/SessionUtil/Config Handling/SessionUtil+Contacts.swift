@@ -199,6 +199,12 @@ internal extension SessionUtil {
                         type: data.config.type,
                         lastChangeTimestampMs: data.config.lastChangeTimestampMs
                     ).save(db)
+                    
+                    _ = try Interaction
+                        .filter(Interaction.Columns.threadId == sessionId)
+                        .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                        .filter(Interaction.Columns.timestampMs <= (remoteLastChangeTimestampMs - Int64(data.config.durationSeconds * 1000)))
+                        .deleteAll(db)
                 }
             }
         
