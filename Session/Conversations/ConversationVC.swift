@@ -1947,14 +1947,25 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                 .sorted()
                 .filter({ $0.section == messagesSection })
                 .compactMap({ indexPath -> (frame: CGRect, cellViewModel: MessageViewModel)? in
-                    guard let cell: VisibleMessageCell = tableView.cellForRow(at: indexPath) as? VisibleMessageCell else {
-                        return nil
+                    let cellViewModel: MessageViewModel = self.viewModel.interactionData[indexPath.section].elements[indexPath.row]
+                    
+                    // Deal with disappearing messages control message
+                    if let cell: InfoMessageCell = tableView.cellForRow(at: indexPath) as? InfoMessageCell, cellViewModel.variant == .infoDisappearingMessagesUpdate {
+                        return (
+                            view.convert(cell.frame, from: tableView),
+                            cellViewModel
+                        )
                     }
                     
-                    return (
-                        view.convert(cell.frame, from: tableView),
-                        self.viewModel.interactionData[indexPath.section].elements[indexPath.row]
-                    )
+                    // Deal with visible messages
+                    if let cell: VisibleMessageCell = tableView.cellForRow(at: indexPath) as? VisibleMessageCell {
+                        return (
+                            view.convert(cell.frame, from: tableView),
+                            cellViewModel
+                        )
+                    }
+                    
+                    return nil
                 })
                 // Exclude messages that are partially off the bottom of the screen
                 .filter({ $0.frame.maxY <= tableVisualBottom })
