@@ -340,7 +340,8 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                 beforeEach {
                     var migrator: DatabaseMigrator = DatabaseMigrator()
                     migrator.registerMigration(
-                        TestAddColumnMigration.target,
+                        mockStorage,
+                        targetIdentifier: TestAddColumnMigration.target,
                         migration: TestAddColumnMigration.self
                     )
                     

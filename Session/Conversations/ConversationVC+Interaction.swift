@@ -16,7 +16,6 @@ extension ConversationVC:
     InputViewDelegate,
     MessageCellDelegate,
     ContextMenuActionDelegate,
-    ScrollToBottomButtonDelegate,
     SendMediaNavDelegate,
     UIDocumentPickerDelegate,
     AttachmentApprovalViewControllerDelegate,
@@ -70,15 +69,6 @@ extension ConversationVC:
             )
         )
         navigationController?.pushViewController(viewController, animated: true)
-    }
-    
-    // MARK: - ScrollToBottomButtonDelegate
-
-    func handleScrollToBottomButtonTapped() {
-        // The table view's content size is calculated by the estimated height of cells,
-        // so the result may be inaccurate before all the cells are loaded. Use this
-        // to scroll to the last row instead.
-        scrollToBottom(isAnimated: true)
     }
     
     // MARK: - Call
@@ -889,10 +879,7 @@ extension ConversationVC:
             
             UIView.animate(
                 withDuration: 0.25,
-                animations: {
-                    self?.scrollButton.alpha = (self?.getScrollButtonOpacity() ?? 0)
-                    self?.unreadCountView.alpha = (self?.scrollButton.alpha ?? 0)
-                },
+                animations: { self?.updateScrollToBottom() },
                 completion: { _ in
                     guard let contentOffset: CGPoint = self?.tableView.contentOffset else { return }
                     
@@ -1083,7 +1070,7 @@ extension ConversationVC:
                         return
                     }
                     
-                    self.scrollToInteractionIfNeeded(with: interactionInfo, highlight: true)
+                    self.scrollToInteractionIfNeeded(with: interactionInfo, focusBehaviour: .highlight)
                 }
                 else if let linkPreview: LinkPreview = cellViewModel.linkPreview {
                     switch linkPreview.variant {
@@ -1756,7 +1743,7 @@ extension ConversationVC:
 
     func copy(_ cellViewModel: MessageViewModel) {
         switch cellViewModel.cellType {
-            case .typingIndicator, .dateHeader: break
+            case .typingIndicator, .dateHeader, .unreadMarker: break
             
             case .textOnlyMessage:
                 if cellViewModel.body == nil, let linkPreview: LinkPreview = cellViewModel.linkPreview {

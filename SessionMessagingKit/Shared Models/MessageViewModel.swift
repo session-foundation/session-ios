@@ -55,6 +55,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         case genericAttachment
         case typingIndicator
         case dateHeader
+        case unreadMarker
     }
     
     public var differenceIdentifier: Int64 { id }

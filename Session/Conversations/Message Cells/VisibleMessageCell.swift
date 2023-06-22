@@ -489,7 +489,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         }
 
         switch cellViewModel.cellType {
-            case .typingIndicator, .dateHeader: break
+            case .typingIndicator, .dateHeader, .unreadMarker: break
             
             case .textOnlyMessage:
                 let inset: CGFloat = 12

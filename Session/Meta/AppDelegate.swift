@@ -47,9 +47,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         let mainWindow: UIWindow = TraitObservingWindow(frame: UIScreen.main.bounds)
         self.loadingViewController = LoadingViewController()
         
-        // Store a weak reference in the ThemeManager so it can properly apply themes as needed
-        ThemeManager.mainWindow = mainWindow
-        
         AppSetup.setupEnvironment(
             appSpecificBlock: {
                 // Create AppEnvironment
@@ -78,6 +75,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     return
                 }
                 
+                /// Store a weak reference in the ThemeManager so it can properly apply themes as needed
+                ///
+                /// **Note:** Need to do this after the db migrations because theme preferences are stored in the database and
+                /// we don't want to access it until after the migrations run
+                ThemeManager.mainWindow = mainWindow
                 self?.completePostMigrationSetup(calledFrom: .finishLaunching, needsConfigSync: needsConfigSync)
             }
         )
@@ -333,7 +335,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private func showFailedMigrationAlert(calledFrom lifecycleMethod: LifecycleMethod, error: Error?) {
         let alert = UIAlertController(
             title: "Session",
-            message: "DATABASE_MIGRATION_FAILED".localized(),
+            message: {
+                switch (error ?? StorageError.generic) {
+                    case StorageError.startupFailed: return "DATABASE_STARTUP_FAILED".localized()
+                    default: return "DATABASE_MIGRATION_FAILED".localized()
+                }
+            }(),
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "HELP_REPORT_BUG_ACTION_TITLE".localized(), style: .default) { _ in

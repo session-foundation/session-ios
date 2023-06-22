@@ -83,7 +83,7 @@ internal extension SessionUtil {
                 }
         }
         catch {
-            SNLog("[libSession] Failed to update/dump updated \(variant) config data")
+            SNLog("[libSession] Failed to update/dump updated \(variant) config data due to error: \(error)")
             throw error
         }
         

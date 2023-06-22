@@ -204,6 +204,9 @@ public indirect enum ThemeValue: Hashable {
     case profileIcon
     case profileIcon_greenPrimaryColor
     case profileIcon_background
+    
+    // Unread Marker
+    case unreadMarker
 }
 
 // MARK: - ForcedThemeValue

@@ -235,7 +235,7 @@
 		B88FA7FB26114EA70049422F /* Hex.swift in Sources */ = {isa = PBXBuildFile; fileRef = B88FA7FA26114EA70049422F /* Hex.swift */; };
 		B893063F2383961A005EAA8E /* ScanQRCodeWrapperVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = B893063E2383961A005EAA8E /* ScanQRCodeWrapperVC.swift */; };
 		B894D0752339EDCF00B4D94D /* NukeDataModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = B894D0742339EDCF00B4D94D /* NukeDataModal.swift */; };
-		B897621C25D201F7004F83B2 /* ScrollToBottomButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = B897621B25D201F7004F83B2 /* ScrollToBottomButton.swift */; };
+		B897621C25D201F7004F83B2 /* RoundIconButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = B897621B25D201F7004F83B2 /* RoundIconButton.swift */; };
 		B8B320B7258C30D70020074B /* HTMLMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8B320B6258C30D70020074B /* HTMLMetadata.swift */; };
 		B8B558F126C4BB0600693325 /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8B558F026C4BB0600693325 /* CameraManager.swift */; };
 		B8B558FF26C4E05E00693325 /* WebRTCSession+MessageHandling.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8B558FE26C4E05E00693325 /* WebRTCSession+MessageHandling.swift */; };
@@ -752,6 +752,8 @@
 		FD9004142818AD0B00ABAAF6 /* _002_SetupStandardJobs.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9004132818AD0B00ABAAF6 /* _002_SetupStandardJobs.swift */; };
 		FD9004152818B46300ABAAF6 /* JobRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B7432804EF1B004C14C5 /* JobRunner.swift */; };
 		FD9004162818B46700ABAAF6 /* JobRunnerError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE77F68280F9EDA002CFC5D /* JobRunnerError.swift */; };
+		FD97B2402A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD97B23F2A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift */; };
+		FD97B2422A3FEBF30027DD57 /* UnreadMarkerCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD97B2412A3FEBF30027DD57 /* UnreadMarkerCell.swift */; };
 		FD9B30F3293EA0BF008DEE3E /* BatchResponseSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9B30F2293EA0BF008DEE3E /* BatchResponseSpec.swift */; };
 		FDA1E83629A5748F00C5C3BD /* ConfigUserGroupsSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1E83529A5748F00C5C3BD /* ConfigUserGroupsSpec.swift */; };
 		FDA1E83929A5771A00C5C3BD /* LibSessionSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1E83829A5771A00C5C3BD /* LibSessionSpec.swift */; };
@@ -1377,7 +1379,7 @@
 		B88FA7FA26114EA70049422F /* Hex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Hex.swift; sourceTree = "<group>"; };
 		B893063E2383961A005EAA8E /* ScanQRCodeWrapperVC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanQRCodeWrapperVC.swift; sourceTree = "<group>"; };
 		B894D0742339EDCF00B4D94D /* NukeDataModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NukeDataModal.swift; sourceTree = "<group>"; };
-		B897621B25D201F7004F83B2 /* ScrollToBottomButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollToBottomButton.swift; sourceTree = "<group>"; };
+		B897621B25D201F7004F83B2 /* RoundIconButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundIconButton.swift; sourceTree = "<group>"; };
 		B8B320B6258C30D70020074B /* HTMLMetadata.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HTMLMetadata.swift; sourceTree = "<group>"; };
 		B8B558F026C4BB0600693325 /* CameraManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraManager.swift; sourceTree = "<group>"; };
 		B8B558FE26C4E05E00693325 /* WebRTCSession+MessageHandling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WebRTCSession+MessageHandling.swift"; sourceTree = "<group>"; };
@@ -1811,6 +1813,7 @@
 		FD5C7304284F0FF30029977D /* MessageReceiver+VisibleMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageReceiver+VisibleMessages.swift"; sourceTree = "<group>"; };
 		FD5C7306284F103B0029977D /* MessageReceiver+MessageRequests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageReceiver+MessageRequests.swift"; sourceTree = "<group>"; };
 		FD5C7308285007920029977D /* BlindedIdLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlindedIdLookup.swift; sourceTree = "<group>"; };
+		FD5CE3442A3C5D96001A6DE3 /* DecryptExportedKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecryptExportedKey.swift; sourceTree = "<group>"; };
 		FD5D201D27B0D87C00FEA984 /* SessionId.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionId.swift; sourceTree = "<group>"; };
 		FD6A7A682818BE7300035AC1 /* RetrieveDefaultOpenGroupRoomsJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetrieveDefaultOpenGroupRoomsJob.swift; sourceTree = "<group>"; };
 		FD6A7A6A2818C17C00035AC1 /* UpdateProfilePictureJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateProfilePictureJob.swift; sourceTree = "<group>"; };
@@ -1897,6 +1900,8 @@
 		FD8ECF912938552800C0D1BB /* Threading.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Threading.swift; sourceTree = "<group>"; };
 		FD8ECF93293856AF00C0D1BB /* Randomness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Randomness.swift; sourceTree = "<group>"; };
 		FD9004132818AD0B00ABAAF6 /* _002_SetupStandardJobs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _002_SetupStandardJobs.swift; sourceTree = "<group>"; };
+		FD97B23F2A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARC4RandomNumberGenerator.swift; sourceTree = "<group>"; };
+		FD97B2412A3FEBF30027DD57 /* UnreadMarkerCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnreadMarkerCell.swift; sourceTree = "<group>"; };
 		FD9B30F2293EA0BF008DEE3E /* BatchResponseSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchResponseSpec.swift; sourceTree = "<group>"; };
 		FDA1E83529A5748F00C5C3BD /* ConfigUserGroupsSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigUserGroupsSpec.swift; sourceTree = "<group>"; };
 		FDA1E83829A5771A00C5C3BD /* LibSessionSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionSpec.swift; sourceTree = "<group>"; };
@@ -2508,7 +2513,7 @@
 		B821493625D4D6A7009C0F2A /* Views & Modals */ = {
 			isa = PBXGroup;
 			children = (
-				B897621B25D201F7004F83B2 /* ScrollToBottomButton.swift */,
+				B897621B25D201F7004F83B2 /* RoundIconButton.swift */,
 				B82149C025D605C6009C0F2A /* InfoBanner.swift */,
 				C374EEEA25DA3CA70073A857 /* ConversationTitleView.swift */,
 				FD4B200D283492210034334B /* InsetLockableTableView.swift */,
@@ -2545,6 +2550,7 @@
 				7B0EFDEF275084AA00FFAAE7 /* CallMessageCell.swift */,
 				B8041AA625C90927003C2166 /* TypingIndicatorCell.swift */,
 				FDB7400C28EBEC240094D718 /* DateHeaderCell.swift */,
+				FD97B2412A3FEBF30027DD57 /* UnreadMarkerCell.swift */,
 			);
 			path = "Message Cells";
 			sourceTree = "<group>";
@@ -2987,7 +2993,6 @@
 			children = (
 				C33FD9B7255A54A300E217F9 /* Meta */,
 				C36096ED25AD20FD008B62B2 /* Media Viewing & Editing */,
-				FD16AB5D2A1DD8E70083D849 /* Profile Pictures */,
 				C36096EE25AD21BC008B62B2 /* Screen Lock */,
 				C3851CD225624B060061EEB0 /* Shared Views */,
 				C360970125AD22D3008B62B2 /* Shared View Controllers */,
@@ -3621,6 +3626,7 @@
 		FD09796527F6B0A800936362 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
+				FD97B23F2A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift */,
 				FDA8EB0F280F8238002B68E5 /* Codable+Utilities.swift */,
 				FD3003692A3ADD6000B5A5FB /* CExceptionHelper.h */,
 				FD30036D2A3AE26000B5A5FB /* CExceptionHelper.mm */,
@@ -3662,13 +3668,6 @@
 				FD432433299C6985008A0213 /* PendingReadReceipt.swift */,
 			);
 			path = Models;
-			sourceTree = "<group>";
-		};
-		FD16AB5D2A1DD8E70083D849 /* Profile Pictures */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = "Profile Pictures";
 			sourceTree = "<group>";
 		};
 		FD17D79427F3E03300122BE0 /* Migrations */ = {
@@ -4324,6 +4323,7 @@
 				7B02DF432A16F47B00ADCFD2 /* EmojiGenerator.swift */,
 				FDE7214F287E50D50093DF33 /* ProtoWrappers.py */,
 				FDE72150287E50D50093DF33 /* LintLocalizableStrings.swift */,
+				FD5CE3442A3C5D96001A6DE3 /* DecryptExportedKey.swift */,
 			);
 			path = Scripts;
 			sourceTree = "<group>";
@@ -5684,6 +5684,7 @@
 				FD17D7CA27F546D900122BE0 /* _001_InitialSetupMigration.swift in Sources */,
 				C3D9E4D12567777D0040E4F3 /* OWSMediaUtils.swift in Sources */,
 				C3BBE0AA2554D4DE0050F1E3 /* Dictionary+Utilities.swift in Sources */,
+				FD97B2402A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift in Sources */,
 				FD37EA1128AB34B3003AE748 /* TypedTableAlteration.swift in Sources */,
 				FD30036E2A3AE26000B5A5FB /* CExceptionHelper.mm in Sources */,
 				C3D9E4DA256778410040E4F3 /* UIImage+OWS.m in Sources */,
@@ -5962,6 +5963,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FD97B2422A3FEBF30027DD57 /* UnreadMarkerCell.swift in Sources */,
 				FD52090928B59411006098F6 /* ScreenLockUI.swift in Sources */,
 				7B2561C429874851005C086C /* SessionCarouselView+Info.swift in Sources */,
 				FDF2220B2818F38D000A4995 /* SessionApp.swift in Sources */,
@@ -6148,7 +6150,7 @@
 				7B4C75CD26BB92060000AC89 /* DeletedMessageView.swift in Sources */,
 				FDD250722837234B00198BDA /* MediaGalleryNavigationController.swift in Sources */,
 				FDD2506E283711D600198BDA /* DifferenceKit+Utilities.swift in Sources */,
-				B897621C25D201F7004F83B2 /* ScrollToBottomButton.swift in Sources */,
+				B897621C25D201F7004F83B2 /* RoundIconButton.swift in Sources */,
 				346B66311F4E29B200E5122F /* CropScaleImageViewController.swift in Sources */,
 				FD1C98E4282E3C5B00B76F9E /* UINavigationBar+Utilities.swift in Sources */,
 				C302093E25DCBF08001F572D /* MentionSelectionView.swift in Sources */,
@@ -6439,7 +6441,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 407;
+				CURRENT_PROJECT_VERSION = 408;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
@@ -6511,7 +6513,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 407;
+				CURRENT_PROJECT_VERSION = 408;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -6576,7 +6578,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 407;
+				CURRENT_PROJECT_VERSION = 408;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
@@ -6650,7 +6652,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 407;
+				CURRENT_PROJECT_VERSION = 408;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -7558,7 +7560,7 @@
 				CODE_SIGN_ENTITLEMENTS = Session/Meta/Signal.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 407;
+				CURRENT_PROJECT_VERSION = 408;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -7629,7 +7631,7 @@
 				CODE_SIGN_ENTITLEMENTS = Session/Meta/Signal.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 407;
+				CURRENT_PROJECT_VERSION = 408;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",

@@ -9,6 +9,13 @@ import SessionUtilitiesKit
 public class ConversationViewModel: OWSAudioPlayerDelegate {
     public typealias SectionModel = ArraySection<Section, MessageViewModel>
     
+    // MARK: - FocusBehaviour
+    
+    public enum FocusBehaviour {
+        case none
+        case highlight
+    }
+    
     // MARK: - Action
     
     public enum Action {
@@ -35,6 +42,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     public var sentMessageBeforeUpdate: Bool = false
     public var lastSearchedText: String?
     public let focusedInteractionInfo: Interaction.TimestampInfo? // Note: This is used for global search
+    public let focusBehaviour: FocusBehaviour
+    private let initialUnreadInteractionId: Int64?
     
     public lazy var blockedBannerMessage: String = {
         switch self.threadData.threadVariant {
@@ -54,7 +63,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     
     init(threadId: String, threadVariant: SessionThread.Variant, focusedInteractionInfo: Interaction.TimestampInfo?) {
         typealias InitialData = (
-            targetInteractionInfo: Interaction.TimestampInfo?,
+            initialUnreadInteractionInfo: Interaction.TimestampInfo?,
             threadIsBlocked: Bool,
             currentUserIsClosedGroupMember: Bool?,
             openGroupPermissions: OpenGroup.Permissions?,
@@ -67,15 +76,13 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             
             // If we have a specified 'focusedInteractionInfo' then use that, otherwise retrieve the oldest
             // unread interaction and start focused around that one
-            let targetInteractionInfo: Interaction.TimestampInfo? = (focusedInteractionInfo != nil ? focusedInteractionInfo :
-                try Interaction
-                    .select(.id, .timestampMs)
-                    .filter(interaction[.wasRead] == false)
-                    .filter(interaction[.threadId] == threadId)
-                    .order(interaction[.timestampMs].asc)
-                    .asRequest(of: Interaction.TimestampInfo.self)
-                    .fetchOne(db)
-            )
+            let initialUnreadInteractionInfo: Interaction.TimestampInfo? = try Interaction
+                .select(.id, .timestampMs)
+                .filter(interaction[.wasRead] == false)
+                .filter(interaction[.threadId] == threadId)
+                .order(interaction[.timestampMs].asc)
+                .asRequest(of: Interaction.TimestampInfo.self)
+                .fetchOne(db)
             let threadIsBlocked: Bool = (threadVariant != .contact ? false :
                 try Contact
                     .filter(id: threadId)
@@ -105,7 +112,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             )
             
             return (
-                targetInteractionInfo,
+                initialUnreadInteractionInfo,
                 threadIsBlocked,
                 currentUserIsClosedGroupMember,
                 openGroupPermissions,
@@ -115,7 +122,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         
         self.threadId = threadId
         self.initialThreadVariant = threadVariant
-        self.focusedInteractionInfo = initialData?.targetInteractionInfo
+        self.focusedInteractionInfo = (focusedInteractionInfo ?? initialData?.initialUnreadInteractionInfo)
+        self.focusBehaviour = (focusedInteractionInfo == nil ? .none : .highlight)
+        self.initialUnreadInteractionId = initialData?.initialUnreadInteractionInfo?.id
         self.threadData = SessionThreadViewModel(
             threadId: threadId,
             threadVariant: threadVariant,
@@ -143,7 +152,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             // If we don't have a `initialFocusedInfo` then default to `.pageBefore` (it'll query
             // from a `0` offset)
-            guard let initialFocusedInfo: Interaction.TimestampInfo = initialData?.targetInteractionInfo else {
+            guard let initialFocusedInfo: Interaction.TimestampInfo = (focusedInteractionInfo ?? initialData?.initialUnreadInteractionInfo) else {
                 self?.pagedDataObserver?.load(.pageBefore)
                 return
             }
@@ -321,6 +330,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     }
     
     private func process(data: [MessageViewModel], for pageInfo: PagedData.PageInfo) -> [SectionModel] {
+        let initialUnreadInteractionId: Int64? = self.initialUnreadInteractionId
         let typingIndicator: MessageViewModel? = data.first(where: { $0.isTypingIndicator == true })
         let sortedData: [MessageViewModel] = data
             .filter { $0.isTypingIndicator != true }
@@ -362,11 +372,20 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                             )
                         }
                         .reduce([]) { result, message in
+                            let updatedResult: [MessageViewModel] = result
+                                .appending(initialUnreadInteractionId == nil || message.id != initialUnreadInteractionId ?
+                                   nil :
+                                    MessageViewModel(
+                                        timestampMs: message.timestampMs,
+                                        cellType: .unreadMarker
+                                    )
+                            )
+                            
                             guard message.shouldShowDateHeader else {
-                                return result.appending(message)
+                                return updatedResult.appending(message)
                             }
                             
-                            return result
+                            return updatedResult
                                 .appending(
                                     MessageViewModel(
                                         timestampMs: message.timestampMs,
@@ -657,6 +676,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         // Then setup the state for the new audio
         currentPlayingInteraction.mutate { $0 = viewModel.id }
         
+        let currentPlaybackTime: TimeInterval? = playbackInfo.wrappedValue[viewModel.id]?.progress
         audioPlayer.mutate { [weak self] player in
             // Note: We clear the delegate and explicitly set to nil here as when the OWSAudioPlayer
             // gets deallocated it triggers state changes which cause UI bugs when auto-playing
@@ -669,7 +689,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                 delegate: self
             )
             audioPlayer.play()
-            audioPlayer.setCurrentTime(playbackInfo.wrappedValue[viewModel.id]?.progress ?? 0)
+            audioPlayer.setCurrentTime(currentPlaybackTime ?? 0)
             player = audioPlayer
         }
     }

@@ -407,8 +407,10 @@ internal class ThemeApplier {
             .compactMap { $0?.clearingOtherAppliers() }
             .filter { $0.info != info }
         
-        // Automatically apply the theme immediately
-        self.apply(theme: ThemeManager.currentTheme, isInitialApplication: true)
+        // Automatically apply the theme immediately (if the database has been setup)
+        if Storage.hasCreatedValidInstance {
+            self.apply(theme: ThemeManager.currentTheme, isInitialApplication: true)
+        }
     }
     
     // MARK: - Functions

@@ -17,13 +17,16 @@ open class Storage {
     private static var databasePathShm: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)-shm" }
     private static var databasePathWal: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)-wal" }
     
+    public static var hasCreatedValidInstance: Bool { internalHasCreatedValidInstance.wrappedValue }
     public static var isDatabasePasswordAccessible: Bool {
         guard (try? getDatabaseCipherKeySpec()) != nil else { return false }
         
         return true
     }
     
+    private var startupError: Error?
     private let migrationsCompleted: Atomic<Bool> = Atomic(false)
+    private static let internalHasCreatedValidInstance: Atomic<Bool> = Atomic(false)
     internal let internalCurrentlyRunningMigration: Atomic<(identifier: TargetMigrations.Identifier, migration: Migration.Type)?> = Atomic(nil)
     
     public static let shared: Storage = Storage()
@@ -53,6 +56,7 @@ open class Storage {
         guard customWriter == nil else {
             dbWriter = customWriter
             isValid = true
+            Storage.internalHasCreatedValidInstance.mutate { $0 = true }
             perform(migrations: (customMigrations ?? []), async: false, onProgressUpdate: nil, onComplete: { _, _ in })
             return
         }
@@ -99,8 +103,9 @@ open class Storage {
                 configuration: config
             )
             isValid = true
+            Storage.internalHasCreatedValidInstance.mutate { $0 = true }
         }
-        catch {}
+        catch { startupError = error }
     }
     
     // MARK: - Migrations
@@ -118,7 +123,12 @@ open class Storage {
         onProgressUpdate: ((CGFloat, TimeInterval) -> ())?,
         onComplete: @escaping (Swift.Result<Void, Error>, Bool) -> ()
     ) {
-        guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return }
+        guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
+            let error: Error = (startupError ?? StorageError.startupFailed)
+            SNLog("[Database Error] Statup failed with error: \(error)")
+            onComplete(.failure(StorageError.startupFailed), false)
+            return
+        }
         
         typealias MigrationInfo = (identifier: TargetMigrations.Identifier, migrations: TargetMigrations.MigrationSet)
         let sortedMigrationInfo: [MigrationInfo] = migrations
@@ -135,11 +145,11 @@ open class Storage {
             .reduce(into: []) { result, next in result.append(contentsOf: next) }
         
         // Setup and run any required migrations
-        migrator = {
+        migrator = { [weak self] in
             var migrator: DatabaseMigrator = DatabaseMigrator()
             sortedMigrationInfo.forEach { migrationInfo in
                 migrationInfo.migrations.forEach { migration in
-                    migrator.registerMigration(migrationInfo.identifier, migration: migration)
+                    migrator.registerMigration(self, targetIdentifier: migrationInfo.identifier, migration: migration)
                 }
             }
             
@@ -316,6 +326,7 @@ open class Storage {
         try? SUKLegacy.deleteLegacyDatabaseFilesAndKey()
         
         Storage.shared.isValid = false
+        Storage.internalHasCreatedValidInstance.mutate { $0 = false }
         Storage.shared.migrationsCompleted.mutate { $0 = false }
         Storage.shared.dbWriter = nil
         
