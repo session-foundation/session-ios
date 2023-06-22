@@ -181,7 +181,7 @@ extension MessageReceiver {
                 .deleteAll(db)
 
             _ = try Interaction(
-                serverHash: nil,
+                serverHash: message.serverHash,
                 threadId: threadId,
                 authorId: sender,
                 variant: .infoDisappearingMessagesUpdate,
