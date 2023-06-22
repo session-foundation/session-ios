@@ -84,7 +84,8 @@ internal extension SessionUtil {
                             .defaultWith(groupId)
                             .with(
                                 isEnabled: (legacyGroup.disappearing_timer > 0),
-                                durationSeconds: TimeInterval(legacyGroup.disappearing_timer)
+                                durationSeconds: TimeInterval(legacyGroup.disappearing_timer),
+                                lastChangeTimestampMs: latestConfigSentTimestampMs
                             ),
                         groupMembers: members
                             .filter { _, isAdmin in !isAdmin }
@@ -254,14 +255,29 @@ internal extension SessionUtil {
                 }
                 
                 // Update the disappearing messages timer
-                _ = try DisappearingMessagesConfiguration
+                let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
                     .fetchOne(db, id: group.id)
                     .defaulting(to: DisappearingMessagesConfiguration.defaultWith(group.id))
-                    .with(
-                        isEnabled: (group.disappearingConfig?.isEnabled == true),
-                        durationSeconds: group.disappearingConfig?.durationSeconds
-                    )
-                    .saved(db)
+                
+                if
+                    let remoteConfig = group.disappearingConfig,
+                    let remoteLastChangeTimestampMs = remoteConfig.lastChangeTimestampMs,
+                    let localLastChangeTimestampMs = localConfig.lastChangeTimestampMs,
+                    remoteLastChangeTimestampMs > localLastChangeTimestampMs
+                {
+                    _ = try localConfig.with(
+                        isEnabled: remoteConfig.isEnabled,
+                        durationSeconds: remoteConfig.durationSeconds,
+                        type: remoteConfig.type,
+                        lastChangeTimestampMs: remoteConfig.lastChangeTimestampMs
+                    ).save(db)
+                    
+                    _ = try Interaction
+                        .filter(Interaction.Columns.threadId == group.id)
+                        .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                        .filter(Interaction.Columns.timestampMs <= (remoteLastChangeTimestampMs - Int64(remoteConfig.durationSeconds * 1000)))
+                        .deleteAll(db)
+                }
                 
                 // Update the members
                 let updatedMembers: Set<GroupMember> = members
