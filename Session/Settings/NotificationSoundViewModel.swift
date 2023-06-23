@@ -146,6 +146,7 @@ class NotificationSoundViewModel: SessionTableViewModel<NotificationSoundViewMod
             ]
         }
         .removeDuplicates()
+        .handleEvents(didFail: { SNLog("[NotificationSoundViewModel] Observation failed with error: \($0)") })
         .publisher(in: Storage.shared)
         .mapToSessionTableViewData(for: self)
     

@@ -994,11 +994,14 @@ extension Attachment {
         }
     }
     
-    public static func prepare(_ db: Database, attachments: [SignalAttachment], for interactionId: Int64) throws {
-        // Prepare any attachments
-        try attachments.enumerated()
-            .forEach { index, signalAttachment in
-                let maybeAttachment: Attachment? = Attachment(
+    public struct PreparedData {
+        public let attachments: [Attachment]
+    }
+    
+    public static func prepare(attachments: [SignalAttachment]) -> PreparedData {
+        return PreparedData(
+            attachments: attachments.compactMap { signalAttachment in
+                Attachment(
                     variant: (signalAttachment.isVoiceMessage ?
                         .voiceMessage :
                         .standard
@@ -1008,9 +1011,23 @@ extension Attachment {
                     sourceFilename: signalAttachment.sourceFilename,
                     caption: signalAttachment.captionText
                 )
+            }
+        )
+    }
+    
+    public static func process(
+        _ db: Database,
+        data: PreparedData?,
+        for interactionId: Int64?
+    ) throws {
+        guard
+            let data: PreparedData = data,
+            let interactionId: Int64 = interactionId
+        else { return }
                 
-                guard let attachment: Attachment = maybeAttachment else { return }
-                
+        try data.attachments
+            .enumerated()
+            .forEach { index, attachment in
                 let interactionAttachment: InteractionAttachment = InteractionAttachment(
                     albumIndex: index,
                     interactionId: interactionId,
@@ -1042,7 +1059,7 @@ extension Attachment {
         let attachmentId: String = self.id
         
         return Storage.shared
-            .writePublisherFlatMap { db -> AnyPublisher<(String?, Data?, Data?), Error> in
+            .writePublisher { db -> (OpenGroupAPI.PreparedSendData<FileUploadResponse>?, String?, Data?, Data?) in
                 // If the attachment is a downloaded attachment, check if it came from
                 // the server and if so just succeed immediately (no use re-uploading
                 // an attachment that is already present on the server) - or if we want
@@ -1062,9 +1079,7 @@ extension Attachment {
                         .filter(id: attachmentId)
                         .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.uploaded))
                     
-                    return Just((Attachment.fileId(for: self.downloadUrl), nil, nil))
-                        .setFailureType(to: Error.self)
-                        .eraseToAnyPublisher()
+                    return (nil, Attachment.fileId(for: self.downloadUrl), nil, nil)
                 }
                 
                 var encryptionKey: NSData = NSData()
@@ -1089,42 +1104,41 @@ extension Attachment {
                     .filter(id: attachmentId)
                     .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.uploading))
                 
-                switch destination {
-                    case .openGroup(let openGroup):
-                        return OpenGroupAPI
-                            .uploadFile(
-                                db,
-                                bytes: data.bytes,
-                                to: openGroup.roomToken,
-                                on: openGroup.server
-                            )
-                            .map { _, response -> (String, Data?, Data?) in
-                                (
-                                    response.id,
-                                    (destination.shouldEncrypt ? encryptionKey as Data : nil),
-                                    (destination.shouldEncrypt ? digest as Data : nil)
+                // We need database access for OpenGroup uploads so generate prepared data
+                let preparedSendData: OpenGroupAPI.PreparedSendData<FileUploadResponse>? = try {
+                    switch destination {
+                        case .openGroup(let openGroup):
+                            return try OpenGroupAPI
+                                .preparedUploadFile(
+                                    db,
+                                    bytes: data.bytes,
+                                    to: openGroup.roomToken,
+                                    on: openGroup.server
                                 )
-                            }
-                            .eraseToAnyPublisher()
                         
-                    case .fileServer:
-                        /// **Note:** FileServer uploads don't need database access so
-                        return Just((
-                                nil,
-                                (destination.shouldEncrypt ? encryptionKey as Data : nil),
-                                (destination.shouldEncrypt ? digest as Data : nil)
-                            ))
-                            .setFailureType(to: Error.self)
-                            .eraseToAnyPublisher()
-                }
+                        default: return nil
+                    }
+                }()
+                
+                return (
+                    preparedSendData,
+                    nil,
+                    (destination.shouldEncrypt ? encryptionKey as Data : nil),
+                    (destination.shouldEncrypt ? digest as Data : nil)
+                )
             }
-            .flatMap { maybeFileId, encryptionKey, digest -> AnyPublisher<(String?, Data?, Data?), Error> in
+            .flatMap { preparedSendData, existingFileId, encryptionKey, digest -> AnyPublisher<(String?, Data?, Data?), Error> in
+                // No need to upload if the file was already uploaded
+                if let fileId: String = existingFileId {
+                    return Just((fileId, encryptionKey, digest))
+                        .setFailureType(to: Error.self)
+                        .eraseToAnyPublisher()
+                }
+                
                 switch destination {
                     case .openGroup:
-                        /// **Note:** OpenGroup uploads need database access so this should
-                        /// have already been uploaded
-                        return Just((maybeFileId, encryptionKey, digest))
-                            .setFailureType(to: Error.self)
+                        return OpenGroupAPI.send(data: preparedSendData)
+                            .map { _, response -> (String, Data?, Data?) in (response.id, encryptionKey, digest) }
                             .eraseToAnyPublisher()
                         
                     case .fileServer:

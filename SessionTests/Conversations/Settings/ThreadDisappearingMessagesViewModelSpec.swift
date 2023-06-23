@@ -49,7 +49,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 )
                 cancellables.append(
                     viewModel.observableTableData
-                        .receiveOnMain(immediately: true)
+                        .receive(on: DispatchQueue.main, immediatelyIfMain: true)
                         .sink(
                             receiveCompletion: { _ in },
                             receiveValue: { viewModel.updateTableData($0.0) }
@@ -132,7 +132,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 )
                 cancellables.append(
                     viewModel.observableTableData
-                        .receiveOnMain(immediately: true)
+                        .receive(on: DispatchQueue.main, immediatelyIfMain: true)
                         .sink(
                             receiveCompletion: { _ in },
                             receiveValue: { viewModel.updateTableData($0.0) }
@@ -178,7 +178,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 
                 cancellables.append(
                     viewModel.rightNavItems
-                        .receiveOnMain(immediately: true)
+                        .receive(on: DispatchQueue.main, immediatelyIfMain: true)
                         .sink(
                             receiveCompletion: { _ in },
                             receiveValue: { navItems in items = navItems }
@@ -194,7 +194,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 beforeEach {
                     cancellables.append(
                         viewModel.rightNavItems
-                            .receiveOnMain(immediately: true)
+                            .receive(on: DispatchQueue.main, immediatelyIfMain: true)
                             .sink(
                                 receiveCompletion: { _ in },
                                 receiveValue: { navItems in items = navItems }
@@ -221,7 +221,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                         
                         cancellables.append(
                             viewModel.dismissScreen
-                                .receiveOnMain(immediately: true)
+                                .receive(on: DispatchQueue.main, immediatelyIfMain: true)
                                 .sink(
                                     receiveCompletion: { _ in },
                                     receiveValue: { _ in didDismissScreen = true }

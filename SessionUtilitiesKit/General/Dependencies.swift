@@ -4,10 +4,16 @@ import Foundation
 import GRDB
 
 open class Dependencies {
-    public var _queue: Atomic<DispatchQueue?>
-    public var queue: DispatchQueue {
-        get { Dependencies.getValueSettingIfNull(&_queue) { DispatchQueue.global(qos: .default) } }
-        set { _queue.mutate { $0 = newValue } }
+    public var _subscribeQueue: Atomic<DispatchQueue?>
+    public var subscribeQueue: DispatchQueue {
+        get { Dependencies.getValueSettingIfNull(&_subscribeQueue) { DispatchQueue.global(qos: .default) } }
+        set { _subscribeQueue.mutate { $0 = newValue } }
+    }
+    
+    public var _receiveQueue: Atomic<DispatchQueue?>
+    public var receiveQueue: DispatchQueue {
+        get { Dependencies.getValueSettingIfNull(&_receiveQueue) { DispatchQueue.global(qos: .default) } }
+        set { _receiveQueue.mutate { $0 = newValue } }
     }
     
     public var _generalCache: Atomic<Atomic<GeneralCacheType>?>
@@ -43,14 +49,16 @@ open class Dependencies {
     // MARK: - Initialization
     
     public init(
-        queue: DispatchQueue? = nil,
+        subscribeQueue: DispatchQueue? = nil,
+        receiveQueue: DispatchQueue? = nil,
         generalCache: Atomic<GeneralCacheType>? = nil,
         storage: Storage? = nil,
         scheduler: ValueObservationScheduler? = nil,
         standardUserDefaults: UserDefaultsType? = nil,
         date: Date? = nil
     ) {
-        _queue = Atomic(queue)
+        _subscribeQueue = Atomic(subscribeQueue)
+        _receiveQueue = Atomic(receiveQueue)
         _generalCache = Atomic(generalCache)
         _storage = Atomic(storage)
         _scheduler = Atomic(scheduler)

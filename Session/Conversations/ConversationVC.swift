@@ -890,6 +890,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         guard !didSendMessageBeforeUpdate && !wasOnlyUpdates else {
             self.viewModel.updateInteractionData(updatedData)
             self.tableView.reloadData()
+            self.tableView.layoutIfNeeded()
             
             // If we just sent a message then we want to jump to the bottom of the conversation instantly
             if didSendMessageBeforeUpdate {

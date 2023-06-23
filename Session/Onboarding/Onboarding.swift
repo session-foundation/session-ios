@@ -36,14 +36,12 @@ enum Onboarding {
         let userPublicKey: String = getUserHexEncodedPublicKey()
         
         return SnodeAPI.getSwarm(for: userPublicKey)
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .tryFlatMapWithRandomSnode { snode -> AnyPublisher<Void, Error> in
                 CurrentUserPoller
                     .poll(
                         namespaces: [.configUserProfile],
                         from: snode,
                         for: userPublicKey,
-                        on: DispatchQueue.global(qos: .userInitiated),
                         // Note: These values mean the received messages will be
                         // processed immediately rather than async as part of a Job
                         calledFromBackgroundPoller: true,
@@ -67,7 +65,6 @@ enum Onboarding {
                                 namespaces: [.default],
                                 from: snode,
                                 for: userPublicKey,
-                                on: DispatchQueue.global(qos: .userInitiated),
                                 // Note: These values mean the received messages will be
                                 // processed immediately rather than async as part of a Job
                                 calledFromBackgroundPoller: true,
@@ -215,7 +212,9 @@ enum Onboarding {
             guard self != .register else { return }
             
             // Fetch the
-            Onboarding.profileNamePublisher.sinkUntilComplete()
+            Onboarding.profileNamePublisher
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+                .sinkUntilComplete()
         }
         
         func completeRegistration() {

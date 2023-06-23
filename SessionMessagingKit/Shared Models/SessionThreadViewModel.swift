@@ -33,6 +33,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public static let threadWasMarkedUnreadKey: SQL = SQL(stringLiteral: CodingKeys.threadWasMarkedUnread.stringValue)
     public static let threadUnreadCountKey: SQL = SQL(stringLiteral: CodingKeys.threadUnreadCount.stringValue)
     public static let threadUnreadMentionCountKey: SQL = SQL(stringLiteral: CodingKeys.threadUnreadMentionCount.stringValue)
+    public static let disappearingMessagesConfigurationKey: SQL = SQL(stringLiteral: CodingKeys.disappearingMessagesConfiguration.stringValue)
     public static let contactProfileKey: SQL = SQL(stringLiteral: CodingKeys.contactProfile.stringValue)
     public static let closedGroupNameKey: SQL = SQL(stringLiteral: CodingKeys.closedGroupName.stringValue)
     public static let closedGroupUserCountKey: SQL = SQL(stringLiteral: CodingKeys.closedGroupUserCount.stringValue)
@@ -66,6 +67,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public static let threadUnreadMentionCountString: String = CodingKeys.threadUnreadMentionCount.stringValue
     public static let closedGroupUserCountString: String = CodingKeys.closedGroupUserCount.stringValue
     public static let openGroupUserCountString: String = CodingKeys.openGroupUserCount.stringValue
+    public static let disappearingMessagesConfigurationString: String = CodingKeys.disappearingMessagesConfiguration.stringValue
     public static let contactProfileString: String = CodingKeys.contactProfile.stringValue
     public static let closedGroupProfileFrontString: String = CodingKeys.closedGroupProfileFront.stringValue
     public static let closedGroupProfileBackString: String = CodingKeys.closedGroupProfileBack.stringValue
@@ -115,6 +117,8 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     }
     
     // Thread display info
+    
+    public let disappearingMessagesConfiguration: DisappearingMessagesConfiguration?
     
     private let contactProfile: Profile?
     private let closedGroupProfileFront: Profile?
@@ -343,7 +347,8 @@ public extension SessionThreadViewModel {
         contactProfile: Profile? = nil,
         currentUserIsClosedGroupMember: Bool? = nil,
         openGroupPermissions: OpenGroup.Permissions? = nil,
-        unreadCount: UInt = 0
+        unreadCount: UInt = 0,
+        disappearingMessagesConfiguration: DisappearingMessagesConfiguration? = nil
     ) {
         self.rowId = -1
         self.threadId = threadId
@@ -367,6 +372,8 @@ public extension SessionThreadViewModel {
         self.threadUnreadMentionCount = nil
         
         // Thread display info
+        
+        self.disappearingMessagesConfiguration = disappearingMessagesConfiguration
         
         self.contactProfile = contactProfile
         self.closedGroupProfileFront = nil
@@ -430,6 +437,7 @@ public extension SessionThreadViewModel {
             threadWasMarkedUnread: self.threadWasMarkedUnread,
             threadUnreadCount: self.threadUnreadCount,
             threadUnreadMentionCount: self.threadUnreadMentionCount,
+            disappearingMessagesConfiguration: self.disappearingMessagesConfiguration,
             contactProfile: self.contactProfile,
             closedGroupProfileFront: self.closedGroupProfileFront,
             closedGroupProfileBack: self.closedGroupProfileBack,
@@ -486,6 +494,7 @@ public extension SessionThreadViewModel {
             threadWasMarkedUnread: self.threadWasMarkedUnread,
             threadUnreadCount: self.threadUnreadCount,
             threadUnreadMentionCount: self.threadUnreadMentionCount,
+            disappearingMessagesConfiguration: self.disappearingMessagesConfiguration,
             contactProfile: self.contactProfile,
             closedGroupProfileFront: self.closedGroupProfileFront,
             closedGroupProfileBack: self.closedGroupProfileBack,
@@ -839,6 +848,7 @@ public extension SessionThreadViewModel {
     /// but including this warning just in case there is a discrepancy)
     static func conversationQuery(threadId: String, userPublicKey: String) -> AdaptedFetchRequest<SQLRequest<SessionThreadViewModel>> {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
+        let disappearingMessagesConfiguration: TypedTableAlias<DisappearingMessagesConfiguration> = TypedTableAlias()
         let contact: TypedTableAlias<Contact> = TypedTableAlias()
         let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
@@ -883,6 +893,8 @@ public extension SessionThreadViewModel {
                 
                 \(thread[.markedAsUnread]) AS \(ViewModel.threadWasMarkedUnreadKey),
                 \(aggregateInteractionLiteral).\(ViewModel.threadUnreadCountKey),
+        
+                \(ViewModel.disappearingMessagesConfigurationKey).*,
             
                 \(ViewModel.contactProfileKey).*,
                 \(closedGroup[.name]) AS \(ViewModel.closedGroupNameKey),
@@ -911,6 +923,7 @@ public extension SessionThreadViewModel {
                 \(SQL("\(userPublicKey)")) AS \(ViewModel.currentUserPublicKeyKey)
             
             FROM \(SessionThread.self)
+            LEFT JOIN \(DisappearingMessagesConfiguration.self) ON \(disappearingMessagesConfiguration[.threadId]) = \(thread[.id])
             LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])
             LEFT JOIN (
                 SELECT
@@ -945,11 +958,13 @@ public extension SessionThreadViewModel {
         return request.adapted { db in
             let adapters = try splittingRowAdapters(columnCounts: [
                 numColumnsBeforeProfiles,
+                DisappearingMessagesConfiguration.numberOfSelectedColumns(db),
                 Profile.numberOfSelectedColumns(db)
             ])
             
             return ScopeAdapter([
-                ViewModel.contactProfileString: adapters[1]
+                ViewModel.disappearingMessagesConfigurationString: adapters[1],
+                ViewModel.contactProfileString: adapters[2]
             ])
         }
     }

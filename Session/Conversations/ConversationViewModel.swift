@@ -176,9 +176,10 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     /// this is due to the behaviour of `ValueConcurrentObserver.asyncStartObservation` which triggers it's own
     /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
-    public lazy var observableThreadData: ValueObservation<ValueReducers.RemoveDuplicates<ValueReducers.Fetch<SessionThreadViewModel?>>> = setupObservableThreadData(for: self.threadId)
+    public typealias ThreadObservation = ValueObservation<ValueReducers.Trace<ValueReducers.RemoveDuplicates<ValueReducers.Fetch<SessionThreadViewModel?>>>>
+    public lazy var observableThreadData: ThreadObservation = setupObservableThreadData(for: self.threadId)
     
-    private func setupObservableThreadData(for threadId: String) -> ValueObservation<ValueReducers.RemoveDuplicates<ValueReducers.Fetch<SessionThreadViewModel?>>> {
+    private func setupObservableThreadData(for threadId: String) -> ThreadObservation {
         return ValueObservation
             .trackingConstantRegion { [weak self] db -> SessionThreadViewModel? in
                 let userPublicKey: String = getUserHexEncodedPublicKey(db)
@@ -197,6 +198,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                     }
             }
             .removeDuplicates()
+            .handleEvents(didFail: { SNLog("[ConversationViewModel] Observation failed with error: \($0)") })
     }
 
     public func updateThreadData(_ updatedData: SessionThreadViewModel) {
@@ -314,8 +316,16 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                 )
             ],
             onChangeUnsorted: { [weak self] updatedData, updatedPageInfo in
+                self?.resolveOptimisticUpdates(with: updatedData)
+                
                 PagedData.processAndTriggerUpdates(
-                    updatedData: self?.process(data: updatedData, for: updatedPageInfo),
+                    updatedData: self?.process(
+                        data: updatedData,
+                        for: updatedPageInfo,
+                        optimisticMessages: (self?.optimisticallyInsertedMessages.wrappedValue.values)
+                            .map { Array($0) },
+                        initialUnreadInteractionId: self?.initialUnreadInteractionId
+                    ),
                     currentDataRetriever: { self?.interactionData },
                     onDataChange: self?.onInteractionChange,
                     onUnobservedDataChange: { updatedData, changeset in
@@ -329,11 +339,16 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         )
     }
     
-    private func process(data: [MessageViewModel], for pageInfo: PagedData.PageInfo) -> [SectionModel] {
-        let initialUnreadInteractionId: Int64? = self.initialUnreadInteractionId
+    private func process(
+        data: [MessageViewModel],
+        for pageInfo: PagedData.PageInfo,
+        optimisticMessages: [MessageViewModel]?,
+        initialUnreadInteractionId: Int64?
+    ) -> [SectionModel] {
         let typingIndicator: MessageViewModel? = data.first(where: { $0.isTypingIndicator == true })
         let sortedData: [MessageViewModel] = data
-            .filter { $0.isTypingIndicator != true }
+            .appending(contentsOf: (optimisticMessages ?? []))
+            .filter { !$0.cellType.isPostProcessed }
             .sorted { lhs, rhs -> Bool in lhs.timestampMs < rhs.timestampMs }
         
         // We load messages from newest to oldest so having a pageOffset larger than zero means
@@ -408,12 +423,151 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         self.interactionData = updatedData
     }
     
-    public func expandReactions(for interactionId: Int64) {
-        reactionExpandedInteractionIds.insert(interactionId)
+    // MARK: - Optimistic Message Handling
+    
+    public typealias OptimisticMessageData = (
+        id: UUID,
+        interaction: Interaction,
+        attachmentData: Attachment.PreparedData?,
+        linkPreviewAttachment: Attachment?
+    )
+    
+    private var optimisticallyInsertedMessages: Atomic<[UUID: MessageViewModel]> = Atomic([:])
+    private var optimisticMessageAssociatedInteractionIds: Atomic<[Int64: UUID]> = Atomic([:])
+    
+    public func optimisticallyAppendOutgoingMessage(
+        text: String?,
+        sentTimestampMs: Int64,
+        attachments: [SignalAttachment]?,
+        linkPreviewDraft: LinkPreviewDraft?,
+        quoteModel: QuotedReplyModel?
+    ) -> OptimisticMessageData {
+        // Generate the optimistic data
+        let optimisticMessageId: UUID = UUID()
+        let currentUserProfile: Profile = Profile.fetchOrCreateCurrentUser()
+        let interaction: Interaction = Interaction(
+            threadId: threadData.threadId,
+            authorId: (threadData.currentUserBlindedPublicKey ?? threadData.currentUserPublicKey),
+            variant: .standardOutgoing,
+            body: text,
+            timestampMs: sentTimestampMs,
+            hasMention: Interaction.isUserMentioned(
+                publicKeysToCheck: [
+                    threadData.currentUserPublicKey,
+                    threadData.currentUserBlindedPublicKey
+                ].compactMap { $0 },
+                body: text
+            ),
+            expiresInSeconds: threadData.disappearingMessagesConfiguration
+                .map { disappearingConfig in
+                    guard disappearingConfig.isEnabled else { return nil }
+
+                    return disappearingConfig.durationSeconds
+                },
+            linkPreviewUrl: linkPreviewDraft?.urlString
+        )
+        let optimisticAttachments: Attachment.PreparedData? = attachments
+            .map { Attachment.prepare(attachments: $0) }
+        let linkPreviewAttachment: Attachment? = linkPreviewDraft.map { draft in
+            try? LinkPreview.generateAttachmentIfPossible(
+                imageData: draft.jpegImageData,
+                mimeType: OWSMimeTypeImageJpeg
+            )
+        }
+        let optimisticData: OptimisticMessageData = (
+            optimisticMessageId,
+            interaction,
+            optimisticAttachments,
+            linkPreviewAttachment
+        )
+        
+        // Generate the actual 'MessageViewModel'
+        let messageViewModel: MessageViewModel = MessageViewModel(
+            threadId: threadData.threadId,
+            threadVariant: threadData.threadVariant,
+            threadHasDisappearingMessagesEnabled: (threadData.disappearingMessagesConfiguration?.isEnabled ?? false),
+            threadOpenGroupServer: threadData.openGroupServer,
+            threadOpenGroupPublicKey: threadData.openGroupPublicKey,
+            threadContactNameInternal: threadData.threadContactName(),
+            timestampMs: interaction.timestampMs,
+            receivedAtTimestampMs: interaction.receivedAtTimestampMs,
+            authorId: interaction.authorId,
+            authorNameInternal: currentUserProfile.displayName(),
+            body: interaction.body,
+            expiresStartedAtMs: interaction.expiresStartedAtMs,
+            expiresInSeconds: interaction.expiresInSeconds,
+            isSenderOpenGroupModerator: OpenGroupManager.isUserModeratorOrAdmin(
+                threadData.currentUserPublicKey,
+                for: threadData.openGroupRoomToken,
+                on: threadData.openGroupServer
+            ),
+            currentUserProfile: currentUserProfile,
+            quote: quoteModel.map { model in
+                // Don't care about this optimistic quote (the proper one will be generated in the database)
+                Quote(
+                    interactionId: -1,    // Can't save to db optimistically
+                    authorId: model.authorId,
+                    timestampMs: model.timestampMs,
+                    body: model.body,
+                    attachmentId: model.attachment?.id
+                )
+            },
+            quoteAttachment: quoteModel?.attachment,
+            linkPreview: linkPreviewDraft.map { draft in
+                LinkPreview(
+                    url: draft.urlString,
+                    title: draft.title,
+                    attachmentId: nil    // Can't save to db optimistically
+                )
+            },
+            linkPreviewAttachment: linkPreviewAttachment,
+            attachments: optimisticAttachments?.attachments
+        )
+        
+        optimisticallyInsertedMessages.mutate { $0[optimisticMessageId] = messageViewModel }
+        
+        // If we can't get the current page data then don't bother trying to update (it's not going to work)
+        guard let currentPageInfo: PagedData.PageInfo = self.pagedDataObserver?.pageInfo.wrappedValue else {
+            return optimisticData
+        }
+        
+        /// **MUST** have the same logic as in the 'PagedDataObserver.onChangeUnsorted' above
+        let currentData: [SectionModel] = (unobservedInteractionDataChanges?.0 ?? interactionData)
+        
+        PagedData.processAndTriggerUpdates(
+            updatedData: process(
+                data: (currentData.first(where: { $0.model == .messages })?.elements ?? []),
+                for: currentPageInfo,
+                optimisticMessages: Array(optimisticallyInsertedMessages.wrappedValue.values),
+                initialUnreadInteractionId: initialUnreadInteractionId
+            ),
+            currentDataRetriever: { [weak self] in self?.interactionData },
+            onDataChange: self.onInteractionChange,
+            onUnobservedDataChange: { [weak self] updatedData, changeset in
+                self?.unobservedInteractionDataChanges = (changeset.isEmpty ?
+                    nil :
+                    (updatedData, changeset)
+                )
+            }
+        )
+        
+        return optimisticData
     }
     
-    public func collapseReactions(for interactionId: Int64) {
-        reactionExpandedInteractionIds.remove(interactionId)
+    /// Record an association between an `optimisticMessageId` and a specific `interactionId`
+    public func associate(optimisticMessageId: UUID, to interactionId: Int64?) {
+        guard let interactionId: Int64 = interactionId else { return }
+        
+        optimisticMessageAssociatedInteractionIds.mutate { $0[interactionId] = optimisticMessageId }
+    }
+    
+    /// Remove any optimisticUpdate entries which have an associated interactionId in the provided data
+    private func resolveOptimisticUpdates(with data: [MessageViewModel]) {
+        let interactionIds: [Int64] = data.map { $0.id }
+        let idsToRemove: [UUID] = optimisticMessageAssociatedInteractionIds
+            .mutate { associatedIds in interactionIds.compactMap { associatedIds.removeValue(forKey: $0) } }
+        
+        optimisticallyInsertedMessages.mutate { messages in idsToRemove.forEach { messages.removeValue(forKey: $0) } }
     }
     
     // MARK: - Mentions
@@ -573,6 +727,14 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                 .filter(id: threadId)
                 .updateAllAndConfig(db, Contact.Columns.isBlocked.set(to: false))
         }
+    }
+    
+    public func expandReactions(for interactionId: Int64) {
+        reactionExpandedInteractionIds.insert(interactionId)
+    }
+    
+    public func collapseReactions(for interactionId: Int64) {
+        reactionExpandedInteractionIds.remove(interactionId)
     }
     
     // MARK: - Audio Playback

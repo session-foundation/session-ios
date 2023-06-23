@@ -69,6 +69,7 @@ class NotificationContentViewModel: SessionTableViewModel<NoNav, NotificationSet
             ]
         }
         .removeDuplicates()
+        .handleEvents(didFail: { SNLog("[NotificationContentViewModel] Observation failed with error: \($0)") })
         .publisher(in: storage, scheduling: scheduler)
         .mapToSessionTableViewData(for: self)
 }

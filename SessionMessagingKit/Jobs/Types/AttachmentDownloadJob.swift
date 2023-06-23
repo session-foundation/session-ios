@@ -94,9 +94,20 @@ public enum AttachmentDownloadJob: JobExecutor {
                 else { throw AttachmentDownloadError.invalidUrl }
                 
                 return Storage.shared
-                    .readPublisher { db in try OpenGroup.fetchOne(db, id: threadId) }
-                    .flatMap { maybeOpenGroup -> AnyPublisher<Data, Error> in
-                        guard let openGroup: OpenGroup = maybeOpenGroup else {
+                    .readPublisher { db -> OpenGroupAPI.PreparedSendData<Data>? in
+                        try OpenGroup.fetchOne(db, id: threadId)
+                            .map { openGroup in
+                                try OpenGroupAPI
+                                    .preparedDownloadFile(
+                                        db,
+                                        fileId: fileId,
+                                        from: openGroup.roomToken,
+                                        on: openGroup.server
+                                    )
+                            }
+                    }
+                    .flatMap { maybePreparedSendData -> AnyPublisher<Data, Error> in
+                        guard let preparedSendData: OpenGroupAPI.PreparedSendData<Data> = maybePreparedSendData else {
                             return FileServerAPI
                                 .download(
                                     fileId,
@@ -105,16 +116,8 @@ public enum AttachmentDownloadJob: JobExecutor {
                                 .eraseToAnyPublisher()
                         }
                         
-                        return Storage.shared
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI
-                                    .downloadFile(
-                                        db,
-                                        fileId: fileId,
-                                        from: openGroup.roomToken,
-                                        on: openGroup.server
-                                    )
-                            }
+                        return OpenGroupAPI
+                            .send(data: preparedSendData)
                             .map { _, data in data }
                             .eraseToAnyPublisher()
                     }

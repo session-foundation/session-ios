@@ -59,7 +59,7 @@ public class Poller {
         preconditionFailure("abstract class - override in subclass")
     }
     
-    internal func handlePollError(_ error: Error, for publicKey: String) {
+    internal func handlePollError(_ error: Error, for publicKey: String, using dependencies: SMKDependencies) {
         preconditionFailure("abstract class - override in subclass")
     }
 
@@ -81,37 +81,46 @@ public class Poller {
     
     /// We want to initially trigger a poll against the target service node and then run the recursive polling,
     /// if an error is thrown during the poll then this should automatically restart the polling
-    internal func setUpPolling(for publicKey: String) {
+    internal func setUpPolling(
+        for publicKey: String,
+        using dependencies: SMKDependencies = SMKDependencies(
+            subscribeQueue: Threading.pollerQueue,
+            receiveQueue: Threading.pollerQueue
+        )
+    ) {
         guard isPolling.wrappedValue[publicKey] == true else { return }
         
         let namespaces: [SnodeAPI.Namespace] = self.namespaces
         
         getSnodeForPolling(for: publicKey)
-            .subscribe(on: Threading.pollerQueue)
+            .subscribe(on: dependencies.subscribeQueue, immediatelyIfMain: true)
             .flatMap { snode -> AnyPublisher<[Message], Error> in
                 Poller.poll(
                     namespaces: namespaces,
                     from: snode,
                     for: publicKey,
-                    on: Threading.pollerQueue,
-                    poller: self
+                    poller: self,
+                    using: dependencies
                 )
             }
-            .receive(on: Threading.pollerQueue)
+            .receive(on: dependencies.receiveQueue, immediatelyIfMain: true)
             .sinkUntilComplete(
                 receiveCompletion: { [weak self] result in
                     switch result {
-                        case .finished: self?.pollRecursively(for: publicKey)
+                        case .finished: self?.pollRecursively(for: publicKey, using: dependencies)
                         case .failure(let error):
                             guard self?.isPolling.wrappedValue[publicKey] == true else { return }
                             
-                            self?.handlePollError(error, for: publicKey)
+                            self?.handlePollError(error, for: publicKey, using: dependencies)
                     }
                 }
             )
     }
 
-    private func pollRecursively(for publicKey: String) {
+    private func pollRecursively(
+        for publicKey: String,
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) {
         guard isPolling.wrappedValue[publicKey] == true else { return }
         
         let namespaces: [SnodeAPI.Namespace] = self.namespaces
@@ -125,21 +134,21 @@ public class Poller {
                 timer.invalidate()
 
                 self?.getSnodeForPolling(for: publicKey)
-                    .subscribe(on: Threading.pollerQueue)
+                    .subscribe(on: dependencies.subscribeQueue, immediatelyIfMain: true)
                     .flatMap { snode -> AnyPublisher<[Message], Error> in
                         Poller.poll(
                             namespaces: namespaces,
                             from: snode,
                             for: publicKey,
-                            on: Threading.pollerQueue,
-                            poller: self
+                            poller: self,
+                            using: dependencies
                         )
                     }
-                    .receive(on: Threading.pollerQueue)
+                    .receive(on: dependencies.receiveQueue, immediatelyIfMain: true)
                     .sinkUntilComplete(
                         receiveCompletion: { result in
                             switch result {
-                                case .failure(let error): self?.handlePollError(error, for: publicKey)
+                                case .failure(let error): self?.handlePollError(error, for: publicKey, using: dependencies)
                                 case .finished:
                                     let maxNodePollCount: UInt = (self?.maxNodePollCount ?? 0)
 
@@ -161,7 +170,7 @@ public class Poller {
                                                     timer.invalidate()
                                                     
                                                     self?.pollCount.mutate { $0[publicKey] = 0 }
-                                                    self?.setUpPolling(for: publicKey)
+                                                    self?.setUpPolling(for: publicKey, using: dependencies)
                                                 }
                                             }
                                             return
@@ -169,7 +178,7 @@ public class Poller {
                                     }
 
                                     // Otherwise just loop
-                                    self?.pollRecursively(for: publicKey)
+                                    self?.pollRecursively(for: publicKey, using: dependencies)
                             }
                         }
                     )
@@ -186,10 +195,12 @@ public class Poller {
         namespaces: [SnodeAPI.Namespace],
         from snode: Snode,
         for publicKey: String,
-        on queue: DispatchQueue,
         calledFromBackgroundPoller: Bool = false,
         isBackgroundPollValid: @escaping (() -> Bool) = { true },
-        poller: Poller? = nil
+        poller: Poller? = nil,
+        using dependencies: SMKDependencies = SMKDependencies(
+            receiveQueue: Threading.pollerQueue
+        )
     ) -> AnyPublisher<[Message], Error> {
         // If the polling has been cancelled then don't continue
         guard
@@ -213,7 +224,8 @@ public class Poller {
                 namespaces: namespaces,
                 refreshingConfigHashes: configHashes,
                 from: snode,
-                associatedWith: publicKey
+                associatedWith: publicKey,
+                using: dependencies
             )
             .flatMap { namespacedResults -> AnyPublisher<[Message], Error> in
                 guard
@@ -391,7 +403,7 @@ public class Poller {
                                     // Note: In the background we just want jobs to fail silently
                                     ConfigMessageReceiveJob.run(
                                         job,
-                                        queue: queue,
+                                        queue: dependencies.receiveQueue,
                                         success: { _, _ in resolver(Result.success(())) },
                                         failure: { _, _, _ in resolver(Result.success(())) },
                                         deferred: { _ in resolver(Result.success(())) }
@@ -411,7 +423,7 @@ public class Poller {
                                             // Note: In the background we just want jobs to fail silently
                                             MessageReceiveJob.run(
                                                 job,
-                                                queue: queue,
+                                                queue: dependencies.receiveQueue,
                                                 success: { _, _ in resolver(Result.success(())) },
                                                 failure: { _, _, _ in resolver(Result.success(())) },
                                                 deferred: { _ in resolver(Result.success(())) }

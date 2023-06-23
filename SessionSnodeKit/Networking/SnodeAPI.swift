@@ -162,18 +162,17 @@ public final class SnodeAPI {
                 return previouslyBlockedPublisher
             }
             
-            let publisher: AnyPublisher<Set<Snode>, Error> = {
+            let targetPublisher: AnyPublisher<Set<Snode>, Error> = {
                 guard snodePool.count >= minSnodePoolCount else { return getSnodePoolFromSeedNode() }
                 
                 return getSnodePoolFromSnode()
                     .catch { _ in getSnodePoolFromSeedNode() }
                     .eraseToAnyPublisher()
             }()
-
-            /// Actually assign the atomic value
-            result = publisher
             
-            return publisher
+            /// Need to include the post-request code and a `shareReplay` within the publisher otherwise it can still be executed
+            /// multiple times as a result of multiple subscribers
+            let publisher: AnyPublisher<Set<Snode>, Error> = targetPublisher
                 .tryFlatMap { snodePool -> AnyPublisher<Set<Snode>, Error> in
                     guard !snodePool.isEmpty else { throw SnodeAPIError.snodePoolUpdatingFailed }
                     
@@ -189,7 +188,14 @@ public final class SnodeAPI {
                 .handleEvents(
                     receiveCompletion: { _ in getSnodePoolPublisher.mutate { $0 = nil } }
                 )
+                .shareReplay(1)
                 .eraseToAnyPublisher()
+
+            /// Actually assign the atomic value
+            result = publisher
+            
+            return publisher
+                
         }
     }
     
@@ -245,7 +251,6 @@ public final class SnodeAPI {
                                 }
                     }
             )
-            .subscribe(on: Threading.workQueue)
             .collect()
             .tryMap { results -> String in
                 guard results.count == validationCount, Set(results).count == 1 else {
@@ -758,7 +763,6 @@ public final class SnodeAPI {
         }
         
         return getSwarm(for: publicKey)
-            .subscribe(on: Threading.workQueue)
             .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: [(hash: String, expiry: UInt64)]], Error> in
                 SnodeAPI
                     .send(
@@ -800,7 +804,6 @@ public final class SnodeAPI {
         }
         
         return getSwarm(for: publicKey)
-            .subscribe(on: Threading.workQueue)
             .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<Void, Error> in
                 SnodeAPI
                     .send(
@@ -846,7 +849,6 @@ public final class SnodeAPI {
         let userX25519PublicKey: String = getUserHexEncodedPublicKey()
         
         return getSwarm(for: publicKey)
-            .subscribe(on: Threading.workQueue)
             .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: Bool], Error> in
                 SnodeAPI
                     .send(
@@ -902,7 +904,6 @@ public final class SnodeAPI {
         let userX25519PublicKey: String = getUserHexEncodedPublicKey()
         
         return getSwarm(for: userX25519PublicKey)
-            .subscribe(on: Threading.workQueue)
             .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: Bool], Error> in
                 getNetworkTime(from: snode)
                     .flatMap { timestampMs -> AnyPublisher<[String: Bool], Error> in
@@ -950,7 +951,6 @@ public final class SnodeAPI {
         let userX25519PublicKey: String = getUserHexEncodedPublicKey()
         
         return getSwarm(for: userX25519PublicKey)
-            .subscribe(on: Threading.workQueue)
             .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: Bool], Error> in
                 getNetworkTime(from: snode)
                     .flatMap { timestampMs -> AnyPublisher<[String: Bool], Error> in
@@ -1048,7 +1048,6 @@ public final class SnodeAPI {
                 useSeedNodeURLSession: true
             )
             .decoded(as: SnodePoolResponse.self, using: dependencies)
-            .subscribe(on: Threading.workQueue)
             .mapError { error in
                 switch error {
                     case HTTPError.parsingFailed: return SnodeAPIError.snodePoolUpdatingFailed

@@ -47,6 +47,13 @@ open class Storage {
         customWriter: DatabaseWriter? = nil,
         customMigrations: [TargetMigrations]? = nil
     ) {
+        configureDatabase(customWriter: customWriter, customMigrations: customMigrations)
+    }
+    
+    private func configureDatabase(
+        customWriter: DatabaseWriter? = nil,
+        customMigrations: [TargetMigrations]? = nil
+    ) {
         // Create the database directory if needed and ensure it's protection level is set before attempting to
         // create the database KeySpec or the database itself
         OWSFileSystem.ensureDirectoryExists(Storage.sharedDatabaseDirectoryPath)
@@ -330,8 +337,16 @@ open class Storage {
         Storage.shared.migrationsCompleted.mutate { $0 = false }
         Storage.shared.dbWriter = nil
         
-        self.deleteDatabaseFiles()
-        try? self.deleteDbKeys()
+        deleteDatabaseFiles()
+        try? deleteDbKeys()
+    }
+    
+    public static func resetForCleanMigration() {
+        // Clear existing content
+        resetAllStorage()
+        
+        // Reconfigure
+        Storage.shared.configureDatabase()
     }
     
     private static func deleteDatabaseFiles() {

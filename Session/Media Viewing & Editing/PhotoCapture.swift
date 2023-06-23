@@ -84,7 +84,7 @@ class PhotoCapture: NSObject {
 
     func startCapture() -> AnyPublisher<Void, Error> {
         return Just(())
-            .subscribe(on: sessionQueue)
+            .subscribe(on: sessionQueue)    // Must run this on a specific queue to prevent crashes
             .setFailureType(to: Error.self)
             .tryMap { [weak self] _ -> Void in
                 self?.session.beginConfiguration()
@@ -136,7 +136,7 @@ class PhotoCapture: NSObject {
 
     func stopCapture() -> AnyPublisher<Void, Never> {
         return Just(())
-            .subscribe(on: sessionQueue)
+            .subscribe(on: sessionQueue)    // Must run this on a specific queue to prevent crashes
             .handleEvents(
                 receiveOutput: { [weak self] in self?.session.stopRunning() }
             )
@@ -160,7 +160,7 @@ class PhotoCapture: NSObject {
         
         return Just(())
             .setFailureType(to: Error.self)
-            .subscribe(on: sessionQueue)
+            .subscribe(on: sessionQueue)    // Must run this on a specific queue to prevent crashes
             .tryMap { [weak self, newPosition = self.desiredPosition] _ -> Void in
                 self?.session.beginConfiguration()
                 defer { self?.session.commitConfiguration() }
@@ -196,7 +196,7 @@ class PhotoCapture: NSObject {
 
     func switchFlashMode() -> AnyPublisher<Void, Never> {
         return Just(())
-            .subscribe(on: sessionQueue)
+            .subscribe(on: sessionQueue)    // Must run this on a specific queue to prevent crashes
             .handleEvents(
                 receiveOutput: { [weak self] _ in
                     switch self?.captureOutput.flashMode {
@@ -351,7 +351,7 @@ extension PhotoCapture: CaptureButtonDelegate {
         Logger.verbose("")
         
         Just(())
-            .subscribe(on: sessionQueue)
+            .subscribe(on: sessionQueue)    // Must run this on a specific queue to prevent crashes
             .sinkUntilComplete(
                 receiveCompletion: { [weak self] _ in
                     guard let strongSelf = self else { return }

@@ -17,7 +17,7 @@ public class MessageRequestsViewModel {
     
     // MARK: - Variables
     
-    public static let pageSize: Int = 15
+    public static let pageSize: Int = (UIDevice.current.isIPad ? 20 : 15)
     
     // MARK: - Initialization
     

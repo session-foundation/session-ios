@@ -319,7 +319,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         openGroupServerMessageId: Int64? = nil,
         openGroupWhisperMods: Bool = false,
         openGroupWhisperTo: String? = nil
-    ) throws {
+    ) {
         self.serverHash = serverHash
         self.messageUuid = messageUuid
         self.threadId = threadId
@@ -821,6 +821,18 @@ public extension Interaction {
             }
         }
         
+        return isUserMentioned(
+            publicKeysToCheck: publicKeysToCheck,
+            body: body,
+            quoteAuthorId: quoteAuthorId
+        )
+    }
+        
+    static func isUserMentioned(
+        publicKeysToCheck: [String],
+        body: String?,
+        quoteAuthorId: String? = nil
+    ) -> Bool {
         // A user is mentioned if their public key is in the body of a message or one of their messages
         // was quoted
         return publicKeysToCheck.contains { publicKey in

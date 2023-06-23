@@ -7,6 +7,7 @@ public enum OpenGroupAPIError: LocalizedError {
     case signingFailed
     case noPublicKey
     case invalidEmoji
+    case invalidPreparedData
     
     public var errorDescription: String? {
         switch self {
@@ -14,6 +15,7 @@ public enum OpenGroupAPIError: LocalizedError {
             case .signingFailed: return "Couldn't sign message."
             case .noPublicKey: return "Couldn't find server public key."
             case .invalidEmoji: return "The emoji is invalid."
+            case .invalidPreparedData: return "Invalid PreparedSendData provided."
         }
     }
 }

@@ -56,7 +56,7 @@ public enum GetSnodePoolJob: JobExecutor {
     public static func run() {
         GetSnodePoolJob.run(
             Job(variant: .getSnodePool),
-            queue: DispatchQueue.global(qos: .background),
+            queue: .global(qos: .background),
             success: { _, _ in },
             failure: { _, _, _ in },
             deferred: { _ in }

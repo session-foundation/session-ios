@@ -57,6 +57,10 @@ public final class JobRunner {
                 // Once all blocking jobs have been completed we want to start running
                 // the remaining job queues
                 queues.wrappedValue.forEach { _, queue in queue.start() }
+                blockingQueueDrainCallback.mutate {
+                    $0.forEach { $0() }
+                    $0 = []
+                }
             }
         )
     )
@@ -120,11 +124,26 @@ public final class JobRunner {
     private static var hasCompletedInitialBecomeActive: Atomic<Bool> = Atomic(false)
     private static var shutdownBackgroundTask: Atomic<OWSBackgroundTask?> = Atomic(nil)
     fileprivate static var canStartQueues: Atomic<Bool> = Atomic(false)
+    private static var blockingQueueDrainCallback: Atomic<[() -> ()]> = Atomic([])
+    
+    fileprivate static var canStartNonBlockingQueue: Bool {
+        blockingQueue.wrappedValue?.hasStartedAtLeastOnce.wrappedValue == true &&
+        blockingQueue.wrappedValue?.isRunning.wrappedValue != true
+    }
     
     // MARK: - Configuration
     
     public static func add(executor: JobExecutor.Type, for variant: Job.Variant) {
         executorMap.mutate { $0[variant] = executor }
+    }
+    
+    public static func afterBlockingQueue(callback: @escaping () -> ()) {
+        guard
+            (blockingQueue.wrappedValue?.hasStartedAtLeastOnce.wrappedValue != true) ||
+            (blockingQueue.wrappedValue?.isRunning.wrappedValue == true)
+        else { return callback() }
+        
+        blockingQueueDrainCallback.mutate { $0.append(callback) }
     }
     
     // MARK: - Execution
@@ -444,8 +463,8 @@ public final class JobRunner {
 
 // MARK: - JobQueue
 
-private final class JobQueue {
-    fileprivate enum QueueType: Hashable {
+public final class JobQueue {
+    public enum QueueType: Hashable {
         case blocking
         case general(number: Int)
         case messageSend
@@ -530,6 +549,7 @@ private final class JobQueue {
     }()
     
     private var nextTrigger: Atomic<Trigger?> = Atomic(nil)
+    fileprivate var hasStartedAtLeastOnce: Atomic<Bool> = Atomic(false)
     fileprivate var isRunning: Atomic<Bool> = Atomic(false)
     private var queue: Atomic<[Job]> = Atomic([])
     private var jobCallbacks: Atomic<[Int64: [(JobRunner.JobResult) -> ()]]> = Atomic([:])
@@ -541,7 +561,7 @@ private final class JobQueue {
     
     // MARK: - Initialization
     
-    init(
+    fileprivate init(
         type: QueueType,
         executionType: ExecutionType = .serial,
         qos: DispatchQoS,
@@ -754,7 +774,11 @@ private final class JobQueue {
             HasAppContext() &&
             CurrentAppContext().isMainApp &&
             !CurrentAppContext().isRunningTests &&
-            JobRunner.canStartQueues.wrappedValue
+            JobRunner.canStartQueues.wrappedValue &&
+            (
+                type == .blocking ||
+                JobRunner.canStartNonBlockingQueue
+            )
         else { return }
         guard force || !isRunning.wrappedValue else { return }
         
@@ -774,6 +798,7 @@ private final class JobQueue {
             wasAlreadyRunning = isRunning
             isRunning = true
         }
+        hasStartedAtLeastOnce.mutate { $0 = true }
         
         // Get any pending jobs
         let jobIdsAlreadyRunning: Set<Int64> = currentlyRunningJobIds.wrappedValue

@@ -1,4 +1,5 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+
 import Foundation
 import GRDB
 import Sodium
@@ -57,7 +58,8 @@ public class SMKDependencies: SSKDependencies {
     // MARK: - Initialization
     
     public init(
-        queue: DispatchQueue? = nil,
+        subscribeQueue: DispatchQueue? = nil,
+        receiveQueue: DispatchQueue? = nil,
         onionApi: OnionRequestAPIType.Type? = nil,
         generalCache: Atomic<GeneralCacheType>? = nil,
         storage: Storage? = nil,
@@ -83,7 +85,8 @@ public class SMKDependencies: SSKDependencies {
         _nonceGenerator24 = Atomic(nonceGenerator24)
         
         super.init(
-            queue: queue,
+            subscribeQueue: subscribeQueue,
+            receiveQueue: receiveQueue,
             onionApi: onionApi,
             generalCache: generalCache,
             storage: storage,

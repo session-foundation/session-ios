@@ -355,7 +355,6 @@ public enum SessionUtil {
                         )
                         let seqNo: Int64 = cPushData.pointee.seqno
                         cPushData.deallocate()
-                        SNLog("[libSession - DEBUG] Push data for \(variant) config data, size: \(configCountInfo), bytes: \(pushData.count)")
                         
                         return OutgoingConfResult(
                             message: SharedConfigMessage(

@@ -360,6 +360,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
         
         cell
             .requestRenditionForSending()
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [weak self] result in
@@ -490,6 +491,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
         assert(searchBar.text == nil || searchBar.text?.count == 0)
 
         GiphyAPI.trending()
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { result in
@@ -527,6 +529,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
 
         GiphyAPI
             .search(query: query)
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [weak self] result in

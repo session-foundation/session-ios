@@ -663,49 +663,53 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
             }
             
             // Fetch the desired data
-            let pageRowIds: [Int64] = PagedData.rowIds(
-                db,
-                tableName: pagedTableName,
-                requiredJoinSQL: joinSQL,
-                filterSQL: filterSQL,
-                groupSQL: groupSQL,
-                orderSQL: orderSQL,
-                limit: queryInfo.limit,
-                offset: queryInfo.offset
-            )
+            let pageRowIds: [Int64]
             let newData: [T]
+            let updatedLimitInfo: PagedData.PageInfo
             
-            do { newData = try dataQuery(pageRowIds).fetchAll(db) }
-            catch {
-                SNLog("PagedDatabaseObserver threw exception: \(error)")
-                throw error
-            }
-            
-            let updatedLimitInfo: PagedData.PageInfo = PagedData.PageInfo(
-                pageSize: currentPageInfo.pageSize,
-                pageOffset: queryInfo.updatedCacheOffset,
-                currentCount: {
-                    switch target {
-                        case .reloadCurrent: return currentPageInfo.currentCount
-                        default: return (currentPageInfo.currentCount + newData.count)
-                    }
-                }(),
-                totalCount: totalCount
-            )
-            
-            // Update the associatedRecords for the newly retrieved data
-            self?.associatedRecords.forEach { record in
-                record.updateCache(
+            do {
+                pageRowIds = try PagedData.rowIds(
                     db,
-                    rowIds: PagedData.associatedRowIds(
-                        db,
-                        tableName: record.databaseTableName,
-                        pagedTableName: pagedTableName,
-                        pagedTypeRowIds: newData.map { $0.rowId },
-                        joinToPagedType: record.joinToPagedType
-                    ),
-                    hasOtherChanges: false
+                    tableName: pagedTableName,
+                    requiredJoinSQL: joinSQL,
+                    filterSQL: filterSQL,
+                    groupSQL: groupSQL,
+                    orderSQL: orderSQL,
+                    limit: queryInfo.limit,
+                    offset: queryInfo.offset
                 )
+                newData = try dataQuery(pageRowIds).fetchAll(db)
+                updatedLimitInfo = PagedData.PageInfo(
+                    pageSize: currentPageInfo.pageSize,
+                    pageOffset: queryInfo.updatedCacheOffset,
+                    currentCount: {
+                        switch target {
+                            case .reloadCurrent: return currentPageInfo.currentCount
+                            default: return (currentPageInfo.currentCount + newData.count)
+                        }
+                    }(),
+                    totalCount: totalCount
+                )
+                
+                // Update the associatedRecords for the newly retrieved data
+                let newDataRowIds: [Int64] = newData.map { $0.rowId }
+                try self?.associatedRecords.forEach { record in
+                    record.updateCache(
+                        db,
+                        rowIds: try PagedData.associatedRowIds(
+                            db,
+                            tableName: record.databaseTableName,
+                            pagedTableName: pagedTableName,
+                            pagedTypeRowIds: newDataRowIds,
+                            joinToPagedType: record.joinToPagedType
+                        ),
+                        hasOtherChanges: false
+                    )
+                }
+            }
+            catch {
+                SNLog("[PagedDatabaseObserver] Error loading data: \(error)")
+                throw error
             }
 
             return (newData, updatedLimitInfo, nil)
@@ -1072,7 +1076,7 @@ public enum PagedData {
         orderSQL: SQL,
         limit: Int,
         offset: Int
-    ) -> [Int64] {
+    ) throws -> [Int64] {
         let tableNameLiteral: SQL = SQL(stringLiteral: tableName)
         let finalJoinSQL: SQL = (requiredJoinSQL ?? "")
         let finalGroupSQL: SQL = (groupSQL ?? "")
@@ -1086,8 +1090,7 @@ public enum PagedData {
             LIMIT \(limit) OFFSET \(offset)
         """
         
-        return (try? request.fetchAll(db))
-            .defaulting(to: [])
+        return try request.fetchAll(db)
     }
     
     fileprivate static func index<ID: SQLExpressible>(
@@ -1160,7 +1163,7 @@ public enum PagedData {
         pagedTableName: String,
         pagedTypeRowIds: [Int64],
         joinToPagedType: SQL
-    ) -> [Int64] {
+    ) throws -> [Int64] {
         guard !pagedTypeRowIds.isEmpty else { return [] }
         
         let tableNameLiteral: SQL = SQL(stringLiteral: tableName)
@@ -1172,8 +1175,7 @@ public enum PagedData {
             WHERE \(pagedTableNameLiteral).rowId IN \(pagedTypeRowIds)
         """
         
-        return (try? request.fetchAll(db))
-            .defaulting(to: [])
+        return try request.fetchAll(db)
     }
     
     /// Returns the rowIds for the paged type based on the specified relatedRowIds

@@ -251,6 +251,8 @@ public class UserNotificationActionHandler: NSObject {
     func handleNotificationResponse( _ response: UNNotificationResponse, completionHandler: @escaping () -> Void) {
         AssertIsOnMainThread()
         handleNotificationResponse(response)
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+            .receive(on: DispatchQueue.main)
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {

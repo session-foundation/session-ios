@@ -150,10 +150,17 @@ extension ConversationVC:
     }
 
     func sendMediaNav(_ sendMediaNavigationController: SendMediaNavigationController, didApproveAttachments attachments: [SignalAttachment], forThreadId threadId: String, messageText: String?) {
-        sendAttachments(attachments, with: messageText ?? "")
-        self.snInputView.text = ""
+        sendMessage(text: (messageText ?? ""), attachments: attachments)
         resetMentions()
-        dismiss(animated: true) { }
+        
+        dismiss(animated: true) { [weak self] in
+            if self?.isFirstResponder == false {
+                self?.becomeFirstResponder()
+            }
+            else {
+                self?.reloadInputViews()
+            }
+        }
     }
 
     func sendMediaNavInitialMessageText(_ sendMediaNavigationController: SendMediaNavigationController) -> String? {
@@ -167,13 +174,17 @@ extension ConversationVC:
     // MARK: - AttachmentApprovalViewControllerDelegate
     
     func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didApproveAttachments attachments: [SignalAttachment], forThreadId threadId: String, messageText: String?) {
-        sendAttachments(attachments, with: messageText ?? "") { [weak self] in
-            self?.dismiss(animated: true, completion: nil)
-        }
-
-        scrollToBottom(isAnimated: false)
-        self.snInputView.text = ""
+        sendMessage(text: (messageText ?? ""), attachments: attachments)
         resetMentions()
+        
+        dismiss(animated: true) { [weak self] in
+            if self?.isFirstResponder == false {
+                self?.becomeFirstResponder()
+            }
+            else {
+                self?.reloadInputViews()
+            }
+        }
     }
 
     func attachmentApprovalDidCancel(_ attachmentApproval: AttachmentApprovalViewController) {
@@ -181,7 +192,7 @@ extension ConversationVC:
     }
 
     func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didChangeMessageText newMessageText: String?) {
-        snInputView.text = newMessageText ?? ""
+        snInputView.text = (newMessageText ?? "")
     }
     
     func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didRemoveAttachment attachment: SignalAttachment) {
@@ -348,6 +359,7 @@ extension ConversationVC:
             attachments: attachments,
             approvalDelegate: self
         )
+        navController.modalPresentationStyle = .fullScreen
         
         present(navController, animated: true, completion: nil)
     }
@@ -369,7 +381,7 @@ extension ConversationVC:
                         
                         modalActivityIndicator.dismiss {
                             guard !attachment.hasError else {
-                                self?.showErrorAlert(for: attachment, onDismiss: nil)
+                                self?.showErrorAlert(for: attachment)
                                 return
                             }
                             
@@ -385,149 +397,33 @@ extension ConversationVC:
     // MARK: --Message Sending
     
     func handleSendButtonTapped() {
-        sendMessage()
-    }
-
-    func sendMessage(hasPermissionToSendSeed: Bool = false) {
-        guard !showBlockedModalIfNeeded() else { return }
-
-        let text = replaceMentions(in: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines))
-        
-        guard !text.isEmpty else { return }
-
-        if text.contains(mnemonic) && !viewModel.threadData.threadIsNoteToSelf && !hasPermissionToSendSeed {
-            // Warn the user if they're about to send their seed to someone
-            let modal: ConfirmationModal = ConfirmationModal(
-                info: ConfirmationModal.Info(
-                    title: "modal_send_seed_title".localized(),
-                    body: .text("modal_send_seed_explanation".localized()),
-                    confirmTitle: "modal_send_seed_send_button_title".localized(),
-                    confirmStyle: .danger,
-                    cancelStyle: .alert_text,
-                    onConfirm: { [weak self] _ in self?.sendMessage(hasPermissionToSendSeed: true) }
-                )
-            )
-            
-            return present(modal, animated: true, completion: nil)
-        }
-        
-        // Clearing this out immediately to make this appear more snappy
-        DispatchQueue.main.async { [weak self] in
-            self?.snInputView.text = ""
-            self?.snInputView.quoteDraftInfo = nil
-
-            self?.resetMentions()
-        }
-
-        // Note: 'shouldBeVisible' is set to true the first time a thread is saved so we can
-        // use it to determine if the user is creating a new thread and update the 'isApproved'
-        // flags appropriately
-        let threadId: String = self.viewModel.threadData.threadId
-        let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
-        let oldThreadShouldBeVisible: Bool = (self.viewModel.threadData.threadShouldBeVisible == true)
-        let sentTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
-        let linkPreviewDraft: LinkPreviewDraft? = snInputView.linkPreviewInfo?.draft
-        let quoteModel: QuotedReplyModel? = snInputView.quoteDraftInfo?.model
-        
-        // If this was a message request then approve it
-        approveMessageRequestIfNeeded(
-            for: threadId,
-            threadVariant: self.viewModel.threadData.threadVariant,
-            isNewThread: !oldThreadShouldBeVisible,
-            timestampMs: (sentTimestampMs - 1)  // Set 1ms earlier as this is used for sorting
+        sendMessage(
+            text: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
+            linkPreviewDraft: snInputView.linkPreviewInfo?.draft,
+            quoteModel: snInputView.quoteDraftInfo?.model
         )
-        
-        // Send the message
-        Storage.shared
-            .writePublisher { [weak self] db in
-                // Let the viewModel know we are about to send a message
-                self?.viewModel.sentMessageBeforeUpdate = true
-                
-                // Update the thread to be visible (if it isn't already)
-                if self?.viewModel.threadData.threadShouldBeVisible == false {
-                    _ = try SessionThread
-                        .filter(id: threadId)
-                        .updateAllAndConfig(db, SessionThread.Columns.shouldBeVisible.set(to: true))
-                }
-                
-                let authorId: String = {
-                    if let blindedId = self?.viewModel.threadData.currentUserBlindedPublicKey {
-                        return blindedId
-                    }
-                    return self?.viewModel.threadData.currentUserPublicKey ?? getUserHexEncodedPublicKey(db)
-                }()
-                
-                // Create the interaction
-                let interaction: Interaction = try Interaction(
-                    threadId: threadId,
-                    authorId: authorId,
-                    variant: .standardOutgoing,
-                    body: text,
-                    timestampMs: sentTimestampMs,
-                    hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: text),
-                    expiresInSeconds: try? DisappearingMessagesConfiguration
-                        .select(.durationSeconds)
-                        .filter(id: threadId)
-                        .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
-                        .asRequest(of: TimeInterval.self)
-                        .fetchOne(db),
-                    linkPreviewUrl: linkPreviewDraft?.urlString
-                ).inserted(db)
-                
-                // If there is a LinkPreview and it doesn't match an existing one then add it now
-                if
-                    let linkPreviewDraft: LinkPreviewDraft = linkPreviewDraft,
-                    (try? interaction.linkPreview.isEmpty(db)) == true
-                {
-                    try LinkPreview(
-                        url: linkPreviewDraft.urlString,
-                        title: linkPreviewDraft.title,
-                        attachmentId: LinkPreview.saveAttachmentIfPossible(
-                            db,
-                            imageData: linkPreviewDraft.jpegImageData,
-                            mimeType: OWSMimeTypeImageJpeg
-                        )
-                    ).insert(db)
-                }
-                
-                // If there is a Quote the insert it now
-                if let interactionId: Int64 = interaction.id, let quoteModel: QuotedReplyModel = quoteModel {
-                    try Quote(
-                        interactionId: interactionId,
-                        authorId: quoteModel.authorId,
-                        timestampMs: quoteModel.timestampMs,
-                        body: quoteModel.body,
-                        attachmentId: quoteModel.generateAttachmentThumbnailIfNeeded(db)
-                    ).insert(db)
-                }
-                
-                try MessageSender.send(
-                    db,
-                    interaction: interaction,
-                    threadId: threadId,
-                    threadVariant: threadVariant
-                )
-            }
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .sinkUntilComplete(
-                receiveCompletion: { [weak self] _ in
-                    self?.handleMessageSent()
-                }
-            )
     }
 
-    func sendAttachments(_ attachments: [SignalAttachment], with text: String, hasPermissionToSendSeed: Bool = false, onComplete: (() -> ())? = nil) {
+    func sendMessage(
+        text: String,
+        attachments: [SignalAttachment] = [],
+        linkPreviewDraft: LinkPreviewDraft? = nil,
+        quoteModel: QuotedReplyModel? = nil,
+        hasPermissionToSendSeed: Bool = false
+    ) {
         guard !showBlockedModalIfNeeded() else { return }
         
-        for attachment in attachments {
-            if attachment.hasError {
-                return showErrorAlert(for: attachment, onDismiss: onComplete)
-            }
+        // Handle attachment errors if applicable
+        if let failedAttachment: SignalAttachment = attachments.first(where: { $0.hasError }) {
+            return showErrorAlert(for: failedAttachment)
         }
         
-        let text = replaceMentions(in: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines))
+        let processedText: String = replaceMentions(in: text.trimmingCharacters(in: .whitespacesAndNewlines))
         
-        if text.contains(mnemonic) && !viewModel.threadData.threadIsNoteToSelf && !hasPermissionToSendSeed {
+        // If we have no content then do nothing
+        guard !processedText.isEmpty || !attachments.isEmpty else { return }
+
+        if processedText.contains(mnemonic) && !viewModel.threadData.threadIsNoteToSelf && !hasPermissionToSendSeed {
             // Warn the user if they're about to send their seed to someone
             let modal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
@@ -537,7 +433,13 @@ extension ConversationVC:
                     confirmStyle: .danger,
                     cancelStyle: .alert_text,
                     onConfirm: { [weak self] _ in
-                        self?.sendAttachments(attachments, with: text, hasPermissionToSendSeed: true, onComplete: onComplete)
+                        self?.sendMessage(
+                            text: text,
+                            attachments: attachments,
+                            linkPreviewDraft: linkPreviewDraft,
+                            quoteModel: quoteModel,
+                            hasPermissionToSendSeed: true
+                        )
                     }
                 )
             )
@@ -564,17 +466,24 @@ extension ConversationVC:
         // If this was a message request then approve it
         approveMessageRequestIfNeeded(
             for: threadId,
-            threadVariant: self.viewModel.threadData.threadVariant,
+            threadVariant: threadVariant,
             isNewThread: !oldThreadShouldBeVisible,
             timestampMs: (sentTimestampMs - 1)  // Set 1ms earlier as this is used for sorting
         )
         
-        // Send the message
+        // Optimistically insert the outgoing message (this will trigger a UI update)
+        self.viewModel.sentMessageBeforeUpdate = true
+        let optimisticData: ConversationViewModel.OptimisticMessageData = self.viewModel.optimisticallyAppendOutgoingMessage(
+            text: processedText,
+            sentTimestampMs: sentTimestampMs,
+            attachments: attachments,
+            linkPreviewDraft: linkPreviewDraft,
+            quoteModel: quoteModel
+        )
+        
+        // Actually send the message
         Storage.shared
             .writePublisher { [weak self] db in
-                // Let the viewModel know we are about to send a message
-                self?.viewModel.sentMessageBeforeUpdate = true
-                
                 // Update the thread to be visible (if it isn't already)
                 if self?.viewModel.threadData.threadShouldBeVisible == false {
                     _ = try SessionThread
@@ -582,35 +491,44 @@ extension ConversationVC:
                         .updateAllAndConfig(db, SessionThread.Columns.shouldBeVisible.set(to: true))
                 }
                 
-                // Create the interaction
-                let interaction: Interaction = try Interaction(
-                    threadId: threadId,
-                    authorId: getUserHexEncodedPublicKey(db),
-                    variant: .standardOutgoing,
-                    body: text,
-                    timestampMs: sentTimestampMs,
-                    hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: text),
-                    expiresInSeconds: try? DisappearingMessagesConfiguration
-                        .select(.durationSeconds)
-                        .filter(id: threadId)
-                        .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
-                        .asRequest(of: TimeInterval.self)
-                        .fetchOne(db)
-                ).inserted(db)
+                // Insert the interaction and associated it with the optimistically inserted message so
+                // we can remove it once the database triggers a UI update
+                let insertedInteraction: Interaction = try optimisticData.interaction.inserted(db)
+                self?.viewModel.associate(optimisticMessageId: optimisticData.id, to: insertedInteraction.id)
                 
-                guard let interactionId: Int64 = interaction.id else { return }
+                // If there is a LinkPreview and it doesn't match an existing one then add it now
+                if
+                    let linkPreviewDraft: LinkPreviewDraft = linkPreviewDraft,
+                    (try? insertedInteraction.linkPreview.isEmpty(db)) == true
+                {
+                    try LinkPreview(
+                        url: linkPreviewDraft.urlString,
+                        title: linkPreviewDraft.title,
+                        attachmentId: try optimisticData.linkPreviewAttachment?.inserted(db).id
+                    ).insert(db)
+                }
                 
-                // Prepare any attachments
-                try Attachment.prepare(
+                // If there is a Quote the insert it now
+                if let interactionId: Int64 = insertedInteraction.id, let quoteModel: QuotedReplyModel = quoteModel {
+                    try Quote(
+                        interactionId: interactionId,
+                        authorId: quoteModel.authorId,
+                        timestampMs: quoteModel.timestampMs,
+                        body: quoteModel.body,
+                        attachmentId: quoteModel.generateAttachmentThumbnailIfNeeded(db)
+                    ).insert(db)
+                }
+                
+                // Process any attachments
+                try Attachment.process(
                     db,
-                    attachments: attachments,
-                    for: interactionId
+                    data: optimisticData.attachmentData,
+                    for: insertedInteraction.id
                 )
                 
-                // Send the message
                 try MessageSender.send(
                     db,
-                    interaction: interaction,
+                    interaction: insertedInteraction,
                     threadId: threadId,
                     threadVariant: threadVariant
                 )
@@ -619,11 +537,6 @@ extension ConversationVC:
             .sinkUntilComplete(
                 receiveCompletion: { [weak self] _ in
                     self?.handleMessageSent()
-                    
-                    // Attachment successfully sent - dismiss the screen
-                    DispatchQueue.main.async {
-                        onComplete?()
-                    }
                 }
             )
     }
@@ -1212,7 +1125,7 @@ extension ConversationVC:
         guard cellViewModel.threadVariant == .community else { return }
         
         Storage.shared
-            .readPublisherFlatMap { db -> AnyPublisher<(OpenGroupAPI.ReactionRemoveAllResponse, OpenGroupAPI.PendingChange), Error> in
+            .readPublisher { db -> (OpenGroupAPI.PreparedSendData<OpenGroupAPI.ReactionRemoveAllResponse>, OpenGroupAPI.PendingChange) in
                 guard
                     let openGroup: OpenGroup = try? OpenGroup
                         .fetchOne(db, id: cellViewModel.threadId),
@@ -1223,6 +1136,14 @@ extension ConversationVC:
                         .fetchOne(db)
                 else { throw StorageError.objectNotFound }
                 
+                let sendData: OpenGroupAPI.PreparedSendData<OpenGroupAPI.ReactionRemoveAllResponse> = try OpenGroupAPI
+                    .preparedReactionDeleteAll(
+                        db,
+                        emoji: emoji,
+                        id: openGroupServerMessageId,
+                        in: openGroup.roomToken,
+                        on: openGroup.server
+                    )
                 let pendingChange: OpenGroupAPI.PendingChange = OpenGroupManager
                     .addPendingReaction(
                         emoji: emoji,
@@ -1232,27 +1153,22 @@ extension ConversationVC:
                         type: .removeAll
                     )
                 
-                return OpenGroupAPI
-                    .reactionDeleteAll(
-                        db,
-                        emoji: emoji,
-                        id: openGroupServerMessageId,
-                        in: openGroup.roomToken,
-                        on: openGroup.server
-                    )
-                    .map { _, response in (response, pendingChange) }
-                    .eraseToAnyPublisher()
+                return (sendData, pendingChange)
             }
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .handleEvents(
-                receiveOutput: { response, pendingChange in
-                    OpenGroupManager
-                        .updatePendingChange(
-                            pendingChange,
-                            seqNo: response.seqNo
-                        )
-                }
-            )
+            .flatMap { sendData, pendingChange in
+                OpenGroupAPI.send(data: sendData)
+                    .handleEvents(
+                        receiveOutput: { _, response in
+                            OpenGroupManager
+                                .updatePendingChange(
+                                    pendingChange,
+                                    seqNo: response.seqNo
+                                )
+                        }
+                    )
+                    .eraseToAnyPublisher()
+            }
             .sinkUntilComplete(
                 receiveCompletion: { _ in
                     Storage.shared.writeAsync { db in
@@ -1266,14 +1182,16 @@ extension ConversationVC:
     }
     
     func react(_ cellViewModel: MessageViewModel, with emoji: String, remove: Bool) {
-        guard cellViewModel.variant == .standardIncoming || cellViewModel.variant == .standardOutgoing else {
-            return
-        }
-        
-        let threadIsMessageRequest: Bool = (self.viewModel.threadData.threadIsMessageRequest == true)
-        guard !threadIsMessageRequest else { return }
+        guard
+            self.viewModel.threadData.threadIsMessageRequest != true && (
+                cellViewModel.variant == .standardIncoming ||
+                cellViewModel.variant == .standardOutgoing
+            )
+        else { return }
         
         // Perform local rate limiting (don't allow more than 20 reactions within 60 seconds)
+        let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
+        let openGroupRoom: String? = self.viewModel.threadData.openGroupRoomToken
         let sentTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs()
         let recentReactionTimestamps: [Int64] = General.cache.wrappedValue.recentReactionTimestamps
         
@@ -1299,9 +1217,38 @@ extension ConversationVC:
                 .appending(sentTimestamp)
         }
         
-        // Perform the sending logic
-        Storage.shared
-            .writePublisherFlatMap { [weak self] db -> AnyPublisher<MessageSender.PreparedSendData?, Error> in
+        typealias OpenGroupInfo = (
+            pendingReaction: Reaction?,
+            pendingChange: OpenGroupAPI.PendingChange,
+            sendData: OpenGroupAPI.PreparedSendData<Int64?>
+        )
+        
+        /// Perform the sending logic, we generate the pending reaction first in a deferred future closure to prevent the OpenGroup
+        /// cache from blocking either the main thread or the database write thread
+        Deferred {
+            Future<OpenGroupAPI.PendingChange?, Error> { resolver in
+                guard
+                    threadVariant == .community,
+                    let serverMessageId: Int64 = cellViewModel.openGroupServerMessageId,
+                    let openGroupServer: String = cellViewModel.threadOpenGroupServer,
+                    let openGroupPublicKey: String = cellViewModel.threadOpenGroupPublicKey
+                else { return resolver(Result.success(nil)) }
+                  
+                // Create the pending change if we have open group info
+                return resolver(Result.success(
+                    OpenGroupManager.addPendingReaction(
+                        emoji: emoji,
+                        id: serverMessageId,
+                        in: openGroupServer,
+                        on: openGroupPublicKey,
+                        type: (remove ? .remove : .add)
+                    )
+                ))
+            }
+        }
+        .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+        .flatMap { pendingChange -> AnyPublisher<(MessageSender.PreparedSendData?, OpenGroupInfo?), Error> in
+            Storage.shared.writePublisher { [weak self] db -> (MessageSender.PreparedSendData?, OpenGroupInfo?) in
                 // Update the thread to be visible (if it isn't already)
                 if self?.viewModel.threadData.threadShouldBeVisible == false {
                     _ = try SessionThread
@@ -1310,29 +1257,29 @@ extension ConversationVC:
                 }
                 
                 let pendingReaction: Reaction? = {
-                    if remove {
+                    guard !remove else {
                         return try? Reaction
                             .filter(Reaction.Columns.interactionId == cellViewModel.id)
                             .filter(Reaction.Columns.authorId == cellViewModel.currentUserPublicKey)
                             .filter(Reaction.Columns.emoji == emoji)
                             .fetchOne(db)
-                    } else {
-                        let sortId = Reaction.getSortId(
-                            db,
-                            interactionId: cellViewModel.id,
-                            emoji: emoji
-                        )
-                        
-                        return Reaction(
-                            interactionId: cellViewModel.id,
-                            serverHash: nil,
-                            timestampMs: sentTimestamp,
-                            authorId: cellViewModel.currentUserPublicKey,
-                            emoji: emoji,
-                            count: 1,
-                            sortId: sortId
-                        )
                     }
+                    
+                    let sortId: Int64 = Reaction.getSortId(
+                        db,
+                        interactionId: cellViewModel.id,
+                        emoji: emoji
+                    )
+                    
+                    return Reaction(
+                        interactionId: cellViewModel.id,
+                        serverHash: nil,
+                        timestampMs: sentTimestamp,
+                        authorId: cellViewModel.currentUserPublicKey,
+                        emoji: emoji,
+                        count: 1,
+                        sortId: sortId
+                    )
                 }()
                 
                 // Update the database
@@ -1350,125 +1297,108 @@ extension ConversationVC:
                     Emoji.addRecent(db, emoji: emoji)
                 }
                 
-                // If it's not an OpenGroup then send the message directly to the thread
-                guard
-                    let openGroup: OpenGroup = try? OpenGroup.fetchOne(db, id: cellViewModel.threadId),
-                    OpenGroupManager.isOpenGroupSupport(.reactions, on: openGroup.server)
-                else {
-                    let sendData: MessageSender.PreparedSendData = try MessageSender.preparedSendData(
-                        db,
-                        message: VisibleMessage(
-                            sentTimestamp: UInt64(sentTimestamp),
-                            text: nil,
-                            reaction: VisibleMessage.VMReaction(
-                                timestamp: UInt64(cellViewModel.timestampMs),
-                                publicKey: {
-                                    guard cellViewModel.variant == .standardIncoming else {
-                                        return cellViewModel.currentUserPublicKey
-                                    }
-                                    
-                                    return cellViewModel.authorId
-                                }(),
-                                emoji: emoji,
-                                kind: (remove ? .remove : .react)
-                            )
-                        ),
-                        to: try Message.Destination
-                            .from(db, threadId: cellViewModel.threadId, threadVariant: cellViewModel.threadVariant),
-                        namespace: try Message.Destination
-                            .from(db, threadId: cellViewModel.threadId, threadVariant: cellViewModel.threadVariant)
-                            .defaultNamespace,
-                        interactionId: cellViewModel.id
-                    )
-                    
-                    return Just(sendData)
-                        .setFailureType(to: Error.self)
-                        .eraseToAnyPublisher()
-                }
-                    
-                // Otherwise we need to make an API call to the OpenGroup
-                // Send reaction to open groups
-                guard
-                    let openGroupServerMessageId: Int64 = try? Interaction
-                        .select(.openGroupServerMessageId)
-                        .filter(id: cellViewModel.id)
-                        .asRequest(of: Int64.self)
-                        .fetchOne(db)
-                else { throw MessageSenderError.invalidMessage }
-                
-                let pendingChange: OpenGroupAPI.PendingChange = OpenGroupManager
-                    .addPendingReaction(
-                        emoji: emoji,
-                        id: openGroupServerMessageId,
-                        in: openGroup.roomToken,
-                        on: openGroup.server,
-                        type: (remove ? .remove : .add)
-                    )
-                
-                let request: AnyPublisher<Int64?, Error> = {
-                    switch remove {
-                        case true:
-                            return OpenGroupAPI
-                                .reactionDelete(
-                                    db,
-                                    emoji: emoji,
-                                    id: openGroupServerMessageId,
-                                    in: openGroup.roomToken,
-                                    on: openGroup.server
-                                )
-                                .map { _, response in response.seqNo }
-                                .eraseToAnyPublisher()
-                            
-                        case false:
-                            return OpenGroupAPI
-                                .reactionAdd(
-                                    db,
-                                    emoji: emoji,
-                                    id: openGroupServerMessageId,
-                                    in: openGroup.roomToken,
-                                    on: openGroup.server
-                                )
-                                .map { _, response in response.seqNo }
-                                .eraseToAnyPublisher()
-                    }
-                }()
-                    
-                return request
-                    .handleEvents(
-                        receiveOutput: { seqNo in
-                            OpenGroupManager
-                                .updatePendingChange(
-                                    pendingChange,
-                                    seqNo: seqNo
-                                )
-                        },
-                        receiveCompletion: { [weak self] result in
-                            switch result {
-                                case .finished: break
-                                case .failure:
-                                    OpenGroupManager.removePendingChange(pendingChange)
-
-                                    self?.handleReactionSentFailure(
-                                        pendingReaction,
-                                        remove: remove
+                switch threadVariant {
+                    case .community:
+                        guard
+                            let serverMessageId: Int64 = cellViewModel.openGroupServerMessageId,
+                            let openGroupServer: String = cellViewModel.threadOpenGroupServer,
+                            let openGroupRoom: String = openGroupRoom,
+                            let pendingChange: OpenGroupAPI.PendingChange = pendingChange,
+                            OpenGroupManager.doesOpenGroupSupport(db, capability: .reactions, on: openGroupServer)
+                        else { throw MessageSenderError.invalidMessage }
+                        
+                        let sendData: OpenGroupAPI.PreparedSendData<Int64?> = try {
+                            guard !remove else {
+                                return try OpenGroupAPI
+                                    .preparedReactionDelete(
+                                        db,
+                                        emoji: emoji,
+                                        id: serverMessageId,
+                                        in: openGroupRoom,
+                                        on: openGroupServer
                                     )
+                                    .map { _, response in response.seqNo }
                             }
-                        }
-                    )
-                    .map { _ in nil }
-                    .eraseToAnyPublisher()
-            }
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .flatMap { maybeSendData -> AnyPublisher<Void, Error> in
-                guard let sendData: MessageSender.PreparedSendData = maybeSendData else {
-                    return Just(())
-                        .setFailureType(to: Error.self)
-                        .eraseToAnyPublisher()
+                            
+                            return try OpenGroupAPI
+                                .preparedReactionAdd(
+                                    db,
+                                    emoji: emoji,
+                                    id: serverMessageId,
+                                    in: openGroupRoom,
+                                    on: openGroupServer
+                                )
+                                .map { _, response in response.seqNo }
+                        }()
+                        
+                        return (nil, (pendingReaction, pendingChange, sendData))
+                        
+                    default:
+                        let sendData: MessageSender.PreparedSendData = try MessageSender.preparedSendData(
+                            db,
+                            message: VisibleMessage(
+                                sentTimestamp: UInt64(sentTimestamp),
+                                text: nil,
+                                reaction: VisibleMessage.VMReaction(
+                                    timestamp: UInt64(cellViewModel.timestampMs),
+                                    publicKey: {
+                                        guard cellViewModel.variant == .standardIncoming else {
+                                            return cellViewModel.currentUserPublicKey
+                                        }
+                                        
+                                        return cellViewModel.authorId
+                                    }(),
+                                    emoji: emoji,
+                                    kind: (remove ? .remove : .react)
+                                )
+                            ),
+                            to: try Message.Destination
+                                .from(db, threadId: cellViewModel.threadId, threadVariant: cellViewModel.threadVariant),
+                            namespace: try Message.Destination
+                                .from(db, threadId: cellViewModel.threadId, threadVariant: cellViewModel.threadVariant)
+                                .defaultNamespace,
+                            interactionId: cellViewModel.id
+                        )
+                        
+                        return (sendData, nil)
                 }
-                
-                return MessageSender.sendImmediate(preparedSendData: sendData)
             }
-            .sinkUntilComplete()
+        }
+        .tryFlatMap { messageSendData, openGroupInfo -> AnyPublisher<Void, Error> in
+            switch (messageSendData, openGroupInfo) {
+                case (.some(let sendData), _):
+                    return MessageSender.sendImmediate(preparedSendData: sendData)
+                    
+                case (_, .some(let info)):
+                    return OpenGroupAPI.send(data: info.sendData)
+                        .handleEvents(
+                            receiveOutput: { _, seqNo in
+                                OpenGroupManager
+                                    .updatePendingChange(
+                                        info.pendingChange,
+                                        seqNo: seqNo
+                                    )
+                            },
+                            receiveCompletion: { [weak self] result in
+                                switch result {
+                                    case .finished: break
+                                    case .failure:
+                                        OpenGroupManager.removePendingChange(info.pendingChange)
+
+                                        self?.handleReactionSentFailure(
+                                            info.pendingReaction,
+                                            remove: remove
+                                        )
+                                }
+                            }
+                        )
+                        .map { _ in () }
+                        .eraseToAnyPublisher()
+                    
+                default: throw MessageSenderError.invalidMessage
+            }
+        }
+        .sinkUntilComplete()
     }
     
     func handleReactionSentFailure(_ pendingReaction: Reaction?, remove: Bool) {
@@ -1891,16 +1821,18 @@ extension ConversationVC:
                 // Delete the message from the open group
                 deleteRemotely(
                     from: self,
-                    request: Storage.shared.readPublisherFlatMap { db in
-                        OpenGroupAPI.messageDelete(
-                            db,
-                            id: openGroupServerMessageId,
-                            in: openGroup.roomToken,
-                            on: openGroup.server
-                        )
+                    request: Storage.shared
+                        .readPublisher { db in
+                            try OpenGroupAPI.preparedMessageDelete(
+                                db,
+                                id: openGroupServerMessageId,
+                                in: openGroup.roomToken,
+                                on: openGroup.server
+                            )
+                        }
+                        .flatMap { OpenGroupAPI.send(data: $0) }
                         .map { _ in () }
                         .eraseToAnyPublisher()
-                    }
                 ) { [weak self] in
                     self?.showInputAccessoryView()
                 }
@@ -2100,21 +2032,20 @@ extension ConversationVC:
                 cancelStyle: .alert_text,
                 onConfirm: { [weak self] _ in
                     Storage.shared
-                        .readPublisherFlatMap { db -> AnyPublisher<Void, Error> in
+                        .readPublisher { db -> OpenGroupAPI.PreparedSendData<NoResponse> in
                             guard let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId) else {
                                 throw StorageError.objectNotFound
                             }
                             
-                            return OpenGroupAPI
-                                .userBan(
+                            return try OpenGroupAPI
+                                .preparedUserBan(
                                     db,
                                     sessionId: cellViewModel.authorId,
                                     from: [openGroup.roomToken],
                                     on: openGroup.server
                                 )
-                                .map { _ in () }
-                                .eraseToAnyPublisher()
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0) }
                         .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                         .receive(on: DispatchQueue.main)
                         .sinkUntilComplete(
@@ -2316,11 +2247,11 @@ extension ConversationVC:
         let attachment = SignalAttachment.voiceMessageAttachment(dataSource: dataSource, dataUTI: kUTTypeMPEG4Audio as String)
         
         guard !attachment.hasError else {
-            return showErrorAlert(for: attachment, onDismiss: nil)
+            return showErrorAlert(for: attachment)
         }
         
         // Send attachment
-        sendAttachments([ attachment ], with: "")
+        sendMessage(text: "", attachments: [attachment])
     }
 
     func cancelVoiceMessageRecording() {
@@ -2360,15 +2291,14 @@ extension ConversationVC:
 
     // MARK: - Convenience
     
-    func showErrorAlert(for attachment: SignalAttachment, onDismiss: (() -> ())?) {
+    func showErrorAlert(for attachment: SignalAttachment) {
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
             info: ConfirmationModal.Info(
                 title: "ATTACHMENT_ERROR_ALERT_TITLE".localized(),
                 body: .text(attachment.localizedErrorDescription ?? SignalAttachment.missingDataErrorMessage),
                 cancelTitle: "BUTTON_OK".localized(),
-                cancelStyle: .alert_text,
-                afterClosed: onDismiss
+                cancelStyle: .alert_text
             )
         )
         self.present(modal, animated: true)

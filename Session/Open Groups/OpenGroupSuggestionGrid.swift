@@ -143,7 +143,8 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
         widthAnchor.constraint(greaterThanOrEqualToConstant: OpenGroupSuggestionGrid.cellHeight).isActive = true
         
         OpenGroupManager.getDefaultRoomsIfNeeded()
-            .receive(on: DispatchQueue.main)
+            .subscribe(on: DispatchQueue.global(qos: .default))
+            .receive(on: DispatchQueue.main, immediatelyIfMain: true)
             .sinkUntilComplete(
                 receiveCompletion: { [weak self] _ in self?.update() },
                 receiveValue: { [weak self] rooms in self?.rooms = rooms }
@@ -336,7 +337,7 @@ extension OpenGroupSuggestionGrid {
                         .eraseToAnyPublisher()
                 )
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .receiveOnMain(immediately: true)
+                .receive(on: DispatchQueue.main, immediatelyIfMain: true)
                 .sinkUntilComplete(
                     receiveValue: { [weak self] imageData, hasData in
                         guard hasData else {

@@ -71,18 +71,26 @@ extension MessageReceiver {
         }
         
         // Add an info message for the user
+        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
         _ = try Interaction(
             serverHash: nil, // Intentionally null so sync messages are seen as duplicates
             threadId: threadId,
             authorId: sender,
             variant: .infoDisappearingMessagesUpdate,
             body: config.messageInfoString(
-                with: (sender != getUserHexEncodedPublicKey(db) ?
+                with: (sender != currentUserPublicKey ?
                     Profile.displayName(db, id: sender) :
                     nil
                 )
             ),
-            timestampMs: timestampMs
+            timestampMs: timestampMs,
+            wasRead: SessionUtil.timestampAlreadyRead(
+                threadId: threadId,
+                threadVariant: threadVariant,
+                timestampMs: (timestampMs * 1000),
+                userPublicKey: currentUserPublicKey,
+                openGroup: nil
+            )
         ).inserted(db)
         
         // Only save the updated config if we can perform the change

@@ -153,7 +153,8 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         tableView.deselectRow(at: indexPath, animated: true)
         
         ShareNavController.attachmentPrepPublisher?
-            .receiveOnMain(immediately: true)
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+            .receive(on: DispatchQueue.main, immediatelyIfMain: true)
             .sinkUntilComplete(
                 receiveValue: { [weak self] attachments in
                     guard let strongSelf = self else { return }
@@ -232,18 +233,20 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         try LinkPreview(
                             url: linkPreviewDraft.urlString,
                             title: linkPreviewDraft.title,
-                            attachmentId: LinkPreview.saveAttachmentIfPossible(
-                                db,
-                                imageData: linkPreviewDraft.jpegImageData,
-                                mimeType: OWSMimeTypeImageJpeg
-                            )
+                            attachmentId: LinkPreview
+                                .generateAttachmentIfPossible(
+                                    imageData: linkPreviewDraft.jpegImageData,
+                                    mimeType: OWSMimeTypeImageJpeg
+                                )?
+                                .inserted(db)
+                                .id
                         ).insert(db)
                     }
                     
                     // Prepare any attachments
-                    try Attachment.prepare(
+                    try Attachment.process(
                         db,
-                        attachments: finalAttachments,
+                        data: Attachment.prepare(attachments: finalAttachments),
                         for: interactionId
                     )
                     
@@ -257,13 +260,9 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         )
                 }
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .flatMap {
-                    MessageSender.performUploadsIfNeeded(
-                        queue: DispatchQueue.global(qos: .userInitiated),
-                        preparedSendData: $0
-                    )
-                }
+                .flatMap { MessageSender.performUploadsIfNeeded(preparedSendData: $0) }
                 .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveCompletion: { [weak self] result in

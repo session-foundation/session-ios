@@ -147,6 +147,7 @@ class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSe
             ]
         }
         .removeDuplicates()
+        .handleEvents(didFail: { SNLog("[NotificationSettingsViewModel] Observation failed with error: \($0)") })
         .publisher(in: Storage.shared)
         .mapToSessionTableViewData(for: self)
 }

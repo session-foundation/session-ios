@@ -567,6 +567,7 @@ public class MediaMessageView: UIView, OWSAudioPlayerDelegate {
         loadingView.startAnimating()
         
         LinkPreview.tryToBuildPreviewInfo(previewUrl: linkPreviewURL)
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [weak self] result in

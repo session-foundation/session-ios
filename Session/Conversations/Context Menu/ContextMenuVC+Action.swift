@@ -214,7 +214,10 @@ extension ContextMenuVC {
         
         let shouldShowEmojiActions: Bool = {
             if cellViewModel.threadVariant == .community {
-                return OpenGroupManager.isOpenGroupSupport(.reactions, on: cellViewModel.threadOpenGroupServer)
+                return OpenGroupManager.doesOpenGroupSupport(
+                    capability: .reactions,
+                    on: cellViewModel.threadOpenGroupServer
+                )
             }
             return !currentThreadIsMessageRequest
         }()

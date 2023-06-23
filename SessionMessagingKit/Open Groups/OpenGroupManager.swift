@@ -296,8 +296,6 @@ public final class OpenGroupManager {
                         )
                 }
         }
-        .subscribe(on: OpenGroupAPI.workQueue)
-        .receive(on: OpenGroupAPI.workQueue)
         .flatMap { response -> Future<Void, Error> in
             Future<Void, Error> { resolver in
                 dependencies.storage.write { db in
@@ -347,7 +345,7 @@ public final class OpenGroupManager {
         _ db: Database,
         openGroupId: String,
         calledFromConfigHandling: Bool,
-        dependencies: OGMDependencies = OGMDependencies()
+        using dependencies: OGMDependencies = OGMDependencies()
     ) {
         let server: String? = try? OpenGroup
             .select(.server)
@@ -907,26 +905,28 @@ public final class OpenGroupManager {
     }
     
     /// This method specifies if the given capability is supported on a specified Open Group
-    public static func isOpenGroupSupport(
-        _ capability: Capability.Variant,
+    public static func doesOpenGroupSupport(
+        _ db: Database? = nil,
+        capability: Capability.Variant,
         on server: String?,
         using dependencies: OGMDependencies = OGMDependencies()
     ) -> Bool {
         guard let server: String = server else { return false }
+        guard let db: Database = db else {
+            return dependencies.storage
+                .read { db in doesOpenGroupSupport(db, capability: capability, on: server, using: dependencies) }
+                .defaulting(to: false)
+        }
         
-        return dependencies.storage
-            .read { db in
-                let capabilities: [Capability.Variant] = (try? Capability
-                    .select(.variant)
-                    .filter(Capability.Columns.openGroupServer == server)
-                    .filter(Capability.Columns.isMissing == false)
-                    .asRequest(of: Capability.Variant.self)
-                    .fetchAll(db))
-                    .defaulting(to: [])
+        let capabilities: [Capability.Variant] = (try? Capability
+            .select(.variant)
+            .filter(Capability.Columns.openGroupServer == server)
+            .filter(Capability.Columns.isMissing == false)
+            .asRequest(of: Capability.Variant.self)
+            .fetchAll(db))
+            .defaulting(to: [])
 
-                return capabilities.contains(capability)
-            }
-            .defaulting(to: false)
+        return capabilities.contains(capability)
     }
     
     /// This method specifies if the given publicKey is a moderator or an admin within a specified Open Group
@@ -1012,7 +1012,10 @@ public final class OpenGroupManager {
     }
     
     @discardableResult public static func getDefaultRoomsIfNeeded(
-        using dependencies: OGMDependencies = OGMDependencies()
+        using dependencies: OGMDependencies = OGMDependencies(
+            subscribeQueue: OpenGroupAPI.workQueue,
+            receiveQueue: OpenGroupAPI.workQueue
+        )
     ) -> AnyPublisher<[OpenGroupAPI.Room], Error> {
         // Note: If we already have a 'defaultRoomsPromise' then there is no need to get it again
         if let existingPublisher: AnyPublisher<[OpenGroupAPI.Room], Error> = dependencies.cache.defaultRoomsPublisher {
@@ -1028,8 +1031,8 @@ public final class OpenGroupManager {
                     using: dependencies
                 )
             }
-            .subscribe(on: OpenGroupAPI.workQueue)
-            .receive(on: OpenGroupAPI.workQueue)
+            .subscribe(on: dependencies.subscribeQueue, immediatelyIfMain: true)
+            .receive(on: dependencies.receiveQueue, immediatelyIfMain: true)
             .retry(8)
             .map { response in
                 dependencies.storage.writeAsync { db in
@@ -1077,7 +1080,6 @@ public final class OpenGroupManager {
                                 on: OpenGroupAPI.defaultServer,
                                 using: dependencies
                             )
-                            .sinkUntilComplete()
                         }
                 }
                 
@@ -1107,13 +1109,13 @@ public final class OpenGroupManager {
         return publisher
     }
     
-    public static func roomImage(
+    @discardableResult public static func roomImage(
         _ db: Database,
         fileId: String,
         for roomToken: String,
         on server: String,
         using dependencies: OGMDependencies = OGMDependencies(
-            queue: DispatchQueue.global(qos: .background)
+            subscribeQueue: .global(qos: .background)
         )
     ) -> AnyPublisher<Data, Error> {
         // Normally the image for a given group is stored with the group thread, so it's only
@@ -1149,36 +1151,62 @@ public final class OpenGroupManager {
             return publisher
         }
         
-        // Trigger the download on a background queue
-        let publisher: AnyPublisher<Data, Error> = OpenGroupAPI
-            .downloadFile(
-                db,
-                fileId: fileId,
-                from: roomToken,
-                on: server,
-                using: dependencies
-            )
-            .map { _, imageData in
-                if server.lowercased() == OpenGroupAPI.defaultServer {
-                    dependencies.storage.write { db in
-                        _ = try OpenGroup
-                            .filter(id: threadId)
-                            .updateAll(db, OpenGroup.Columns.imageData.set(to: imageData))
-                    }
-                    dependencies.standardUserDefaults[.lastOpenGroupImageUpdate] = now
+        let sendData: OpenGroupAPI.PreparedSendData<Data>
+        
+        do {
+            sendData = try OpenGroupAPI
+                .preparedDownloadFile(
+                    db,
+                    fileId: fileId,
+                    from: roomToken,
+                    on: server,
+                    using: dependencies
+                )
+        }
+        catch {
+            return Fail(error: error)
+                .eraseToAnyPublisher()
+        }
+        
+        // Defer the actual download and run it on a separate thread to avoid blocking the calling thread
+        let publisher: AnyPublisher<Data, Error> = Deferred {
+            Future { resolver in
+                dependencies.subscribeQueue.async {
+                    // Hold on to the publisher until it has completed at least once
+                    OpenGroupAPI
+                        .send(
+                            data: sendData,
+                            using: dependencies
+                        )
+                        .sinkUntilComplete(
+                            receiveCompletion: { result in
+                                switch result {
+                                    case .finished: break
+                                    case .failure(let error): resolver(Result.failure(error))
+                                }
+                            },
+                            receiveValue: { _, imageData in
+                                if server.lowercased() == OpenGroupAPI.defaultServer {
+                                    dependencies.storage.write { db in
+                                        _ = try OpenGroup
+                                            .filter(id: threadId)
+                                            .updateAll(db, OpenGroup.Columns.imageData.set(to: imageData))
+                                    }
+                                    dependencies.standardUserDefaults[.lastOpenGroupImageUpdate] = now
+                                }
+                                
+                                resolver(Result.success(imageData))
+                            }
+                        )
                 }
-                
-                return imageData
             }
-            .shareReplay(1)
-            .eraseToAnyPublisher()
+        }
+        .shareReplay(1)
+        .eraseToAnyPublisher()
         
         dependencies.mutableCache.mutate { cache in
             cache.groupImagePublishers[threadId] = publisher
         }
-        
-        // Hold on to the publisher until it has completed at least once
-        publisher.sinkUntilComplete()
         
         return publisher
     }
@@ -1198,7 +1226,8 @@ extension OpenGroupManager {
         public var cache: OGMCacheType { return mutableCache.wrappedValue }
         
         public init(
-            queue: DispatchQueue? = nil,
+            subscribeQueue: DispatchQueue? = nil,
+            receiveQueue: DispatchQueue? = nil,
             cache: Atomic<OGMCacheType>? = nil,
             onionApi: OnionRequestAPIType.Type? = nil,
             generalCache: Atomic<GeneralCacheType>? = nil,
@@ -1218,7 +1247,8 @@ extension OpenGroupManager {
             _mutableCache = Atomic(cache)
             
             super.init(
-                queue: queue,
+                subscribeQueue: subscribeQueue,
+                receiveQueue: receiveQueue,
                 onionApi: onionApi,
                 generalCache: generalCache,
                 storage: storage,

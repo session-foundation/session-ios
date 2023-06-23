@@ -89,7 +89,6 @@ public enum FileServerAPI {
                 with: serverPublicKey,
                 timeout: timeout
             )
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .tryMap { _, response -> Data in
                 guard let response: Data = response else { throw HTTPError.parsingFailed }
                 

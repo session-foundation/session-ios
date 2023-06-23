@@ -52,8 +52,9 @@ public enum PushRegistrationError: Error {
         Logger.info("")
         
         return registerUserNotificationSettings()
-            .setFailureType(to: Error.self)
+            .subscribe(on: DispatchQueue.global(qos: .default))
             .receive(on: DispatchQueue.main)    // MUST be on main thread
+            .setFailureType(to: Error.self)
             .tryFlatMap { _ -> AnyPublisher<(pushToken: String, voipToken: String), Error> in
                 #if targetEnvironment(simulator)
                 throw PushRegistrationError.pushNotSupported(description: "Push not supported on simulators")

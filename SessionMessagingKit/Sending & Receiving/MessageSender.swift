@@ -643,7 +643,6 @@ public final class MessageSender {
                 snodeMessage,
                 in: namespace
             )
-            .subscribe(on: DispatchQueue.global(qos: .default))
             .flatMap { response -> AnyPublisher<Void, Error> in
                 let updatedMessage: Message = message
                 updatedMessage.serverHash = response.1.hash
@@ -703,7 +702,7 @@ public final class MessageSender {
                             Future<Void, Error> { resolver in
                                 NotifyPushServerJob.run(
                                     job,
-                                    queue: DispatchQueue.global(qos: .default),
+                                    queue: .global(qos: .default),
                                     success: { _, _ in resolver(Result.success(())) },
                                     failure: { _, _, _ in
                                         // Always fulfill because the notify PN server job isn't critical.
@@ -760,9 +759,9 @@ public final class MessageSender {
         
         // Send the result
         return dependencies.storage
-            .readPublisherFlatMap { db in
-                OpenGroupAPI
-                    .send(
+            .readPublisher { db in
+                try OpenGroupAPI
+                    .preparedSend(
                         db,
                         plaintext: plaintext,
                         to: roomToken,
@@ -773,7 +772,7 @@ public final class MessageSender {
                         using: dependencies
                     )
             }
-            .subscribe(on: DispatchQueue.global(qos: .default))
+            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
             .flatMap { (responseInfo, responseData) -> AnyPublisher<Void, Error> in
                 let serverTimestampMs: UInt64? = responseData.posted.map { UInt64(floor($0 * 1000)) }
                 let updatedMessage: Message = message
@@ -828,9 +827,9 @@ public final class MessageSender {
         
         // Send the result
         return dependencies.storage
-            .readPublisherFlatMap { db in
-                return OpenGroupAPI
-                    .send(
+            .readPublisher { db in
+                try OpenGroupAPI
+                    .preparedSend(
                         db,
                         ciphertext: ciphertext,
                         toInboxFor: recipientBlindedPublicKey,
@@ -838,7 +837,7 @@ public final class MessageSender {
                         using: dependencies
                     )
             }
-            .subscribe(on: DispatchQueue.global(qos: .default))
+            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
             .flatMap { (responseInfo, responseData) -> AnyPublisher<Void, Error> in
                 let updatedMessage: Message = message
                 updatedMessage.openGroupServerMessageId = UInt64(responseData.id)
