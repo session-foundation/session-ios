@@ -66,6 +66,7 @@ public extension OpenGroupAPI {
 #if DEBUG
             preconditionFailure("The `OpenGroupAPI.BatchResponse` type cannot be decoded directly, this is simply here to allow for `PreparedSendData<OpenGroupAPI.BatchResponse>` support")
 #else
+            info = HTTP.ResponseInfo(code: 0, headers: [:])
             data = [:]
 #endif
             
