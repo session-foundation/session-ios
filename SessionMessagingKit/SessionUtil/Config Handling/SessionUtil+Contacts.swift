@@ -287,6 +287,12 @@ internal extension SessionUtil {
                     contact.approved_me = updatedContact.didApproveMe
                     contact.blocked = updatedContact.isBlocked
                     
+                    // If we were given a `created` timestamp then set it to the min between the current
+                    // setting and the value (as long as the current setting isn't `0`)
+                    if let created: Int64 = info.created.map({ Int64(floor($0)) }) {
+                        contact.created = (contact.created > 0 ? min(contact.created, created) : created)
+                    }
+                    
                     // Store the updated contact (needs to happen before variables go out of scope)
                     contacts_set(conf, &contact)
                 }
@@ -494,17 +500,20 @@ extension SessionUtil {
         let contact: Contact?
         let profile: Profile?
         let priority: Int32?
+        let created: TimeInterval?
         
         init(
             id: String,
             contact: Contact? = nil,
             profile: Profile? = nil,
-            priority: Int32? = nil
+            priority: Int32? = nil,
+            created: TimeInterval? = nil
         ) {
             self.id = id
             self.contact = contact
             self.profile = profile
             self.priority = priority
+            self.created = created
         }
     }
 }

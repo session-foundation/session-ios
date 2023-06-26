@@ -2088,21 +2088,20 @@ extension ConversationVC:
                 cancelStyle: .alert_text,
                 onConfirm: { [weak self] _ in
                     Storage.shared
-                        .readPublisherFlatMap { db -> AnyPublisher<Void, Error> in
+                        .readPublisher { db in
                             guard let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId) else {
                                 throw StorageError.objectNotFound
                             }
                         
-                            return OpenGroupAPI
-                                .userBanAndDeleteAllMessages(
+                            return try OpenGroupAPI
+                                .preparedUserBanAndDeleteAllMessages(
                                     db,
                                     sessionId: cellViewModel.authorId,
                                     in: openGroup.roomToken,
                                     on: openGroup.server
                                 )
-                                .map { _ in () }
-                                .eraseToAnyPublisher()
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0) }
                         .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                         .receive(on: DispatchQueue.main)
                         .sinkUntilComplete(

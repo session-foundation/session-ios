@@ -4,39 +4,20 @@ import Foundation
 import Combine
 import SessionUtilitiesKit
 
-internal extension OpenGroupAPI {
-    struct BatchRequest: Encodable {
+public extension OpenGroupAPI {
+    internal struct BatchRequest: Encodable {
         let requests: [Child]
         
-        init(requests: [Info]) {
-            self.requests = requests.map { $0.child }
+        init(requests: [ErasedPreparedSendData]) {
+            self.requests = requests.map { Child(request: $0) }
         }
+        
+        // MARK: - Encodable
         
         func encode(to encoder: Encoder) throws {
             var container = encoder.singleValueContainer()
-            
+
             try container.encode(requests)
-        }
-        
-        // MARK: - BatchRequest.Info
-        
-        struct Info {
-            public let endpoint: any EndpointType
-            public let responseType: Codable.Type
-            fileprivate let child: Child
-            
-            public init<T: Encodable, E: EndpointType, R: Codable>(request: Request<T, E>, responseType: R.Type) {
-                self.endpoint = request.endpoint
-                self.responseType = HTTP.BatchSubResponse<R>.self
-                self.child = Child(request: request)
-            }
-            
-            public init<T: Encodable, E: EndpointType>(request: Request<T, E>) {
-                self.init(
-                    request: request,
-                    responseType: NoResponse.self
-                )
-            }
         }
         
         // MARK: - BatchRequest.Child
@@ -51,76 +32,43 @@ internal extension OpenGroupAPI {
                 case bytes
             }
             
-            let method: HTTPMethod
-            let path: String
-            let headers: [String: String]?
-            
-            /// The `jsonBodyEncoder` is used to avoid having to make `Child` a generic type (haven't found a good way
-            /// to keep `Child` encodable using protocols unfortunately so need this work around)
-            private let jsonBodyEncoder: ((inout KeyedEncodingContainer<CodingKeys>, CodingKeys) throws -> ())?
-            private let b64: String?
-            private let bytes: [UInt8]?
-            
-            internal init<T: Encodable, E: EndpointType>(request: Request<T, E>) {
-                self.method = request.method
-                self.path = request.urlPathAndParamsString
-                self.headers = (request.headers.isEmpty ? nil : request.headers.toHTTPHeaders())
-                
-                // Note: Need to differentiate between JSON, b64 string and bytes body values to ensure
-                // they are encoded correctly so the server knows how to handle them
-                switch request.body {
-                    case let bodyString as String:
-                        self.jsonBodyEncoder = nil
-                        self.b64 = bodyString
-                        self.bytes = nil
-                        
-                    case let bodyBytes as [UInt8]:
-                        self.jsonBodyEncoder = nil
-                        self.b64 = nil
-                        self.bytes = bodyBytes
-                        
-                    default:
-                        self.jsonBodyEncoder = { [body = request.body] container, key in
-                            try container.encodeIfPresent(body, forKey: key)
-                        }
-                        self.b64 = nil
-                        self.bytes = nil
-                }
-            }
+            let request: ErasedPreparedSendData
             
             func encode(to encoder: Encoder) throws {
-                var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
-
-                try container.encode(method, forKey: .method)
-                try container.encode(path, forKey: .path)
-                try container.encodeIfPresent(headers, forKey: .headers)
-                try jsonBodyEncoder?(&container, .json)
-                try container.encodeIfPresent(b64, forKey: .b64)
-                try container.encodeIfPresent(bytes, forKey: .bytes)
+                try request.encodeForBatchRequest(to: encoder)
             }
         }
     }
-}
-
-// MARK: - Convenience
-
-internal extension AnyPublisher where Output == HTTP.BatchResponse, Failure == Error {
-    func map<E: EndpointType>(
-        requests: [OpenGroupAPI.BatchRequest.Info],
-        toHashMapFor endpointType: E.Type
-    ) -> AnyPublisher<(info: ResponseInfoType, data: [E: Codable]), Error> {
-        return self
-            .map { result -> (info: ResponseInfoType, data: [E: Codable]) in
-                (
-                    info: result.info,
-                    data: result.responses.enumerated()
-                        .reduce(into: [:]) { prev, next in
-                            guard let endpoint: E = requests[next.offset].endpoint as? E else { return }
-                            
-                            prev[endpoint] = next.element
-                        }
-                )
-            }
-            .eraseToAnyPublisher()
+    
+    struct BatchResponse: Decodable {
+        let info: ResponseInfoType
+        let data: [Endpoint: Decodable]
+        
+        public subscript(position: Endpoint) -> Decodable? {
+            get { return data[position] }
+        }
+        
+        public var count: Int { data.count }
+        public var keys: Dictionary<Endpoint, Decodable>.Keys { data.keys }
+        public var values: Dictionary<Endpoint, Decodable>.Values { data.values }
+        
+        // MARK: - Initialization
+        
+        internal init(
+            info: ResponseInfoType,
+            data: [Endpoint: Decodable]
+        ) {
+            self.info = info
+            self.data = data
+        }
+        
+        public init(from decoder: Decoder) throws {
+#if DEBUG
+            preconditionFailure("The `OpenGroupAPI.BatchResponse` type cannot be decoded directly, this is simply here to allow for `PreparedSendData<OpenGroupAPI.BatchResponse>` support")
+#else
+            data = [:]
+#endif
+            
+        }
     }
 }

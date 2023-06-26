@@ -193,6 +193,7 @@ extension SyncPushTokensJob {
                 return Fail(error: error)
                     .eraseToAnyPublisher()
             }
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {

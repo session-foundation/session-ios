@@ -651,8 +651,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             .map { part -> String in
                 guard part.hasPrefix("\"") && part.hasSuffix("\"") else { return part }
                 
-                let partRange = (part.index(after: part.startIndex)..<part.index(before: part.endIndex))
-                return String(part[partRange])
+                return part.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
             }
             .forEach { part in
                 // Highlight all ranges of the text (Note: The search logic only finds results that start

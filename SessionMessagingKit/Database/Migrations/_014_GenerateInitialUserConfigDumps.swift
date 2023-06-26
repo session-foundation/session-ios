@@ -111,7 +111,8 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                                     }
                                     
                                     return Int32(allThreads[data.contact.id]?.pinnedPriority ?? 0)
-                                }()
+                                }(),
+                                created: allThreads[data.contact.id]?.creationDateTimestamp
                             )
                         },
                     in: conf

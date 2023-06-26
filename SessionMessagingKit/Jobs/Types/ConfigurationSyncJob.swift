@@ -114,7 +114,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                 /// in the same order, this means we can just `zip` the two arrays as it will take the smaller of the two and
                 /// correctly align the response to the change
                 zip(response.responses, pendingConfigChanges)
-                    .compactMap { (subResponse: Codable, change: SessionUtil.OutgoingConfResult) in
+                    .compactMap { (subResponse: Decodable, change: SessionUtil.OutgoingConfResult) in
                         /// If the request wasn't successful then just ignore it (the next time we sync this config we will try
                         /// to send the changes again)
                         guard

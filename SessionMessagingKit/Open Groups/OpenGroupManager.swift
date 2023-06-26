@@ -282,13 +282,9 @@ public final class OpenGroupManager {
         }
         .flatMap { _ in
             dependencies.storage
-                .readPublisherFlatMap { db in
-                    // Note: The initial request for room info and it's capabilities should NOT be
-                    // authenticated (this is because if the server requires blinding and the auth
-                    // headers aren't blinded it will error - these endpoints do support unauthenticated
-                    // retrieval so doing so prevents the error)
-                    OpenGroupAPI
-                        .capabilitiesAndRoom(
+                .readPublisher { db in
+                    try OpenGroupAPI
+                        .preparedCapabilitiesAndRoom(
                             db,
                             for: roomToken,
                             on: targetServer,
@@ -296,7 +292,8 @@ public final class OpenGroupManager {
                         )
                 }
         }
-        .flatMap { response -> Future<Void, Error> in
+        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
+        .flatMap { info, response -> Future<Void, Error> in
             Future<Void, Error> { resolver in
                 dependencies.storage.write { db in
                     // Add the new open group to libSession
@@ -312,14 +309,14 @@ public final class OpenGroupManager {
                     // Store the capabilities first
                     OpenGroupManager.handleCapabilities(
                         db,
-                        capabilities: response.data.capabilities.data,
+                        capabilities: response.capabilities.data,
                         on: targetServer
                     )
                     
                     // Then the room
                     try OpenGroupManager.handlePollInfo(
                         db,
-                        pollInfo: OpenGroupAPI.RoomPollInfo(room: response.data.room.data),
+                        pollInfo: OpenGroupAPI.RoomPollInfo(room: response.room.data),
                         publicKey: publicKey,
                         for: roomToken,
                         on: targetServer,
@@ -1024,17 +1021,18 @@ public final class OpenGroupManager {
         
         // Try to retrieve the default rooms 8 times
         let publisher: AnyPublisher<[OpenGroupAPI.Room], Error> = dependencies.storage
-            .readPublisherFlatMap { db in
-                OpenGroupAPI.capabilitiesAndRooms(
+            .readPublisher { db in
+                try OpenGroupAPI.preparedCapabilitiesAndRooms(
                     db,
                     on: OpenGroupAPI.defaultServer,
                     using: dependencies
                 )
             }
+            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
             .subscribe(on: dependencies.subscribeQueue, immediatelyIfMain: true)
             .receive(on: dependencies.receiveQueue, immediatelyIfMain: true)
             .retry(8)
-            .map { response in
+            .map { info, response in
                 dependencies.storage.writeAsync { db in
                     // Store the capabilities first
                     OpenGroupManager.handleCapabilities(
@@ -1203,6 +1201,12 @@ public final class OpenGroupManager {
         }
         .shareReplay(1)
         .eraseToAnyPublisher()
+        
+        // Automatically subscribe for the roomImage download (want to download regardless of
+        // whether the upstream subscribes)
+        publisher
+            .subscribe(on: dependencies.subscribeQueue)
+            .sinkUntilComplete()
         
         dependencies.mutableCache.mutate { cache in
             cache.groupImagePublishers[threadId] = publisher

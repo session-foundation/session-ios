@@ -1111,8 +1111,8 @@ public extension SessionThreadViewModel {
         /// Step 1 - Keep any "quoted" sections as stand-alone search
         /// Step 2 - Separate any words outside of quotes
         /// Step 3 - Join the different search term parts with 'OR" (include results for each individual term)
-        /// Step 4 - Append a wild-card character to the final word
-        return searchTerm
+        /// Step 4 - Append a wild-card character to the final word (as long as the last word doesn't end in a quote)
+        return standardQuotes(searchTerm)
             .split(separator: "\"")
             .enumerated()
             .flatMap { index, value -> [String] in
@@ -1127,6 +1127,13 @@ public extension SessionThreadViewModel {
             .filter { !$0.isEmpty }
     }
     
+    static func standardQuotes(_ term: String) -> String {
+        // Apple like to use the special '”“' quote characters when typing so replace them with normal ones
+        return term
+            .replacingOccurrences(of: "”", with: "\"")
+            .replacingOccurrences(of: "“", with: "\"")
+    }
+    
     static func pattern(_ db: Database, searchTerm: String) throws -> FTS5Pattern {
         return try pattern(db, searchTerm: searchTerm, forTable: Interaction.self)
     }
@@ -1134,9 +1141,16 @@ public extension SessionThreadViewModel {
     static func pattern<T>(_ db: Database, searchTerm: String, forTable table: T.Type) throws -> FTS5Pattern where T: TableRecord, T: ColumnExpressible {
         // Note: FTS doesn't support both prefix/suffix wild cards so don't bother trying to
         // add a prefix one
-        let rawPattern: String = searchTermParts(searchTerm)
-            .joined(separator: " OR ")
-            .appending("*")
+        let rawPattern: String = {
+            let result: String = searchTermParts(searchTerm)
+                .joined(separator: " OR ")
+            
+            // If the last character is a quotation mark then assume the user doesn't want to append
+            // a wildcard character
+            guard !standardQuotes(searchTerm).hasSuffix("\"") else { return result }
+            
+            return "\(result)*"
+        }()
         let fallbackTerm: String = "\(searchSafeTerm(searchTerm))*"
         
         /// There are cases where creating a pattern can fail, we want to try and recover from those cases
