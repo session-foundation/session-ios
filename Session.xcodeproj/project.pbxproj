@@ -168,7 +168,7 @@
 		7BD477A827EC39F5004E2822 /* Atomic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BD477A727EC39F5004E2822 /* Atomic.swift */; };
 		7BDCFC08242186E700641C39 /* NotificationServiceExtensionContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BDCFC07242186E700641C39 /* NotificationServiceExtensionContext.swift */; };
 		7BDCFC0B2421EB7600641C39 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = B6F509951AA53F760068F56A /* Localizable.strings */; };
-		7BF6F9FD293D64EA0099DEE0 /* Version.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BF6F9FC293D64EA0099DEE0 /* Version.swift */; };
+		7BF6F9FD293D64EA0099DEE0 /* SessionFeatureVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BF6F9FC293D64EA0099DEE0 /* SessionFeatureVersion.swift */; };
 		7BFA8AE32831D0D4001876F3 /* ContextMenuVC+EmojiReactsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFA8AE22831D0D4001876F3 /* ContextMenuVC+EmojiReactsView.swift */; };
 		7BFD1A8A2745C4F000FB91B9 /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFD1A892745C4F000FB91B9 /* Permissions.swift */; };
 		7BFD1A8C2747150E00FB91B9 /* TurnServerInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFD1A8B2747150E00FB91B9 /* TurnServerInfo.swift */; };
@@ -584,6 +584,10 @@
 		FD245C6B2850667400B966DD /* VisibleMessage+Profile.swift in Sources */ = {isa = PBXBuildFile; fileRef = C300A5B12554AF9800555489 /* VisibleMessage+Profile.swift */; };
 		FD245C6C2850669200B966DD /* MessageReceiveJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = C352A31225574F5200338F3E /* MessageReceiveJob.swift */; };
 		FD245C6D285066A400B966DD /* NotifyPushServerJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = C352A32E2557549C00338F3E /* NotifyPushServerJob.swift */; };
+		FD29598B2A43BB8100888A17 /* GetStatsResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD29598A2A43BB8100888A17 /* GetStatsResponse.swift */; };
+		FD29598D2A43BC0B00888A17 /* Version.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD29598C2A43BC0B00888A17 /* Version.swift */; };
+		FD2959902A43BE5F00888A17 /* VersionSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD29598F2A43BE5F00888A17 /* VersionSpec.swift */; };
+		FD2959922A4417A900888A17 /* PreparedSendData.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2959912A4417A900888A17 /* PreparedSendData.swift */; };
 		FD2AAAED28ED3E1000A49611 /* MockGeneralCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFD645C27F273F300808CA1 /* MockGeneralCache.swift */; };
 		FD2AAAEE28ED3E1100A49611 /* MockGeneralCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFD645C27F273F300808CA1 /* MockGeneralCache.swift */; };
 		FD2AAAF028ED57B500A49611 /* SynchronousStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */; };
@@ -1296,10 +1300,9 @@
 		7BC707F127290ACB002817AD /* SessionCallManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionCallManager.swift; sourceTree = "<group>"; };
 		7BCD116B27016062006330F1 /* WebRTCSession+DataChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WebRTCSession+DataChannel.swift"; sourceTree = "<group>"; };
 		7BD477A727EC39F5004E2822 /* Atomic.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Atomic.swift; sourceTree = "<group>"; };
-		7BD477A927F15F24004E2822 /* OpenGroupServerIdLookup.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OpenGroupServerIdLookup.swift; sourceTree = "<group>"; };
 		7BDCFC0424206E7300641C39 /* SessionNotificationServiceExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SessionNotificationServiceExtension.entitlements; sourceTree = "<group>"; };
 		7BDCFC07242186E700641C39 /* NotificationServiceExtensionContext.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NotificationServiceExtensionContext.swift; sourceTree = "<group>"; };
-		7BF6F9FC293D64EA0099DEE0 /* Version.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Version.swift; sourceTree = "<group>"; };
+		7BF6F9FC293D64EA0099DEE0 /* SessionFeatureVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionFeatureVersion.swift; sourceTree = "<group>"; };
 		7BFA8AE22831D0D4001876F3 /* ContextMenuVC+EmojiReactsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ContextMenuVC+EmojiReactsView.swift"; sourceTree = "<group>"; };
 		7BFD1A892745C4F000FB91B9 /* Permissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Permissions.swift; sourceTree = "<group>"; };
 		7BFD1A8B2747150E00FB91B9 /* TurnServerInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TurnServerInfo.swift; sourceTree = "<group>"; };
@@ -1741,6 +1744,10 @@
 		FD23EA6028ED0B260058676E /* CombineExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CombineExtensions.swift; sourceTree = "<group>"; };
 		FD245C612850664300B966DD /* Configuration.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Configuration.swift; sourceTree = "<group>"; };
 		FD28A4F527EAD44C00FF65E7 /* Storage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Storage.swift; sourceTree = "<group>"; };
+		FD29598A2A43BB8100888A17 /* GetStatsResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetStatsResponse.swift; sourceTree = "<group>"; };
+		FD29598C2A43BC0B00888A17 /* Version.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Version.swift; sourceTree = "<group>"; };
+		FD29598F2A43BE5F00888A17 /* VersionSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionSpec.swift; sourceTree = "<group>"; };
+		FD2959912A4417A900888A17 /* PreparedSendData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreparedSendData.swift; sourceTree = "<group>"; };
 		FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SynchronousStorage.swift; sourceTree = "<group>"; };
 		FD2B4AFA29429D1000AB4848 /* ConfigContactsSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ConfigContactsSpec.swift; sourceTree = "<group>"; };
 		FD2B4AFC294688D000AB4848 /* SessionUtil+Contacts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionUtil+Contacts.swift"; sourceTree = "<group>"; };
@@ -2684,7 +2691,7 @@
 				FD5D201D27B0D87C00FEA984 /* SessionId.swift */,
 				7B7CB191271508AD0079FF93 /* CallRingTonePlayer.swift */,
 				7B0EFDED274F598600FFAAE7 /* TimestampUtils.swift */,
-				7BF6F9FC293D64EA0099DEE0 /* Version.swift */,
+				7BF6F9FC293D64EA0099DEE0 /* SessionFeatureVersion.swift */,
 			);
 			path = General;
 			sourceTree = "<group>";
@@ -3246,7 +3253,6 @@
 				FDC4381827B34EAD00C60D73 /* Models */,
 				FDC4380727B31D3A00C60D73 /* Types */,
 				FD3C907427E83AC200CD579F /* OpenGroupServerIdLookup.swift */,
-				7BD477A927F15F24004E2822 /* OpenGroupServerIdLookup.swift */,
 				B88FA7B726045D100049422F /* OpenGroupAPI.swift */,
 				C3DB66AB260ACA42001EFC55 /* OpenGroupManager.swift */,
 			);
@@ -3638,6 +3644,7 @@
 				FD8ECF93293856AF00C0D1BB /* Randomness.swift */,
 				C33FDB38255A580B00E217F9 /* OWSBackgroundTask.h */,
 				C33FDC1B255A581F00E217F9 /* OWSBackgroundTask.m */,
+				FD29598C2A43BC0B00888A17 /* Version.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -3810,6 +3817,14 @@
 			isa = PBXGroup;
 			children = (
 				FD1A94FD2900D2EA000D73D3 /* PersistableRecordUtilitiesSpec.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+		FD29598E2A43BE5400888A17 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				FD29598F2A43BE5F00888A17 /* VersionSpec.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -4065,6 +4080,7 @@
 				FD37EA1228AB3F60003AE748 /* Database */,
 				FD83B9B927CF20A5005E1583 /* General */,
 				FD9B30F1293EA0AF008DEE3E /* Networking */,
+				FD29598E2A43BE5400888A17 /* Utilities */,
 			);
 			path = SessionUtilitiesKitTests;
 			sourceTree = "<group>";
@@ -4199,6 +4215,7 @@
 				FDC4381F27B36ADC00C60D73 /* SOGSEndpoint.swift */,
 				FDC4380827B31D4E00C60D73 /* OpenGroupAPIError.swift */,
 				FDC4381627B32EC700C60D73 /* Personalization.swift */,
+				FD2959912A4417A900888A17 /* PreparedSendData.swift */,
 				FDC4381427B329CE00C60D73 /* NonceGenerator.swift */,
 				FDC438C227BB512200C60D73 /* SodiumProtocols.swift */,
 			);
@@ -4432,6 +4449,7 @@
 				FDF848A629405C5A007DCAE5 /* ONSResolveRequest.swift */,
 				FDF8489E29405C5A007DCAE5 /* ONSResolveResponse.swift */,
 				FDF8489C29405C5A007DCAE5 /* GetServiceNodesRequest.swift */,
+				FD29598A2A43BB8100888A17 /* GetStatsResponse.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -5618,6 +5636,7 @@
 				FDF848CC29405C5B007DCAE5 /* SnodeReceivedMessage.swift in Sources */,
 				FDF848C129405C5A007DCAE5 /* UpdateExpiryRequest.swift in Sources */,
 				FDF848C729405C5B007DCAE5 /* SendMessageResponse.swift in Sources */,
+				FD29598B2A43BB8100888A17 /* GetStatsResponse.swift in Sources */,
 				FDF848CA29405C5B007DCAE5 /* DeleteAllBeforeRequest.swift in Sources */,
 				FDF848D229405C5B007DCAE5 /* LegacyGetMessagesRequest.swift in Sources */,
 				FDF848CB29405C5B007DCAE5 /* SnodePoolResponse.swift in Sources */,
@@ -5735,6 +5754,7 @@
 				C3D9E4F4256778AF0040E4F3 /* NSData+Image.m in Sources */,
 				FDF222092818D2B0000A4995 /* NSAttributedString+Utilities.swift in Sources */,
 				C32C5E0C256DDAFA003C73A2 /* NSRegularExpression+SSK.swift in Sources */,
+				FD29598D2A43BC0B00888A17 /* Version.swift in Sources */,
 				FDF8487C29405906007DCAE5 /* HTTPMethod.swift in Sources */,
 				FDF8488429405A2B007DCAE5 /* RequestInfo.swift in Sources */,
 				C3BBE0A92554D4DE0050F1E3 /* HTTP.swift in Sources */,
@@ -5750,7 +5770,7 @@
 				FDF8487A29405906007DCAE5 /* HTTPError.swift in Sources */,
 				FDDF074429C3E3D000E5E8B5 /* FetchRequest+Utilities.swift in Sources */,
 				B87EF18126377A1D00124B3C /* Features.swift in Sources */,
-				7BF6F9FD293D64EA0099DEE0 /* Version.swift in Sources */,
+				7BF6F9FD293D64EA0099DEE0 /* SessionFeatureVersion.swift in Sources */,
 				FD09797727FAB7A600936362 /* Data+Image.swift in Sources */,
 				C300A60D2554B31900555489 /* Logging.swift in Sources */,
 				B8FF8EA625C11FEF004D1F22 /* IPv4.swift in Sources */,
@@ -5934,6 +5954,7 @@
 				FD245C632850664600B966DD /* Configuration.swift in Sources */,
 				C32C5DBF256DD743003C73A2 /* ClosedGroupPoller.swift in Sources */,
 				C352A35B2557824E00338F3E /* AttachmentUploadJob.swift in Sources */,
+				FD2959922A4417A900888A17 /* PreparedSendData.swift in Sources */,
 				FD5C7305284F0FF30029977D /* MessageReceiver+VisibleMessages.swift in Sources */,
 				FD432437299DEA38008A0213 /* TypeConversion+Utilities.swift in Sources */,
 				FD2B4B042949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift in Sources */,
@@ -6202,6 +6223,7 @@
 				FD0B77B229B82B7A009169BA /* ArrayUtilitiesSpec.swift in Sources */,
 				FD1A94FE2900D2EA000D73D3 /* PersistableRecordUtilitiesSpec.swift in Sources */,
 				FDC290AA27D9B6FD005DAE71 /* Mock.swift in Sources */,
+				FD2959902A43BE5F00888A17 /* VersionSpec.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6441,7 +6463,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 408;
+				CURRENT_PROJECT_VERSION = 409;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
@@ -6513,7 +6535,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 408;
+				CURRENT_PROJECT_VERSION = 409;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -6578,7 +6600,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 408;
+				CURRENT_PROJECT_VERSION = 409;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
@@ -6652,7 +6674,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 408;
+				CURRENT_PROJECT_VERSION = 409;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -6717,7 +6739,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
-				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEFINES_MODULE = YES;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				DYLIB_COMPATIBILITY_VERSION = 1;
@@ -6854,7 +6876,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
-				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEFINES_MODULE = YES;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				DYLIB_COMPATIBILITY_VERSION = 1;
@@ -7005,7 +7027,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
-				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEFINES_MODULE = YES;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				DYLIB_COMPATIBILITY_VERSION = 1;
@@ -7142,7 +7164,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
-				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEFINES_MODULE = YES;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				DYLIB_COMPATIBILITY_VERSION = 1;
@@ -7281,7 +7303,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
-				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEFINES_MODULE = YES;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				DYLIB_COMPATIBILITY_VERSION = 1;
@@ -7560,7 +7582,7 @@
 				CODE_SIGN_ENTITLEMENTS = Session/Meta/Signal.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 408;
+				CURRENT_PROJECT_VERSION = 409;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -7631,7 +7653,7 @@
 				CODE_SIGN_ENTITLEMENTS = Session/Meta/Signal.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 408;
+				CURRENT_PROJECT_VERSION = 409;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",

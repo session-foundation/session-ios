@@ -569,9 +569,7 @@ class NotificationActionHandler {
                     threadVariant: thread.variant
                 )
             }
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
-            .receive(on: DispatchQueue.main)
             .handleEvents(
                 receiveCompletion: { result in
                     switch result {

@@ -176,6 +176,7 @@ final class PNModeVC: BaseVC, OptionViewDelegate {
         // If we don't have one then show a loading indicator and try to retrieve the existing name
         ModalActivityIndicatorViewController.present(fromViewController: self) { [weak self, flow = self.flow] viewController in
             Onboarding.profileNamePublisher
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .timeout(.seconds(15), scheduler: DispatchQueue.main, customError: { HTTPError.timeout })
                 .catch { _ -> AnyPublisher<String?, Error> in
                     SNLog("Onboarding failed to retrieve existing profile information")

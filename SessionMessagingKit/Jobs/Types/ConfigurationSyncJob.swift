@@ -221,25 +221,29 @@ public extension ConfigurationSyncJob {
             return
         }
         
-        // Upsert a config sync job (if there is already an pending one then no need
-        // to add another one)
+        // Upsert a config sync job if needed
         JobRunner.upsert(
             db,
-            job: ConfigurationSyncJob.createOrUpdateIfNeeded(db, publicKey: publicKey)
+            job: ConfigurationSyncJob.createIfNeeded(db, publicKey: publicKey)
         )
     }
     
-    @discardableResult static func createOrUpdateIfNeeded(_ db: Database, publicKey: String) -> Job {
-        // Try to get an existing job (if there is one that's not running)
-        if
-            let existingJobs: [Job] = try? Job
+    @discardableResult static func createIfNeeded(_ db: Database, publicKey: String) -> Job? {
+        /// The ConfigurationSyncJob will automatically reschedule itself to run again after 3 seconds so if there is an existing
+        /// job then there is no need to create another instance
+        ///
+        /// **Note:** Jobs with different `threadId` values can run concurrently
+        guard
+            JobRunner
+                .infoForCurrentlyRunningJobs(of: .configurationSync)
+                .filter({ _, info in info.threadId == publicKey })
+                .isEmpty,
+            (try? Job
                 .filter(Job.Columns.variant == Job.Variant.configurationSync)
                 .filter(Job.Columns.threadId == publicKey)
-                .fetchAll(db),
-            let existingJob: Job = existingJobs.first(where: { !JobRunner.isCurrentlyRunning($0) })
-        {
-            return existingJob
-        }
+                .isEmpty(db))
+                .defaulting(to: false)
+        else { return nil }
         
         // Otherwise create a new job
         return Job(
@@ -278,7 +282,7 @@ public extension ConfigurationSyncJob {
             Future { resolver in
                 ConfigurationSyncJob.run(
                     Job(variant: .configurationSync),
-                    queue: DispatchQueue.global(qos: .userInitiated),
+                    queue: .global(qos: .userInitiated),
                     success: { _, _ in resolver(Result.success(())) },
                     failure: { _, error, _ in resolver(Result.failure(error ?? HTTPError.generic)) },
                     deferred: { _ in }

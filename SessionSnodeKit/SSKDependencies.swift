@@ -14,7 +14,8 @@ open class SSKDependencies: Dependencies {
     // MARK: - Initialization
     
     public init(
-        queue: DispatchQueue? = nil,
+        subscribeQueue: DispatchQueue? = nil,
+        receiveQueue: DispatchQueue? = nil,
         onionApi: OnionRequestAPIType.Type? = nil,
         generalCache: Atomic<GeneralCacheType>? = nil,
         storage: Storage? = nil,
@@ -25,7 +26,8 @@ open class SSKDependencies: Dependencies {
         _onionApi = Atomic(onionApi)
         
         super.init(
-            queue: queue,
+            subscribeQueue: subscribeQueue,
+            receiveQueue: receiveQueue,
             generalCache: generalCache,
             storage: storage,
             scheduler: scheduler,

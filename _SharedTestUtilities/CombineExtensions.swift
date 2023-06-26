@@ -7,8 +7,8 @@ import SessionUtilitiesKit
 public extension Publisher {
     func sinkAndStore<C>(in storage: inout C) where C: RangeReplaceableCollection, C.Element == AnyCancellable {
         self
-            .subscribeOnMain(immediately: true)
-            .receiveOnMain(immediately: true)
+            .subscribe(on: DispatchQueue.main, immediatelyIfMain: true)
+            .receive(on: DispatchQueue.main, immediatelyIfMain: true)
             .sink(
                 receiveCompletion: { _ in },
                 receiveValue: { _ in }
@@ -22,7 +22,7 @@ public extension AnyPublisher {
         var value: Output?
         
         _ = self
-            .receiveOnMain(immediately: true)
+            .receive(on: DispatchQueue.main, immediatelyIfMain: true)
             .sink(
                 receiveCompletion: { _ in },
                 receiveValue: { result in value = result }

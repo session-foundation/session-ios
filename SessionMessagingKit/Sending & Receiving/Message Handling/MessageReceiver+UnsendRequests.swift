@@ -48,6 +48,7 @@ extension MessageReceiver {
                     publicKey: author,
                     serverHashes: [serverHash]
                 )
+                .subscribe(on: DispatchQueue.global(qos: .background))
                 .sinkUntilComplete()
         }
          

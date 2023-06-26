@@ -55,6 +55,7 @@ public enum GroupLeavingJob: JobExecutor {
                 )
             }
             .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
+            .subscribe(on: queue)
             .receive(on: queue)
             .sinkUntilComplete(
                 receiveCompletion: { result in

@@ -466,6 +466,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
             ]
         }
         .removeDuplicates()
+        .handleEvents(didFail: { SNLog("[SettingsViewModel] Observation failed with error: \($0)") })
         .publisher(in: Storage.shared)
         .mapToSessionTableViewData(for: self)
     
@@ -572,7 +573,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     ) {
         let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self] modalActivityIndicator in
             ProfileManager.updateLocal(
-                queue: DispatchQueue.global(qos: .default),
+                queue: .global(qos: .default),
                 profileName: name,
                 avatarUpdate: avatarUpdate,
                 success: { db in

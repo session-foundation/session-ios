@@ -189,7 +189,7 @@ final class DisplayNameVC: BaseVC {
         
         // Try to save the user name but ignore the result
         ProfileManager.updateLocal(
-            queue: DispatchQueue.global(qos: .default),
+            queue: .global(qos: .default),
             profileName: displayName
         )
         

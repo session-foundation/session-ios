@@ -332,6 +332,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         
         // Build the link preview
         LinkPreview.tryToBuildPreviewInfo(previewUrl: linkPreviewURL)
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [weak self] result in

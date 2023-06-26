@@ -119,17 +119,6 @@ final class QuoteView: UIView {
         contentView.pin([ UIView.HorizontalEdge.left, UIView.VerticalEdge.top, UIView.VerticalEdge.bottom ], to: self)
         contentView.rightAnchor.constraint(lessThanOrEqualTo: self.rightAnchor).isActive = true
         
-        // Line view
-        let lineColor: ThemeValue = {
-            switch mode {
-                case .regular: return (direction == .outgoing ? .messageBubble_outgoingText : .primary)
-                case .draft: return .primary
-            }
-        }()
-        let lineView = UIView()
-        lineView.themeBackgroundColor = lineColor
-        lineView.set(.width, to: Values.accentLineThickness)
-        
         if let attachment: Attachment = attachment {
             let isAudio: Bool = MIMETypeUtil.isAudio(attachment.contentType)
             let fallbackImageName: String = (isAudio ? "attachment_audio" : "actionsheet_document_black")
@@ -181,13 +170,26 @@ final class QuoteView: UIView {
             }
         }
         else {
+            // Line view
+            let lineColor: ThemeValue = {
+                switch mode {
+                    case .regular: return (direction == .outgoing ? .messageBubble_outgoingText : .primary)
+                    case .draft: return .primary
+                }
+            }()
+            let lineView = UIView()
+            lineView.themeBackgroundColor = lineColor
             mainStackView.addArrangedSubview(lineView)
+            
+            lineView.pin(.top, to: .top, of: mainStackView)
+            lineView.pin(.bottom, to: .bottom, of: mainStackView)
+            lineView.set(.width, to: Values.accentLineThickness)
         }
         
         // Body label
         let bodyLabel = TappableLabel()
-        bodyLabel.numberOfLines = 0
         bodyLabel.lineBreakMode = .byTruncatingTail
+        bodyLabel.numberOfLines = 2
         
         let targetThemeColor: ThemeValue = {
             switch mode {
@@ -229,7 +231,6 @@ final class QuoteView: UIView {
         
         // Label stack view
         let bodyLabelSize = bodyLabel.systemLayoutSizeFitting(availableSpace)
-        var authorLabelHeight: CGFloat?
         
         let isCurrentUser: Bool = [
             currentUserPublicKey,
@@ -259,16 +260,12 @@ final class QuoteView: UIView {
         authorLabel.themeTextColor = targetThemeColor
         authorLabel.lineBreakMode = .byTruncatingTail
         authorLabel.isHidden = (authorLabel.text == nil)
-        
-        let authorLabelSize = authorLabel.systemLayoutSizeFitting(availableSpace)
-        authorLabel.set(.height, to: authorLabelSize.height)
-        authorLabelHeight = authorLabelSize.height
+        authorLabel.numberOfLines = 1
         
         let labelStackView = UIStackView(arrangedSubviews: [ authorLabel, bodyLabel ])
         labelStackView.axis = .vertical
         labelStackView.spacing = labelStackViewSpacing
         labelStackView.distribution = .equalCentering
-        labelStackView.set(.width, to: max(bodyLabelSize.width, authorLabelSize.width))
         labelStackView.isLayoutMarginsRelativeArrangement = true
         labelStackView.layoutMargins = UIEdgeInsets(top: labelStackViewVMargin, left: 0, bottom: labelStackViewVMargin, right: 0)
         mainStackView.addArrangedSubview(labelStackView)
@@ -276,29 +273,6 @@ final class QuoteView: UIView {
         // Constraints
         contentView.addSubview(mainStackView)
         mainStackView.pin(to: contentView)
-        
-        if threadVariant == .contact {
-            bodyLabel.set(.width, to: bodyLabelSize.width)
-        }
-        
-        let bodyLabelHeight = bodyLabelSize.height.clamp(0, (mode == .regular ? 60 : 40))
-        let contentViewHeight: CGFloat
-        
-        if attachment != nil {
-            contentViewHeight = thumbnailSize + 8 // Add a small amount of spacing above and below the thumbnail
-            bodyLabel.set(.height, to: 18) // Experimentally determined
-        }
-        else {
-            if let authorLabelHeight = authorLabelHeight { // Group thread
-                contentViewHeight = bodyLabelHeight + (authorLabelHeight + labelStackViewSpacing) + 2 * labelStackViewVMargin
-            }
-            else {
-                contentViewHeight = bodyLabelHeight + 2 * smallSpacing
-            }
-        }
-        
-        contentView.set(.height, to: contentViewHeight)
-        lineView.set(.height, to: contentViewHeight - 8) // Add a small amount of spacing above and below the line
         
         if mode == .draft {
             // Cancel button

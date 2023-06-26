@@ -18,8 +18,16 @@ extension OpenGroupAPI {
         // MARK: - Settings
         
         private static let minPollInterval: TimeInterval = 3
-        private static let maxPollInterval: Double = (60 * 60)
-        internal static let maxInactivityPeriod: Double = (14 * 24 * 60 * 60)
+        private static let maxPollInterval: TimeInterval = (60 * 60)
+        internal static let maxInactivityPeriod: TimeInterval = (14 * 24 * 60 * 60)
+        
+        /// If there are hidden rooms that we poll and they fail too many times we want to prune them (as it likely means they no longer
+        /// exist, and since they are already hidden it's unlikely that the user will notice that we stopped polling for them)
+        internal static let maxHiddenRoomFailureCount: Int64 = 10
+        
+        /// When doing a background poll we want to only fetch from rooms which are unlikely to timeout, in order to do this we exclude
+        /// any rooms which have failed more than this threashold
+        public static let maxRoomFailureCountForBackgroundPoll: Int64 = 15
         
         // MARK: - Lifecycle
         
@@ -41,7 +49,12 @@ extension OpenGroupAPI {
 
         // MARK: - Polling
         
-        private func pollRecursively(using dependencies: OpenGroupManager.OGMDependencies = OpenGroupManager.OGMDependencies()) {
+        private func pollRecursively(
+            using dependencies: OpenGroupManager.OGMDependencies = OpenGroupManager.OGMDependencies(
+                subscribeQueue: Threading.pollerQueue,
+                receiveQueue: OpenGroupAPI.workQueue
+            )
+        ) {
             guard hasStarted else { return }
             
             let minPollFailureCount: TimeInterval = Storage.shared
@@ -59,6 +72,8 @@ extension OpenGroupAPI {
             // Wait until the last poll completes before polling again ensuring we don't poll any faster than
             // the 'nextPollInterval' value
             poll(using: dependencies)
+                .subscribe(on: dependencies.subscribeQueue, immediatelyIfMain: true)
+                .receive(on: dependencies.receiveQueue, immediatelyIfMain: true)
                 .sinkUntilComplete(
                     receiveCompletion: { [weak self] _ in
                         let currentTime: TimeInterval = Date().timeIntervalSince1970
@@ -129,8 +144,6 @@ extension OpenGroupAPI {
                         .map { response in (failureCount, response) }
                         .eraseToAnyPublisher()
                 }
-                .subscribe(on: Threading.pollerQueue)
-                .receive(on: Threading.pollerQueue)
                 .handleEvents(
                     receiveOutput: { [weak self] failureCount, response in
                         guard !calledFromBackgroundPoller || isBackgroundPollerValid() else {
@@ -179,7 +192,8 @@ extension OpenGroupAPI {
                             calledFromBackgroundPoller: calledFromBackgroundPoller,
                             isBackgroundPollerValid: isBackgroundPollerValid,
                             isPostCapabilitiesRetry: isPostCapabilitiesRetry,
-                            error: error
+                            error: error,
+                            using: dependencies
                         )
                         .handleEvents(
                             receiveOutput: { [weak self] didHandleError in
@@ -232,7 +246,7 @@ extension OpenGroupAPI {
                                         /// If the polling has failed 10+ times then try to prune any invalid rooms that
                                         /// aren't visible (they would have been added via config messages and will
                                         /// likely always fail but the user has no way to delete them)
-                                        guard pollFailureCount > 10 else { return }
+                                        guard pollFailureCount > Poller.maxHiddenRoomFailureCount else { return }
                                         
                                         prunedIds = roomsAreVisible
                                             .filter { !$0.shouldBeVisible }
@@ -247,19 +261,20 @@ extension OpenGroupAPI {
                                                 /// not be in an invalid state on other devices - one of the other devices
                                                 /// will eventually trigger a new config update which will re-add this room
                                                 /// and hopefully at that time it'll work again
-                                                calledFromConfigHandling: true
+                                                calledFromConfigHandling: true,
+                                                using: dependencies
                                             )
                                         }
                                     }
                                     
-                                    SNLog("Open group polling failed due to error: \(error). Setting failure count to \(pollFailureCount).")
+                                    SNLog("Open group polling to \(server) failed due to error: \(error). Setting failure count to \(pollFailureCount).")
                                     
                                     // Add a note to the logs that this happened
                                     if !prunedIds.isEmpty {
                                         let rooms: String = prunedIds
                                             .compactMap { $0.components(separatedBy: server).last }
                                             .joined(separator: ", ")
-                                        SNLog("Hidden open group failure count surpassed 10, removed hidden rooms \(rooms).")
+                                        SNLog("Hidden open group failure count surpassed \(Poller.maxHiddenRoomFailureCount), removed hidden rooms \(rooms).")
                                     }
                                 }
 
@@ -299,16 +314,15 @@ extension OpenGroupAPI {
             }
             
             return dependencies.storage
-                .readPublisherFlatMap { db in
-                    OpenGroupAPI.capabilities(
+                .readPublisher { db in
+                    try OpenGroupAPI.preparedCapabilities(
                         db,
                         server: server,
                         forceBlinded: true,
                         using: dependencies
                     )
                 }
-                .subscribe(on: OpenGroupAPI.workQueue)
-                .receive(on: OpenGroupAPI.workQueue)
+                .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                 .flatMap { [weak self] _, responseBody -> AnyPublisher<Void, Error> in
                     guard let strongSelf = self, isBackgroundPollerValid() else {
                         return Just(())

@@ -704,6 +704,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
             ]
         }
         .removeDuplicates()
+        .handleEvents(didFail: { SNLog("[ThreadSettingsViewModel] Observation failed with error: \($0)") })
         .publisher(in: dependencies.storage, scheduling: dependencies.scheduler)
         .mapToSessionTableViewData(for: self)
     

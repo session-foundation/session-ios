@@ -56,6 +56,15 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         case typingIndicator
         case dateHeader
         case unreadMarker
+        
+        /// A number of the `CellType` entries are dynamically added to the dataset after processing, this flag indicates
+        /// whether the given type is one of them
+        public var isPostProcessed: Bool {
+            switch self {
+                case .typingIndicator, .dateHeader, .unreadMarker: return true
+                default: return false
+            }
+        }
     }
     
     public var differenceIdentifier: Int64 { id }
@@ -74,6 +83,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     
     public let rowId: Int64
     public let id: Int64
+    public let openGroupServerMessageId: Int64?
     public let variant: Interaction.Variant
     public let timestampMs: Int64
     public let receivedAtTimestampMs: Int64
@@ -171,6 +181,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             threadContactNameInternal: self.threadContactNameInternal,
             rowId: self.rowId,
             id: self.id,
+            openGroupServerMessageId: self.openGroupServerMessageId,
             variant: self.variant,
             timestampMs: self.timestampMs,
             receivedAtTimestampMs: self.receivedAtTimestampMs,
@@ -335,6 +346,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             threadContactNameInternal: self.threadContactNameInternal,
             rowId: self.rowId,
             id: self.id,
+            openGroupServerMessageId: self.openGroupServerMessageId,
             variant: self.variant,
             timestampMs: self.timestampMs,
             receivedAtTimestampMs: self.receivedAtTimestampMs,
@@ -516,7 +528,7 @@ public extension MessageViewModel {
     static let genericId: Int64 = -1
     static let typingIndicatorId: Int64 = -2
     
-    // Note: This init method is only used system-created cells or empty states
+    /// This init method is only used for system-created cells or empty states
     init(
         variant: Interaction.Variant = .standardOutgoing,
         timestampMs: Int64 = Int64.max,
@@ -546,6 +558,7 @@ public extension MessageViewModel {
         }()
         self.rowId = targetId
         self.id = targetId
+        self.openGroupServerMessageId = nil
         self.variant = variant
         self.timestampMs = timestampMs
         self.receivedAtTimestampMs = receivedAtTimestampMs
@@ -567,11 +580,11 @@ public extension MessageViewModel {
         self.linkPreview = nil
         self.linkPreviewAttachment = nil
         self.currentUserPublicKey = ""
+        self.attachments = nil
+        self.reactionInfo = nil
         
         // Post-Query Processing Data
         
-        self.attachments = nil
-        self.reactionInfo = nil
         self.cellType = cellType
         self.authorName = ""
         self.senderName = nil
@@ -585,6 +598,84 @@ public extension MessageViewModel {
         self.isOnlyMessageInCluster = true
         self.isLast = isLast
         self.isLastOutgoing = isLastOutgoing
+        self.currentUserBlindedPublicKey = nil
+    }
+    
+    /// This init method is only used for optimistic outgoing messages
+    init(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        threadHasDisappearingMessagesEnabled: Bool,
+        threadOpenGroupServer: String?,
+        threadOpenGroupPublicKey: String?,
+        threadContactNameInternal: String,
+        timestampMs: Int64,
+        receivedAtTimestampMs: Int64,
+        authorId: String,
+        authorNameInternal: String,
+        body: String?,
+        expiresStartedAtMs: Double?,
+        expiresInSeconds: TimeInterval?,
+        isSenderOpenGroupModerator: Bool,
+        currentUserProfile: Profile,
+        quote: Quote?,
+        quoteAttachment: Attachment?,
+        linkPreview: LinkPreview?,
+        linkPreviewAttachment: Attachment?,
+        attachments: [Attachment]?
+    ) {
+        self.threadId = threadId
+        self.threadVariant = threadVariant
+        self.threadIsTrusted = false
+        self.threadHasDisappearingMessagesEnabled = threadHasDisappearingMessagesEnabled
+        self.threadOpenGroupServer = threadOpenGroupServer
+        self.threadOpenGroupPublicKey = threadOpenGroupPublicKey
+        self.threadContactNameInternal = threadContactNameInternal
+        
+        // Interaction Info
+        
+        self.rowId = -1
+        self.id = -1
+        self.openGroupServerMessageId = nil
+        self.variant = .standardOutgoing
+        self.timestampMs = timestampMs
+        self.receivedAtTimestampMs = receivedAtTimestampMs
+        self.authorId = authorId
+        self.authorNameInternal = authorNameInternal
+        self.body = body
+        self.rawBody = body
+        self.expiresStartedAtMs = expiresStartedAtMs
+        self.expiresInSeconds = expiresInSeconds
+        
+        self.state = .sending
+        self.hasAtLeastOneReadReceipt = false
+        self.mostRecentFailureText = nil
+        self.isSenderOpenGroupModerator = isSenderOpenGroupModerator
+        self.isTypingIndicator = false
+        self.profile = currentUserProfile
+        self.quote = quote
+        self.quoteAttachment = quoteAttachment
+        self.linkPreview = linkPreview
+        self.linkPreviewAttachment = linkPreviewAttachment
+        self.currentUserPublicKey = currentUserProfile.id
+        self.attachments = attachments
+        self.reactionInfo = nil
+        
+        // Post-Query Processing Data
+        
+        self.cellType = .textOnlyMessage
+        self.authorName = ""
+        self.senderName = nil
+        self.canHaveProfile = false
+        self.shouldShowProfile = false
+        self.shouldShowDateHeader = false
+        self.containsOnlyEmoji = nil
+        self.glyphCount = nil
+        self.previousVariant = nil
+        self.positionInCluster = .middle
+        self.isOnlyMessageInCluster = true
+        self.isLast = false
+        self.isLastOutgoing = false
         self.currentUserBlindedPublicKey = nil
     }
 }
@@ -688,7 +779,7 @@ public extension MessageViewModel {
             let interactionAttachmentAttachmentIdColumn: SQL = SQL(stringLiteral: InteractionAttachment.Columns.attachmentId.name)
             let interactionAttachmentAlbumIndexColumn: SQL = SQL(stringLiteral: InteractionAttachment.Columns.albumIndex.name)
             
-            let numColumnsBeforeLinkedRecords: Int = 21
+            let numColumnsBeforeLinkedRecords: Int = 22
             let finalGroupSQL: SQL = (groupSQL ?? "")
             let request: SQLRequest<ViewModel> = """
                 SELECT
@@ -704,6 +795,7 @@ public extension MessageViewModel {
             
                     \(interaction.alias[Column.rowID]) AS \(ViewModel.rowIdKey),
                     \(interaction[.id]),
+                    \(interaction[.openGroupServerMessageId]),
                     \(interaction[.variant]),
                     \(interaction[.timestampMs]),
                     \(interaction[.receivedAtTimestampMs]),
@@ -977,7 +1069,7 @@ public extension MessageViewModel.ReactionInfo {
                 items: pagedRowIdsWithNoReactions
                     .compactMap { rowId -> ViewModel? in updatedPagedDataCache.data[rowId] }
                     .filter { viewModel -> Bool in (viewModel.reactionInfo?.isEmpty == false) }
-                    .map { viewModel -> ViewModel in viewModel.with(reactionInfo: nil) }
+                    .map { viewModel -> ViewModel in viewModel.with(reactionInfo: []) }
             )
             
             return updatedPagedDataCache

@@ -291,7 +291,6 @@ enum GiphyAPI {
         
         return urlSession
             .dataTaskPublisher(for: url)
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .mapError { urlError in
                 Logger.error("search request failed: \(urlError)")
                 
@@ -340,7 +339,6 @@ enum GiphyAPI {
         
         return urlSession
             .dataTaskPublisher(for: request)
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .mapError { urlError in
                 Logger.error("search request failed: \(urlError)")
                 

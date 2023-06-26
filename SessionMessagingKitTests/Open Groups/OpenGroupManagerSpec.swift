@@ -116,7 +116,8 @@ class OpenGroupManagerSpec: QuickSpec {
                 mockNonce24Generator = MockNonce24Generator()
                 mockUserDefaults = MockUserDefaults()
                 dependencies = OpenGroupManager.OGMDependencies(
-                    queue: DispatchQueue.main,
+                    subscribeQueue: DispatchQueue.main,
+                    receiveQueue: DispatchQueue.main,
                     cache: Atomic(mockOGMCache),
                     onionApi: TestCapabilitiesAndRoomApi.self,
                     generalCache: Atomic(mockGeneralCache),
@@ -991,7 +992,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 db,
                                 openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
                                 calledFromConfigHandling: true, // Don't trigger SessionUtil logic
-                                dependencies: dependencies
+                                using: dependencies
                             )
                     }
                     
@@ -1006,7 +1007,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 db,
                                 openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
                                 calledFromConfigHandling: true, // Don't trigger SessionUtil logic
-                                dependencies: dependencies
+                                using: dependencies
                             )
                     }
                     
@@ -1024,7 +1025,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     db,
                                     openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
                                     calledFromConfigHandling: true, // Don't trigger SessionUtil logic
-                                    dependencies: dependencies
+                                    using: dependencies
                                 )
                         }
                         
@@ -1038,7 +1039,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     db,
                                     openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
                                     calledFromConfigHandling: true, // Don't trigger SessionUtil logic
-                                    dependencies: dependencies
+                                    using: dependencies
                                 )
                         }
                         
@@ -1077,7 +1078,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     db,
                                     openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
                                     calledFromConfigHandling: true, // Don't trigger SessionUtil logic
-                                    dependencies: dependencies
+                                    using: dependencies
                                 )
                         }
                         
@@ -1130,7 +1131,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     db,
                                     openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: OpenGroupAPI.defaultServer),
                                     calledFromConfigHandling: true, // Don't trigger SessionUtil logic
-                                    dependencies: dependencies
+                                    using: dependencies
                                 )
                         }
                         
@@ -1145,7 +1146,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     db,
                                     openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: OpenGroupAPI.defaultServer),
                                     calledFromConfigHandling: true, // Don't trigger SessionUtil logic
-                                    dependencies: dependencies
+                                    using: dependencies
                                 )
                         }
                         

@@ -92,12 +92,16 @@ public final class ClosedGroupPoller: Poller {
             .eraseToAnyPublisher()
     }
     
-    override func handlePollError(_ error: Error, for publicKey: String) {
+    override func handlePollError(
+        _ error: Error,
+        for publicKey: String,
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) {
         SNLog("Polling failed for closed group with public key: \(publicKey) due to error: \(error).")
         
         // Try to restart the poller from scratch
         Threading.pollerQueue.async { [weak self] in
-            self?.setUpPolling(for: publicKey)
+            self?.setUpPolling(for: publicKey, using: dependencies)
         }
     }
 }

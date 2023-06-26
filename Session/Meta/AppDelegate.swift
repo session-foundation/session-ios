@@ -332,12 +332,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
     }
     
-    private func showFailedMigrationAlert(calledFrom lifecycleMethod: LifecycleMethod, error: Error?) {
+    private func showFailedMigrationAlert(
+        calledFrom lifecycleMethod: LifecycleMethod,
+        error: Error?,
+        isRestoreError: Bool = false
+    ) {
         let alert = UIAlertController(
             title: "Session",
             message: {
-                switch (error ?? StorageError.generic) {
-                    case StorageError.startupFailed: return "DATABASE_STARTUP_FAILED".localized()
+                switch (isRestoreError, (error ?? StorageError.generic)) {
+                    case (true, _): return "DATABASE_RESTORE_FAILED".localized()
+                    case (_, StorageError.startupFailed): return "DATABASE_STARTUP_FAILED".localized()
                     default: return "DATABASE_MIGRATION_FAILED".localized()
                 }
             }(),
@@ -348,32 +353,45 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 self?.showFailedMigrationAlert(calledFrom: lifecycleMethod, error: error)
             }
         })
-        alert.addAction(UIAlertAction(title: "vc_restore_title".localized(), style: .destructive) { _ in
-            // Remove the legacy database and any message hashes that have been migrated to the new DB
-            try? SUKLegacy.deleteLegacyDatabaseFilesAndKey()
-            
-            Storage.shared.write { db in
-                try SnodeReceivedMessageInfo.deleteAll(db)
-            }
-            
-            // The re-run the migration (should succeed since there is no data)
-            AppSetup.runPostSetupMigrations(
-                migrationProgressChanged: { [weak self] progress, minEstimatedTotalTime in
-                    self?.loadingViewController?.updateProgress(
-                        progress: progress,
-                        minEstimatedTotalTime: minEstimatedTotalTime
-                    )
-                },
-                migrationsCompletion: { [weak self] result, needsConfigSync in
-                    if case .failure(let error) = result {
-                        self?.showFailedMigrationAlert(calledFrom: lifecycleMethod, error: error)
-                        return
-                    }
+        
+        // Only offer the 'Restore' option if the user hasn't already tried to restore
+        if !isRestoreError {
+            alert.addAction(UIAlertAction(title: "vc_restore_title".localized(), style: .destructive) { _ in
+                if SUKLegacy.hasLegacyDatabaseFile {
+                    // Remove the legacy database and any message hashes that have been migrated to the new DB
+                    try? SUKLegacy.deleteLegacyDatabaseFilesAndKey()
                     
-                    self?.completePostMigrationSetup(calledFrom: lifecycleMethod, needsConfigSync: needsConfigSync)
+                    Storage.shared.write { db in
+                        try SnodeReceivedMessageInfo.deleteAll(db)
+                    }
                 }
-            )
-        })
+                else {
+                    // If we don't have a legacy database then reset the current database for a clean migration
+                    Storage.resetForCleanMigration()
+                }
+                
+                // Hide the top banner if there was one
+                TopBannerController.hide()
+                
+                // The re-run the migration (should succeed since there is no data)
+                AppSetup.runPostSetupMigrations(
+                    migrationProgressChanged: { [weak self] progress, minEstimatedTotalTime in
+                        self?.loadingViewController?.updateProgress(
+                            progress: progress,
+                            minEstimatedTotalTime: minEstimatedTotalTime
+                        )
+                    },
+                    migrationsCompletion: { [weak self] result, needsConfigSync in
+                        if case .failure(let error) = result {
+                            self?.showFailedMigrationAlert(calledFrom: lifecycleMethod, error: error, isRestoreError: true)
+                            return
+                        }
+                        
+                        self?.completePostMigrationSetup(calledFrom: lifecycleMethod, needsConfigSync: needsConfigSync)
+                    }
+                )
+            })
+        }
         
         alert.addAction(UIAlertAction(title: "Close", style: .default) { _ in
             DDLog.flushLog()
@@ -612,12 +630,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     public func startPollersIfNeeded(shouldStartGroupPollers: Bool = true) {
         guard Identity.userExists() else { return }
         
-        poller.start()
-        
-        guard shouldStartGroupPollers else { return }
-        
-        ClosedGroupPoller.shared.start()
-        OpenGroupManager.shared.startPolling()
+        /// There is a fun issue where if you launch without any valid paths then the pollers are guaranteed to fail their first poll due to
+        /// trying and failing to build paths without having the `SnodeAPI.snodePool` populated, by waiting for the
+        /// `JobRunner.blockingQueue` to complete we can have more confidence that paths won't fail to build incorrectly
+        JobRunner.afterBlockingQueue { [weak self] in
+            self?.poller.start()
+            
+            guard shouldStartGroupPollers else { return }
+            
+            ClosedGroupPoller.shared.start()
+            OpenGroupManager.shared.startPolling()
+        }
     }
     
     public func stopPollers(shouldStopUserPoller: Bool = true) {

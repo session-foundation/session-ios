@@ -360,7 +360,7 @@ public class MediaGalleryViewModel {
     /// this is due to the behaviour of `ValueConcurrentObserver.asyncStartObservation` which triggers it's own
     /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
-    public typealias AlbumObservation = ValueObservation<ValueReducers.RemoveDuplicates<ValueReducers.Fetch<[Item]>>>
+    public typealias AlbumObservation = ValueObservation<ValueReducers.Trace<ValueReducers.RemoveDuplicates<ValueReducers.Fetch<[Item]>>>>
     public lazy var observableAlbumData: AlbumObservation = buildAlbumObservation(for: nil)
     
     private func buildAlbumObservation(for interactionId: Int64?) -> AlbumObservation {
@@ -383,6 +383,7 @@ public class MediaGalleryViewModel {
                     .fetchAll(db)
             }
             .removeDuplicates()
+            .handleEvents(didFail: { SNLog("[MediaGalleryViewModel] Observation failed with error: \($0)") })
     }
     
     @discardableResult public func loadAndCacheAlbumData(for interactionId: Int64, in threadId: String) -> [Item] {

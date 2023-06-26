@@ -108,10 +108,7 @@ extension MessageSender {
         )
     }
     
-    public static func performUploadsIfNeeded(
-        queue: DispatchQueue,
-        preparedSendData: PreparedSendData
-    ) -> AnyPublisher<PreparedSendData, Error> {
+    public static func performUploadsIfNeeded(preparedSendData: PreparedSendData) -> AnyPublisher<PreparedSendData, Error> {
         // We need an interactionId in order for a message to have uploads
         guard let interactionId: Int64 = preparedSendData.interactionId else {
             return Just(preparedSendData)

@@ -71,18 +71,12 @@ public enum OnionRequestAPI: OnionRequestAPIType {
         let timeout: TimeInterval = 3 // Use a shorter timeout for testing
         
         return HTTP.execute(.get, url, timeout: timeout)
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .tryMap { responseData -> Void in
-                // TODO: Remove JSON usage
-                guard let responseJson: JSON = try? JSONSerialization.jsonObject(with: responseData, options: [ .fragmentsAllowed ]) as? JSON else {
-                    throw HTTPError.invalidJSON
-                }
-                guard let version = responseJson["version"] as? String else {
-                    throw OnionRequestAPIError.missingSnodeVersion
-                }
-                guard version >= "2.0.7" else {
-                    SNLog("Unsupported snode version: \(version).")
-                    throw OnionRequestAPIError.unsupportedSnodeVersion(version)
+            .decoded(as: SnodeAPI.GetStatsResponse.self)
+            .tryMap { response -> Void in
+                guard let version: Version = response.version else { throw OnionRequestAPIError.missingSnodeVersion }
+                guard version >= Version(major: 2, minor: 0, patch: 7) else {
+                    SNLog("Unsupported snode version: \(version.stringValue).")
+                    throw OnionRequestAPIError.unsupportedSnodeVersion(version.stringValue)
                 }
                 
                 return ()
@@ -154,63 +148,82 @@ public enum OnionRequestAPI: OnionRequestAPIType {
             return existingBuildPathsPublisher
         }
         
-        SNLog("Building onion request paths.")
-        DispatchQueue.main.async {
-            NotificationCenter.default.post(name: .buildingPaths, object: nil)
-        }
-        let reusableGuardSnodes = reusablePaths.map { $0[0] }
-        let publisher: AnyPublisher<[[Snode]], Error> = getGuardSnodes(reusing: reusableGuardSnodes)
-            .flatMap { guardSnodes -> AnyPublisher<[[Snode]], Error> in
-                var unusedSnodes = SnodeAPI.snodePool.wrappedValue
-                    .subtracting(guardSnodes)
-                    .subtracting(reusablePaths.flatMap { $0 })
-                let reusableGuardSnodeCount = UInt(reusableGuardSnodes.count)
-                let pathSnodeCount = (targetGuardSnodeCount - reusableGuardSnodeCount) * pathSize - (targetGuardSnodeCount - reusableGuardSnodeCount)
-                
-                guard unusedSnodes.count >= pathSnodeCount else {
-                    return Fail<[[Snode]], Error>(error: OnionRequestAPIError.insufficientSnodes)
-                        .eraseToAnyPublisher()
-                }
-                
-                // Don't test path snodes as this would reveal the user's IP to them
-                return Just(
-                    guardSnodes
+        return buildPathsPublisher.mutate { result in
+            /// It was possible for multiple threads to call this at the same time resulting in duplicate promises getting created, while
+            /// this should no longer be possible (as the `wrappedValue` should now properly be blocked) this is a sanity check
+            /// to make sure we don't create an additional promise when one already exists
+            if let previouslyBlockedPublisher: AnyPublisher<[[Snode]], Error> = result {
+                return previouslyBlockedPublisher
+            }
+            
+            SNLog("Building onion request paths.")
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .buildingPaths, object: nil)
+            }
+            
+            /// Need to include the post-request code and a `shareReplay` within the publisher otherwise it can still be executed
+            /// multiple times as a result of multiple subscribers
+            let reusableGuardSnodes = reusablePaths.map { $0[0] }
+            let publisher: AnyPublisher<[[Snode]], Error> = getGuardSnodes(reusing: reusableGuardSnodes)
+                .flatMap { (guardSnodes: Set<Snode>) -> AnyPublisher<[[Snode]], Error> in
+                    var unusedSnodes: Set<Snode> = SnodeAPI.snodePool.wrappedValue
+                        .subtracting(guardSnodes)
+                        .subtracting(reusablePaths.flatMap { $0 })
+                    let reusableGuardSnodeCount: UInt = UInt(reusableGuardSnodes.count)
+                    let pathSnodeCount: UInt = (targetGuardSnodeCount - reusableGuardSnodeCount) * pathSize - (targetGuardSnodeCount - reusableGuardSnodeCount)
+                    
+                    guard unusedSnodes.count >= pathSnodeCount else {
+                        return Fail<[[Snode]], Error>(error: OnionRequestAPIError.insufficientSnodes)
+                            .eraseToAnyPublisher()
+                    }
+                    
+                    // Don't test path snodes as this would reveal the user's IP to them
+                    let paths: [[Snode]] = guardSnodes
                         .subtracting(reusableGuardSnodes)
-                        .map { guardSnode in
-                            let result = [ guardSnode ] + (0..<(pathSize - 1)).map { _ in
-                                // randomElement() uses the system's default random generator, which is cryptographically secure
-                                let pathSnode = unusedSnodes.randomElement()! // Safe because of the pathSnodeCount check above
-                                unusedSnodes.remove(pathSnode) // All used snodes should be unique
-                                return pathSnode
-                            }
+                        .map { (guardSnode: Snode) in
+                            let result: [Snode] = [guardSnode]
+                                .appending(
+                                    contentsOf: (0..<(pathSize - 1))
+                                        .map { _ in
+                                            // randomElement() uses the system's default random generator,
+                                            // which is cryptographically secure
+                                            let pathSnode: Snode = unusedSnodes.randomElement()! // Safe because of the pathSnodeCount check above
+                                            unusedSnodes.remove(pathSnode) // All used snodes should be unique
+                                            return pathSnode
+                                        }
+                                    )
                             
                             SNLog("Built new onion request path: \(result.prettifiedDescription).")
                             return result
                         }
+                    
+                    return Just(paths)
+                        .setFailureType(to: Error.self)
+                        .eraseToAnyPublisher()
+                }
+                .handleEvents(
+                    receiveOutput: { output in
+                        OnionRequestAPI.paths = (output + reusablePaths)
+                        
+                        Storage.shared.write { db in
+                            SNLog("Persisting onion request paths to database.")
+                            try? output.save(db)
+                        }
+                        
+                        DispatchQueue.main.async {
+                            NotificationCenter.default.post(name: .pathsBuilt, object: nil)
+                        }
+                    },
+                    receiveCompletion: { _ in buildPathsPublisher.mutate { $0 = nil } }
                 )
-                .setFailureType(to: Error.self)
+                .shareReplay(1)
                 .eraseToAnyPublisher()
-            }
-            .handleEvents(
-                receiveOutput: { output in
-                    OnionRequestAPI.paths = (output + reusablePaths)
-                    
-                    Storage.shared.write { db in
-                        SNLog("Persisting onion request paths to database.")
-                        try? output.save(db)
-                    }
-                    
-                    DispatchQueue.main.async {
-                        NotificationCenter.default.post(name: .pathsBuilt, object: nil)
-                    }
-                },
-                receiveCompletion: { _ in buildPathsPublisher.mutate { $0 = nil } }
-            )
-            .eraseToAnyPublisher()
-        
-        buildPathsPublisher.mutate { $0 = publisher }
-        
-        return publisher
+            
+            /// Actually assign the atomic value
+            result = publisher
+            
+            return publisher
+        }
     }
     
     /// Returns a `Path` to be used for building an onion request. Builds new paths as needed.
@@ -245,6 +258,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
             if let snode = snode {
                 if let path = paths.first(where: { !$0.contains(snode) }) {
                     buildPaths(reusing: paths) // Re-build paths in the background
+                        .subscribe(on: DispatchQueue.global(qos: .background))
                         .sink(receiveCompletion: { _ in cancellable = [] }, receiveValue: { _ in })
                         .store(in: &cancellable)
                     
@@ -269,6 +283,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
             }
             else {
                 buildPaths(reusing: paths) // Re-build paths in the background
+                    .subscribe(on: DispatchQueue.global(qos: .background))
                     .sink(receiveCompletion: { _ in cancellable = [] }, receiveValue: { _ in })
                     .store(in: &cancellable)
                 
@@ -480,7 +495,6 @@ public enum OnionRequestAPI: OnionRequestAPIType {
         var guardSnode: Snode?
         
         return buildOnion(around: payload, targetedAt: destination)
-            .subscribe(on: Threading.workQueue)
             .flatMap { intermediate -> AnyPublisher<(ResponseInfoType, Data?), Error> in
                 guardSnode = intermediate.guardSnode
                 let url = "\(guardSnode!.address):\(guardSnode!.port)/onion_req/v2"

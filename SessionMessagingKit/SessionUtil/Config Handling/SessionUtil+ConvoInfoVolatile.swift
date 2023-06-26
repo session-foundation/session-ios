@@ -334,7 +334,7 @@ public extension SessionUtil {
                             return false
                         }
                         
-                        return (oneToOne.last_read > timestampMs)
+                        return (oneToOne.last_read >= timestampMs)
                         
                     case .legacyGroup:
                         var cThreadId: [CChar] = threadId.cArray.nullTerminated()
@@ -344,7 +344,7 @@ public extension SessionUtil {
                             return false
                         }
                         
-                        return (legacyGroup.last_read > timestampMs)
+                        return (legacyGroup.last_read >= timestampMs)
                         
                     case .community:
                         guard let openGroup: OpenGroup = openGroup else { return false }
@@ -357,7 +357,7 @@ public extension SessionUtil {
                             return false
                         }
                         
-                        return (convoCommunity.last_read > timestampMs)
+                        return (convoCommunity.last_read >= timestampMs)
                         
                     case .group: return false
                 }

@@ -118,7 +118,8 @@ extension MessageReceiver {
             message: message,
             associatedWithProto: proto,
             sender: sender,
-            messageSentTimestamp: messageSentTimestamp
+            messageSentTimestamp: messageSentTimestamp,
+            openGroup: maybeOpenGroup
         ) {
             return interactionId
         }
@@ -313,7 +314,7 @@ extension MessageReceiver {
         }
         
         // Notify the user if needed
-        guard variant == .standardIncoming else { return interactionId }
+        guard variant == .standardIncoming && !interaction.wasRead else { return interactionId }
         
         // Use the same identifier for notifications when in backgroud polling to prevent spam
         Environment.shared?.notificationsManager.wrappedValue?
@@ -332,7 +333,8 @@ extension MessageReceiver {
         message: VisibleMessage,
         associatedWithProto proto: SNProtoContent,
         sender: String,
-        messageSentTimestamp: TimeInterval
+        messageSentTimestamp: TimeInterval,
+        openGroup: OpenGroup?
     ) throws -> Int64? {
         guard
             let reaction: VisibleMessage.VMReaction = message.reaction,
@@ -360,17 +362,28 @@ extension MessageReceiver {
         
         switch reaction.kind {
             case .react:
+                let timestampMs: Int64 = Int64(messageSentTimestamp * 1000)
+                let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
                 let reaction: Reaction = try Reaction(
                     interactionId: interactionId,
                     serverHash: message.serverHash,
-                    timestampMs: Int64(messageSentTimestamp * 1000),
+                    timestampMs: timestampMs,
                     authorId: sender,
                     emoji: reaction.emoji,
                     count: 1,
                     sortId: sortId
                 ).inserted(db)
+                let timestampAlreadyRead: Bool = SessionUtil.timestampAlreadyRead(
+                    threadId: thread.id,
+                    threadVariant: thread.variant,
+                    timestampMs: timestampMs,
+                    userPublicKey: currentUserPublicKey,
+                    openGroup: openGroup
+                )
                 
-                if sender != getUserHexEncodedPublicKey(db) {
+                // Don't notify if the reaction was added before the lastest read timestamp for
+                // the conversation
+                if sender != currentUserPublicKey && !timestampAlreadyRead {
                     Environment.shared?.notificationsManager.wrappedValue?
                         .notifyUser(
                             db,

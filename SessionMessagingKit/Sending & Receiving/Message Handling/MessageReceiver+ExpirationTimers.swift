@@ -114,19 +114,27 @@ extension MessageReceiver {
             .deleteAll(db)
         
         // Add an info message for the user
+        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
         _ = try Interaction(
             serverHash: nil, // Intentionally null so sync messages are seen as duplicates
             threadId: threadId,
             authorId: sender,
             variant: .infoDisappearingMessagesUpdate,
             body: remoteConfig.messageInfoString(
-                with: (sender != getUserHexEncodedPublicKey(db) ?
+                with: (sender != currentUserPublicKey ?
                     Profile.displayName(db, id: sender) :
                     nil
                 ),
                 isPreviousOff: false
             ),
             timestampMs: timestampMs,
+            wasRead: SessionUtil.timestampAlreadyRead(
+                threadId: threadId,
+                threadVariant: threadVariant,
+                timestampMs: (timestampMs * 1000),
+                userPublicKey: currentUserPublicKey,
+                openGroup: nil
+            ),
             expiresInSeconds: (remoteConfig.isEnabled ? nil : localConfig.durationSeconds)
         ).inserted(db)
     }

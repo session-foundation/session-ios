@@ -20,7 +20,7 @@ public class HomeViewModel {
     
     // MARK: - Variables
     
-    public static let pageSize: Int = 15
+    public static let pageSize: Int = (UIDevice.current.isIPad ? 20 : 15)
     
     public struct State: Equatable {
         let showViewedSeedBanner: Bool
@@ -231,6 +231,7 @@ public class HomeViewModel {
     public lazy var observableState = ValueObservation
         .trackingConstantRegion { db -> State in try HomeViewModel.retrieveState(db) }
         .removeDuplicates()
+        .handleEvents(didFail: { SNLog("[HomeViewModel] Observation failed with error: \($0)") })
     
     private static func retrieveState(_ db: Database) throws -> State {
         let hasViewedSeed: Bool = db[.hasViewedSeed]

@@ -198,6 +198,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                                 )
                         }
                         .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
+                        .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                         .sinkUntilComplete(
                             receiveCompletion: { result in
                                 switch result {
@@ -263,6 +264,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                                     )
                             }
                             .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
+                            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                             .sinkUntilComplete(
                                 receiveCompletion: { result in
                                     switch result {

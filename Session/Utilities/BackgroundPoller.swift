@@ -11,21 +11,32 @@ public final class BackgroundPoller {
     private static var publishers: [AnyPublisher<Void, Error>] = []
     public static var isValid: Bool = false
 
-    public static func poll(completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+    public static func poll(
+        completionHandler: @escaping (UIBackgroundFetchResult) -> Void,
+        dependencies: OpenGroupManager.OGMDependencies = OpenGroupManager.OGMDependencies(
+            subscribeQueue: .global(qos: .background),
+            receiveQueue: .main
+        )
+    ) {
         Publishers
             .MergeMany(
-                [pollForMessages()]
-                    .appending(contentsOf: pollForClosedGroupMessages())
+                [pollForMessages(using: dependencies)]
+                    .appending(contentsOf: pollForClosedGroupMessages(using: dependencies))
                     .appending(
                         contentsOf: Storage.shared
                             .read { db in
-                                // The default room promise creates an OpenGroup with an empty
-                                // `roomToken` value, we don't want to start a poller for this
-                                // as the user hasn't actually joined a room
+                                /// The default room promise creates an OpenGroup with an empty `roomToken` value, we
+                                /// don't want to start a poller for this as the user hasn't actually joined a room
+                                ///
+                                /// We also want to exclude any rooms which have failed to poll too many times in a row from
+                                /// the background poll as they are likely to fail again
                                 try OpenGroup
                                     .select(.server)
-                                    .filter(OpenGroup.Columns.roomToken != "")
-                                    .filter(OpenGroup.Columns.isActive)
+                                    .filter(
+                                        OpenGroup.Columns.roomToken != "" &&
+                                        OpenGroup.Columns.isActive &&
+                                        OpenGroup.Columns.pollFailureCount < OpenGroupAPI.Poller.maxRoomFailureCountForBackgroundPoll
+                                    )
                                     .distinct()
                                     .asRequest(of: String.self)
                                     .fetchSet(db)
@@ -38,13 +49,14 @@ public final class BackgroundPoller {
                                 return poller.poll(
                                     calledFromBackgroundPoller: true,
                                     isBackgroundPollerValid: { BackgroundPoller.isValid },
-                                    isPostCapabilitiesRetry: false
+                                    isPostCapabilitiesRetry: false,
+                                    using: dependencies
                                 )
                             }
                     )
             )
-            .subscribeOnMain(immediately: true)
-            .receiveOnMain(immediately: true)
+            .subscribe(on: dependencies.subscribeQueue, immediatelyIfMain: true)
+            .receive(on: dependencies.receiveQueue, immediatelyIfMain: true)
             .collect()
             .sinkUntilComplete(
                 receiveCompletion: { result in
@@ -61,27 +73,29 @@ public final class BackgroundPoller {
             )
     }
     
-    private static func pollForMessages() -> AnyPublisher<Void, Error> {
+    private static func pollForMessages(
+        using dependencies: OpenGroupManager.OGMDependencies
+    ) -> AnyPublisher<Void, Error> {
         let userPublicKey: String = getUserHexEncodedPublicKey()
 
         return SnodeAPI.getSwarm(for: userPublicKey)
-            .subscribeOnMain(immediately: true)
-            .receiveOnMain(immediately: true)
             .tryFlatMapWithRandomSnode { snode -> AnyPublisher<[Message], Error> in
                 CurrentUserPoller.poll(
                     namespaces: CurrentUserPoller.namespaces,
                     from: snode,
                     for: userPublicKey,
-                    on: DispatchQueue.main,
                     calledFromBackgroundPoller: true,
-                    isBackgroundPollValid: { BackgroundPoller.isValid }
+                    isBackgroundPollValid: { BackgroundPoller.isValid },
+                    using: dependencies
                 )
             }
             .map { _ in () }
             .eraseToAnyPublisher()
     }
     
-    private static func pollForClosedGroupMessages() -> [AnyPublisher<Void, Error>] {
+    private static func pollForClosedGroupMessages(
+        using dependencies: OpenGroupManager.OGMDependencies
+    ) -> [AnyPublisher<Void, Error>] {
         // Fetch all closed groups (excluding any don't contain the current user as a
         // GroupMemeber as the user is no longer a member of those)
         return Storage.shared
@@ -98,8 +112,6 @@ public final class BackgroundPoller {
             .defaulting(to: [])
             .map { groupPublicKey in
                 SnodeAPI.getSwarm(for: groupPublicKey)
-                    .subscribeOnMain(immediately: true)
-                    .receiveOnMain(immediately: true)
                     .tryFlatMap { swarm -> AnyPublisher<[Message], Error> in
                         guard let snode: Snode = swarm.randomElement() else {
                             throw OnionRequestAPIError.insufficientSnodes
@@ -109,9 +121,9 @@ public final class BackgroundPoller {
                             namespaces: ClosedGroupPoller.namespaces,
                             from: snode,
                             for: groupPublicKey,
-                            on: DispatchQueue.main,
                             calledFromBackgroundPoller: true,
-                            isBackgroundPollValid: { BackgroundPoller.isValid }
+                            isBackgroundPollValid: { BackgroundPoller.isValid },
+                            using: dependencies
                         )
                     }
                     .map { _ in () }

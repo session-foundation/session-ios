@@ -51,7 +51,10 @@ public struct ProfileManager {
         }
         
         if let profilePictureUrl: String = profile.profilePictureUrl, !profilePictureUrl.isEmpty {
-            downloadAvatar(for: profile)
+            // FIXME: Refactor avatar downloading to be a proper Job so we can avoid this
+            JobRunner.afterBlockingQueue {
+                ProfileManager.downloadAvatar(for: profile)
+            }
         }
         
         return nil
@@ -78,7 +81,10 @@ public struct ProfileManager {
                 completion: { _, _ in
                     // Try to re-download the avatar if it has a URL
                     if let profilePictureUrl: String = profile.profilePictureUrl, !profilePictureUrl.isEmpty {
-                        downloadAvatar(for: profile)
+                        // FIXME: Refactor avatar downloading to be a proper Job so we can avoid this
+                        JobRunner.afterBlockingQueue {
+                            ProfileManager.downloadAvatar(for: profile)
+                        }
                     }
                 }
             )
@@ -214,7 +220,8 @@ public struct ProfileManager {
         
         FileServerAPI
             .download(fileId, useOldServer: useOldServer)
-            .receive(on: DispatchQueue.global(qos: .default))
+            .subscribe(on: DispatchQueue.global(qos: .background))
+            .receive(on: DispatchQueue.global(qos: .background))
             .sinkUntilComplete(
                 receiveCompletion: { _ in
                     currentAvatarDownloads.mutate { $0.remove(profile.id) }
@@ -451,6 +458,7 @@ public struct ProfileManager {
             // Upload the avatar to the FileServer
             FileServerAPI
                 .upload(encryptedAvatarData)
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .receive(on: queue)
                 .sinkUntilComplete(
                     receiveCompletion: { result in
@@ -590,7 +598,12 @@ public struct ProfileManager {
         
         db.afterNextTransactionNestedOnce(dedupeId: dedupeIdentifier) { db in
             // Need to refetch to ensure the db changes have occurred
-            ProfileManager.downloadAvatar(for: Profile.fetchOrCreate(db, id: publicKey))
+            let targetProfile: Profile = Profile.fetchOrCreate(db, id: publicKey)
+            
+            // FIXME: Refactor avatar downloading to be a proper Job so we can avoid this
+            JobRunner.afterBlockingQueue {
+                ProfileManager.downloadAvatar(for: targetProfile)
+            }
         }
     }
 }

@@ -28,21 +28,25 @@ public extension Publisher {
     /// The standard `.subscribe(on: DispatchQueue.main)` seems to ocassionally dispatch to the
     /// next run loop before actually subscribing, this method checks if it's running on the main thread already and
     /// if so just subscribes directly rather than routing via `.receive(on:)`
-    func subscribeOnMain(immediately receiveImmediately: Bool = false, options: DispatchQueue.SchedulerOptions? = nil) -> AnyPublisher<Output, Failure> {
-        guard receiveImmediately else {
-            return self.subscribe(on: DispatchQueue.main, options: options)
+    func subscribe<S>(
+        on scheduler: S,
+        immediatelyIfMain: Bool,
+        options: S.SchedulerOptions? = nil
+    ) -> AnyPublisher<Output, Failure> where S: Scheduler {
+        guard immediatelyIfMain && ((scheduler as? DispatchQueue) == DispatchQueue.main) else {
+            return self.subscribe(on: scheduler, options: options)
                 .eraseToAnyPublisher()
         }
-        
+
         return self
             .flatMap { value -> AnyPublisher<Output, Failure> in
                 guard Thread.isMainThread else {
                     return Just(value)
                         .setFailureType(to: Failure.self)
-                        .subscribe(on: DispatchQueue.main, options: options)
+                        .subscribe(on: scheduler, options: options)
                         .eraseToAnyPublisher()
                 }
-                
+
                 return Just(value)
                     .setFailureType(to: Failure.self)
                     .eraseToAnyPublisher()
@@ -53,21 +57,25 @@ public extension Publisher {
     /// The standard `.receive(on: DispatchQueue.main)` seems to ocassionally dispatch to the
     /// next run loop before emitting data, this method checks if it's running on the main thread already and
     /// if so just emits directly rather than routing via `.receive(on:)`
-    func receiveOnMain(immediately receiveImmediately: Bool = false) -> AnyPublisher<Output, Failure> {
-        guard receiveImmediately else {
-            return self.receive(on: DispatchQueue.main)
+    func receive<S>(
+        on scheduler: S,
+        immediatelyIfMain: Bool,
+        options: S.SchedulerOptions? = nil
+    ) -> AnyPublisher<Output, Failure> where S: Scheduler {
+        guard immediatelyIfMain && ((scheduler as? DispatchQueue) == DispatchQueue.main) else {
+            return self.receive(on: scheduler, options: options)
                 .eraseToAnyPublisher()
         }
-        
+
         return self
             .flatMap { value -> AnyPublisher<Output, Failure> in
                 guard Thread.isMainThread else {
                     return Just(value)
                         .setFailureType(to: Failure.self)
-                        .receive(on: DispatchQueue.main)
+                        .receive(on: scheduler, options: options)
                         .eraseToAnyPublisher()
                 }
-                
+
                 return Just(value)
                     .setFailureType(to: Failure.self)
                     .eraseToAnyPublisher()

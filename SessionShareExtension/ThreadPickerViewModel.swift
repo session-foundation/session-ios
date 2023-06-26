@@ -29,6 +29,7 @@ public class ThreadPickerViewModel {
                 .fetchAll(db)
         }
         .removeDuplicates()
+        .handleEvents(didFail: { SNLog("[ThreadPickerViewModel] Observation failed with error: \($0)") })
     
     // MARK: - Functions
     

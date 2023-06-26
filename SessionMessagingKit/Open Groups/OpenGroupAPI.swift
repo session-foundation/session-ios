@@ -31,9 +31,7 @@ public enum OpenGroupAPI {
         server: String,
         hasPerformedInitialPoll: Bool,
         timeSinceLastPoll: TimeInterval,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
+        using dependencies: SMKDependencies = SMKDependencies()
     ) -> AnyPublisher<(info: ResponseInfoType, data: [Endpoint: Codable]), Error> {
         let lastInboxMessageId: Int64 = (try? OpenGroup
             .select(.inboxLatestMessageId)
@@ -153,9 +151,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         server: String,
         requests: [BatchRequest.Info],
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
+        using dependencies: SMKDependencies = SMKDependencies()
     ) -> AnyPublisher<(info: ResponseInfoType, data: [Endpoint: Codable]), Error> {
         let responseTypes = requests.map { $0.responseType }
         
@@ -187,9 +183,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         server: String,
         requests: [BatchRequest.Info],
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
+        using dependencies: SMKDependencies = SMKDependencies()
     ) -> AnyPublisher<(info: ResponseInfoType, data: [Endpoint: Codable]), Error> {
         let responseTypes = requests.map { $0.responseType }
         
@@ -217,25 +211,23 @@ public enum OpenGroupAPI {
     ///
     /// Eg. `GET /capabilities` could return `{"capabilities": ["sogs", "batch"]}` `GET /capabilities?required=magic,batch`
     /// could return: `{"capabilities": ["sogs", "batch"], "missing": ["magic"]}`
-    public static func capabilities(
+    public static func preparedCapabilities(
         _ db: Database,
         server: String,
         forceBlinded: Bool = false,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<(ResponseInfoType, Capabilities), Error> {
-        return OpenGroupAPI
-            .send(
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<Capabilities> {
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request<NoBody, Endpoint>(
                     server: server,
                     endpoint: .capabilities
                 ),
+                responseType: Capabilities.self,
                 forceBlinded: forceBlinded,
                 using: dependencies
             )
-            .decoded(as: Capabilities.self, using: dependencies)
     }
     
     // MARK: - Room
@@ -243,23 +235,21 @@ public enum OpenGroupAPI {
     /// Returns a list of available rooms on the server
     ///
     /// Rooms to which the user does not have access (e.g. because they are banned, or the room has restricted access permissions) are not included
-    public static func rooms(
+    public static func preparedRooms(
         _ db: Database,
         server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<(ResponseInfoType, [Room]), Error> {
-        return OpenGroupAPI
-            .send(
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<[Room]> {
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request<NoBody, Endpoint>(
                     server: server,
                     endpoint: .rooms
                 ),
+                responseType: [Room].self,
                 using: dependencies
             )
-            .decoded(as: [Room].self, using: dependencies)
     }
     
     /// Returns the details of a single room
@@ -268,24 +258,22 @@ public enum OpenGroupAPI {
     /// this directly remove the `@available` line and make sure to route the response of this method to the `OpenGroupManager.handlePollInfo`
     /// method to ensure things are processed correctly
     @available(*, unavailable, message: "Avoid using this directly, use the pre-built `poll()` method instead")
-    public static func room(
+    public static func preparedRoom(
         _ db: Database,
         for roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<(ResponseInfoType, Room), Error> {
-        return OpenGroupAPI
-            .send(
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<Room> {
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request<NoBody, Endpoint>(
                     server: server,
                     endpoint: .room(roomToken)
                 ),
+                responseType: Room.self,
                 using: dependencies
             )
-            .decoded(as: Room.self, using: dependencies)
     }
     
     /// Polls a room for metadata updates
@@ -297,25 +285,23 @@ public enum OpenGroupAPI {
     /// this directly remove the `@available` line and make sure to route the response of this method to the `OpenGroupManager.handlePollInfo`
     /// method to ensure things are processed correctly
     @available(*, unavailable, message: "Avoid using this directly, use the pre-built `poll()` method instead")
-    public static func roomPollInfo(
+    public static func preparedRoomPollInfo(
         _ db: Database,
         lastUpdated: Int64,
         for roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<(ResponseInfoType, RoomPollInfo), Error> {
-        return OpenGroupAPI
-            .send(
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<RoomPollInfo> {
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request<NoBody, Endpoint>(
                     server: server,
                     endpoint: .roomPollInfo(roomToken, lastUpdated)
                 ),
+                responseType: RoomPollInfo.self,
                 using: dependencies
             )
-            .decoded(as: RoomPollInfo.self, using: dependencies)
     }
     
     public typealias CapabilitiesAndRoomResponse = (
@@ -332,9 +318,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         for roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
+        using dependencies: SMKDependencies = SMKDependencies()
     ) -> AnyPublisher<CapabilitiesAndRoomResponse, Error> {
         let requestResponseType: [BatchRequest.Info] = [
             // Get the latest capabilities for the server (in case it's a new server or the cached ones are stale)
@@ -398,9 +382,7 @@ public enum OpenGroupAPI {
     public static func capabilitiesAndRooms(
         _ db: Database,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
+        using dependencies: SMKDependencies = SMKDependencies()
     ) -> AnyPublisher<(capabilities: (info: ResponseInfoType, data: Capabilities), rooms: (info: ResponseInfoType, data: [Room])), Error> {
         let requestResponseType: [BatchRequest.Info] = [
             // Get the latest capabilities for the server (in case it's a new server or the cached ones are stale)
@@ -458,7 +440,7 @@ public enum OpenGroupAPI {
     // MARK: - Messages
     
     /// Posts a new message to a room
-    public static func send(
+    public static func preparedSend(
         _ db: Database,
         plaintext: Data,
         to roomToken: String,
@@ -466,17 +448,14 @@ public enum OpenGroupAPI {
         whisperTo: String?,
         whisperMods: Bool,
         fileIds: [String]?,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<(ResponseInfoType, Message), Error> {
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<Message> {
         guard let signResult: (publicKey: String, signature: Bytes) = sign(db, messageBytes: plaintext.bytes, for: server, fallbackSigningType: .standard, using: dependencies) else {
-            return Fail(error: OpenGroupAPIError.signingFailed)
-                .eraseToAnyPublisher()
+            throw OpenGroupAPIError.signingFailed
         }
         
-        return OpenGroupAPI
-            .send(
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request(
                     method: .post,
@@ -490,54 +469,49 @@ public enum OpenGroupAPI {
                         fileIds: fileIds
                     )
                 ),
+                responseType: Message.self,
                 using: dependencies
             )
-            .decoded(as: Message.self, using: dependencies)
     }
     
     /// Returns a single message by ID
-    public static func message(
+    public static func preparedMessage(
         _ db: Database,
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<(ResponseInfoType, Message), Error> {
-        return OpenGroupAPI
-            .send(
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<Message> {
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request<NoBody, Endpoint>(
                     server: server,
                     endpoint: .roomMessageIndividual(roomToken, id: id)
                 ),
+                responseType: Message.self,
                 using: dependencies
             )
-            .decoded(as: Message.self, using: dependencies)
     }
     
     /// Edits a message, replacing its existing content with new content and a new signature
     ///
     /// **Note:** This edit may only be initiated by the creator of the post, and the poster must currently have write permissions in the room
-    public static func messageUpdate(
+    public static func preparedMessageUpdate(
         _ db: Database,
         id: Int64,
         plaintext: Data,
         fileIds: [Int64]?,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<NoResponse> {
         guard let signResult: (publicKey: String, signature: Bytes) = sign(db, messageBytes: plaintext.bytes, for: server, fallbackSigningType: .standard, using: dependencies) else {
-            return Fail(error: OpenGroupAPIError.signingFailed)
-                .eraseToAnyPublisher()
+            throw OpenGroupAPIError.signingFailed
         }
         
-        return OpenGroupAPI
-            .send(
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request(
                     method: .put,
@@ -549,27 +523,27 @@ public enum OpenGroupAPI {
                         fileIds: fileIds
                     )
                 ),
+                responseType: NoResponse.self,
                 using: dependencies
             )
     }
     
-    public static func messageDelete(
+    public static func preparedMessageDelete(
         _ db: Database,
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        return OpenGroupAPI
-            .send(
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<NoResponse> {
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request<NoBody, Endpoint>(
                     method: .delete,
                     server: server,
                     endpoint: .roomMessageIndividual(roomToken, id: id)
                 ),
+                responseType: NoResponse.self,
                 using: dependencies
             )
     }
@@ -578,66 +552,60 @@ public enum OpenGroupAPI {
     /// this directly remove the `@available` line and make sure to route the response of this method to the `OpenGroupManager.handleMessages`
     /// method to ensure things are processed correctly
     @available(*, unavailable, message: "Avoid using this directly, use the pre-built `poll()` method instead")
-    public static func recentMessages(
+    public static func preparedRecentMessages(
         _ db: Database,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<(ResponseInfoType, [Message]), Error> {
-        return OpenGroupAPI
-            .send(
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<[Message]> {
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request<NoBody, Endpoint>(
                     server: server,
                     endpoint: .roomMessagesRecent(roomToken)
                 ),
+                responseType: [Message].self,
                 using: dependencies
             )
-            .decoded(as: [Message].self, using: dependencies)
     }
     
     /// **Note:** This is the direct request to retrieve recent messages before a given message  and is currently unused, in order to call this directly
     /// remove the `@available` line and make sure to route the response of this method to the `OpenGroupManager.handleMessages`
     /// method to ensure things are processed correctly
     @available(*, unavailable, message: "Avoid using this directly, use the pre-built `poll()` method instead")
-    public static func messagesBefore(
+    public static func preparedMessagesBefore(
         _ db: Database,
         messageId: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<(ResponseInfoType, [Message]), Error> {
-        return OpenGroupAPI
-            .send(
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<[Message]> {
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request<NoBody, Endpoint>(
                     server: server,
                     endpoint: .roomMessagesBefore(roomToken, id: messageId)
                 ),
+                responseType: [Message].self,
                 using: dependencies
             )
-            .decoded(as: [Message].self, using: dependencies)
     }
     
     /// **Note:** This is the direct request to retrieve messages since a given message `seqNo` so should be retrieved automatically from the
     /// `poll()` method, in order to call this directly remove the `@available` line and make sure to route the response of this method to the
     /// `OpenGroupManager.handleMessages` method to ensure things are processed correctly
     @available(*, unavailable, message: "Avoid using this directly, use the pre-built `poll()` method instead")
-    public static func messagesSince(
+    public static func preparedMessagesSince(
         _ db: Database,
         seqNo: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<(ResponseInfoType, [Message]), Error> {
-        return OpenGroupAPI
-            .send(
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<[Message]> {
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request<NoBody, Endpoint>(
                     server: server,
@@ -647,9 +615,9 @@ public enum OpenGroupAPI {
                         .reactors: "20"
                     ]
                 ),
+                responseType: [Message].self,
                 using: dependencies
             )
-            .decoded(as: [Message].self, using: dependencies)
     }
     
     /// Deletes all messages from a given sessionId within the provided rooms (or globally) on a server
@@ -665,148 +633,134 @@ public enum OpenGroupAPI {
     ///   - server: The server to delete messages from
     ///
     ///   - dependencies: Injected dependencies (used for unit testing)
-    public static func messagesDeleteAll(
+    public static func preparedMessagesDeleteAll(
         _ db: Database,
         sessionId: String,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        return OpenGroupAPI
-            .send(
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<NoResponse> {
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request<NoBody, Endpoint>(
                     method: .delete,
                     server: server,
                     endpoint: Endpoint.roomDeleteMessages(roomToken, sessionId: sessionId)
                 ),
+                responseType: NoResponse.self,
                 using: dependencies
             )
     }
     
     // MARK: - Reactions
     
-    public static func reactors(
+    public static func preparedReactors(
         _ db: Database,
         emoji: String,
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<ResponseInfoType, Error> {
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<NoResponse> {
         /// URL(String:) won't convert raw emojis, so need to do a little encoding here.
         /// The raw emoji will come back when calling url.path
         guard let encodedEmoji: String = emoji.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
-            return Fail(error: OpenGroupAPIError.invalidEmoji)
-                .eraseToAnyPublisher()
+            throw OpenGroupAPIError.invalidEmoji
         }
         
-        return OpenGroupAPI
-            .send(
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request<NoBody, Endpoint>(
                     method: .get,
                     server: server,
                     endpoint: .reactors(roomToken, id: id, emoji: encodedEmoji)
                 ),
+                responseType: NoResponse.self,
                 using: dependencies
             )
-            .map { responseInfo, _ in responseInfo }
-            .eraseToAnyPublisher()
     }
     
-    public static func reactionAdd(
+    public static func preparedReactionAdd(
         _ db: Database,
         emoji: String,
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<(ResponseInfoType, ReactionAddResponse), Error> {
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<ReactionAddResponse> {
         /// URL(String:) won't convert raw emojis, so need to do a little encoding here.
         /// The raw emoji will come back when calling url.path
         guard let encodedEmoji: String = emoji.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
-            return Fail(error: OpenGroupAPIError.invalidEmoji)
-                .eraseToAnyPublisher()
+            throw OpenGroupAPIError.invalidEmoji
         }
         
-        return OpenGroupAPI
-            .send(
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request<NoBody, Endpoint>(
                     method: .put,
                     server: server,
                     endpoint: .reaction(roomToken, id: id, emoji: encodedEmoji)
                 ),
+                responseType: ReactionAddResponse.self,
                 using: dependencies
             )
-            .decoded(as: ReactionAddResponse.self, using: dependencies)
     }
     
-    public static func reactionDelete(
+    public static func preparedReactionDelete(
         _ db: Database,
         emoji: String,
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<(ResponseInfoType, ReactionRemoveResponse), Error> {
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<ReactionRemoveResponse> {
         /// URL(String:) won't convert raw emojis, so need to do a little encoding here.
         /// The raw emoji will come back when calling url.path
         guard let encodedEmoji: String = emoji.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
-            return Fail(error: OpenGroupAPIError.invalidEmoji)
-                .eraseToAnyPublisher()
+            throw OpenGroupAPIError.invalidEmoji
         }
         
-        return OpenGroupAPI
-            .send(
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request<NoBody, Endpoint>(
                     method: .delete,
                     server: server,
                     endpoint: .reaction(roomToken, id: id, emoji: encodedEmoji)
                 ),
+                responseType: ReactionRemoveResponse.self,
                 using: dependencies
             )
-            .decoded(as: ReactionRemoveResponse.self, using: dependencies)
     }
     
-    public static func reactionDeleteAll(
+    public static func preparedReactionDeleteAll(
         _ db: Database,
         emoji: String,
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<(ResponseInfoType, ReactionRemoveAllResponse), Error> {
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<ReactionRemoveAllResponse> {
         /// URL(String:) won't convert raw emojis, so need to do a little encoding here.
         /// The raw emoji will come back when calling url.path
         guard let encodedEmoji: String = emoji.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
-            return Fail(error: OpenGroupAPIError.invalidEmoji)
-                .eraseToAnyPublisher()
+            throw OpenGroupAPIError.invalidEmoji
         }
         
-        return OpenGroupAPI
-            .send(
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request<NoBody, Endpoint>(
                     method: .delete,
                     server: server,
                     endpoint: .reactionDelete(roomToken, id: id, emoji: encodedEmoji)
                 ),
+                responseType: ReactionRemoveAllResponse.self,
                 using: dependencies
             )
-            .decoded(as: ReactionRemoveAllResponse.self, using: dependencies)
     }
     
     // MARK: - Pinning
@@ -821,94 +775,83 @@ public enum OpenGroupAPI {
     /// Pinned messages that are already pinned will be re-pinned (that is, their pin timestamp and pinning admin user will be updated) - because pinned
     /// messages are returned in pinning-order this allows admins to order multiple pinned messages in a room by re-pinning (via this endpoint) in the
     /// order in which pinned messages should be displayed
-    public static func pinMessage(
+    public static func preparedPinMessage(
         _ db: Database,
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<ResponseInfoType, Error> {
-        return OpenGroupAPI
-            .send(
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<NoResponse> {
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request<NoBody, Endpoint>(
                     method: .post,
                     server: server,
                     endpoint: .roomPinMessage(roomToken, id: id)
                 ),
+                responseType: NoResponse.self,
                 using: dependencies
             )
-            .map { responseInfo, _ in responseInfo }
-            .eraseToAnyPublisher()
     }
     
     /// Remove a message from this room's pinned message list
     ///
     /// The user must have `admin` (not just `moderator`) permissions in the room
-    public static func unpinMessage(
+    public static func preparedUnpinMessage(
         _ db: Database,
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<ResponseInfoType, Error> {
-        return OpenGroupAPI
-            .send(
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<NoResponse> {
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request<NoBody, Endpoint>(
                     method: .post,
                     server: server,
                     endpoint: .roomUnpinMessage(roomToken, id: id)
                 ),
+                responseType: NoResponse.self,
                 using: dependencies
             )
-            .map { responseInfo, _ in responseInfo }
-            .eraseToAnyPublisher()
     }
-
+    
     /// Removes _all_ pinned messages from this room
     ///
     /// The user must have `admin` (not just `moderator`) permissions in the room
-    public static func unpinAll(
+    public static func preparedUnpinAll(
         _ db: Database,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<ResponseInfoType, Error> {
-        return OpenGroupAPI
-            .send(
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<NoResponse> {
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request<NoBody, Endpoint>(
                     method: .post,
                     server: server,
                     endpoint: .roomUnpinAll(roomToken)
                 ),
+                responseType: NoResponse.self,
                 using: dependencies
             )
-            .map { responseInfo, _ in responseInfo }
-            .eraseToAnyPublisher()
     }
     
     // MARK: - Files
     
-    public static func uploadFile(
+    public static func preparedUploadFile(
         _ db: Database,
         bytes: [UInt8],
         fileName: String? = nil,
         to roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<(ResponseInfoType, FileUploadResponse), Error> {
-        return OpenGroupAPI
-            .send(
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<FileUploadResponse> {
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request(
                     method: .post,
@@ -922,37 +865,30 @@ public enum OpenGroupAPI {
                     ],
                     body: bytes
                 ),
+                responseType: FileUploadResponse.self,
                 timeout: FileServerAPI.fileUploadTimeout,
                 using: dependencies
             )
-            .decoded(as: FileUploadResponse.self, using: dependencies)
     }
     
-    public static func downloadFile(
+    public static func preparedDownloadFile(
         _ db: Database,
         fileId: String,
         from roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<(ResponseInfoType, Data), Error> {
-        return OpenGroupAPI
-            .send(
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<Data> {
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request<NoBody, Endpoint>(
                     server: server,
                     endpoint: .roomFileIndividual(roomToken, fileId)
                 ),
+                responseType: Data.self,
                 timeout: FileServerAPI.fileDownloadTimeout,
                 using: dependencies
             )
-            .tryMap { responseInfo, maybeData -> (ResponseInfoType, Data) in
-                guard let data: Data = maybeData else { throw HTTPError.parsingFailed }
-                
-                return (responseInfo, data)
-            }
-            .eraseToAnyPublisher()
     }
     
     // MARK: - Inbox/Outbox (Message Requests)
@@ -963,23 +899,21 @@ public enum OpenGroupAPI {
     /// method, in order to call this directly remove the `@available` line and make sure to route the response of this method to the
     /// `OpenGroupManager.handleDirectMessages` method to ensure things are processed correctly
     @available(*, unavailable, message: "Avoid using this directly, use the pre-built `poll()` method instead")
-    public static func inbox(
+    public static func preparedInbox(
         _ db: Database,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<(ResponseInfoType, [DirectMessage]?), Error> {
-        return OpenGroupAPI
-            .send(
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<[DirectMessage]?> {
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request<NoBody, Endpoint>(
                     server: server,
                     endpoint: .inbox
                 ),
+                responseType: [DirectMessage]?.self,
                 using: dependencies
             )
-            .decoded(as: [DirectMessage]?.self, using: dependencies)
     }
     
     /// Polls for any DMs received since the given id, this method will return a `304` with an empty response if there are no messages
@@ -988,33 +922,29 @@ public enum OpenGroupAPI {
     /// automatically from the `poll()` method, in order to call this directly remove the `@available` line and make sure to route the response
     /// of this method to the `OpenGroupManager.handleDirectMessages` method to ensure things are processed correctly
     @available(*, unavailable, message: "Avoid using this directly, use the pre-built `poll()` method instead")
-    public static func inboxSince(
+    public static func preparedInboxSince(
         _ db: Database,
         id: Int64,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<(ResponseInfoType, [DirectMessage]?), Error> {
-        return OpenGroupAPI
-            .send(
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<[DirectMessage]?> {
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request<NoBody, Endpoint>(
                     server: server,
                     endpoint: .inboxSince(id: id)
                 ),
+                responseType: [DirectMessage]?.self,
                 using: dependencies
             )
-            .decoded(as: [DirectMessage]?.self, using: dependencies)
     }
     
     /// Remove all message requests from inbox, this methrod will return the number of messages deleted
     public static func clearInbox(
         _ db: Database,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
+        using dependencies: SMKDependencies = SMKDependencies()
     ) -> AnyPublisher<(ResponseInfoType, DeleteInboxResponse), Error> {
         return OpenGroupAPI
             .send(
@@ -1033,17 +963,15 @@ public enum OpenGroupAPI {
     /// Delivers a direct message to a user via their blinded Session ID
     ///
     /// The body of this request is a JSON object containing a message key with a value of the encrypted-then-base64-encoded message to deliver
-    public static func send(
+    public static func preparedSend(
         _ db: Database,
         ciphertext: Data,
         toInboxFor blindedSessionId: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<(ResponseInfoType, SendDirectMessageResponse), Error> {
-        return OpenGroupAPI
-            .send(
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<SendDirectMessageResponse> {
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request(
                     method: .post,
@@ -1053,9 +981,9 @@ public enum OpenGroupAPI {
                         message: ciphertext
                     )
                 ),
+                responseType: SendDirectMessageResponse.self,
                 using: dependencies
             )
-            .decoded(as: SendDirectMessageResponse.self, using: dependencies)
     }
     
     /// Retrieves all of the user's sent DMs (up to limit)
@@ -1064,23 +992,21 @@ public enum OpenGroupAPI {
     /// from the `poll()` method, in order to call this directly remove the `@available` line and make sure to route the response of
     /// this method to the `OpenGroupManager.handleDirectMessages` method to ensure things are processed correctly
     @available(*, unavailable, message: "Avoid using this directly, use the pre-built `poll()` method instead")
-    public static func outbox(
+    public static func preparedOutbox(
         _ db: Database,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<(ResponseInfoType, [DirectMessage]?), Error> {
-        return OpenGroupAPI
-            .send(
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<[DirectMessage]?> {
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request<NoBody, Endpoint>(
                     server: server,
                     endpoint: .outbox
                 ),
+                responseType: [DirectMessage]?.self,
                 using: dependencies
             )
-            .decoded(as: [DirectMessage]?.self, using: dependencies)
     }
     
     /// Polls for any DMs sent since the given id, this method will return a `304` with an empty response if there are no messages
@@ -1089,24 +1015,22 @@ public enum OpenGroupAPI {
     /// should be retrieved automatically from the `poll()` method, in order to call this directly remove the `@available` line and make sure
     /// to route the response of this method to the `OpenGroupManager.handleDirectMessages` method to ensure things are processed correctly
     @available(*, unavailable, message: "Avoid using this directly, use the pre-built `poll()` method instead")
-    public static func outboxSince(
+    public static func preparedOutboxSince(
         _ db: Database,
         id: Int64,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<(ResponseInfoType, [DirectMessage]?), Error> {
-        return OpenGroupAPI
-            .send(
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<[DirectMessage]?> {
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request<NoBody, Endpoint>(
                     server: server,
                     endpoint: .outboxSince(id: id)
                 ),
+                responseType: [DirectMessage]?.self,
                 using: dependencies
             )
-            .decoded(as: [DirectMessage]?.self, using: dependencies)
     }
     
     // MARK: - Users
@@ -1142,18 +1066,16 @@ public enum OpenGroupAPI {
     ///   - server: The server to delete messages from
     ///
     ///   - dependencies: Injected dependencies (used for unit testing)
-    public static func userBan(
+    public static func preparedUserBan(
         _ db: Database,
         sessionId: String,
         for timeout: TimeInterval? = nil,
         from roomTokens: [String]? = nil,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        return OpenGroupAPI
-            .send(
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<NoResponse> {
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request(
                     method: .post,
@@ -1165,6 +1087,7 @@ public enum OpenGroupAPI {
                         timeout: timeout
                     )
                 ),
+                responseType: NoResponse.self,
                 using: dependencies
             )
     }
@@ -1193,17 +1116,15 @@ public enum OpenGroupAPI {
     ///   - server: The server to delete messages from
     ///
     ///   - dependencies: Injected dependencies (used for unit testing)
-    public static func userUnban(
+    public static func preparedUserUnban(
         _ db: Database,
         sessionId: String,
         from roomTokens: [String]?,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        return OpenGroupAPI
-            .send(
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<NoResponse> {
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request(
                     method: .post,
@@ -1214,6 +1135,7 @@ public enum OpenGroupAPI {
                         global: (roomTokens == nil ? true : nil)
                     )
                 ),
+                responseType: NoResponse.self,
                 using: dependencies
             )
     }
@@ -1269,7 +1191,7 @@ public enum OpenGroupAPI {
     ///   - server: The server to perform the permission changes on
     ///
     ///   - dependencies: Injected dependencies (used for unit testing)
-    public static func userModeratorUpdate(
+    public static func preparedUserModeratorUpdate(
         _ db: Database,
         sessionId: String,
         moderator: Bool? = nil,
@@ -1277,17 +1199,14 @@ public enum OpenGroupAPI {
         visible: Bool,
         for roomTokens: [String]?,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
-    ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<NoResponse> {
         guard (moderator != nil && admin == nil) || (moderator == nil && admin != nil) else {
-            return Fail(error: HTTPError.generic)
-                .eraseToAnyPublisher()
+            throw HTTPError.generic
         }
         
-        return OpenGroupAPI
-            .send(
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request(
                     method: .post,
@@ -1301,6 +1220,7 @@ public enum OpenGroupAPI {
                         visible: visible
                     )
                 ),
+                responseType: NoResponse.self,
                 using: dependencies
             )
     }
@@ -1312,9 +1232,7 @@ public enum OpenGroupAPI {
         sessionId: String,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
+        using dependencies: SMKDependencies = SMKDependencies()
     ) -> AnyPublisher<(info: ResponseInfoType, data: [Endpoint: ResponseInfoType]), Error> {
         let banRequestBody: UserBanRequest = UserBanRequest(
             rooms: [roomToken],
@@ -1366,9 +1284,7 @@ public enum OpenGroupAPI {
         for serverName: String,
         fallbackSigningType signingType: SessionId.Prefix,
         forceBlinded: Bool = false,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
+        using dependencies: SMKDependencies = SMKDependencies()
     ) -> (publicKey: String, signature: Bytes)? {
         guard
             let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
@@ -1435,9 +1351,7 @@ public enum OpenGroupAPI {
         for serverName: String,
         with serverPublicKey: String,
         forceBlinded: Bool = false,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
+        using dependencies: SMKDependencies = SMKDependencies()
     ) -> URLRequest? {
         guard let url: URL = request.url else { return nil }
         
@@ -1494,14 +1408,44 @@ public enum OpenGroupAPI {
     
     // MARK: - Convenience
     
+    private static func prepareSendData<T: Encodable, R: Decodable>(
+        _ db: Database,
+        request: Request<T, Endpoint>,
+        responseType: R.Type,
+        forceBlinded: Bool = false,
+        timeout: TimeInterval = HTTP.defaultTimeout,
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) throws -> PreparedSendData<R> {
+        let urlRequest: URLRequest = try request.generateUrlRequest()
+        let maybePublicKey: String? = try? OpenGroup
+            .select(.publicKey)
+            .filter(OpenGroup.Columns.server == request.server.lowercased())
+            .asRequest(of: String.self)
+            .fetchOne(db)
+        
+        guard let publicKey: String = maybePublicKey else { throw OpenGroupAPIError.noPublicKey }
+        
+        // Attempt to sign the request with the new auth
+        guard let signedRequest: URLRequest = sign(db, request: urlRequest, for: request.server, with: publicKey, forceBlinded: forceBlinded, using: dependencies) else {
+            throw OpenGroupAPIError.signingFailed
+        }
+        
+        return PreparedSendData(
+            request: signedRequest,
+            endpoint: request.endpoint,
+            server: request.server,
+            publicKey: publicKey,
+            responseType: responseType,
+            timeout: timeout
+        )
+    }
+    
     private static func send<T: Encodable>(
         _ db: Database,
         request: Request<T, Endpoint>,
         forceBlinded: Bool = false,
         timeout: TimeInterval = HTTP.defaultTimeout,
-        using dependencies: SMKDependencies = SMKDependencies(
-            queue: OpenGroupAPI.workQueue
-        )
+        using dependencies: SMKDependencies = SMKDependencies()
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         let urlRequest: URLRequest
         
@@ -1533,8 +1477,27 @@ public enum OpenGroupAPI {
         // We want to avoid blocking the db write thread so we dispatch the API call to a different thread
         return Just(())
             .setFailureType(to: Error.self)
-            .subscribe(on: dependencies.queue)
             .flatMap { dependencies.onionApi.sendOnionRequest(signedRequest, to: request.server, with: publicKey, timeout: timeout) }
+            .eraseToAnyPublisher()
+    }
+    
+    public static func send<R>(
+        data: PreparedSendData<R>?,
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) -> AnyPublisher<(ResponseInfoType, R), Error> {
+        guard let validData: PreparedSendData<R> = data else {
+            return Fail(error: OpenGroupAPIError.invalidPreparedData)
+                .eraseToAnyPublisher()
+        }
+        
+        return dependencies.onionApi
+            .sendOnionRequest(
+                validData.request,
+                to: validData.server,
+                with: validData.publicKey,
+                timeout: validData.timeout
+            )
+            .decoded(with: validData, using: dependencies)
             .eraseToAnyPublisher()
     }
 }

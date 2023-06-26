@@ -152,6 +152,7 @@ final class NukeDataModal: Modal {
     private func clearDeviceOnly() {
         ModalActivityIndicatorViewController.present(fromViewController: self, canCancel: false) { [weak self] _ in
             ConfigurationSyncJob.run()
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveCompletion: { _ in
@@ -185,7 +186,7 @@ final class NukeDataModal: Modal {
                             .defaulting(to: [])
                     )
                     .collect()
-                    .subscribe(on: DispatchQueue.global(qos: .default))
+                    .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                     .flatMap { results in
                         SnodeAPI
                             .deleteAllMessages(namespace: .all)

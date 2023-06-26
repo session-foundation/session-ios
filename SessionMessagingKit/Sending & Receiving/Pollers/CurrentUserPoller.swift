@@ -100,7 +100,11 @@ public final class CurrentUserPoller: Poller {
             .eraseToAnyPublisher()
     }
     
-    override func handlePollError(_ error: Error, for publicKey: String) {
+    override func handlePollError(
+        _ error: Error,
+        for publicKey: String,
+        using dependencies: SMKDependencies = SMKDependencies()
+    ) {
         if UserDefaults.sharedLokiProject?[.isMainAppActive] != true {
             // Do nothing when an error gets throws right after returning from the background (happens frequently)
         }
@@ -115,7 +119,7 @@ public final class CurrentUserPoller: Poller {
         
         // Try to restart the poller from scratch
         Threading.pollerQueue.async { [weak self] in
-            self?.setUpPolling(for: publicKey)
+            self?.setUpPolling(for: publicKey, using: dependencies)
         }
     }
 }

@@ -168,6 +168,7 @@ class HelpViewModel: SessionTableViewModel<NoNav, HelpViewModel.Section, HelpVie
 #endif
         }
         .removeDuplicates()
+        .handleEvents(didFail: { SNLog("[HelpViewModel] Observation failed with error: \($0)") })
         .publisher(in: Storage.shared)
         .mapToSessionTableViewData(for: self)
     

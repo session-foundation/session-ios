@@ -75,7 +75,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 )
                 disposables.append(
                     viewModel.observableTableData
-                        .receiveOnMain(immediately: true)
+                        .receive(on: DispatchQueue.main, immediatelyIfMain: true)
                         .sink(
                             receiveCompletion: { _ in },
                             receiveValue: { viewModel.updateTableData($0.0) }
@@ -173,7 +173,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     )
                     disposables.append(
                         viewModel.observableTableData
-                            .receiveOnMain(immediately: true)
+                            .receive(on: DispatchQueue.main, immediatelyIfMain: true)
                             .sink(
                                 receiveCompletion: { _ in },
                                 receiveValue: { viewModel.updateTableData($0.0) }
@@ -447,7 +447,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     )
                     disposables.append(
                         viewModel.observableTableData
-                            .receiveOnMain(immediately: true)
+                            .receive(on: DispatchQueue.main, immediatelyIfMain: true)
                             .sink(
                                 receiveCompletion: { _ in },
                                 receiveValue: { viewModel.updateTableData($0.0) }
@@ -489,7 +489,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     )
                     disposables.append(
                         viewModel.observableTableData
-                            .receiveOnMain(immediately: true)
+                            .receive(on: DispatchQueue.main, immediatelyIfMain: true)
                             .sink(
                                 receiveCompletion: { _ in },
                                 receiveValue: { viewModel.updateTableData($0.0) }

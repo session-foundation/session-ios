@@ -136,7 +136,14 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             guard case .preOffer = callMessage.kind else { return self.completeSilenty() }
                             
                             if !db[.areCallsEnabled] {
-                                if let sender: String = callMessage.sender, let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: callMessage, state: .permissionDenied) {
+                                if
+                                    let sender: String = callMessage.sender,
+                                    let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(
+                                        db,
+                                        for: callMessage,
+                                        state: .permissionDenied
+                                    )
+                                {
                                     let thread: SessionThread = try SessionThread
                                         .fetchOrCreate(
                                             db,
@@ -145,12 +152,15 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                             shouldBeVisible: nil
                                         )
 
-                                    Environment.shared?.notificationsManager.wrappedValue?
-                                        .notifyUser(
-                                            db,
-                                            forIncomingCall: interaction,
-                                            in: thread
-                                        )
+                                    // Notify the user if the call message wasn't already read
+                                    if !interaction.wasRead {
+                                        Environment.shared?.notificationsManager.wrappedValue?
+                                            .notifyUser(
+                                                db,
+                                                forIncomingCall: interaction,
+                                                in: thread
+                                            )
+                                    }
                                 }
                                 break
                             }
