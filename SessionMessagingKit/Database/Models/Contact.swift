@@ -36,7 +36,7 @@ public struct Contact: Codable, Identifiable, Equatable, FetchableRecord, Persis
     public let isBlocked: Bool
     
     /// The last known client version represented by pre defined enum values
-    public let lastKnownClientVersion: SessionVersion.FeatureVersion?
+    public let lastKnownClientVersion: FeatureVersion?
     
     /// This flag is used to determine whether this contact has approved the current users message request
     public let didApproveMe: Bool
@@ -58,7 +58,7 @@ public struct Contact: Codable, Identifiable, Equatable, FetchableRecord, Persis
         isTrusted: Bool = false,
         isApproved: Bool = false,
         isBlocked: Bool = false,
-        lastKnownClientVersion: SessionVersion.FeatureVersion? = nil,
+        lastKnownClientVersion: FeatureVersion? = nil,
         didApproveMe: Bool = false,
         hasBeenBlocked: Bool = false,
         dependencies: Dependencies = Dependencies()

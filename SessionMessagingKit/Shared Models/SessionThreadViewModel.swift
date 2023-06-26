@@ -88,7 +88,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     
     public let threadIsNoteToSelf: Bool
     
-    public let contactLastKnownClientVersion: SessionVersion.FeatureVersion?
+    public let contactLastKnownClientVersion: FeatureVersion?
     
     /// This flag indicates whether the thread is an outgoing message request
     public let threadIsMessageRequest: Bool?

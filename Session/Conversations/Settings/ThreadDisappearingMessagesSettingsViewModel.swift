@@ -469,7 +469,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
             }
         }
         .removeDuplicates()
-        
+        .eraseToAnyPublisher()
         .mapToSessionTableViewData(for: self)
     
     // MARK: - Functions
