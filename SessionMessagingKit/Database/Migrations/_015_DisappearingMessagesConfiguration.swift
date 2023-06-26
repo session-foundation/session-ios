@@ -40,6 +40,9 @@ enum _015_DisappearingMessagesConfiguration: Migration {
                 )
         }
         
+        var contactUpdate: [DisappearingMessagesConfiguration] = []
+        var legacyGroupUpdate: [DisappearingMessagesConfiguration] = []
+        
         try DisappearingMessagesConfiguration
             .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
             .fetchAll(db)
@@ -51,12 +54,20 @@ enum _015_DisappearingMessagesConfiguration: Migration {
                     }
                     
                     switch thread.variant {
-                        case .contact: try updateDisappearingMessageType(db, id: config.threadId, type: .disappearAfterRead)
-                        case .legacyGroup, .group: try updateDisappearingMessageType(db, id: config.threadId, type: .disappearAfterSend)
-                        case .community: return
+                        case .contact:
+                            try updateDisappearingMessageType(db, id: config.threadId, type: .disappearAfterRead)
+                            contactUpdate.append(config.with(type: .disappearAfterRead))
+                        case .legacyGroup, .group:
+                            try updateDisappearingMessageType(db, id: config.threadId, type: .disappearAfterSend)
+                            legacyGroupUpdate.append(config.with(type: .disappearAfterSend))
+                        case .community:
+                            return
                     }
                 }
             }
+        
+        _ = try SessionUtil.updatingDisappearingConfigs(db, contactUpdate)
+        _ = try SessionUtil.batchUpdate(db, disappearingConfigs: legacyGroupUpdate)
         
         Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
     }

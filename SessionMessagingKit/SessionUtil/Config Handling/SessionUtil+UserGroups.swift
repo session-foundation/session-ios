@@ -697,6 +697,27 @@ public extension SessionUtil {
         }
     }
     
+    static func batchUpdate(
+        _ db: Database,
+        disappearingConfigs: [DisappearingMessagesConfiguration]
+    ) throws {
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .userGroups,
+            publicKey: getUserHexEncodedPublicKey(db)
+        ) { conf in
+            try SessionUtil.upsert(
+                legacyGroups: disappearingConfigs.map {
+                    LegacyGroupInfo(
+                        id: $0.id,
+                        disappearingConfig: $0
+                    )
+                },
+                in: conf
+            )
+        }
+    }
+    
     static func remove(_ db: Database, legacyGroupIds: [String]) throws {
         guard !legacyGroupIds.isEmpty else { return }
         

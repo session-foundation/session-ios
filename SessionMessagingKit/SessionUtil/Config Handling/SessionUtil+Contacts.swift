@@ -479,6 +479,60 @@ internal extension SessionUtil {
         
         return updated
     }
+    
+    static func updatingDisappearingConfigs<T>(_ db: Database, _ updated: [T]) throws -> [T] {
+        guard let updatedDisappearingConfigs: [DisappearingMessagesConfiguration] = updated as? [DisappearingMessagesConfiguration] else { throw StorageError.generic }
+        
+        // We should only sync disappearing messages configs which are associated to existing contacts
+        let existingContactIds: [String] = (try? Contact
+            .filter(ids: updatedDisappearingConfigs.map { $0.id })
+            .select(.id)
+            .asRequest(of: String.self)
+            .fetchAll(db))
+            .defaulting(to: [])
+        
+        // If none of the disappearing messages configs are associated with existing contacts then ignore
+        // the changes (no need to do a config sync)
+        guard !existingContactIds.isEmpty else { return updated }
+        
+        // Get the user public key (updating note to self is handled separately)
+        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let targetDisappearingConfigs: [DisappearingMessagesConfiguration] = updatedDisappearingConfigs
+            .filter {
+                $0.id != userPublicKey &&
+                SessionId(from: $0.id)?.prefix == .standard &&
+                existingContactIds.contains($0.id)
+            }
+        
+        // Update the note to self disappearing messages config first (if needed)
+        if let updatedUserDisappearingConfig: DisappearingMessagesConfiguration = updatedDisappearingConfigs.first(where: { $0.id == userPublicKey }) {
+            try SessionUtil.performAndPushChange(
+                db,
+                for: .userProfile,
+                publicKey: userPublicKey
+            ) { conf in
+                try SessionUtil.updateNoteToSelf(
+                    disappearingMessagesConfig: updatedUserDisappearingConfig,
+                    in: conf
+                )
+            }
+        }
+        
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .contacts,
+            publicKey: userPublicKey
+        ) { conf in
+            try SessionUtil
+                .upsert(
+                    contactData: targetDisappearingConfigs
+                        .map { SyncedContactInfo(id: $0.id, disappearingMessagesConfig: $0) },
+                    in: conf
+                )
+        }
+        
+        return updated
+    }
 }
 
 // MARK: - External Outgoing Changes
