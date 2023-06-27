@@ -13,7 +13,9 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     public static let newConversationButtonSize: CGFloat = 60
     
     private let viewModel: HomeViewModel = HomeViewModel()
-    private var dataChangeObservable: DatabaseCancellable?
+    private var dataChangeObservable: DatabaseCancellable? {
+        didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
+    }
     private var hasLoadedInitialStateData: Bool = false
     private var hasLoadedInitialThreadData: Bool = false
     private var isLoadingMore: Bool = false
@@ -327,26 +329,31 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     
     // MARK: - Updating
     
-    private func startObservingChanges(didReturnFromBackground: Bool = false) {
-        // Start observing for data changes
+    public func startObservingChanges(didReturnFromBackground: Bool = false, onReceivedInitialChange: (() -> ())? = nil) {
+        guard dataChangeObservable == nil else { return }
+        
+        var runAndClearInitialChangeCallback: (() -> ())? = nil
+        
+        runAndClearInitialChangeCallback = { [weak self] in
+            guard self?.hasLoadedInitialStateData == true && self?.hasLoadedInitialThreadData == true else { return }
+            
+            onReceivedInitialChange?()
+            runAndClearInitialChangeCallback = nil
+        }
+        
         dataChangeObservable = Storage.shared.start(
             viewModel.observableState,
-            // If we haven't done the initial load the trigger it immediately (blocking the main
-            // thread so we remain on the launch screen until it completes to be consistent with
-            // the old behaviour)
-            scheduling: (hasLoadedInitialStateData ?
-                .async(onQueue: .main) :
-                .immediate
-            ),
             onError: { _ in },
             onChange: { [weak self] state in
                 // The default scheduler emits changes on the main thread
                 self?.handleUpdates(state)
+                runAndClearInitialChangeCallback?()
             }
         )
         
         self.viewModel.onThreadChange = { [weak self] updatedThreadData, changeset in
             self?.handleThreadUpdates(updatedThreadData, changeset: changeset)
+            runAndClearInitialChangeCallback?()
         }
         
         // Note: When returning from the background we could have received notifications but the
@@ -361,7 +368,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     
     private func stopObservingChanges() {
         // Stop observing database changes
-        dataChangeObservable?.cancel()
+        self.dataChangeObservable = nil
         self.viewModel.onThreadChange = nil
     }
     

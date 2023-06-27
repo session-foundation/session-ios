@@ -203,8 +203,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         let scale = UIScreen.main.scale
         let cellSize = collectionViewFlowLayout.itemSize
         photoMediaSize.thumbnailSize = CGSize(width: cellSize.width * scale, height: cellSize.height * scale)
-
-        reloadDataAndRestoreSelection()
+ 
         if !hasEverAppeared {
             scrollToBottom(animated: false)
         }
@@ -291,30 +290,6 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         }
     }
 
-    private func reloadDataAndRestoreSelection() {
-        guard let collectionView = collectionView else {
-            owsFailDebug("Missing collectionView.")
-            return
-        }
-
-        guard let delegate = delegate else {
-            owsFailDebug("delegate was unexpectedly nil")
-            return
-        }
-
-        collectionView.reloadData()
-        collectionView.layoutIfNeeded()
-
-        let count = photoCollectionContents.assetCount
-        for index in 0..<count {
-            let asset = photoCollectionContents.asset(at: index)
-            if delegate.imagePicker(self, isAssetSelected: asset) {
-                collectionView.selectItem(at: IndexPath(row: index, section: 0),
-                                          animated: false, scrollPosition: [])
-            }
-        }
-    }
-
     // MARK: - Actions
 
     @objc
@@ -365,7 +340,6 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         }
 
         collectionView.allowsMultipleSelection = delegate.isInBatchSelectMode
-        reloadDataAndRestoreSelection()
     }
 
     func clearCollectionViewSelection() {
@@ -402,7 +376,6 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
 
     func photoLibraryDidChange(_ photoLibrary: PhotoLibrary) {
         photoCollectionContents = photoCollection.contents()
-        reloadDataAndRestoreSelection()
     }
 
     // MARK: - PhotoCollectionPicker Presentation

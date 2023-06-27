@@ -217,8 +217,14 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         didSet {
             // When starting to observe interaction changes we want to trigger a UI update just in case the
             // data was changed while we weren't observing
-            if let unobservedInteractionDataChanges: ([SectionModel], StagedChangeset<[SectionModel]>) = self.unobservedInteractionDataChanges {
-                onInteractionChange?(unobservedInteractionDataChanges.0, unobservedInteractionDataChanges.1)
+            if let changes: ([SectionModel], StagedChangeset<[SectionModel]>) = self.unobservedInteractionDataChanges {
+                let performChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ())? = onInteractionChange
+                
+                switch Thread.isMainThread {
+                    case true: performChange?(changes.0, changes.1)
+                    case false: DispatchQueue.main.async { performChange?(changes.0, changes.1) }
+                }
+                
                 self.unobservedInteractionDataChanges = nil
             }
         }

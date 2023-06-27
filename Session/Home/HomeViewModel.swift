@@ -208,12 +208,16 @@ public class HomeViewModel {
                         )
                     }
                 )
+                
+                self?.hasReceivedInitialThreadData = true
             }
         )
         
-        // Run the initial query on the main thread so we prevent the app from leaving the loading screen
-        // until we have data (Note: the `.pageBefore` will query from a `0` offset loading the first page)
-        self.pagedDataObserver?.load(.pageBefore)
+        // Run the initial query on a background thread so we don't block the main thread
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            // The `.pageBefore` will query from a `0` offset loading the first page
+            self?.pagedDataObserver?.load(.pageBefore)
+        }
     }
     
     // MARK: - State
@@ -254,8 +258,10 @@ public class HomeViewModel {
         let oldState: State = self.state
         self.state = updatedState
         
-        // If the messageRequest content changed then we need to re-process the thread data
+        // If the messageRequest content changed then we need to re-process the thread data (assuming
+        // we've received the initial thread data)
         guard
+            self.hasReceivedInitialThreadData,
             (
                 oldState.hasHiddenMessageRequests != updatedState.hasHiddenMessageRequests ||
                 oldState.unreadMessageRequestThreadCount != updatedState.unreadMessageRequestThreadCount
@@ -272,11 +278,7 @@ public class HomeViewModel {
         
         PagedData.processAndTriggerUpdates(
             updatedData: updatedThreadData,
-            currentDataRetriever: { [weak self] in
-                guard self?.hasProcessedInitialThreadData == true else { return nil }
-                
-                return (self?.unobservedThreadDataChanges?.0 ?? self?.threadData)
-            },
+            currentDataRetriever: { [weak self] in (self?.unobservedThreadDataChanges?.0 ?? self?.threadData) },
             onDataChange: onThreadChange,
             onUnobservedDataChange: { [weak self] updatedData, changeset in
                 self?.unobservedThreadDataChanges = (changeset.isEmpty ?
@@ -289,19 +291,23 @@ public class HomeViewModel {
     
     // MARK: - Thread Data
     
-    private var hasProcessedInitialThreadData: Bool = false
+    private var hasReceivedInitialThreadData: Bool = false
     public private(set) var unobservedThreadDataChanges: ([SectionModel], StagedChangeset<[SectionModel]>)?
     public private(set) var threadData: [SectionModel] = []
     public private(set) var pagedDataObserver: PagedDatabaseObserver<SessionThread, SessionThreadViewModel>?
     
     public var onThreadChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ())? {
         didSet {
-            self.hasProcessedInitialThreadData = (onThreadChange != nil || hasProcessedInitialThreadData)
-            
             // When starting to observe interaction changes we want to trigger a UI update just in case the
             // data was changed while we weren't observing
-            if let unobservedThreadDataChanges: ([SectionModel], StagedChangeset<[SectionModel]>) = self.unobservedThreadDataChanges {
-                onThreadChange?(unobservedThreadDataChanges.0, unobservedThreadDataChanges.1)
+            if let changes: ([SectionModel], StagedChangeset<[SectionModel]>) = self.unobservedThreadDataChanges {
+                let performChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ())? = onThreadChange
+                
+                switch Thread.isMainThread {
+                    case true: performChange?(changes.0, changes.1)
+                    case false: DispatchQueue.main.async { performChange?(changes.0, changes.1) }
+                }
+                
                 self.unobservedThreadDataChanges = nil
             }
         }

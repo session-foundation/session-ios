@@ -123,6 +123,25 @@ enum Onboarding {
             .eraseToAnyPublisher()
     }
     
+    enum State {
+        case newUser
+        case missingName
+        case completed
+        
+        static var current: State {
+            // If we have no identify information then the user needs to register
+            guard Identity.userExists() else { return .newUser }
+            
+            // If we have no display name then collect one (this can happen if the
+            // app crashed during onboarding which would leave the user in an invalid
+            // state with no display name)
+            guard !Profile.fetchOrCreateCurrentUser().name.isEmpty else { return .missingName }
+            
+            // Otherwise we have enough for a full user and can start the app
+            return .completed
+        }
+    }
+    
     enum Flow {
         case register, recover, link
         

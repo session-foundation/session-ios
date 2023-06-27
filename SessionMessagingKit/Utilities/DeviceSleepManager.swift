@@ -24,7 +24,7 @@ public class DeviceSleepManager: NSObject {
             return "SleepBlock(\(String(reflecting: blockObject)))"
         }
 
-        init(blockObject: NSObject) {
+        init(blockObject: NSObject?) {
             self.blockObject = blockObject
         }
     }
@@ -51,14 +51,14 @@ public class DeviceSleepManager: NSObject {
     }
 
     @objc
-    public func addBlock(blockObject: NSObject) {
+    public func addBlock(blockObject: NSObject?) {
         blocks.append(SleepBlock(blockObject: blockObject))
 
         ensureSleepBlocking()
     }
 
     @objc
-    public func removeBlock(blockObject: NSObject) {
+    public func removeBlock(blockObject: NSObject?) {
         blocks = blocks.filter {
             $0.blockObject != nil && $0.blockObject != blockObject
         }

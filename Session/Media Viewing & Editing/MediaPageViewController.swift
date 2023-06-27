@@ -15,7 +15,9 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
     fileprivate var mediaInteractiveDismiss: MediaInteractiveDismiss?
     
     public let viewModel: MediaGalleryViewModel
-    private var dataChangeObservable: DatabaseCancellable?
+    private var dataChangeObservable: DatabaseCancellable? {
+        didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
+    }
     private var initialPage: MediaDetailViewController
     private var cachedPages: [Int64: [MediaGalleryViewModel.Item: MediaDetailViewController]] = [:]
     
@@ -40,7 +42,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         )
         
         // Swap out the database observer
-        dataChangeObservable?.cancel()
+        stopObservingChanges()
         viewModel.replaceAlbumObservation(toObservationFor: item.interactionId)
         startObservingChanges()
 
@@ -238,8 +240,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         
-        // Stop observing database changes
-        dataChangeObservable?.cancel()
+        stopObservingChanges()
         
         resignFirstResponder()
     }
@@ -252,8 +253,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
     }
     
     @objc func applicationDidResignActive(_ notification: Notification) {
-        // Stop observing database changes
-        dataChangeObservable?.cancel()
+        stopObservingChanges()
     }
 
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
@@ -388,6 +388,8 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
     // MARK: - Updating
     
     private func startObservingChanges() {
+        guard dataChangeObservable == nil else { return }
+        
         // Start observing for data changes
         dataChangeObservable = Storage.shared.start(
             viewModel.observableAlbumData,
@@ -397,6 +399,10 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                 self?.handleUpdates(albumData)
             }
         )
+    }
+    
+    private func stopObservingChanges() {
+        dataChangeObservable = nil
     }
     
     private func handleUpdates(_ updatedViewData: [MediaGalleryViewModel.Item]) {
@@ -710,7 +716,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         }
         
         // Swap out the database observer
-        dataChangeObservable?.cancel()
+        stopObservingChanges()
         viewModel.replaceAlbumObservation(toObservationFor: interactionIdAfter)
         startObservingChanges()
         
@@ -755,7 +761,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         }
         
         // Swap out the database observer
-        dataChangeObservable?.cancel()
+        stopObservingChanges()
         viewModel.replaceAlbumObservation(toObservationFor: interactionIdBefore)
         startObservingChanges()
         

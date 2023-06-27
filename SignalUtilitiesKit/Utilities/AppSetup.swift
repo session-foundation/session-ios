@@ -90,12 +90,10 @@ public enum AppSetup {
                 // method when calling within a database read/write closure)
                 Storage.shared.read { db in SessionUtil.refreshingUserConfigsEnabled(db) }
                 
-                DispatchQueue.main.async {
-                    migrationsCompletion(result, (needsConfigSync || SessionUtil.needsSync))
-                    
-                    // The 'if' is only there to prevent the "variable never read" warning from showing
-                    if backgroundTask != nil { backgroundTask = nil }
-                }
+                migrationsCompletion(result, (needsConfigSync || SessionUtil.needsSync))
+                
+                // The 'if' is only there to prevent the "variable never read" warning from showing
+                if backgroundTask != nil { backgroundTask = nil }
             }
         )
     }
