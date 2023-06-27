@@ -26,13 +26,13 @@ public enum OpenGroupAPI {
     ///    - Messages (includes additions and deletions)
     /// - Inbox for the server
     /// - Outbox for the server
-    public static func poll(
+    public static func preparedPoll(
         _ db: Database,
         server: String,
         hasPerformedInitialPoll: Bool,
         timeSinceLastPoll: TimeInterval,
         using dependencies: SMKDependencies = SMKDependencies()
-    ) -> AnyPublisher<(info: ResponseInfoType, data: [Endpoint: Codable]), Error> {
+    ) throws -> PreparedSendData<BatchResponse> {
         let lastInboxMessageId: Int64 = (try? OpenGroup
             .select(.inboxLatestMessageId)
             .filter(OpenGroup.Columns.server == server)
@@ -51,26 +51,23 @@ public enum OpenGroupAPI {
             .asRequest(of: Capability.Variant.self)
             .fetchSet(db))
             .defaulting(to: [])
+        let openGroupRooms: [OpenGroup] = (try? OpenGroup
+            .filter(OpenGroup.Columns.server == server.lowercased()) // Note: The `OpenGroup` type converts to lowercase in init
+            .filter(OpenGroup.Columns.isActive == true)
+            .filter(OpenGroup.Columns.roomToken != "")
+            .fetchAll(db))
+            .defaulting(to: [])
 
-        // Generate the requests
-        let requestResponseType: [BatchRequest.Info] = [
-            BatchRequest.Info(
-                request: Request<NoBody, Endpoint>(
-                    server: server,
-                    endpoint: .capabilities
-                ),
-                responseType: Capabilities.self
+        let preparedRequests: [ErasedPreparedSendData] = [
+            try preparedCapabilities(
+                db,
+                server: server,
+                using: dependencies
             )
-        ]
-        .appending(
+        ].appending(
             // Per-room requests
-            contentsOf: (try? OpenGroup
-                .filter(OpenGroup.Columns.server == server.lowercased()) // Note: The `OpenGroup` type converts to lowercase in init
-                .filter(OpenGroup.Columns.isActive == true)
-                .filter(OpenGroup.Columns.roomToken != "")
-                .fetchAll(db))
-                .defaulting(to: [])
-                .flatMap { openGroup -> [BatchRequest.Info] in
+            contentsOf: try openGroupRooms
+                .flatMap { openGroup -> [ErasedPreparedSendData] in
                     let shouldRetrieveRecentMessages: Bool = (
                         openGroup.sequenceNumber == 0 || (
                             // If it's the first poll for this launch and it's been longer than
@@ -82,26 +79,27 @@ public enum OpenGroupAPI {
                     )
                     
                     return [
-                        BatchRequest.Info(
-                            request: Request<NoBody, Endpoint>(
-                                server: server,
-                                endpoint: .roomPollInfo(openGroup.roomToken, openGroup.infoUpdates)
-                            ),
-                            responseType: RoomPollInfo.self
+                        try preparedRoomPollInfo(
+                            db,
+                            lastUpdated: openGroup.infoUpdates,
+                            for: openGroup.roomToken,
+                            on: openGroup.server,
+                            using: dependencies
                         ),
-                        BatchRequest.Info(
-                            request: Request<NoBody, Endpoint>(
-                                server: server,
-                                endpoint: (shouldRetrieveRecentMessages ?
-                                    .roomMessagesRecent(openGroup.roomToken) :
-                                    .roomMessagesSince(openGroup.roomToken, seqNo: openGroup.sequenceNumber)
-                                ),
-                                queryParameters: [
-                                    .updateTypes: UpdateTypes.reaction.rawValue,
-                                    .reactors: "5"
-                                ]
-                            ),
-                            responseType: [Failable<Message>].self
+                        (shouldRetrieveRecentMessages ?
+                            try preparedRecentMessages(
+                                db,
+                                in: openGroup.roomToken,
+                                on: openGroup.server,
+                                using: dependencies
+                            ) :
+                            try preparedMessagesSince(
+                                db,
+                                seqNo: openGroup.sequenceNumber,
+                                in: openGroup.roomToken,
+                                on: openGroup.server,
+                                using: dependencies
+                            )
                         )
                     ]
                 }
@@ -112,83 +110,73 @@ public enum OpenGroupAPI {
                 !capabilities.contains(.blind) ? [] :
                 [
                     // Inbox
-                    BatchRequest.Info(
-                        request: Request<NoBody, Endpoint>(
-                            server: server,
-                            endpoint: (lastInboxMessageId == 0 ?
-                                .inbox :
-                                .inboxSince(id: lastInboxMessageId)
-                           )
-                        ),
-                        responseType: [DirectMessage]?.self // 'inboxSince' will return a `304` with an empty response if no messages
+                    (lastInboxMessageId == 0 ?
+                        try preparedInbox(db, on: server, using: dependencies) :
+                        try preparedInboxSince(db, id: lastInboxMessageId, on: server, using: dependencies)
                     ),
                     
                     // Outbox
-                    BatchRequest.Info(
-                        request: Request<NoBody, Endpoint>(
-                            server: server,
-                            endpoint: (lastOutboxMessageId == 0 ?
-                                .outbox :
-                                .outboxSince(id: lastOutboxMessageId)
-                           )
-                        ),
-                        responseType: [DirectMessage]?.self // 'outboxSince' will return a `304` with an empty response if no messages
-                    )
+                    (lastOutboxMessageId == 0 ?
+                        try preparedOutbox(db, on: server, using: dependencies) :
+                        try preparedOutboxSince(db, id: lastOutboxMessageId, on: server, using: dependencies)
+                    ),
                 ]
             )
         )
         
-        return OpenGroupAPI.batch(db, server: server, requests: requestResponseType, using: dependencies)
+        return try OpenGroupAPI.preparedBatch(
+            db,
+            server: server,
+            requests: preparedRequests,
+            using: dependencies
+        )
     }
     
     /// Submits multiple requests wrapped up in a single request, runs them all, then returns the result of each one
     ///
-    /// Requests are performed independently, that is, if one fails the others will still be attempted - there is no guarantee on the order in which requests will be
-    /// carried out (for sequential, related requests invoke via `/sequence` instead)
+    /// Requests are performed independently, that is, if one fails the others will still be attempted - there is no guarantee on the order in which
+    /// requests will be carried out (for sequential, related requests invoke via `/sequence` instead)
     ///
-    /// For contained subrequests that specify a body (i.e. POST or PUT requests) exactly one of `json`, `b64`, or `bytes` must be provided with the request body.
-    private static func batch(
+    /// For contained subrequests that specify a body (i.e. POST or PUT requests) exactly one of `json`, `b64`, or `bytes` must be provided
+    /// with the request body.
+    private static func preparedBatch(
         _ db: Database,
         server: String,
-        requests: [BatchRequest.Info],
+        requests: [ErasedPreparedSendData],
         using dependencies: SMKDependencies = SMKDependencies()
-    ) -> AnyPublisher<(info: ResponseInfoType, data: [Endpoint: Codable]), Error> {
-        let responseTypes = requests.map { $0.responseType }
-        
-        return OpenGroupAPI
-            .send(
+    ) throws -> PreparedSendData<BatchResponse> {
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request(
                     method: .post,
                     server: server,
-                    endpoint: Endpoint.batch,
+                    endpoint: .batch,
                     body: BatchRequest(requests: requests)
                 ),
+                responseType: BatchResponse.self,
                 using: dependencies
             )
-            .decoded(as: responseTypes, using: dependencies)
-            .map(requests: requests, toHashMapFor: Endpoint.self)
     }
     
-    /// This is like `/batch`, except that it guarantees to perform requests sequentially in the order provided and will stop processing requests if the previous request
-    /// returned a non-`2xx` response
+    /// This is like `/batch`, except that it guarantees to perform requests sequentially in the order provided and will stop processing requests
+    /// if the previous request returned a non-`2xx` response
     ///
-    /// For example, this can be used to ban and delete all of a user's messages by sequencing the ban followed by the `delete_all`: if the ban fails (e.g. because
-    /// permission is denied) then the `delete_all` will not occur. The batch body and response are identical to the `/batch` endpoint; requests that are not
-    /// carried out because of an earlier failure will have a response code of `412` (Precondition Failed)."
+    /// For example, this can be used to ban and delete all of a user's messages by sequencing the ban followed by the `delete_all`: if the
+    /// ban fails (e.g. because permission is denied) then the `delete_all` will not occur. The batch body and response are identical to the
+    /// `/batch` endpoint; requests that are not carried out because of an earlier failure will have a response code of `412` (Precondition Failed)."
     ///
-    /// Like `/batch`, responses are returned in the same order as requests, but unlike `/batch` there may be fewer elements in the response list (if requests were
-    /// stopped because of a non-2xx response) - In such a case, the final, non-2xx response is still included as the final response value
-    private static func sequence(
+    /// Like `/batch`, responses are returned in the same order as requests, but unlike `/batch` there may be fewer elements in the response
+    /// list (if requests were stopped because of a non-2xx response) - In such a case, the final, non-2xx response is still included as the final
+    /// response value
+    private static func preparedSequence(
         _ db: Database,
         server: String,
-        requests: [BatchRequest.Info],
+        requests: [ErasedPreparedSendData],
         using dependencies: SMKDependencies = SMKDependencies()
-    ) -> AnyPublisher<(info: ResponseInfoType, data: [Endpoint: Codable]), Error> {
-        let responseTypes = requests.map { $0.responseType }
-        
-        return OpenGroupAPI
-            .send(
+    ) throws -> PreparedSendData<BatchResponse> {
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request(
                     method: .post,
@@ -196,18 +184,17 @@ public enum OpenGroupAPI {
                     endpoint: Endpoint.sequence,
                     body: BatchRequest(requests: requests)
                 ),
+                responseType: BatchResponse.self,
                 using: dependencies
             )
-            .decoded(as: responseTypes, using: dependencies)
-            .map(requests: requests, toHashMapFor: Endpoint.self)
     }
     
     // MARK: - Capabilities
     
     /// Return the list of server features/capabilities
     ///
-    /// Optionally takes a `required` parameter containing a comma-separated list of capabilites; if any are not satisfied a 412 (Precondition Failed) response
-    /// will be returned with missing requested capabilities in the `missing` key
+    /// Optionally takes a `required` parameter containing a comma-separated list of capabilites; if any are not satisfied a 412 (Precondition Failed)
+    /// response will be returned with missing requested capabilities in the `missing` key
     ///
     /// Eg. `GET /capabilities` could return `{"capabilities": ["sogs", "batch"]}` `GET /capabilities?required=magic,batch`
     /// could return: `{"capabilities": ["sogs", "batch"], "missing": ["magic"]}`
@@ -253,11 +240,6 @@ public enum OpenGroupAPI {
     }
     
     /// Returns the details of a single room
-    ///
-    /// **Note:** This is the direct request to retrieve a room so should only be called from either the `poll()` or `joinRoom()` methods, in order to call
-    /// this directly remove the `@available` line and make sure to route the response of this method to the `OpenGroupManager.handlePollInfo`
-    /// method to ensure things are processed correctly
-    @available(*, unavailable, message: "Avoid using this directly, use the pre-built `poll()` method instead")
     public static func preparedRoom(
         _ db: Database,
         for roomToken: String,
@@ -280,11 +262,6 @@ public enum OpenGroupAPI {
     ///
     /// The endpoint polls room metadata for this room, always including the instantaneous room details (such as the user's permission and current
     /// number of active users), and including the full room metadata if the room's info_updated counter has changed from the provided value
-    ///
-    /// **Note:** This is the direct request to retrieve room updates so should be retrieved automatically from the `poll()` method, in order to call
-    /// this directly remove the `@available` line and make sure to route the response of this method to the `OpenGroupManager.handlePollInfo`
-    /// method to ensure things are processed correctly
-    @available(*, unavailable, message: "Avoid using this directly, use the pre-built `poll()` method instead")
     public static func preparedRoomPollInfo(
         _ db: Database,
         lastUpdated: Int64,
@@ -305,51 +282,33 @@ public enum OpenGroupAPI {
     }
     
     public typealias CapabilitiesAndRoomResponse = (
-        info: ResponseInfoType,
-        data: (
-            capabilities: (info: ResponseInfoType, data: Capabilities),
-            room: (info: ResponseInfoType, data: Room)
-        )
+        capabilities: (info: ResponseInfoType, data: Capabilities),
+        room: (info: ResponseInfoType, data: Room)
     )
     
     /// This is a convenience method which constructs a `/sequence` of the `capabilities` and `room`  requests, refer to those
     /// methods for the documented behaviour of each method
-    public static func capabilitiesAndRoom(
+    public static func preparedCapabilitiesAndRoom(
         _ db: Database,
         for roomToken: String,
         on server: String,
         using dependencies: SMKDependencies = SMKDependencies()
-    ) -> AnyPublisher<CapabilitiesAndRoomResponse, Error> {
-        let requestResponseType: [BatchRequest.Info] = [
-            // Get the latest capabilities for the server (in case it's a new server or the cached ones are stale)
-            BatchRequest.Info(
-                request: Request<NoBody, Endpoint>(
-                    server: server,
-                    endpoint: .capabilities
-                ),
-                responseType: Capabilities.self
-            ),
-            
-            // And the room info
-            BatchRequest.Info(
-                request: Request<NoBody, Endpoint>(
-                    server: server,
-                    endpoint: .room(roomToken)
-                ),
-                responseType: Room.self
-            )
-        ]
-        
-        return OpenGroupAPI
-            .sequence(
+    ) throws -> PreparedSendData<CapabilitiesAndRoomResponse> {
+        return try OpenGroupAPI
+            .preparedSequence(
                 db,
                 server: server,
-                requests: requestResponseType,
+                requests: [
+                    // Get the latest capabilities for the server (in case it's a new server or the
+                    // cached ones are stale)
+                    preparedCapabilities(db, server: server, using: dependencies),
+                    preparedRoom(db, for: roomToken, on: server, using: dependencies)
+                ],
                 using: dependencies
             )
-            .tryMap { (info: ResponseInfoType, data: [Endpoint: Codable]) -> CapabilitiesAndRoomResponse in
-                let maybeCapabilities: HTTP.BatchSubResponse<Capabilities>? = (data[.capabilities] as? HTTP.BatchSubResponse<Capabilities>)
-                let maybeRoomResponse: Codable? = data
+            .map { (info: ResponseInfoType, response: BatchResponse) -> CapabilitiesAndRoomResponse in
+                let maybeCapabilities: HTTP.BatchSubResponse<Capabilities>? = (response[.capabilities] as? HTTP.BatchSubResponse<Capabilities>)
+                let maybeRoomResponse: Decodable? = response.data
                     .first(where: { key, _ in
                         switch key {
                             case .room: return true
@@ -367,53 +326,34 @@ public enum OpenGroupAPI {
                 else { throw HTTPError.parsingFailed }
                 
                 return (
-                    info: info,
-                    data: (
-                        capabilities: (info: capabilitiesInfo, data: capabilities),
-                        room: (info: roomInfo, data: room)
-                    )
+                    capabilities: (info: capabilitiesInfo, data: capabilities),
+                    room: (info: roomInfo, data: room)
                 )
             }
-            .eraseToAnyPublisher()
     }
     
     /// This is a convenience method which constructs a `/sequence` of the `capabilities` and `rooms`  requests, refer to those
     /// methods for the documented behaviour of each method
-    public static func capabilitiesAndRooms(
+    public static func preparedCapabilitiesAndRooms(
         _ db: Database,
         on server: String,
         using dependencies: SMKDependencies = SMKDependencies()
-    ) -> AnyPublisher<(capabilities: (info: ResponseInfoType, data: Capabilities), rooms: (info: ResponseInfoType, data: [Room])), Error> {
-        let requestResponseType: [BatchRequest.Info] = [
-            // Get the latest capabilities for the server (in case it's a new server or the cached ones are stale)
-            BatchRequest.Info(
-                request: Request<NoBody, Endpoint>(
-                    server: server,
-                    endpoint: .capabilities
-                ),
-                responseType: Capabilities.self
-            ),
-            
-            // And the room info
-            BatchRequest.Info(
-                request: Request<NoBody, Endpoint>(
-                    server: server,
-                    endpoint: .rooms
-                ),
-                responseType: [Room].self
-            )
-        ]
-        
-        return OpenGroupAPI
-            .sequence(
+    ) throws -> PreparedSendData<(capabilities: (info: ResponseInfoType, data: Capabilities), rooms: (info: ResponseInfoType, data: [Room]))> {
+        return try OpenGroupAPI
+            .preparedSequence(
                 db,
                 server: server,
-                requests: requestResponseType,
+                requests: [
+                    // Get the latest capabilities for the server (in case it's a new server or the
+                    // cached ones are stale)
+                    preparedCapabilities(db, server: server, using: dependencies),
+                    preparedRooms(db, server: server, using: dependencies)
+                ],
                 using: dependencies
             )
-            .tryMap { (info: ResponseInfoType, data: [Endpoint: Codable]) -> (capabilities: (info: ResponseInfoType, data: Capabilities), rooms: (info: ResponseInfoType, data: [Room])) in
-                let maybeCapabilities: HTTP.BatchSubResponse<Capabilities>? = (data[.capabilities] as? HTTP.BatchSubResponse<Capabilities>)
-                let maybeRooms: HTTP.BatchSubResponse<[Room]>? = data
+            .map { (info: ResponseInfoType, response: BatchResponse) -> (capabilities: (info: ResponseInfoType, data: Capabilities), rooms: (info: ResponseInfoType, data: [Room])) in
+                let maybeCapabilities: HTTP.BatchSubResponse<Capabilities>? = (response[.capabilities] as? HTTP.BatchSubResponse<Capabilities>)
+                let maybeRooms: HTTP.BatchSubResponse<[Room]>? = response.data
                     .first(where: { key, _ in
                         switch key {
                             case .rooms: return true
@@ -434,7 +374,6 @@ public enum OpenGroupAPI {
                     rooms: (info: roomsInfo, data: rooms)
                 )
             }
-            .eraseToAnyPublisher()
     }
     
     // MARK: - Messages
@@ -528,6 +467,7 @@ public enum OpenGroupAPI {
             )
     }
     
+    /// Remove a message by its message id
     public static func preparedMessageDelete(
         _ db: Database,
         id: Int64,
@@ -548,62 +488,75 @@ public enum OpenGroupAPI {
             )
     }
     
-    /// **Note:** This is the direct request to retrieve recent messages so should be retrieved automatically from the `poll()` method, in order to call
-    /// this directly remove the `@available` line and make sure to route the response of this method to the `OpenGroupManager.handleMessages`
-    /// method to ensure things are processed correctly
-    @available(*, unavailable, message: "Avoid using this directly, use the pre-built `poll()` method instead")
+    /// Retrieves recent messages posted to this room
+    ///
+    /// Returns the most recent limit messages (100 if no limit is given). This only returns extant messages, and always returns the latest
+    /// versions: that is, deleted message indicators and pre-editing versions of messages are not returned. Messages are returned in order
+    /// from most recent to least recent
     public static func preparedRecentMessages(
         _ db: Database,
         in roomToken: String,
         on server: String,
         using dependencies: SMKDependencies = SMKDependencies()
-    ) throws -> PreparedSendData<[Message]> {
+    ) throws -> PreparedSendData<[Failable<Message>]> {
         return try OpenGroupAPI
             .prepareSendData(
                 db,
                 request: Request<NoBody, Endpoint>(
                     server: server,
-                    endpoint: .roomMessagesRecent(roomToken)
+                    endpoint: .roomMessagesRecent(roomToken),
+                    queryParameters: [
+                        .updateTypes: UpdateTypes.reaction.rawValue,
+                        .reactors: "5"
+                    ]
                 ),
-                responseType: [Message].self,
+                responseType: [Failable<Message>].self,
                 using: dependencies
             )
     }
     
-    /// **Note:** This is the direct request to retrieve recent messages before a given message  and is currently unused, in order to call this directly
-    /// remove the `@available` line and make sure to route the response of this method to the `OpenGroupManager.handleMessages`
-    /// method to ensure things are processed correctly
-    @available(*, unavailable, message: "Avoid using this directly, use the pre-built `poll()` method instead")
+    /// Retrieves messages from the room preceding a given id.
+    ///
+    /// This endpoint is intended to be used with .../recent to allow a client to retrieve the most recent messages and then walk backwards
+    /// through batches of ever-older messages. As with .../recent, messages are returned in order from most recent to least recent.
+    ///
+    /// As with .../recent, this endpoint does not include deleted messages and always returns the current version, for edited messages.
     public static func preparedMessagesBefore(
         _ db: Database,
         messageId: Int64,
         in roomToken: String,
         on server: String,
         using dependencies: SMKDependencies = SMKDependencies()
-    ) throws -> PreparedSendData<[Message]> {
+    ) throws -> PreparedSendData<[Failable<Message>]> {
         return try OpenGroupAPI
             .prepareSendData(
                 db,
                 request: Request<NoBody, Endpoint>(
                     server: server,
-                    endpoint: .roomMessagesBefore(roomToken, id: messageId)
+                    endpoint: .roomMessagesBefore(roomToken, id: messageId),
+                    queryParameters: [
+                        .updateTypes: UpdateTypes.reaction.rawValue,
+                        .reactors: "5"
+                    ]
                 ),
-                responseType: [Message].self,
+                responseType: [Failable<Message>].self,
                 using: dependencies
             )
     }
     
-    /// **Note:** This is the direct request to retrieve messages since a given message `seqNo` so should be retrieved automatically from the
-    /// `poll()` method, in order to call this directly remove the `@available` line and make sure to route the response of this method to the
-    /// `OpenGroupManager.handleMessages` method to ensure things are processed correctly
-    @available(*, unavailable, message: "Avoid using this directly, use the pre-built `poll()` method instead")
+    /// Retrieves message updates from a room. This is the main message polling endpoint in SOGS.
+    ///
+    /// This endpoint retrieves new, edited, and deleted messages or message reactions posted to this room since the given message
+    /// sequence counter. Returns limit messages at a time (100 if no limit is given). Returned messages include any new messages, updates
+    /// to existing messages (i.e. edits), and message deletions made to the room since the given update id. Messages are returned in "update"
+    /// order, that is, in the order in which the change was applied to the room, from oldest the newest.
     public static func preparedMessagesSince(
         _ db: Database,
         seqNo: Int64,
         in roomToken: String,
         on server: String,
         using dependencies: SMKDependencies = SMKDependencies()
-    ) throws -> PreparedSendData<[Message]> {
+    ) throws -> PreparedSendData<[Failable<Message>]> {
         return try OpenGroupAPI
             .prepareSendData(
                 db,
@@ -612,10 +565,10 @@ public enum OpenGroupAPI {
                     endpoint: .roomMessagesSince(roomToken, seqNo: seqNo),
                     queryParameters: [
                         .updateTypes: UpdateTypes.reaction.rawValue,
-                        .reactors: "20"
+                        .reactors: "5"
                     ]
                 ),
-                responseType: [Message].self,
+                responseType: [Failable<Message>].self,
                 using: dependencies
             )
     }
@@ -655,6 +608,7 @@ public enum OpenGroupAPI {
     
     // MARK: - Reactions
     
+    /// Returns the list of all reactors who have added a particular reaction to a particular message.
     public static func preparedReactors(
         _ db: Database,
         emoji: String,
@@ -682,6 +636,10 @@ public enum OpenGroupAPI {
             )
     }
     
+    /// Adds a reaction to the given message in this room. The user must have read access in the room.
+    ///
+    /// Reactions are short strings of 1-12 unicode codepoints, typically emoji (or character sequences to produce an emoji variant,
+    /// such as 👨🏿‍🦰, which is composed of 4 unicode "characters" but usually renders as a single emoji "Man: Dark Skin Tone, Red Hair").
     public static func preparedReactionAdd(
         _ db: Database,
         emoji: String,
@@ -709,6 +667,8 @@ public enum OpenGroupAPI {
             )
     }
     
+    /// Removes a reaction from a post this room. The user must have read access in the room. This only removes the user's own reaction
+    /// but does not affect the reactions of other users.
     public static func preparedReactionDelete(
         _ db: Database,
         emoji: String,
@@ -736,6 +696,9 @@ public enum OpenGroupAPI {
             )
     }
     
+    /// Removes all reactions of all users from a post in this room. The calling must have moderator permissions in the room. This endpoint
+    /// can either remove a single reaction (e.g. remove all 🍆 reactions) by specifying it after the message id (following a /), or remove all
+    /// reactions from the post by not including the /<reaction> suffix of the URL.
     public static func preparedReactionDeleteAll(
         _ db: Database,
         emoji: String,
@@ -842,6 +805,12 @@ public enum OpenGroupAPI {
     
     // MARK: - Files
     
+    /// Uploads a file to a room.
+    ///
+    /// Takes the request as binary in the body and takes other properties (specifically the suggested filename) via submitted headers.
+    ///
+    /// The user must have upload and posting permissions for the room. The file will have a default lifetime of 1 hour, which is extended
+    /// to 15 days (by default) when a post referencing the uploaded file is posted or edited.
     public static func preparedUploadFile(
         _ db: Database,
         bytes: [UInt8],
@@ -871,6 +840,10 @@ public enum OpenGroupAPI {
             )
     }
     
+    /// Retrieves a file uploaded to the room.
+    ///
+    /// Retrieves a file via its numeric id from the room, returning the file content directly as the binary response body. The file's suggested
+    /// filename (as provided by the uploader) is provided in the Content-Disposition header, if available.
     public static func preparedDownloadFile(
         _ db: Database,
         fileId: String,
@@ -895,10 +868,7 @@ public enum OpenGroupAPI {
 
     /// Retrieves all of the user's current DMs (up to limit)
     ///
-    /// **Note:** This is the direct request to retrieve DMs for a specific Open Group so should be retrieved automatically from the `poll()`
-    /// method, in order to call this directly remove the `@available` line and make sure to route the response of this method to the
-    /// `OpenGroupManager.handleDirectMessages` method to ensure things are processed correctly
-    @available(*, unavailable, message: "Avoid using this directly, use the pre-built `poll()` method instead")
+    /// **Note:** `inbox` will return a `304` with an empty response if no messages (hence the optional return type)
     public static func preparedInbox(
         _ db: Database,
         on server: String,
@@ -918,10 +888,7 @@ public enum OpenGroupAPI {
     
     /// Polls for any DMs received since the given id, this method will return a `304` with an empty response if there are no messages
     ///
-    /// **Note:** This is the direct request to retrieve messages requests for a specific Open Group since a given messages so should be retrieved
-    /// automatically from the `poll()` method, in order to call this directly remove the `@available` line and make sure to route the response
-    /// of this method to the `OpenGroupManager.handleDirectMessages` method to ensure things are processed correctly
-    @available(*, unavailable, message: "Avoid using this directly, use the pre-built `poll()` method instead")
+    /// **Note:** `inboxSince` will return a `304` with an empty response if no messages (hence the optional return type)
     public static func preparedInboxSince(
         _ db: Database,
         id: Int64,
@@ -941,23 +908,22 @@ public enum OpenGroupAPI {
     }
     
     /// Remove all message requests from inbox, this methrod will return the number of messages deleted
-    public static func clearInbox(
+    public static func preparedClearInbox(
         _ db: Database,
         on server: String,
         using dependencies: SMKDependencies = SMKDependencies()
-    ) -> AnyPublisher<(ResponseInfoType, DeleteInboxResponse), Error> {
-        return OpenGroupAPI
-            .send(
+    ) throws -> PreparedSendData<DeleteInboxResponse> {
+        return try OpenGroupAPI
+            .prepareSendData(
                 db,
                 request: Request<NoBody, Endpoint>(
                     method: .delete,
                     server: server,
                     endpoint: .inbox
                 ),
+                responseType: DeleteInboxResponse.self,
                 using: dependencies
             )
-            .decoded(as: DeleteInboxResponse.self, using: dependencies)
-            .eraseToAnyPublisher()
     }
     
     /// Delivers a direct message to a user via their blinded Session ID
@@ -988,10 +954,7 @@ public enum OpenGroupAPI {
     
     /// Retrieves all of the user's sent DMs (up to limit)
     ///
-    /// **Note:** This is the direct request to retrieve DMs sent by the user for a specific Open Group so should be retrieved automatically
-    /// from the `poll()` method, in order to call this directly remove the `@available` line and make sure to route the response of
-    /// this method to the `OpenGroupManager.handleDirectMessages` method to ensure things are processed correctly
-    @available(*, unavailable, message: "Avoid using this directly, use the pre-built `poll()` method instead")
+    /// **Note:** `outbox` will return a `304` with an empty response if no messages (hence the optional return type)
     public static func preparedOutbox(
         _ db: Database,
         on server: String,
@@ -1011,10 +974,7 @@ public enum OpenGroupAPI {
     
     /// Polls for any DMs sent since the given id, this method will return a `304` with an empty response if there are no messages
     ///
-    /// **Note:** This is the direct request to retrieve messages requests sent by the user for a specific Open Group since a given messages so
-    /// should be retrieved automatically from the `poll()` method, in order to call this directly remove the `@available` line and make sure
-    /// to route the response of this method to the `OpenGroupManager.handleDirectMessages` method to ensure things are processed correctly
-    @available(*, unavailable, message: "Avoid using this directly, use the pre-built `poll()` method instead")
+    /// **Note:** `outboxSince` will return a `304` with an empty response if no messages (hence the optional return type)
     public static func preparedOutboxSince(
         _ db: Database,
         id: Int64,
@@ -1227,52 +1187,35 @@ public enum OpenGroupAPI {
     
     /// This is a convenience method which constructs a `/sequence` of the `userBan` and `userDeleteMessages`  requests, refer to those
     /// methods for the documented behaviour of each method
-    public static func userBanAndDeleteAllMessages(
+    public static func preparedUserBanAndDeleteAllMessages(
         _ db: Database,
         sessionId: String,
         in roomToken: String,
         on server: String,
         using dependencies: SMKDependencies = SMKDependencies()
-    ) -> AnyPublisher<(info: ResponseInfoType, data: [Endpoint: ResponseInfoType]), Error> {
-        let banRequestBody: UserBanRequest = UserBanRequest(
-            rooms: [roomToken],
-            global: nil,
-            timeout: nil
-        )
-        
-        // Generate the requests
-        let requestResponseType: [BatchRequest.Info] = [
-            BatchRequest.Info(
-                request: Request<UserBanRequest, Endpoint>(
-                    method: .post,
-                    server: server,
-                    endpoint: .userBan(sessionId),
-                    body: banRequestBody
-                )
-            ),
-            BatchRequest.Info(
-                request: Request<NoBody, Endpoint>(
-                    method: .delete,
-                    server: server,
-                    endpoint: Endpoint.roomDeleteMessages(roomToken, sessionId: sessionId)
-                )
-            )
-        ]
-        
-        return OpenGroupAPI
-            .sequence(
+    ) throws -> PreparedSendData<BatchResponse> {
+        return try OpenGroupAPI
+            .preparedSequence(
                 db,
                 server: server,
-                requests: requestResponseType,
+                requests: [
+                    preparedUserBan(
+                        db,
+                        sessionId: sessionId,
+                        from: [roomToken],
+                        on: server,
+                        using: dependencies
+                    ),
+                    preparedMessagesDeleteAll(
+                        db,
+                        sessionId: sessionId,
+                        in: roomToken,
+                        on: server,
+                        using: dependencies
+                    )
+                ],
                 using: dependencies
             )
-            .map { info, data -> (info: ResponseInfoType, data: [Endpoint: ResponseInfoType]) in
-                (
-                    info,
-                    data.compactMapValues { ($0 as? BatchSubResponseType)?.responseInfo }
-                )
-            }
-            .eraseToAnyPublisher()
     }
     
     // MARK: - Authentication
@@ -1408,6 +1351,9 @@ public enum OpenGroupAPI {
     
     // MARK: - Convenience
     
+    /// Takes the reuqest information and generates a signed `PreparedSendData<R>` pbject which is ready for sending to the API, this
+    /// method is mainly here so we can separate the preparation of a request, which requires access to the database for signing, from the
+    /// actual sending of the reuqest to ensure we don't run into any unexpected blocking of the database write thread
     private static func prepareSendData<T: Encodable, R: Decodable>(
         _ db: Database,
         request: Request<T, Endpoint>,
@@ -1431,56 +1377,15 @@ public enum OpenGroupAPI {
         }
         
         return PreparedSendData(
-            request: signedRequest,
-            endpoint: request.endpoint,
-            server: request.server,
+            request: request,
+            urlRequest: signedRequest,
             publicKey: publicKey,
             responseType: responseType,
             timeout: timeout
         )
     }
     
-    private static func send<T: Encodable>(
-        _ db: Database,
-        request: Request<T, Endpoint>,
-        forceBlinded: Bool = false,
-        timeout: TimeInterval = HTTP.defaultTimeout,
-        using dependencies: SMKDependencies = SMKDependencies()
-    ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        let urlRequest: URLRequest
-        
-        do {
-            urlRequest = try request.generateUrlRequest()
-        }
-        catch {
-            return Fail(error: error)
-                .eraseToAnyPublisher()
-        }
-        
-        let maybePublicKey: String? = try? OpenGroup
-            .select(.publicKey)
-            .filter(OpenGroup.Columns.server == request.server.lowercased())
-            .asRequest(of: String.self)
-            .fetchOne(db)
-        
-        guard let publicKey: String = maybePublicKey else {
-            return Fail(error: OpenGroupAPIError.noPublicKey)
-                .eraseToAnyPublisher()
-        }
-        
-        // Attempt to sign the request with the new auth
-        guard let signedRequest: URLRequest = sign(db, request: urlRequest, for: request.server, with: publicKey, forceBlinded: forceBlinded, using: dependencies) else {
-            return Fail(error: OpenGroupAPIError.signingFailed)
-                .eraseToAnyPublisher()
-        }
-        
-        // We want to avoid blocking the db write thread so we dispatch the API call to a different thread
-        return Just(())
-            .setFailureType(to: Error.self)
-            .flatMap { dependencies.onionApi.sendOnionRequest(signedRequest, to: request.server, with: publicKey, timeout: timeout) }
-            .eraseToAnyPublisher()
-    }
-    
+    /// This method takes in the `PreparedSendData<R>` and actually sends it to the API
     public static func send<R>(
         data: PreparedSendData<R>?,
         using dependencies: SMKDependencies = SMKDependencies()

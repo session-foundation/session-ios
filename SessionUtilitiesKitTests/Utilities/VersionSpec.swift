@@ -54,11 +54,15 @@ class VersionSpec: QuickSpec {
                 }
                 
                 it("returns correctly for a complex major difference") {
-                    let version1: Version = Version.from("2.90.90")
-                    let version2: Version = Version.from("10.0.0")
+                    let version1a: Version = Version.from("2.90.90")
+                    let version2a: Version = Version.from("10.0.0")
+                    let version1b: Version = Version.from("0.7.2")
+                    let version2b: Version = Version.from("5.0.2")
                     
-                    expect(version1 < version2).to(beTrue())
-                    expect(version2 > version1).to(beTrue())
+                    expect(version1a < version2a).to(beTrue())
+                    expect(version2a > version1a).to(beTrue())
+                    expect(version1b < version2b).to(beTrue())
+                    expect(version2b > version1b).to(beTrue())
                 }
                 
                 it("returns correctly for a simple minor difference") {
@@ -70,11 +74,15 @@ class VersionSpec: QuickSpec {
                 }
                 
                 it("returns correctly for a complex minor difference") {
-                    let version1: Version = Version.from("90.2.90")
-                    let version2: Version = Version.from("90.10.0")
+                    let version1a: Version = Version.from("90.2.90")
+                    let version2a: Version = Version.from("90.10.0")
+                    let version1b: Version = Version.from("2.0.7")
+                    let version2b: Version = Version.from("2.5.0")
                     
-                    expect(version1 < version2).to(beTrue())
-                    expect(version2 > version1).to(beTrue())
+                    expect(version1a < version2a).to(beTrue())
+                    expect(version2a > version1a).to(beTrue())
+                    expect(version1b < version2b).to(beTrue())
+                    expect(version2b > version1b).to(beTrue())
                 }
                 
                 it("returns correctly for a simple patch difference") {
@@ -86,11 +94,15 @@ class VersionSpec: QuickSpec {
                 }
                 
                 it("returns correctly for a complex patch difference") {
-                    let version1: Version = Version.from("90.90.2")
-                    let version2: Version = Version.from("90.90.10")
+                    let version1a: Version = Version.from("90.90.2")
+                    let version2a: Version = Version.from("90.90.10")
+                    let version1b: Version = Version.from("2.5.0")
+                    let version2b: Version = Version.from("2.5.7")
                     
-                    expect(version1 < version2).to(beTrue())
-                    expect(version2 > version1).to(beTrue())
+                    expect(version1a < version2a).to(beTrue())
+                    expect(version2a > version1a).to(beTrue())
+                    expect(version1b < version2b).to(beTrue())
+                    expect(version2b > version1b).to(beTrue())
                 }
             }
         }

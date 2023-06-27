@@ -8,7 +8,7 @@ import SessionUtilitiesKit
 
 extension OpenGroupAPI {
     public final class Poller {
-        typealias PollResponse = (info: ResponseInfoType, data: [OpenGroupAPI.Endpoint: Codable])
+        typealias PollResponse = (info: ResponseInfoType, data: [OpenGroupAPI.Endpoint: Decodable])
         
         private let server: String
         private var timer: Timer? = nil
@@ -122,7 +122,7 @@ extension OpenGroupAPI {
             let server: String = self.server
             
             return dependencies.storage
-                .readPublisherFlatMap { db -> AnyPublisher<(Int64, PollResponse), Error> in
+                .readPublisher { db -> (Int64, PreparedSendData<BatchResponse>) in
                     let failureCount: Int64 = (try? OpenGroup
                         .filter(OpenGroup.Columns.server == server)
                         .select(max(OpenGroup.Columns.pollFailureCount))
@@ -130,22 +130,27 @@ extension OpenGroupAPI {
                         .fetchOne(db))
                         .defaulting(to: 0)
                     
-                    return OpenGroupAPI
-                        .poll(
-                            db,
-                            server: server,
-                            hasPerformedInitialPoll: dependencies.cache.hasPerformedInitialPoll[server] == true,
-                            timeSinceLastPoll: (
-                                dependencies.cache.timeSinceLastPoll[server] ??
-                                dependencies.cache.getTimeSinceLastOpen(using: dependencies)
-                            ),
-                            using: dependencies
-                        )
-                        .map { response in (failureCount, response) }
-                        .eraseToAnyPublisher()
+                    return (
+                        failureCount,
+                        try OpenGroupAPI
+                            .preparedPoll(
+                                db,
+                                server: server,
+                                hasPerformedInitialPoll: dependencies.cache.hasPerformedInitialPoll[server] == true,
+                                timeSinceLastPoll: (
+                                    dependencies.cache.timeSinceLastPoll[server] ??
+                                    dependencies.cache.getTimeSinceLastOpen(using: dependencies)
+                                ),
+                                using: dependencies
+                            )
+                    )
+                }
+                .flatMap { failureCount, sendData in
+                    OpenGroupAPI.send(data: sendData, using: dependencies)
+                        .map { info, response in (failureCount, info, response) }
                 }
                 .handleEvents(
-                    receiveOutput: { [weak self] failureCount, response in
+                    receiveOutput: { [weak self] failureCount, info, response in
                         guard !calledFromBackgroundPoller || isBackgroundPollerValid() else {
                             // If this was a background poll and the background poll is no longer valid
                             // then just stop
@@ -155,7 +160,8 @@ extension OpenGroupAPI {
 
                         self?.isPolling = false
                         self?.handlePollResponse(
-                            response,
+                            info: info,
+                            response: response,
                             failureCount: failureCount,
                             using: dependencies
                         )
@@ -363,12 +369,13 @@ extension OpenGroupAPI {
         }
         
         private func handlePollResponse(
-            _ response: PollResponse,
+            info: ResponseInfoType,
+            response: BatchResponse,
             failureCount: Int64,
             using dependencies: OpenGroupManager.OGMDependencies = OpenGroupManager.OGMDependencies()
         ) {
             let server: String = self.server
-            let validResponses: [OpenGroupAPI.Endpoint: Codable] = response.data
+            let validResponses: [OpenGroupAPI.Endpoint: Decodable] = response.data
                 .filter { endpoint, data in
                     switch endpoint {
                         case .capabilities:
@@ -467,7 +474,7 @@ extension OpenGroupAPI {
                 
                 return (capabilities, groups)
             }
-            let changedResponses: [OpenGroupAPI.Endpoint: Codable] = validResponses
+            let changedResponses: [OpenGroupAPI.Endpoint: Decodable] = validResponses
                 .filter { endpoint, data in
                     switch endpoint {
                         case .capabilities:

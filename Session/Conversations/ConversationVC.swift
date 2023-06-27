@@ -1681,10 +1681,19 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         unreadCountView.isHidden = (unreadCount == 0)
     }
     
-    public func updateScrollToBottom() {
-        // The initial scroll can trigger this logic but we already mark the initially focused message
-        // as read so don't run the below until the user actually scrolls after the initial layout
-        guard self.didFinishInitialLayout else { return }
+    public func updateScrollToBottom(force: Bool = false) {
+        // Don't update the scroll button until we have actually setup the initial scroll position to avoid
+        // any odd flickering or incorrect appearance
+        guard self.didFinishInitialLayout || force else { return }
+        
+        // If we have a 'loadNewer' item in the interaction data then there are subsequent pages and the
+        // 'scrollToBottom' actions should always be visible to allow the user to jump to the bottom (without
+        // this the button will fade out as the user gets close to the bottom of the current page)
+        guard !self.viewModel.interactionData.contains(where: { $0.model == .loadNewer }) else {
+            self.scrollButton.alpha = 1
+            self.unreadCountView.alpha = 1
+            return
+        }
         
         // Calculate the target opacity for the scroll button
         let contentOffsetY: CGFloat = tableView.contentOffset.y
@@ -1897,17 +1906,13 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                 animated: (self.didFinishInitialLayout && isAnimated)
             )
             
-            // Need to explicitly call 'scrollViewDidScroll' here as it won't get triggered
-            // by 'scrollToRow' if a scroll doesn't occur (eg. if there is less than 1 screen
-            // of messages)
-            self.scrollViewDidScroll(self.tableView)
-            
             // If we haven't finished the initial layout then we want to delay the highlight/markRead slightly
             // so it doesn't look buggy with the push transition and we know for sure the correct visible cells
             // have been loaded
             DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(self.didFinishInitialLayout ? 0 : 150)) { [weak self] in
                 self?.markFullyVisibleAndOlderCellsAsRead(interactionInfo: interactionInfo)
                 self?.highlightCellIfNeeded(interactionId: interactionInfo.id, behaviour: focusBehaviour)
+                self?.updateScrollToBottom(force: true)
             }
             
             self.shouldHighlightNextScrollToInteraction = false

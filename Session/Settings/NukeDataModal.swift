@@ -169,21 +169,22 @@ final class NukeDataModal: Modal {
                 Publishers
                     .MergeMany(
                         Storage.shared
-                            .read { db -> [AnyPublisher<[String: Bool], Error>] in
-                                try OpenGroup
+                            .read { db -> [(String, OpenGroupAPI.PreparedSendData<DeleteInboxResponse>)] in
+                                return try OpenGroup
                                     .filter(OpenGroup.Columns.isActive == true)
                                     .select(.server)
                                     .distinct()
                                     .asRequest(of: String.self)
                                     .fetchSet(db)
-                                    .map { server -> AnyPublisher<[String: Bool], Error> in
-                                        OpenGroupAPI
-                                            .clearInbox(db, on: server)
-                                            .map { _, _ -> [String: Bool] in [server: true] }
-                                            .eraseToAnyPublisher()
-                                    }
+                                    .map { ($0, try OpenGroupAPI.preparedClearInbox(db, on: $0))}
                             }
                             .defaulting(to: [])
+                            .compactMap { server, data in
+                                OpenGroupAPI
+                                    .send(data: data)
+                                    .map { _ in [server: true] }
+                                    .eraseToAnyPublisher()
+                            }
                     )
                     .collect()
                     .subscribe(on: DispatchQueue.global(qos: .userInitiated))
@@ -200,7 +201,7 @@ final class NukeDataModal: Modal {
                                 case .finished: break
                                 case .failure(let error):
                                     self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-                                    
+
                                     let modal: ConfirmationModal = ConfirmationModal(
                                         targetView: self?.view,
                                         info: ConfirmationModal.Info(

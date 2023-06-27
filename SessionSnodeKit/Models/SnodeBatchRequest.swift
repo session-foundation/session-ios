@@ -14,7 +14,7 @@ internal extension SnodeAPI {
         // MARK: - BatchRequest.Info
         
         struct Info {
-            public let responseType: Codable.Type
+            public let responseType: Decodable.Type
             fileprivate let child: Child
             
             public init<T: Encodable, R: Codable>(request: SnodeRequest<T>, responseType: R.Type) {

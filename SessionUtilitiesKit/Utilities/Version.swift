@@ -48,8 +48,8 @@ public struct Version: Comparable {
     }
     
     public static func < (lhs: Version, rhs: Version) -> Bool {
-        guard lhs.major >= rhs.major else { return true }
-        guard lhs.minor >= rhs.minor else { return true }
+        guard lhs.major == rhs.major else { return (lhs.major < rhs.major) }
+        guard lhs.minor == rhs.minor else { return (lhs.minor < rhs.minor) }
         
         return (lhs.patch < rhs.patch)
     }
