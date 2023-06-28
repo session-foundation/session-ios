@@ -13,7 +13,7 @@ import SignalCoreKit
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
-    private static let maxRootViewControllerInitialQueryDuration: TimeInterval = 5
+    private static let maxRootViewControllerInitialQueryDuration: TimeInterval = 10
     
     var window: UIWindow?
     var backgroundSnapshotBlockerWindow: UIWindow?
@@ -73,7 +73,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             },
             migrationsCompletion: { [weak self] result, needsConfigSync in
                 if case .failure(let error) = result {
-                    self?.showFailedStartupAlert(calledFrom: .finishLaunching, error: .migrationError(error))
+                    DispatchQueue.main.async {
+                        self?.showFailedStartupAlert(calledFrom: .finishLaunching, error: .databaseError(error))
+                    }
                     return
                 }
                 
@@ -150,7 +152,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 migrationsCompletion: { [weak self] result, needsConfigSync in
                     if case .failure(let error) = result {
                         DispatchQueue.main.async {
-                            self?.showFailedStartupAlert(calledFrom: .enterForeground, error: .migrationError(error))
+                            self?.showFailedStartupAlert(calledFrom: .enterForeground, error: .databaseError(error))
                         }
                         return
                     }
@@ -372,8 +374,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         })
         
         switch error {
+            // Don't offer the 'Restore' option if it was a 'startupFailed' error as a restore is unlikely to
+            // resolve it (most likely the database is locked or the key was somehow lost - safer to get them
+            // to restart and manually reinstall/restore)
+            case .databaseError(StorageError.startupFailed): break
+                
             // Offer the 'Restore' option if it was a migration error
-            case .migrationError:
+            case .databaseError:
                 alert.addAction(UIAlertAction(title: "vc_restore_title".localized(), style: .destructive) { _ in
                     if SUKLegacy.hasLegacyDatabaseFile {
                         // Remove the legacy database and any message hashes that have been migrated to the new DB
@@ -402,7 +409,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                         migrationsCompletion: { [weak self] result, needsConfigSync in
                             switch result {
                                 case .failure:
-                                    self?.showFailedStartupAlert(calledFrom: lifecycleMethod, error: .failedToRestore)
+                                    DispatchQueue.main.async {
+                                        self?.showFailedStartupAlert(calledFrom: lifecycleMethod, error: .failedToRestore)
+                                    }
                                     
                                 case .success:
                                     self?.completePostMigrationSetup(calledFrom: lifecycleMethod, needsConfigSync: needsConfigSync)
@@ -848,16 +857,15 @@ private enum LifecycleMethod {
 // MARK: - StartupError
 
 private enum StartupError: Error {
-    case databaseStartupError
-    case migrationError(Error)
+    case databaseError(Error)
     case failedToRestore
     case startupTimeout
     
     var message: String {
         switch self {
-            case .databaseStartupError: return "DATABASE_STARTUP_FAILED".localized()
+            case .databaseError(StorageError.startupFailed): return "DATABASE_STARTUP_FAILED".localized()
             case .failedToRestore: return "DATABASE_RESTORE_FAILED".localized()
-            case .migrationError: return "DATABASE_MIGRATION_FAILED".localized()
+            case .databaseError: return "DATABASE_MIGRATION_FAILED".localized()
             case .startupTimeout: return "APP_STARTUP_TIMEOUT".localized()
         }
     }

@@ -26,32 +26,39 @@ public class HomeViewModel {
         let showViewedSeedBanner: Bool
         let hasHiddenMessageRequests: Bool
         let unreadMessageRequestThreadCount: Int
-        let userProfile: Profile?
-        
-        init(
-            showViewedSeedBanner: Bool = !Storage.shared[.hasViewedSeed],
-            hasHiddenMessageRequests: Bool = Storage.shared[.hasHiddenMessageRequests],
-            unreadMessageRequestThreadCount: Int = 0,
-            userProfile: Profile? = nil
-        ) {
-            self.showViewedSeedBanner = showViewedSeedBanner
-            self.hasHiddenMessageRequests = hasHiddenMessageRequests
-            self.unreadMessageRequestThreadCount = unreadMessageRequestThreadCount
-            self.userProfile = userProfile
-        }
+        let userProfile: Profile
     }
     
     // MARK: - Initialization
     
     init() {
-        self.state = State()
+        typealias InitialData = (
+            showViewedSeedBanner: Bool,
+            hasHiddenMessageRequests: Bool,
+            profile: Profile
+        )
+        
+        let initialData: InitialData? = Storage.shared.read { db -> InitialData in
+            (
+                !db[.hasViewedSeed],
+                db[.hasHiddenMessageRequests],
+                Profile.fetchOrCreateCurrentUser(db)
+            )
+        }
+        
+        self.state = State(
+            showViewedSeedBanner: (initialData?.showViewedSeedBanner ?? true),
+            hasHiddenMessageRequests: (initialData?.hasHiddenMessageRequests ?? false),
+            unreadMessageRequestThreadCount: 0,
+            userProfile: (initialData?.profile ?? Profile.fetchOrCreateCurrentUser())
+        )
         self.pagedDataObserver = nil
         
         // Note: Since this references self we need to finish initializing before setting it, we
         // also want to skip the initial query and trigger it async so that the push animation
         // doesn't stutter (it should load basically immediately but without this there is a
         // distinct stutter)
-        let userPublicKey: String = getUserHexEncodedPublicKey()
+        let userPublicKey: String = self.state.userProfile.id
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         self.pagedDataObserver = PagedDatabaseObserver(
             pagedTable: SessionThread.self,

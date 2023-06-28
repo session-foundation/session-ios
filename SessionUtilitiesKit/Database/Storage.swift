@@ -516,24 +516,6 @@ open class Storage {
 
 // MARK: - Combine Extensions
 
-public extension Storage {
-    func readPublisherFlatMap<T>(
-        value: @escaping (Database) throws -> AnyPublisher<T, Error>
-    ) -> AnyPublisher<T, Error> {
-        return readPublisher(value: value)
-            .flatMap { resultPublisher -> AnyPublisher<T, Error> in resultPublisher }
-            .eraseToAnyPublisher()
-    }
-    
-    func writePublisherFlatMap<T>(
-        updates: @escaping (Database) throws -> AnyPublisher<T, Error>
-    ) -> AnyPublisher<T, Error> {
-        return writePublisher(updates: updates)
-            .flatMap { resultPublisher -> AnyPublisher<T, Error> in resultPublisher }
-            .eraseToAnyPublisher()
-    }
-}
-
 public extension ValueObservation {
     func publisher(
         in storage: Storage,

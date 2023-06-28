@@ -464,21 +464,18 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         
         ModalActivityIndicatorViewController.present(fromViewController: navigationController) { _ in
             Storage.shared
-                .writePublisherFlatMap { db -> AnyPublisher<Void, Error> in
-                    if !updatedMemberIds.contains(userPublicKey) {
-                        try MessageSender.leave(
-                            db,
-                            groupPublicKey: threadId,
-                            deleteThread: true
-                        )
-                        
-                        return Just(())
-                            .setFailureType(to: Error.self)
-                            .eraseToAnyPublisher()
-                    }
-                    
-                    return MessageSender.update(
+                .writePublisher { db in
+                    guard updatedMemberIds.contains(userPublicKey) else { return }
+
+                    try MessageSender.leave(
                         db,
+                        groupPublicKey: threadId,
+                        deleteThread: true
+                    )
+                    
+                }
+                .flatMap {
+                    MessageSender.update(
                         groupPublicKey: threadId,
                         with: updatedMemberIds,
                         name: updatedName

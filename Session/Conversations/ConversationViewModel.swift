@@ -63,6 +63,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     
     init(threadId: String, threadVariant: SessionThread.Variant, focusedInteractionInfo: Interaction.TimestampInfo?) {
         typealias InitialData = (
+            currentUserPublicKey: String,
             initialUnreadInteractionInfo: Interaction.TimestampInfo?,
             threadIsBlocked: Bool,
             currentUserIsClosedGroupMember: Bool?,
@@ -73,6 +74,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         let initialData: InitialData? = Storage.shared.read { db -> InitialData in
             let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
             let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
+            let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
             
             // If we have a specified 'focusedInteractionInfo' then use that, otherwise retrieve the oldest
             // unread interaction and start focused around that one
@@ -94,7 +96,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             let currentUserIsClosedGroupMember: Bool? = (![.legacyGroup, .group].contains(threadVariant) ? nil :
                 GroupMember
                     .filter(groupMember[.groupId] == threadId)
-                    .filter(groupMember[.profileId] == getUserHexEncodedPublicKey(db))
+                    .filter(groupMember[.profileId] == currentUserPublicKey)
                     .filter(groupMember[.role] == GroupMember.Role.standard)
                     .isNotEmpty(db)
             )
@@ -112,6 +114,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             )
             
             return (
+                currentUserPublicKey,
                 initialUnreadInteractionInfo,
                 threadIsBlocked,
                 currentUserIsClosedGroupMember,
@@ -128,7 +131,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         self.threadData = SessionThreadViewModel(
             threadId: threadId,
             threadVariant: threadVariant,
-            threadIsNoteToSelf: (self.threadId == getUserHexEncodedPublicKey()),
+            threadIsNoteToSelf: (initialData?.currentUserPublicKey == threadId),
             threadIsBlocked: initialData?.threadIsBlocked,
             currentUserIsClosedGroupMember: initialData?.currentUserIsClosedGroupMember,
             openGroupPermissions: initialData?.openGroupPermissions
@@ -141,7 +144,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         // distinct stutter)
         self.pagedDataObserver = self.setupPagedObserver(
             for: threadId,
-            userPublicKey: getUserHexEncodedPublicKey(),
+            userPublicKey: (initialData?.currentUserPublicKey ?? getUserHexEncodedPublicKey()),
             blindedPublicKey: SessionThread.getUserHexEncodedBlindedKey(
                 threadId: threadId,
                 threadVariant: threadVariant

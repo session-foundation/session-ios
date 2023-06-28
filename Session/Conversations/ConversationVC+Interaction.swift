@@ -1181,7 +1181,12 @@ extension ConversationVC:
             )
     }
     
-    func react(_ cellViewModel: MessageViewModel, with emoji: String, remove: Bool) {
+    func react(
+        _ cellViewModel: MessageViewModel,
+        with emoji: String,
+        remove: Bool,
+        using dependencies: Dependencies = Dependencies()
+    ) {
         guard
             self.viewModel.threadData.threadIsMessageRequest != true && (
                 cellViewModel.variant == .standardIncoming ||
@@ -1193,7 +1198,7 @@ extension ConversationVC:
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         let openGroupRoom: String? = self.viewModel.threadData.openGroupRoomToken
         let sentTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs()
-        let recentReactionTimestamps: [Int64] = General.cache.wrappedValue.recentReactionTimestamps
+        let recentReactionTimestamps: [Int64] = dependencies.generalCache.recentReactionTimestamps
         
         guard
             recentReactionTimestamps.count < 20 ||
@@ -1211,7 +1216,7 @@ extension ConversationVC:
             return
         }
         
-        General.cache.mutate {
+        dependencies.mutableGeneralCache.mutate {
             $0.recentReactionTimestamps = Array($0.recentReactionTimestamps
                 .suffix(19))
                 .appending(sentTimestamp)
@@ -1522,9 +1527,18 @@ extension ConversationVC:
                     }
                     
                     Storage.shared
-                        .writePublisherFlatMap { db in
+                        .writePublisher { db in
                             OpenGroupManager.shared.add(
                                 db,
+                                roomToken: room,
+                                server: server,
+                                publicKey: publicKey,
+                                calledFromConfigHandling: false
+                            )
+                        }
+                        .flatMap { successfullyAddedGroup in
+                            OpenGroupManager.shared.performInitialRequestsAfterAdd(
+                                successfullyAddedGroup: successfullyAddedGroup,
                                 roomToken: room,
                                 server: server,
                                 publicKey: publicKey,

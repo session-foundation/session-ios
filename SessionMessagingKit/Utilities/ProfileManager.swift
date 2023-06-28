@@ -498,7 +498,7 @@ public struct ProfileManager {
         dependencies: Dependencies = Dependencies()
     ) throws {
         let isCurrentUser = (publicKey == getUserHexEncodedPublicKey(db, dependencies: dependencies))
-        let profile: Profile = Profile.fetchOrCreate(id: publicKey)
+        let profile: Profile = Profile.fetchOrCreate(db, id: publicKey)
         var profileChanges: [ConfigColumnAssignment] = []
         
         // Name

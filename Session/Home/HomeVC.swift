@@ -228,7 +228,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         // Preparation
         SessionApp.homeViewController.mutate { $0 = self }
         
-        updateNavBarButtons()
+        updateNavBarButtons(userProfile: self.viewModel.state.userProfile)
         setUpNavBarSessionHeading()
         
         // Recovery phrase reminder
@@ -382,7 +382,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         }
         
         if updatedState.userProfile != self.viewModel.state.userProfile {
-            updateNavBarButtons()
+            updateNavBarButtons(userProfile: updatedState.userProfile)
         }
         
         // Update the 'view seed' UI
@@ -489,17 +489,17 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         }
     }
     
-    private func updateNavBarButtons() {
+    private func updateNavBarButtons(userProfile: Profile) {
         // Profile picture view
         let profilePictureView = ProfilePictureView(size: .navigation)
         profilePictureView.accessibilityIdentifier = "User settings"
         profilePictureView.accessibilityLabel = "User settings"
         profilePictureView.isAccessibilityElement = true
         profilePictureView.update(
-            publicKey: getUserHexEncodedPublicKey(),
+            publicKey: userProfile.id,
             threadVariant: .contact,
             customImageData: nil,
-            profile: Profile.fetchOrCreateCurrentUser(),
+            profile: userProfile,
             additionalProfile: nil
         )
         

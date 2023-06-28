@@ -269,18 +269,6 @@ public extension Profile {
     ///
     /// **Note:** This method intentionally does **not** save the newly created Profile,
     /// it will need to be explicitly saved after calling
-    static func fetchOrCreate(id: String) -> Profile {
-        let exisingProfile: Profile? = Storage.shared.read { db in
-            try Profile.fetchOne(db, id: id)
-        }
-        
-        return (exisingProfile ?? defaultFor(id))
-    }
-    
-    /// Fetches or creates a Profile for the specified user
-    ///
-    /// **Note:** This method intentionally does **not** save the newly created Profile,
-    /// it will need to be explicitly saved after calling
     static func fetchOrCreate(_ db: Database, id: String) -> Profile {
         return (
             (try? Profile.fetchOne(db, id: id)) ??

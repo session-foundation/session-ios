@@ -7,30 +7,15 @@ import Sodium
 import SessionUtilitiesKit
 import SessionSnodeKit
 
-// MARK: - OGMCacheType
-
-public protocol OGMCacheType {
-    var defaultRoomsPublisher: AnyPublisher<[OpenGroupAPI.Room], Error>? { get set }
-    var groupImagePublishers: [String: AnyPublisher<Data, Error>] { get set }
-    
-    var pollers: [String: OpenGroupAPI.Poller] { get set }
-    var isPolling: Bool { get set }
-    
-    var hasPerformedInitialPoll: [String: Bool] { get set }
-    var timeSinceLastPoll: [String: TimeInterval] { get set }
-    
-    var pendingChanges: [OpenGroupAPI.PendingChange] { get set }
-    
-    func getTimeSinceLastOpen(using dependencies: Dependencies) -> TimeInterval
-}
-
 // MARK: - OpenGroupManager
 
 public final class OpenGroupManager {
+    public typealias DefaultRoomInfo = (room: OpenGroupAPI.Room, existingImageData: Data?)
+    
     // MARK: - Cache
     
-    public class Cache: OGMCacheType {
-        public var defaultRoomsPublisher: AnyPublisher<[OpenGroupAPI.Room], Error>?
+    public class Cache: OGMMutableCacheType {
+        public var defaultRoomsPublisher: AnyPublisher<[DefaultRoomInfo], Error>?
         public var groupImagePublishers: [String: AnyPublisher<Data, Error>] = [:]
         
         public var pollers: [String: OpenGroupAPI.Poller] = [:] // One for each server
@@ -60,10 +45,7 @@ public final class OpenGroupManager {
     
     // MARK: - Variables
     
-    public static let shared: OpenGroupManager = OpenGroupManager()
-    
-    /// Note: This should not be accessed directly but rather via the 'OGMDependencies' type
-    fileprivate let mutableCache: Atomic<OGMCacheType> = Atomic(Cache())
+    public static let shared: OpenGroupManager = OpenGroupManager()    
     
     // MARK: - Polling
 
@@ -87,6 +69,7 @@ public final class OpenGroupManager {
                 }
                 .defaulting(to: [])
             
+            // Update the cache state and re-create all of the pollers
             dependencies.mutableCache.mutate { cache in
                 cache.isPolling = true
                 cache.pollers = servers
@@ -94,14 +77,9 @@ public final class OpenGroupManager {
                         result[server.lowercased()]?.stop() // Should never occur
                         result[server.lowercased()] = OpenGroupAPI.Poller(for: server.lowercased())
                     }
-                
-                // Note: We loop separately here because when the cache is mocked-out for tests it
-                // doesn't actually store the value (meaning the pollers won't be started), but if
-                // we do it in the 'reduce' function, the 'reduce' result will actually store the
-                // poller value resulting in a bunch of OpenGroup pollers running in a way that can't
-                // be stopped during unit tests
-                cache.pollers.forEach { _, poller in poller.startIfNeeded(using: dependencies) }
             }
+            // Now that the pollers have been created actually start them
+            dependencies.cache.pollers.forEach { _, poller in poller.startIfNeeded(using: dependencies) }
         }
     }
 
@@ -185,7 +163,7 @@ public final class OpenGroupManager {
         }
         
         // First check if there is no poller for the specified server
-        if serverOptions.first(where: { dependencies.cache.pollers[$0] != nil }) == nil {
+        if Set(dependencies.cache.pollers.keys).intersection(serverOptions).isEmpty {
             return false
         }
         
@@ -209,13 +187,11 @@ public final class OpenGroupManager {
         publicKey: String,
         calledFromConfigHandling: Bool,
         dependencies: OGMDependencies = OGMDependencies()
-    ) -> AnyPublisher<Void, Error> {
+    ) -> Bool {
         // If we are currently polling for this server and already have a TSGroupThread for this room the do nothing
         if hasExistingOpenGroup(db, roomToken: roomToken, server: server, publicKey: publicKey, dependencies: dependencies) {
             SNLog("Ignoring join open group attempt (already joined), user initiated: \(!calledFromConfigHandling)")
-            return Just(())
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
+            return false
         }
         
         // Store the open group information
@@ -270,72 +246,86 @@ public final class OpenGroupManager {
                 )
         }
         
-        /// We want to avoid blocking the db write thread so we return a future which resolves once the db transaction completes
-        /// and dispatches the result to another queue, this means that the caller can respond to errors resulting from attepting to
-        /// join the community
-        return Future<Void, Error> { resolver in
-            db.afterNextTransactionNested { _ in
-                OpenGroupAPI.workQueue.async {
-                    resolver(Result.success(()))
-                }
+        return true
+    }
+    
+    public func performInitialRequestsAfterAdd(
+        successfullyAddedGroup: Bool,
+        roomToken: String,
+        server: String,
+        publicKey: String,
+        calledFromConfigHandling: Bool,
+        dependencies: OGMDependencies = OGMDependencies()
+    ) -> AnyPublisher<Void, Error> {
+        guard successfullyAddedGroup else {
+            return Just(())
+                .setFailureType(to: Error.self)
+                .eraseToAnyPublisher()
+        }
+        
+        // Store the open group information
+        let targetServer: String = {
+            guard OpenGroupManager.isSessionRunOpenGroup(server: server) else {
+                return server.lowercased()
             }
-        }
-        .flatMap { _ in
-            dependencies.storage
-                .readPublisher { db in
-                    try OpenGroupAPI
-                        .preparedCapabilitiesAndRoom(
-                            db,
-                            for: roomToken,
-                            on: targetServer,
-                            using: dependencies
-                        )
-                }
-        }
-        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
-        .flatMap { info, response -> Future<Void, Error> in
-            Future<Void, Error> { resolver in
-                dependencies.storage.write { db in
-                    // Add the new open group to libSession
-                    if !calledFromConfigHandling {
-                        try SessionUtil.add(
-                            db,
-                            server: server,
-                            rootToken: roomToken,
-                            publicKey: publicKey
-                        )
-                    }
-                    
-                    // Store the capabilities first
-                    OpenGroupManager.handleCapabilities(
+            
+            return OpenGroupAPI.defaultServer
+        }()
+        
+        return dependencies.storage
+            .readPublisher { db in
+                try OpenGroupAPI
+                    .preparedCapabilitiesAndRoom(
                         db,
-                        capabilities: response.capabilities.data,
-                        on: targetServer
-                    )
-                    
-                    // Then the room
-                    try OpenGroupManager.handlePollInfo(
-                        db,
-                        pollInfo: OpenGroupAPI.RoomPollInfo(room: response.room.data),
-                        publicKey: publicKey,
                         for: roomToken,
                         on: targetServer,
-                        dependencies: dependencies
-                    ) {
-                        resolver(Result.success(()))
+                        using: dependencies
+                    )
+            }
+            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
+            .flatMap { info, response -> Future<Void, Error> in
+                Future<Void, Error> { resolver in
+                    dependencies.storage.write { db in
+                        // Add the new open group to libSession
+                        if !calledFromConfigHandling {
+                            try SessionUtil.add(
+                                db,
+                                server: server,
+                                rootToken: roomToken,
+                                publicKey: publicKey
+                            )
+                        }
+                        
+                        // Store the capabilities first
+                        OpenGroupManager.handleCapabilities(
+                            db,
+                            capabilities: response.capabilities.data,
+                            on: targetServer
+                        )
+                        
+                        // Then the room
+                        try OpenGroupManager.handlePollInfo(
+                            db,
+                            pollInfo: OpenGroupAPI.RoomPollInfo(room: response.room.data),
+                            publicKey: publicKey,
+                            for: roomToken,
+                            on: targetServer,
+                            dependencies: dependencies
+                        ) {
+                            resolver(Result.success(()))
+                        }
                     }
                 }
             }
-        }
-        .handleEvents(
-            receiveCompletion: { result in
-                switch result {
-                    case .finished: break
-                    case .failure: SNLog("Failed to join open group.")
+            .handleEvents(
+                receiveCompletion: { result in
+                    switch result {
+                        case .finished: break
+                        case .failure: SNLog("Failed to join open group.")
+                    }
                 }
-            }
-        )
-        .eraseToAnyPublisher()
+            )
+            .eraseToAnyPublisher()
     }
 
     public func delete(
@@ -534,9 +524,11 @@ public final class OpenGroupManager {
             // Start the poller if needed
             if dependencies.cache.pollers[server.lowercased()] == nil {
                 dependencies.mutableCache.mutate {
+                    $0.pollers[server.lowercased()]?.stop()
                     $0.pollers[server.lowercased()] = OpenGroupAPI.Poller(for: server.lowercased())
-                    $0.pollers[server.lowercased()]?.startIfNeeded(using: dependencies)
                 }
+                
+                dependencies.cache.pollers[server.lowercased()]?.startIfNeeded(using: dependencies)
             }
             
             /// Start downloading the room image (if we don't have one or it's been updated)
@@ -549,10 +541,10 @@ public final class OpenGroupManager {
             {
                 OpenGroupManager
                     .roomImage(
-                        db,
                         fileId: imageId,
                         for: roomToken,
                         on: server,
+                        existingData: openGroup.imageData,
                         using: dependencies
                     )
                     // Note: We need to subscribe and receive on different threads to ensure the
@@ -593,45 +585,26 @@ public final class OpenGroupManager {
         on server: String,
         dependencies: OGMDependencies = OGMDependencies()
     ) {
-        // Sorting the messages by server ID before importing them fixes an issue where messages
-        // that quote older messages can't find those older messages
         guard let openGroup: OpenGroup = try? OpenGroup.fetchOne(db, id: OpenGroup.idFor(roomToken: roomToken, server: server)) else {
             SNLog("Couldn't handle open group messages.")
             return
         }
         
+        // Sorting the messages by server ID before importing them fixes an issue where messages
+        // that quote older messages can't find those older messages
         let sortedMessages: [OpenGroupAPI.Message] = messages
             .filter { $0.deleted != true }
             .sorted { lhs, rhs in lhs.id < rhs.id }
         var messageServerInfoToRemove: [(id: Int64, seqNo: Int64)] = messages
             .filter { $0.deleted == true }
             .map { ($0.id, $0.seqNo) }
-        let updateSeqNo: (Database, String, inout Int64, Int64, OGMDependencies) -> () = { db, openGroupId, lastValidSeqNo, seqNo, dependencies in
-            // Only update the data if the 'seqNo' is larger than the lastValidSeqNo (only want it to increase)
-            guard seqNo > lastValidSeqNo else { return }
-            
-            // Update the 'openGroupSequenceNumber' value (Note: SOGS V4 uses the 'seqNo' instead of the 'serverId')
-            _ = try? OpenGroup
-                .filter(id: openGroupId)
-                .updateAll(db, OpenGroup.Columns.sequenceNumber.set(to: seqNo))
-            
-            // Update pendingChange cache
-            dependencies.mutableCache.mutate {
-                $0.pendingChanges = $0.pendingChanges
-                    .filter { $0.seqNo == nil || $0.seqNo! > seqNo }
-            }
-            
-            // Update the inout value
-            lastValidSeqNo = seqNo
-        }
+        var largestValidSeqNo: Int64 = openGroup.sequenceNumber
         
         // Process the messages
-        var lastValidSeqNo: Int64 = -1
         sortedMessages.forEach { message in
             if message.base64EncodedData == nil && message.reactions == nil {
                 messageServerInfoToRemove.append((message.id, message.seqNo))
-                
-                return updateSeqNo(db, openGroup.id, &lastValidSeqNo, message.seqNo, dependencies)
+                return
             }
             
             // Handle messages
@@ -658,7 +631,7 @@ public final class OpenGroupManager {
                             associatedWithProto: try SNProtoContent.parseData(messageInfo.serializedProtoData),
                             dependencies: dependencies
                         )
-                        updateSeqNo(db, openGroup.id, &lastValidSeqNo, message.seqNo, dependencies)
+                        largestValidSeqNo = max(largestValidSeqNo, message.seqNo)
                     }
                 }
                 catch {
@@ -703,7 +676,7 @@ public final class OpenGroupManager {
                         openGroupMessageServerId: message.id,
                         openGroupReactions: reactions
                     )
-                    updateSeqNo(db, openGroup.id, &lastValidSeqNo, message.seqNo, dependencies)
+                    largestValidSeqNo = max(largestValidSeqNo, message.seqNo)
                 }
                 catch {
                     SNLog("Couldn't handle open group reactions due to error: \(error).")
@@ -712,17 +685,27 @@ public final class OpenGroupManager {
         }
 
         // Handle any deletions that are needed
-        guard !messageServerInfoToRemove.isEmpty else { return }
+        if !messageServerInfoToRemove.isEmpty {
+            let messageServerIdsToRemove: [Int64] = messageServerInfoToRemove.map { $0.id }
+            _ = try? Interaction
+                .filter(Interaction.Columns.threadId == openGroup.threadId)
+                .filter(messageServerIdsToRemove.contains(Interaction.Columns.openGroupServerMessageId))
+                .deleteAll(db)
+            
+            // Update the seqNo for deletions
+            largestValidSeqNo = max(largestValidSeqNo, (messageServerInfoToRemove.map({ $0.seqNo }).max() ?? 0))
+        }
         
-        let messageServerIdsToRemove: [Int64] = messageServerInfoToRemove.map { $0.id }
-        _ = try? Interaction
-            .filter(Interaction.Columns.threadId == openGroup.threadId)
-            .filter(messageServerIdsToRemove.contains(Interaction.Columns.openGroupServerMessageId))
-            .deleteAll(db)
-        
-        // Update the seqNo for deletions
-        if let lastDeletionSeqNo: Int64 = messageServerInfoToRemove.map({ $0.seqNo }).max() {
-            updateSeqNo(db, openGroup.id, &lastValidSeqNo, lastDeletionSeqNo, dependencies)
+        // Now that we've finished processing all valid message changes we can update the `sequenceNumber` to
+        // the `largestValidSeqNo` value
+        _ = try? OpenGroup
+            .filter(id: openGroup.id)
+            .updateAll(db, OpenGroup.Columns.sequenceNumber.set(to: largestValidSeqNo))
+
+        // Update pendingChange cache based on the `largestValidSeqNo` value
+        dependencies.mutableCache.mutate {
+            $0.pendingChanges = $0.pendingChanges
+                .filter { $0.seqNo == nil || $0.seqNo! > largestValidSeqNo }
         }
     }
     
@@ -1013,14 +996,14 @@ public final class OpenGroupManager {
             subscribeQueue: OpenGroupAPI.workQueue,
             receiveQueue: OpenGroupAPI.workQueue
         )
-    ) -> AnyPublisher<[OpenGroupAPI.Room], Error> {
+    ) -> AnyPublisher<[DefaultRoomInfo], Error> {
         // Note: If we already have a 'defaultRoomsPromise' then there is no need to get it again
-        if let existingPublisher: AnyPublisher<[OpenGroupAPI.Room], Error> = dependencies.cache.defaultRoomsPublisher {
+        if let existingPublisher: AnyPublisher<[DefaultRoomInfo], Error> = dependencies.cache.defaultRoomsPublisher {
             return existingPublisher
         }
         
         // Try to retrieve the default rooms 8 times
-        let publisher: AnyPublisher<[OpenGroupAPI.Room], Error> = dependencies.storage
+        let publisher: AnyPublisher<[DefaultRoomInfo], Error> = dependencies.storage
             .readPublisher { db in
                 try OpenGroupAPI.preparedCapabilitiesAndRooms(
                     db,
@@ -1032,8 +1015,8 @@ public final class OpenGroupManager {
             .subscribe(on: dependencies.subscribeQueue, immediatelyIfMain: true)
             .receive(on: dependencies.receiveQueue, immediatelyIfMain: true)
             .retry(8)
-            .map { info, response in
-                dependencies.storage.writeAsync { db in
+            .map { info, response -> [DefaultRoomInfo]? in
+                dependencies.storage.write { db -> [DefaultRoomInfo] in
                     // Store the capabilities first
                     OpenGroupManager.handleCapabilities(
                         db,
@@ -1042,8 +1025,8 @@ public final class OpenGroupManager {
                     )
                         
                     // Then the rooms
-                    response.rooms.data
-                        .compactMap { room -> (String, String)? in
+                    return response.rooms.data
+                        .map { room -> DefaultRoomInfo in
                             // Try to insert an inactive version of the OpenGroup (use 'insert'
                             // rather than 'save' as we want it to fail if the room already exists)
                             do {
@@ -1066,24 +1049,32 @@ public final class OpenGroupManager {
                             }
                             catch {}
                             
-                            guard let imageId: String = room.imageId else { return nil }
+                            // Retrieve existing image data if we have it
+                            let existingImageData: Data? = try? OpenGroup
+                                .select(.imageData)
+                                .filter(id: OpenGroup.idFor(roomToken: room.token, server: OpenGroupAPI.defaultServer))
+                                .asRequest(of: Data.self)
+                                .fetchOne(db)
                             
-                            return (imageId, room.token)
-                        }
-                        .forEach { imageId, roomToken in
-                            roomImage(
-                                db,
-                                fileId: imageId,
-                                for: roomToken,
-                                on: OpenGroupAPI.defaultServer,
-                                using: dependencies
-                            )
+                            return (room, existingImageData)
                         }
                 }
-                
-                return response.rooms.data
             }
+            .map { ($0 ?? []) }
             .handleEvents(
+                receiveOutput: { roomInfo in
+                    roomInfo.forEach { room, existingImageData in
+                        guard let imageId: String = room.imageId else { return }
+                        
+                        roomImage(
+                            fileId: imageId,
+                            for: room.token,
+                            on: OpenGroupAPI.defaultServer,
+                            existingData: existingImageData,
+                            using: dependencies
+                        )
+                    }
+                },
                 receiveCompletion: { result in
                     switch result {
                         case .finished: break
@@ -1108,10 +1099,10 @@ public final class OpenGroupManager {
     }
     
     @discardableResult public static func roomImage(
-        _ db: Database,
         fileId: String,
         for roomToken: String,
         on server: String,
+        existingData: Data?,
         using dependencies: OGMDependencies = OGMDependencies(
             subscribeQueue: .global(qos: .background)
         )
@@ -1130,16 +1121,12 @@ public final class OpenGroupManager {
         let now: Date = dependencies.date
         let timeSinceLastUpdate: TimeInterval = (lastOpenGroupImageUpdate.map { now.timeIntervalSince($0) } ?? .greatestFiniteMagnitude)
         let updateInterval: TimeInterval = (7 * 24 * 60 * 60)
+        let canUseExistingImage: Bool = (
+            server.lowercased() == OpenGroupAPI.defaultServer &&
+            timeSinceLastUpdate < updateInterval
+        )
         
-        if
-            server.lowercased() == OpenGroupAPI.defaultServer,
-            timeSinceLastUpdate < updateInterval,
-            let data = try? OpenGroup
-                .select(.imageData)
-                .filter(id: threadId)
-                .asRequest(of: Data.self)
-                .fetchOne(db)
-        {
+        if canUseExistingImage, let data: Data = existingData {
             return Just(data)
                 .setFailureType(to: Error.self)
                 .eraseToAnyPublisher()
@@ -1149,33 +1136,54 @@ public final class OpenGroupManager {
             return publisher
         }
         
-        let sendData: OpenGroupAPI.PreparedSendData<Data>
-        
-        do {
-            sendData = try OpenGroupAPI
-                .preparedDownloadFile(
-                    db,
-                    fileId: fileId,
-                    from: roomToken,
-                    on: server,
-                    using: dependencies
-                )
-        }
-        catch {
-            return Fail(error: error)
-                .eraseToAnyPublisher()
-        }
-        
         // Defer the actual download and run it on a separate thread to avoid blocking the calling thread
         let publisher: AnyPublisher<Data, Error> = Deferred {
             Future { resolver in
                 dependencies.subscribeQueue.async {
                     // Hold on to the publisher until it has completed at least once
-                    OpenGroupAPI
-                        .send(
-                            data: sendData,
-                            using: dependencies
-                        )
+                    dependencies.storage
+                        .readPublisher { db -> (Data?, OpenGroupAPI.PreparedSendData<Data>?) in
+                            if canUseExistingImage {
+                                let maybeExistingData: Data? = try? OpenGroup
+                                    .select(.imageData)
+                                    .filter(id: threadId)
+                                    .asRequest(of: Data.self)
+                                    .fetchOne(db)
+                                
+                                if let existingData: Data = maybeExistingData {
+                                    return (existingData, nil)
+                                }
+                            }
+                            
+                            return (
+                                nil,
+                                try OpenGroupAPI
+                                    .preparedDownloadFile(
+                                        db,
+                                        fileId: fileId,
+                                        from: roomToken,
+                                        on: server,
+                                        using: dependencies
+                                    )
+                            )
+                        }
+                        .flatMap { info in
+                            switch info {
+                                case (.some(let existingData), _):
+                                    return Just(existingData)
+                                        .setFailureType(to: Error.self)
+                                        .eraseToAnyPublisher()
+                                    
+                                case (_, .some(let sendData)):
+                                    return OpenGroupAPI.send(data: sendData, using: dependencies)
+                                        .map { _, imageData in imageData }
+                                        .eraseToAnyPublisher()
+                                    
+                                default:
+                                    return Fail(error: HTTPError.generic)
+                                        .eraseToAnyPublisher()
+                            }
+                        }
                         .sinkUntilComplete(
                             receiveCompletion: { result in
                                 switch result {
@@ -1183,7 +1191,7 @@ public final class OpenGroupManager {
                                     case .failure(let error): resolver(Result.failure(error))
                                 }
                             },
-                            receiveValue: { _, imageData in
+                            receiveValue: { imageData in
                                 if server.lowercased() == OpenGroupAPI.defaultServer {
                                     dependencies.storage.write { db in
                                         _ = try OpenGroup
@@ -1216,25 +1224,73 @@ public final class OpenGroupManager {
     }
 }
 
+// MARK: - OGMCacheType
+
+public protocol OGMMutableCacheType: OGMCacheType {
+    var defaultRoomsPublisher: AnyPublisher<[OpenGroupManager.DefaultRoomInfo], Error>? { get set }
+    var groupImagePublishers: [String: AnyPublisher<Data, Error>] { get set }
+    
+    var pollers: [String: OpenGroupAPI.Poller] { get set }
+    var isPolling: Bool { get set }
+    
+    var hasPerformedInitialPoll: [String: Bool] { get set }
+    var timeSinceLastPoll: [String: TimeInterval] { get set }
+    
+    var pendingChanges: [OpenGroupAPI.PendingChange] { get set }
+    
+    func getTimeSinceLastOpen(using dependencies: Dependencies) -> TimeInterval
+}
+
+/// This is a read-only version of the `OGMMutableCacheType` designed to avoid unintentionally mutating the instance in a
+/// non-thread-safe way
+public protocol OGMCacheType {
+    var defaultRoomsPublisher: AnyPublisher<[OpenGroupManager.DefaultRoomInfo], Error>? { get }
+    var groupImagePublishers: [String: AnyPublisher<Data, Error>] { get }
+    
+    var pollers: [String: OpenGroupAPI.Poller] { get }
+    var isPolling: Bool { get }
+    
+    var hasPerformedInitialPoll: [String: Bool] { get }
+    var timeSinceLastPoll: [String: TimeInterval] { get }
+    
+    var pendingChanges: [OpenGroupAPI.PendingChange] { get }
+}
 
 // MARK: - OGMDependencies
 
 extension OpenGroupManager {
     public class OGMDependencies: SMKDependencies {
-        internal var _mutableCache: Atomic<Atomic<OGMCacheType>?>
-        public var mutableCache: Atomic<OGMCacheType> {
-            get { Dependencies.getValueSettingIfNull(&_mutableCache) { OpenGroupManager.shared.mutableCache } }
-            set { _mutableCache.mutate { $0 = newValue } }
-        }
+        /// These should not be accessed directly but rather via an instance of this type
+        private static let _cacheInstance: OGMMutableCacheType = OpenGroupManager.Cache()
+        private static let _cacheInstanceAccessQueue = DispatchQueue(label: "OGMCacheInstanceAccess")
         
-        public var cache: OGMCacheType { return mutableCache.wrappedValue }
+        internal var _mutableCache: Atomic<OGMMutableCacheType?>
+        public var mutableCache: Atomic<OGMMutableCacheType> {
+            get {
+                Dependencies.getMutableValueSettingIfNull(&_mutableCache) {
+                    OGMDependencies._cacheInstanceAccessQueue.sync { OGMDependencies._cacheInstance }
+                }
+            }
+        }
+        public var cache: OGMCacheType {
+            get {
+                Dependencies.getValueSettingIfNull(&_mutableCache) {
+                    OGMDependencies._cacheInstanceAccessQueue.sync { OGMDependencies._cacheInstance }
+                }
+            }
+            set {
+                guard let mutableValue: OGMMutableCacheType = newValue as? OGMMutableCacheType else { return }
+                
+                _mutableCache.mutate { $0 = mutableValue }
+            }
+        }
         
         public init(
             subscribeQueue: DispatchQueue? = nil,
             receiveQueue: DispatchQueue? = nil,
-            cache: Atomic<OGMCacheType>? = nil,
+            cache: OGMMutableCacheType? = nil,
             onionApi: OnionRequestAPIType.Type? = nil,
-            generalCache: Atomic<GeneralCacheType>? = nil,
+            generalCache: MutableGeneralCacheType? = nil,
             storage: Storage? = nil,
             scheduler: ValueObservationScheduler? = nil,
             sodium: SodiumType? = nil,

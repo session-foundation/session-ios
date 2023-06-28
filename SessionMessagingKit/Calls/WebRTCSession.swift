@@ -146,18 +146,12 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     }
     
     public func sendOffer(
-        _ db: Database,
-        to sessionId: String,
+        to thread: SessionThread,
         isRestartingICEConnection: Bool = false
     ) -> AnyPublisher<Void, Error> {
         SNLog("[Calls] Sending offer message.")
         let uuid: String = self.uuid
         let mediaConstraints: RTCMediaConstraints = mediaConstraints(isRestartingICEConnection)
-        
-        guard let thread: SessionThread = try? SessionThread.fetchOne(db, id: sessionId) else {
-            return Fail(error: WebRTCSessionError.noThread)
-                .eraseToAnyPublisher()
-        }
         
         return Deferred {
             Future<Void, Error> { [weak self] resolver in
