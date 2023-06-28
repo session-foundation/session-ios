@@ -79,21 +79,30 @@ public extension DisappearingMessagesJob {
     }
     
     static func updateNextRunIfNeeded(_ db: Database, lastReadTimestampMs: Int64, threadId: String) {
-        let messageHashes: [String] = (try? Interaction
+        struct ExpirationInfo: Codable, Hashable, FetchableRecord {
+            let expiresInSeconds: TimeInterval
+            let serverHash: String
+        }
+        
+        var expirationInfo: [String: TimeInterval] = (try? Interaction
             .filter(
                 Interaction.Columns.threadId == threadId &&
                 Interaction.Columns.timestampMs <= lastReadTimestampMs &&
                 Interaction.Columns.expiresInSeconds > 0 &&
                 Interaction.Columns.expiresStartedAtMs == nil
             )
-            .select(Interaction.Columns.serverHash)
+            .select(
+                Interaction.Columns.expiresInSeconds,
+                Interaction.Columns.serverHash
+            )
+            .asRequest(of: ExpirationInfo.self)
             .fetchAll(db))
             .defaulting(to: [])
-            .compactMap{ $0 }
+            .grouped(by: \.serverHash)
+            .compactMapValues{ $0.first?.expiresInSeconds }
         
         // If there were no message hashes then none of the messages sent before lastReadTimestampMs are expiring messages
-        guard (messageHashes.count > 0) else { return }
-        
+        guard (expirationInfo.count > 0) else { return }
         let timestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
         
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
@@ -103,27 +112,33 @@ public extension DisappearingMessagesJob {
                 return SnodeAPI.getExpiries(
                     from: snode,
                     associatedWith: userPublicKey,
-                    of: messageHashes
+                    of: expirationInfo.map { $0.key }
                 )
                 .map { (_, response) in
                     Storage.shared.writeAsync { db in
                         try response.expiries.forEach { hash, expireAtMs in
-                            let expiresInSeconds: TimeInterval = TimeInterval((expireAtMs - UInt64(timestampMs))) / 1000
+                            guard let expireInSeconds: TimeInterval = expirationInfo[hash] else { return }
+                            let startAtMs: TimeInterval = TimeInterval(expireAtMs - UInt64(expireInSeconds * 1000))
                             
                             _ = try Interaction
                                 .filter(Interaction.Columns.serverHash == hash)
                                 .updateAll(
                                     db,
-                                    Interaction.Columns.expiresInSeconds.set(to: expiresInSeconds)
+                                    Interaction.Columns.expiresStartedAtMs.set(to: startAtMs)
                                 )
+                            
+                            guard let index = expirationInfo.index(forKey: hash) else { return }
+                            expirationInfo.remove(at: index)
                         }
                         
-                        _ = try Interaction
-                            .filter(messageHashes.contains(Interaction.Columns.serverHash))
-                            .updateAll(
-                                db,
-                                Interaction.Columns.expiresStartedAtMs.set(to: TimeInterval(timestampMs))
-                            )
+                        try expirationInfo.forEach { key, _ in
+                            _ = try Interaction
+                                .filter(Interaction.Columns.serverHash == key)
+                                .updateAll(
+                                    db,
+                                    Interaction.Columns.expiresStartedAtMs.set(to: timestampMs)
+                                )
+                        }
                         
                         JobRunner.upsert(
                             db,

@@ -183,6 +183,8 @@ extension MessageReceiver {
         )
         
         let updateControlMewssage: () throws -> () = {
+            guard message is ExpirationTimerUpdate else { return }
+            
             _ = try Interaction
                 .filter(Interaction.Columns.threadId == threadId)
                 .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
@@ -242,8 +244,6 @@ extension MessageReceiver {
                 default: break
             }
         }
-        
-        guard message is ExpirationTimerUpdate else { return }
         
         try updateControlMewssage()
     }
