@@ -13,7 +13,9 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     private static let loadingHeaderHeight: CGFloat = 40
     
     internal let viewModel: ConversationViewModel
-    private var dataChangeObservable: DatabaseCancellable?
+    private var dataChangeObservable: DatabaseCancellable? {
+        didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
+    }
     private var hasLoadedInitialThreadData: Bool = false
     private var hasLoadedInitialInteractionData: Bool = false
     private var currentTargetOffset: CGPoint?
@@ -538,6 +540,16 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         
+        /// When the `ConversationVC` is on the screen we want to store it so we can avoid sending notification without accessing the
+        /// main thread (we don't currently care if it's still in the nav stack though - so if a user is on a conversation settings screen this should
+        /// get cleared within `viewWillDisappear`)
+        ///
+        /// **Note:** We do this on an async queue because `Atomic<T>` can block if something else is mutating it and we want to avoid
+        /// the risk of blocking the conversation transition
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            SessionApp.currentlyOpenConversationViewController.mutate { $0 = self }
+        }
+        
         if delayFirstResponder || isShowingSearchUI {
             delayFirstResponder = false
             
@@ -559,6 +571,16 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        
+        /// When the `ConversationVC` is on the screen we want to store it so we can avoid sending notification without accessing the
+        /// main thread (we don't currently care if it's still in the nav stack though - so if a user leaves a conversation settings screen we clear
+        /// it, and if a user moves to a different `ConversationVC` this will get updated to that one within `viewDidAppear`)
+        ///
+        /// **Note:** We do this on an async queue because `Atomic<T>` can block if something else is mutating it and we want to avoid
+        /// the risk of blocking the conversation transition
+        DispatchQueue.global(qos: .userInitiated).async {
+            SessionApp.currentlyOpenConversationViewController.mutate { $0 = nil }
+        }
         
         viewIsDisappearing = true
         
@@ -625,7 +647,8 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     // MARK: - Updating
     
     private func startObservingChanges(didReturnFromBackground: Bool = false) {
-        // Start observing for data changes
+        guard dataChangeObservable == nil else { return }
+        
         dataChangeObservable = Storage.shared.start(
             viewModel.observableThreadData,
             onError:  { _ in },
@@ -695,8 +718,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     }
     
     func stopObservingChanges() {
-        // Stop observing database changes
-        dataChangeObservable?.cancel()
+        self.dataChangeObservable = nil
         self.viewModel.onInteractionChange = nil
     }
     

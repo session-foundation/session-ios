@@ -31,7 +31,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                 )
                 viewModel = NotificationContentViewModel(storage: mockStorage, scheduling: .immediate)
                 dataChangeCancellable = viewModel.observableTableData
-                    .receive(on: DispatchQueue.main, immediatelyIfMain: true)
+                    .receive(on: ImmediateScheduler.shared)
                     .sink(
                         receiveCompletion: { _ in },
                         receiveValue: { viewModel.updateTableData($0.0) }
@@ -99,7 +99,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                 }
                 viewModel = NotificationContentViewModel(storage: mockStorage, scheduling: .immediate)
                 dataChangeCancellable = viewModel.observableTableData
-                    .receive(on: DispatchQueue.main, immediatelyIfMain: true)
+                    .receive(on: ImmediateScheduler.shared)
                     .sink(
                         receiveCompletion: { _ in },
                         receiveValue: { viewModel.updateTableData($0.0) }
@@ -148,7 +148,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                     var didDismissScreen: Bool = false
                     
                     dismissCancellable = viewModel.dismissScreen
-                        .receive(on: DispatchQueue.main, immediatelyIfMain: true)
+                        .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
                             receiveValue: { _ in didDismissScreen = true }

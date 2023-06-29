@@ -35,7 +35,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 )
                 mockGeneralCache = MockGeneralCache()
                 dependencies = Dependencies(
-                    generalCache: Atomic(mockGeneralCache),
+                    generalCache: mockGeneralCache,
                     storage: mockStorage,
                     scheduler: .immediate
                 )
@@ -75,7 +75,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 )
                 disposables.append(
                     viewModel.observableTableData
-                        .receive(on: DispatchQueue.main, immediatelyIfMain: true)
+                        .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
                             receiveValue: { viewModel.updateTableData($0.0) }
@@ -173,7 +173,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     )
                     disposables.append(
                         viewModel.observableTableData
-                            .receive(on: DispatchQueue.main, immediatelyIfMain: true)
+                            .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },
                                 receiveValue: { viewModel.updateTableData($0.0) }
@@ -447,7 +447,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     )
                     disposables.append(
                         viewModel.observableTableData
-                            .receive(on: DispatchQueue.main, immediatelyIfMain: true)
+                            .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },
                                 receiveValue: { viewModel.updateTableData($0.0) }
@@ -489,7 +489,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     )
                     disposables.append(
                         viewModel.observableTableData
-                            .receive(on: DispatchQueue.main, immediatelyIfMain: true)
+                            .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },
                                 receiveValue: { viewModel.updateTableData($0.0) }

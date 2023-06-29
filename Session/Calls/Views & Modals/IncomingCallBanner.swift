@@ -1,7 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import WebRTC
 import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
@@ -114,7 +113,7 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
             publicKey: call.sessionId,
             threadVariant: .contact,
             customImageData: nil,
-            profile: Profile.fetchOrCreate(id: call.sessionId),
+            profile: Storage.shared.read { db in Profile.fetchOrCreate(db, id: call.sessionId) },
             additionalProfile: nil
         )
         displayNameLabel.text = call.contactName

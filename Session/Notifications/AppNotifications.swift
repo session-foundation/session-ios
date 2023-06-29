@@ -99,6 +99,7 @@ protocol NotificationPresenterAdaptee: AnyObject {
         sound: Preferences.Sound?,
         threadVariant: SessionThread.Variant,
         threadName: String,
+        applicationState: UIApplication.State,
         replacingIdentifier: String?
     )
 
@@ -116,7 +117,8 @@ extension NotificationPresenterAdaptee {
         previewType: Preferences.NotificationPreviewType,
         sound: Preferences.Sound?,
         threadVariant: SessionThread.Variant,
-        threadName: String
+        threadName: String,
+        applicationState: UIApplication.State
     ) {
         notify(
             category: category,
@@ -127,22 +129,16 @@ extension NotificationPresenterAdaptee {
             sound: sound,
             threadVariant: threadVariant,
             threadName: threadName,
+            applicationState: applicationState,
             replacingIdentifier: nil
         )
     }
 }
 
-@objc(OWSNotificationPresenter)
-public class NotificationPresenter: NSObject, NotificationsProtocol {
+public class NotificationPresenter: NotificationsProtocol {
+    private let adaptee: NotificationPresenterAdaptee = UserNotificationPresenterAdaptee()
 
-    private let adaptee: NotificationPresenterAdaptee
-
-    @objc
-    public override init() {
-        self.adaptee = UserNotificationPresenterAdaptee()
-
-        super.init()
-
+    public init() {
         SwiftSingletons.register(self)
     }
 
@@ -152,7 +148,12 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
         return adaptee.registerNotificationSettings()
     }
 
-    public func notifyUser(_ db: Database, for interaction: Interaction, in thread: SessionThread) {
+    public func notifyUser(
+        _ db: Database,
+        for interaction: Interaction,
+        in thread: SessionThread,
+        applicationState: UIApplication.State
+    ) {
         let isMessageRequest: Bool = thread.isMessageRequest(db, includeNonVisible: true)
         
         // Ensure we should be showing a notification for the thread
@@ -244,34 +245,39 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
         let fallbackSound: Preferences.Sound = db[.defaultNotificationSound]
             .defaulting(to: Preferences.Sound.defaultNotificationSound)
 
-        DispatchQueue.main.async {
-            let sound: Preferences.Sound? = self.requestSound(
-                thread: thread,
-                fallbackSound: fallbackSound
-            )
-            
-            notificationBody = MentionUtilities.highlightMentionsNoAttributes(
-                in: (notificationBody ?? ""),
-                threadVariant: thread.variant,
-                currentUserPublicKey: userPublicKey,
-                currentUserBlindedPublicKey: userBlindedKey
-            )
-            
-            self.adaptee.notify(
-                category: category,
-                title: notificationTitle,
-                body: (notificationBody ?? ""),
-                userInfo: userInfo,
-                previewType: previewType,
-                sound: sound,
-                threadVariant: thread.variant,
-                threadName: groupName,
-                replacingIdentifier: identifier
-            )
-        }
+        let sound: Preferences.Sound? = requestSound(
+            thread: thread,
+            fallbackSound: fallbackSound,
+            applicationState: applicationState
+        )
+        
+        notificationBody = MentionUtilities.highlightMentionsNoAttributes(
+            in: (notificationBody ?? ""),
+            threadVariant: thread.variant,
+            currentUserPublicKey: userPublicKey,
+            currentUserBlindedPublicKey: userBlindedKey
+        )
+        
+        self.adaptee.notify(
+            category: category,
+            title: notificationTitle,
+            body: (notificationBody ?? ""),
+            userInfo: userInfo,
+            previewType: previewType,
+            sound: sound,
+            threadVariant: thread.variant,
+            threadName: groupName,
+            applicationState: applicationState,
+            replacingIdentifier: identifier
+        )
     }
     
-    public func notifyUser(_ db: Database, forIncomingCall interaction: Interaction, in thread: SessionThread) {
+    public func notifyUser(
+        _ db: Database,
+        forIncomingCall interaction: Interaction,
+        in thread: SessionThread,
+        applicationState: UIApplication.State
+    ) {
         // No call notifications for muted or group threads
         guard Date().timeIntervalSince1970 > (thread.mutedUntilTimestamp ?? 0) else { return }
         guard
@@ -320,28 +326,32 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
         
         let fallbackSound: Preferences.Sound = db[.defaultNotificationSound]
             .defaulting(to: Preferences.Sound.defaultNotificationSound)
+        let sound = self.requestSound(
+            thread: thread,
+            fallbackSound: fallbackSound,
+            applicationState: applicationState
+        )
         
-        DispatchQueue.main.async {
-            let sound = self.requestSound(
-                thread: thread,
-                fallbackSound: fallbackSound
-            )
-            
-            self.adaptee.notify(
-                category: category,
-                title: notificationTitle,
-                body: (notificationBody ?? ""),
-                userInfo: userInfo,
-                previewType: previewType,
-                sound: sound,
-                threadVariant: thread.variant,
-                threadName: senderName,
-                replacingIdentifier: UUID().uuidString
-            )
-        }
+        self.adaptee.notify(
+            category: category,
+            title: notificationTitle,
+            body: (notificationBody ?? ""),
+            userInfo: userInfo,
+            previewType: previewType,
+            sound: sound,
+            threadVariant: thread.variant,
+            threadName: senderName,
+            applicationState: applicationState,
+            replacingIdentifier: UUID().uuidString
+        )
     }
     
-    public func notifyUser(_ db: Database, forReaction reaction: Reaction, in thread: SessionThread) {
+    public func notifyUser(
+        _ db: Database,
+        forReaction reaction: Reaction,
+        in thread: SessionThread,
+        applicationState: UIApplication.State
+    ) {
         let isMessageRequest: Bool = thread.isMessageRequest(db, includeNonVisible: true)
         
         // No reaction notifications for muted, group threads or message requests
@@ -380,28 +390,31 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
         )
         let fallbackSound: Preferences.Sound = db[.defaultNotificationSound]
             .defaulting(to: Preferences.Sound.defaultNotificationSound)
-
-        DispatchQueue.main.async {
-            let sound = self.requestSound(
-                thread: thread,
-                fallbackSound: fallbackSound
-            )
-            
-            self.adaptee.notify(
-                category: category,
-                title: notificationTitle,
-                body: notificationBody,
-                userInfo: userInfo,
-                previewType: previewType,
-                sound: sound,
-                threadVariant: thread.variant,
-                threadName: threadName,
-                replacingIdentifier: UUID().uuidString
-            )
-        }
+        let sound = self.requestSound(
+            thread: thread,
+            fallbackSound: fallbackSound,
+            applicationState: applicationState
+        )
+        
+        self.adaptee.notify(
+            category: category,
+            title: notificationTitle,
+            body: notificationBody,
+            userInfo: userInfo,
+            previewType: previewType,
+            sound: sound,
+            threadVariant: thread.variant,
+            threadName: threadName,
+            applicationState: applicationState,
+            replacingIdentifier: UUID().uuidString
+        )
     }
 
-    public func notifyForFailedSend(_ db: Database, in thread: SessionThread) {
+    public func notifyForFailedSend(
+        _ db: Database,
+        in thread: SessionThread,
+        applicationState: UIApplication.State
+    ) {
         let notificationTitle: String?
         let previewType: Preferences.NotificationPreviewType = db[.preferencesNotificationPreviewType]
             .defaulting(to: .defaultPreviewType)
@@ -432,24 +445,23 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
         ]
         let fallbackSound: Preferences.Sound = db[.defaultNotificationSound]
             .defaulting(to: Preferences.Sound.defaultNotificationSound)
-
-        DispatchQueue.main.async {
-            let sound: Preferences.Sound? = self.requestSound(
-                thread: thread,
-                fallbackSound: fallbackSound
-            )
-            
-            self.adaptee.notify(
-                category: .errorMessage,
-                title: notificationTitle,
-                body: notificationBody,
-                userInfo: userInfo,
-                previewType: previewType,
-                sound: sound,
-                threadVariant: thread.variant,
-                threadName: threadName
-            )
-        }
+        let sound: Preferences.Sound? = self.requestSound(
+            thread: thread,
+            fallbackSound: fallbackSound,
+            applicationState: applicationState
+        )
+        
+        self.adaptee.notify(
+            category: .errorMessage,
+            title: notificationTitle,
+            body: notificationBody,
+            userInfo: userInfo,
+            previewType: previewType,
+            sound: sound,
+            threadVariant: thread.variant,
+            threadName: threadName,
+            applicationState: applicationState
+        )
     }
     
     @objc
@@ -471,32 +483,30 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
 
     // MARK: -
 
-    var mostRecentNotifications = TruncatedList<UInt64>(maxLength: kAudioNotificationsThrottleCount)
+    var mostRecentNotifications: Atomic<TruncatedList<UInt64>> = Atomic(TruncatedList<UInt64>(maxLength: kAudioNotificationsThrottleCount))
 
-    private func requestSound(thread: SessionThread, fallbackSound: Preferences.Sound) -> Preferences.Sound? {
-        guard checkIfShouldPlaySound() else {
-            return nil
-        }
+    private func requestSound(
+        thread: SessionThread,
+        fallbackSound: Preferences.Sound,
+        applicationState: UIApplication.State
+    ) -> Preferences.Sound? {
+        guard checkIfShouldPlaySound(applicationState: applicationState) else { return nil }
         
         return (thread.notificationSound ?? fallbackSound)
     }
 
-    private func checkIfShouldPlaySound() -> Bool {
-        AssertIsOnMainThread()
-
-        guard UIApplication.shared.applicationState == .active else { return true }
+    private func checkIfShouldPlaySound(applicationState: UIApplication.State) -> Bool {
+        guard applicationState == .active else { return true }
         guard Storage.shared[.playNotificationSoundInForeground] else { return false }
 
         let nowMs: UInt64 = UInt64(floor(Date().timeIntervalSince1970 * 1000))
         let recentThreshold = nowMs - UInt64(kAudioNotificationsThrottleInterval * Double(kSecondInMs))
 
-        let recentNotifications = mostRecentNotifications.filter { $0 > recentThreshold }
+        let recentNotifications = mostRecentNotifications.wrappedValue.filter { $0 > recentThreshold }
 
-        guard recentNotifications.count < kAudioNotificationsThrottleCount else {
-            return false
-        }
+        guard recentNotifications.count < kAudioNotificationsThrottleCount else { return false }
 
-        mostRecentNotifications.append(nowMs)
+        mostRecentNotifications.mutate { $0.append(nowMs) }
         return true
     }
 }
@@ -527,7 +537,11 @@ class NotificationActionHandler {
         return markAsRead(threadId: threadId)
     }
 
-    func reply(userInfo: [AnyHashable: Any], replyText: String) -> AnyPublisher<Void, Error> {
+    func reply(
+        userInfo: [AnyHashable: Any],
+        replyText: String,
+        applicationState: UIApplication.State
+    ) -> AnyPublisher<Void, Error> {
         guard let threadId = userInfo[AppNotificationUserInfoKey.threadId] as? String else {
             return Fail<Void, Error>(error: NotificationError.failDebug("threadId was unexpectedly nil"))
                 .eraseToAnyPublisher()
@@ -576,7 +590,11 @@ class NotificationActionHandler {
                         case .finished: break
                         case .failure:
                             Storage.shared.read { [weak self] db in
-                                self?.notificationPresenter.notifyForFailedSend(db, in: thread)
+                                self?.notificationPresenter.notifyForFailedSend(
+                                    db,
+                                    in: thread,
+                                    applicationState: applicationState
+                                )
                             }
                     }
                 }

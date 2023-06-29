@@ -48,8 +48,14 @@ public class MediaGalleryViewModel {
         didSet {
             // When starting to observe interaction changes we want to trigger a UI update just in case the
             // data was changed while we weren't observing
-            if let unobservedGalleryDataChanges: ([SectionModel], StagedChangeset<[SectionModel]>) = self.unobservedGalleryDataChanges {
-                onGalleryChange?(unobservedGalleryDataChanges.0, unobservedGalleryDataChanges.1)
+            if let changes: ([SectionModel], StagedChangeset<[SectionModel]>) = self.unobservedGalleryDataChanges {
+                let performChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ())? = onGalleryChange
+                
+                switch Thread.isMainThread {
+                    case true: performChange?(changes.0, changes.1)
+                    case false: DispatchQueue.main.async { performChange?(changes.0, changes.1) }
+                }
+                
                 self.unobservedGalleryDataChanges = nil
             }
         }

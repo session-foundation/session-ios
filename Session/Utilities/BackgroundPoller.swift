@@ -55,8 +55,8 @@ public final class BackgroundPoller {
                             }
                     )
             )
-            .subscribe(on: dependencies.subscribeQueue, immediatelyIfMain: true)
-            .receive(on: dependencies.receiveQueue, immediatelyIfMain: true)
+            .subscribe(on: dependencies.subscribeQueue)
+            .receive(on: dependencies.receiveQueue)
             .collect()
             .sinkUntilComplete(
                 receiveCompletion: { result in

@@ -6,9 +6,9 @@ import SessionUtilitiesKit
 
 @testable import SessionMessagingKit
 
-class MockOGMCache: Mock<OGMCacheType>, OGMCacheType {
-    var defaultRoomsPublisher: AnyPublisher<[OpenGroupAPI.Room], Error>? {
-        get { return accept() as? AnyPublisher<[OpenGroupAPI.Room], Error> }
+class MockOGMCache: Mock<OGMMutableCacheType>, OGMMutableCacheType {
+    var defaultRoomsPublisher: AnyPublisher<[OpenGroupManager.DefaultRoomInfo], Error>? {
+        get { return accept() as? AnyPublisher<[OpenGroupManager.DefaultRoomInfo], Error> }
         set { accept(args: [newValue]) }
     }
     

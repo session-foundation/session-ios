@@ -11,7 +11,6 @@ class MessageRequestsViewController: BaseVC, SessionUtilRespondingViewController
     private static let loadingHeaderHeight: CGFloat = 40
     
     private let viewModel: MessageRequestsViewModel = MessageRequestsViewModel()
-    private var dataChangeObservable: DatabaseCancellable?
     private var hasLoadedInitialThreadData: Bool = false
     private var isLoadingMore: Bool = false
     private var isAutoLoadingNextPage: Bool = false
@@ -161,8 +160,7 @@ class MessageRequestsViewController: BaseVC, SessionUtilRespondingViewController
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         
-        // Stop observing database changes
-        dataChangeObservable?.cancel()
+        stopObservingChanges()
     }
     
     @objc func applicationDidBecomeActive(_ notification: Notification) {
@@ -173,8 +171,7 @@ class MessageRequestsViewController: BaseVC, SessionUtilRespondingViewController
     }
     
     @objc func applicationDidResignActive(_ notification: Notification) {
-        // Stop observing database changes
-        dataChangeObservable?.cancel()
+        stopObservingChanges()
     }
 
     // MARK: - Layout
@@ -221,6 +218,10 @@ class MessageRequestsViewController: BaseVC, SessionUtilRespondingViewController
         if didReturnFromBackground {
             self.viewModel.pagedDataObserver?.reload()
         }
+    }
+    
+    private func stopObservingChanges() {
+        self.viewModel.onThreadChange = nil
     }
     
     private func handleThreadUpdates(

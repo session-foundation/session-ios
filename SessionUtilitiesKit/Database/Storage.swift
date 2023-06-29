@@ -361,10 +361,26 @@ open class Storage {
     
     // MARK: - Functions
     
+    private static func logIfNeeded(_ error: Error, isWrite: Bool) {
+        switch error {
+            case DatabaseError.SQLITE_ABORT:
+                let message: String = ((error as? DatabaseError)?.message ?? "Unknown")
+                SNLog("[Storage] Database \(isWrite ? "write" : "read") failed due to error: \(message)")
+                
+            default: break
+        }
+    }
+    
+    private static func logIfNeeded<T>(_ error: Error, isWrite: Bool) -> T? {
+        logIfNeeded(error, isWrite: isWrite)
+        return nil
+    }
+    
     @discardableResult public final func write<T>(updates: (Database) throws -> T?) -> T? {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return nil }
         
-        return try? dbWriter.write(updates)
+        do { return try dbWriter.write(updates) }
+        catch { return Storage.logIfNeeded(error, isWrite: true) }
     }
     
     open func writeAsync<T>(updates: @escaping (Database) throws -> T) {
@@ -377,6 +393,11 @@ open class Storage {
         dbWriter.asyncWrite(
             updates,
             completion: { db, result in
+                switch result {
+                    case .failure(let error): Storage.logIfNeeded(error, isWrite: true)
+                    default: break
+                }
+                
                 try? completion(db, result)
             }
         )
@@ -400,7 +421,10 @@ open class Storage {
         return Deferred {
             Future { resolver in
                 do { resolver(Result.success(try dbWriter.write(updates))) }
-                catch { resolver(Result.failure(error)) }
+                catch {
+                    Storage.logIfNeeded(error, isWrite: true)
+                    resolver(Result.failure(error))
+                }
             }
         }.eraseToAnyPublisher()
     }
@@ -423,7 +447,10 @@ open class Storage {
         return Deferred {
             Future { resolver in
                 do { resolver(Result.success(try dbWriter.read(value))) }
-                catch { resolver(Result.failure(error)) }
+                catch {
+                    Storage.logIfNeeded(error, isWrite: false)
+                    resolver(Result.failure(error))
+                }
             }
         }.eraseToAnyPublisher()
     }
@@ -431,7 +458,8 @@ open class Storage {
     @discardableResult public final func read<T>(_ value: (Database) throws -> T?) -> T? {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return nil }
         
-        return try? dbWriter.read(value)
+        do { return try dbWriter.read(value) }
+        catch { return Storage.logIfNeeded(error, isWrite: false) }
     }
     
     /// Rever to the `ValueObservation.start` method for full documentation
@@ -487,24 +515,6 @@ open class Storage {
 }
 
 // MARK: - Combine Extensions
-
-public extension Storage {
-    func readPublisherFlatMap<T>(
-        value: @escaping (Database) throws -> AnyPublisher<T, Error>
-    ) -> AnyPublisher<T, Error> {
-        return readPublisher(value: value)
-            .flatMap { resultPublisher -> AnyPublisher<T, Error> in resultPublisher }
-            .eraseToAnyPublisher()
-    }
-    
-    func writePublisherFlatMap<T>(
-        updates: @escaping (Database) throws -> AnyPublisher<T, Error>
-    ) -> AnyPublisher<T, Error> {
-        return writePublisher(updates: updates)
-            .flatMap { resultPublisher -> AnyPublisher<T, Error> in resultPublisher }
-            .eraseToAnyPublisher()
-    }
-}
 
 public extension ValueObservation {
     func publisher(

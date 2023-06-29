@@ -129,8 +129,14 @@ public class MessageRequestsViewModel {
         didSet {
             // When starting to observe interaction changes we want to trigger a UI update just in case the
             // data was changed while we weren't observing
-            if let unobservedThreadDataChanges: ([SectionModel], StagedChangeset<[SectionModel]>) = self.unobservedThreadDataChanges {
-                self.onThreadChange?(unobservedThreadDataChanges.0, unobservedThreadDataChanges.1)
+            if let changes: ([SectionModel], StagedChangeset<[SectionModel]>) = self.unobservedThreadDataChanges {
+                let performChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ())? = onThreadChange
+                
+                switch Thread.isMainThread {
+                    case true: performChange?(changes.0, changes.1)
+                    case false: DispatchQueue.main.async { performChange?(changes.0, changes.1) }
+                }
+                
                 self.unobservedThreadDataChanges = nil
             }
         }

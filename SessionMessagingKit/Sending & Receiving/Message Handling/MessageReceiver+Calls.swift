@@ -46,6 +46,10 @@ extension MessageReceiver {
     private static func handleNewCallMessage(_ db: Database, message: CallMessage) throws {
         SNLog("[Calls] Received pre-offer message.")
         
+        // Determine whether the app is active based on the prefs rather than the UIApplication state to avoid
+        // requiring main-thread execution
+        let isMainAppActive: Bool = (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false)
+        
         // It is enough just ignoring the pre offers, other call messages
         // for this call would be dropped because of no Session call instance
         guard
@@ -69,7 +73,8 @@ extension MessageReceiver {
                         .notifyUser(
                             db,
                             forIncomingCall: interaction,
-                            in: thread
+                            in: thread,
+                            applicationState: (isMainAppActive ? .active : .background)
                         )
                 }
             }
@@ -86,7 +91,8 @@ extension MessageReceiver {
                         .notifyUser(
                             db,
                             forIncomingCall: interaction,
-                            in: thread
+                            in: thread,
+                            applicationState: (isMainAppActive ? .active : .background)
                         )
                 }
                 

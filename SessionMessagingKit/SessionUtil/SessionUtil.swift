@@ -403,40 +403,35 @@ public enum SessionUtil {
         guard SessionUtil.userConfigsEnabled else { return [] }
         
         return Storage.shared
-            .read { db -> [String] in
+            .read { db -> Set<ConfigDump.Variant> in
                 guard Identity.userExists(db) else { return [] }
                 
-                let existingDumpVariants: Set<ConfigDump.Variant> = (try? ConfigDump
+                return try ConfigDump
                     .select(.variant)
                     .filter(ConfigDump.Columns.publicKey == publicKey)
                     .asRequest(of: ConfigDump.Variant.self)
-                    .fetchSet(db))
-                    .defaulting(to: [])
-                
-                /// Extract all existing hashes for any dumps associated with the given `publicKey`
-                return existingDumpVariants
-                    .map { variant -> [String] in
-                        guard
-                            let conf = SessionUtil
-                                .config(for: variant, publicKey: publicKey)
-                                .wrappedValue,
-                            let hashList: UnsafeMutablePointer<config_string_list> = config_current_hashes(conf)
-                        else {
-                            return []
-                        }
-                        
-                        let result: [String] = [String](
-                            pointer: hashList.pointee.value,
-                            count: hashList.pointee.len,
-                            defaultValue: []
-                        )
-                        hashList.deallocate()
-                        
-                        return result
-                    }
-                    .reduce([], +)
+                    .fetchSet(db)
             }
             .defaulting(to: [])
+            .map { variant -> [String] in
+                /// Extract all existing hashes for any dumps associated with the given `publicKey`
+                guard
+                    let conf = SessionUtil
+                        .config(for: variant, publicKey: publicKey)
+                        .wrappedValue,
+                    let hashList: UnsafeMutablePointer<config_string_list> = config_current_hashes(conf)
+                else { return [] }
+                
+                let result: [String] = [String](
+                    pointer: hashList.pointee.value,
+                    count: hashList.pointee.len,
+                    defaultValue: []
+                )
+                hashList.deallocate()
+                
+                return result
+            }
+            .reduce([], +)
     }
     
     // MARK: - Receiving

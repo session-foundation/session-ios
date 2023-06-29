@@ -158,7 +158,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                             .notifyUser(
                                                 db,
                                                 forIncomingCall: interaction,
-                                                in: thread
+                                                in: thread,
+                                                applicationState: .background
                                             )
                                     }
                                 }

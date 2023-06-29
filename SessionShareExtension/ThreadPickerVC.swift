@@ -10,7 +10,9 @@ import SessionMessagingKit
 
 final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableViewDelegate, AttachmentApprovalViewControllerDelegate {
     private let viewModel: ThreadPickerViewModel = ThreadPickerViewModel()
-    private var dataChangeObservable: DatabaseCancellable?
+    private var dataChangeObservable: DatabaseCancellable? {
+        didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
+    }
     private var hasLoadedInitialData: Bool = false
     
     var shareNavController: ShareNavController?
@@ -79,8 +81,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         
-        // Stop observing database changes
-        dataChangeObservable?.cancel()
+        stopObservingChanges()
     }
     
     @objc func applicationDidBecomeActive(_ notification: Notification) {
@@ -91,8 +92,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     }
     
     @objc func applicationDidResignActive(_ notification: Notification) {
-        // Stop observing database changes
-        dataChangeObservable?.cancel()
+        stopObservingChanges()
     }
     
     // MARK: Layout
@@ -104,6 +104,8 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     // MARK: - Updating
     
     private func startObservingChanges() {
+        guard dataChangeObservable == nil else { return }
+        
         // Start observing for data changes
         dataChangeObservable = Storage.shared.start(
             viewModel.observableViewData,
@@ -113,6 +115,10 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 self?.handleUpdates(viewData)
             }
         )
+    }
+    
+    private func stopObservingChanges() {
+        dataChangeObservable = nil
     }
     
     private func handleUpdates(_ updatedViewData: [SessionThreadViewModel]) {
@@ -154,7 +160,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         
         ShareNavController.attachmentPrepPublisher?
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .receive(on: DispatchQueue.main, immediatelyIfMain: true)
+            .receive(on: DispatchQueue.main)
             .sinkUntilComplete(
                 receiveValue: { [weak self] attachments in
                     guard let strongSelf = self else { return }

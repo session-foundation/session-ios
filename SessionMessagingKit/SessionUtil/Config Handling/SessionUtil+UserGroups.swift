@@ -139,7 +139,7 @@ internal extension SessionUtil {
         
         // Add any new communities (via the OpenGroupManager)
         communities.forEach { community in
-            OpenGroupManager.shared
+            let successfullyAddedGroup: Bool = OpenGroupManager.shared
                 .add(
                     db,
                     roomToken: community.data.roomToken,
@@ -147,7 +147,20 @@ internal extension SessionUtil {
                     publicKey: community.data.publicKey,
                     calledFromConfigHandling: true
                 )
-                .sinkUntilComplete()
+            
+            if successfullyAddedGroup {
+                db.afterNextTransactionNested { _ in
+                    OpenGroupManager.shared.performInitialRequestsAfterAdd(
+                        successfullyAddedGroup: successfullyAddedGroup,
+                        roomToken: community.data.roomToken,
+                        server: community.data.server,
+                        publicKey: community.data.publicKey,
+                        calledFromConfigHandling: false
+                    )
+                    .subscribe(on: OpenGroupAPI.workQueue)
+                    .sinkUntilComplete()
+                }
+            }
             
             // Set the priority if it's changed (new communities will have already been inserted at
             // this stage)

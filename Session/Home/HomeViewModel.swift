@@ -26,32 +26,39 @@ public class HomeViewModel {
         let showViewedSeedBanner: Bool
         let hasHiddenMessageRequests: Bool
         let unreadMessageRequestThreadCount: Int
-        let userProfile: Profile?
-        
-        init(
-            showViewedSeedBanner: Bool = !Storage.shared[.hasViewedSeed],
-            hasHiddenMessageRequests: Bool = Storage.shared[.hasHiddenMessageRequests],
-            unreadMessageRequestThreadCount: Int = 0,
-            userProfile: Profile? = nil
-        ) {
-            self.showViewedSeedBanner = showViewedSeedBanner
-            self.hasHiddenMessageRequests = hasHiddenMessageRequests
-            self.unreadMessageRequestThreadCount = unreadMessageRequestThreadCount
-            self.userProfile = userProfile
-        }
+        let userProfile: Profile
     }
     
     // MARK: - Initialization
     
     init() {
-        self.state = State()
+        typealias InitialData = (
+            showViewedSeedBanner: Bool,
+            hasHiddenMessageRequests: Bool,
+            profile: Profile
+        )
+        
+        let initialData: InitialData? = Storage.shared.read { db -> InitialData in
+            (
+                !db[.hasViewedSeed],
+                db[.hasHiddenMessageRequests],
+                Profile.fetchOrCreateCurrentUser(db)
+            )
+        }
+        
+        self.state = State(
+            showViewedSeedBanner: (initialData?.showViewedSeedBanner ?? true),
+            hasHiddenMessageRequests: (initialData?.hasHiddenMessageRequests ?? false),
+            unreadMessageRequestThreadCount: 0,
+            userProfile: (initialData?.profile ?? Profile.fetchOrCreateCurrentUser())
+        )
         self.pagedDataObserver = nil
         
         // Note: Since this references self we need to finish initializing before setting it, we
         // also want to skip the initial query and trigger it async so that the push animation
         // doesn't stutter (it should load basically immediately but without this there is a
         // distinct stutter)
-        let userPublicKey: String = getUserHexEncodedPublicKey()
+        let userPublicKey: String = self.state.userProfile.id
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         self.pagedDataObserver = PagedDatabaseObserver(
             pagedTable: SessionThread.self,
@@ -208,12 +215,16 @@ public class HomeViewModel {
                         )
                     }
                 )
+                
+                self?.hasReceivedInitialThreadData = true
             }
         )
         
-        // Run the initial query on the main thread so we prevent the app from leaving the loading screen
-        // until we have data (Note: the `.pageBefore` will query from a `0` offset loading the first page)
-        self.pagedDataObserver?.load(.pageBefore)
+        // Run the initial query on a background thread so we don't block the main thread
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            // The `.pageBefore` will query from a `0` offset loading the first page
+            self?.pagedDataObserver?.load(.pageBefore)
+        }
     }
     
     // MARK: - State
@@ -254,8 +265,10 @@ public class HomeViewModel {
         let oldState: State = self.state
         self.state = updatedState
         
-        // If the messageRequest content changed then we need to re-process the thread data
+        // If the messageRequest content changed then we need to re-process the thread data (assuming
+        // we've received the initial thread data)
         guard
+            self.hasReceivedInitialThreadData,
             (
                 oldState.hasHiddenMessageRequests != updatedState.hasHiddenMessageRequests ||
                 oldState.unreadMessageRequestThreadCount != updatedState.unreadMessageRequestThreadCount
@@ -272,11 +285,7 @@ public class HomeViewModel {
         
         PagedData.processAndTriggerUpdates(
             updatedData: updatedThreadData,
-            currentDataRetriever: { [weak self] in
-                guard self?.hasProcessedInitialThreadData == true else { return nil }
-                
-                return (self?.unobservedThreadDataChanges?.0 ?? self?.threadData)
-            },
+            currentDataRetriever: { [weak self] in (self?.unobservedThreadDataChanges?.0 ?? self?.threadData) },
             onDataChange: onThreadChange,
             onUnobservedDataChange: { [weak self] updatedData, changeset in
                 self?.unobservedThreadDataChanges = (changeset.isEmpty ?
@@ -289,19 +298,23 @@ public class HomeViewModel {
     
     // MARK: - Thread Data
     
-    private var hasProcessedInitialThreadData: Bool = false
+    private var hasReceivedInitialThreadData: Bool = false
     public private(set) var unobservedThreadDataChanges: ([SectionModel], StagedChangeset<[SectionModel]>)?
     public private(set) var threadData: [SectionModel] = []
     public private(set) var pagedDataObserver: PagedDatabaseObserver<SessionThread, SessionThreadViewModel>?
     
     public var onThreadChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ())? {
         didSet {
-            self.hasProcessedInitialThreadData = (onThreadChange != nil || hasProcessedInitialThreadData)
-            
             // When starting to observe interaction changes we want to trigger a UI update just in case the
             // data was changed while we weren't observing
-            if let unobservedThreadDataChanges: ([SectionModel], StagedChangeset<[SectionModel]>) = self.unobservedThreadDataChanges {
-                onThreadChange?(unobservedThreadDataChanges.0, unobservedThreadDataChanges.1)
+            if let changes: ([SectionModel], StagedChangeset<[SectionModel]>) = self.unobservedThreadDataChanges {
+                let performChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ())? = onThreadChange
+                
+                switch Thread.isMainThread {
+                    case true: performChange?(changes.0, changes.1)
+                    case false: DispatchQueue.main.async { performChange?(changes.0, changes.1) }
+                }
+                
                 self.unobservedThreadDataChanges = nil
             }
         }

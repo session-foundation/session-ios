@@ -1212,7 +1212,12 @@ extension ConversationVC:
             )
     }
     
-    func react(_ cellViewModel: MessageViewModel, with emoji: String, remove: Bool) {
+    func react(
+        _ cellViewModel: MessageViewModel,
+        with emoji: String,
+        remove: Bool,
+        using dependencies: Dependencies = Dependencies()
+    ) {
         guard
             self.viewModel.threadData.threadIsMessageRequest != true && (
                 cellViewModel.variant == .standardIncoming ||
@@ -1224,7 +1229,7 @@ extension ConversationVC:
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         let openGroupRoom: String? = self.viewModel.threadData.openGroupRoomToken
         let sentTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs()
-        let recentReactionTimestamps: [Int64] = General.cache.wrappedValue.recentReactionTimestamps
+        let recentReactionTimestamps: [Int64] = dependencies.generalCache.recentReactionTimestamps
         
         guard
             recentReactionTimestamps.count < 20 ||
@@ -1242,7 +1247,7 @@ extension ConversationVC:
             return
         }
         
-        General.cache.mutate {
+        dependencies.mutableGeneralCache.mutate {
             $0.recentReactionTimestamps = Array($0.recentReactionTimestamps
                 .suffix(19))
                 .appending(sentTimestamp)
@@ -1553,9 +1558,18 @@ extension ConversationVC:
                     }
                     
                     Storage.shared
-                        .writePublisherFlatMap { db in
+                        .writePublisher { db in
                             OpenGroupManager.shared.add(
                                 db,
+                                roomToken: room,
+                                server: server,
+                                publicKey: publicKey,
+                                calledFromConfigHandling: false
+                            )
+                        }
+                        .flatMap { successfullyAddedGroup in
+                            OpenGroupManager.shared.performInitialRequestsAfterAdd(
+                                successfullyAddedGroup: successfullyAddedGroup,
                                 roomToken: room,
                                 server: server,
                                 publicKey: publicKey,
@@ -1569,6 +1583,18 @@ extension ConversationVC:
                                 switch result {
                                     case .finished: break
                                     case .failure(let error):
+                                        // If there was a failure then the group will be in invalid state until
+                                        // the next launch so remove it (the user will be left on the previous
+                                        // screen so can re-trigger the join)
+                                        Storage.shared.writeAsync { db in
+                                            OpenGroupManager.shared.delete(
+                                                db,
+                                                openGroupId: OpenGroup.idFor(roomToken: room, server: server),
+                                                calledFromConfigHandling: false
+                                            )
+                                        }
+                                        
+                                        // Show the user an error indicating they failed to properly join the group
                                         let errorModal: ConfirmationModal = ConfirmationModal(
                                             info: ConfirmationModal.Info(
                                                 title: "COMMUNITY_ERROR_GENERIC".localized(),

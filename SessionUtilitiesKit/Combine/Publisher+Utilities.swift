@@ -25,64 +25,6 @@ public extension Publisher {
         )
     }
     
-    /// The standard `.subscribe(on: DispatchQueue.main)` seems to ocassionally dispatch to the
-    /// next run loop before actually subscribing, this method checks if it's running on the main thread already and
-    /// if so just subscribes directly rather than routing via `.receive(on:)`
-    func subscribe<S>(
-        on scheduler: S,
-        immediatelyIfMain: Bool,
-        options: S.SchedulerOptions? = nil
-    ) -> AnyPublisher<Output, Failure> where S: Scheduler {
-        guard immediatelyIfMain && ((scheduler as? DispatchQueue) == DispatchQueue.main) else {
-            return self.subscribe(on: scheduler, options: options)
-                .eraseToAnyPublisher()
-        }
-
-        return self
-            .flatMap { value -> AnyPublisher<Output, Failure> in
-                guard Thread.isMainThread else {
-                    return Just(value)
-                        .setFailureType(to: Failure.self)
-                        .subscribe(on: scheduler, options: options)
-                        .eraseToAnyPublisher()
-                }
-
-                return Just(value)
-                    .setFailureType(to: Failure.self)
-                    .eraseToAnyPublisher()
-            }
-            .eraseToAnyPublisher()
-    }
-    
-    /// The standard `.receive(on: DispatchQueue.main)` seems to ocassionally dispatch to the
-    /// next run loop before emitting data, this method checks if it's running on the main thread already and
-    /// if so just emits directly rather than routing via `.receive(on:)`
-    func receive<S>(
-        on scheduler: S,
-        immediatelyIfMain: Bool,
-        options: S.SchedulerOptions? = nil
-    ) -> AnyPublisher<Output, Failure> where S: Scheduler {
-        guard immediatelyIfMain && ((scheduler as? DispatchQueue) == DispatchQueue.main) else {
-            return self.receive(on: scheduler, options: options)
-                .eraseToAnyPublisher()
-        }
-
-        return self
-            .flatMap { value -> AnyPublisher<Output, Failure> in
-                guard Thread.isMainThread else {
-                    return Just(value)
-                        .setFailureType(to: Failure.self)
-                        .receive(on: scheduler, options: options)
-                        .eraseToAnyPublisher()
-                }
-
-                return Just(value)
-                    .setFailureType(to: Failure.self)
-                    .eraseToAnyPublisher()
-            }
-            .eraseToAnyPublisher()
-    }
-    
     func tryFlatMap<T, P>(
         maxPublishers: Subscribers.Demand = .unlimited,
         _ transform: @escaping (Self.Output) throws -> P

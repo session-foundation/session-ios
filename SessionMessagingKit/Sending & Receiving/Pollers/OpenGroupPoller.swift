@@ -57,38 +57,47 @@ extension OpenGroupAPI {
         ) {
             guard hasStarted else { return }
             
-            let minPollFailureCount: TimeInterval = Storage.shared
-                .read { db in
+            dependencies.storage
+                .readPublisher { [server = server] db in
                     try OpenGroup
                         .filter(OpenGroup.Columns.server == server)
                         .select(min(OpenGroup.Columns.pollFailureCount))
                         .asRequest(of: TimeInterval.self)
                         .fetchOne(db)
                 }
-                .defaulting(to: 0)
-            let lastPollStart: TimeInterval = Date().timeIntervalSince1970
-            let nextPollInterval: TimeInterval = getInterval(for: minPollFailureCount, minInterval: Poller.minPollInterval, maxInterval: Poller.maxPollInterval)
-            
-            // Wait until the last poll completes before polling again ensuring we don't poll any faster than
-            // the 'nextPollInterval' value
-            poll(using: dependencies)
-                .subscribe(on: dependencies.subscribeQueue, immediatelyIfMain: true)
-                .receive(on: dependencies.receiveQueue, immediatelyIfMain: true)
+                .tryFlatMap { [weak self] minPollFailureCount -> AnyPublisher<(TimeInterval, TimeInterval), Error> in
+                    guard let strongSelf = self else { throw OpenGroupAPIError.invalidPoll }
+
+                    let lastPollStart: TimeInterval = Date().timeIntervalSince1970
+                    let nextPollInterval: TimeInterval = Poller.getInterval(
+                        for: (minPollFailureCount ?? 0),
+                        minInterval: Poller.minPollInterval,
+                        maxInterval: Poller.maxPollInterval
+                    )
+
+                    // Wait until the last poll completes before polling again ensuring we don't poll any faster than
+                    // the 'nextPollInterval' value
+                    return strongSelf.poll(using: dependencies)
+                        .map { _ in (lastPollStart, nextPollInterval) }
+                        .eraseToAnyPublisher()
+                }
+                .subscribe(on: dependencies.subscribeQueue)
+                .receive(on: dependencies.receiveQueue)
                 .sinkUntilComplete(
-                    receiveCompletion: { [weak self] _ in
+                    receiveValue: { [weak self] lastPollStart, nextPollInterval in
                         let currentTime: TimeInterval = Date().timeIntervalSince1970
                         let remainingInterval: TimeInterval = max(0, nextPollInterval - (currentTime - lastPollStart))
-                        
+
                         guard remainingInterval > 0 else {
-                            return Threading.pollerQueue.async {
+                            return dependencies.subscribeQueue.async {
                                 self?.pollRecursively(using: dependencies)
                             }
                         }
-                        
+
                         self?.timer = Timer.scheduledTimerOnMainThread(withTimeInterval: remainingInterval, repeats: false) { timer in
                             timer.invalidate()
-                            
-                            Threading.pollerQueue.async {
+
+                            dependencies.subscribeQueue.async {
                                 self?.pollRecursively(using: dependencies)
                             }
                         }
@@ -120,6 +129,11 @@ extension OpenGroupAPI {
             
             self.isPolling = true
             let server: String = self.server
+            let hasPerformedInitialPoll: Bool = (dependencies.cache.hasPerformedInitialPoll[server] == true)
+            let timeSinceLastPoll: TimeInterval = (
+                dependencies.cache.timeSinceLastPoll[server] ??
+                dependencies.mutableCache.mutate { $0.getTimeSinceLastOpen(using: dependencies) }
+            )
             
             return dependencies.storage
                 .readPublisher { db -> (Int64, PreparedSendData<BatchResponse>) in
@@ -136,11 +150,8 @@ extension OpenGroupAPI {
                             .preparedPoll(
                                 db,
                                 server: server,
-                                hasPerformedInitialPoll: dependencies.cache.hasPerformedInitialPoll[server] == true,
-                                timeSinceLastPoll: (
-                                    dependencies.cache.timeSinceLastPoll[server] ??
-                                    dependencies.cache.getTimeSinceLastOpen(using: dependencies)
-                                ),
+                                hasPerformedInitialPoll: hasPerformedInitialPoll,
+                                timeSinceLastPoll: timeSinceLastPoll,
                                 using: dependencies
                             )
                     )
@@ -591,12 +602,12 @@ extension OpenGroupAPI {
                 }
             }
         }
-    }
-    
-    // MARK: - Convenience
+        
+        // MARK: - Convenience
 
-    fileprivate static func getInterval(for failureCount: TimeInterval, minInterval: TimeInterval, maxInterval: TimeInterval) -> TimeInterval {
-        // Arbitrary backoff factor...
-        return min(maxInterval, minInterval + pow(2, failureCount))
+        fileprivate static func getInterval(for failureCount: TimeInterval, minInterval: TimeInterval, maxInterval: TimeInterval) -> TimeInterval {
+            // Arbitrary backoff factor...
+            return min(maxInterval, minInterval + pow(2, failureCount))
+        }
     }
 }

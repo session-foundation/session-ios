@@ -3,7 +3,6 @@
 import UIKit
 import YYImage
 import MediaPlayer
-import WebRTC
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit

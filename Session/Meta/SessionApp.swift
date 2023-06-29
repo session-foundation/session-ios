@@ -6,7 +6,31 @@ import SessionMessagingKit
 import SignalCoreKit
 
 public struct SessionApp {
+    // FIXME: Refactor this to be protocol based for unit testing (or even dynamic based on view hierarchy - do want to avoid needing to use the main thread to access them though)
     static let homeViewController: Atomic<HomeVC?> = Atomic(nil)
+    static let currentlyOpenConversationViewController: Atomic<ConversationVC?> = Atomic(nil)
+    
+    static var versionInfo: String {
+        let buildNumber: String = (Bundle.main.infoDictionary?["CFBundleVersion"] as? String)
+            .map { " (\($0))" }
+            .defaulting(to: "")
+        let appVersion: String? = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String)
+            .map { "App: \($0)\(buildNumber)" }
+        #if DEBUG
+        let commitInfo: String? = (Bundle.main.infoDictionary?["GitCommitHash"] as? String).map { "Commit: \($0)" }
+        #else
+        let commitInfo: String? = nil
+        #endif
+        
+        let versionInfo: [String] = [
+            "iOS \(UIDevice.current.systemVersion)",
+            appVersion,
+            "libSession: \(SessionUtil.libSessionVersion)",
+            commitInfo
+        ].compactMap { $0 }
+        
+        return versionInfo.joined(separator: ", ")
+    }
     
     // MARK: - View Convenience Methods
     

@@ -3,13 +3,11 @@ import GRDB
 import SessionSnodeKit
 
 final class IP2Country {
-    var countryNamesCache: Atomic<[String: String]> = Atomic([:])
-    
-
-    private static let workQueue = DispatchQueue(label: "IP2Country.workQueue", qos: .utility) // It's important that this is a serial queue
     static var isInitialized = false
     
-    // MARK: Tables
+    var countryNamesCache: Atomic<[String: String]> = Atomic([:])
+    
+    // MARK: - Tables
     /// This table has two columns: the "network" column and the "registered_country_geoname_id" column. The network column contains
     /// the **lower** bound of an IP range and the "registered_country_geoname_id" column contains the ID of the country corresponding
     /// to that range. We look up an IP by finding the first index in the network column where the value is greater than the IP we're looking
@@ -58,13 +56,12 @@ final class IP2Country {
     }
 
     @objc func populateCacheIfNeededAsync() {
-        // This has to be sync since the `countryNamesCache` dict doesn't like async access
-        IP2Country.workQueue.sync { [weak self] in
-            _ = self?.populateCacheIfNeeded()
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            self?.populateCacheIfNeeded()
         }
     }
 
-    func populateCacheIfNeeded() -> Bool {
+    @discardableResult func populateCacheIfNeeded() -> Bool {
         guard let pathToDisplay: [Snode] = OnionRequestAPI.paths.first else { return false }
         
         countryNamesCache.mutate { [weak self] cache in

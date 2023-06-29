@@ -414,8 +414,10 @@
 "DEFAULT_OPEN_GROUP_LOAD_ERROR_TITLE" = "Oups, une erreur est survenue";
 "DEFAULT_OPEN_GROUP_LOAD_ERROR_SUBTITLE" = "Veuillez réessayer plus tard";
 "LOADING_CONVERSATIONS" = "Chargement des conversations...";
-"DATABASE_STARTUP_FAILED" = "An error occurred when opening the database\n\nYou can export your application logs to be able to share for troubleshooting or you can restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
-"DATABASE_RESTORE_FAILED" = "An error occurred when opening the restored database\n\nYou can export your application logs to be able to share for troubleshooting but to continue to use Session you may need to reinstall it";
+"DATABASE_STARTUP_FAILED" = "An error occurred when opening the database\n\nYou can export your application logs to share for troubleshooting or you can try to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
+"APP_STARTUP_TIMEOUT" = "The app is taking a long time to start\n\nYou can continue to wait for the app to start, export your application logs to share for troubleshooting or you can try to open the app again";
+"APP_STARTUP_EXIT" = "Exit";
+"DATABASE_RESTORE_FAILED" = "An error occurred when opening the restored database\n\nYou can export your application logs to share for troubleshooting but to continue to use Session you may need to reinstall";
 "DATABASE_MIGRATION_FAILED" = "Une erreur est survenue pendant l'optimisation de la base de données\n\nVous pouvez exporter votre journal d'application pour le partager et aider à régler le problème ou vous pouvez restaurer votre appareil\n\nAttention : restaurer votre appareil résultera en une perte des données des deux dernières semaines";
 "RECOVERY_PHASE_ERROR_GENERIC" = "Quelque chose s'est mal passé. Vérifiez votre phrase de récupération et réessayez s'il vous plaît.";
 "RECOVERY_PHASE_ERROR_LENGTH" = "Il semble que vous n'avez pas saisi tous les mots. Vérifiez votre phrase de récupération et réessayez s'il vous plaît.";

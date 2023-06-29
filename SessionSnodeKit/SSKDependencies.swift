@@ -17,7 +17,7 @@ open class SSKDependencies: Dependencies {
         subscribeQueue: DispatchQueue? = nil,
         receiveQueue: DispatchQueue? = nil,
         onionApi: OnionRequestAPIType.Type? = nil,
-        generalCache: Atomic<GeneralCacheType>? = nil,
+        generalCache: MutableGeneralCacheType? = nil,
         storage: Storage? = nil,
         scheduler: ValueObservationScheduler? = nil,
         standardUserDefaults: UserDefaultsType? = nil,

@@ -4,6 +4,10 @@ import Foundation
 import GRDB
 
 open class Dependencies {
+    /// These should not be accessed directly but rather via an instance of this type
+    private static let _generalCacheInstance: MutableGeneralCacheType = General.Cache()
+    private static let _generalCacheInstanceAccessQueue = DispatchQueue(label: "GeneralCacheInstanceAccess")
+    
     public var _subscribeQueue: Atomic<DispatchQueue?>
     public var subscribeQueue: DispatchQueue {
         get { Dependencies.getValueSettingIfNull(&_subscribeQueue) { DispatchQueue.global(qos: .default) } }
@@ -16,10 +20,25 @@ open class Dependencies {
         set { _receiveQueue.mutate { $0 = newValue } }
     }
     
-    public var _generalCache: Atomic<Atomic<GeneralCacheType>?>
-    public var generalCache: Atomic<GeneralCacheType> {
-        get { Dependencies.getValueSettingIfNull(&_generalCache) { General.cache } }
-        set { _generalCache.mutate { $0 = newValue } }
+    public var _mutableGeneralCache: Atomic<MutableGeneralCacheType?>
+    public var mutableGeneralCache: Atomic<MutableGeneralCacheType> {
+        get {
+            Dependencies.getMutableValueSettingIfNull(&_mutableGeneralCache) {
+                Dependencies._generalCacheInstanceAccessQueue.sync { Dependencies._generalCacheInstance }
+            }
+        }
+    }
+    public var generalCache: GeneralCacheType {
+        get {
+            Dependencies.getValueSettingIfNull(&_mutableGeneralCache) {
+                Dependencies._generalCacheInstanceAccessQueue.sync { Dependencies._generalCacheInstance }
+            }
+        }
+        set {
+            guard let mutableValue: MutableGeneralCacheType = newValue as? MutableGeneralCacheType else { return }
+            
+            _mutableGeneralCache.mutate { $0 = mutableValue }
+        }
     }
     
     public var _storage: Atomic<Storage?>
@@ -51,7 +70,7 @@ open class Dependencies {
     public init(
         subscribeQueue: DispatchQueue? = nil,
         receiveQueue: DispatchQueue? = nil,
-        generalCache: Atomic<GeneralCacheType>? = nil,
+        generalCache: MutableGeneralCacheType? = nil,
         storage: Storage? = nil,
         scheduler: ValueObservationScheduler? = nil,
         standardUserDefaults: UserDefaultsType? = nil,
@@ -59,7 +78,7 @@ open class Dependencies {
     ) {
         _subscribeQueue = Atomic(subscribeQueue)
         _receiveQueue = Atomic(receiveQueue)
-        _generalCache = Atomic(generalCache)
+        _mutableGeneralCache = Atomic(generalCache)
         _storage = Atomic(storage)
         _scheduler = Atomic(scheduler)
         _standardUserDefaults = Atomic(standardUserDefaults)
@@ -76,5 +95,15 @@ open class Dependencies {
         }
         
         return value
+    }
+    
+    public static func getMutableValueSettingIfNull<T>(_ maybeValue: inout Atomic<T?>, _ valueGenerator: () -> T) -> Atomic<T> {
+        guard let value: T = maybeValue.wrappedValue else {
+            let value: T = valueGenerator()
+            maybeValue.mutate { $0 = value }
+            return Atomic(value)
+        }
+        
+        return Atomic(value)
     }
 }

@@ -321,7 +321,8 @@ extension MessageReceiver {
             .notifyUser(
                 db,
                 for: interaction,
-                in: thread
+                in: thread,
+                applicationState: (isMainAppActive ? .active : .background)
             )
         
         return interactionId
@@ -362,6 +363,9 @@ extension MessageReceiver {
         
         switch reaction.kind {
             case .react:
+                // Determine whether the app is active based on the prefs rather than the UIApplication state to avoid
+                // requiring main-thread execution
+                let isMainAppActive: Bool = (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false)
                 let timestampMs: Int64 = Int64(messageSentTimestamp * 1000)
                 let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
                 let reaction: Reaction = try Reaction(
@@ -388,7 +392,8 @@ extension MessageReceiver {
                         .notifyUser(
                             db,
                             forReaction: reaction,
-                            in: thread
+                            in: thread,
+                            applicationState: (isMainAppActive ? .active : .background)
                         )
                 }
             case .remove:

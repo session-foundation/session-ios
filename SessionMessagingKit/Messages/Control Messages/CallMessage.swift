@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import WebRTC
 import SessionUtilitiesKit
 
 /// See https://developer.mozilla.org/en-US/docs/Web/API/RTCSessionDescription for more information.

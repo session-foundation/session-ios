@@ -4,7 +4,6 @@ import UIKit
 import Combine
 import UserNotifications
 import GRDB
-import WebRTC
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -13,16 +12,14 @@ import SignalCoreKit
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    private static let maxRootViewControllerInitialQueryDuration: TimeInterval = 10
+    
     var window: UIWindow?
     var backgroundSnapshotBlockerWindow: UIWindow?
     var appStartupWindow: UIWindow?
     var hasInitialRootViewController: Bool = false
+    var startTime: CFTimeInterval = 0
     private var loadingViewController: LoadingViewController?
-    
-    enum LifecycleMethod {
-        case finishLaunching
-        case enterForeground
-    }
     
     /// This needs to be a lazy variable to ensure it doesn't get initialized before it actually needs to be used
     lazy var poller: CurrentUserPoller = CurrentUserPoller()
@@ -30,6 +27,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     // MARK: - Lifecycle
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // Log something immediately to make it easier to track app launches (and crashes during launch)
+        SNLog("Launching \(SessionApp.versionInfo)")
+        startTime = CACurrentMediaTime()
+        
         // These should be the first things we do (the startup process can fail without them)
         SetCurrentAppContext(MainAppContext())
         verifyDBKeysAvailableBeforeBackgroundLaunch()
@@ -71,7 +72,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             },
             migrationsCompletion: { [weak self] result, needsConfigSync in
                 if case .failure(let error) = result {
-                    self?.showFailedMigrationAlert(calledFrom: .finishLaunching, error: error)
+                    DispatchQueue.main.async {
+                        self?.showFailedStartupAlert(calledFrom: .finishLaunching, error: .databaseError(error))
+                    }
                     return
                 }
                 
@@ -147,7 +150,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 },
                 migrationsCompletion: { [weak self] result, needsConfigSync in
                     if case .failure(let error) = result {
-                        self?.showFailedMigrationAlert(calledFrom: .enterForeground, error: error)
+                        DispatchQueue.main.async {
+                            self?.showFailedStartupAlert(calledFrom: .enterForeground, error: .databaseError(error))
+                        }
                         return
                     }
                     
@@ -187,7 +192,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         UserDefaults.sharedLokiProject?[.isMainAppActive] = true
         
-        ensureRootViewController()
+        ensureRootViewController(calledFrom: .didBecomeActive)
 
         AppReadiness.runNowOrWhenAppDidBecomeReady { [weak self] in
             self?.handleActivation()
@@ -283,122 +288,146 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         Configuration.performMainSetup()
         JobRunner.add(executor: SyncPushTokensJob.self, for: .syncPushTokens)
         
-        /// Setup the UI
-        ///
-        /// **Note:** This **MUST** be run before calling:
-        /// - `AppReadiness.setAppIsReady()`:
-        ///    If we are launching the app from a push notification the HomeVC won't be setup yet
-        ///    and it won't open the related thread
-        ///
-        /// - `JobRunner.appDidFinishLaunching()`:
-        ///    The jobs which run on launch (eg. DisappearingMessages job) can impact the interactions
-        ///    which get fetched to display on the home screen, if the PagedDatabaseObserver hasn't
-        ///    been setup yet then the home screen can show stale (ie. deleted) interactions incorrectly
-        self.ensureRootViewController(isPreAppReadyCall: true)
-        
-        // Trigger any launch-specific jobs and start the JobRunner
-        if lifecycleMethod == .finishLaunching {
-            JobRunner.appDidFinishLaunching()
-        }
-        
-        // Note that this does much more than set a flag;
-        // it will also run all deferred blocks (including the JobRunner
-        // 'appDidBecomeActive' method)
-        AppReadiness.setAppIsReady()
-        
-        DeviceSleepManager.sharedInstance.removeBlock(blockObject: self)
-        AppVersion.sharedInstance().mainAppLaunchDidComplete()
-        Environment.shared?.audioSession.setup()
-        Environment.shared?.reachabilityManager.setup()
-        
-        Storage.shared.writeAsync { db in
-            // Disable the SAE until the main app has successfully completed launch process
-            // at least once in the post-SAE world.
-            db[.isReadyForAppExtensions] = true
+        // Setup the UI and trigger any post-UI setup actions
+        self.ensureRootViewController(calledFrom: lifecycleMethod) { [weak self] in
+            /// Trigger any launch-specific jobs and start the JobRunner with `JobRunner.appDidFinishLaunching()` some
+            /// of these jobs (eg. DisappearingMessages job) can impact the interactions which get fetched to display on the home
+            /// screen, if the PagedDatabaseObserver hasn't been setup yet then the home screen can show stale (ie. deleted)
+            /// interactions incorrectly
+            if lifecycleMethod == .finishLaunching {
+                JobRunner.appDidFinishLaunching()
+            }
             
-            if Identity.userCompletedRequiredOnboarding(db) {
-                let appVersion: AppVersion = AppVersion.sharedInstance()
+            /// Flag that the app is ready via `AppReadiness.setAppIsReady()`
+            ///
+            /// If we are launching the app from a push notification we need to ensure we wait until after the `HomeVC` is setup
+            /// otherwise it won't open the related thread
+            ///
+            /// **Note:** This this does much more than set a flag - it will also run all deferred blocks (including the JobRunner
+            /// `appDidBecomeActive` method hence why it **must** also come after calling
+            /// `JobRunner.appDidFinishLaunching()`)
+            AppReadiness.setAppIsReady()
+            
+            /// Remove the sleep blocking once the startup is done (needs to run on the main thread and sleeping while
+            /// doing the startup could suspend the database causing errors/crashes
+            DeviceSleepManager.sharedInstance.removeBlock(blockObject: self)
+            
+            /// App launch hasn't really completed until the main screen is loaded so wait until then to register it
+            AppVersion.sharedInstance().mainAppLaunchDidComplete()
+            
+            /// App won't be ready for extensions and no need to enqueue a config sync unless we successfully completed startup
+            Storage.shared.writeAsync { db in
+                // Disable the SAE until the main app has successfully completed launch process
+                // at least once in the post-SAE world.
+                db[.isReadyForAppExtensions] = true
                 
-                // If the device needs to sync config or the user updated to a new version
-                if
-                    needsConfigSync || (
-                        (appVersion.lastAppVersion?.count ?? 0) > 0 &&
-                        appVersion.lastAppVersion != appVersion.currentAppVersion
-                    )
-                {
-                    ConfigurationSyncJob.enqueue(db, publicKey: getUserHexEncodedPublicKey(db))
+                if Identity.userCompletedRequiredOnboarding(db) {
+                    let appVersion: AppVersion = AppVersion.sharedInstance()
+                    
+                    // If the device needs to sync config or the user updated to a new version
+                    if
+                        needsConfigSync || (
+                            (appVersion.lastAppVersion?.count ?? 0) > 0 &&
+                            appVersion.lastAppVersion != appVersion.currentAppVersion
+                        )
+                    {
+                        ConfigurationSyncJob.enqueue(db, publicKey: getUserHexEncodedPublicKey(db))
+                    }
                 }
             }
+            
+            // Add a log to track the proper startup time of the app so we know whether we need to
+            // improve it in the future from user logs
+            let endTime: CFTimeInterval = CACurrentMediaTime()
+            SNLog("Launch completed in \((self?.startTime).map { ceil((endTime - $0) * 1000) } ?? -1)ms")
         }
+        
+        // May as well run these on the background thread
+        Environment.shared?.audioSession.setup()
+        Environment.shared?.reachabilityManager.setup()
     }
     
-    private func showFailedMigrationAlert(
+    private func showFailedStartupAlert(
         calledFrom lifecycleMethod: LifecycleMethod,
-        error: Error?,
-        isRestoreError: Bool = false
+        error: StartupError,
+        animated: Bool = true,
+        presentationCompletion: (() -> ())? = nil
     ) {
-        let alert = UIAlertController(
+        /// This **must** be a standard `UIAlertController` instead of a `ConfirmationModal` because we may not
+        /// have access to the database when displaying this so can't extract theme information for styling purposes
+        let alert: UIAlertController = UIAlertController(
             title: "Session",
-            message: {
-                switch (isRestoreError, (error ?? StorageError.generic)) {
-                    case (true, _): return "DATABASE_RESTORE_FAILED".localized()
-                    case (_, StorageError.startupFailed): return "DATABASE_STARTUP_FAILED".localized()
-                    default: return "DATABASE_MIGRATION_FAILED".localized()
-                }
-            }(),
+            message: error.message,
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "HELP_REPORT_BUG_ACTION_TITLE".localized(), style: .default) { _ in
             HelpViewModel.shareLogs(viewControllerToDismiss: alert) { [weak self] in
-                self?.showFailedMigrationAlert(calledFrom: lifecycleMethod, error: error)
+                // Don't bother showing the "Failed Startup" modal again if we happen to now
+                // have an initial view controller (this most likely means that the startup
+                // completed while the user was sharing logs so we can just let the user use
+                // the app)
+                guard self?.hasInitialRootViewController == false else { return }
+                
+                self?.showFailedStartupAlert(calledFrom: lifecycleMethod, error: error)
             }
         })
         
-        // Only offer the 'Restore' option if the user hasn't already tried to restore
-        if !isRestoreError {
-            alert.addAction(UIAlertAction(title: "vc_restore_title".localized(), style: .destructive) { _ in
-                if SUKLegacy.hasLegacyDatabaseFile {
-                    // Remove the legacy database and any message hashes that have been migrated to the new DB
-                    try? SUKLegacy.deleteLegacyDatabaseFilesAndKey()
-                    
-                    Storage.shared.write { db in
-                        try SnodeReceivedMessageInfo.deleteAll(db)
-                    }
-                }
-                else {
-                    // If we don't have a legacy database then reset the current database for a clean migration
-                    Storage.resetForCleanMigration()
-                }
+        switch error {
+            // Don't offer the 'Restore' option if it was a 'startupFailed' error as a restore is unlikely to
+            // resolve it (most likely the database is locked or the key was somehow lost - safer to get them
+            // to restart and manually reinstall/restore)
+            case .databaseError(StorageError.startupFailed): break
                 
-                // Hide the top banner if there was one
-                TopBannerController.hide()
-                
-                // The re-run the migration (should succeed since there is no data)
-                AppSetup.runPostSetupMigrations(
-                    migrationProgressChanged: { [weak self] progress, minEstimatedTotalTime in
-                        self?.loadingViewController?.updateProgress(
-                            progress: progress,
-                            minEstimatedTotalTime: minEstimatedTotalTime
-                        )
-                    },
-                    migrationsCompletion: { [weak self] result, needsConfigSync in
-                        if case .failure(let error) = result {
-                            self?.showFailedMigrationAlert(calledFrom: lifecycleMethod, error: error, isRestoreError: true)
-                            return
-                        }
+            // Offer the 'Restore' option if it was a migration error
+            case .databaseError:
+                alert.addAction(UIAlertAction(title: "vc_restore_title".localized(), style: .destructive) { _ in
+                    if SUKLegacy.hasLegacyDatabaseFile {
+                        // Remove the legacy database and any message hashes that have been migrated to the new DB
+                        try? SUKLegacy.deleteLegacyDatabaseFilesAndKey()
                         
-                        self?.completePostMigrationSetup(calledFrom: lifecycleMethod, needsConfigSync: needsConfigSync)
+                        Storage.shared.write { db in
+                            try SnodeReceivedMessageInfo.deleteAll(db)
+                        }
                     }
-                )
-            })
+                    else {
+                        // If we don't have a legacy database then reset the current database for a clean migration
+                        Storage.resetForCleanMigration()
+                    }
+                    
+                    // Hide the top banner if there was one
+                    TopBannerController.hide()
+                    
+                    // The re-run the migration (should succeed since there is no data)
+                    AppSetup.runPostSetupMigrations(
+                        migrationProgressChanged: { [weak self] progress, minEstimatedTotalTime in
+                            self?.loadingViewController?.updateProgress(
+                                progress: progress,
+                                minEstimatedTotalTime: minEstimatedTotalTime
+                            )
+                        },
+                        migrationsCompletion: { [weak self] result, needsConfigSync in
+                            switch result {
+                                case .failure:
+                                    DispatchQueue.main.async {
+                                        self?.showFailedStartupAlert(calledFrom: lifecycleMethod, error: .failedToRestore)
+                                    }
+                                    
+                                case .success:
+                                    self?.completePostMigrationSetup(calledFrom: lifecycleMethod, needsConfigSync: needsConfigSync)
+                            }
+                        }
+                    )
+                })
+                
+            default: break
         }
         
-        alert.addAction(UIAlertAction(title: "Close", style: .default) { _ in
+        alert.addAction(UIAlertAction(title: "APP_STARTUP_EXIT".localized(), style: .default) { _ in
             DDLog.flushLog()
             exit(0)
         })
         
-        self.window?.rootViewController?.present(alert, animated: true, completion: nil)
+        self.window?.rootViewController?.present(alert, animated: animated, completion: presentationCompletion)
     }
     
     /// The user must unlock the device once after reboot before the database encryption key can be accessed.
@@ -452,36 +481,101 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
     }
     
-    private func ensureRootViewController(isPreAppReadyCall: Bool = false) {
-        guard (AppReadiness.isAppReady() || isPreAppReadyCall) && Storage.shared.isValid && !hasInitialRootViewController else {
+    private func ensureRootViewController(
+        calledFrom lifecycleMethod: LifecycleMethod,
+        onComplete: (() -> ())? = nil
+    ) {
+        guard (AppReadiness.isAppReady() || lifecycleMethod == .finishLaunching) && Storage.shared.isValid && !hasInitialRootViewController else {
             return
         }
         
-        self.hasInitialRootViewController = true
-        self.window?.rootViewController = TopBannerController(
-            child: StyledNavigationController(
-                rootViewController: {
-                    guard Identity.userExists() else { return LandingVC() }
-                    guard !Profile.fetchOrCreateCurrentUser().name.isEmpty else {
-                        // If we have no display name then collect one (this can happen if the
-                        // app crashed during onboarding which would leave the user in an invalid
-                        // state with no display name)
-                        return DisplayNameVC(flow: .register)
-                    }
-                    
-                    return HomeVC()
-                }()
-            ),
-            cachedWarning: UserDefaults.sharedLokiProject?[.topBannerWarningToShow]
-                .map { rawValue in TopBannerController.Warning(rawValue: rawValue) }
-        )
-        UIViewController.attemptRotationToDeviceOrientation()
+        /// Start a timeout for the creation of the rootViewController setup process (if it takes too long then we want to give the user
+        /// the option to export their logs)
+        let populateHomeScreenTimer: Timer = Timer.scheduledTimerOnMainThread(
+            withTimeInterval: AppDelegate.maxRootViewControllerInitialQueryDuration,
+            repeats: false
+        ) { [weak self] timer in
+            timer.invalidate()
+            self?.showFailedStartupAlert(calledFrom: lifecycleMethod, error: .startupTimeout)
+        }
         
-        /// **Note:** There is an annoying case when starting the app by interacting with a push notification where
-        /// the `HomeVC` won't have completed loading it's view which means the `SessionApp.homeViewController`
-        /// won't have been set - we set the value directly here to resolve this edge case
-        if let homeViewController: HomeVC = (self.window?.rootViewController as? UINavigationController)?.viewControllers.first as? HomeVC {
-            SessionApp.homeViewController.mutate { $0 = homeViewController }
+        // All logic which needs to run after the 'rootViewController' is created
+        let rootViewControllerSetupComplete: (UIViewController) -> () = { [weak self] rootViewController in
+            let presentedViewController: UIViewController? = self?.window?.rootViewController?.presentedViewController
+            let targetRootViewController: UIViewController = TopBannerController(
+                child: StyledNavigationController(rootViewController: rootViewController),
+                cachedWarning: UserDefaults.sharedLokiProject?[.topBannerWarningToShow]
+                    .map { rawValue in TopBannerController.Warning(rawValue: rawValue) }
+            )
+            
+            /// Insert the `targetRootViewController` below the current view and trigger a layout without animation before properly
+            /// swapping the `rootViewController` over so we can avoid any weird initial layout behaviours
+            UIView.performWithoutAnimation {
+                self?.window?.rootViewController = targetRootViewController
+            }
+            
+            self?.hasInitialRootViewController = true
+            UIViewController.attemptRotationToDeviceOrientation()
+            
+            /// **Note:** There is an annoying case when starting the app by interacting with a push notification where
+            /// the `HomeVC` won't have completed loading it's view which means the `SessionApp.homeViewController`
+            /// won't have been set - we set the value directly here to resolve this edge case
+            if let homeViewController: HomeVC = rootViewController as? HomeVC {
+                SessionApp.homeViewController.mutate { $0 = homeViewController }
+            }
+            
+            /// If we were previously presenting a viewController but are no longer preseting it then present it again
+            ///
+            /// **Note:** Looks like the OS will throw an exception if we try to present a screen which is already (or
+            /// was previously?) presented, even if it's not attached to the screen it seems...
+            switch presentedViewController {
+                case is UIAlertController, is ConfirmationModal:
+                    /// If the viewController we were presenting happened to be the "failed startup" modal then we can dismiss it
+                    /// automatically (while this seems redundant it's less jarring for the user than just instantly having it disappear)
+                    self?.showFailedStartupAlert(calledFrom: lifecycleMethod, error: .startupTimeout, animated: false) {
+                        self?.window?.rootViewController?.dismiss(animated: true)
+                    }
+                
+                case is UIActivityViewController: HelpViewModel.shareLogs(animated: false)
+                default: break
+            }
+            
+            // Setup is completed so run any post-setup tasks
+            onComplete?()
+        }
+        
+        // Navigate to the approriate screen depending on the onboarding state
+        switch Onboarding.State.current {
+            case .newUser:
+                DispatchQueue.main.async {
+                    let viewController: LandingVC = LandingVC()
+                    populateHomeScreenTimer.invalidate()
+                    rootViewControllerSetupComplete(viewController)
+                }
+                
+            case .missingName:
+                DispatchQueue.main.async {
+                    let viewController: DisplayNameVC = DisplayNameVC(flow: .register)
+                    populateHomeScreenTimer.invalidate()
+                    rootViewControllerSetupComplete(viewController)
+                }
+                
+            case .completed:
+                DispatchQueue.main.async {
+                    let viewController: HomeVC = HomeVC()
+                    
+                    /// We want to start observing the changes for the 'HomeVC' and want to wait until we actually get data back before we
+                    /// continue as we don't want to show a blank home screen
+                    DispatchQueue.global(qos: .userInitiated).async {
+                        viewController.startObservingChanges() {
+                            populateHomeScreenTimer.invalidate()
+                            
+                            DispatchQueue.main.async {
+                                rootViewControllerSetupComplete(viewController)
+                            }
+                        }
+                    }
+                }
         }
     }
     
@@ -748,5 +842,30 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     }
                 }
             )
+    }
+}
+
+// MARK: - LifecycleMethod
+
+private enum LifecycleMethod {
+    case finishLaunching
+    case enterForeground
+    case didBecomeActive
+}
+
+// MARK: - StartupError
+
+private enum StartupError: Error {
+    case databaseError(Error)
+    case failedToRestore
+    case startupTimeout
+    
+    var message: String {
+        switch self {
+            case .databaseError(StorageError.startupFailed): return "DATABASE_STARTUP_FAILED".localized()
+            case .failedToRestore: return "DATABASE_RESTORE_FAILED".localized()
+            case .databaseError: return "DATABASE_MIGRATION_FAILED".localized()
+            case .startupTimeout: return "APP_STARTUP_TIMEOUT".localized()
+        }
     }
 }

@@ -9,9 +9,9 @@ import SessionUtilitiesKit
 
 extension OpenGroupManager.OGMDependencies {
     public func with(
-        cache: Atomic<OGMCacheType>? = nil,
+        cache: OGMMutableCacheType? = nil,
         onionApi: OnionRequestAPIType.Type? = nil,
-        generalCache: Atomic<GeneralCacheType>? = nil,
+        generalCache: MutableGeneralCacheType? = nil,
         storage: Storage? = nil,
         scheduler: ValueObservationScheduler? = nil,
         sodium: SodiumType? = nil,
@@ -28,7 +28,7 @@ extension OpenGroupManager.OGMDependencies {
         return OpenGroupManager.OGMDependencies(
             cache: (cache ?? self._mutableCache.wrappedValue),
             onionApi: (onionApi ?? self._onionApi.wrappedValue),
-            generalCache: (generalCache ?? self._generalCache.wrappedValue),
+            generalCache: (generalCache ?? self._mutableGeneralCache.wrappedValue),
             storage: (storage ?? self._storage.wrappedValue),
             scheduler: (scheduler ?? self._scheduler.wrappedValue),
             sodium: (sodium ?? self._sodium.wrappedValue),

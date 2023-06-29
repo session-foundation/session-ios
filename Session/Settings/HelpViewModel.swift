@@ -177,23 +177,10 @@ class HelpViewModel: SessionTableViewModel<NoNav, HelpViewModel.Section, HelpVie
     public static func shareLogs(
         viewControllerToDismiss: UIViewController? = nil,
         targetView: UIView? = nil,
+        animated: Bool = true,
         onShareComplete: (() -> ())? = nil
     ) {
-        let version: String = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String)
-            .defaulting(to: "")
-        #if DEBUG
-        let commitInfo: String? = (Bundle.main.infoDictionary?["GitCommitHash"] as? String).map { "Commit: \($0)" }
-        #else
-        let commitInfo: String? = nil
-        #endif
-        
-        let versionInfo: [String] = [
-            "iOS \(UIDevice.current.systemVersion)",
-            "App: \(version)",
-            "libSession: \(SessionUtil.libSessionVersion)",
-            commitInfo
-        ].compactMap { $0 }
-        OWSLogger.info("[Version] \(versionInfo.joined(separator: ", "))")
+        OWSLogger.info("[Version] \(SessionApp.versionInfo)")
         DDLog.flushLog()
         
         let logFilePaths: [String] = AppEnvironment.shared.fileLogger.logFileManager.sortedLogFilePaths
@@ -216,7 +203,7 @@ class HelpViewModel: SessionTableViewModel<NoNav, HelpViewModel.Section, HelpVie
                 shareVC.popoverPresentationController?.sourceView = (targetView ?? viewController.view)
                 shareVC.popoverPresentationController?.sourceRect = (targetView ?? viewController.view).bounds
             }
-            viewController.present(shareVC, animated: true, completion: nil)
+            viewController.present(shareVC, animated: animated, completion: nil)
         }
         
         guard let viewControllerToDismiss: UIViewController = viewControllerToDismiss else {
@@ -224,7 +211,7 @@ class HelpViewModel: SessionTableViewModel<NoNav, HelpViewModel.Section, HelpVie
             return
         }
 
-        viewControllerToDismiss.dismiss(animated: true) {
+        viewControllerToDismiss.dismiss(animated: animated) {
             showShareSheet()
         }
     }

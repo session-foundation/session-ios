@@ -249,7 +249,7 @@ final class NukeDataModal: Modal {
             }
     }
     
-    private func deleteAllLocalData() {
+    private func deleteAllLocalData(using dependencies: Dependencies = Dependencies()) {
         // Unregister push notifications if needed
         let isUsingFullAPNs: Bool = UserDefaults.standard[.isUsingFullAPNs]
         let maybeDeviceToken: String? = UserDefaults.standard[.deviceToken]
@@ -273,7 +273,10 @@ final class NukeDataModal: Modal {
         UserDefaults.removeAll()
         
         // Remove the cached key so it gets re-cached on next access
-        General.cache.mutate { $0.encodedPublicKey = nil }
+        dependencies.mutableGeneralCache.mutate {
+            $0.encodedPublicKey = nil
+            $0.recentReactionTimestamps = []
+        }
         
         // Clear the Snode pool
         SnodeAPI.clearSnodePool()

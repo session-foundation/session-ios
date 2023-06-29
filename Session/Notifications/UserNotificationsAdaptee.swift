@@ -61,7 +61,7 @@ class UserNotificationConfig {
 
 class UserNotificationPresenterAdaptee: NSObject, UNUserNotificationCenterDelegate {
     private let notificationCenter: UNUserNotificationCenter
-    private var notifications: [String: UNNotificationRequest] = [:]
+    private var notifications: Atomic<[String: UNNotificationRequest]> = Atomic([:])
 
     override init() {
         self.notificationCenter = UNUserNotificationCenter.current()
@@ -105,10 +105,9 @@ extension UserNotificationPresenterAdaptee: NotificationPresenterAdaptee {
         sound: Preferences.Sound?,
         threadVariant: SessionThread.Variant,
         threadName: String,
+        applicationState: UIApplication.State,
         replacingIdentifier: String?
     ) {
-        AssertIsOnMainThread()
-
         let threadIdentifier: String? = (userInfo[AppNotificationUserInfoKey.threadId] as? String)
         let content = UNMutableNotificationContent()
         content.categoryIdentifier = category.identifier
@@ -119,16 +118,21 @@ extension UserNotificationPresenterAdaptee: NotificationPresenterAdaptee {
             threadVariant == .community &&
             replacingIdentifier == threadIdentifier
         )
-        let isAppActive = UIApplication.shared.applicationState == .active
         if let sound = sound, sound != .none {
-            content.sound = sound.notificationSound(isQuiet: isAppActive)
+            content.sound = sound.notificationSound(isQuiet: (applicationState == .active))
         }
         
         let notificationIdentifier: String = (replacingIdentifier ?? UUID().uuidString)
-        let isReplacingNotification: Bool = (notifications[notificationIdentifier] != nil)
+        let isReplacingNotification: Bool = (notifications.wrappedValue[notificationIdentifier] != nil)
+        let shouldPresentNotification: Bool = shouldPresentNotification(
+            category: category,
+            applicationState: applicationState,
+            frontMostViewController: SessionApp.currentlyOpenConversationViewController.wrappedValue,
+            userInfo: userInfo
+        )
         var trigger: UNNotificationTrigger?
 
-        if shouldPresentNotification(category: category, userInfo: userInfo) {
+        if shouldPresentNotification {
             if let displayableTitle = title?.filterForDisplay {
                 content.title = displayableTitle
             }
@@ -142,7 +146,7 @@ extension UserNotificationPresenterAdaptee: NotificationPresenterAdaptee {
                     repeats: false
                 )
                 
-                let numberExistingNotifications: Int? = notifications[notificationIdentifier]?
+                let numberExistingNotifications: Int? = notifications.wrappedValue[notificationIdentifier]?
                     .content
                     .userInfo[AppNotificationUserInfoKey.threadNotificationCounter]
                     .asType(Int.self)
@@ -180,47 +184,48 @@ extension UserNotificationPresenterAdaptee: NotificationPresenterAdaptee {
         if isReplacingNotification { cancelNotifications(identifiers: [notificationIdentifier]) }
         
         notificationCenter.add(request)
-        notifications[notificationIdentifier] = request
+        notifications.mutate { $0[notificationIdentifier] = request }
     }
 
     func cancelNotifications(identifiers: [String]) {
-        AssertIsOnMainThread()
-        identifiers.forEach { notifications.removeValue(forKey: $0) }
+        notifications.mutate { notifications in
+            identifiers.forEach { notifications.removeValue(forKey: $0) }
+        }
         notificationCenter.removeDeliveredNotifications(withIdentifiers: identifiers)
         notificationCenter.removePendingNotificationRequests(withIdentifiers: identifiers)
     }
 
     func cancelNotification(_ notification: UNNotificationRequest) {
-        AssertIsOnMainThread()
         cancelNotifications(identifiers: [notification.identifier])
     }
 
     func cancelNotifications(threadId: String) {
-        AssertIsOnMainThread()
-        for notification in notifications.values {
-            guard let notificationThreadId = notification.content.userInfo[AppNotificationUserInfoKey.threadId] as? String else {
-                continue
+        let notificationsIdsToCancel: [String] = notifications.wrappedValue
+            .values
+            .compactMap { notification in
+                guard
+                    let notificationThreadId: String = notification.content.userInfo[AppNotificationUserInfoKey.threadId] as? String,
+                    notificationThreadId == threadId
+                else { return nil }
+                
+                return notification.identifier
             }
-
-            guard notificationThreadId == threadId else {
-                continue
-            }
-
-            cancelNotification(notification)
-        }
+        
+        cancelNotifications(identifiers: notificationsIdsToCancel)
     }
 
     func clearAllNotifications() {
-        AssertIsOnMainThread()
         notificationCenter.removeAllPendingNotificationRequests()
         notificationCenter.removeAllDeliveredNotifications()
     }
 
-    func shouldPresentNotification(category: AppNotificationCategory, userInfo: [AnyHashable: Any]) -> Bool {
-        AssertIsOnMainThread()
-        guard UIApplication.shared.applicationState == .active else {
-            return true
-        }
+    func shouldPresentNotification(
+        category: AppNotificationCategory,
+        applicationState: UIApplication.State,
+        frontMostViewController: UIViewController?,
+        userInfo: [AnyHashable: Any]
+    ) -> Bool {
+        guard applicationState == .active else { return true }
 
         guard category == .incomingMessage || category == .errorMessage else {
             return true
@@ -231,7 +236,7 @@ extension UserNotificationPresenterAdaptee: NotificationPresenterAdaptee {
             return true
         }
         
-        guard let conversationViewController = UIApplication.shared.frontmostViewController as? ConversationVC else {
+        guard let conversationViewController: ConversationVC = frontMostViewController as? ConversationVC else {
             return true
         }
         
@@ -271,7 +276,8 @@ public class UserNotificationActionHandler: NSObject {
         AssertIsOnMainThread()
         assert(AppReadiness.isAppReady())
 
-        let userInfo = response.notification.request.content.userInfo
+        let userInfo: [AnyHashable: Any] = response.notification.request.content.userInfo
+        let applicationState: UIApplication.State = UIApplication.shared.applicationState
 
         switch response.actionIdentifier {
             case UNNotificationDefaultActionIdentifier:
@@ -307,7 +313,7 @@ public class UserNotificationActionHandler: NSObject {
                         .eraseToAnyPublisher()
                 }
 
-                return actionHandler.reply(userInfo: userInfo, replyText: textInputResponse.userText)
+                return actionHandler.reply(userInfo: userInfo, replyText: textInputResponse.userText, applicationState: applicationState)
                     
             case .showThread:
                 return actionHandler.showThread(userInfo: userInfo)
