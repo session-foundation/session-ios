@@ -117,14 +117,14 @@ public extension DisappearingMessagesJob {
                 .map { (_, response) in
                     Storage.shared.writeAsync { db in
                         try response.expiries.forEach { hash, expireAtMs in
-                            guard let expireInSeconds: TimeInterval = expirationInfo[hash] else { return }
-                            let startAtMs: TimeInterval = TimeInterval(expireAtMs - UInt64(expireInSeconds * 1000))
+                            guard let expiresInSeconds: TimeInterval = expirationInfo[hash] else { return }
+                            let expiresStartedAtMs: TimeInterval = TimeInterval(expireAtMs - UInt64(expiresInSeconds * 1000))
                             
                             _ = try Interaction
                                 .filter(Interaction.Columns.serverHash == hash)
                                 .updateAll(
                                     db,
-                                    Interaction.Columns.expiresStartedAtMs.set(to: startAtMs)
+                                    Interaction.Columns.expiresStartedAtMs.set(to: expiresStartedAtMs)
                                 )
                             
                             guard let index = expirationInfo.index(forKey: hash) else { return }
@@ -192,49 +192,19 @@ public extension DisappearingMessagesJob {
         // If there were no changes then none of the provided `interactionIds` are expiring messages
         guard (changeCount ?? 0) > 0 else { return nil }
         
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
-        let updateExpiryPublishers: [AnyPublisher<[String: UpdateExpiryResponseResult], Error>] = interactionExpirationInfosByExpiresInSeconds
-            .map { expiresInSeconds, expirationInfos -> AnyPublisher<[String: UpdateExpiryResponseResult], Error> in
-                let expirationTimestampMs: Int64 = Int64(startedAtMs + expiresInSeconds * 1000)
-                
-                return SnodeAPI
-                    .updateExpiry(
-                        publicKey: userPublicKey,
+        interactionExpirationInfosByExpiresInSeconds.forEach { expiresInSeconds, expirationInfos in
+            let expirationTimestampMs: Int64 = Int64(startedAtMs + expiresInSeconds * 1000)
+            JobRunner.add(
+                db,
+                job: Job(
+                    variant: .expirationUpdate,
+                    details: ExpirationUpdateJob.Details(
                         serverHashes: expirationInfos.map { $0.serverHash },
-                        updatedExpiryMs: expirationTimestampMs,
-                        shortenOnly: true
+                        expirationTimestampMs: expirationTimestampMs
                     )
-            }
-        
-        Publishers
-            .MergeMany(updateExpiryPublishers)
-            .collect()
-            .sinkUntilComplete(
-                receiveValue: { allResults in
-                    guard
-                        let results: [UpdateExpiryResponseResult] = allResults
-                            .compactMap({ result in result.first(where: { _, value in !value.didError })?.value })
-                            .nullIfEmpty(),
-                        let unchangedMessages: [UInt64: [String]] = results
-                            .reduce([:], { result, next in result.updated(with: next.unchanged) })
-                            .groupedByValue()
-                            .nullIfEmpty()
-                    else { return }
-                    
-                    Storage.shared.writeAsync { db in
-                        try unchangedMessages.forEach { updatedExpiry, hashes in
-                            let expiresInSeconds: TimeInterval = ((TimeInterval(updatedExpiry) - startedAtMs) / 1000)
-                            
-                            _ = try Interaction
-                                .filter(hashes.contains(Interaction.Columns.serverHash))
-                                .updateAll(
-                                    db,
-                                    Interaction.Columns.expiresInSeconds.set(to: expiresInSeconds)
-                                )
-                        }
-                    }
-                }
+                )
             )
+        }
         
         return updateNextRunIfNeeded(db)
     }

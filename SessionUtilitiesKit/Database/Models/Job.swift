@@ -116,6 +116,10 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         /// config state with the changes; this job will generally be scheduled along since a `messageReceive` job
         /// and will block the standard message receive job
         case configMessageReceive
+        
+        /// This is a job that runs once whenever disappearing after read messages are read and needed to update the
+        /// expiration on the network
+        case expirationUpdate
     }
     
     public enum Behaviour: Int, Codable, DatabaseValueConvertible, CaseIterable {

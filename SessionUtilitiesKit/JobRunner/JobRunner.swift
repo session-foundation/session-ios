@@ -77,7 +77,8 @@ public final class JobRunner {
                 jobVariants.remove(.notifyPushServer),
                 jobVariants.remove(.sendReadReceipts),
                 jobVariants.remove(.groupLeaving),
-                jobVariants.remove(.configurationSync)
+                jobVariants.remove(.configurationSync),
+                jobVariants.remove(.expirationUpdate)
             ].compactMap { $0 }
         )
         let messageReceiveQueue: JobQueue = JobQueue(
