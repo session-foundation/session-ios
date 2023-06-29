@@ -4,7 +4,6 @@ import UIKit
 import Combine
 import UserNotifications
 import GRDB
-import WebRTC
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit

@@ -78,6 +78,7 @@ public final class OpenGroupManager {
                         result[server.lowercased()] = OpenGroupAPI.Poller(for: server.lowercased())
                     }
             }
+            
             // Now that the pollers have been created actually start them
             dependencies.cache.pollers.forEach { _, poller in poller.startIfNeeded(using: dependencies) }
         }
@@ -1012,8 +1013,8 @@ public final class OpenGroupManager {
                 )
             }
             .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
-            .subscribe(on: dependencies.subscribeQueue, immediatelyIfMain: true)
-            .receive(on: dependencies.receiveQueue, immediatelyIfMain: true)
+            .subscribe(on: dependencies.subscribeQueue)
+            .receive(on: dependencies.receiveQueue)
             .retry(8)
             .map { info, response -> [DefaultRoomInfo]? in
                 dependencies.storage.write { db -> [DefaultRoomInfo] in

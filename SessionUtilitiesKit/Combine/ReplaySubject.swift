@@ -9,8 +9,7 @@ public final class ReplaySubject<Output, Failure: Error>: Subject {
     private var buffer: [Output] = [Output]()
     private let bufferSize: Int
     private let lock: NSRecursiveLock = NSRecursiveLock()
-    
-    private var subscriptions = [ReplaySubjectSubscription<Output, Failure>]()
+    private var subscriptions: Atomic<[ReplaySubjectSubscription<Output, Failure>]> = Atomic([])
     private var completion: Subscribers.Completion<Failure>?
     
     // MARK: - Initialization
@@ -27,7 +26,7 @@ public final class ReplaySubject<Output, Failure: Error>: Subject {
         
         buffer.append(value)
         buffer = buffer.suffix(bufferSize)
-        subscriptions.forEach { $0.receive(value) }
+        subscriptions.wrappedValue.forEach { $0.receive(value) }
     }
     
     /// Sends a completion signal to the subscriber
@@ -35,7 +34,7 @@ public final class ReplaySubject<Output, Failure: Error>: Subject {
         lock.lock(); defer { lock.unlock() }
         
         self.completion = completion
-        subscriptions.forEach { subscription in subscription.receive(completion: completion) }
+        subscriptions.wrappedValue.forEach { $0.receive(completion: completion) }
     }
     
     /// Provides this Subject an opportunity to establish demand for any new upstream subscriptions
@@ -61,11 +60,11 @@ public final class ReplaySubject<Output, Failure: Error>: Subject {
         /// we can revert this change
         ///
         /// https://forums.swift.org/t/combine-receive-on-runloop-main-loses-sent-value-how-can-i-make-it-work/28631/20
-        let subscription: ReplaySubjectSubscription = ReplaySubjectSubscription<Output, Failure>(downstream: AnySubscriber(subscriber)) { [buffer = buffer, completion = completion] subscription in
+        let subscription: ReplaySubjectSubscription = ReplaySubjectSubscription<Output, Failure>(downstream: AnySubscriber(subscriber)) { [weak self, buffer = buffer, completion = completion] subscription in
+            self?.subscriptions.mutate { $0.append(subscription) }
             subscription.replay(buffer, completion: completion)
         }
         subscriber.receive(subscription: subscription)
-        subscriptions.append(subscription)
     }
 }
 

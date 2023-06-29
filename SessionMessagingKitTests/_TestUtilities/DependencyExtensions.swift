@@ -10,7 +10,7 @@ import SessionUtilitiesKit
 extension SMKDependencies {
     public func with(
         onionApi: OnionRequestAPIType.Type? = nil,
-        generalCache: Atomic<GeneralCacheType>? = nil,
+        generalCache: MutableGeneralCacheType? = nil,
         storage: Storage? = nil,
         scheduler: ValueObservationScheduler? = nil,
         sodium: SodiumType? = nil,
@@ -26,7 +26,7 @@ extension SMKDependencies {
     ) -> SMKDependencies {
         return SMKDependencies(
             onionApi: (onionApi ?? self._onionApi.wrappedValue),
-            generalCache: (generalCache ?? self._generalCache.wrappedValue),
+            generalCache: (generalCache ?? self._mutableGeneralCache.wrappedValue),
             storage: (storage ?? self._storage.wrappedValue),
             scheduler: (scheduler ?? self._scheduler.wrappedValue),
             sodium: (sodium ?? self._sodium.wrappedValue),

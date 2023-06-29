@@ -144,7 +144,7 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
         
         OpenGroupManager.getDefaultRoomsIfNeeded()
             .subscribe(on: DispatchQueue.global(qos: .default))
-            .receive(on: DispatchQueue.main, immediatelyIfMain: true)
+            .receive(on: DispatchQueue.main)
             .sinkUntilComplete(
                 receiveCompletion: { [weak self] result in
                     switch result {
@@ -340,7 +340,7 @@ extension OpenGroupSuggestionGrid {
                         .eraseToAnyPublisher()
                 )
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .receive(on: DispatchQueue.main, immediatelyIfMain: true)
+                .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveValue: { [weak self] imageData, hasData in
                         guard hasData else {

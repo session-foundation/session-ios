@@ -1552,6 +1552,18 @@ extension ConversationVC:
                                 switch result {
                                     case .finished: break
                                     case .failure(let error):
+                                        // If there was a failure then the group will be in invalid state until
+                                        // the next launch so remove it (the user will be left on the previous
+                                        // screen so can re-trigger the join)
+                                        Storage.shared.writeAsync { db in
+                                            OpenGroupManager.shared.delete(
+                                                db,
+                                                openGroupId: OpenGroup.idFor(roomToken: room, server: server),
+                                                calledFromConfigHandling: false
+                                            )
+                                        }
+                                        
+                                        // Show the user an error indicating they failed to properly join the group
                                         let errorModal: ConfirmationModal = ConfirmationModal(
                                             info: ConfirmationModal.Info(
                                                 title: "COMMUNITY_ERROR_GENERIC".localized(),

@@ -81,8 +81,8 @@ extension OpenGroupAPI {
                         .map { _ in (lastPollStart, nextPollInterval) }
                         .eraseToAnyPublisher()
                 }
-                .subscribe(on: dependencies.subscribeQueue, immediatelyIfMain: true)
-                .receive(on: dependencies.receiveQueue, immediatelyIfMain: true)
+                .subscribe(on: dependencies.subscribeQueue)
+                .receive(on: dependencies.receiveQueue)
                 .sinkUntilComplete(
                     receiveValue: { [weak self] lastPollStart, nextPollInterval in
                         let currentTime: TimeInterval = Date().timeIntervalSince1970

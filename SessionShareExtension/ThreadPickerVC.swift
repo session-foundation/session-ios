@@ -160,7 +160,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         
         ShareNavController.attachmentPrepPublisher?
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .receive(on: DispatchQueue.main, immediatelyIfMain: true)
+            .receive(on: DispatchQueue.main)
             .sinkUntilComplete(
                 receiveValue: { [weak self] attachments in
                     guard let strongSelf = self else { return }

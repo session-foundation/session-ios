@@ -93,7 +93,6 @@ public class Poller {
         let namespaces: [SnodeAPI.Namespace] = self.namespaces
         
         getSnodeForPolling(for: publicKey)
-            .subscribe(on: dependencies.subscribeQueue, immediatelyIfMain: true)
             .flatMap { snode -> AnyPublisher<[Message], Error> in
                 Poller.poll(
                     namespaces: namespaces,
@@ -103,7 +102,8 @@ public class Poller {
                     using: dependencies
                 )
             }
-            .receive(on: dependencies.receiveQueue, immediatelyIfMain: true)
+            .subscribe(on: dependencies.subscribeQueue)
+            .receive(on: dependencies.receiveQueue)
             .sinkUntilComplete(
                 receiveCompletion: { [weak self] result in
                     switch result {
@@ -134,7 +134,6 @@ public class Poller {
                 timer.invalidate()
 
                 self?.getSnodeForPolling(for: publicKey)
-                    .subscribe(on: dependencies.subscribeQueue, immediatelyIfMain: true)
                     .flatMap { snode -> AnyPublisher<[Message], Error> in
                         Poller.poll(
                             namespaces: namespaces,
@@ -144,7 +143,8 @@ public class Poller {
                             using: dependencies
                         )
                     }
-                    .receive(on: dependencies.receiveQueue, immediatelyIfMain: true)
+                    .subscribe(on: dependencies.subscribeQueue)
+                    .receive(on: dependencies.receiveQueue)
                     .sinkUntilComplete(
                         receiveCompletion: { result in
                             switch result {

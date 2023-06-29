@@ -187,13 +187,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
     private func startObservingChanges() {
         // Start observing for data changes
         dataChangeCancellable = viewModel.observableTableData
-            .receive(
-                on: DispatchQueue.main,
-                // If we haven't done the initial load the trigger it immediately (blocking the main
-                // thread so we remain on the launch screen until it completes to be consistent with
-                // the old behaviour)
-                immediatelyIfMain: !hasLoadedInitialTableData
-            )
+            .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [weak self] result in
                     switch result {
@@ -334,7 +328,6 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
             .store(in: &disposables)
         
         viewModel.leftNavItems
-            .receive(on: DispatchQueue.main, immediatelyIfMain: true)
             .sink { [weak self] maybeItems in
                 self?.navigationItem.setLeftBarButtonItems(
                     maybeItems.map { items in
@@ -356,7 +349,6 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
             .store(in: &disposables)
 
         viewModel.rightNavItems
-            .receive(on: DispatchQueue.main, immediatelyIfMain: true)
             .sink { [weak self] maybeItems in
                 self?.navigationItem.setRightBarButtonItems(
                     maybeItems.map { items in
@@ -378,21 +370,18 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
             .store(in: &disposables)
         
         viewModel.emptyStateTextPublisher
-            .receive(on: DispatchQueue.main, immediatelyIfMain: true)
             .sink { [weak self] text in
                 self?.emptyStateLabel.text = text
             }
             .store(in: &disposables)
         
         viewModel.footerView
-            .receive(on: DispatchQueue.main, immediatelyIfMain: true)
             .sink { [weak self] footerView in
                 self?.tableView.tableFooterView = footerView
             }
             .store(in: &disposables)
         
         viewModel.footerButtonInfo
-            .receive(on: DispatchQueue.main, immediatelyIfMain: true)
             .sink { [weak self] buttonInfo in
                 if let buttonInfo: SessionButton.Info = buttonInfo {
                     self?.footerButton.setTitle(buttonInfo.title, for: .normal)

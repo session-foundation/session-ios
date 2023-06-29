@@ -193,11 +193,25 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                     receiveCompletion: { result in
                         switch result {
                             case .failure(let error):
-                                self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-                                let title = "COMMUNITY_ERROR_GENERIC".localized()
-                                let message = error.localizedDescription
+                                // If there was a failure then the group will be in invalid state until
+                                // the next launch so remove it (the user will be left on the previous
+                                // screen so can re-trigger the join)
+                                Storage.shared.writeAsync { db in
+                                    OpenGroupManager.shared.delete(
+                                        db,
+                                        openGroupId: OpenGroup.idFor(roomToken: roomToken, server: server),
+                                        calledFromConfigHandling: false
+                                    )
+                                }
+                                
+                                // Show the user an error indicating they failed to properly join the group
                                 self?.isJoining = false
-                                self?.showError(title: title, message: message)
+                                self?.dismiss(animated: true) { // Dismiss the loader
+                                    self?.showError(
+                                        title: "COMMUNITY_ERROR_GENERIC".localized(),
+                                        message: error.localizedDescription
+                                    )
+                                }
                                 
                             case .finished:
                                 self?.presentingViewController?.dismiss(animated: true, completion: nil)

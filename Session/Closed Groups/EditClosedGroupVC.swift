@@ -465,7 +465,8 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         ModalActivityIndicatorViewController.present(fromViewController: navigationController) { _ in
             Storage.shared
                 .writePublisher { db in
-                    guard updatedMemberIds.contains(userPublicKey) else { return }
+                    // If the user is no longer a member then leave the group
+                    guard !updatedMemberIds.contains(userPublicKey) else { return }
 
                     try MessageSender.leave(
                         db,
