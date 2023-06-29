@@ -128,7 +128,7 @@ class AttachmentCaptionToolbar: UIView, UITextViewDelegate {
         textView.themeBackgroundColor = .clear
         textView.themeTintColor = .textPrimary
 
-        textView.font = UIFont.ows_dynamicTypeBody
+        textView.font = UIFont.preferredFont(forTextStyle: .body)
         textView.themeTextColor = .textPrimary
         textView.textContainerInset = UIEdgeInsets(top: 7, left: 7, bottom: 7, right: 7)
         

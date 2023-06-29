@@ -4,6 +4,7 @@ import UIKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
 import SessionMessagingKit
+import SessionUIKit
 
 final class UnreadMarkerCell: MessageCell {
     public static let height: CGFloat = 32

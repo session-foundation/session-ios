@@ -601,7 +601,7 @@ class RecordingTimerView: UIView {
 
     private lazy var label: UILabel = {
         let label: UILabel = UILabel()
-        label.font = .ows_monospacedDigitFont(withSize: 20)
+        label.font = UIFont.monospacedDigitSystemFont(ofSize: 20, weight: .regular)
         label.themeTextColor = .textPrimary
         label.textAlignment = .center
         label.layer.shadowOffset = CGSize.zero

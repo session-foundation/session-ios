@@ -7,6 +7,7 @@ import DifferenceKit
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadDisappearingMessagesSettingsViewModel.NavButton, ThreadDisappearingMessagesSettingsViewModel.Section, ThreadDisappearingMessagesSettingsViewModel.Item> {
     // MARK: - Config

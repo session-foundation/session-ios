@@ -5,6 +5,7 @@ import YYImage
 import SessionUIKit
 import SessionMessagingKit
 import SignalCoreKit
+import SignalUtilitiesKit
 
 public class MediaView: UIView {
     static let contentMode: UIView.ContentMode = .scaleAspectFill

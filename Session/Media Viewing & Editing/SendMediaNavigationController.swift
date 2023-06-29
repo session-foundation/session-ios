@@ -5,6 +5,7 @@ import Combine
 import Photos
 import SignalUtilitiesKit
 import SignalCoreKit
+import SessionUIKit
 
 class SendMediaNavigationController: UINavigationController {
     public override var preferredStatusBarStyle: UIStatusBarStyle {
@@ -596,7 +597,10 @@ private class DoneButton: UIView {
 
     private lazy var badgeLabel: UILabel = {
         let result: UILabel = UILabel()
-        result.font = .ows_dynamicTypeSubheadline.ows_monospaced()
+        result.font = UIFont.monospacedDigitSystemFont(
+            ofSize: UIFont.preferredFont(forTextStyle: .subheadline).pointSize,
+            weight: .regular
+        )
         result.themeTextColor = .black   // Will render on the primary color so should always be black
         result.textAlignment = .center
         

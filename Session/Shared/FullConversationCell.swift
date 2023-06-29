@@ -492,7 +492,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                 case (true, false):
                     self.snippetLabel.attributedText = NSAttributedString(
                         string: FullConversationCell.mutePrefix,
-                        attributes: [ .font: UIFont.ows_elegantIconsFont(10) ]
+                        attributes: [ .font: UIFont(name: "ElegantIcons", size: 10) as Any ]
                     )
                     .appending(attrString)
                     
@@ -547,7 +547,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             result.append(NSAttributedString(
                 string: FullConversationCell.mutePrefix,
                 attributes: [
-                    .font: UIFont.ows_elegantIconsFont(10),
+                    .font: UIFont(name: "ElegantIcons", size: 10) as Any,
                     .foregroundColor: textColor
                 ]
             ))
@@ -562,7 +562,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             result.append(NSAttributedString(
                 string: "  ",
                 attributes: [
-                    .font: UIFont.ows_elegantIconsFont(10),
+                    .font: UIFont(name: "ElegantIcons", size: 10) as Any,
                     .foregroundColor: textColor
                 ]
             ))

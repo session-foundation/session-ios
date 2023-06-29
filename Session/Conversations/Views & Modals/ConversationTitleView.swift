@@ -144,7 +144,7 @@ final class ConversationTitleView: UIView {
                 subtitleLabel?.attributedText = NSAttributedString(
                     string: FullConversationCell.mutePrefix,
                     attributes: [
-                        .font: UIFont.ows_elegantIconsFont(10),
+                        .font: UIFont(name: "ElegantIcons", size: 10) as Any,
                         .foregroundColor: textPrimary
                     ]
                 )

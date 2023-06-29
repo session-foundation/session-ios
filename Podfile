@@ -6,16 +6,16 @@ inhibit_all_warnings!
 
 # Dependencies to be included in the app and all extensions/frameworks
 abstract_target 'GlobalDependencies' do
-  pod 'CryptoSwift'
   # FIXME: If https://github.com/jedisct1/swift-sodium/pull/249 gets resolved then revert this back to the standard pod
   pod 'Sodium', :git => 'https://github.com/oxen-io/session-ios-swift-sodium.git', branch: 'session-build'
   pod 'GRDB.swift/SQLCipher'
+  
+  # FIXME: Would be nice to migrate from CocoaPods to SwiftPackageManager (should allow us to speed up build time), haven't gone through all of the dependencies but currently unfortunately SQLCipher doesn't support SPM (for more info see: https://github.com/sqlcipher/sqlcipher/issues/371)
   pod 'SQLCipher', '~> 4.5.3'
 
   # FIXME: We want to remove this once it's been long enough since the migration to GRDB
   pod 'YapDatabase/SQLCipher', :git => 'https://github.com/oxen-io/session-ios-yap-database.git', branch: 'signal-release'
   pod 'WebRTC-lib'
-  pod 'SocketRocket', '~> 0.5.1'
   
   target 'Session' do
     pod 'Reachability'
@@ -100,23 +100,7 @@ end
 
 # Actions to perform post-install
 post_install do |installer|
-  enable_whole_module_optimization_for_crypto_swift(installer)
   set_minimum_deployment_target(installer)
-  enable_fts5_support(installer)
-  
-  #FIXME: Remove this workaround once an official fix is released (hopefully Cocoapods 1.12.1)
-  xcode_14_3_workaround(installer)
-end
-
-def enable_whole_module_optimization_for_crypto_swift(installer)
-  installer.pods_project.targets.each do |target|
-    if target.name.end_with? "CryptoSwift"
-      target.build_configurations.each do |config|
-        config.build_settings['GCC_OPTIMIZATION_LEVEL'] = 'fast'
-        config.build_settings['SWIFT_OPTIMIZATION_LEVEL'] = '-O'
-      end
-    end
-  end
 end
 
 def set_minimum_deployment_target(installer)
@@ -125,23 +109,4 @@ def set_minimum_deployment_target(installer)
       build_configuration.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
     end
   end
-end
-
-# This is to ensure we enable support for FastTextSearch5 (might not be enabled by default)
-# For more info see https://github.com/groue/GRDB.swift/blob/master/Documentation/FullTextSearch.md#enabling-fts5-support
-def enable_fts5_support(installer)
-  installer.pods_project.targets.select { |target| target.name == "GRDB.swift" }.each do |target|
-    target.build_configurations.each do |config|
-      config.build_settings['OTHER_SWIFT_FLAGS'] = "$(inherited) -D SQLITE_ENABLE_FTS5"
-    end
-  end
-end
-
-# Workaround for Xcode 14.3:
-# Sourced from https://github.com/flutter/flutter/issues/123852#issuecomment-1493232105
-def xcode_14_3_workaround(installer)
-  system('sed -i \'\' \'44s/readlink/readlink -f/\' \'Pods/Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionMessagingKit-SessionMessagingKitTests/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionMessagingKit-SessionMessagingKitTests-frameworks.sh\'')
-  system('sed -i \'\' \'44s/readlink/readlink -f/\' \'Pods/Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit-SessionUtilitiesKitTests/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit-SessionUtilitiesKitTests-frameworks.sh\'')
-  system('sed -i \'\' \'44s/readlink/readlink -f/\' \'Pods/Target Support Files/Pods-GlobalDependencies-Session/Pods-GlobalDependencies-Session-frameworks.sh\'')
-  system('sed -i \'\' \'44s/readlink/readlink -f/\' \'Pods/Target Support Files/Pods-GlobalDependencies-Session-SessionTests/Pods-GlobalDependencies-Session-SessionTests-frameworks.sh\'')
 end

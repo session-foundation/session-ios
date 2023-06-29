@@ -4,6 +4,7 @@ import Foundation
 import Combine
 import YYImage
 import SignalUtilitiesKit
+import SignalCoreKit
 
 class GifPickerCell: UICollectionViewCell {
 

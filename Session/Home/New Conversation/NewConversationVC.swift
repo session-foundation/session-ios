@@ -4,6 +4,7 @@ import UIKit
 import GRDB
 import SessionUIKit
 import SessionMessagingKit
+import SignalUtilitiesKit
 
 final class NewConversationVC: BaseVC, ThemedNavigation, UITableViewDelegate, UITableViewDataSource {
     private let newConversationViewModel = NewConversationViewModel()

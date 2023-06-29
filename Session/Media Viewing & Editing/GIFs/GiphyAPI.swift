@@ -5,6 +5,7 @@ import Combine
 import CoreServices
 import SignalUtilitiesKit
 import SessionUtilitiesKit
+import SignalCoreKit
 
 // There's no UTI type for webp!
 enum GiphyFormat {

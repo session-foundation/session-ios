@@ -27,8 +27,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     // MARK: - Lifecycle
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Log something immediately to make it easier to track app launches (and crashes during launch)
-        SNLog("Launching \(SessionApp.versionInfo)")
         startTime = CACurrentMediaTime()
         
         // These should be the first things we do (the startup process can fail without them)
@@ -288,8 +286,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         Configuration.performMainSetup()
         JobRunner.add(executor: SyncPushTokensJob.self, for: .syncPushTokens)
         
-        // Setup the UI and trigger any post-UI setup actions
-        self.ensureRootViewController(calledFrom: lifecycleMethod) { [weak self] in
+        // Setup the UI if needed, then trigger any post-UI setup actions
+        self.ensureRootViewController(calledFrom: lifecycleMethod) { [weak self] success in
+            // If we didn't successfully ensure the rootViewController then don't continue as
+            // the user is in an invalid state (and should have already been shown a modal)
+            guard success else { return }
+            
             /// Trigger any launch-specific jobs and start the JobRunner with `JobRunner.appDidFinishLaunching()` some
             /// of these jobs (eg. DisappearingMessages job) can impact the interactions which get fetched to display on the home
             /// screen, if the PagedDatabaseObserver hasn't been setup yet then the home screen can show stale (ie. deleted)
@@ -483,11 +485,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     private func ensureRootViewController(
         calledFrom lifecycleMethod: LifecycleMethod,
-        onComplete: (() -> ())? = nil
+        onComplete: @escaping ((Bool) -> ()) = { _ in }
     ) {
-        guard (AppReadiness.isAppReady() || lifecycleMethod == .finishLaunching) && Storage.shared.isValid && !hasInitialRootViewController else {
-            return
-        }
+        let hasInitialRootViewController: Bool = self.hasInitialRootViewController
+        
+        // Always call the completion block and indicate whether we successfully created the UI
+        guard
+            Storage.shared.isValid &&
+            (AppReadiness.isAppReady() || lifecycleMethod == .finishLaunching) &&
+            !hasInitialRootViewController
+        else { return DispatchQueue.main.async { onComplete(hasInitialRootViewController) } }
         
         /// Start a timeout for the creation of the rootViewController setup process (if it takes too long then we want to give the user
         /// the option to export their logs)
@@ -541,7 +548,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             }
             
             // Setup is completed so run any post-setup tasks
-            onComplete?()
+            onComplete(true)
         }
         
         // Navigate to the approriate screen depending on the onboarding state

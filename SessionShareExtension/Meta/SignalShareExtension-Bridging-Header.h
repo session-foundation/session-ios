@@ -6,7 +6,6 @@
 #import <UIKit/UIKit.h>
 
 // Separate iOS Frameworks from other imports.
-#import <SignalUtilitiesKit/UIFont+OWS.h>
 #import <SessionUtilitiesKit/UIView+OWS.h>
 #import <SessionUtilitiesKit/AppContext.h>
 #import <SessionMessagingKit/AppReadiness.h>

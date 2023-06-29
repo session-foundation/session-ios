@@ -5,6 +5,7 @@ import CallKit
 import GRDB
 import SessionMessagingKit
 import SignalCoreKit
+import SignalUtilitiesKit
 
 public final class SessionCallManager: NSObject, CallManagerProtocol {
     let provider: CXProvider?

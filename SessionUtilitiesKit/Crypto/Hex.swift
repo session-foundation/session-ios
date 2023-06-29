@@ -16,7 +16,7 @@ public extension Data {
     var bytes: [UInt8] { return Array(self) }
     
     func toHexString() -> String {
-        return bytes.map { String(format: "%02x", $0) }.joined()
+        return bytes.toHexString()
     }
     
     init(hex: String) {
@@ -70,5 +70,13 @@ public extension Array where Element == UInt8 {
         if let b = buffer {
             append(b)
         }
+    }
+    
+    func toHexString() -> String {
+        return map { String(format: "%02x", $0) }.joined()
+    }
+
+    func toBase64(options: Data.Base64EncodingOptions = []) -> String {
+        Data(self).base64EncodedString(options: options)
     }
 }
