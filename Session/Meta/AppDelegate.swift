@@ -17,6 +17,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     var window: UIWindow?
     var backgroundSnapshotBlockerWindow: UIWindow?
     var appStartupWindow: UIWindow?
+    var initialLaunchFailed: Bool = false
     var hasInitialRootViewController: Bool = false
     var startTime: CFTimeInterval = 0
     private var loadingViewController: LoadingViewController?
@@ -71,6 +72,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             migrationsCompletion: { [weak self] result, needsConfigSync in
                 if case .failure(let error) = result {
                     DispatchQueue.main.async {
+                        self?.initialLaunchFailed = true
                         self?.showFailedStartupAlert(calledFrom: .finishLaunching, error: .databaseError(error))
                     }
                     return
@@ -135,10 +137,23 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Resume database
         NotificationCenter.default.post(name: Database.resumeNotification, object: self)
         
+        // Reset the 'startTime' (since it would be invalid from the last launch)
+        startTime = CACurrentMediaTime()
+        
         // If we've already completed migrations at least once this launch then check
         // to see if any "delayed" migrations now need to run
         if Storage.shared.hasCompletedMigrations {
+            let initialLaunchFailed: Bool = self.initialLaunchFailed
+            
             AppReadiness.invalidate()
+            
+            // If the user went to the background too quickly then the database can be suspended before
+            // properly starting up, in this case an alert will be shown but we can recover from it so
+            // dismiss any alerts that were shown
+            if initialLaunchFailed {
+                self.window?.rootViewController?.dismiss(animated: false)
+            }
+            
             AppSetup.runPostSetupMigrations(
                 migrationProgressChanged: { [weak self] progress, minEstimatedTotalTime in
                     self?.loadingViewController?.updateProgress(
@@ -149,18 +164,26 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 migrationsCompletion: { [weak self] result, needsConfigSync in
                     if case .failure(let error) = result {
                         DispatchQueue.main.async {
-                            self?.showFailedStartupAlert(calledFrom: .enterForeground, error: .databaseError(error))
+                            self?.showFailedStartupAlert(
+                                calledFrom: .enterForeground(initialLaunchFailed: initialLaunchFailed),
+                                error: .databaseError(error)
+                            )
                         }
                         return
                     }
                     
-                    self?.completePostMigrationSetup(calledFrom: .enterForeground, needsConfigSync: needsConfigSync)
+                    self?.completePostMigrationSetup(
+                        calledFrom: .enterForeground(initialLaunchFailed: initialLaunchFailed),
+                        needsConfigSync: needsConfigSync
+                    )
                 }
             )
         }
     }
     
     func applicationDidEnterBackground(_ application: UIApplication) {
+        if !hasInitialRootViewController { SNLog("Entered background before startup was completed") }
+        
         DDLog.flushLog()
         
         // NOTE: Fix an edge case where user taps on the callkit notification
@@ -264,6 +287,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         BackgroundPoller.isValid = true
         
         AppReadiness.runNowOrWhenAppDidBecomeReady {
+            // If the 'AppReadiness' process takes too long then it's possible for the user to open
+            // the app after this closure is registered but before it's actually triggered - this can
+            // result in the `BackgroundPoller` incorrectly getting called in the foreground, this check
+            // is here to prevent that
+            guard CurrentAppContext().isInBackground() else { return }
+            
             BackgroundPoller.poll { result in
                 guard BackgroundPoller.isValid else { return }
                 
@@ -283,6 +312,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     // MARK: - App Readiness
     
     private func completePostMigrationSetup(calledFrom lifecycleMethod: LifecycleMethod, needsConfigSync: Bool) {
+        SNLog("Migrations completed, performing setup and ensuring rootViewController")
         Configuration.performMainSetup()
         JobRunner.add(executor: SyncPushTokensJob.self, for: .syncPushTokens)
         
@@ -291,6 +321,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             // If we didn't successfully ensure the rootViewController then don't continue as
             // the user is in an invalid state (and should have already been shown a modal)
             guard success else { return }
+            
+            self?.initialLaunchFailed = false
+            SNLog("Migrations completed, performing setup and ensuring rootViewController")
             
             /// Trigger any launch-specific jobs and start the JobRunner with `JobRunner.appDidFinishLaunching()` some
             /// of these jobs (eg. DisappearingMessages job) can impact the interactions which get fetched to display on the home
@@ -341,7 +374,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             // Add a log to track the proper startup time of the app so we know whether we need to
             // improve it in the future from user logs
             let endTime: CFTimeInterval = CACurrentMediaTime()
-            SNLog("Launch completed in \((self?.startTime).map { ceil((endTime - $0) * 1000) } ?? -1)ms")
+            SNLog("\(lifecycleMethod.timingName) completed in \((self?.startTime).map { ceil((endTime - $0) * 1000) } ?? -1)ms")
         }
         
         // May as well run these on the background thread
@@ -429,6 +462,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             exit(0)
         })
         
+        SNLog("Showing startup alert due to error: \(error.name)")
         self.window?.rootViewController?.present(alert, animated: animated, completion: presentationCompletion)
     }
     
@@ -470,7 +504,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
 
     private func handleActivation() {
-        guard Identity.userExists() else { return }
+        /// There is a _fun_ behaviour here where if the user launches the app, sends it to the background at the right time and then
+        /// opens it again the `AppReadiness` closures can be triggered before `applicationDidBecomeActive` has been
+        /// called again - this can result in odd behaviours so hold off on running this logic until it's properly called again
+        guard
+            Identity.userExists() &&
+            UserDefaults.sharedLokiProject?[.isMainAppActive] == true
+        else { return }
         
         enableBackgroundRefreshIfNecessary()
         JobRunner.appDidBecomeActive()
@@ -492,7 +532,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Always call the completion block and indicate whether we successfully created the UI
         guard
             Storage.shared.isValid &&
-            (AppReadiness.isAppReady() || lifecycleMethod == .finishLaunching) &&
+            (
+                AppReadiness.isAppReady() ||
+                lifecycleMethod == .finishLaunching ||
+                lifecycleMethod == .enterForeground(initialLaunchFailed: true)
+            ) &&
             !hasInitialRootViewController
         else { return DispatchQueue.main.async { onComplete(hasInitialRootViewController) } }
         
@@ -854,10 +898,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
 // MARK: - LifecycleMethod
 
-private enum LifecycleMethod {
+private enum LifecycleMethod: Equatable {
     case finishLaunching
-    case enterForeground
+    case enterForeground(initialLaunchFailed: Bool)
     case didBecomeActive
+    
+    var timingName: String {
+        switch self {
+            case .finishLaunching: return "Launch"
+            case .enterForeground: return "EnterForeground"
+            case .didBecomeActive: return "BecomeActive"
+        }
+    }
+    
+    static func == (lhs: LifecycleMethod, rhs: LifecycleMethod) -> Bool {
+        switch (lhs, rhs) {
+            case (.finishLaunching, .finishLaunching): return true
+            case (.enterForeground(let lhsFailed), .enterForeground(let rhsFailed)): return (lhsFailed == rhsFailed)
+            case (.didBecomeActive, .didBecomeActive): return true
+            default: return false
+        }
+    }
 }
 
 // MARK: - StartupError
@@ -866,6 +927,15 @@ private enum StartupError: Error {
     case databaseError(Error)
     case failedToRestore
     case startupTimeout
+    
+    var name: String {
+        switch self {
+            case .databaseError(StorageError.startupFailed): return "Database startup failed"
+            case .failedToRestore: return "Failed to restore"
+            case .databaseError: return "Database error"
+            case .startupTimeout: return "Startup timeout"
+        }
+    }
     
     var message: String {
         switch self {

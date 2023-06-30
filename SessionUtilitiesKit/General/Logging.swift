@@ -4,10 +4,12 @@ import Foundation
 import SignalCoreKit
 
 public func SNLog(_ message: String) {
+    let threadString: String = (Thread.isMainThread ? " Main" : "")
+    
     #if DEBUG
-    print("[Session] \(message)")
+    print("[Session\(threadString)] \(message)")
     #endif
-    OWSLogger.info("[Session] \(message)")
+    OWSLogger.info("[Session\(threadString)] \(message)")
 }
 
 public func SNLogNotTests(_ message: String) {

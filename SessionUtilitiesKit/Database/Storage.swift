@@ -214,8 +214,14 @@ open class Storage {
             self?.migrationProgressUpdater = nil
             SUKLegacy.clearLegacyDatabaseInstance()
             
-            if case .failure(let error) = result {
-                SNLog("[Migration Error] Migration failed with error: \(error)")
+            // Don't log anything in the case of a 'success' or if the database is suspended (the
+            // latter will happen if the user happens to return to the background too quickly on
+            // launch so is unnecessarily alarming, it also gets caught and logged separately by
+            // the 'write' functions anyway)
+            switch result {
+                case .success: break
+                case .failure(DatabaseError.SQLITE_ABORT): break
+                case .failure(let error): SNLog("[Migration Error] Migration failed with error: \(error)")
             }
             
             onComplete(result, needsConfigSync)

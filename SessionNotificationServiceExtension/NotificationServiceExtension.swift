@@ -12,7 +12,6 @@ import SignalCoreKit
 
 public final class NotificationServiceExtension: UNNotificationServiceExtension {
     private var didPerformSetup = false
-    private var areVersionMigrationsComplete = false
     private var contentHandler: ((UNNotificationContent) -> Void)?
     private var request: UNNotificationRequest?
 
@@ -50,6 +49,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             defer {
                 Publishers
                     .MergeMany(openGroupPollingPublishers)
+                    .subscribe(on: DispatchQueue.global(qos: .background))
+                    .subscribe(on: DispatchQueue.main)
                     .sinkUntilComplete(
                         receiveCompletion: { _ in
                             self.completeSilenty()
@@ -234,19 +235,23 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     $0 = NSENotificationPresenter()
                 }
             },
-            migrationsCompletion: { [weak self] _, needsConfigSync in
-                self?.versionMigrationsDidComplete(needsConfigSync: needsConfigSync)
+            migrationsCompletion: { [weak self] result, needsConfigSync in
+                switch result {
+                    case .failure: SNLog("[NotificationServiceExtension] Failed to complete migrations")
+                    case .success:
+                        DispatchQueue.main.async {
+                            self?.versionMigrationsDidComplete(needsConfigSync: needsConfigSync)
+                        }
+                }
+                
                 completion()
             }
         )
     }
     
-    @objc
     private func versionMigrationsDidComplete(needsConfigSync: Bool) {
         AssertIsOnMainThread()
 
-        areVersionMigrationsComplete = true
-        
         // If we need a config sync then trigger it now
         if needsConfigSync {
             Storage.shared.write { db in
@@ -254,18 +259,17 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             }
         }
 
-        checkIsAppReady()
+        checkIsAppReady(migrationsCompleted: true)
     }
 
-    @objc
-    private func checkIsAppReady() {
+    private func checkIsAppReady(migrationsCompleted: Bool) {
         AssertIsOnMainThread()
 
         // Only mark the app as ready once.
         guard !AppReadiness.isAppReady() else { return }
 
         // App isn't ready until storage is ready AND all version migrations are complete.
-        guard Storage.shared.isValid && areVersionMigrationsComplete else { return }
+        guard Storage.shared.isValid && migrationsCompleted else { return }
 
         SignalUtilitiesKit.Configuration.performMainSetup()
 
