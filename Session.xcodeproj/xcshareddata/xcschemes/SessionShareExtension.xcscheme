@@ -11,7 +11,7 @@
             ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
             <ActionContent
                title = "Build libSession"
-               scriptText = "&quot;${SRCROOT}/Scripts/build_libSession_util.sh&quot; true&#10;">
+               scriptText = "&quot;${SRCROOT}/Scripts/build_libSession_util.sh&quot;&#10;">
                <EnvironmentBuildable>
                   <BuildableReference
                      BuildableIdentifier = "primary"

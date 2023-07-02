@@ -7,8 +7,8 @@
 # build stage so XCode is able to build the dependency graph
 #
 # XCode's Pre-action scripts don't output anything into XCode so the only way to emit a useful
-# error is to return a success status and have the project detect and log the error itself then
-# log it, stopping the build at that point
+# error is to **return a success status** and have the project detect and log the error itself
+# then log it, stopping the build at that point
 #
 # The other step to get this to work properly is to ensure the framework in "Link Binary with
 # Libraries" isn't using a relative directory, unfortunately there doesn't seem to be a good
@@ -56,7 +56,7 @@ if [ ! -d "${SRCROOT}/LibSession-Util" ] || [ ! -d "${SRCROOT}/LibSession-Util/s
     touch "${TARGET_BUILD_DIR}/libsession_util_error.log"
     echo "error: Need to fetch LibSession-Util submodule (git submodule update --init --recursive)."
     echo "error: Need to fetch LibSession-Util submodule (git submodule update --init --recursive)." > "${TARGET_BUILD_DIR}/libsession_util_error.log"
-    exit 1
+    exit 0
   fi
 else
   are_submodules_valid() {
@@ -112,7 +112,7 @@ else
       touch "${TARGET_BUILD_DIR}/libsession_util_error.log"
       echo "error: Submodules are in an invalid state, please delete 'LibSession-Util' and run 'git submodule update --init --recursive'."
       echo "error: Submodules are in an invalid state, please delete 'LibSession-Util' and run 'git submodule update --init --recursive'." > "${TARGET_BUILD_DIR}/libsession_util_error.log"
-      exit 1
+      exit 0
     fi
   fi
 fi
