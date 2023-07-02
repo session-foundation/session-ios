@@ -538,16 +538,9 @@ public extension Interaction {
             interactionInfo: [InteractionReadInfo],
             lastReadTimestampMs: Int64
         ) throws {
-            // Update the last read timestamp if needed
-            try SessionUtil.syncThreadLastReadIfNeeded(
-                db,
-                threadId: threadId,
-                threadVariant: threadVariant,
-                lastReadTimestampMs: lastReadTimestampMs
-            )
-            
             // Add the 'DisappearingMessagesJob' if needed - this will update any expiring
-            // messages `expiresStartedAtMs` values
+            // messages `expiresStartedAtMs` values in local database, and create seperate
+            // jobs updating message expiration
             JobRunner.upsert(
                 db,
                 job: DisappearingMessagesJob.updateNextRunIfNeeded(
@@ -556,6 +549,14 @@ public extension Interaction {
                     startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs()),
                     threadId: threadId
                 )
+            )
+            
+            // Update the last read timestamp if needed
+            try SessionUtil.syncThreadLastReadIfNeeded(
+                db,
+                threadId: threadId,
+                threadVariant: threadVariant,
+                lastReadTimestampMs: lastReadTimestampMs
             )
             
             // Clear out any notifications for the interactions we mark as read

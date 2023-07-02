@@ -194,7 +194,7 @@ public extension DisappearingMessagesJob {
         
         interactionExpirationInfosByExpiresInSeconds.forEach { expiresInSeconds, expirationInfos in
             let expirationTimestampMs: Int64 = Int64(startedAtMs + expiresInSeconds * 1000)
-            JobRunner.add(
+            JobRunner.upsert(
                 db,
                 job: Job(
                     variant: .expirationUpdate,
