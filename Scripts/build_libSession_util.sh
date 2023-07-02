@@ -21,9 +21,13 @@
 #   path = "{FRAMEWORK NAME GOES HERE}";
 #   sourceTree = BUILD_DIR;
 # };
+#
+# Note: We might one day be able to replace this with a local podspec if this GitHub feature
+# request ever gets implemented: https://github.com/CocoaPods/CocoaPods/issues/8464
 
 # Need to set the path or we won't find cmake
 PATH=${PATH}:/usr/local/bin:/opt/homebrew/bin:/sbin/md5
+SHOULD_AUTO_INIT_SUBMODULES=${1:-false}
 
 # Ensure the build directory exists (in case we need it before XCode creates it)
 mkdir -p "${TARGET_BUILD_DIR}"
@@ -41,11 +45,76 @@ if ! which cmake > /dev/null; then
   exit 0
 fi
 
-if [ ! -d "${SRCROOT}/LibSession-Util" ] || [ ! -d "${SRCROOT}/LibSession-Util/src" ]; then
-  touch "${TARGET_BUILD_DIR}/libsession_util_error.log"
-  echo "error: Need to fetch LibSession-Util submodule."
-  echo "error: Need to fetch LibSession-Util submodule." > "${TARGET_BUILD_DIR}/libsession_util_error.log"
-  exit 1
+# Check if we have the `LibSession-Util` submodule checked out and if not (depending on the 'SHOULD_AUTO_INIT_SUBMODULES' argument) perform the checkout
+if [ ! -d "${SRCROOT}/LibSession-Util" ] || [ ! -d "${SRCROOT}/LibSession-Util/src" ] || [ ! "$(ls -A "${SRCROOT}/LibSession-Util")" ]; then
+  if [ "${SHOULD_AUTO_INIT_SUBMODULES}" != "false" ] & command -v git >/dev/null 2>&1; then
+    echo "info: LibSession-Util submodule doesn't exist, resetting and checking out recusively now"
+    git submodule foreach --recursive git reset --hard
+    git submodule update --init --recursive
+    echo "info: Checkout complete"
+  else
+    touch "${TARGET_BUILD_DIR}/libsession_util_error.log"
+    echo "error: Need to fetch LibSession-Util submodule (git submodule update --init --recursive)."
+    echo "error: Need to fetch LibSession-Util submodule (git submodule update --init --recursive)." > "${TARGET_BUILD_DIR}/libsession_util_error.log"
+    exit 1
+  fi
+else
+  are_submodules_valid() {
+    local PARENT_PATH=$1
+    
+    # Change into the path to check for it's submodules
+    cd "${PARENT_PATH}"
+    local SUB_MODULE_PATHS=($(git config --file .gitmodules --get-regexp path | awk '{ print $2 }'))
+
+    # If there are no submodules then return success based on whether the folder has any content
+    if [ ${#SUB_MODULE_PATHS[@]} -eq 0 ]; then
+      if [ "$(ls -A "${SRCROOT}/LibSession-Util")" ]; then
+        return 1
+      else
+        return 0
+      fi
+    fi
+
+    # Loop through the child submodules and check if they are valid
+    for i in "${!SUB_MODULE_PATHS[@]}"; do
+      local CHILD_PATH="${SUB_MODULE_PATHS[$i]}"
+      
+      # If the child path doesn't exist then it's invalid
+      if [ ! -d "${CHILD_PATH}" ]; then
+        return 1
+      fi
+
+      are_submodules_valid "${PARENT_PATH}/${CHILD_PATH}"
+      local RESULT=$?
+
+      if [ "${RESULT}" -eq 1 ]; then
+        echo "info: Submodule ${CHILD_PATH} is in an invalid state."
+        return 1
+      fi
+    done
+
+    return 0
+  }
+
+  # Validate the state of the submodules
+  are_submodules_valid "${SRCROOT}/LibSession-Util"
+
+  HAS_INVALID_SUBMODULE=$?
+
+  if [ "${HAS_INVALID_SUBMODULE}" -eq 1 ]; then
+    if [ "${SHOULD_AUTO_INIT_SUBMODULES}" != "false" ] && command -v git >/dev/null 2>&1; then
+      echo "info: Submodules are in an invalid state, resetting and checking out recusively now"
+      cd "${SRCROOT}/LibSession-Util"
+      git submodule foreach --recursive git reset --hard
+      git submodule update --init --recursive
+      echo "info: Checkout complete"
+    else
+      touch "${TARGET_BUILD_DIR}/libsession_util_error.log"
+      echo "error: Submodules are in an invalid state, please delete 'LibSession-Util' and run 'git submodule update --init --recursive'."
+      echo "error: Submodules are in an invalid state, please delete 'LibSession-Util' and run 'git submodule update --init --recursive'." > "${TARGET_BUILD_DIR}/libsession_util_error.log"
+      exit 1
+    fi
+  fi
 fi
 
 # Generate a hash of the libSession-util source files and check if they differ from the last hash

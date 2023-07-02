@@ -5,6 +5,7 @@ import Combine
 import PushKit
 import GRDB
 import SignalUtilitiesKit
+import SignalCoreKit
 
 public enum PushRegistrationError: Error {
     case assertionError(description: String)

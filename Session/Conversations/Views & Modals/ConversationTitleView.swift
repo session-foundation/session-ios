@@ -153,7 +153,7 @@ final class ConversationTitleView: UIView {
                 let notificationSettingsLabelString = NSAttributedString(
                     string: FullConversationCell.mutePrefix,
                     attributes: [
-                        .font: UIFont.ows_elegantIconsFont(8),
+                        .font: UIFont(name: "ElegantIcons", size: 8) as Any,
                         .foregroundColor: textPrimary
                     ]
                 )

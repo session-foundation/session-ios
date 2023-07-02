@@ -1,10 +1,26 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import CryptoSwift
 
 /// Based on [mnemonic.js](https://github.com/loki-project/loki-messenger/blob/development/libloki/modules/mnemonic.js) .
 public enum Mnemonic {
+    /// This implementation was sourced from https://gist.github.com/antfarm/695fa78e0730b67eb094c77d53942216
+    enum CRC32 {
+        static let table: [UInt32] = {
+            (0...255).map { i -> UInt32 in
+                (0..<8).reduce(UInt32(i), { c, _ in
+                    ((0xEDB88320 * (c % 2)) ^ (c >> 1))
+                })
+            }
+        }()
+
+        static func checksum(bytes: [UInt8]) -> UInt32 {
+            return ~(bytes.reduce(~UInt32(0), { crc, byte in
+                (crc >> 8) ^ table[(Int(crc) ^ Int(byte)) & 0xFF]
+            }))
+        }
+    }
+    
     public struct Language: Hashable {
         fileprivate let filename: String
         fileprivate let prefixLength: UInt
@@ -147,7 +163,7 @@ public enum Mnemonic {
     }
     
     private static func determineChecksumIndex(for x: [String], prefixLength: UInt) -> Int {
-        let checksum = Array(x.map { $0.prefix(length: prefixLength) }.joined().utf8).crc32()
+        let checksum = CRC32.checksum(bytes: Array(x.map { $0.prefix(length: prefixLength) }.joined().utf8))
         
         return Int(checksum) % x.count
     }

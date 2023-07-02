@@ -4,6 +4,7 @@ import Foundation
 import SessionUtilitiesKit
 import SessionMessagingKit
 import SignalCoreKit
+import SessionUIKit
 
 public struct SessionApp {
     // FIXME: Refactor this to be protocol based for unit testing (or even dynamic based on view hierarchy - do want to avoid needing to use the main thread to access them though)

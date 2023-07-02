@@ -22,23 +22,25 @@ public enum SyncPushTokensJob: JobExecutor {
         deferred: @escaping (Job) -> ()
     ) {
         // Don't run when inactive or not in main app or if the user doesn't exist yet
-        guard
-            (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false),
-            Identity.userCompletedRequiredOnboarding()
-        else {
+        guard (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false) else {
+            return deferred(job) // Don't need to do anything if it's not the main app
+        }
+        guard Identity.userCompletedRequiredOnboarding() else {
             SNLog("[SyncPushTokensJob] Deferred due to incomplete registration")
-            deferred(job) // Don't need to do anything if it's not the main app
-            return
+            return deferred(job)
         }
         
-        // We need to check a UIApplication setting which needs to run on the main thread so if we aren't on
-        // the main thread then swap to it
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async {
-                run(job, queue: queue, success: success, failure: failure, deferred: deferred)
+        // We need to check a UIApplication setting which needs to run on the main thread so synchronously
+        // retrieve the value so we can continue
+        let isRegisteredForRemoteNotifications: Bool = {
+            guard !Thread.isMainThread else {
+                return UIApplication.shared.isRegisteredForRemoteNotifications
             }
-            return
-        }
+            
+            return DispatchQueue.main.sync {
+                return UIApplication.shared.isRegisteredForRemoteNotifications
+            }
+        }()
         
         // Push tokens don't normally change while the app is launched, so you would assume checking once
         // during launch is sufficient, but e.g. on iOS11, users who have disabled "Allow Notifications"
@@ -60,7 +62,7 @@ public enum SyncPushTokensJob: JobExecutor {
         
         guard
             job.behaviour == .runOnce ||
-            !UIApplication.shared.isRegisteredForRemoteNotifications ||
+            !isRegisteredForRemoteNotifications ||
             Date().timeIntervalSince(lastPushNotificationSync) >= SyncPushTokensJob.maxFrequency
         else {
             SNLog("[SyncPushTokensJob] Deferred due to Fast Mode disabled or recent-enough registration")
@@ -94,6 +96,7 @@ public enum SyncPushTokensJob: JobExecutor {
                             case .finished:
                                 Logger.warn("Recording push tokens locally. pushToken: \(redact(pushToken)), voipToken: \(redact(voipToken))")
                                 SNLog("[SyncPushTokensJob] Completed")
+                                UserDefaults.standard[.lastPushNotificationSync] = Date()
 
                                 Storage.shared.write { db in
                                     db[.lastRecordedPushToken] = pushToken

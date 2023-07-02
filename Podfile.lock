@@ -2,7 +2,6 @@ PODS:
   - CocoaLumberjack (3.8.0):
     - CocoaLumberjack/Core (= 3.8.0)
   - CocoaLumberjack/Core (3.8.0)
-  - CryptoSwift (1.4.2)
   - Curve25519Kit (2.1.0):
     - CocoaLumberjack
     - SignalCoreKit
@@ -35,7 +34,6 @@ PODS:
   - SignalCoreKit (1.0.0):
     - CocoaLumberjack
     - OpenSSL-Universal
-  - SocketRocket (0.5.1)
   - Sodium (0.9.1)
   - SQLCipher (4.5.3):
     - SQLCipher/standard (= 4.5.3)
@@ -115,7 +113,6 @@ PODS:
   - ZXingObjC/All (3.6.5)
 
 DEPENDENCIES:
-  - CryptoSwift
   - Curve25519Kit (from `https://github.com/oxen-io/session-ios-curve-25519-kit.git`, branch `session-version`)
   - DifferenceKit
   - GRDB.swift/SQLCipher
@@ -126,7 +123,6 @@ DEPENDENCIES:
   - Reachability
   - SAMKeychain
   - SignalCoreKit (from `https://github.com/oxen-io/session-ios-core-kit`, branch `session-version`)
-  - SocketRocket (~> 0.5.1)
   - Sodium (from `https://github.com/oxen-io/session-ios-swift-sodium.git`, branch `session-build`)
   - SQLCipher (~> 4.5.3)
   - SwiftProtobuf (~> 1.5.0)
@@ -138,7 +134,6 @@ DEPENDENCIES:
 SPEC REPOS:
   https://github.com/CocoaPods/Specs.git:
     - CocoaLumberjack
-    - CryptoSwift
     - DifferenceKit
     - GRDB.swift
     - libwebp
@@ -149,7 +144,6 @@ SPEC REPOS:
     - Quick
     - Reachability
     - SAMKeychain
-    - SocketRocket
     - SQLCipher
     - SwiftProtobuf
     - WebRTC-lib
@@ -190,7 +184,6 @@ CHECKOUT OPTIONS:
 
 SPEC CHECKSUMS:
   CocoaLumberjack: 78abfb691154e2a9df8ded4350d504ee19d90732
-  CryptoSwift: a532e74ed010f8c95f611d00b8bbae42e9fe7c17
   Curve25519Kit: e63f9859ede02438ae3defc5e1a87e09d1ec7ee6
   DifferenceKit: ab185c4d7f9cef8af3fcf593e5b387fb81e999ca
   GRDB.swift: fe420b1af49ec519c7e96e07887ee44f5dfa2b78
@@ -203,7 +196,6 @@ SPEC CHECKSUMS:
   Reachability: 33e18b67625424e47b6cde6d202dce689ad7af96
   SAMKeychain: 483e1c9f32984d50ca961e26818a534283b4cd5c
   SignalCoreKit: 1fbd8732163ef76de16cd1107d1fa3684b607e5d
-  SocketRocket: d57c7159b83c3c6655745cd15302aa24b6bae531
   Sodium: a7d42cb46e789d2630fa552d35870b416ed055ae
   SQLCipher: 57fa9f863fa4a3ed9dd3c90ace52315db8c0fdca
   SwiftProtobuf: 241400280f912735c1e1b9fe675fdd2c6c4d42e2
@@ -212,6 +204,6 @@ SPEC CHECKSUMS:
   YYImage: f1ddd15ac032a58b78bbed1e012b50302d318331
   ZXingObjC: fdbb269f25dd2032da343e06f10224d62f537bdb
 
-PODFILE CHECKSUM: 5a4993725a7d48be883663a52df2a5de45d2d099
+PODFILE CHECKSUM: 68799237a4dc046f5ac25c573af03b559f5b10c4
 
-COCOAPODS: 1.11.3
+COCOAPODS: 1.12.1

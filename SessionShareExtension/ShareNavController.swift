@@ -8,7 +8,6 @@ import SessionUIKit
 import SignalCoreKit
 
 final class ShareNavController: UINavigationController, ShareViewDelegate {
-    private var areVersionMigrationsComplete = false
     public static var attachmentPrepPublisher: AnyPublisher<[SignalAttachment], Error>?
     
     // MARK: - Error
@@ -58,10 +57,16 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                     $0 = NoopNotificationsManager()
                 }
             },
-            migrationsCompletion: { [weak self] _, needsConfigSync in
-                // performUpdateCheck must be invoked after Environment has been initialized because
-                // upgrade process may depend on Environment.
-                self?.versionMigrationsDidComplete(needsConfigSync: needsConfigSync)
+            migrationsCompletion: { [weak self] result, needsConfigSync in
+                switch result {
+                    case .failure: SNLog("[SessionShareExtension] Failed to complete migrations")
+                    case .success:
+                        DispatchQueue.main.async {
+                            // performUpdateCheck must be invoked after Environment has been initialized because
+                            // upgrade process may depend on Environment.
+                            self?.versionMigrationsDidComplete(needsConfigSync: needsConfigSync)
+                        }
+                }
             }
         )
 
@@ -82,14 +87,11 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         ThemeManager.traitCollectionDidChange(previousTraitCollection)
     }
 
-    @objc
     func versionMigrationsDidComplete(needsConfigSync: Bool) {
         AssertIsOnMainThread()
 
         Logger.debug("")
 
-        areVersionMigrationsComplete = true
-        
         // If we need a config sync then trigger it now
         if needsConfigSync {
             Storage.shared.write { db in
@@ -97,15 +99,14 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
             }
         }
 
-        checkIsAppReady()
+        checkIsAppReady(migrationsCompleted: true)
     }
 
-    @objc
-    func checkIsAppReady() {
+    func checkIsAppReady(migrationsCompleted: Bool) {
         AssertIsOnMainThread()
 
         // App isn't ready until storage is ready AND all version migrations are complete.
-        guard areVersionMigrationsComplete else { return }
+        guard migrationsCompleted else { return }
         guard Storage.shared.isValid else { return }
         guard !AppReadiness.isAppReady() else {
             // Only mark the app as ready once.
@@ -195,6 +196,8 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                 message: "vc_share_loading_message".localized()
             ) { activityIndicator in
                 publisher
+                    .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+                    .receive(on: DispatchQueue.main)
                     .sinkUntilComplete(
                         receiveCompletion: { _ in activityIndicator.dismiss { } }
                     )

@@ -2,6 +2,8 @@
 //  Copyright (c) 2017 Open Whisper Systems. All rights reserved.
 //
 
+#import <UIKit/UIKit.h>
+
 typedef void (^ConfigureShapeLayerBlock)(CAShapeLayer *_Nonnull layer, CGRect bounds);
 
 NS_ASSUME_NONNULL_BEGIN

@@ -6,6 +6,7 @@ import Sodium
 import GRDB
 import SessionUtilitiesKit
 import SessionMessagingKit
+import SessionSnodeKit
 
 enum Onboarding {
     private static let profileNameRetrievalIdentifier: Atomic<UUID?> = Atomic(nil)
