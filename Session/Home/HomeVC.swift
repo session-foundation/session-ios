@@ -409,8 +409,6 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         // Ensure the first load runs without animations (if we don't do this the cells will animate
         // in from a frame of CGRect.zero)
         guard hasLoadedInitialThreadData else {
-            hasLoadedInitialThreadData = true
-            
             UIView.performWithoutAnimation { [weak self] in
                 // Hide the 'loading conversations' label (now that we have received conversation data)
                 self?.loadingConversationsLabel.isHidden = true
@@ -422,6 +420,8 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
                 )
                 
                 self?.viewModel.updateThreadData(updatedData)
+                self?.tableView.reloadData()
+                self?.hasLoadedInitialThreadData = true
             }
             return
         }
@@ -460,7 +460,11 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     }
     
     private func autoLoadNextPageIfNeeded() {
-        guard !self.isAutoLoadingNextPage && !self.isLoadingMore else { return }
+        guard
+            self.hasLoadedInitialThreadData &&
+            !self.isAutoLoadingNextPage &&
+            !self.isLoadingMore
+        else { return }
         
         self.isAutoLoadingNextPage = true
         

@@ -227,9 +227,10 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
         // Ensure the first load runs without animations (if we don't do this the cells will animate
         // in from a frame of CGRect.zero)
         guard hasLoadedInitialTableData else {
-            hasLoadedInitialTableData = true
             UIView.performWithoutAnimation {
                 handleDataUpdates(updatedData, changeset: changeset, initialLoad: true)
+                tableView.reloadData()
+                hasLoadedInitialTableData = true
             }
             return
         }
@@ -265,7 +266,11 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
     }
     
     private func autoLoadNextPageIfNeeded() {
-        guard !self.isAutoLoadingNextPage && !self.isLoadingMore else { return }
+        guard
+            self.hasLoadedInitialTableData &&
+            !self.isAutoLoadingNextPage &&
+            !self.isLoadingMore
+        else { return }
         
         self.isAutoLoadingNextPage = true
         

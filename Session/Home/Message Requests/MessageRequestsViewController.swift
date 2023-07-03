@@ -232,9 +232,10 @@ class MessageRequestsViewController: BaseVC, SessionUtilRespondingViewController
         // Ensure the first load runs without animations (if we don't do this the cells will animate
         // in from a frame of CGRect.zero)
         guard hasLoadedInitialThreadData else {
-            hasLoadedInitialThreadData = true
             UIView.performWithoutAnimation {
                 handleThreadUpdates(updatedData, changeset: changeset, initialLoad: true)
+                tableView.reloadData()
+                hasLoadedInitialThreadData = true
             }
             return
         }
@@ -271,7 +272,11 @@ class MessageRequestsViewController: BaseVC, SessionUtilRespondingViewController
     }
     
     private func autoLoadNextPageIfNeeded() {
-        guard !self.isAutoLoadingNextPage && !self.isLoadingMore else { return }
+        guard
+            self.hasLoadedInitialThreadData &&
+            !self.isAutoLoadingNextPage &&
+            !self.isLoadingMore
+        else { return }
         
         self.isAutoLoadingNextPage = true
         
