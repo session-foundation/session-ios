@@ -237,7 +237,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             },
             migrationsCompletion: { [weak self] result, needsConfigSync in
                 switch result {
-                    case .failure: SNLog("[NotificationServiceExtension] Failed to complete migrations")
+                    // Only 'NSLog' works in the extension - viewable via Console.app
+                    case .failure: NSLog("[NotificationServiceExtension] Failed to complete migrations")
                     case .success:
                         DispatchQueue.main.async {
                             self?.versionMigrationsDidComplete(needsConfigSync: needsConfigSync)
