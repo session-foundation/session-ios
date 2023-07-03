@@ -4510,6 +4510,7 @@
 			buildConfigurationList = 453518761FC635DD00210559 /* Build configuration list for PBXNativeTarget "SessionShareExtension" */;
 			buildPhases = (
 				55CE11E14880742A24ADC127 /* [CP] Check Pods Manifest.lock */,
+				FD7692EC2A524320000E4B70 /* Validate pre-build actions */,
 				453518641FC635DD00210559 /* Sources */,
 				453518651FC635DD00210559 /* Frameworks */,
 				453518661FC635DD00210559 /* Resources */,
@@ -4533,6 +4534,7 @@
 			buildConfigurationList = 7BC01A45241F40AB00BC7C55 /* Build configuration list for PBXNativeTarget "SessionNotificationServiceExtension" */;
 			buildPhases = (
 				18CDA58AE057F8C9AE71F46E /* [CP] Check Pods Manifest.lock */,
+				FD7692ED2A52433E000E4B70 /* Validate pre-build actions */,
 				7BC01A37241F40AB00BC7C55 /* Sources */,
 				7BC01A38241F40AB00BC7C55 /* Frameworks */,
 				7BC01A39241F40AB00BC7C55 /* Resources */,
@@ -4555,6 +4557,7 @@
 			buildConfigurationList = C331FF262558F9D400070591 /* Build configuration list for PBXNativeTarget "SessionUIKit" */;
 			buildPhases = (
 				D5AFDC09857840D2D2631E2D /* [CP] Check Pods Manifest.lock */,
+				FD7692EF2A52436A000E4B70 /* Validate pre-build actions */,
 				C331FF162558F9D300070591 /* Headers */,
 				C331FF172558F9D300070591 /* Sources */,
 				C331FF182558F9D300070591 /* Frameworks */,
@@ -4575,6 +4578,7 @@
 			buildConfigurationList = C33FD9B6255A548A00E217F9 /* Build configuration list for PBXNativeTarget "SignalUtilitiesKit" */;
 			buildPhases = (
 				5CE8055024B876590AED6DEA /* [CP] Check Pods Manifest.lock */,
+				FD7692EE2A524357000E4B70 /* Validate pre-build actions */,
 				C33FD9A6255A548A00E217F9 /* Headers */,
 				C33FD9A7255A548A00E217F9 /* Sources */,
 				C33FD9A8255A548A00E217F9 /* Frameworks */,
@@ -4594,6 +4598,7 @@
 			buildConfigurationList = C3C2A5AA255385C100C340D1 /* Build configuration list for PBXNativeTarget "SessionSnodeKit" */;
 			buildPhases = (
 				77F55C879DAF28750120D343 /* [CP] Check Pods Manifest.lock */,
+				FD7692F02A524393000E4B70 /* Validate pre-build actions */,
 				C3C2A59A255385C100C340D1 /* Headers */,
 				C3C2A59B255385C100C340D1 /* Sources */,
 				C3C2A59C255385C100C340D1 /* Frameworks */,
@@ -4613,6 +4618,7 @@
 			buildConfigurationList = C3C2A684255388CC00C340D1 /* Build configuration list for PBXNativeTarget "SessionUtilitiesKit" */;
 			buildPhases = (
 				446B0E16474DF9F15509BC64 /* [CP] Check Pods Manifest.lock */,
+				FD7692F12A5243AE000E4B70 /* Validate pre-build actions */,
 				C3C2A674255388CC00C340D1 /* Headers */,
 				C3C2A675255388CC00C340D1 /* Sources */,
 				C3C2A676255388CC00C340D1 /* Frameworks */,
@@ -4652,6 +4658,7 @@
 			buildConfigurationList = D221A0BC169C9E5F00537ABF /* Build configuration list for PBXNativeTarget "Session" */;
 			buildPhases = (
 				351E727E03A8F141EA25FBF4 /* [CP] Check Pods Manifest.lock */,
+				FD7692EA2A524303000E4B70 /* Validate pre-build actions */,
 				FDE7214D287E50820093DF33 /* Lint Localizable.strings */,
 				D221A085169C9E5E00537ABF /* Sources */,
 				D221A086169C9E5E00537ABF /* Frameworks */,
@@ -4682,6 +4689,7 @@
 			buildConfigurationList = FD71160F28D00BAE00B47552 /* Build configuration list for PBXNativeTarget "SessionTests" */;
 			buildPhases = (
 				19CD7B4EDC153293FB61CBA1 /* [CP] Check Pods Manifest.lock */,
+				FD7692F22A5243C3000E4B70 /* Validate pre-build actions */,
 				FD71160528D00BAE00B47552 /* Sources */,
 				FD71160628D00BAE00B47552 /* Frameworks */,
 				FD71160728D00BAE00B47552 /* Resources */,
@@ -4702,6 +4710,7 @@
 			buildConfigurationList = FD83B9B627CF200A005E1583 /* Build configuration list for PBXNativeTarget "SessionUtilitiesKitTests" */;
 			buildPhases = (
 				EDDFB3BFBD5E1378BD03AAAB /* [CP] Check Pods Manifest.lock */,
+				FD7692F42A5243EC000E4B70 /* Validate pre-build actions */,
 				FD83B9AB27CF200A005E1583 /* Sources */,
 				FD83B9AC27CF200A005E1583 /* Frameworks */,
 				FD83B9AD27CF200A005E1583 /* Resources */,
@@ -4723,6 +4732,7 @@
 			buildConfigurationList = FDC4389527B9FFC700C60D73 /* Build configuration list for PBXNativeTarget "SessionMessagingKitTests" */;
 			buildPhases = (
 				0E6C1748F41E48ED59563D96 /* [CP] Check Pods Manifest.lock */,
+				FD7692F32A5243DA000E4B70 /* Validate pre-build actions */,
 				FDC4388A27B9FFC700C60D73 /* Sources */,
 				FDC4388B27B9FFC700C60D73 /* Frameworks */,
 				FDC4388C27B9FFC700C60D73 /* Resources */,
@@ -5348,6 +5358,206 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		FD7692EA2A524303000E4B70 /* Validate pre-build actions */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Validate pre-build actions";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ -f \"${TARGET_BUILD_DIR}/libsession_util_error.log\" ]; then\n    read -r line < \"${TARGET_BUILD_DIR}/libsession_util_error.log\"\n    echo \"${line}\"\n    exit 1\nfi\n";
+			showEnvVarsInLog = 0;
+		};
+		FD7692EC2A524320000E4B70 /* Validate pre-build actions */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Validate pre-build actions";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ -f \"${TARGET_BUILD_DIR}/libsession_util_error.log\" ]; then\n    read -r line < \"${TARGET_BUILD_DIR}/libsession_util_error.log\"\n    echo \"${line}\"\n    exit 1\nfi\n";
+			showEnvVarsInLog = 0;
+		};
+		FD7692ED2A52433E000E4B70 /* Validate pre-build actions */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Validate pre-build actions";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ -f \"${TARGET_BUILD_DIR}/libsession_util_error.log\" ]; then\n    read -r line < \"${TARGET_BUILD_DIR}/libsession_util_error.log\"\n    echo \"${line}\"\n    exit 1\nfi\n";
+			showEnvVarsInLog = 0;
+		};
+		FD7692EE2A524357000E4B70 /* Validate pre-build actions */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Validate pre-build actions";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ -f \"${TARGET_BUILD_DIR}/libsession_util_error.log\" ]; then\n    read -r line < \"${TARGET_BUILD_DIR}/libsession_util_error.log\"\n    echo \"${line}\"\n    exit 1\nfi\n";
+			showEnvVarsInLog = 0;
+		};
+		FD7692EF2A52436A000E4B70 /* Validate pre-build actions */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Validate pre-build actions";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ -f \"${TARGET_BUILD_DIR}/libsession_util_error.log\" ]; then\n    read -r line < \"${TARGET_BUILD_DIR}/libsession_util_error.log\"\n    echo \"${line}\"\n    exit 1\nfi\n";
+			showEnvVarsInLog = 0;
+		};
+		FD7692F02A524393000E4B70 /* Validate pre-build actions */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Validate pre-build actions";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ -f \"${TARGET_BUILD_DIR}/libsession_util_error.log\" ]; then\n    read -r line < \"${TARGET_BUILD_DIR}/libsession_util_error.log\"\n    echo \"${line}\"\n    exit 1\nfi\n";
+			showEnvVarsInLog = 0;
+		};
+		FD7692F12A5243AE000E4B70 /* Validate pre-build actions */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Validate pre-build actions";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ -f \"${TARGET_BUILD_DIR}/libsession_util_error.log\" ]; then\n    read -r line < \"${TARGET_BUILD_DIR}/libsession_util_error.log\"\n    echo \"${line}\"\n    exit 1\nfi\n";
+			showEnvVarsInLog = 0;
+		};
+		FD7692F22A5243C3000E4B70 /* Validate pre-build actions */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Validate pre-build actions";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ -f \"${TARGET_BUILD_DIR}/libsession_util_error.log\" ]; then\n    read -r line < \"${TARGET_BUILD_DIR}/libsession_util_error.log\"\n    echo \"${line}\"\n    exit 1\nfi\n";
+			showEnvVarsInLog = 0;
+		};
+		FD7692F32A5243DA000E4B70 /* Validate pre-build actions */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Validate pre-build actions";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ -f \"${TARGET_BUILD_DIR}/libsession_util_error.log\" ]; then\n    read -r line < \"${TARGET_BUILD_DIR}/libsession_util_error.log\"\n    echo \"${line}\"\n    exit 1\nfi\n";
+			showEnvVarsInLog = 0;
+		};
+		FD7692F42A5243EC000E4B70 /* Validate pre-build actions */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Validate pre-build actions";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ -f \"${TARGET_BUILD_DIR}/libsession_util_error.log\" ]; then\n    read -r line < \"${TARGET_BUILD_DIR}/libsession_util_error.log\"\n    echo \"${line}\"\n    exit 1\nfi\n";
 			showEnvVarsInLog = 0;
 		};
 		FDD82C422A2085B900425F05 /* Add Commit Hash To Build Info Plist */ = {

@@ -7,8 +7,8 @@
 # build stage so XCode is able to build the dependency graph
 #
 # XCode's Pre-action scripts don't output anything into XCode so the only way to emit a useful
-# error is to return a success status and have the project detect and log the error itself then
-# log it, stopping the build at that point
+# error is to **return a success status** and have the project detect and log the error itself
+# then log it, stopping the build at that point
 #
 # The other step to get this to work properly is to ensure the framework in "Link Binary with
 # Libraries" isn't using a relative directory, unfortunately there doesn't seem to be a good
@@ -56,11 +56,12 @@ if [ ! -d "${SRCROOT}/LibSession-Util" ] || [ ! -d "${SRCROOT}/LibSession-Util/s
     touch "${TARGET_BUILD_DIR}/libsession_util_error.log"
     echo "error: Need to fetch LibSession-Util submodule (git submodule update --init --recursive)."
     echo "error: Need to fetch LibSession-Util submodule (git submodule update --init --recursive)." > "${TARGET_BUILD_DIR}/libsession_util_error.log"
-    exit 1
+    exit 0
   fi
 else
   are_submodules_valid() {
     local PARENT_PATH=$1
+    local RELATIVE_PATH=$2
     
     # Change into the path to check for it's submodules
     cd "${PARENT_PATH}"
@@ -68,10 +69,10 @@ else
 
     # If there are no submodules then return success based on whether the folder has any content
     if [ ${#SUB_MODULE_PATHS[@]} -eq 0 ]; then
-      if [ "$(ls -A "${SRCROOT}/LibSession-Util")" ]; then
-        return 1
-      else
+      if [[ ! -z "$(ls -A "${PARENT_PATH}")" ]]; then
         return 0
+      else
+        return 1
       fi
     fi
 
@@ -80,15 +81,16 @@ else
       local CHILD_PATH="${SUB_MODULE_PATHS[$i]}"
       
       # If the child path doesn't exist then it's invalid
-      if [ ! -d "${CHILD_PATH}" ]; then
+      if [ ! -d "${PARENT_PATH}/${CHILD_PATH}" ]; then
+        echo "info: Submodule '${RELATIVE_PATH}/${CHILD_PATH}' doesn't exist."
         return 1
       fi
 
-      are_submodules_valid "${PARENT_PATH}/${CHILD_PATH}"
+      are_submodules_valid "${PARENT_PATH}/${CHILD_PATH}" "${RELATIVE_PATH}/${CHILD_PATH}"
       local RESULT=$?
 
       if [ "${RESULT}" -eq 1 ]; then
-        echo "info: Submodule ${CHILD_PATH} is in an invalid state."
+        echo "info: Submodule '${RELATIVE_PATH}/${CHILD_PATH}' is in an invalid state."
         return 1
       fi
     done
@@ -97,7 +99,7 @@ else
   }
 
   # Validate the state of the submodules
-  are_submodules_valid "${SRCROOT}/LibSession-Util"
+  are_submodules_valid "${SRCROOT}/LibSession-Util" "LibSession-Util"
 
   HAS_INVALID_SUBMODULE=$?
 
@@ -112,7 +114,7 @@ else
       touch "${TARGET_BUILD_DIR}/libsession_util_error.log"
       echo "error: Submodules are in an invalid state, please delete 'LibSession-Util' and run 'git submodule update --init --recursive'."
       echo "error: Submodules are in an invalid state, please delete 'LibSession-Util' and run 'git submodule update --init --recursive'." > "${TARGET_BUILD_DIR}/libsession_util_error.log"
-      exit 1
+      exit 0
     fi
   fi
 fi
