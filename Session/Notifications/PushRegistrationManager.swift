@@ -100,7 +100,6 @@ public enum PushRegistrationError: Error {
     // User notification settings must be registered *before* AppDelegate will
     // return any requested push tokens.
     public func registerUserNotificationSettings() -> AnyPublisher<Void, Never> {
-        AssertIsOnMainThread()
         return notificationPresenter.registerNotificationSettings()
     }
 
@@ -129,6 +128,7 @@ public enum PushRegistrationError: Error {
         return true
     }
 
+    // FIXME: Might be nice to try to avoid having this required to run on the main thread (follow a similar approach to the 'SyncPushTokensJob' & `Atomic<T>`?)
     private func registerForVanillaPushToken() -> AnyPublisher<String, Error> {
         AssertIsOnMainThread()
         
