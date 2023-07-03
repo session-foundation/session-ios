@@ -12,6 +12,7 @@ public enum ConfigurationSyncJob: JobExecutor {
     public static let requiresThreadId: Bool = true
     public static let requiresInteractionId: Bool = false
     private static let maxRunFrequency: TimeInterval = 3
+    private static let waitTimeForExpirationUpdate: TimeInterval = 1
     
     public static func run(
         _ job: Job,
@@ -47,6 +48,27 @@ public enum ConfigurationSyncJob: JobExecutor {
             }
             
             SNLog("[ConfigurationSyncJob] For \(job.threadId ?? "UnknownId") deferred due to in progress job")
+            return deferred(updatedJob ?? job)
+        }
+        
+        // We want to update lastReadTimestamp after the disappearing messages are updated to the network, so on
+        // linked devices the expiration time can be the same and avoid race condition
+        guard
+            JobRunner
+                .infoForCurrentlyRunningJobs(of: .expirationUpdate)
+                .filter({ _, info in
+                    info.threadId == job.threadId   // Exclude expiration update jobs for different threads
+                })
+                .isEmpty
+        else {
+            // Defer the job to run 'maxRunFrequency'
+            let updatedJob: Job? = Storage.shared.write { db in
+                try job
+                    .with(nextRunTimestamp: Date().timeIntervalSince1970 + waitTimeForExpirationUpdate)
+                    .saved(db)
+            }
+            
+            SNLog("[ConfigurationSyncJob] For \(job.threadId ?? "UnknownId") deferred due to expiration update jobs running.")
             return deferred(updatedJob ?? job)
         }
         

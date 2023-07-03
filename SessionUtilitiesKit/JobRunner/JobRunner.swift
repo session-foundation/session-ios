@@ -67,6 +67,14 @@ public final class JobRunner {
     private static let queues: Atomic<[Job.Variant: JobQueue]> = {
         var jobVariants: Set<Job.Variant> = Job.Variant.allCases.asSet()
         
+        let expirationUpdateQueue: JobQueue = JobQueue(
+            type: .expirationUpdate,
+            executionType: .concurrent, // Allow as many jobs to run at once as supported by the device
+            qos: .default,
+            jobVariants: [
+                jobVariants.remove(.expirationUpdate)
+            ].compactMap { $0 }
+        )
         let messageSendQueue: JobQueue = JobQueue(
             type: .messageSend,
             executionType: .concurrent, // Allow as many jobs to run at once as supported by the device
@@ -77,8 +85,7 @@ public final class JobRunner {
                 jobVariants.remove(.notifyPushServer),
                 jobVariants.remove(.sendReadReceipts),
                 jobVariants.remove(.groupLeaving),
-                jobVariants.remove(.configurationSync),
-                jobVariants.remove(.expirationUpdate)
+                jobVariants.remove(.configurationSync)
             ].compactMap { $0 }
         )
         let messageReceiveQueue: JobQueue = JobQueue(
@@ -109,6 +116,7 @@ public final class JobRunner {
         )
         
         return Atomic([
+            expirationUpdateQueue,
             messageSendQueue,
             messageReceiveQueue,
             attachmentDownloadQueue,
@@ -471,6 +479,7 @@ public final class JobQueue {
         case messageSend
         case messageReceive
         case attachmentDownload
+        case expirationUpdate
         
         var name: String {
             switch self {
@@ -479,6 +488,7 @@ public final class JobQueue {
                 case .messageSend: return "MessageSend"
                 case .messageReceive: return "MessageReceive"
                 case .attachmentDownload: return "AttachmentDownload"
+                case .expirationUpdate: return "ExpirationUpdate"
             }
         }
     }

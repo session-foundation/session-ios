@@ -8,7 +8,7 @@ import SessionSnodeKit
 
 public enum ExpirationUpdateJob: JobExecutor {
     public static var maxFailureCount: Int = -1
-    public static var requiresThreadId: Bool = false
+    public static var requiresThreadId: Bool = true
     public static var requiresInteractionId: Bool = false
     
     public static func run(
