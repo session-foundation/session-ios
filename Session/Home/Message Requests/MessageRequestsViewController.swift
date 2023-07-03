@@ -233,7 +233,15 @@ class MessageRequestsViewController: BaseVC, SessionUtilRespondingViewController
         // in from a frame of CGRect.zero)
         guard hasLoadedInitialThreadData else {
             UIView.performWithoutAnimation {
-                handleThreadUpdates(updatedData, changeset: changeset, initialLoad: true)
+                // Hide the 'loading conversations' label (now that we have received conversation data)
+                loadingConversationsLabel.isHidden = true
+                
+                // Show the empty state if there is no data
+                clearAllButton.isHidden = !(updatedData.first?.elements.isEmpty == false)
+                emptyStateLabel.isHidden = !clearAllButton.isHidden
+                
+                // Update the content
+                viewModel.updateThreadData(updatedData)
                 tableView.reloadData()
                 hasLoadedInitialThreadData = true
             }
