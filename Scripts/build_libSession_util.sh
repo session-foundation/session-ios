@@ -61,6 +61,7 @@ if [ ! -d "${SRCROOT}/LibSession-Util" ] || [ ! -d "${SRCROOT}/LibSession-Util/s
 else
   are_submodules_valid() {
     local PARENT_PATH=$1
+    local RELATIVE_PATH=$2
     
     # Change into the path to check for it's submodules
     cd "${PARENT_PATH}"
@@ -68,10 +69,10 @@ else
 
     # If there are no submodules then return success based on whether the folder has any content
     if [ ${#SUB_MODULE_PATHS[@]} -eq 0 ]; then
-      if [ "$(ls -A "${SRCROOT}/LibSession-Util")" ]; then
-        return 1
-      else
+      if [[ ! -z "$(ls -A "${PARENT_PATH}")" ]]; then
         return 0
+      else
+        return 1
       fi
     fi
 
@@ -80,15 +81,16 @@ else
       local CHILD_PATH="${SUB_MODULE_PATHS[$i]}"
       
       # If the child path doesn't exist then it's invalid
-      if [ ! -d "${CHILD_PATH}" ]; then
+      if [ ! -d "${PARENT_PATH}/${CHILD_PATH}" ]; then
+        echo "info: Submodule '${RELATIVE_PATH}/${CHILD_PATH}' doesn't exist."
         return 1
       fi
 
-      are_submodules_valid "${PARENT_PATH}/${CHILD_PATH}"
+      are_submodules_valid "${PARENT_PATH}/${CHILD_PATH}" "${RELATIVE_PATH}/${CHILD_PATH}"
       local RESULT=$?
 
       if [ "${RESULT}" -eq 1 ]; then
-        echo "info: Submodule ${CHILD_PATH} is in an invalid state."
+        echo "info: Submodule '${RELATIVE_PATH}/${CHILD_PATH}' is in an invalid state."
         return 1
       fi
     done
@@ -97,7 +99,7 @@ else
   }
 
   # Validate the state of the submodules
-  are_submodules_valid "${SRCROOT}/LibSession-Util"
+  are_submodules_valid "${SRCROOT}/LibSession-Util" "LibSession-Util"
 
   HAS_INVALID_SUBMODULE=$?
 
