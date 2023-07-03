@@ -903,7 +903,6 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         guard self.hasLoadedInitialInteractionData else {
             // Need to dispatch async to prevent this from causing glitches in the push animation
             DispatchQueue.main.async {
-                self.hasLoadedInitialInteractionData = true
                 self.viewModel.updateInteractionData(updatedData)
                 
                 // Update the empty state
@@ -911,6 +910,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                 
                 UIView.performWithoutAnimation {
                     self.tableView.reloadData()
+                    self.hasLoadedInitialInteractionData = true
                     self.performInitialScrollIfNeeded()
                 }
             }
@@ -1218,7 +1218,11 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     }
     
     private func autoLoadNextPageIfNeeded() {
-        guard !self.isAutoLoadingNextPage && !self.isLoadingMore else { return }
+        guard
+            self.hasLoadedInitialInteractionData &&
+            !self.isAutoLoadingNextPage &&
+            !self.isLoadingMore
+        else { return }
         
         self.isAutoLoadingNextPage = true
         

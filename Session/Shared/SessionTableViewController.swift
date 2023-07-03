@@ -224,21 +224,28 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
         changeset: StagedChangeset<[SectionModel]>,
         initialLoad: Bool = false
     ) {
+        // Determine if we have any items for the empty state
+        let itemCount: Int = updatedData
+            .map { $0.elements.count }
+            .reduce(0, +)
+        
         // Ensure the first load runs without animations (if we don't do this the cells will animate
         // in from a frame of CGRect.zero)
         guard hasLoadedInitialTableData else {
-            hasLoadedInitialTableData = true
             UIView.performWithoutAnimation {
-                handleDataUpdates(updatedData, changeset: changeset, initialLoad: true)
+                // Update the empty state
+                emptyStateLabel.isHidden = (itemCount > 0)
+                
+                // Update the content
+                viewModel.updateTableData(updatedData)
+                tableView.reloadData()
+                hasLoadedInitialTableData = true
             }
             return
         }
         
-        // Show the empty state if there is no data
-        let itemCount: Int = updatedData
-            .map { $0.elements.count }
-            .reduce(0, +)
-        emptyStateLabel.isHidden = (itemCount > 0)
+        // Update the empty state
+        self.emptyStateLabel.isHidden = (itemCount > 0)
         
         CATransaction.begin()
         CATransaction.setCompletionBlock { [weak self] in
@@ -265,7 +272,11 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
     }
     
     private func autoLoadNextPageIfNeeded() {
-        guard !self.isAutoLoadingNextPage && !self.isLoadingMore else { return }
+        guard
+            self.hasLoadedInitialTableData &&
+            !self.isAutoLoadingNextPage &&
+            !self.isLoadingMore
+        else { return }
         
         self.isAutoLoadingNextPage = true
         
