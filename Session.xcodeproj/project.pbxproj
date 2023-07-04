@@ -696,6 +696,7 @@
 		FD716E6C28505E1C00C96BF4 /* MessageRequestsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD716E6B28505E1C00C96BF4 /* MessageRequestsViewModel.swift */; };
 		FD716E7128505E5200C96BF4 /* MessageRequestsCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD716E7028505E5100C96BF4 /* MessageRequestsCell.swift */; };
 		FD716E722850647600C96BF4 /* Data+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD859EF127BF6BA200510D0C /* Data+Utilities.swift */; };
+		FD7692F72A53A2ED000E4B70 /* SessionThreadViewModelSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7692F62A53A2ED000E4B70 /* SessionThreadViewModelSpec.swift */; };
 		FD7728962849E7E90018502F /* String+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7728952849E7E90018502F /* String+Utilities.swift */; };
 		FD7728982849E8110018502F /* UITableView+ReusableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7728972849E8110018502F /* UITableView+ReusableView.swift */; };
 		FD77289A284AF1BD0018502F /* Sodium+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD772899284AF1BD0018502F /* Sodium+Utilities.swift */; };
@@ -1828,6 +1829,7 @@
 		FD716E692850327900C96BF4 /* EndCallMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EndCallMode.swift; sourceTree = "<group>"; };
 		FD716E6B28505E1C00C96BF4 /* MessageRequestsViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MessageRequestsViewModel.swift; sourceTree = "<group>"; };
 		FD716E7028505E5100C96BF4 /* MessageRequestsCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MessageRequestsCell.swift; sourceTree = "<group>"; };
+		FD7692F62A53A2ED000E4B70 /* SessionThreadViewModelSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionThreadViewModelSpec.swift; sourceTree = "<group>"; };
 		FD7728952849E7E90018502F /* String+Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "String+Utilities.swift"; sourceTree = "<group>"; };
 		FD7728972849E8110018502F /* UITableView+ReusableView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "UITableView+ReusableView.swift"; sourceTree = "<group>"; };
 		FD772899284AF1BD0018502F /* Sodium+Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Sodium+Utilities.swift"; sourceTree = "<group>"; };
@@ -3316,10 +3318,10 @@
 				B8DE1FB226C22F1F0079C9CE /* Calls */,
 				C32C5BCB256DC818003C73A2 /* Database */,
 				C300A5BB2554AFFB00555489 /* Messages */,
-				C300A5F02554B08500555489 /* Sending & Receiving */,
 				C352A2F325574B3300338F3E /* Jobs */,
 				C3A7215C2558C0AC0043A11F /* File Server */,
 				C3A721332558BDDF0043A11F /* Open Groups */,
+				C300A5F02554B08500555489 /* Sending & Receiving */,
 				FD8ECF7529340F4800C0D1BB /* SessionUtil */,
 				FD3E0C82283B581F002A425C /* Shared Models */,
 				C3BBE0B32554F0D30050F1E3 /* Utilities */,
@@ -3994,6 +3996,14 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
+		FD7692F52A53A2C7000E4B70 /* Shared Models */ = {
+			isa = PBXGroup;
+			children = (
+				FD7692F62A53A2ED000E4B70 /* SessionThreadViewModelSpec.swift */,
+			);
+			path = "Shared Models";
+			sourceTree = "<group>";
+		};
 		FD7728A1284F0DF50018502F /* Message Handling */ = {
 			isa = PBXGroup;
 			children = (
@@ -4224,6 +4234,7 @@
 				FD3C906527E416A200CD579F /* Contacts */,
 				FDC4389827BA001800C60D73 /* Open Groups */,
 				FD3C906B27E43C2400CD579F /* Sending & Receiving */,
+				FD7692F52A53A2C7000E4B70 /* Shared Models */,
 				FD3C906827E417B100CD579F /* Utilities */,
 				FD8ECF802934385900C0D1BB /* LibSessionUtil */,
 			);
@@ -6391,6 +6402,7 @@
 				FDC2908B27D707F3005DAE71 /* SendMessageRequestSpec.swift in Sources */,
 				FD8ECF822934387A00C0D1BB /* ConfigUserProfileSpec.swift in Sources */,
 				FDC290A827D9B46D005DAE71 /* NimbleExtensions.swift in Sources */,
+				FD7692F72A53A2ED000E4B70 /* SessionThreadViewModelSpec.swift in Sources */,
 				FDC2908F27D70938005DAE71 /* SendDirectMessageRequestSpec.swift in Sources */,
 				FDC438BD27BB2AB400C60D73 /* Mockable.swift in Sources */,
 				FDA1E83929A5771A00C5C3BD /* LibSessionSpec.swift in Sources */,

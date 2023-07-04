@@ -1979,8 +1979,7 @@ extension ConversationVC:
                     self?.showInputAccessoryView()
                 })
 
-                self.inputAccessoryView?.isHidden = true
-                self.inputAccessoryView?.alpha = 0
+                self.hideInputAccessoryView()
                 Modal.setupForIPadIfNeeded(actionSheet, targetView: self.view)
                 self.present(actionSheet, animated: true)
         }

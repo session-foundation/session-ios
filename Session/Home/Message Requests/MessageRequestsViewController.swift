@@ -106,6 +106,7 @@ class MessageRequestsViewController: BaseVC, SessionUtilRespondingViewController
         result.translatesAutoresizingMaskIntoConstraints = false
         result.setTitle("MESSAGE_REQUESTS_CLEAR_ALL".localized(), for: .normal)
         result.addTarget(self, action: #selector(clearAllTapped), for: .touchUpInside)
+        result.accessibilityIdentifier = "Clear all"
 
         return result
     }()

@@ -1112,19 +1112,22 @@ public extension SessionThreadViewModel {
         /// Step 2 - Separate any words outside of quotes
         /// Step 3 - Join the different search term parts with 'OR" (include results for each individual term)
         /// Step 4 - Append a wild-card character to the final word (as long as the last word doesn't end in a quote)
-        return standardQuotes(searchTerm)
-            .split(separator: "\"")
-            .enumerated()
-            .flatMap { index, value -> [String] in
-                guard index % 2 == 1 else {
-                    return String(value)
-                        .split(separator: " ")
-                        .map { "\"\(String($0))\"" }
-                }
-                
-                return ["\"\(value)\""]
-            }
-            .filter { !$0.isEmpty }
+        let normalisedTerm: String = standardQuotes(searchTerm)
+        
+        guard let regex = try? NSRegularExpression(pattern: "[^\\s\"']+|\"([^\"]*)\"") else {
+            // Fallback to removing the quotes and just splitting on spaces
+            return normalisedTerm
+                .replacingOccurrences(of: "\"", with: "")
+                .split(separator: " ")
+                .map { "\"\($0)\"" }
+                .filter { !$0.isEmpty }
+        }
+            
+        return regex
+            .matches(in: normalisedTerm, range: NSRange(location: 0, length: normalisedTerm.count))
+            .compactMap { Range($0.range, in: normalisedTerm) }
+            .map { normalisedTerm[$0].trimmingCharacters(in: CharacterSet(charactersIn: "\"")) }
+            .map { "\"\($0)\"" }
     }
     
     static func standardQuotes(_ term: String) -> String {
@@ -1155,15 +1158,17 @@ public extension SessionThreadViewModel {
         
         /// There are cases where creating a pattern can fail, we want to try and recover from those cases
         /// by failling back to simpler patterns if needed
-        let maybePattern: FTS5Pattern? = (try? db.makeFTS5Pattern(rawPattern: rawPattern, forTable: table))
-            .defaulting(
-                to: (try? db.makeFTS5Pattern(rawPattern: fallbackTerm, forTable: table))
-                    .defaulting(to: FTS5Pattern(matchingAnyTokenIn: fallbackTerm))
-            )
-        
-        guard let pattern: FTS5Pattern = maybePattern else { throw StorageError.invalidSearchPattern }
-        
-        return pattern
+        return try {
+            if let pattern: FTS5Pattern = try? db.makeFTS5Pattern(rawPattern: rawPattern, forTable: table) {
+                return pattern
+            }
+            
+            if let pattern: FTS5Pattern = try? db.makeFTS5Pattern(rawPattern: fallbackTerm, forTable: table) {
+                return pattern
+            }
+            
+            return try FTS5Pattern(matchingAnyTokenIn: fallbackTerm) ?? { throw StorageError.invalidSearchPattern }()
+        }()
     }
     
     static func messagesQuery(userPublicKey: String, pattern: FTS5Pattern) -> AdaptedFetchRequest<SQLRequest<SessionThreadViewModel>> {
