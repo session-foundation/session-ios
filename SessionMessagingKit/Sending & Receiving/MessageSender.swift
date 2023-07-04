@@ -945,6 +945,10 @@ public final class MessageSender {
                         ),
                         openGroupServerMessageId: message.openGroupServerMessageId.map { Int64($0) }
                     ).update(db)
+                    
+                    if interaction.isExpiringMessage {
+                        
+                    }
                 }
                 
                 // Mark the message as sent

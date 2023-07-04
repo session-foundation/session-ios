@@ -90,6 +90,32 @@ public enum ExpirationUpdateJob: JobExecutor {
                 }
             )
     }
+    
+    public static func updateExpirationIfNeeded(_ db: Database, interactionId: Int64) {
+        guard
+            let interacion: Interaction = try? Interaction.fetchOne(db, id: interactionId),
+            let startedAtMs: TimeInterval = interacion.expiresStartedAtMs,
+            let expiresInSeconds: TimeInterval = interacion.expiresInSeconds,
+            let serverHash: String = interacion.serverHash
+        else {
+            return
+        }
+        let threadId: String = interacion.threadId
+        let expirationTimestampMs: Int64 = Int64(startedAtMs + expiresInSeconds * 1000)
+        
+        JobRunner.add(
+            db,
+            job: Job(
+                variant: .expirationUpdate,
+                behaviour: .runOnce,
+                threadId: threadId,
+                details: ExpirationUpdateJob.Details(
+                    serverHashes: [ serverHash ],
+                    expirationTimestampMs: expirationTimestampMs
+                )
+            )
+        )
+    }
 }
 
 // MARK: - ExpirationUpdateJob.Details
