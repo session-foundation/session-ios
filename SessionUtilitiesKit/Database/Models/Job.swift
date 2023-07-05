@@ -120,6 +120,10 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         /// This is a job that runs once whenever disappearing after read messages are read and needed to update the
         /// expiration on the network
         case expirationUpdate
+        
+        /// This is a job that runs once whenever a message is marked as read because of syncing from user config and
+        /// needs to get expiration from network
+        case getExpiration
     }
     
     public enum Behaviour: Int, Codable, DatabaseValueConvertible, CaseIterable {

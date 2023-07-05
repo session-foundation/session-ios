@@ -83,7 +83,7 @@ public extension DisappearingMessagesJob {
             let expiresInSeconds: TimeInterval
             let serverHash: String
         }
-        let interactionIds: [Int64] = (try? Interaction
+        let expirationInfo: [String: TimeInterval] = (try? Interaction
             .filter(
                 Interaction.Columns.threadId == threadId &&
                 Interaction.Columns.timestampMs <= lastReadTimestampMs &&
@@ -91,17 +91,31 @@ public extension DisappearingMessagesJob {
                 Interaction.Columns.expiresStartedAtMs == nil
             )
             .select(
-                Interaction.Columns.id
+                Interaction.Columns.expiresInSeconds,
+                Interaction.Columns.serverHash
             )
-                .asRequest(of: Int64.self)
+            .asRequest(of: ExpirationInfo.self)
             .fetchAll(db))
             .defaulting(to: [])
+            .grouped(by: \.serverHash)
+            .compactMapValues{ $0.first?.expiresInSeconds }
         
-        guard !interactionIds.isEmpty else { return }
+        guard (expirationInfo.count > 0) else { return }
         
-        let startedAtMs: Double = Double(SnodeAPI.currentOffsetTimestampMs())
+        let startedAtTimestampMs: Double = Double(SnodeAPI.currentOffsetTimestampMs())
         
-        updateNextRunIfNeeded(db, interactionIds: interactionIds, startedAtMs: startedAtMs, threadId: threadId)
+        JobRunner.add(
+            db,
+            job: Job(
+                variant: .getExpiration,
+                behaviour: .runOnce,
+                threadId: threadId,
+                details: GetExpirationJob.Details(
+                    expirationInfo: expirationInfo,
+                    startedAtTimestampMs: startedAtTimestampMs
+                )
+            )
+        )
     }
     
     @discardableResult static func updateNextRunIfNeeded(_ db: Database, interactionIds: [Int64], startedAtMs: Double, threadId: String) -> Job? {
