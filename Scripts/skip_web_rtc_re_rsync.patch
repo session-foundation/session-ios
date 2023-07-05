@@ -1,0 +1,12 @@
+@@ -41,0 +41,11 @@
++  # Skip the rsync step for the WebRTC-lib in simulator builds
++  if [[ "$PLATFORM_NAME" == "iphonesimulator" ]] && [[ "$source" == *WebRTC.framework* ]]; then
++    if [[ -f "${source}/../already_rsynced.nonce" ]]; then
++      echo "Already rsynced WebRTC, skipping"
++      return 0
++    fi
++  
++    echo "About to rsync a simulator WebRTC, creating nonce to prevent future rsyncing"
++    touch "${source}/../already_rsynced.nonce"
++  fi
++

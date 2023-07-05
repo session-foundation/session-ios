@@ -4,6 +4,8 @@ import Combine
 import GRDB
 import Quick
 import Nimble
+import SessionUIKit
+import SessionSnodeKit
 
 @testable import Session
 
