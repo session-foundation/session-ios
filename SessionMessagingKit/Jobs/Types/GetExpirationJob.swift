@@ -10,7 +10,7 @@ public enum GetExpirationJob: JobExecutor {
     public static var maxFailureCount: Int = -1
     public static var requiresThreadId: Bool = true
     public static var requiresInteractionId: Bool = false
-    private static let minRunFrequency: TimeInterval = 1
+    private static let minRunFrequency: TimeInterval = 5
     
     public static func run(
         _ job: SessionUtilitiesKit.Job,
@@ -53,13 +53,13 @@ public enum GetExpirationJob: JobExecutor {
                 receiveCompletion: { result in
                     switch result {
                         case .finished:
-                            success(job, false)
+                            break
                         case .failure(let error):
                             failure(job, error, true)
                     }
                 },
                 receiveValue: { response in
-                    Storage.shared.writeAsync { db in
+                    Storage.shared.write { db in
                         try response.expiries.forEach { hash, expireAtMs in
                             guard let expiresInSeconds: TimeInterval = expirationInfo[hash] else { return }
                             let expiresStartedAtMs: TimeInterval = TimeInterval(expireAtMs - UInt64(expiresInSeconds * 1000))
@@ -84,14 +84,18 @@ public enum GetExpirationJob: JobExecutor {
                                     Interaction.Columns.expiresStartedAtMs.set(to: details.startedAtTimestampMs)
                                 )
                         }
-                        
-                        if !expirationInfo.isEmpty {
-                            let updatedJob: Job? = try job
+                    }
+                    
+                    if !expirationInfo.isEmpty {
+                        let updatedJob: Job? = Storage.shared.write { db in
+                            try job
                                 .with(nextRunTimestamp: Date().timeIntervalSince1970 + minRunFrequency)
                                 .saved(db)
-                            
-                            deferred(updatedJob ?? job)
                         }
+                        
+                        deferred(updatedJob ?? job)
+                    } else {
+                        success(job, false)
                     }
                 }
             )
