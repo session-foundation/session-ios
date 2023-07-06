@@ -1301,7 +1301,6 @@ public final class SnodeAPI {
 
     // MARK: - Error Handling
     
-    /// - Note: Should only be invoked from `Threading.workQueue` to avoid race conditions.
     @discardableResult
     internal static func handleError(
         withStatusCode statusCode: UInt,

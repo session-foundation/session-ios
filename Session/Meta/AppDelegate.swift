@@ -352,6 +352,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             
             /// App won't be ready for extensions and no need to enqueue a config sync unless we successfully completed startup
             Storage.shared.writeAsync { db in
+                // Increment the launch count (guaranteed to change which results in the write actually
+                // doing something and outputting and error if the DB is suspended)
+                db[.activeCounter] = ((db[.activeCounter] ?? 0) + 1)
+                
                 // Disable the SAE until the main app has successfully completed launch process
                 // at least once in the post-SAE world.
                 db[.isReadyForAppExtensions] = true

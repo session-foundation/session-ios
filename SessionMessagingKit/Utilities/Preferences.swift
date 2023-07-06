@@ -89,6 +89,12 @@ public extension Setting.DoubleKey {
     static let screenLockTimeoutSeconds: Setting.DoubleKey = "screenLockTimeoutSeconds"
 }
 
+public extension Setting.IntKey {
+    /// This is the number of times the app has successfully become active, it's not actually used for anything but allows us to make
+    /// a database change on launch so the database will output an error if it fails to write
+    static let activeCounter: Setting.IntKey = "activeCounter"
+}
+
 public enum Preferences {
     public enum NotificationPreviewType: Int, CaseIterable, EnumIntSetting, Differentiable {
         public static var defaultPreviewType: NotificationPreviewType = .nameAndPreview

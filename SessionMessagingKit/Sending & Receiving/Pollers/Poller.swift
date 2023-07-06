@@ -262,6 +262,7 @@ public class Poller {
                 var hadValidHashUpdate: Bool = false
                 var configMessageJobsToRun: [Job] = []
                 var standardMessageJobsToRun: [Job] = []
+                var pollerLogOutput: String = "\(pollerName) failed to process any messages"
                 
                 Storage.shared.write { db in
                     let allProcessedMessages: [ProcessedMessage] = allMessages
@@ -369,11 +370,12 @@ public class Poller {
                             }
                         }
                     
+                    // Set the output for logging
+                    pollerLogOutput = "Received \(messageCount) new message\(messageCount == 1 ? "" : "s") in \(pollerName) (duplicates: \(allMessages.count - messageCount))"
+                    
                     // Clean up message hashes and add some logs about the poll results
                     if allMessages.isEmpty && !hadValidHashUpdate {
-                        if !calledFromBackgroundPoller {
-                            SNLog("Received \(allMessages.count) new message\(allMessages.count == 1 ? "" : "s"), all duplicates - marking the hash we polled with as invalid")
-                        }
+                        pollerLogOutput = "Received \(allMessages.count) new message\(allMessages.count == 1 ? "" : "s") in \(pollerName), all duplicates - marking the hash we polled with as invalid"
                         
                         // Update the cached validity of the messages
                         try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
@@ -382,9 +384,11 @@ public class Poller {
                             otherKnownValidHashes: otherKnownHashes
                         )
                     }
-                    else if !calledFromBackgroundPoller {
-                        SNLog("Received \(messageCount) new message\(messageCount == 1 ? "" : "s") in \(pollerName) (duplicates: \(allMessages.count - messageCount))")
-                    }
+                }
+                
+                // Only output logs if it isn't the background poller
+                if !calledFromBackgroundPoller {
+                    SNLog(pollerLogOutput)
                 }
                 
                 // If we aren't runing in a background poller then just finish immediately

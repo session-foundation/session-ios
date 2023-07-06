@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
 import DifferenceKit
 import SessionMessagingKit
@@ -44,6 +45,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     public let focusedInteractionInfo: Interaction.TimestampInfo? // Note: This is used for global search
     public let focusBehaviour: FocusBehaviour
     private let initialUnreadInteractionId: Int64?
+    private let markAsReadTrigger: PassthroughSubject<(SessionThreadViewModel.ReadTarget, Int64?), Never> = PassthroughSubject()
+    private var markAsReadPublisher: AnyPublisher<Void, Never>?
     
     public lazy var blockedBannerMessage: String = {
         switch self.threadData.threadVariant {
@@ -640,29 +643,45 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         timestampMs: Int64?
     ) {
         /// Since this method now gets triggered when scrolling we want to try to optimise it and avoid busying the database
-        /// write queue when it isn't needed, in order to do this we don't bother marking anything as read if this was called with
-        /// the same `interactionId` that we previously marked as read (ie. when scrolling and the last message hasn't changed)
+        /// write queue when it isn't needed, in order to do this we:
+        /// - Throttle the updates to 100ms (quick enough that users shouldn't notice, but will help the DB when the user flings the list)
+        /// - Don't bother marking anything as read if this was called with the same `interactionId` that we previously marked as
+        /// read (ie. when scrolling and the last message hasn't changed)
         ///
         /// The `ThreadViewModel.markAsRead` method also tries to avoid marking as read if a conversation is already fully read
-        switch target {
-            case .thread: self.threadData.markAsRead(target: target)
-            case .threadAndInteractions:
-                guard
-                    timestampMs == nil ||
-                    self.lastInteractionTimestampMsMarkedAsRead < (timestampMs ?? 0)
-                else {
-                    self.threadData.markAsRead(target: .thread)
-                    return
-                }
-                
-                // If we were given a timestamp then update the 'lastInteractionTimestampMsMarkedAsRead'
-                // to avoid needless updates
-                if let timestampMs: Int64 = timestampMs {
-                    self.lastInteractionTimestampMsMarkedAsRead = timestampMs
-                }
-                
-                self.threadData.markAsRead(target: target)
+        if markAsReadPublisher == nil {
+            markAsReadPublisher = markAsReadTrigger
+                .throttle(for: .milliseconds(100), scheduler: DispatchQueue.global(qos: .userInitiated), latest: true)
+                .handleEvents(
+                    receiveOutput: { [weak self] target, timestampMs in
+                        switch target {
+                            case .thread: self?.threadData.markAsRead(target: target)
+                            case .threadAndInteractions:
+                                guard
+                                    timestampMs == nil ||
+                                    (self?.lastInteractionTimestampMsMarkedAsRead ?? 0) < (timestampMs ?? 0)
+                                else {
+                                    self?.threadData.markAsRead(target: .thread)
+                                    return
+                                }
+                                
+                                // If we were given a timestamp then update the 'lastInteractionTimestampMsMarkedAsRead'
+                                // to avoid needless updates
+                                if let timestampMs: Int64 = timestampMs {
+                                    self?.lastInteractionTimestampMsMarkedAsRead = timestampMs
+                                }
+                                
+                                self?.threadData.markAsRead(target: target)
+                        }
+                    }
+                )
+                .map { _ in () }
+                .eraseToAnyPublisher()
+            
+            markAsReadPublisher?.sinkUntilComplete()
         }
+        
+        markAsReadTrigger.send((target, timestampMs))
     }
     
     public func swapToThread(updatedThreadId: String) {
