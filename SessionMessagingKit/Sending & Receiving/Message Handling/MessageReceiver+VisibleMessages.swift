@@ -215,15 +215,6 @@ extension MessageReceiver {
             syncTarget: message.syncTarget
         )
         
-        startDisappearingMessagesIfNeed(
-            db,
-            threadId: threadId,
-            interactionId: interactionId,
-            variant: interaction.variant,
-            wasRead: interaction.wasRead,
-            shouldExpire: (interaction.isExpiringMessage && interaction.expiresStartedAtMs == nil)
-        )
-        
         // Parse & persist attachments
         let attachments: [Attachment] = try dataMessage.attachments
             .compactMap { proto -> Attachment? in
@@ -414,29 +405,6 @@ extension MessageReceiver {
         }
         
         return interactionId
-    }
-    
-    private static func startDisappearingMessagesIfNeed(
-        _ db: Database,
-        threadId: String,
-        interactionId: Int64,
-        variant: Interaction.Variant,
-        wasRead: Bool,
-        shouldExpire: Bool
-    ) {
-        // Only start a disappearing message job when the incoming message is already read
-        // according to user config
-        guard variant == .standardIncoming && wasRead && shouldExpire else { return }
-        
-        JobRunner.upsert(
-            db,
-            job: DisappearingMessagesJob.updateNextRunIfNeeded(
-                db,
-                interactionIds: [interactionId],
-                startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs()),
-                threadId: threadId
-            )
-        )
     }
     
     private static func updateRecipientAndReadStatesForOutgoingInteraction(
