@@ -29,6 +29,10 @@ public enum GetExpirationJob: JobExecutor {
         }
         
         var expirationInfo: [String: TimeInterval] = details.expirationInfo
+        guard expirationInfo.count > 0 else {
+            success(job, false)
+            return
+        }
         
         let userPublicKey: String = getUserHexEncodedPublicKey()
         SnodeAPI.getSwarm(for: userPublicKey)
@@ -82,11 +86,9 @@ public enum GetExpirationJob: JobExecutor {
                         }
                         
                         if !expirationInfo.isEmpty {
-                            let updatedJob: Job? = Storage.shared.write { db in
-                                try job
-                                    .with(nextRunTimestamp: Date().timeIntervalSince1970 + minRunFrequency)
-                                    .saved(db)
-                            }
+                            let updatedJob: Job? = try job
+                                .with(nextRunTimestamp: Date().timeIntervalSince1970 + minRunFrequency)
+                                .saved(db)
                             
                             deferred(updatedJob ?? job)
                         }

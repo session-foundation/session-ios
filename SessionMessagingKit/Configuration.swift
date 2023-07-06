@@ -61,5 +61,6 @@ public enum SNMessagingKit { // Just to make the external API nice
         JobRunner.add(executor: ConfigurationSyncJob.self, for: .configurationSync)
         JobRunner.add(executor: ConfigMessageReceiveJob.self, for: .configMessageReceive)
         JobRunner.add(executor: ExpirationUpdateJob.self, for: .expirationUpdate)
+        JobRunner.add(executor: GetExpirationJob.self, for: .getExpiration)
     }
 }

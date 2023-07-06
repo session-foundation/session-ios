@@ -72,7 +72,8 @@ public final class JobRunner {
             executionType: .concurrent, // Allow as many jobs to run at once as supported by the device
             qos: .default,
             jobVariants: [
-                jobVariants.remove(.expirationUpdate)
+                jobVariants.remove(.expirationUpdate),
+                jobVariants.remove(.getExpiration)
             ].compactMap { $0 }
         )
         let messageSendQueue: JobQueue = JobQueue(
