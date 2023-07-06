@@ -186,7 +186,7 @@ extension MessageReceiver {
                     else { break }
                     
                     // If we receive an outgoing message that already exists in the database
-                    // then we still need up update the recipient and read states for the
+                    // then we still need to update the recipient and read states for the
                     // message (even if we don't need to do anything else)
                     try updateRecipientAndReadStatesForOutgoingInteraction(
                         db,
@@ -195,6 +195,14 @@ extension MessageReceiver {
                         messageSentTimestamp: messageSentTimestamp,
                         variant: variant,
                         syncTarget: message.syncTarget
+                    )
+                    
+                    getExpirationForOutgoingDisappearingMessages(
+                        db,
+                        threadId: threadId,
+                        variant: variant,
+                        serverHash: message.serverHash,
+                        expireInSeconds: expiresInSeconds
                     )
                     
                 default: break
@@ -213,6 +221,14 @@ extension MessageReceiver {
             messageSentTimestamp: messageSentTimestamp,
             variant: variant,
             syncTarget: message.syncTarget
+        )
+        
+        getExpirationForOutgoingDisappearingMessages(
+            db,
+            threadId: threadId,
+            variant: variant,
+            serverHash: message.serverHash,
+            expireInSeconds: expiresInSeconds
         )
         
         // Parse & persist attachments
@@ -482,5 +498,37 @@ extension MessageReceiver {
             
             _ = try pendingReadReceipt.delete(db)
         }
+    }
+    
+    private static func getExpirationForOutgoingDisappearingMessages(
+        _ db: Database,
+        threadId: String,
+        variant: Interaction.Variant,
+        serverHash: String?,
+        expireInSeconds: TimeInterval?
+    ) {
+        guard
+            variant == .standardOutgoing,
+            let serverHash: String = serverHash,
+            let expireInSeconds: TimeInterval = expireInSeconds,
+            expireInSeconds > 0
+        else {
+            return
+        }
+        
+        let startedAtTimestampMs: Double = Double(SnodeAPI.currentOffsetTimestampMs())
+        
+        JobRunner.add(
+            db,
+            job: Job(
+                variant: .getExpiration,
+                behaviour: .runOnce,
+                threadId: threadId,
+                details: GetExpirationJob.Details(
+                    expirationInfo: [serverHash: expireInSeconds],
+                    startedAtTimestampMs: startedAtTimestampMs
+                )
+            )
+        )
     }
 }

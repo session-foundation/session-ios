@@ -946,8 +946,25 @@ public final class MessageSender {
                         openGroupServerMessageId: message.openGroupServerMessageId.map { Int64($0) }
                     ).update(db)
                     
-                    if interaction.isExpiringMessage {
-                        
+                    if
+                        interaction.isExpiringMessage && isSyncMessage,
+                        let startedAtMs: Double = interaction.expiresStartedAtMs,
+                        let expiresInSeconds: TimeInterval = interaction.expiresInSeconds,
+                        let serverHash: String = message.serverHash
+                    {
+                        let expirationTimestampMs: Int64 = Int64(startedAtMs + expiresInSeconds * 1000)
+                        JobRunner.add(
+                            db,
+                            job: Job(
+                                variant: .expirationUpdate,
+                                behaviour: .runOnce,
+                                threadId: interaction.threadId,
+                                details: ExpirationUpdateJob.Details(
+                                    serverHashes: [serverHash],
+                                    expirationTimestampMs: expirationTimestampMs
+                                )
+                            )
+                        )
                     }
                 }
                 
