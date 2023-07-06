@@ -1199,21 +1199,16 @@ public final class JobQueue {
         // Get the max failure count for the job (a value of '-1' means it will retry indefinitely)
         let maxFailureCount: Int = (JobRunner.executorMap.wrappedValue[job.variant]?.maxFailureCount ?? 0)
         let nextRunTimestamp: TimeInterval = (Date().timeIntervalSince1970 + JobRunner.getRetryInterval(for: job))
+        var dependantJobIds: [Int64] = []
+        var failureText: String = "failed"
         
         Storage.shared.write { db in
-            /// Remove any dependant jobs from the queue (shouldn't be in there but filter the queue just in case so we don't try
-            /// to run a deleted job or get stuck in a loop of trying to run dependencies indefinitely)
-            let dependantJobIds: [Int64] = try job.dependantJobs
+            /// Retrieve a list of dependant jobs so we can clear them from the queue
+            dependantJobIds = try job.dependantJobs
                 .select(.id)
                 .asRequest(of: Int64.self)
                 .fetchAll(db)
-
-            if !dependantJobIds.isEmpty {
-                queue.mutate { queue in
-                    queue = queue.filter { !dependantJobIds.contains($0.id ?? -1) }
-                }
-            }
-
+            
             /// Delete/update the failed jobs and any dependencies
             let updatedFailureCount: UInt = (job.failureCount + 1)
         
@@ -1223,7 +1218,10 @@ public final class JobQueue {
                     updatedFailureCount <= maxFailureCount
                 )
             else {
-                SNLog("[JobRunner] \(queueContext) \(job.variant) failed permanently\(maxFailureCount >= 0 && updatedFailureCount > maxFailureCount ? "; too many retries" : "")")
+                failureText = (maxFailureCount >= 0 && updatedFailureCount > maxFailureCount ?
+                    "failed permanently; too many retries" :
+                    "failed permanently"
+                )
                 
                 // If the job permanently failed or we have performed all of our retry attempts
                 // then delete the job and all of it's dependant jobs (it'll probably never succeed)
@@ -1231,12 +1229,10 @@ public final class JobQueue {
                     .deleteAll(db)
 
                 _ = try job.delete(db)
-                
-                performCleanUp(for: job, result: .failed)
                 return
             }
             
-            SNLog("[JobRunner] \(queueContext) \(job.variant) job failed; scheduling retry (failure count is \(job.failureCount + 1))")
+            failureText = "failed; scheduling retry (failure count is \(updatedFailureCount))"
             
             _ = try job
                 .with(
@@ -1256,6 +1252,15 @@ public final class JobQueue {
                 )
         }
         
+        /// Remove any dependant jobs from the queue (shouldn't be in there but filter the queue just in case so we don't try
+        /// to run a deleted job or get stuck in a loop of trying to run dependencies indefinitely)
+        if !dependantJobIds.isEmpty {
+            queue.mutate { queue in
+                queue = queue.filter { !dependantJobIds.contains($0.id ?? -1) }
+            }
+        }
+        
+        SNLog("[JobRunner] \(queueContext) \(job.variant) job \(failureText)")
         performCleanUp(for: job, result: .failed)
         internalQueue.async { [weak self] in
             self?.runNextJob()

@@ -7,10 +7,12 @@ import GRDB
 import SignalCoreKit
 
 open class Storage {
+    public static let queuePrefix: String = "SessionDatabase"
     private static let dbFileName: String = "Session.sqlite"
     private static let keychainService: String = "TSKeyChainService"
     private static let dbCipherKeySpecKey: String = "GRDBDatabaseCipherKeySpec"
     private static let kSQLCipherKeySpecLength: Int = 48
+    private static let writeWarningThreadshold: TimeInterval = 3
     
     private static var sharedDatabaseDirectoryPath: String { "\(OWSFileSystem.appSharedDataDirectoryPath())/database" }
     private static var databasePath: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)" }
@@ -78,6 +80,7 @@ open class Storage {
         
         // Configure the database and create the DatabasePool for interacting with the database
         var config = Configuration()
+        config.label = Storage.queuePrefix
         config.maximumReaderCount = 10  // Increase the max read connection limit - Default is 5
         config.observesSuspensionNotifications = true // Minimise `0xDEAD10CC` exceptions
         config.prepareDatabase { db in
@@ -365,7 +368,29 @@ open class Storage {
         try SSKDefaultKeychainStorage.shared.remove(service: keychainService, key: dbCipherKeySpecKey)
     }
     
-    // MARK: - Functions
+    // MARK: - Logging Functions
+    
+    typealias CallInfo = (file: String, function: String, line: Int)
+
+    private static func logSlowWrites<T>(
+        info: CallInfo,
+        updates: @escaping (Database) throws -> T
+    ) -> (Database) throws -> T {
+        return { db in
+            let timeout: Timer = Timer.scheduledTimerOnMainThread(withTimeInterval: writeWarningThreadshold) {
+                $0.invalidate()
+                
+                // Don't want to log on the main thread as to avoid confusion when debugging issues
+                DispatchQueue.global(qos: .default).async {
+                    let fileName: String = (info.file.components(separatedBy: "/").last.map { " \($0):\(info.line)" } ?? "")
+                    SNLog("[Storage\(fileName)] Slow write taking longer than \(writeWarningThreadshold)s - \(info.function)")
+                }
+            }
+            defer { timeout.invalidate() }
+            
+            return try updates(db)
+        }
+    }
     
     private static func logIfNeeded(_ error: Error, isWrite: Bool) {
         switch error {
@@ -382,22 +407,50 @@ open class Storage {
         return nil
     }
     
-    @discardableResult public final func write<T>(updates: (Database) throws -> T?) -> T? {
+    // MARK: - Functions
+    
+    @discardableResult public final func write<T>(
+        fileName: String = #file,
+        functionName: String = #function,
+        lineNumber: Int = #line,
+        updates: @escaping (Database) throws -> T?
+    ) -> T? {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return nil }
         
-        do { return try dbWriter.write(updates) }
+        let info: CallInfo = (fileName, functionName, lineNumber)
+        
+        do { return try dbWriter.write(Storage.logSlowWrites(info: info, updates: updates)) }
         catch { return Storage.logIfNeeded(error, isWrite: true) }
     }
     
-    open func writeAsync<T>(updates: @escaping (Database) throws -> T) {
-        writeAsync(updates: updates, completion: { _, _ in })
+    open func writeAsync<T>(
+        fileName: String = #file,
+        functionName: String = #function,
+        lineNumber: Int = #line,
+        updates: @escaping (Database) throws -> T
+    ) {
+        writeAsync(
+            fileName: fileName,
+            functionName: functionName,
+            lineNumber: lineNumber,
+            updates: updates,
+            completion: { _, _ in }
+        )
     }
     
-    open func writeAsync<T>(updates: @escaping (Database) throws -> T, completion: @escaping (Database, Swift.Result<T, Error>) throws -> Void) {
+    open func writeAsync<T>(
+        fileName: String = #file,
+        functionName: String = #function,
+        lineNumber: Int = #line,
+        updates: @escaping (Database) throws -> T,
+        completion: @escaping (Database, Swift.Result<T, Error>) throws -> Void
+    ) {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return }
         
+        let info: CallInfo = (fileName, functionName, lineNumber)
+        
         dbWriter.asyncWrite(
-            updates,
+            Storage.logSlowWrites(info: info, updates: updates),
             completion: { db, result in
                 switch result {
                     case .failure(let error): Storage.logIfNeeded(error, isWrite: true)
@@ -410,12 +463,17 @@ open class Storage {
     }
     
     open func writePublisher<T>(
+        fileName: String = #file,
+        functionName: String = #function,
+        lineNumber: Int = #line,
         updates: @escaping (Database) throws -> T
     ) -> AnyPublisher<T, Error> {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
             return Fail<T, Error>(error: StorageError.databaseInvalid)
                 .eraseToAnyPublisher()
         }
+        
+        let info: CallInfo = (fileName, functionName, lineNumber)
         
         /// **Note:** GRDB does have a `writePublisher` method but it appears to asynchronously trigger
         /// both the `output` and `complete` closures at the same time which causes a lot of unexpected
@@ -426,7 +484,7 @@ open class Storage {
         /// which behaves in a much more expected way than the GRDB `writePublisher` does
         return Deferred {
             Future { resolver in
-                do { resolver(Result.success(try dbWriter.write(updates))) }
+                do { resolver(Result.success(try dbWriter.write(Storage.logSlowWrites(info: info, updates: updates)))) }
                 catch {
                     Storage.logIfNeeded(error, isWrite: true)
                     resolver(Result.failure(error))
