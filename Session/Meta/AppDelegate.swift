@@ -143,6 +143,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // If we've already completed migrations at least once this launch then check
         // to see if any "delayed" migrations now need to run
         if Storage.shared.hasCompletedMigrations {
+            SNLog("Checking for pending migrations")
             let initialLaunchFailed: Bool = self.initialLaunchFailed
             
             AppReadiness.invalidate()
@@ -154,30 +155,33 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 self.window?.rootViewController?.dismiss(animated: false)
             }
             
-            AppSetup.runPostSetupMigrations(
-                migrationProgressChanged: { [weak self] progress, minEstimatedTotalTime in
-                    self?.loadingViewController?.updateProgress(
-                        progress: progress,
-                        minEstimatedTotalTime: minEstimatedTotalTime
-                    )
-                },
-                migrationsCompletion: { [weak self] result, needsConfigSync in
-                    if case .failure(let error) = result {
-                        DispatchQueue.main.async {
-                            self?.showFailedStartupAlert(
-                                calledFrom: .enterForeground(initialLaunchFailed: initialLaunchFailed),
-                                error: .databaseError(error)
-                            )
+            // Dispatch async so things can continue to be progressed if a migration does need to run
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                AppSetup.runPostSetupMigrations(
+                    migrationProgressChanged: { progress, minEstimatedTotalTime in
+                        self?.loadingViewController?.updateProgress(
+                            progress: progress,
+                            minEstimatedTotalTime: minEstimatedTotalTime
+                        )
+                    },
+                    migrationsCompletion: { result, needsConfigSync in
+                        if case .failure(let error) = result {
+                            DispatchQueue.main.async {
+                                self?.showFailedStartupAlert(
+                                    calledFrom: .enterForeground(initialLaunchFailed: initialLaunchFailed),
+                                    error: .databaseError(error)
+                                )
+                            }
+                            return
                         }
-                        return
+                        
+                        self?.completePostMigrationSetup(
+                            calledFrom: .enterForeground(initialLaunchFailed: initialLaunchFailed),
+                            needsConfigSync: needsConfigSync
+                        )
                     }
-                    
-                    self?.completePostMigrationSetup(
-                        calledFrom: .enterForeground(initialLaunchFailed: initialLaunchFailed),
-                        needsConfigSync: needsConfigSync
-                    )
-                }
-            )
+                )
+            }
         }
     }
     
@@ -322,8 +326,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             // the user is in an invalid state (and should have already been shown a modal)
             guard success else { return }
             
+            SNLog("RootViewController ready, readying remaining processes")
             self?.initialLaunchFailed = false
-            SNLog("Migrations completed, performing setup and ensuring rootViewController")
             
             /// Trigger any launch-specific jobs and start the JobRunner with `JobRunner.appDidFinishLaunching()` some
             /// of these jobs (eg. DisappearingMessages job) can impact the interactions which get fetched to display on the home

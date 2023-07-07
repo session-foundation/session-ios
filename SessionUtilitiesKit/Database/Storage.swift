@@ -206,11 +206,6 @@ open class Storage {
             }
         })
         
-        // If we have an unperformed migration then trigger the progress updater immediately
-        if let firstMigrationKey: String = unperformedMigrations.first?.key {
-            self.migrationProgressUpdater?.wrappedValue(firstMigrationKey, 0)
-        }
-        
         // Store the logic to run when the migration completes
         let migrationCompleted: (Swift.Result<Void, Error>) -> () = { [weak self] result in
             self?.migrationsCompleted.mutate { $0 = true }
@@ -230,10 +225,17 @@ open class Storage {
             onComplete(result, needsConfigSync)
         }
         
-        // Update the 'migrationsCompleted' state (since we not support running migrations when
-        // returning from the background it's possible for this flag to transition back to false)
-        if unperformedMigrations.isEmpty {
-            self.migrationsCompleted.mutate { $0 = false }
+        // if there aren't any migrations to run then just complete immediately (this way the migrator
+        // doesn't try to execute on the DBWrite thread so returning from the background can't get blocked
+        // due to some weird endless process running)
+        guard !unperformedMigrations.isEmpty else {
+            migrationCompleted(.success(()))
+            return
+        }
+        
+        // If we have an unperformed migration then trigger the progress updater immediately
+        if let firstMigrationKey: String = unperformedMigrations.first?.key {
+            self.migrationProgressUpdater?.wrappedValue(firstMigrationKey, 0)
         }
         
         // Note: The non-async migration should only be used for unit tests
@@ -377,16 +379,28 @@ open class Storage {
         updates: @escaping (Database) throws -> T
     ) -> (Database) throws -> T {
         return { db in
+            let start: CFTimeInterval = CACurrentMediaTime()
+            let fileName: String = (info.file.components(separatedBy: "/").last.map { " \($0):\(info.line)" } ?? "")
             let timeout: Timer = Timer.scheduledTimerOnMainThread(withTimeInterval: writeWarningThreadshold) {
                 $0.invalidate()
                 
                 // Don't want to log on the main thread as to avoid confusion when debugging issues
                 DispatchQueue.global(qos: .default).async {
-                    let fileName: String = (info.file.components(separatedBy: "/").last.map { " \($0):\(info.line)" } ?? "")
-                    SNLog("[Storage\(fileName)] Slow write taking longer than \(writeWarningThreadshold)s - \(info.function)")
+                    SNLog("[Storage\(fileName)] Slow write taking longer than \(writeWarningThreadshold, format: ".2", omitZeroDecimal: true)s - \(info.function)")
                 }
             }
-            defer { timeout.invalidate() }
+            defer {
+                // If we timed out then log the actual duration to help us prioritise performance issues
+                if !timeout.isValid {
+                    let end: CFTimeInterval = CACurrentMediaTime()
+                    
+                    DispatchQueue.global(qos: .default).async {
+                        SNLog("[Storage\(fileName)] Slow write completed after \(end - start, format: ".2", omitZeroDecimal: true)s")
+                    }
+                }
+                
+                timeout.invalidate()
+            }
             
             return try updates(db)
         }
