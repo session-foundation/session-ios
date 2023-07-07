@@ -246,16 +246,9 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                             try DisappearingMessagesConfiguration.fetchOne(db, id: "TestId")
                         }
                         
-                        expect(updatedConfig?.isEnabled)
-                            .toEventually(
-                                beTrue(),
-                                timeout: .milliseconds(100)
-                            )
+                        expect(updatedConfig?.isEnabled).to(beTrue())
                         expect(updatedConfig?.durationSeconds)
-                            .toEventually(
-                                equal(DisappearingMessagesConfiguration.validDurationsSeconds.last ?? -1),
-                                timeout: .milliseconds(100)
-                            )
+                            .to(equal(DisappearingMessagesConfiguration.validDurationsSeconds.last ?? -1))
                     }
                 }
             }

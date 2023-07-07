@@ -217,12 +217,10 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                                 self?.presentingViewController?.dismiss(animated: true, completion: nil)
                                 
                                 if shouldOpenCommunity {
-                                    SessionApp.presentConversation(
+                                    SessionApp.presentConversationCreatingIfNeeded(
                                         for: OpenGroup.idFor(roomToken: roomToken, server: server),
-                                        threadVariant: .community,
-                                        isMessageRequest: false,
-                                        action: .compose,
-                                        focusInteractionInfo: nil,
+                                        variant: .community,
+                                        dismissing: nil,
                                         animated: false
                                     )
                                 }

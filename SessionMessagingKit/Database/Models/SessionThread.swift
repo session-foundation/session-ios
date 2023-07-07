@@ -192,20 +192,6 @@ public extension SessionThread {
             )
     }
     
-    func isMessageRequest(_ db: Database, includeNonVisible: Bool = false) -> Bool {
-        return (
-            (includeNonVisible || shouldBeVisible) &&
-            variant == .contact &&
-            id != getUserHexEncodedPublicKey(db) && // Note to self
-            (try? Contact
-                .filter(id: id)
-                .select(.isApproved)
-                .asRequest(of: Bool.self)
-                .fetchOne(db))
-                .defaulting(to: false) == false
-        )
-    }
-    
     static func canSendReadReceipt(
         _ db: Database,
         threadId: String,
@@ -429,6 +415,38 @@ public extension SessionThread {
                 IFNULL(\(contact[.isApproved]), false) = false
             """
         ).sqlExpression
+    }
+    
+    func isMessageRequest(_ db: Database, includeNonVisible: Bool = false) -> Bool {
+        return SessionThread.isMessageRequest(
+            id: id,
+            variant: variant,
+            currentUserPublicKey: getUserHexEncodedPublicKey(db),
+            shouldBeVisible: shouldBeVisible,
+            contactIsApproved: (try? Contact
+                .filter(id: id)
+                .select(.isApproved)
+                .asRequest(of: Bool.self)
+                .fetchOne(db))
+                .defaulting(to: false),
+            includeNonVisible: includeNonVisible
+        )
+    }
+    
+    static func isMessageRequest(
+        id: String,
+        variant: SessionThread.Variant?,
+        currentUserPublicKey: String,
+        shouldBeVisible: Bool?,
+        contactIsApproved: Bool?,
+        includeNonVisible: Bool = false
+    ) -> Bool {
+        return (
+            (includeNonVisible || shouldBeVisible == true) &&
+            variant == .contact &&
+            id != currentUserPublicKey && // Note to self
+            ((contactIsApproved ?? false) == false)
+        )
     }
     
     func isNoteToSelf(_ db: Database? = nil) -> Bool {

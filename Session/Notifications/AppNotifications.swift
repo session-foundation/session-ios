@@ -37,6 +37,7 @@ enum AppNotificationAction: CaseIterable {
 
 struct AppNotificationUserInfoKey {
     static let threadId = "Signal.AppNotificationsUserInfoKey.threadId"
+    static let threadVariantRaw = "Signal.AppNotificationsUserInfoKey.threadVariantRaw"
     static let callBackNumber = "Signal.AppNotificationsUserInfoKey.callBackNumber"
     static let localCallId = "Signal.AppNotificationsUserInfoKey.localCallId"
     static let threadNotificationCounter = "Session.AppNotificationsUserInfoKey.threadNotificationCounter"
@@ -232,8 +233,9 @@ public class NotificationPresenter: NotificationsProtocol {
         // "no longer verified".
         let category = AppNotificationCategory.incomingMessage
 
-        let userInfo = [
-            AppNotificationUserInfoKey.threadId: thread.id
+        let userInfo: [AnyHashable: Any] = [
+            AppNotificationUserInfoKey.threadId: thread.id,
+            AppNotificationUserInfoKey.threadVariantRaw: thread.variant.rawValue
         ]
         
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
@@ -301,8 +303,9 @@ public class NotificationPresenter: NotificationsProtocol {
         let previewType: Preferences.NotificationPreviewType = db[.preferencesNotificationPreviewType]
             .defaulting(to: .nameAndPreview)
         
-        let userInfo = [
-            AppNotificationUserInfoKey.threadId: thread.id
+        let userInfo: [AnyHashable: Any] = [
+            AppNotificationUserInfoKey.threadId: thread.id,
+            AppNotificationUserInfoKey.threadVariantRaw: thread.variant.rawValue
         ]
         
         let notificationTitle: String = "Session"
@@ -378,8 +381,9 @@ public class NotificationPresenter: NotificationsProtocol {
         
         let category = AppNotificationCategory.incomingMessage
 
-        let userInfo = [
-            AppNotificationUserInfoKey.threadId: thread.id
+        let userInfo: [AnyHashable: Any] = [
+            AppNotificationUserInfoKey.threadId: thread.id,
+            AppNotificationUserInfoKey.threadVariantRaw: thread.variant.rawValue
         ]
         
         let threadName: String = SessionThread.displayName(
@@ -440,8 +444,9 @@ public class NotificationPresenter: NotificationsProtocol {
 
         let notificationBody = NotificationStrings.failedToSendBody
 
-        let userInfo = [
-            AppNotificationUserInfoKey.threadId: thread.id
+        let userInfo: [AnyHashable: Any] = [
+            AppNotificationUserInfoKey.threadId: thread.id,
+            AppNotificationUserInfoKey.threadVariantRaw: thread.variant.rawValue
         ]
         let fallbackSound: Preferences.Sound = db[.defaultNotificationSound]
             .defaulting(to: Preferences.Sound.defaultNotificationSound)
@@ -609,15 +614,22 @@ class NotificationActionHandler {
     }
 
     func showThread(userInfo: [AnyHashable: Any]) -> AnyPublisher<Void, Never> {
-        guard let threadId = userInfo[AppNotificationUserInfoKey.threadId] as? String else {
-            return showHomeVC()
-        }
+        guard
+            let threadId = userInfo[AppNotificationUserInfoKey.threadId] as? String,
+            let threadVariantRaw = userInfo[AppNotificationUserInfoKey.threadVariantRaw] as? Int,
+            let threadVariant: SessionThread.Variant = SessionThread.Variant(rawValue: threadVariantRaw)
+        else { return showHomeVC() }
 
         // If this happens when the the app is not, visible we skip the animation so the thread
         // can be visible to the user immediately upon opening the app, rather than having to watch
         // it animate in from the homescreen.
-        let shouldAnimate: Bool = (UIApplication.shared.applicationState == .active)
-        SessionApp.presentConversation(for: threadId, animated: shouldAnimate)
+        SessionApp.presentConversationCreatingIfNeeded(
+            for: threadId,
+            variant: threadVariant,
+            dismissing: nil,
+            animated: (UIApplication.shared.applicationState == .active)
+        )
+        
         return Just(())
             .eraseToAnyPublisher()
     }

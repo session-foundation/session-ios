@@ -438,14 +438,6 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     mockOGMCache.when { $0.isPolling }.thenReturn(true)
                     mockOGMCache.when { $0.pollers }.thenReturn(["testserver": OpenGroupAPI.Poller(for: "testserver")])
-                    
-                    mockUserDefaults
-                        .when { (defaults: inout any UserDefaultsType) -> Any? in
-                            defaults.object(forKey: SNUserDefaults.Date.lastOpen.rawValue)
-                        }
-                        .thenReturn(Date(timeIntervalSince1970: 1234567890))
-                    
-                    openGroupManager.startPolling(using: dependencies)
                 }
                 
                 it("removes all pollers") {

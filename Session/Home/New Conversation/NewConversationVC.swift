@@ -179,16 +179,13 @@ final class NewConversationVC: BaseVC, ThemedNavigation, UITableViewDelegate, UI
         tableView.deselectRow(at: indexPath, animated: true)
         
         let sessionId = newConversationViewModel.sectionData[indexPath.section].contacts[indexPath.row].id
-        let maybeThread: SessionThread? = Storage.shared.write { db in
-            try SessionThread
-                .fetchOrCreate(db, id: sessionId, variant: .contact, shouldBeVisible: nil)
-        }
         
-        guard maybeThread != nil else { return }
-        
-        self.navigationController?.dismiss(animated: true, completion: nil)
-        
-        SessionApp.presentConversation(for: sessionId, action: .compose, animated: false)
+        SessionApp.presentConversationCreatingIfNeeded(
+            for: sessionId,
+            variant: .contact,
+            dismissing: navigationController,
+            animated: false
+        )
     }
     
     func tableView(_ tableView: UITableView, willDisplayHeaderView view: UIView, forSection section: Int) {
