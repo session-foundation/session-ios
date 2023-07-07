@@ -314,9 +314,10 @@ public enum SessionUtil {
             .compactMap { variant -> OutgoingConfResult? in
                 try SessionUtil
                     .config(for: variant, publicKey: publicKey)
-                    .mutate { conf in
+                    .wrappedValue
+                    .map { conf in
                         // Check if the config needs to be pushed
-                        guard conf != nil && config_needs_push(conf) else { return nil }
+                        guard config_needs_push(conf) else { return nil }
                         
                         var cPushData: UnsafeMutablePointer<config_push_data>!
                         let configCountInfo: String = {
@@ -375,10 +376,7 @@ public enum SessionUtil {
         publicKey: String
     ) -> ConfigDump? {
         return SessionUtil
-            .config(
-                for: message.kind.configDumpVariant,
-                publicKey: publicKey
-            )
+            .config(for: message.kind.configDumpVariant, publicKey: publicKey)
             .mutate { conf in
                 guard conf != nil else { return nil }
                 

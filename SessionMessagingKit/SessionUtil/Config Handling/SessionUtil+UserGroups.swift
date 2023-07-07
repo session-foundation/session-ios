@@ -34,6 +34,7 @@ internal extension SessionUtil {
         guard mergeNeedsDump else { return }
         guard conf != nil else { throw SessionUtilError.nilConfigObject }
         
+        var infiniteLoopGuard: Int = 0
         var communities: [PrioritisedData<OpenGroupUrlInfo>] = []
         var legacyGroups: [LegacyGroupInfo] = []
         var community: ugroups_community_info = ugroups_community_info()
@@ -41,6 +42,8 @@ internal extension SessionUtil {
         let groupsIterator: OpaquePointer = user_groups_iterator_new(conf)
         
         while !user_groups_iterator_done(groupsIterator) {
+            try SessionUtil.checkLoopLimitReached(&infiniteLoopGuard, for: .userGroups)
+            
             if user_groups_it_is_community(groupsIterator, &community) {
                 let server: String = String(libSessionVal: community.base_url)
                 let roomToken: String = String(libSessionVal: community.room)

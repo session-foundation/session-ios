@@ -40,7 +40,7 @@ internal extension SessionUtil {
         // The current users contact data is handled separately so exclude it if it's present (as that's
         // actually a bug)
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
-        let targetContactData: [String: ContactData] = extractContacts(
+        let targetContactData: [String: ContactData] = try extractContacts(
             from: conf,
             latestConfigSentTimestampMs: latestConfigSentTimestampMs
         ).filter { $0.key != userPublicKey }
@@ -540,12 +540,15 @@ private extension SessionUtil {
     static func extractContacts(
         from conf: UnsafeMutablePointer<config_object>?,
         latestConfigSentTimestampMs: Int64
-    ) -> [String: ContactData] {
+    ) throws -> [String: ContactData] {
+        var infiniteLoopGuard: Int = 0
         var result: [String: ContactData] = [:]
         var contact: contacts_contact = contacts_contact()
         let contactIterator: UnsafeMutablePointer<contacts_iterator> = contacts_iterator_new(conf)
         
         while !contacts_iterator_done(contactIterator, &contact) {
+            try SessionUtil.checkLoopLimitReached(&infiniteLoopGuard, for: .contacts)
+            
             let contactId: String = String(cString: withUnsafeBytes(of: contact.session_id) { [UInt8]($0) }
                 .map { CChar($0) }
                 .nullTerminated()

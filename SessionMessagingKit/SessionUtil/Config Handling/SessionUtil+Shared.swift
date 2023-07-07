@@ -59,10 +59,7 @@ internal extension SessionUtil {
         
         do {
             needsPush = try SessionUtil
-                .config(
-                    for: variant,
-                    publicKey: publicKey
-                )
+                .config(for: variant, publicKey: publicKey)
                 .mutate { conf in
                     guard conf != nil else { throw SessionUtilError.nilConfigObject }
                     
@@ -331,6 +328,15 @@ internal extension SessionUtil {
         
         // Ensure the change occurred after the last config message was handled (minus the buffer period)
         return (changeTimestampMs >= (configDumpTimestampMs - Int64(SessionUtil.configChangeBufferPeriod * 1000)))
+    }
+    
+    static func checkLoopLimitReached(_ loopCounter: inout Int, for variant: ConfigDump.Variant, maxLoopCount: Int = 50000) throws {
+        loopCounter += 1
+        
+        guard loopCounter < maxLoopCount else {
+            SNLog("[libSession] Got stuck in infinite loop processing '\(variant.configMessageKind.description)' data")
+            throw SessionUtilError.processingLoopLimitReached
+        }
     }
 }
 
