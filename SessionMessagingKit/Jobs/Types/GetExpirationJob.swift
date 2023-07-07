@@ -28,7 +28,15 @@ public enum GetExpirationJob: JobExecutor {
             return
         }
         
-        var expirationInfo: [String: TimeInterval] = details.expirationInfo
+        var expirationInfo: [String: TimeInterval] = Storage.shared.read { db -> [String: TimeInterval] in
+            details
+                .expirationInfo
+                .filter {
+                    Interaction.filter(Interaction.Columns.serverHash == $0.key).isNotEmpty(db)
+                }
+        }
+        .defaulting(to: details.expirationInfo)
+        
         guard expirationInfo.count > 0 else {
             success(job, false)
             return
