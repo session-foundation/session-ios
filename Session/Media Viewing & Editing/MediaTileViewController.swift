@@ -53,6 +53,10 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
     // MARK: - UI
     
     override public var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+        if UIDevice.current.isIPad {
+            return .all
+        }
+
         return .allButUpsideDown
     }
     
