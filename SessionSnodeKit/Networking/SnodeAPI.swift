@@ -602,6 +602,9 @@ public final class SnodeAPI {
         
         let sendTimestamp: UInt64 = UInt64(SnodeAPI.currentOffsetTimestampMs())
         
+        // FIXME: There is a bug on SS now that a single-hash lookup is not working. Remove it when the bug is fixed
+        let serverHashes: [String] = serverHashes.appending("fakehash")
+        
         return SnodeAPI
             .send(
                 request: SnodeRequest(
@@ -806,8 +809,6 @@ public final class SnodeAPI {
                 .eraseToAnyPublisher()
         }
         
-        let updatedExpiryMsWithNetworkOffset: UInt64 = UInt64(updatedExpiryMs + SnodeAPI.clockOffsetMs.wrappedValue)
-        
         return getSwarm(for: publicKey)
             .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: UpdateExpiryResponseResult], Error> in
                 SnodeAPI
@@ -816,7 +817,7 @@ public final class SnodeAPI {
                             endpoint: .expire,
                             body: UpdateExpiryRequest(
                                 messageHashes: serverHashes,
-                                expiryMs: updatedExpiryMsWithNetworkOffset,
+                                expiryMs: UInt64(updatedExpiryMs),
                                 shorten: shortenOnly,
                                 extend: extendOnly,
                                 pubkey: publicKey,

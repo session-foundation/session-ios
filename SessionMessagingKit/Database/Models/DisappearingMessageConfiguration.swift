@@ -254,7 +254,7 @@ extension DisappearingMessagesConfiguration {
                 .map { TimeInterval($0)  }
                 #if targetEnvironment(simulator)
                     result.insert(
-                        TimeInterval(2 * 60),
+                        TimeInterval(60),
                         at: 0
                     )
                     result.insert(

@@ -92,6 +92,11 @@ public enum GetExpirationJob: JobExecutor {
                                     Interaction.Columns.expiresStartedAtMs.set(to: details.startedAtTimestampMs)
                                 )
                         }
+                        
+                        JobRunner.upsert(
+                            db,
+                            job: DisappearingMessagesJob.updateNextRunIfNeeded(db)
+                        )
                     }
                     
                     if !expirationInfo.isEmpty {
