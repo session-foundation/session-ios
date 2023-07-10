@@ -57,49 +57,42 @@ extension OpenGroupAPI {
         ) {
             guard hasStarted else { return }
             
-            dependencies.storage
-                .readPublisher { [server = server] db in
-                    try OpenGroup
-                        .filter(OpenGroup.Columns.server == server)
-                        .select(min(OpenGroup.Columns.pollFailureCount))
-                        .asRequest(of: TimeInterval.self)
-                        .fetchOne(db)
-                }
-                .tryFlatMap { [weak self] minPollFailureCount -> AnyPublisher<(TimeInterval, TimeInterval), Error> in
-                    guard let strongSelf = self else { throw OpenGroupAPIError.invalidPoll }
-
-                    let lastPollStart: TimeInterval = Date().timeIntervalSince1970
-                    let nextPollInterval: TimeInterval = Poller.getInterval(
-                        for: (minPollFailureCount ?? 0),
-                        minInterval: Poller.minPollInterval,
-                        maxInterval: Poller.maxPollInterval
-                    )
-
-                    // Wait until the last poll completes before polling again ensuring we don't poll any faster than
-                    // the 'nextPollInterval' value
-                    return strongSelf.poll(using: dependencies)
-                        .map { _ in (lastPollStart, nextPollInterval) }
-                        .eraseToAnyPublisher()
-                }
+            let server: String = self.server
+            let lastPollStart: TimeInterval = Date().timeIntervalSince1970
+            
+            poll(using: dependencies)
                 .subscribe(on: dependencies.subscribeQueue)
                 .receive(on: dependencies.receiveQueue)
                 .sinkUntilComplete(
-                    receiveValue: { [weak self] lastPollStart, nextPollInterval in
+                    receiveCompletion: { [weak self] _ in
+                        let minPollFailureCount: Int64 = dependencies.storage
+                            .read { db in
+                                try OpenGroup
+                                    .filter(OpenGroup.Columns.server == server)
+                                    .select(min(OpenGroup.Columns.pollFailureCount))
+                                    .asRequest(of: Int64.self)
+                                    .fetchOne(db)
+                            }
+                            .defaulting(to: 0)
+                        
+                        // Calculate the remaining poll delay
                         let currentTime: TimeInterval = Date().timeIntervalSince1970
+                        let nextPollInterval: TimeInterval = Poller.getInterval(
+                            for: TimeInterval(minPollFailureCount),
+                            minInterval: Poller.minPollInterval,
+                            maxInterval: Poller.maxPollInterval
+                        )
                         let remainingInterval: TimeInterval = max(0, nextPollInterval - (currentTime - lastPollStart))
-
+                        
+                        // Schedule the next poll
                         guard remainingInterval > 0 else {
                             return dependencies.subscribeQueue.async {
                                 self?.pollRecursively(using: dependencies)
                             }
                         }
-
-                        self?.timer = Timer.scheduledTimerOnMainThread(withTimeInterval: remainingInterval, repeats: false) { timer in
-                            timer.invalidate()
-
-                            dependencies.subscribeQueue.async {
-                                self?.pollRecursively(using: dependencies)
-                            }
+                        
+                        dependencies.subscribeQueue.asyncAfter(deadline: .now() + .milliseconds(Int(remainingInterval * 1000)), qos: .default) {
+                            self?.pollRecursively(using: dependencies)
                         }
                     }
                 )
@@ -227,7 +220,7 @@ extension OpenGroupAPI {
                                         .defaulting(to: 0)
                                     var prunedIds: [String] = []
 
-                                    Storage.shared.writeAsync { db in
+                                    dependencies.storage.writeAsync { db in
                                         struct Info: Decodable, FetchableRecord {
                                             let id: String
                                             let shouldBeVisible: Bool

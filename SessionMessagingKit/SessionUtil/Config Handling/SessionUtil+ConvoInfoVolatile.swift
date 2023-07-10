@@ -80,7 +80,8 @@ internal extension SessionUtil {
                 try Interaction
                     .filter(
                         Interaction.Columns.threadId == threadId &&
-                        Interaction.Columns.timestampMs <= lastReadTimestampMs
+                        Interaction.Columns.timestampMs <= lastReadTimestampMs &&
+                        Interaction.Columns.wasRead == false
                     )
                     .updateAll( // Handling a config update so don't use `updateAllAndConfig`
                         db,

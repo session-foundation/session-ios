@@ -158,6 +158,9 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
     /// to avoid blocking the DBWrite thread we dispatch to a serial `commitProcessingQueue` to process the incoming changes (in the past not doing
     /// so was resulting in hanging when there was a lot of activity happening)
     public func databaseDidCommit(_ db: Database) {
+        // If there were no pending changes in the commit then do nothing
+        guard !self.changesInCommit.wrappedValue.isEmpty else { return }
+        
         // Since we can't be sure the behaviours of 'databaseDidChange' and 'databaseDidCommit' won't change in
         // the future we extract and clear the values in 'changesInCommit' since it's 'Atomic<T>' so will different
         // threads modifying the data resulting in us missing a change
@@ -174,9 +177,6 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
     }
     
     private func processDatabaseCommit(committedChanges: Set<PagedData.TrackedChange>) {
-        // Do nothing when there are no changes
-        guard !committedChanges.isEmpty else { return }
-        
         typealias AssociatedDataInfo = [(hasChanges: Bool, data: ErasedAssociatedRecord)]
         typealias UpdatedData = (cache: DataCache<T>, pageInfo: PagedData.PageInfo, hasChanges: Bool, associatedData: AssociatedDataInfo)
         

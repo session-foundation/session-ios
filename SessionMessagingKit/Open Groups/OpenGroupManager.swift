@@ -521,61 +521,65 @@ public final class OpenGroupManager {
                 }
         }
         
-        db.afterNextTransactionNested { db in
-            // Start the poller if needed
-            if dependencies.cache.pollers[server.lowercased()] == nil {
-                dependencies.mutableCache.mutate {
-                    $0.pollers[server.lowercased()]?.stop()
-                    $0.pollers[server.lowercased()] = OpenGroupAPI.Poller(for: server.lowercased())
+        db.afterNextTransactionNested { _ in
+            // Dispatch async to the workQueue to prevent holding up the DBWrite thread from the
+            // above transaction
+            OpenGroupAPI.workQueue.async {
+                // Start the poller if needed
+                if dependencies.cache.pollers[server.lowercased()] == nil {
+                    dependencies.mutableCache.mutate {
+                        $0.pollers[server.lowercased()]?.stop()
+                        $0.pollers[server.lowercased()] = OpenGroupAPI.Poller(for: server.lowercased())
+                    }
+                    
+                    dependencies.cache.pollers[server.lowercased()]?.startIfNeeded(using: dependencies)
                 }
                 
-                dependencies.cache.pollers[server.lowercased()]?.startIfNeeded(using: dependencies)
-            }
-            
-            /// Start downloading the room image (if we don't have one or it's been updated)
-            if
-                let imageId: String = (pollInfo.details?.imageId ?? openGroup.imageId),
-                (
-                    openGroup.imageData == nil ||
-                    openGroup.imageId != imageId
-                )
-            {
-                OpenGroupManager
-                    .roomImage(
-                        fileId: imageId,
-                        for: roomToken,
-                        on: server,
-                        existingData: openGroup.imageData,
-                        using: dependencies
+                /// Start downloading the room image (if we don't have one or it's been updated)
+                if
+                    let imageId: String = (pollInfo.details?.imageId ?? openGroup.imageId),
+                    (
+                        openGroup.imageData == nil ||
+                        openGroup.imageId != imageId
                     )
-                    // Note: We need to subscribe and receive on different threads to ensure the
-                    // logic in 'receiveValue' doesn't result in a reentrancy database issue
-                    .subscribe(on: OpenGroupAPI.workQueue)
-                    .receive(on: DispatchQueue.global(qos: .default))
-                    .sinkUntilComplete(
-                        receiveCompletion: { _ in
-                            if waitForImageToComplete {
-                                completion?()
+                {
+                    OpenGroupManager
+                        .roomImage(
+                            fileId: imageId,
+                            for: roomToken,
+                            on: server,
+                            existingData: openGroup.imageData,
+                            using: dependencies
+                        )
+                        // Note: We need to subscribe and receive on different threads to ensure the
+                        // logic in 'receiveValue' doesn't result in a reentrancy database issue
+                        .subscribe(on: OpenGroupAPI.workQueue)
+                        .receive(on: DispatchQueue.global(qos: .default))
+                        .sinkUntilComplete(
+                            receiveCompletion: { _ in
+                                if waitForImageToComplete {
+                                    completion?()
+                                }
+                            },
+                            receiveValue: { data in
+                                dependencies.storage.write { db in
+                                    _ = try OpenGroup
+                                        .filter(id: threadId)
+                                        .updateAll(db, OpenGroup.Columns.imageData.set(to: data))
+                                }
                             }
-                        },
-                        receiveValue: { data in
-                            dependencies.storage.write { db in
-                                _ = try OpenGroup
-                                    .filter(id: threadId)
-                                    .updateAll(db, OpenGroup.Columns.imageData.set(to: data))
-                            }
-                        }
-                    )
-            }
-            else if waitForImageToComplete {
+                        )
+                }
+                else if waitForImageToComplete {
+                    completion?()
+                }
+                
+                // If we want to wait for the image to complete then don't call the completion here
+                guard !waitForImageToComplete else { return }
+                
+                // Finish
                 completion?()
             }
-            
-            // If we want to wait for the image to complete then don't call the completion here
-            guard !waitForImageToComplete else { return }
-
-            // Finish
-            completion?()
         }
     }
     
