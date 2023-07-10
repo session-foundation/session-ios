@@ -11,12 +11,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 BOOL IsLandscapeOrientationEnabled(void)
 {
-    return NO;
+    return UIDevice.currentDevice.isIPad;
 }
 
 UIInterfaceOrientationMask DefaultUIInterfaceOrientationMask(void)
 {
-    return (IsLandscapeOrientationEnabled() ? UIInterfaceOrientationMaskAllButUpsideDown
+    return (IsLandscapeOrientationEnabled() ? UIInterfaceOrientationMaskAll
                                             : UIInterfaceOrientationMaskPortrait);
 }
 
