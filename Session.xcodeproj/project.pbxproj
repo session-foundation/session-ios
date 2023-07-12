@@ -161,6 +161,7 @@
 		7BC707F227290ACB002817AD /* SessionCallManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BC707F127290ACB002817AD /* SessionCallManager.swift */; };
 		7BCD116C27016062006330F1 /* WebRTCSession+DataChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BCD116B27016062006330F1 /* WebRTCSession+DataChannel.swift */; };
 		7BD477A827EC39F5004E2822 /* Atomic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BD477A727EC39F5004E2822 /* Atomic.swift */; };
+		7BD687D12A5D0D1200D8E455 /* MessageInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BD687D02A5D0D1200D8E455 /* MessageInfoView.swift */; };
 		7BDCFC08242186E700641C39 /* NotificationServiceExtensionContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BDCFC07242186E700641C39 /* NotificationServiceExtensionContext.swift */; };
 		7BDCFC0B2421EB7600641C39 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = B6F509951AA53F760068F56A /* Localizable.strings */; };
 		7BFA8AE32831D0D4001876F3 /* ContextMenuVC+EmojiReactsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFA8AE22831D0D4001876F3 /* ContextMenuVC+EmojiReactsView.swift */; };
@@ -1276,6 +1277,8 @@
 		7BC707F127290ACB002817AD /* SessionCallManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionCallManager.swift; sourceTree = "<group>"; };
 		7BCD116B27016062006330F1 /* WebRTCSession+DataChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WebRTCSession+DataChannel.swift"; sourceTree = "<group>"; };
 		7BD477A727EC39F5004E2822 /* Atomic.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Atomic.swift; sourceTree = "<group>"; };
+		7BD687D02A5D0D1200D8E455 /* MessageInfoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageInfoView.swift; sourceTree = "<group>"; };
+		7BD687D22A5D283200D8E455 /* build_libSession_util.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = build_libSession_util.sh; sourceTree = "<group>"; };
 		7BDCFC0424206E7300641C39 /* SessionNotificationServiceExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SessionNotificationServiceExtension.entitlements; sourceTree = "<group>"; };
 		7BDCFC07242186E700641C39 /* NotificationServiceExtensionContext.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NotificationServiceExtensionContext.swift; sourceTree = "<group>"; };
 		7BFA8AE22831D0D4001876F3 /* ContextMenuVC+EmojiReactsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ContextMenuVC+EmojiReactsView.swift"; sourceTree = "<group>"; };
@@ -3089,6 +3092,7 @@
 				7B3A392D2977791E002FE4AC /* MediaInfoVC.swift */,
 				7B3A392F297A3919002FE4AC /* MediaInfoVC+MediaPreviewView.swift */,
 				7B2561C12978B307005C086C /* MediaInfoVC+MediaInfoView.swift */,
+				7BD687D02A5D0D1200D8E455 /* MessageInfoView.swift */,
 			);
 			path = "Media Viewing & Editing";
 			sourceTree = "<group>";
@@ -4284,6 +4288,7 @@
 		FDE7214E287E50D50093DF33 /* Scripts */ = {
 			isa = PBXGroup;
 			children = (
+				7BD687D22A5D283200D8E455 /* build_libSession_util.sh */,
 				FDE7214F287E50D50093DF33 /* ProtoWrappers.py */,
 				FDE72150287E50D50093DF33 /* LintLocalizableStrings.swift */,
 				FD5CE3442A3C5D96001A6DE3 /* DecryptExportedKey.swift */,
@@ -6319,6 +6324,7 @@
 				FD37E9CC28A1E578003AE748 /* AppearanceViewController.swift in Sources */,
 				B8EB20F02640F7F000773E52 /* OpenGroupInvitationView.swift in Sources */,
 				C328254025CA55880062D0A7 /* ContextMenuVC.swift in Sources */,
+				7BD687D12A5D0D1200D8E455 /* MessageInfoView.swift in Sources */,
 				3427C64320F500E000EEC730 /* OWSMessageTimerView.m in Sources */,
 				B8269D2925C7A4B400488AB4 /* InputView.swift in Sources */,
 				FD71162E28E168C700B47552 /* SettingsViewModel.swift in Sources */,
