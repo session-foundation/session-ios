@@ -14,7 +14,7 @@ public final class ClosedGroupPoller: Poller {
     override var namespaces: [SnodeAPI.Namespace] { ClosedGroupPoller.namespaces }
     override var maxNodePollCount: UInt { 0 }
     
-    private static let minPollInterval: Double = 2
+    private static let minPollInterval: Double = 3
     private static let maxPollInterval: Double = 30
 
     // MARK: - Initialization
@@ -78,30 +78,12 @@ public final class ClosedGroupPoller: Poller {
         return nextPollInterval
     }
     
-    override func getSnodeForPolling(
-        for publicKey: String
-    ) -> AnyPublisher<Snode, Error> {
-        return SnodeAPI.getSwarm(for: publicKey)
-            .tryMap { swarm -> Snode in
-                guard let snode: Snode = swarm.randomElement() else {
-                    throw OnionRequestAPIError.insufficientSnodes
-                }
-                
-                return snode
-            }
-            .eraseToAnyPublisher()
-    }
-    
     override func handlePollError(
         _ error: Error,
         for publicKey: String,
         using dependencies: SMKDependencies = SMKDependencies()
-    ) {
+    ) -> Bool {
         SNLog("Polling failed for closed group with public key: \(publicKey) due to error: \(error).")
-        
-        // Try to restart the poller from scratch
-        Threading.pollerQueue.async { [weak self] in
-            self?.setUpPolling(for: publicKey, using: dependencies)
-        }
+        return true
     }
 }

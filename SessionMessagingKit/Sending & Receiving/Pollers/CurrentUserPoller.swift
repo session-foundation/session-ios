@@ -11,9 +11,6 @@ public final class CurrentUserPoller: Poller {
     public static var namespaces: [SnodeAPI.Namespace] = [
         .default, .configUserProfile, .configContacts, .configConvoInfoVolatile, .configUserGroups
     ]
-    
-    private var targetSnode: Atomic<Snode?> = Atomic(nil)
-    private var usedSnodes: Atomic<Set<Snode>> = Atomic([])
 
     // MARK: - Settings
     
@@ -63,53 +60,16 @@ public final class CurrentUserPoller: Poller {
         return min(maxRetryInterval, nextDelay)
     }
     
-    override func getSnodeForPolling(
-        for publicKey: String
-    ) -> AnyPublisher<Snode, Error> {
-        if let targetSnode: Snode = self.targetSnode.wrappedValue {
-            return Just(targetSnode)
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
-        }
-        
-        // Used the cached swarm for the given key and update the list of unusedSnodes
-        let swarm: Set<Snode> = (SnodeAPI.swarmCache.wrappedValue[publicKey] ?? [])
-        let unusedSnodes: Set<Snode> = swarm.subtracting(usedSnodes.wrappedValue)
-        
-        // randomElement() uses the system's default random generator, which is cryptographically secure
-        if let nextSnode: Snode = unusedSnodes.randomElement() {
-            self.targetSnode.mutate { $0 = nextSnode }
-            self.usedSnodes.mutate { $0.insert(nextSnode) }
-            
-            return Just(nextSnode)
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
-        }
-        
-        // If we haven't retrieved a target snode at this point then either the cache
-        // is empty or we have used all of the snodes and need to start from scratch
-        return SnodeAPI.getSwarm(for: publicKey)
-            .tryFlatMap { [weak self] _ -> AnyPublisher<Snode, Error> in
-                guard let strongSelf = self else { throw SnodeAPIError.generic }
-                
-                self?.targetSnode.mutate { $0 = nil }
-                self?.usedSnodes.mutate { $0.removeAll() }
-                
-                return strongSelf.getSnodeForPolling(for: publicKey)
-            }
-            .eraseToAnyPublisher()
-    }
-    
     override func handlePollError(
         _ error: Error,
         for publicKey: String,
         using dependencies: SMKDependencies = SMKDependencies()
-    ) {
+    ) -> Bool {
         if UserDefaults.sharedLokiProject?[.isMainAppActive] != true {
             // Do nothing when an error gets throws right after returning from the background (happens frequently)
         }
         else if let targetSnode: Snode = targetSnode.wrappedValue {
-            SNLog("Polling \(targetSnode) failed; dropping it and switching to next snode.")
+            SNLog("Main Poller polling \(targetSnode) failed; dropping it and switching to next snode.")
             self.targetSnode.mutate { $0 = nil }
             SnodeAPI.dropSnodeFromSwarmIfNeeded(targetSnode, publicKey: publicKey)
         }
@@ -117,9 +77,6 @@ public final class CurrentUserPoller: Poller {
             SNLog("Polling failed due to having no target service node.")
         }
         
-        // Try to restart the poller from scratch
-        Threading.pollerQueue.async { [weak self] in
-            self?.setUpPolling(for: publicKey, using: dependencies)
-        }
+        return true
     }
 }

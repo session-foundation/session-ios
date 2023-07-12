@@ -213,6 +213,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     
     // MARK: - Interaction Data
     
+    private var lastInteractionIdMarkedAsRead: Int64? = nil
     private var lastInteractionTimestampMsMarkedAsRead: Int64 = 0
     public private(set) var unobservedInteractionDataChanges: ([SectionModel], StagedChangeset<[SectionModel]>)?
     public private(set) var interactionData: [SectionModel] = []
@@ -645,8 +646,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         /// Since this method now gets triggered when scrolling we want to try to optimise it and avoid busying the database
         /// write queue when it isn't needed, in order to do this we:
         /// - Throttle the updates to 100ms (quick enough that users shouldn't notice, but will help the DB when the user flings the list)
-        /// - Don't bother marking anything as read if this was called with the same `interactionId` that we previously marked as
-        /// read (ie. when scrolling and the last message hasn't changed)
+        /// - Only mark interactions as read if they have newer `timestampMs` or `id` values (ie. were sent later or were more-recent
+        /// entries in the database), **Note:** Old messages will be marked as read upon insertion so shouldn't be an issue
         ///
         /// The `ThreadViewModel.markAsRead` method also tries to avoid marking as read if a conversation is already fully read
         if markAsReadPublisher == nil {
@@ -656,10 +657,11 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                     receiveOutput: { [weak self] target, timestampMs in
                         switch target {
                             case .thread: self?.threadData.markAsRead(target: target)
-                            case .threadAndInteractions:
+                            case .threadAndInteractions(let interactionId):
                                 guard
                                     timestampMs == nil ||
-                                    (self?.lastInteractionTimestampMsMarkedAsRead ?? 0) < (timestampMs ?? 0)
+                                    (self?.lastInteractionTimestampMsMarkedAsRead ?? 0) < (timestampMs ?? 0) ||
+                                    (self?.lastInteractionIdMarkedAsRead ?? 0) < (interactionId ?? 0)
                                 else {
                                     self?.threadData.markAsRead(target: .thread)
                                     return
@@ -671,6 +673,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                                     self?.lastInteractionTimestampMsMarkedAsRead = timestampMs
                                 }
                                 
+                                self?.lastInteractionIdMarkedAsRead = (interactionId ?? self?.threadData.interactionId)
                                 self?.threadData.markAsRead(target: target)
                         }
                     }

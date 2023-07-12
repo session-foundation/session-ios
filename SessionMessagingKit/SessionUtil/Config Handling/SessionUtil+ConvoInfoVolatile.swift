@@ -23,7 +23,7 @@ internal extension SessionUtil {
         guard conf != nil else { throw SessionUtilError.nilConfigObject }
         
         // Get the volatile thread info from the conf and local conversations
-        let volatileThreadInfo: [VolatileThreadInfo] = extractConvoVolatileInfo(from: conf)
+        let volatileThreadInfo: [VolatileThreadInfo] = try extractConvoVolatileInfo(from: conf)
         let localVolatileThreadInfo: [String: VolatileThreadInfo] = VolatileThreadInfo.fetchAll(db)
             .reduce(into: [:]) { result, next in result[next.threadId] = next }
         
@@ -80,7 +80,8 @@ internal extension SessionUtil {
                 try Interaction
                     .filter(
                         Interaction.Columns.threadId == threadId &&
-                        Interaction.Columns.timestampMs <= lastReadTimestampMs
+                        Interaction.Columns.timestampMs <= lastReadTimestampMs &&
+                        Interaction.Columns.wasRead == false
                     )
                     .updateAll( // Handling a config update so don't use `updateAllAndConfig`
                         db,
@@ -320,10 +321,7 @@ public extension SessionUtil {
         openGroup: OpenGroup?
     ) -> Bool {
         return SessionUtil
-            .config(
-                for: .convoInfoVolatile,
-                publicKey: userPublicKey
-            )
+            .config(for: .convoInfoVolatile, publicKey: userPublicKey)
             .wrappedValue
             .map { conf in
                 switch threadVariant {
@@ -518,7 +516,8 @@ public extension SessionUtil {
     
     internal static func extractConvoVolatileInfo(
         from conf: UnsafeMutablePointer<config_object>?
-    ) -> [VolatileThreadInfo] {
+    ) throws -> [VolatileThreadInfo] {
+        var infiniteLoopGuard: Int = 0
         var result: [VolatileThreadInfo] = []
         var oneToOne: convo_info_volatile_1to1 = convo_info_volatile_1to1()
         var community: convo_info_volatile_community = convo_info_volatile_community()
@@ -526,6 +525,8 @@ public extension SessionUtil {
         let convoIterator: OpaquePointer = convo_info_volatile_iterator_new(conf)
 
         while !convo_info_volatile_iterator_done(convoIterator) {
+            try SessionUtil.checkLoopLimitReached(&infiniteLoopGuard, for: .convoInfoVolatile)
+            
             if convo_info_volatile_it_is_1to1(convoIterator, &oneToOne) {
                 result.append(
                     VolatileThreadInfo(

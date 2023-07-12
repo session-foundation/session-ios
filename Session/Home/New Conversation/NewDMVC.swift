@@ -260,16 +260,12 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
     }
 
     private func startNewDM(with sessionId: String) {
-        let maybeThread: SessionThread? = Storage.shared.write { db in
-            try SessionThread
-                .fetchOrCreate(db, id: sessionId, variant: .contact, shouldBeVisible: nil)
-        }
-        
-        guard maybeThread != nil else { return }
-        
-        presentingViewController?.dismiss(animated: true, completion: nil)
-        
-        SessionApp.presentConversation(for: sessionId, action: .compose, animated: false)
+        SessionApp.presentConversationCreatingIfNeeded(
+            for: sessionId,
+            variant: .contact,
+            dismissing: presentingViewController,
+            animated: false
+        )
     }
 }
 

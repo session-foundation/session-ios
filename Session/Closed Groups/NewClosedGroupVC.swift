@@ -356,8 +356,12 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                         }
                     },
                     receiveValue: { thread in
-                        self?.presentingViewController?.dismiss(animated: true, completion: nil)
-                        SessionApp.presentConversation(for: thread.id, action: .compose, animated: false)
+                        SessionApp.presentConversationCreatingIfNeeded(
+                            for: thread.id,
+                            variant: thread.variant,
+                            dismissing: self?.presentingViewController,
+                            animated: false
+                        )
                     }
                 )
         }

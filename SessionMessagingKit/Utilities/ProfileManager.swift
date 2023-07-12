@@ -265,12 +265,15 @@ public struct ProfileManager {
                         return
                     }
                     
+                    // Update the cache first (in case the DBWrite thread is blocked, this way other threads
+                    // can retrieve from the cache and avoid triggering a download)
+                    profileAvatarCache.mutate { $0[fileName] = decryptedData }
+                    
                     // Store the updated 'profilePictureFileName'
                     Storage.shared.write { db in
                         _ = try? Profile
                             .filter(id: profile.id)
                             .updateAll(db, Profile.Columns.profilePictureFileName.set(to: fileName))
-                        profileAvatarCache.mutate { $0[fileName] = decryptedData }
                     }
                 }
             )

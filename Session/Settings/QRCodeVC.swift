@@ -138,16 +138,12 @@ final class QRCodeVC : BaseVC, UIPageViewControllerDataSource, UIPageViewControl
             self.present(modal, animated: true)
         }
         else {
-            let maybeThread: SessionThread? = Storage.shared.write { db in
-                try SessionThread
-                    .fetchOrCreate(db, id: hexEncodedPublicKey, variant: .contact, shouldBeVisible: nil)
-            }
-            
-            guard maybeThread != nil else { return }
-            
-            presentingViewController?.dismiss(animated: true, completion: nil)
-            
-            SessionApp.presentConversation(for: hexEncodedPublicKey, action: .compose, animated: false)
+            SessionApp.presentConversationCreatingIfNeeded(
+                for: hexEncodedPublicKey,
+                variant: .contact,
+                dismissing: presentingViewController,
+                animated: false
+            )
         }
     }
 }

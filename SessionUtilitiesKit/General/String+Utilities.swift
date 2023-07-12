@@ -77,6 +77,23 @@ public extension String {
 
 // MARK: - Formatting
 
+extension String.StringInterpolation {
+    mutating func appendInterpolation(_ value: Int, format: String) {
+        let result: String = String(format: "%\(format)d", value)
+        appendLiteral(result)
+    }
+    
+    mutating func appendInterpolation(_ value: Double, format: String, omitZeroDecimal: Bool = false) {
+        guard !omitZeroDecimal || Int(exactly: value) == nil else {
+            appendLiteral("\(Int(exactly: value)!)")
+            return
+        }
+        
+        let result: String = String(format: "%\(format)f", value)
+        appendLiteral(result)
+    }
+}
+
 public extension String {
     static func formattedDuration(_ duration: TimeInterval, format: TimeInterval.DurationFormat = .short) -> String {
         let secondsPerMinute: TimeInterval = 60

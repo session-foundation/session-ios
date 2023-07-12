@@ -36,7 +36,7 @@ extension MessageReceiver {
                     guard
                         let profilePictureUrl: String = profile.profilePictureUrl,
                         let profileKey: Data = profile.profileKey
-                    else { return .none }
+                    else { return .remove }
                     
                     return .updateTo(
                         url: profilePictureUrl,

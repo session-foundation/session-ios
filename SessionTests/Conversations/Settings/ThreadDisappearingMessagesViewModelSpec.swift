@@ -242,7 +242,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 var footerButtonInfo: SessionButton.Info?
                 
                 cancellables.append(
-                    viewModel.rightNavItems
+                    viewModel.footerButtonInfo
                         .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
@@ -275,7 +275,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 )
                 cancellables.append(
                     viewModel.observableTableData
-                        .receiveOnMain(immediately: true)
+                        .receive(on: DispatchQueue.main)
                         .sink(
                             receiveCompletion: { _ in },
                             receiveValue: { viewModel.updateTableData($0.0) }
@@ -333,7 +333,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 
                 cancellables.append(
                     viewModel.footerButtonInfo
-                        .receiveOnMain(immediately: true)
+                        .receive(on: DispatchQueue.main)
                         .sink(
                             receiveCompletion: { _ in },
                             receiveValue: { info in footerButtonInfo = info }
@@ -348,7 +348,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 
                 beforeEach {
                     cancellables.append(
-                        viewModel.rightNavItems
+                        viewModel.footerButtonInfo
                             .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },
