@@ -51,7 +51,7 @@ local xcpretty_commands = [
         name: 'build',
         commands: [
           'mkdir build',
-          'xcodebuild -workspace Session.xcworkspace -scheme Session -configuration 'App Store Release' -sdk iphonesimulator -derivedDataPath ./build -destination 'generic/platform=iOS Simulator' | xcpretty',
+          'xcodebuild -workspace Session.xcworkspace -scheme Session -configuration "App Store Release" -sdk iphonesimulator -derivedDataPath ./build -destination "generic/platform=iOS Simulator" | xcpretty',
           './.drone-static-upload.sh'
         ],
       },
