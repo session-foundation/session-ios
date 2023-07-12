@@ -22,7 +22,6 @@ abstract_target 'GlobalDependencies' do
     pod 'PureLayout', '~> 3.1.8'
     pod 'NVActivityIndicatorView'
     pod 'YYImage/libwebp', git: 'https://github.com/signalapp/YYImage'
-    pod 'ZXingObjC'
     pod 'DifferenceKit'
     
     target 'SessionTests' do
