@@ -1,6 +1,7 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import SwiftUI
+import SessionUIKit
 
 struct MessageInfoView: View {
     var actions: [ContextMenuVC.Action]
@@ -47,7 +48,7 @@ struct MessageInfoView: View {
                         HStack(
                             spacing: 5
                         ) {
-                            Image("avatar")
+                            ProfilePictureView(size: .message)
                             VStack(
                                 alignment: .leading
                             ) {
