@@ -29,7 +29,7 @@ local xcpretty_commands = [
     steps: [
       { name: 'Clone Submodules', commands: submodule_commands },
       // { name: 'Install XCPretty', commands: xcpretty_commands },
-      { name: 'Install CocoaPods', commands: ['pod install'] },
+      { name: 'Install CocoaPods', commands: ['LANG=en_US.UTF-8 pod install'] },
       {
         name: 'Run Unit Tests',
         commands: [
@@ -48,7 +48,7 @@ local xcpretty_commands = [
     steps: [
       { name: 'Clone Submodules', commands: submodule_commands },
       // { name: 'Install XCPretty', commands: xcpretty_commands },
-      { name: 'Install CocoaPods', commands: ['pod install'] },
+      { name: 'Install CocoaPods', commands: ['LANG=en_US.UTF-8 pod install'] },
       {
         name: 'Build',
         commands: [
@@ -68,7 +68,7 @@ local xcpretty_commands = [
 //    steps: [
 //      { name: 'Clone Submodules', commands: submodule_commands },
 //      // { name: 'Install XCPretty', commands: xcpretty_commands },
-//      { name: 'Install CocoaPods', commands: ['pod install'] },
+//      { name: 'Install CocoaPods', commands: ['LANG=en_US.UTF-8 pod install'] },
 //      {
 //        name: 'Build',
 //        commands: [
