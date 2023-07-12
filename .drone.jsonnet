@@ -1,12 +1,6 @@
 // Intentionally doing a depth of 2 as libSession-util has it's own submodules (and libLokinet likely will as well)
 local submodule_commands = ['git fetch --tags', 'git submodule update --init --recursive --depth=2'];
 
-local submodules = {
-  name: 'Clone Submodules',
-  image: 'drone/git',
-  commands: submodule_commands,
-};
-
 // cmake options for static deps mirror
 local ci_dep_mirror(want_mirror) = (if want_mirror then ' -DLOCAL_MIRROR=https://oxen.rocks/deps ' else '');
 
@@ -25,7 +19,7 @@ local xcpretty_commands = [
     name: 'Unit Tests',
     platform: { os: 'darwin', arch: 'amd64' },
     steps: [
-      submodules,
+      { name: 'Clone Submodules', commands: submodule_commands },
       { name: 'Install XCPretty', commands: xcpretty_commands },
       { name: 'Install CocoaPods', commands: ['pod install'] },
       {
@@ -44,7 +38,7 @@ local xcpretty_commands = [
     name: 'Simulator Build',
     platform: { os: 'darwin', arch: 'amd64' },
     steps: [
-      submodules,
+      { name: 'Clone Submodules', commands: submodule_commands },
       { name: 'Install XCPretty', commands: xcpretty_commands },
       { name: 'Install CocoaPods', commands: ['pod install'] },
       {
@@ -64,7 +58,7 @@ local xcpretty_commands = [
 //    name: 'AppStore Build',
 //    platform: { os: 'darwin', arch: 'amd64' },
 //    steps: [
-//      submodules,
+//      { name: 'Clone Submodules', commands: submodule_commands },
 //      { name: 'Install XCPretty', commands: xcpretty_commands },
 //      { name: 'Install CocoaPods', commands: ['pod install'] },
 //      {
