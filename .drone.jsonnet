@@ -27,7 +27,7 @@ local xcpretty_commands = [
     steps: [
       { name: 'submodules', commands: submodule_commands },
       { name: 'xcpretty', commands: xcpretty_commands },
-      { name: 'pods', commands: 'pod install' },
+      { name: 'pods', commands: ['pod install'] },
       {
         name: 'Run Unit Tests',
         commands: [
@@ -46,7 +46,7 @@ local xcpretty_commands = [
     steps: [
       { name: 'submodules', commands: submodule_commands },
       { name: 'xcpretty', commands: xcpretty_commands },
-      { name: 'pods', commands: 'pod install' },
+      { name: 'pods', commands: ['pod install'] },
       {
         name: 'build',
         commands: [
@@ -66,7 +66,7 @@ local xcpretty_commands = [
 //    steps: [
 //      { name: 'submodules', commands: submodule_commands },
 //      { name: 'xcpretty', commands: xcpretty_commands },
-//      { name: 'pods', commands: 'pod install' },
+//      { name: 'pods', commands: ['pod install'] },
 //      {
 //        name: 'build',
 //        commands: [
