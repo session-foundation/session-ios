@@ -2,7 +2,7 @@
 local submodule_commands = ['git fetch --tags', 'git submodule update --init --recursive --depth=2'];
 
 local submodules = {
-  name: 'submodules',
+  name: 'Clone Submodules',
   image: 'drone/git',
   commands: submodule_commands,
 };
@@ -25,9 +25,9 @@ local xcpretty_commands = [
     name: 'Unit Tests',
     platform: { os: 'darwin', arch: 'amd64' },
     steps: [
-      { name: 'submodules', commands: submodule_commands },
-      { name: 'xcpretty', commands: xcpretty_commands },
-      { name: 'pods', commands: ['pod install'] },
+      submodules,
+      { name: 'Install XCPretty', commands: xcpretty_commands },
+      { name: 'Install CocoaPods', commands: ['pod install'] },
       {
         name: 'Run Unit Tests',
         commands: [
@@ -44,11 +44,11 @@ local xcpretty_commands = [
     name: 'Simulator Build',
     platform: { os: 'darwin', arch: 'amd64' },
     steps: [
-      { name: 'submodules', commands: submodule_commands },
-      { name: 'xcpretty', commands: xcpretty_commands },
-      { name: 'pods', commands: ['pod install'] },
+      submodules,
+      { name: 'Install XCPretty', commands: xcpretty_commands },
+      { name: 'Install CocoaPods', commands: ['pod install'] },
       {
-        name: 'build',
+        name: 'Build',
         commands: [
           'mkdir build',
           'xcodebuild -workspace Session.xcworkspace -scheme Session -configuration "App Store Release" -sdk iphonesimulator -derivedDataPath ./build -destination "generic/platform=iOS Simulator" | xcpretty',
@@ -64,11 +64,11 @@ local xcpretty_commands = [
 //    name: 'AppStore Build',
 //    platform: { os: 'darwin', arch: 'amd64' },
 //    steps: [
-//      { name: 'submodules', commands: submodule_commands },
-//      { name: 'xcpretty', commands: xcpretty_commands },
-//      { name: 'pods', commands: ['pod install'] },
+//      submodules,
+//      { name: 'Install XCPretty', commands: xcpretty_commands },
+//      { name: 'Install CocoaPods', commands: ['pod install'] },
 //      {
-//        name: 'build',
+//        name: 'Build',
 //        commands: [
 //          'mkdir build',
 //          'xcodebuild archive -workspace Session.xcworkspace -scheme Session -archivePath ./build/Session.xcarchive -destination "platform=generic/iOS" | xcpretty'
