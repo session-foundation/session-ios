@@ -30,8 +30,11 @@ fi
 
 mkdir -v "$base"
 
-# Copy over the build products    
-cp -av build/Build/Products/App\ Store\ Release-iphonesimulator/Session.app "$base"
+# Copy over the build products
+mkdir build
+echo "Test" > "build/test.txt"
+cp -av build/test.txt "$base"
+# cp -av build/Build/Products/App\ Store\ Release-iphonesimulator/Session.app "$base"
 
 # tar dat shiz up yo
 archive="$base.tar.xz"
