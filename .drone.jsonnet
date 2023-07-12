@@ -6,8 +6,16 @@ local ci_dep_mirror(want_mirror) = (if want_mirror then ' -DLOCAL_MIRROR=https:/
 
 // xcpretty
 local xcpretty_commands = [
-  'if [[ $(command -v brew) != "" ]]; then; brew install xcpretty; fi;',
-  'if [[ $(command -v brew) == "" ]]; then; gem install xcpretty; fi;'
+  |||
+    if [[ $(command -v brew) != "" ]]; then
+      brew install xcpretty
+    fi
+  |||,
+  |||
+    if [[ $(command -v brew) == "" ]]; then
+      gem install xcpretty
+    fi
+  |||,
 ];
 
 
