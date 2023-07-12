@@ -28,13 +28,13 @@ local xcpretty_commands = [
     platform: { os: 'darwin', arch: 'amd64' },
     steps: [
       { name: 'Clone Submodules', commands: submodule_commands },
-      { name: 'Install XCPretty', commands: xcpretty_commands },
+      // { name: 'Install XCPretty', commands: xcpretty_commands },
       { name: 'Install CocoaPods', commands: ['pod install'] },
       {
         name: 'Run Unit Tests',
         commands: [
           'mkdir build',
-          'xcodebuild test -workspace Session.xcworkspace -scheme Session -destination "platform=iOS Simulator,name=iPhone 14 Pro" | xcpretty --report html'
+          'xcodebuild test -workspace Session.xcworkspace -scheme Session -destination "platform=iOS Simulator,name=iPhone 14 Pro"' //  | xcpretty --report html'
         ],
       },
     ],
@@ -47,13 +47,13 @@ local xcpretty_commands = [
     platform: { os: 'darwin', arch: 'amd64' },
     steps: [
       { name: 'Clone Submodules', commands: submodule_commands },
-      { name: 'Install XCPretty', commands: xcpretty_commands },
+      // { name: 'Install XCPretty', commands: xcpretty_commands },
       { name: 'Install CocoaPods', commands: ['pod install'] },
       {
         name: 'Build',
         commands: [
           'mkdir build',
-          'xcodebuild -workspace Session.xcworkspace -scheme Session -configuration "App Store Release" -sdk iphonesimulator -derivedDataPath ./build -destination "generic/platform=iOS Simulator" | xcpretty',
+          'xcodebuild -workspace Session.xcworkspace -scheme Session -configuration "App Store Release" -sdk iphonesimulator -derivedDataPath ./build -destination "generic/platform=iOS Simulator"', // | xcpretty',
           './.drone-static-upload.sh'
         ],
       },
@@ -67,7 +67,7 @@ local xcpretty_commands = [
 //    platform: { os: 'darwin', arch: 'amd64' },
 //    steps: [
 //      { name: 'Clone Submodules', commands: submodule_commands },
-//      { name: 'Install XCPretty', commands: xcpretty_commands },
+//      // { name: 'Install XCPretty', commands: xcpretty_commands },
 //      { name: 'Install CocoaPods', commands: ['pod install'] },
 //      {
 //        name: 'Build',
