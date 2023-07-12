@@ -28,7 +28,7 @@ struct MessageInfoView: View {
                     ) {
                         Text("Sent:")
                             .bold()
-                        Text()
+                        Text(messageViewModel.dateForUI.fromattedForMessageInfo)
                     }
                     
                     VStack(
@@ -36,7 +36,7 @@ struct MessageInfoView: View {
                     ) {
                         Text("Received:")
                             .bold()
-                        Text("")
+                        Text(messageViewModel.receivedDateForUI.fromattedForMessageInfo)
                     }
                     
                     VStack(
@@ -51,9 +51,9 @@ struct MessageInfoView: View {
                             VStack(
                                 alignment: .leading
                             ) {
-                                Text("Name")
+                                Text(messageViewModel.authorName)
                                     .bold()
-                                Text("session id")
+                                Text(messageViewModel.authorId)
                             }
                         }
                     }
