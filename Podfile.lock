@@ -41,7 +41,7 @@ PODS:
   - SQLCipher/standard (4.5.3):
     - SQLCipher/common
   - SwiftProtobuf (1.5.0)
-  - WebRTC-lib (96.0.0)
+  - WebRTC-lib (114.0.0)
   - YapDatabase/SQLCipher (3.1.1):
     - YapDatabase/SQLCipher/Core (= 3.1.1)
     - YapDatabase/SQLCipher/Extensions (= 3.1.1)
@@ -199,11 +199,11 @@ SPEC CHECKSUMS:
   Sodium: a7d42cb46e789d2630fa552d35870b416ed055ae
   SQLCipher: 57fa9f863fa4a3ed9dd3c90ace52315db8c0fdca
   SwiftProtobuf: 241400280f912735c1e1b9fe675fdd2c6c4d42e2
-  WebRTC-lib: 508fe02efa0c1a3a8867082a77d24c9be5d29aeb
+  WebRTC-lib: d83df8976fa608b980f1d85796b3de66d60a1953
   YapDatabase: b418a4baa6906e8028748938f9159807fd039af4
   YYImage: f1ddd15ac032a58b78bbed1e012b50302d318331
   ZXingObjC: fdbb269f25dd2032da343e06f10224d62f537bdb
 
-PODFILE CHECKSUM: dcca0c4ad69b14cbc2d6ba49f9d690b239828e6d
+PODFILE CHECKSUM: 68799237a4dc046f5ac25c573af03b559f5b10c4
 
 COCOAPODS: 1.12.1

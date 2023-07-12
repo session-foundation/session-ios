@@ -744,6 +744,8 @@
 		FD97B2402A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD97B23F2A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift */; };
 		FD97B2422A3FEBF30027DD57 /* UnreadMarkerCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD97B2412A3FEBF30027DD57 /* UnreadMarkerCell.swift */; };
 		FD9B30F3293EA0BF008DEE3E /* BatchResponseSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9B30F2293EA0BF008DEE3E /* BatchResponseSpec.swift */; };
+		FD9BDE002A5D22B7005F1EBC /* libSessionUtil.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FD9BDDF82A5D2294005F1EBC /* libSessionUtil.a */; };
+		FD9BDE012A5D24EA005F1EBC /* SessionUIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C331FF1B2558F9D300070591 /* SessionUIKit.framework */; };
 		FDA1E83629A5748F00C5C3BD /* ConfigUserGroupsSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1E83529A5748F00C5C3BD /* ConfigUserGroupsSpec.swift */; };
 		FDA1E83929A5771A00C5C3BD /* LibSessionSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1E83829A5771A00C5C3BD /* LibSessionSpec.swift */; };
 		FDA1E83B29A5F2D500C5C3BD /* SessionUtil+Shared.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1E83A29A5F2D500C5C3BD /* SessionUtil+Shared.swift */; };
@@ -902,7 +904,6 @@
 		FDF848F529413EEC007DCAE5 /* SessionCell+Styling.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848F429413EEC007DCAE5 /* SessionCell+Styling.swift */; };
 		FDF848F729414477007DCAE5 /* CurrentUserPoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848F629414477007DCAE5 /* CurrentUserPoller.swift */; };
 		FDFC4D9A29F0C51500992FB6 /* String+Trimming.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2A5D22553860900C340D1 /* String+Trimming.swift */; };
-		FDFC4E1929F1F9A600992FB6 /* libsession-util.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = FDFC4E1829F1F9A600992FB6 /* libsession-util.xcframework */; };
 		FDFD645927F26C6800808CA1 /* Array+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2A5D12553860800C340D1 /* Array+Utilities.swift */; };
 		FDFD645D27F273F300808CA1 /* MockGeneralCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFD645C27F273F300808CA1 /* MockGeneralCache.swift */; };
 		FDFDE124282D04F20098B17F /* MediaDismissAnimationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFDE123282D04F20098B17F /* MediaDismissAnimationController.swift */; };
@@ -1053,20 +1054,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = C3C2A6EF25539DE700C340D1;
 			remoteInfo = SessionMessagingKit;
-		};
-		FDCDB8EB28179EAF00352A0C /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = D221A080169C9E5E00537ABF /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = D221A088169C9E5E00537ABF;
-			remoteInfo = Session;
-		};
-		FDCDB8ED28179EB200352A0C /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = D221A080169C9E5E00537ABF /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = D221A088169C9E5E00537ABF;
-			remoteInfo = Session;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -1876,6 +1863,7 @@
 		FD97B23F2A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARC4RandomNumberGenerator.swift; sourceTree = "<group>"; };
 		FD97B2412A3FEBF30027DD57 /* UnreadMarkerCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnreadMarkerCell.swift; sourceTree = "<group>"; };
 		FD9B30F2293EA0BF008DEE3E /* BatchResponseSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchResponseSpec.swift; sourceTree = "<group>"; };
+		FD9BDDF82A5D2294005F1EBC /* libSessionUtil.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libSessionUtil.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDA1E83529A5748F00C5C3BD /* ConfigUserGroupsSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigUserGroupsSpec.swift; sourceTree = "<group>"; };
 		FDA1E83829A5771A00C5C3BD /* LibSessionSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionSpec.swift; sourceTree = "<group>"; };
 		FDA1E83A29A5F2D500C5C3BD /* SessionUtil+Shared.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionUtil+Shared.swift"; sourceTree = "<group>"; };
@@ -2036,7 +2024,6 @@
 		FDF848F229413DB0007DCAE5 /* ImagePickerHandler.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ImagePickerHandler.swift; sourceTree = "<group>"; };
 		FDF848F429413EEC007DCAE5 /* SessionCell+Styling.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "SessionCell+Styling.swift"; sourceTree = "<group>"; };
 		FDF848F629414477007DCAE5 /* CurrentUserPoller.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CurrentUserPoller.swift; sourceTree = "<group>"; };
-		FDFC4E1829F1F9A600992FB6 /* libsession-util.xcframework */ = {isa = PBXFileReference; explicitFileType = wrapper.xcframework; includeInIndex = 0; path = "libsession-util.xcframework"; sourceTree = BUILD_DIR; };
 		FDFD645A27F26D4600808CA1 /* Data+Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Data+Utilities.swift"; sourceTree = "<group>"; };
 		FDFD645C27F273F300808CA1 /* MockGeneralCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockGeneralCache.swift; sourceTree = "<group>"; };
 		FDFDE123282D04F20098B17F /* MediaDismissAnimationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaDismissAnimationController.swift; sourceTree = "<group>"; };
@@ -2114,7 +2101,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FDFC4E1929F1F9A600992FB6 /* libsession-util.xcframework in Frameworks */,
+				FD9BDE002A5D22B7005F1EBC /* libSessionUtil.a in Frameworks */,
+				FD9BDE012A5D24EA005F1EBC /* SessionUIKit.framework in Frameworks */,
 				FDC4386C27B4E90300C60D73 /* SessionUtilitiesKit.framework in Frameworks */,
 				C3C2A70B25539E1E00C340D1 /* SessionSnodeKit.framework in Frameworks */,
 				BE25D9230CA2C3A40A9216EF /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionMessagingKit.framework in Frameworks */,
@@ -3492,6 +3480,7 @@
 				FDC4388E27B9FFC700C60D73 /* SessionMessagingKitTests.xctest */,
 				FD83B9AF27CF200A005E1583 /* SessionUtilitiesKitTests.xctest */,
 				FD71160928D00BAE00B47552 /* SessionTests.xctest */,
+				FD9BDDF82A5D2294005F1EBC /* libSessionUtil.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -3499,7 +3488,6 @@
 		D221A08C169C9E5E00537ABF /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				FDFC4E1829F1F9A600992FB6 /* libsession-util.xcframework */,
 				B8DE1FAF26C228780079C9CE /* SignalRingRTC.framework */,
 				C35E8AA22485C72300ACB629 /* SwiftCSV.framework */,
 				B847570023D568EB00759540 /* SignalServiceKit.framework */,
@@ -4484,7 +4472,6 @@
 			buildConfigurationList = 453518761FC635DD00210559 /* Build configuration list for PBXNativeTarget "SessionShareExtension" */;
 			buildPhases = (
 				55CE11E14880742A24ADC127 /* [CP] Check Pods Manifest.lock */,
-				FD7692EC2A524320000E4B70 /* Validate pre-build actions */,
 				453518641FC635DD00210559 /* Sources */,
 				453518651FC635DD00210559 /* Frameworks */,
 				453518661FC635DD00210559 /* Resources */,
@@ -4508,7 +4495,6 @@
 			buildConfigurationList = 7BC01A45241F40AB00BC7C55 /* Build configuration list for PBXNativeTarget "SessionNotificationServiceExtension" */;
 			buildPhases = (
 				18CDA58AE057F8C9AE71F46E /* [CP] Check Pods Manifest.lock */,
-				FD7692ED2A52433E000E4B70 /* Validate pre-build actions */,
 				7BC01A37241F40AB00BC7C55 /* Sources */,
 				7BC01A38241F40AB00BC7C55 /* Frameworks */,
 				7BC01A39241F40AB00BC7C55 /* Resources */,
@@ -4531,7 +4517,6 @@
 			buildConfigurationList = C331FF262558F9D400070591 /* Build configuration list for PBXNativeTarget "SessionUIKit" */;
 			buildPhases = (
 				D5AFDC09857840D2D2631E2D /* [CP] Check Pods Manifest.lock */,
-				FD7692EF2A52436A000E4B70 /* Validate pre-build actions */,
 				C331FF162558F9D300070591 /* Headers */,
 				C331FF172558F9D300070591 /* Sources */,
 				C331FF182558F9D300070591 /* Frameworks */,
@@ -4552,7 +4537,6 @@
 			buildConfigurationList = C33FD9B6255A548A00E217F9 /* Build configuration list for PBXNativeTarget "SignalUtilitiesKit" */;
 			buildPhases = (
 				5CE8055024B876590AED6DEA /* [CP] Check Pods Manifest.lock */,
-				FD7692EE2A524357000E4B70 /* Validate pre-build actions */,
 				C33FD9A6255A548A00E217F9 /* Headers */,
 				C33FD9A7255A548A00E217F9 /* Sources */,
 				C33FD9A8255A548A00E217F9 /* Frameworks */,
@@ -4572,7 +4556,6 @@
 			buildConfigurationList = C3C2A5AA255385C100C340D1 /* Build configuration list for PBXNativeTarget "SessionSnodeKit" */;
 			buildPhases = (
 				77F55C879DAF28750120D343 /* [CP] Check Pods Manifest.lock */,
-				FD7692F02A524393000E4B70 /* Validate pre-build actions */,
 				C3C2A59A255385C100C340D1 /* Headers */,
 				C3C2A59B255385C100C340D1 /* Sources */,
 				C3C2A59C255385C100C340D1 /* Frameworks */,
@@ -4592,7 +4575,6 @@
 			buildConfigurationList = C3C2A684255388CC00C340D1 /* Build configuration list for PBXNativeTarget "SessionUtilitiesKit" */;
 			buildPhases = (
 				446B0E16474DF9F15509BC64 /* [CP] Check Pods Manifest.lock */,
-				FD7692F12A5243AE000E4B70 /* Validate pre-build actions */,
 				C3C2A674255388CC00C340D1 /* Headers */,
 				C3C2A675255388CC00C340D1 /* Sources */,
 				C3C2A676255388CC00C340D1 /* Frameworks */,
@@ -4612,7 +4594,6 @@
 			buildConfigurationList = C3C2A6F925539DE700C340D1 /* Build configuration list for PBXNativeTarget "SessionMessagingKit" */;
 			buildPhases = (
 				2014435DF351DF6C60122751 /* [CP] Check Pods Manifest.lock */,
-				FDFC4E1729F14F7A00992FB6 /* Validate pre-build actions */,
 				C3C2A6EB25539DE700C340D1 /* Headers */,
 				C3C2A6EC25539DE700C340D1 /* Sources */,
 				C3C2A6ED25539DE700C340D1 /* Frameworks */,
@@ -4632,7 +4613,6 @@
 			buildConfigurationList = D221A0BC169C9E5F00537ABF /* Build configuration list for PBXNativeTarget "Session" */;
 			buildPhases = (
 				351E727E03A8F141EA25FBF4 /* [CP] Check Pods Manifest.lock */,
-				FD7692EA2A524303000E4B70 /* Validate pre-build actions */,
 				FDE7214D287E50820093DF33 /* Lint Localizable.strings */,
 				D221A085169C9E5E00537ABF /* Sources */,
 				D221A086169C9E5E00537ABF /* Frameworks */,
@@ -4663,7 +4643,6 @@
 			buildConfigurationList = FD71160F28D00BAE00B47552 /* Build configuration list for PBXNativeTarget "SessionTests" */;
 			buildPhases = (
 				19CD7B4EDC153293FB61CBA1 /* [CP] Check Pods Manifest.lock */,
-				FD7692F22A5243C3000E4B70 /* Validate pre-build actions */,
 				FD71160528D00BAE00B47552 /* Sources */,
 				FD71160628D00BAE00B47552 /* Frameworks */,
 				FD71160728D00BAE00B47552 /* Resources */,
@@ -4684,7 +4663,6 @@
 			buildConfigurationList = FD83B9B627CF200A005E1583 /* Build configuration list for PBXNativeTarget "SessionUtilitiesKitTests" */;
 			buildPhases = (
 				EDDFB3BFBD5E1378BD03AAAB /* [CP] Check Pods Manifest.lock */,
-				FD7692F42A5243EC000E4B70 /* Validate pre-build actions */,
 				FD83B9AB27CF200A005E1583 /* Sources */,
 				FD83B9AC27CF200A005E1583 /* Frameworks */,
 				FD83B9AD27CF200A005E1583 /* Resources */,
@@ -4694,19 +4672,32 @@
 			);
 			dependencies = (
 				FD83B9B527CF200A005E1583 /* PBXTargetDependency */,
-				FDCDB8EE28179EB200352A0C /* PBXTargetDependency */,
 			);
 			name = SessionUtilitiesKitTests;
 			productName = SessionUtilitiesKitTests;
 			productReference = FD83B9AF27CF200A005E1583 /* SessionUtilitiesKitTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		FD9BDDF72A5D2294005F1EBC /* SessionUtil */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FD9BDDFC2A5D2294005F1EBC /* Build configuration list for PBXNativeTarget "SessionUtil" */;
+			buildPhases = (
+				FD9BDDFF2A5D229B005F1EBC /* Build libSessionUtil if Needed */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SessionUtil;
+			productName = libSession4;
+			productReference = FD9BDDF82A5D2294005F1EBC /* libSessionUtil.a */;
+			productType = "com.apple.product-type.library.static";
+		};
 		FDC4388D27B9FFC700C60D73 /* SessionMessagingKitTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = FDC4389527B9FFC700C60D73 /* Build configuration list for PBXNativeTarget "SessionMessagingKitTests" */;
 			buildPhases = (
 				0E6C1748F41E48ED59563D96 /* [CP] Check Pods Manifest.lock */,
-				FD7692F32A5243DA000E4B70 /* Validate pre-build actions */,
 				FDC4388A27B9FFC700C60D73 /* Sources */,
 				FDC4388B27B9FFC700C60D73 /* Frameworks */,
 				FDC4388C27B9FFC700C60D73 /* Resources */,
@@ -4716,7 +4707,6 @@
 			);
 			dependencies = (
 				FDC4389427B9FFC700C60D73 /* PBXTargetDependency */,
-				FDCDB8EC28179EAF00352A0C /* PBXTargetDependency */,
 			);
 			name = SessionMessagingKitTests;
 			productName = SessionMessagingKitTests;
@@ -4827,6 +4817,9 @@
 					FD83B9AE27CF200A005E1583 = {
 						CreatedOnToolsVersion = 13.2.1;
 					};
+					FD9BDDF72A5D2294005F1EBC = {
+						CreatedOnToolsVersion = 14.3;
+					};
 					FDC4388D27B9FFC700C60D73 = {
 						CreatedOnToolsVersion = 13.2.1;
 					};
@@ -4877,6 +4870,7 @@
 				FD71160828D00BAE00B47552 /* SessionTests */,
 				FDC4388D27B9FFC700C60D73 /* SessionMessagingKitTests */,
 				FD83B9AE27CF200A005E1583 /* SessionUtilitiesKitTests */,
+				FD9BDDF72A5D2294005F1EBC /* SessionUtil */,
 			);
 		};
 /* End PBXProject section */
@@ -5334,7 +5328,7 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		FD7692EA2A524303000E4B70 /* Validate pre-build actions */ = {
+		FD9BDDFF2A5D229B005F1EBC /* Build libSessionUtil if Needed */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -5344,198 +5338,19 @@
 			);
 			inputPaths = (
 			);
-			name = "Validate pre-build actions";
+			name = "Build libSessionUtil if Needed";
 			outputFileListPaths = (
 			);
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ -f \"${TARGET_BUILD_DIR}/libsession_util_error.log\" ]; then\n    read -r line < \"${TARGET_BUILD_DIR}/libsession_util_error.log\"\n    echo \"${line}\"\n    exit 1\nfi\n";
-			showEnvVarsInLog = 0;
-		};
-		FD7692EC2A524320000E4B70 /* Validate pre-build actions */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Validate pre-build actions";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "if [ -f \"${TARGET_BUILD_DIR}/libsession_util_error.log\" ]; then\n    read -r line < \"${TARGET_BUILD_DIR}/libsession_util_error.log\"\n    echo \"${line}\"\n    exit 1\nfi\n";
-			showEnvVarsInLog = 0;
-		};
-		FD7692ED2A52433E000E4B70 /* Validate pre-build actions */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Validate pre-build actions";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "if [ -f \"${TARGET_BUILD_DIR}/libsession_util_error.log\" ]; then\n    read -r line < \"${TARGET_BUILD_DIR}/libsession_util_error.log\"\n    echo \"${line}\"\n    exit 1\nfi\n";
-			showEnvVarsInLog = 0;
-		};
-		FD7692EE2A524357000E4B70 /* Validate pre-build actions */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Validate pre-build actions";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "if [ -f \"${TARGET_BUILD_DIR}/libsession_util_error.log\" ]; then\n    read -r line < \"${TARGET_BUILD_DIR}/libsession_util_error.log\"\n    echo \"${line}\"\n    exit 1\nfi\n";
-			showEnvVarsInLog = 0;
-		};
-		FD7692EF2A52436A000E4B70 /* Validate pre-build actions */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Validate pre-build actions";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "if [ -f \"${TARGET_BUILD_DIR}/libsession_util_error.log\" ]; then\n    read -r line < \"${TARGET_BUILD_DIR}/libsession_util_error.log\"\n    echo \"${line}\"\n    exit 1\nfi\n";
-			showEnvVarsInLog = 0;
-		};
-		FD7692F02A524393000E4B70 /* Validate pre-build actions */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Validate pre-build actions";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "if [ -f \"${TARGET_BUILD_DIR}/libsession_util_error.log\" ]; then\n    read -r line < \"${TARGET_BUILD_DIR}/libsession_util_error.log\"\n    echo \"${line}\"\n    exit 1\nfi\n";
-			showEnvVarsInLog = 0;
-		};
-		FD7692F12A5243AE000E4B70 /* Validate pre-build actions */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Validate pre-build actions";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "if [ -f \"${TARGET_BUILD_DIR}/libsession_util_error.log\" ]; then\n    read -r line < \"${TARGET_BUILD_DIR}/libsession_util_error.log\"\n    echo \"${line}\"\n    exit 1\nfi\n";
-			showEnvVarsInLog = 0;
-		};
-		FD7692F22A5243C3000E4B70 /* Validate pre-build actions */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Validate pre-build actions";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "if [ -f \"${TARGET_BUILD_DIR}/libsession_util_error.log\" ]; then\n    read -r line < \"${TARGET_BUILD_DIR}/libsession_util_error.log\"\n    echo \"${line}\"\n    exit 1\nfi\n";
-			showEnvVarsInLog = 0;
-		};
-		FD7692F32A5243DA000E4B70 /* Validate pre-build actions */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Validate pre-build actions";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "if [ -f \"${TARGET_BUILD_DIR}/libsession_util_error.log\" ]; then\n    read -r line < \"${TARGET_BUILD_DIR}/libsession_util_error.log\"\n    echo \"${line}\"\n    exit 1\nfi\n";
-			showEnvVarsInLog = 0;
-		};
-		FD7692F42A5243EC000E4B70 /* Validate pre-build actions */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Validate pre-build actions";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "if [ -f \"${TARGET_BUILD_DIR}/libsession_util_error.log\" ]; then\n    read -r line < \"${TARGET_BUILD_DIR}/libsession_util_error.log\"\n    echo \"${line}\"\n    exit 1\nfi\n";
+			shellScript = "\"${SRCROOT}/Scripts/build_libSession_util.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 		FDD82C422A2085B900425F05 /* Add Commit Hash To Build Info Plist */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -5573,26 +5388,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${SRCROOT}/Scripts/LintLocalizableStrings.swift\"\n";
-			showEnvVarsInLog = 0;
-		};
-		FDFC4E1729F14F7A00992FB6 /* Validate pre-build actions */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Validate pre-build actions";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "if [ -f \"${TARGET_BUILD_DIR}/libsession_util_error.log\" ]; then\n    read -r line < \"${TARGET_BUILD_DIR}/libsession_util_error.log\"\n    echo \"${line}\"\n    exit 1\nfi\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -6524,16 +6319,6 @@
 			target = C3C2A6EF25539DE700C340D1 /* SessionMessagingKit */;
 			targetProxy = FDC4389327B9FFC700C60D73 /* PBXContainerItemProxy */;
 		};
-		FDCDB8EC28179EAF00352A0C /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = D221A088169C9E5E00537ABF /* Session */;
-			targetProxy = FDCDB8EB28179EAF00352A0C /* PBXContainerItemProxy */;
-		};
-		FDCDB8EE28179EB200352A0C /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = D221A088169C9E5E00537ABF /* Session */;
-			targetProxy = FDCDB8ED28179EB200352A0C /* PBXContainerItemProxy */;
-		};
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
@@ -7450,6 +7235,24 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"${PODS_CONFIGURATION_BUILD_DIR}/CocoaLumberjack/CocoaLumberjack.framework/Headers\"",
+					"\"${PODS_CONFIGURATION_BUILD_DIR}/Curve25519Kit/Curve25519Kit.framework/Headers\"",
+					"\"${PODS_CONFIGURATION_BUILD_DIR}/DifferenceKit/DifferenceKit.framework/Headers\"",
+					"\"${PODS_CONFIGURATION_BUILD_DIR}/GRDB.swift/GRDB.framework/Headers\"",
+					"\"${PODS_CONFIGURATION_BUILD_DIR}/PureLayout/PureLayout.framework/Headers\"",
+					"\"${PODS_CONFIGURATION_BUILD_DIR}/Reachability/Reachability.framework/Headers\"",
+					"\"${PODS_CONFIGURATION_BUILD_DIR}/SAMKeychain/SAMKeychain.framework/Headers\"",
+					"\"${PODS_CONFIGURATION_BUILD_DIR}/SQLCipher/SQLCipher.framework/Headers\"",
+					"\"${PODS_CONFIGURATION_BUILD_DIR}/SignalCoreKit/SignalCoreKit.framework/Headers\"",
+					"\"${PODS_CONFIGURATION_BUILD_DIR}/Sodium/Sodium.framework/Headers\"",
+					"\"${PODS_CONFIGURATION_BUILD_DIR}/SwiftProtobuf/SwiftProtobuf.framework/Headers\"",
+					"\"${PODS_CONFIGURATION_BUILD_DIR}/YapDatabase/YapDatabase.framework/Headers\"",
+					"\"${PODS_XCFRAMEWORKS_BUILD_DIR}/Sodium/Headers\"",
+					"$(PODS_ROOT)/SQLCipher",
+					"${SRCROOT}/LibSession-Util/include/**",
+				);
 				INFOPLIST_FILE = SessionMessagingKit/Meta/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
@@ -7458,6 +7261,13 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"${DT_TOOLCHAIN_DIR}/usr/lib/swift/${PLATFORM_NAME}\"",
+					"\"${PODS_XCFRAMEWORKS_BUILD_DIR}/Sodium\"",
+					/usr/lib/swift,
+					"\"$(TARGET_BUILD_DIR)/libSessionUtil\"",
+				);
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.SessionMessagingKit";
@@ -7465,6 +7275,7 @@
 				SKIP_INSTALL = YES;
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_INCLUDE_PATHS = "$(inherited) \"${PODS_XCFRAMEWORKS_BUILD_DIR}/Clibsodium\" \"$(TARGET_BUILD_DIR)/libSessionUtil\"";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -7528,6 +7339,24 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"${PODS_CONFIGURATION_BUILD_DIR}/CocoaLumberjack/CocoaLumberjack.framework/Headers\"",
+					"\"${PODS_CONFIGURATION_BUILD_DIR}/Curve25519Kit/Curve25519Kit.framework/Headers\"",
+					"\"${PODS_CONFIGURATION_BUILD_DIR}/DifferenceKit/DifferenceKit.framework/Headers\"",
+					"\"${PODS_CONFIGURATION_BUILD_DIR}/GRDB.swift/GRDB.framework/Headers\"",
+					"\"${PODS_CONFIGURATION_BUILD_DIR}/PureLayout/PureLayout.framework/Headers\"",
+					"\"${PODS_CONFIGURATION_BUILD_DIR}/Reachability/Reachability.framework/Headers\"",
+					"\"${PODS_CONFIGURATION_BUILD_DIR}/SAMKeychain/SAMKeychain.framework/Headers\"",
+					"\"${PODS_CONFIGURATION_BUILD_DIR}/SQLCipher/SQLCipher.framework/Headers\"",
+					"\"${PODS_CONFIGURATION_BUILD_DIR}/SignalCoreKit/SignalCoreKit.framework/Headers\"",
+					"\"${PODS_CONFIGURATION_BUILD_DIR}/Sodium/Sodium.framework/Headers\"",
+					"\"${PODS_CONFIGURATION_BUILD_DIR}/SwiftProtobuf/SwiftProtobuf.framework/Headers\"",
+					"\"${PODS_CONFIGURATION_BUILD_DIR}/YapDatabase/YapDatabase.framework/Headers\"",
+					"\"${PODS_XCFRAMEWORKS_BUILD_DIR}/Sodium/Headers\"",
+					"$(PODS_ROOT)/SQLCipher",
+					"${SRCROOT}/LibSession-Util/include/**",
+				);
 				INFOPLIST_FILE = SessionMessagingKit/Meta/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
@@ -7535,6 +7364,13 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"${DT_TOOLCHAIN_DIR}/usr/lib/swift/${PLATFORM_NAME}\"",
+					"\"${PODS_XCFRAMEWORKS_BUILD_DIR}/Sodium\"",
+					/usr/lib/swift,
+					"\"$(TARGET_BUILD_DIR)/libSessionUtil\"",
 				);
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -7544,6 +7380,7 @@
 				SKIP_INSTALL = YES;
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_INCLUDE_PATHS = "$(inherited) \"${PODS_XCFRAMEWORKS_BUILD_DIR}/Clibsodium\" \"$(TARGET_BUILD_DIR)/libSessionUtil\"";
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -8058,6 +7895,105 @@
 			};
 			name = "App Store Release";
 		};
+		FD9BDDFD2A5D2294005F1EBC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEFINES_MODULE = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				MODULEMAP_FILE = "$(SRCROOT)/SessionMessagingKit/Meta/SessionUtil.modulemap";
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				OTHER_LDFLAGS = "-ObjC";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		FD9BDDFE2A5D2294005F1EBC /* App Store Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEFINES_MODULE = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				MODULEMAP_FILE = "$(SRCROOT)/SessionMessagingKit/Meta/SessionUtil.modulemap";
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				OTHER_LDFLAGS = "-ObjC";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = "App Store Release";
+		};
 		FDC4389627B9FFC700C60D73 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 8727C47348B6EFA767EE583A /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionMessagingKit-SessionMessagingKitTests.debug.xcconfig */;
@@ -8263,6 +8199,15 @@
 			buildConfigurations = (
 				FD83B9B727CF200A005E1583 /* Debug */,
 				FD83B9B827CF200A005E1583 /* App Store Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = "App Store Release";
+		};
+		FD9BDDFC2A5D2294005F1EBC /* Build configuration list for PBXNativeTarget "SessionUtil" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FD9BDDFD2A5D2294005F1EBC /* Debug */,
+				FD9BDDFE2A5D2294005F1EBC /* App Store Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = "App Store Release";

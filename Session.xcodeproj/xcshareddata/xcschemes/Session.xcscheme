@@ -5,24 +5,6 @@
    <BuildAction
       parallelizeBuildables = "YES"
       buildImplicitDependencies = "YES">
-      <PreActions>
-         <ExecutionAction
-            ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
-            <ActionContent
-               title = "Build libSession"
-               scriptText = "&quot;${SRCROOT}/Scripts/build_libSession_util.sh&quot;&#10;">
-               <EnvironmentBuildable>
-                  <BuildableReference
-                     BuildableIdentifier = "primary"
-                     BlueprintIdentifier = "D221A088169C9E5E00537ABF"
-                     BuildableName = "Session.app"
-                     BlueprintName = "Session"
-                     ReferencedContainer = "container:Session.xcodeproj">
-                  </BuildableReference>
-               </EnvironmentBuildable>
-            </ActionContent>
-         </ExecutionAction>
-      </PreActions>
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"
