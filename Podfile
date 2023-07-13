@@ -1,8 +1,9 @@
 platform :ios, '13.0'
-source 'https://github.com/CocoaPods/Specs.git'
 
 use_frameworks!
 inhibit_all_warnings!
+
+install! 'cocoapods', :warn_for_unused_master_specs_repo => false
 
 # Dependencies to be included in the app and all extensions/frameworks
 abstract_target 'GlobalDependencies' do

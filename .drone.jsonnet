@@ -58,9 +58,9 @@ local install_cocoapods = {
           'mkdir build',
           |||
             if command -v xcpretty >/dev/null 2>&1; then
-              xcodebuild archive -workspace Session.xcworkspace -scheme Session -configuration 'App Store Release' -sdk iphonesimulator -derivedDataPath ./build -archivePath ./build/Session_sim.xcarchive -destination 'generic/platform=iOS Simulator' | xcpretty
+              xcodebuild archive -workspace Session.xcworkspace -scheme Session -configuration 'App Store Release' -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination 'generic/platform=iOS Simulator' | xcpretty
             else
-              xcodebuild archive -workspace Session.xcworkspace -scheme Session -configuration 'App Store Release' -sdk iphonesimulator -derivedDataPath ./build -archivePath ./build/Session_sim.xcarchive -destination 'generic/platform=iOS Simulator'
+              xcodebuild archive -workspace Session.xcworkspace -scheme Session -configuration 'App Store Release' -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination 'generic/platform=iOS Simulator'
             fi
           |||
         ],
@@ -88,9 +88,9 @@ local install_cocoapods = {
           'mkdir build',
           |||
             if command -v xcpretty >/dev/null 2>&1; then
-              xcodebuild archive -workspace Session.xcworkspace -scheme Session -configuration 'App Store Release' -sdk iphoneos -derivedDataPath ./build -archivePath ./build/Session.xcarchive -destination 'generic/platform=iOS' | xcpretty
+              xcodebuild archive -workspace Session.xcworkspace -scheme Session -configuration 'App Store Release' -sdk iphoneos -archivePath ./build/Session.xcarchive -destination 'generic/platform=iOS' | xcpretty
             else
-              xcodebuild archive -workspace Session.xcworkspace -scheme Session -configuration 'App Store Release' -sdk iphoneos -derivedDataPath ./build -archivePath ./build/Session.xcarchive -destination 'generic/platform=iOS'
+              xcodebuild archive -workspace Session.xcworkspace -scheme Session -configuration 'App Store Release' -sdk iphoneos -archivePath ./build/Session.xcarchive -destination 'generic/platform=iOS'
             fi
           |||
         ],
