@@ -31,10 +31,20 @@ fi
 mkdir -v "$base"
 
 # Copy over the build products
+prod_path="build/Session.xcarchive"
+sim_path="build/Session_sim.xcarchive/Products/Applications/Session.app"
+
 mkdir build
 echo "Test" > "build/test.txt"
-cp -av build/test.txt "$base"
-# cp -av build/Build/Products/App\ Store\ Release-iphonesimulator/Session.app "$base"
+
+if [ ! -d $prod_path ]; then
+    cp -av $prod_path "$base"
+else if [ ! -d $sim_path ]; then
+    cp -av $sim_path "$base"
+else
+    echo "Expected a file to upload, found none" >&2
+    exit 1
+fi
 
 # tar dat shiz up yo
 archive="$base.tar.xz"
@@ -54,9 +64,7 @@ for p in "${upload_dirs[@]}"; do
     mkdirs="$mkdirs
 -mkdir $dir_tmp"
 done
-if [ -e "$base-debug-symbols.tar.xz" ] ; then
-    put_debug="put $base-debug-symbols.tar.xz $upload_to"
-fi
+
 sftp -i ssh_key -b - -o StrictHostKeyChecking=off drone@oxen.rocks <<SFTP
 $mkdirs
 put $archive $upload_to

@@ -71,16 +71,3 @@ public struct QuotedReplyModel {
         )
     }
 }
-
-// MARK: - Convenience
-
-public extension QuotedReplyModel {
-    func generateAttachmentThumbnailIfNeeded(_ db: Database) throws -> String? {
-        guard let sourceAttachment: Attachment = self.attachment else { return nil }
-        
-        return try sourceAttachment
-            .cloneAsQuoteThumbnail()?
-            .inserted(db)
-            .id
-    }
-}

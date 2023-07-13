@@ -899,9 +899,34 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         
         // Store the 'sentMessageBeforeUpdate' state locally
         let didSendMessageBeforeUpdate: Bool = self.viewModel.sentMessageBeforeUpdate
+        let onlyReplacedOptimisticUpdate: Bool = {
+            // Replacing an optimistic update means making a delete and an insert, which will be done
+            // as separate changes at the same positions
+            guard
+                changeset.count > 1 &&
+                changeset[changeset.count - 2].elementDeleted == changeset[changeset.count - 1].elementInserted
+            else { return false }
+            
+            let deletedModels: [MessageViewModel] = changeset[changeset.count - 2]
+                .elementDeleted
+                .map { self.viewModel.interactionData[$0.section].elements[$0.element] }
+            let insertedModels: [MessageViewModel] = changeset[changeset.count - 1]
+                .elementInserted
+                .map { updatedData[$0.section].elements[$0.element] }
+            
+            // Make sure all the deleted models were optimistic updates, the inserted models were not
+            // optimistic updates and they have the same timestamps
+            return (
+                deletedModels.map { $0.id }.asSet() == [MessageViewModel.optimisticUpdateId] &&
+                insertedModels.map { $0.id }.asSet() != [MessageViewModel.optimisticUpdateId] &&
+                deletedModels.map { $0.timestampMs }.asSet() == insertedModels.map { $0.timestampMs }.asSet()
+            )
+        }()
         let wasOnlyUpdates: Bool = (
-            changeset.count == 1 &&
-            changeset[0].elementUpdated.count == changeset[0].changeCount
+            onlyReplacedOptimisticUpdate || (
+                changeset.count == 1 &&
+                changeset[0].elementUpdated.count == changeset[0].changeCount
+            )
         )
         self.viewModel.sentMessageBeforeUpdate = false
         
@@ -912,13 +937,13 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         guard !didSendMessageBeforeUpdate && !wasOnlyUpdates else {
             self.viewModel.updateInteractionData(updatedData)
             self.tableView.reloadData()
-            self.tableView.layoutIfNeeded()
             
             // If we just sent a message then we want to jump to the bottom of the conversation instantly
             if didSendMessageBeforeUpdate {
                 // We need to dispatch to the next run loop because it seems trying to scroll immediately after
                 // triggering a 'reloadData' doesn't work
                 DispatchQueue.main.async { [weak self] in
+                    self?.tableView.layoutIfNeeded()
                     self?.scrollToBottom(isAnimated: false)
                     
                     // Note: The scroll button alpha won't get set correctly in this case so we forcibly set it to
