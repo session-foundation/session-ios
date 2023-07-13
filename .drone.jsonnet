@@ -91,7 +91,7 @@ local update_cocoapods_cache = {
         name: 'Build',
         commands: [
           'mkdir build',
-          'xcodebuild archive -workspace Session.xcworkspace -scheme Session -configuration 'App Store Release' -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination "generic/platform=iOS Simulator" | ./Pods/xcbeautify/xcbeautify'
+          'xcodebuild archive -workspace Session.xcworkspace -scheme Session -configuration "App Store Release" -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination "generic/platform=iOS Simulator" | ./Pods/xcbeautify/xcbeautify'
         ],
       },
       update_cocoapods_cache,
@@ -117,7 +117,7 @@ local update_cocoapods_cache = {
         name: 'Build',
         commands: [
           'mkdir build',
-          'xcodebuild archive -workspace Session.xcworkspace -scheme Session -configuration 'App Store Release' -sdk iphoneos -archivePath ./build/Session.xcarchive -destination "generic/platform=iOS" -allowProvisioningUpdates | ./Pods/xcbeautify/xcbeautify'
+          'xcodebuild archive -workspace Session.xcworkspace -scheme Session -configuration "App Store Release" -sdk iphoneos -archivePath ./build/Session.xcarchive -destination "generic/platform=iOS" -allowProvisioningUpdates | ./Pods/xcbeautify/xcbeautify'
         ],
       },
       update_cocoapods_cache,
