@@ -71,13 +71,7 @@ local update_cocoapods_cache = {
         name: 'Run Unit Tests',
         commands: [
           'mkdir build',
-          |||
-            if command -v xcpretty >/dev/null 2>&1; then
-              xcodebuild test -workspace Session.xcworkspace -scheme Session -destination "platform=iOS Simulator,name=iPhone 14 Pro" | xcpretty
-            else
-              xcodebuild test -workspace Session.xcworkspace -scheme Session -destination "platform=iOS Simulator,name=iPhone 14 Pro"
-            fi
-          |||
+          'NSUnbufferedIO=YES set -o pipefail && xcodebuild test -workspace Session.xcworkspace -scheme Session -destination "platform=iOS Simulator,name=iPhone 14 Pro" -maximum-test-execution-time-allowance 2 -collect-test-diagnostics never 2>&1 | ./Pods/xcbeautify/xcbeautify'
         ],
       },
       update_cocoapods_cache
@@ -97,13 +91,7 @@ local update_cocoapods_cache = {
         name: 'Build',
         commands: [
           'mkdir build',
-          |||
-            if command -v xcpretty >/dev/null 2>&1; then
-              xcodebuild archive -workspace Session.xcworkspace -scheme Session -configuration 'App Store Release' -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination "generic/platform=iOS Simulator" | xcpretty
-            else
-              xcodebuild archive -workspace Session.xcworkspace -scheme Session -configuration 'App Store Release' -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination "generic/platform=iOS Simulator"
-            fi
-          |||
+          'xcodebuild archive -workspace Session.xcworkspace -scheme Session -configuration 'App Store Release' -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination "generic/platform=iOS Simulator" | ./Pods/xcbeautify/xcbeautify'
         ],
       },
       update_cocoapods_cache,
@@ -129,13 +117,7 @@ local update_cocoapods_cache = {
         name: 'Build',
         commands: [
           'mkdir build',
-          |||
-            if command -v xcpretty >/dev/null 2>&1; then
-              xcodebuild archive -workspace Session.xcworkspace -scheme Session -configuration 'App Store Release' -sdk iphoneos -archivePath ./build/Session.xcarchive -destination "generic/platform=iOS" -allowProvisioningUpdates | xcpretty
-            else
-              xcodebuild archive -workspace Session.xcworkspace -scheme Session -configuration 'App Store Release' -sdk iphoneos -archivePath ./build/Session.xcarchive -destination "generic/platform=iOS" -allowProvisioningUpdates
-            fi
-          |||
+          'xcodebuild archive -workspace Session.xcworkspace -scheme Session -configuration 'App Store Release' -sdk iphoneos -archivePath ./build/Session.xcarchive -destination "generic/platform=iOS" -allowProvisioningUpdates | ./Pods/xcbeautify/xcbeautify'
         ],
       },
       update_cocoapods_cache,

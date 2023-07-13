@@ -5,6 +5,9 @@ inhibit_all_warnings!
 
 install! 'cocoapods', :warn_for_unused_master_specs_repo => false
 
+# CI Dependencies
+pod 'xcbeautify'
+
 # Dependencies to be included in the app and all extensions/frameworks
 abstract_target 'GlobalDependencies' do
   # FIXME: If https://github.com/jedisct1/swift-sodium/pull/249 gets resolved then revert this back to the standard pod

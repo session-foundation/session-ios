@@ -1,10 +1,11 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import GRDB
 import SessionUtilitiesKit
 
-public enum SNSnodeKit { // Just to make the external API nice
-    public static func migrations() -> TargetMigrations {
+public enum SNSnodeKit: MigratableTarget { // Just to make the external API nice
+    public static func migrations(_ db: Database) -> TargetMigrations {
         return TargetMigrations(
             identifier: .snodeKit,
             migrations: [

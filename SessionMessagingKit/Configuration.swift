@@ -1,8 +1,9 @@
 import Foundation
+import GRDB
 import SessionUtilitiesKit
 
-public enum SNMessagingKit { // Just to make the external API nice
-    public static func migrations() -> TargetMigrations {
+public enum SNMessagingKit: MigratableTarget { // Just to make the external API nice
+    public static func migrations(_ db: Database) -> TargetMigrations {
         return TargetMigrations(
             identifier: .messagingKit,
             migrations: [
@@ -33,7 +34,7 @@ public enum SNMessagingKit { // Just to make the external API nice
                     // Wait until the feature is turned on before doing the migration that generates
                     // the config dump data
                     // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-                    (Features.useSharedUtilForUserConfig() ?
+                    (Features.useSharedUtilForUserConfig(db) ?
                         _014_GenerateInitialUserConfigDumps.self :
                         (nil as Migration.Type?)
                     )

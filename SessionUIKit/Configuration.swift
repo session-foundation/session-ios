@@ -1,10 +1,11 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import GRDB
 import SessionUtilitiesKit
 
-public enum SNUIKit {
-    public static func migrations() -> TargetMigrations {
+public enum SNUIKit: MigratableTarget {
+    public static func migrations(_ db: Database) -> TargetMigrations {
         return TargetMigrations(
             identifier: .uiKit,
             migrations: [

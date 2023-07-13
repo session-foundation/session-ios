@@ -47,14 +47,14 @@ open class Storage {
     
     public init(
         customWriter: DatabaseWriter? = nil,
-        customMigrations: [TargetMigrations]? = nil
+        customMigrationTargets: [MigratableTarget.Type]? = nil
     ) {
-        configureDatabase(customWriter: customWriter, customMigrations: customMigrations)
+        configureDatabase(customWriter: customWriter, customMigrationTargets: customMigrationTargets)
     }
     
     private func configureDatabase(
         customWriter: DatabaseWriter? = nil,
-        customMigrations: [TargetMigrations]? = nil
+        customMigrationTargets: [MigratableTarget.Type]? = nil
     ) {
         // Create the database directory if needed and ensure it's protection level is set before attempting to
         // create the database KeySpec or the database itself
@@ -66,7 +66,12 @@ open class Storage {
             dbWriter = customWriter
             isValid = true
             Storage.internalHasCreatedValidInstance.mutate { $0 = true }
-            perform(migrations: (customMigrations ?? []), async: false, onProgressUpdate: nil, onComplete: { _, _ in })
+            perform(
+                migrationTargets: (customMigrationTargets ?? []),
+                async: false,
+                onProgressUpdate: nil,
+                onComplete: { _, _ in }
+            )
             return
         }
         
@@ -128,7 +133,7 @@ open class Storage {
     }
     
     public func perform(
-        migrations: [TargetMigrations],
+        migrationTargets: [MigratableTarget.Type],
         async: Bool = true,
         onProgressUpdate: ((CGFloat, TimeInterval) -> ())?,
         onComplete: @escaping (Swift.Result<Void, Error>, Bool) -> ()
@@ -141,18 +146,28 @@ open class Storage {
         }
         
         typealias MigrationInfo = (identifier: TargetMigrations.Identifier, migrations: TargetMigrations.MigrationSet)
-        let sortedMigrationInfo: [MigrationInfo] = migrations
-            .sorted()
-            .reduce(into: [[MigrationInfo]]()) { result, next in
-                next.migrations.enumerated().forEach { index, migrationSet in
-                    if result.count <= index {
-                        result.append([])
-                    }
+        let maybeSortedMigrationInfo: [MigrationInfo]? = try? dbWriter
+            .read { db -> [MigrationInfo] in
+                migrationTargets
+                    .map { target -> TargetMigrations in target.migrations(db) }
+                    .sorted()
+                    .reduce(into: [[MigrationInfo]]()) { result, next in
+                        next.migrations.enumerated().forEach { index, migrationSet in
+                            if result.count <= index {
+                                result.append([])
+                            }
 
-                    result[index] = (result[index] + [(next.identifier, migrationSet)])
-                }
+                            result[index] = (result[index] + [(next.identifier, migrationSet)])
+                        }
+                    }
+                    .reduce(into: []) { result, next in result.append(contentsOf: next) }
             }
-            .reduce(into: []) { result, next in result.append(contentsOf: next) }
+        
+        guard let sortedMigrationInfo: [MigrationInfo] = maybeSortedMigrationInfo else {
+            SNLog("[Database Error] Statup failed with error: Unable to prepare migrations")
+            onComplete(.failure(StorageError.startupFailed), false)
+            return
+        }
         
         // Setup and run any required migrations
         migrator = { [weak self] in

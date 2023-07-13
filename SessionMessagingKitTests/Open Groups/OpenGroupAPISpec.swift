@@ -37,9 +37,9 @@ class OpenGroupAPISpec: QuickSpec {
             beforeEach {
                 mockStorage = Storage(
                     customWriter: try! DatabaseQueue(),
-                    customMigrations: [
-                        SNUtilitiesKit.migrations(),
-                        SNMessagingKit.migrations()
+                    customMigrationTargets: [
+                        SNUtilitiesKit.self,
+                        SNMessagingKit.self
                     ]
                 )
                 mockSodium = MockSodium()
