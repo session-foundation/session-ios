@@ -25,7 +25,7 @@ local load_cocoapods_cache = {
           sleep 1
       done
     |||,
-    'touch /Users/drone/.cocoapods_cache.lock'
+    'touch /Users/drone/.cocoapods_cache.lock',
     |||
       if [[ -d /Users/drone/.cocoapods_cache ]]; then
         cp -r /Users/drone/.cocoapods_cache ./Pods
@@ -44,7 +44,7 @@ local update_cocoapods_cache = {
           sleep 1
       done
     |||,
-    'touch /Users/drone/.cocoapods_cache.lock'
+    'touch /Users/drone/.cocoapods_cache.lock',
     |||
       if [[ -d ./Pods ]]; then
         rm -rf /Users/drone/.cocoapods_cache
