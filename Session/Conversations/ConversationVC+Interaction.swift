@@ -453,6 +453,7 @@ extension ConversationVC:
             self?.snInputView.quoteDraftInfo = nil
 
             self?.resetMentions()
+            self?.scrollToBottom(isAnimated: false)
         }
 
         // Note: 'shouldBeVisible' is set to true the first time a thread is saved so we can
@@ -481,64 +482,70 @@ extension ConversationVC:
             quoteModel: quoteModel
         )
         
-        // Actually send the message
-        Storage.shared
-            .writePublisher { [weak self] db in
-                // Update the thread to be visible (if it isn't already)
-                if self?.viewModel.threadData.threadShouldBeVisible == false {
-                    _ = try SessionThread
-                        .filter(id: threadId)
-                        .updateAllAndConfig(db, SessionThread.Columns.shouldBeVisible.set(to: true))
+        DispatchQueue.global(qos:.userInitiated).async {
+            // Generate the quote thumbnail if needed (want this to happen outside of the DBWrite thread as
+            // this can take up to 0.5s
+            let quoteThumbnailAttachment: Attachment? = quoteModel?.attachment?.cloneAsQuoteThumbnail()
+            
+            // Actually send the message
+            Storage.shared
+                .writePublisher { [weak self] db in
+                    // Update the thread to be visible (if it isn't already)
+                    if self?.viewModel.threadData.threadShouldBeVisible == false {
+                        _ = try SessionThread
+                            .filter(id: threadId)
+                            .updateAllAndConfig(db, SessionThread.Columns.shouldBeVisible.set(to: true))
+                    }
+                    
+                    // Insert the interaction and associated it with the optimistically inserted message so
+                    // we can remove it once the database triggers a UI update
+                    let insertedInteraction: Interaction = try optimisticData.interaction.inserted(db)
+                    self?.viewModel.associate(optimisticMessageId: optimisticData.id, to: insertedInteraction.id)
+                    
+                    // If there is a LinkPreview and it doesn't match an existing one then add it now
+                    if
+                        let linkPreviewDraft: LinkPreviewDraft = linkPreviewDraft,
+                        (try? insertedInteraction.linkPreview.isEmpty(db)) == true
+                    {
+                        try LinkPreview(
+                            url: linkPreviewDraft.urlString,
+                            title: linkPreviewDraft.title,
+                            attachmentId: try optimisticData.linkPreviewAttachment?.inserted(db).id
+                        ).insert(db)
+                    }
+                    
+                    // If there is a Quote the insert it now
+                    if let interactionId: Int64 = insertedInteraction.id, let quoteModel: QuotedReplyModel = quoteModel {
+                        try Quote(
+                            interactionId: interactionId,
+                            authorId: quoteModel.authorId,
+                            timestampMs: quoteModel.timestampMs,
+                            body: quoteModel.body,
+                            attachmentId: try quoteThumbnailAttachment?.inserted(db).id
+                        ).insert(db)
+                    }
+                    
+                    // Process any attachments
+                    try Attachment.process(
+                        db,
+                        data: optimisticData.attachmentData,
+                        for: insertedInteraction.id
+                    )
+                    
+                    try MessageSender.send(
+                        db,
+                        interaction: insertedInteraction,
+                        threadId: threadId,
+                        threadVariant: threadVariant
+                    )
                 }
-                
-                // Insert the interaction and associated it with the optimistically inserted message so
-                // we can remove it once the database triggers a UI update
-                let insertedInteraction: Interaction = try optimisticData.interaction.inserted(db)
-                self?.viewModel.associate(optimisticMessageId: optimisticData.id, to: insertedInteraction.id)
-                
-                // If there is a LinkPreview and it doesn't match an existing one then add it now
-                if
-                    let linkPreviewDraft: LinkPreviewDraft = linkPreviewDraft,
-                    (try? insertedInteraction.linkPreview.isEmpty(db)) == true
-                {
-                    try LinkPreview(
-                        url: linkPreviewDraft.urlString,
-                        title: linkPreviewDraft.title,
-                        attachmentId: try optimisticData.linkPreviewAttachment?.inserted(db).id
-                    ).insert(db)
-                }
-                
-                // If there is a Quote the insert it now
-                if let interactionId: Int64 = insertedInteraction.id, let quoteModel: QuotedReplyModel = quoteModel {
-                    try Quote(
-                        interactionId: interactionId,
-                        authorId: quoteModel.authorId,
-                        timestampMs: quoteModel.timestampMs,
-                        body: quoteModel.body,
-                        attachmentId: quoteModel.generateAttachmentThumbnailIfNeeded(db)
-                    ).insert(db)
-                }
-                
-                // Process any attachments
-                try Attachment.process(
-                    db,
-                    data: optimisticData.attachmentData,
-                    for: insertedInteraction.id
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+                .sinkUntilComplete(
+                    receiveCompletion: { [weak self] _ in
+                        self?.handleMessageSent()
+                    }
                 )
-                
-                try MessageSender.send(
-                    db,
-                    interaction: insertedInteraction,
-                    threadId: threadId,
-                    threadVariant: threadVariant
-                )
-            }
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .sinkUntilComplete(
-                receiveCompletion: { [weak self] _ in
-                    self?.handleMessageSent()
-                }
-            )
+        }
     }
 
     func handleMessageSent() {

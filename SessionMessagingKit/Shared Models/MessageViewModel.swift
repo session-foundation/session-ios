@@ -527,6 +527,7 @@ public extension MessageViewModel {
 public extension MessageViewModel {
     static let genericId: Int64 = -1
     static let typingIndicatorId: Int64 = -2
+    static let optimisticUpdateId: Int64 = -3
     
     /// This init method is only used for system-created cells or empty states
     init(
@@ -634,8 +635,8 @@ public extension MessageViewModel {
         
         // Interaction Info
         
-        self.rowId = -1
-        self.id = -1
+        self.rowId = MessageViewModel.optimisticUpdateId
+        self.id = MessageViewModel.optimisticUpdateId
         self.openGroupServerMessageId = nil
         self.variant = .standardOutgoing
         self.timestampMs = timestampMs

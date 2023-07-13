@@ -10,9 +10,7 @@ import SessionUtilitiesKit
 
 public extension Features {
     static func useSharedUtilForUserConfig(_ db: Database? = nil) -> Bool {
-        return true
-        // TODO: Need to set this timestamp to the correct date (currently start of 2030)
-//        guard Date().timeIntervalSince1970 < 1893456000 else { return true }
+        guard Date().timeIntervalSince1970 < 1690761600 else { return true }
         guard !SessionUtil.hasCheckedMigrationsCompleted.wrappedValue else {
             return SessionUtil.userConfigsEnabledIgnoringFeatureFlag
         }

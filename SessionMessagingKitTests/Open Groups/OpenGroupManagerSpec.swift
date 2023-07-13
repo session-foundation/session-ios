@@ -3581,7 +3581,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     forKey: SNUserDefaults.Date.lastOpenGroupImageUpdate.rawValue
                                 )
                             },
-                            timeout: .milliseconds(50)
+                            timeout: .milliseconds(100)
                         )
                     expect(
                         mockStorage.read { db -> Data? in

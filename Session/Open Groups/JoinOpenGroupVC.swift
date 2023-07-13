@@ -144,25 +144,26 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         dismiss(animated: true, completion: nil)
     }
 
-    func controller(_ controller: QRCodeScanningViewController, didDetectQRCodeWith string: String) {
-        joinOpenGroup(with: string)
+    func controller(_ controller: QRCodeScanningViewController, didDetectQRCodeWith string: String, onError: (() -> ())?) {
+        joinOpenGroup(with: string, onError: onError)
     }
 
-    fileprivate func joinOpenGroup(with urlString: String) {
+    fileprivate func joinOpenGroup(with urlString: String, onError: (() -> ())?) {
         // A V2 open group URL will look like: <optional scheme> + <host> + <optional port> + <room> + <public key>
         // The host doesn't parse if no explicit scheme is provided
         guard let (room, server, publicKey) = SessionUtil.parseCommunity(url: urlString) else {
             showError(
                 title: "invalid_url".localized(),
-                message: "COMMUNITY_ERROR_INVALID_URL".localized()
+                message: "COMMUNITY_ERROR_INVALID_URL".localized(),
+                onError: onError
             )
             return
         }
         
-        joinOpenGroup(roomToken: room, server: server, publicKey: publicKey, shouldOpenCommunity: true)
+        joinOpenGroup(roomToken: room, server: server, publicKey: publicKey, shouldOpenCommunity: true, onError: onError)
     }
 
-    fileprivate func joinOpenGroup(roomToken: String, server: String, publicKey: String, shouldOpenCommunity: Bool) {
+    fileprivate func joinOpenGroup(roomToken: String, server: String, publicKey: String, shouldOpenCommunity: Bool, onError: (() -> ())?) {
         guard !isJoining, let navigationController: UINavigationController = navigationController else { return }
         
         isJoining = true
@@ -209,7 +210,8 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                                 self?.dismiss(animated: true) { // Dismiss the loader
                                     self?.showError(
                                         title: "COMMUNITY_ERROR_GENERIC".localized(),
-                                        message: error.localizedDescription
+                                        message: error.localizedDescription,
+                                        onError: onError
                                     )
                                 }
                                 
@@ -232,13 +234,14 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
 
     // MARK: - Convenience
 
-    private func showError(title: String, message: String = "") {
+    private func showError(title: String, message: String = "", onError: (() -> ())?) {
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: title,
                 body: .text(message),
                 cancelTitle: "BUTTON_OK".localized(),
-                cancelStyle: .alert_text
+                cancelStyle: .alert_text,
+                afterClosed: onError
             )
         )
         self.navigationController?.present(confirmationModal, animated: true, completion: nil)
@@ -399,13 +402,14 @@ private final class EnterURLVC: UIViewController, UIGestureRecognizerDelegate, O
             roomToken: room.token,
             server: OpenGroupAPI.defaultServer,
             publicKey: OpenGroupAPI.defaultServerPublicKey,
-            shouldOpenCommunity: true
+            shouldOpenCommunity: true,
+            onError: nil
         )
     }
 
     @objc private func joinOpenGroup() {
         let url = urlTextView.text?.trimmingCharacters(in: .whitespaces) ?? ""
-        joinOpenGroupVC?.joinOpenGroup(with: url)
+        joinOpenGroupVC?.joinOpenGroup(with: url, onError: nil)
     }
     
     // MARK: - Updating
