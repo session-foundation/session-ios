@@ -16,6 +16,45 @@ local install_cocoapods = {
   commands: ['LANG=en_US.UTF-8 pod install']
 };
 
+// Load from the cached CocoaPods directory (to speed up the build)
+local load_cocoapods_cache = {
+  name: 'Load CocoaPods Cache',
+  commands: [
+    |||
+      while test -e /Users/drone/.cocoapods_cache.lock; do
+          sleep 1
+      done
+    |||,
+    'touch /Users/drone/.cocoapods_cache.lock'
+    |||
+      if [[ -d /Users/drone/.cocoapods_cache ]]; then
+        cp -r /Users/drone/.cocoapods_cache ./Pods
+      fi
+    |||,
+    'rm /Users/drone/.cocoapods_cache.lock'
+  ]
+};
+
+// Override the cached CocoaPods directory (to speed up the next build)
+local update_cocoapods_cache = {
+  name: 'Update CocoaPods Cache',
+  commands: [
+    |||
+      while test -e /Users/drone/.cocoapods_cache.lock; do
+          sleep 1
+      done
+    |||,
+    'touch /Users/drone/.cocoapods_cache.lock'
+    |||
+      if [[ -d ./Pods ]]; then
+        rm -rf /Users/drone/.cocoapods_cache
+        cp -r ./Pods /Users/drone/.cocoapods_cache
+      fi
+    |||,
+    'rm /Users/drone/.cocoapods_cache.lock'
+  ]
+};
+
 
 [
   // Unit tests
@@ -26,7 +65,7 @@ local install_cocoapods = {
     platform: { os: 'darwin', arch: 'amd64' },
     steps: [
       clone_submodules,
-      // install_xcpretty,
+      load_cocoapods_cache,
       install_cocoapods,
       {
         name: 'Run Unit Tests',
@@ -41,6 +80,7 @@ local install_cocoapods = {
           |||
         ],
       },
+      update_cocoapods_cache
     ],
   },
   // Simulator build
@@ -51,6 +91,7 @@ local install_cocoapods = {
     platform: { os: 'darwin', arch: 'amd64' },
     steps: [
       clone_submodules,
+      load_cocoapods_cache,
       install_cocoapods,
       {
         name: 'Build',
@@ -65,6 +106,7 @@ local install_cocoapods = {
           |||
         ],
       },
+      update_cocoapods_cache,
       {
         name: 'Upload artifacts',
         commands: [
@@ -81,6 +123,7 @@ local install_cocoapods = {
     platform: { os: 'darwin', arch: 'amd64' },
     steps: [
       clone_submodules,
+      load_cocoapods_cache,
       install_cocoapods,
       {
         name: 'Build',
@@ -88,13 +131,14 @@ local install_cocoapods = {
           'mkdir build',
           |||
             if command -v xcpretty >/dev/null 2>&1; then
-              xcodebuild archive -workspace Session.xcworkspace -scheme Session -configuration 'App Store Release' -sdk iphoneos -archivePath ./build/Session.xcarchive -destination "generic/platform=iOS" | xcpretty
+              xcodebuild archive -workspace Session.xcworkspace -scheme Session -configuration 'App Store Release' -sdk iphoneos -archivePath ./build/Session.xcarchive -destination "generic/platform=iOS" -allowProvisioningUpdates | xcpretty
             else
-              xcodebuild archive -workspace Session.xcworkspace -scheme Session -configuration 'App Store Release' -sdk iphoneos -archivePath ./build/Session.xcarchive -destination "generic/platform=iOS"
+              xcodebuild archive -workspace Session.xcworkspace -scheme Session -configuration 'App Store Release' -sdk iphoneos -archivePath ./build/Session.xcarchive -destination "generic/platform=iOS" -allowProvisioningUpdates
             fi
           |||
         ],
       },
+      update_cocoapods_cache,
       {
         name: 'Upload artifacts',
         commands: [
