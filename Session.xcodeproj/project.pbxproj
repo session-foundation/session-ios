@@ -5550,8 +5550,8 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
-				$BUILT_PRODUCTS_DIR/$INFOPLIST_PATH,
-				$TARGET_BUILD_DIR/$INFOPLIST_PATH,
+				"$BUILT_PRODUCTS_DIR/$INFOPLIST_PATH",
+				"$TARGET_BUILD_DIR/$INFOPLIST_PATH",
 			);
 			name = "Add Commit Hash To Build Info Plist";
 			outputFileListPaths = (

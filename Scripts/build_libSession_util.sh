@@ -171,3 +171,4 @@ fi
 # Move the target-specific libSession-util build to the parent build directory (so XCode can have a reference to a single build)
 rm -rf "${BUILD_DIR}/libsession-util.xcframework"
 cp -r "${TARGET_BUILD_DIR}/libsession-util.xcframework" "${BUILD_DIR}/libsession-util.xcframework"
+#cp -r "${TARGET_BUILD_DIR}/libsession-util.xcframework" "${TEMP_ROOT}/Previews/Session/Products/libsession-util.xcframework"

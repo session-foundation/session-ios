@@ -2,22 +2,20 @@
 
 import SwiftUI
 
-struct ProfilePictureView_SwiftUI: UIViewRepresentable {
-//    typealias UIViewType = ProfilePictureView
-    
-    @Binding var info: ProfilePictureView.Info
-    @Binding var additionalInfo: ProfilePictureView.Info?
-    
+public struct ProfilePictureSwiftUI: UIViewRepresentable {
+    public typealias UIViewType = ProfilePictureView
+
     var size: ProfilePictureView.Size
     
-    func makeUIView(context: Context) -> ProfilePictureView {
+    public init(size: ProfilePictureView.Size) {
+        self.size = size
+    }
+    
+    public func makeUIView(context: Context) -> ProfilePictureView {
         ProfilePictureView(size: size)
     }
     
-    func updateUIView(_ uiView: ProfilePictureView, context: Context) {
-        uiView.update(
-            info,
-            additionalInfo: additionalInfo
-        )
+    public func updateUIView(_ uiView: ProfilePictureView, context: Context) {
+
     }
 }
