@@ -39,8 +39,7 @@ public enum MessageSendJob: JobExecutor {
         /// already have attachments in a valid state
         if
             details.message is VisibleMessage,
-            (details.message as? VisibleMessage)?.reaction == nil &&
-            details.isSyncMessage == false
+            (details.message as? VisibleMessage)?.reaction == nil
         {
             guard
                 let jobId: Int64 = job.id,
@@ -51,122 +50,111 @@ public enum MessageSendJob: JobExecutor {
                 return
             }
             
-            // If the original interaction no longer exists then don't bother sending the message (ie. the
-            // message was deleted before it even got sent)
-            guard Storage.shared.read({ db in try Interaction.exists(db, id: interactionId) }) == true else {
-                SNLog("[MessageSendJob] Failing due to missing interaction")
-                failure(job, StorageError.objectNotFound, true)
-                return
-            }
-            
-            // Check if there are any attachments associated to this message, and if so
-            // upload them now
-            //
-            // Note: Normal attachments should be sent in a non-durable way but any
-            // attachments for LinkPreviews and Quotes will be processed through this mechanism
-            let attachmentState: (shouldFail: Bool, shouldDefer: Bool, fileIds: [String])? = Storage.shared.write { db in
-                let allAttachmentStateInfo: [Attachment.StateInfo] = try Attachment
-                    .stateInfo(interactionId: interactionId)
-                    .fetchAll(db)
-                let maybeFileIds: [String?] = allAttachmentStateInfo
-                    .sorted { lhs, rhs in lhs.albumIndex < rhs.albumIndex }
-                    .map { Attachment.fileId(for: $0.downloadUrl) }
-                let fileIds: [String] = maybeFileIds.compactMap { $0 }
-                
-                // If there were failed attachments then this job should fail (can't send a
-                // message which has associated attachments if the attachments fail to upload)
-                guard !allAttachmentStateInfo.contains(where: { $0.state == .failedDownload }) else {
-                    return (true, false, fileIds)
-                }
-                
-                // Create jobs for any pending (or failed) attachment jobs and insert them into the
-                // queue before the current job (this will mean the current job will re-run
-                // after these inserted jobs complete)
-                //
-                // Note: If there are any 'downloaded' attachments then they also need to be
-                // uploaded (as a 'downloaded' attachment will be on the current users device
-                // but not on the message recipients device - both LinkPreview and Quote can
-                // have this case)
-                try allAttachmentStateInfo
-                    .filter { attachment -> Bool in
-                        // Non-media quotes won't have thumbnails so so don't try to upload them
-                        guard attachment.downloadUrl != Attachment.nonMediaQuoteFileId else { return false }
-                        
-                        switch attachment.state {
-                            case .uploading, .pendingDownload, .downloading, .failedUpload, .downloaded:
-                                return true
-                                
-                            default: return false
+            // Retrieve the current attachment state
+            typealias AttachmentState = (error: Error?, pendingUploadAttachmentIds: [String], preparedFileIds: [String])
+
+            let attachmentState: AttachmentState = Storage.shared
+                .read { db in
+                    // If the original interaction no longer exists then don't bother sending the message (ie. the
+                    // message was deleted before it even got sent)
+                    guard try Interaction.exists(db, id: interactionId) else {
+                        SNLog("[MessageSendJob] Failing due to missing interaction")
+                        return (StorageError.objectNotFound, [], [])
+                    }
+
+                    // Get the current state of the attachments
+                    let allAttachmentStateInfo: [Attachment.StateInfo] = try Attachment
+                        .stateInfo(interactionId: interactionId)
+                        .fetchAll(db)
+                    let maybeFileIds: [String?] = allAttachmentStateInfo
+                        .sorted { lhs, rhs in lhs.albumIndex < rhs.albumIndex }
+                        .map { Attachment.fileId(for: $0.downloadUrl) }
+                    let fileIds: [String] = maybeFileIds.compactMap { $0 }
+
+                    // If there were failed attachments then this job should fail (can't send a
+                    // message which has associated attachments if the attachments fail to upload)
+                    guard !allAttachmentStateInfo.contains(where: { $0.state == .failedDownload }) else {
+                        SNLog("[MessageSendJob] Failing due to failed attachment upload")
+                        return (AttachmentError.notUploaded, [], fileIds)
+                    }
+
+                    /// Find all attachmentIds for attachments which need to be uploaded
+                    ///
+                    /// **Note:** If there are any 'downloaded' attachments then they also need to be uploaded (as a
+                    /// 'downloaded' attachment will be on the current users device but not on the message recipients
+                    /// device - both `LinkPreview` and `Quote` can have this case)
+                    let pendingUploadAttachmentIds: [String] = allAttachmentStateInfo
+                        .filter { attachment -> Bool in
+                            // Non-media quotes won't have thumbnails so so don't try to upload them
+                            guard attachment.downloadUrl != Attachment.nonMediaQuoteFileId else { return false }
+
+                            switch attachment.state {
+                                case .uploading, .pendingDownload, .downloading, .failedUpload, .downloaded:
+                                    return true
+
+                                default: return false
+                            }
                         }
-                    }
-                    .filter { stateInfo in
-                        // Don't add a new job if there is one already in the queue
-                        !JobRunner.hasPendingOrRunningJob(
-                            with: .attachmentUpload,
-                            details: AttachmentUploadJob.Details(
-                                messageSendJobId: jobId,
-                                attachmentId: stateInfo.attachmentId
-                            )
-                        )
-                    }
-                    .compactMap { stateInfo -> (jobId: Int64, job: Job)? in
-                        JobRunner
-                            .insert(
-                                db,
-                                job: Job(
-                                    variant: .attachmentUpload,
-                                    behaviour: .runOnce,
-                                    threadId: job.threadId,
-                                    interactionId: interactionId,
-                                    details: AttachmentUploadJob.Details(
-                                        messageSendJobId: jobId,
-                                        attachmentId: stateInfo.attachmentId
-                                    )
-                                ),
-                                before: job
-                            )
-                    }
-                    .forEach { otherJobId, _ in
-                        // Create the dependency between the jobs
-                        try JobDependencies(
-                            jobId: jobId,
-                            dependantId: otherJobId
-                        )
-                        .insert(db)
-                    }
-                
-                // If there were pending or uploading attachments then stop here (we want to
-                // upload them first and then re-run this send job - the 'JobRunner.insert'
-                // method will take care of this)
-                let isMissingFileIds: Bool = (maybeFileIds.count != fileIds.count)
-                let hasPendingUploads: Bool = allAttachmentStateInfo.contains(where: { $0.state != .uploaded })
-                
-                return (
-                    (isMissingFileIds && !hasPendingUploads),
-                    hasPendingUploads,
-                    fileIds
-                )
-            }
-            
-            // Don't send messages with failed attachment uploads
-            //
-            // Note: If we have gotten to this point then any dependant attachment upload
-            // jobs will have permanently failed so this message send should also do so
-            guard attachmentState?.shouldFail == false else {
-                SNLog("[MessageSendJob] Failing due to failed attachment upload")
-                failure(job, AttachmentError.notUploaded, true)
-                return
+                        .map { $0.attachmentId }
+                    
+                    return (nil, pendingUploadAttachmentIds, fileIds)
+                }
+                .defaulting(to: (MessageSenderError.invalidMessage, [], []))
+
+            /// If we got an error when trying to retrieve the attachment state then this job is actually invalid so it
+            /// should permanently fail
+            guard attachmentState.error == nil else {
+                return failure(job, (attachmentState.error ?? MessageSenderError.invalidMessage), true)
             }
 
-            // Defer the job if we found incomplete uploads
-            guard attachmentState?.shouldDefer == false else {
-                SNLog("[MessageSendJob] Deferring pending attachment uploads")
-                deferred(job)
-                return
+            /// If we have any pending (or failed) attachment uploads then we should create jobs for them and insert them into the
+            /// queue before the current job and defer it (this will mean the current job will re-run after these inserted jobs complete)
+            guard attachmentState.pendingUploadAttachmentIds.isEmpty else {
+                Storage.shared.write { db in
+                    try attachmentState.pendingUploadAttachmentIds
+                        .filter { attachmentId in
+                            // Don't add a new job if there is one already in the queue
+                            !JobRunner.hasPendingOrRunningJob(
+                                with: .attachmentUpload,
+                                details: AttachmentUploadJob.Details(
+                                    messageSendJobId: jobId,
+                                    attachmentId: attachmentId
+                                )
+                            )
+                        }
+                        .compactMap { attachmentId -> (jobId: Int64, job: Job)? in
+                            JobRunner
+                                .insert(
+                                    db,
+                                    job: Job(
+                                        variant: .attachmentUpload,
+                                        behaviour: .runOnce,
+                                        threadId: job.threadId,
+                                        interactionId: interactionId,
+                                        details: AttachmentUploadJob.Details(
+                                            messageSendJobId: jobId,
+                                            attachmentId: attachmentId
+                                        )
+                                    ),
+                                    before: job
+                                )
+                        }
+                        .forEach { otherJobId, _ in
+                            // Create the dependency between the jobs
+                            try JobDependencies(
+                                jobId: jobId,
+                                dependantId: otherJobId
+                            )
+                            .insert(db)
+                        }
+                }
+
+                SNLog("[MessageSendJob] Deferring due to pending attachment uploads")
+                return deferred(job)
             }
-            
+
             // Store the fileIds so they can be sent with the open group message content
-            messageFileIds = (attachmentState?.fileIds ?? [])
+            messageFileIds = attachmentState.preparedFileIds
         }
         
         // Store the sentTimestamp from the message in case it fails due to a clockOutOfSync error

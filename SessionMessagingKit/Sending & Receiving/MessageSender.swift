@@ -610,6 +610,21 @@ public final class MessageSender {
                 )
                 
                 guard expectedAttachmentUploadCount == preparedSendData.totalAttachmentsUploaded else {
+                    // Make sure to actually handle this as a failure (if we don't then the message
+                    // won't go into an error state correctly)
+                    if let message: Message = preparedSendData.message {
+                        dependencies.storage.read { db in
+                            MessageSender.handleFailedMessageSend(
+                                db,
+                                message: message,
+                                with: .attachmentsNotUploaded,
+                                interactionId: preparedSendData.interactionId,
+                                isSyncMessage: (preparedSendData.isSyncMessage == true),
+                                using: dependencies
+                            )
+                        }
+                    }
+                    
                     return Fail(error: MessageSenderError.attachmentsNotUploaded)
                         .eraseToAnyPublisher()
                 }
@@ -1007,7 +1022,6 @@ public final class MessageSender {
         isSyncMessage: Bool = false,
         using dependencies: SMKDependencies = SMKDependencies()
     ) -> Error {
-        // TODO: Revert the local database change
         // If the message was a reaction then we don't want to do anything to the original
         // interaciton (which the 'interactionId' is pointing to
         guard (message as? VisibleMessage)?.reaction == nil else { return error }

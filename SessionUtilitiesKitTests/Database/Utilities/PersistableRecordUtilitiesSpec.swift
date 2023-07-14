@@ -84,6 +84,17 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
         }
     }
     
+    private struct TestTarget: MigratableTarget {
+        static func migrations(_ db: Database) -> TargetMigrations {
+            return TargetMigrations(
+                identifier: .test,
+                migrations: (0..<100)
+                    .map { _ in [] }
+                    .appending([TestInsertTestTypeMigration.self])
+            )
+        }
+    }
+    
     // MARK: - Spec
 
     override func spec() {
@@ -96,13 +107,8 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                 PersistableRecordUtilitiesSpec.customWriter = customWriter
                 mockStorage = Storage(
                     customWriter: customWriter,
-                    customMigrations: [
-                        TargetMigrations(
-                            identifier: .test,
-                            migrations: (0..<100)
-                                .map { _ in [] }
-                                .appending([TestInsertTestTypeMigration.self])
-                        )
+                    customMigrationTargets: [
+                        TestTarget.self
                     ]
                 )
             }

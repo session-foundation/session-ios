@@ -66,11 +66,11 @@ public enum AppSetup {
         var backgroundTask: OWSBackgroundTask? = (backgroundTask ?? OWSBackgroundTask(labelStr: #function))
         
         Storage.shared.perform(
-            migrations: [
-                SNUtilitiesKit.migrations(),
-                SNSnodeKit.migrations(),
-                SNMessagingKit.migrations(),
-                SNUIKit.migrations()
+            migrationTargets: [
+                SNUtilitiesKit.self,
+                SNSnodeKit.self,
+                SNMessagingKit.self,
+                SNUIKit.self
             ],
             onProgressUpdate: migrationProgressChanged,
             onComplete: { result, needsConfigSync in

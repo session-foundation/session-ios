@@ -1,8 +1,12 @@
 platform :ios, '13.0'
-source 'https://github.com/CocoaPods/Specs.git'
 
 use_frameworks!
 inhibit_all_warnings!
+
+install! 'cocoapods', :warn_for_unused_master_specs_repo => false
+
+# CI Dependencies
+pod 'xcbeautify'
 
 # Dependencies to be included in the app and all extensions/frameworks
 abstract_target 'GlobalDependencies' do
@@ -22,7 +26,6 @@ abstract_target 'GlobalDependencies' do
     pod 'PureLayout', '~> 3.1.8'
     pod 'NVActivityIndicatorView'
     pod 'YYImage/libwebp', git: 'https://github.com/signalapp/YYImage'
-    pod 'ZXingObjC'
     pod 'DifferenceKit'
     
     target 'SessionTests' do
@@ -101,7 +104,6 @@ end
 # Actions to perform post-install
 post_install do |installer|
   set_minimum_deployment_target(installer)
-  avoid_rsync_webrtc_if_unchanged(installer)
 end
 
 def set_minimum_deployment_target(installer)
@@ -110,13 +112,4 @@ def set_minimum_deployment_target(installer)
       build_configuration.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
     end
   end
-end
-
-# This function patches the Cocoapods 'Embed Frameworks' script to avoid running rsync
-# for the WebRTC-lib framework in simulator builds if it has already been copied over
-# because due to the size it can take over 10 seconds to embed, and gets embeded in
-# each target on every build regardless of whether there were changes, drastically
-# increasing the length of the build
-def avoid_rsync_webrtc_if_unchanged(installer)
-  system('find "./Pods/Target Support Files" -name "*-frameworks.sh" -exec patch -p0 -i ./Scripts/skip_web_rtc_re_rsync.patch {} \;')
 end
