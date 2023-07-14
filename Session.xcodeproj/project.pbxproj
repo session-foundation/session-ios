@@ -2055,6 +2055,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AA3B45F13C99CAEE72D01DAA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		C331FF182558F9D300070591 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -4673,6 +4680,7 @@
 			buildConfigurationList = FD9BDDFC2A5D2294005F1EBC /* Build configuration list for PBXNativeTarget "SessionUtil" */;
 			buildPhases = (
 				FD9BDDFF2A5D229B005F1EBC /* Build libSessionUtil if Needed */,
+				AA3B45F13C99CAEE72D01DAA /* Frameworks */,
 			);
 			buildRules = (
 			);
