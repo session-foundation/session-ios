@@ -299,7 +299,7 @@ enum GiphyAPI {
                 return HTTPError.generic
             }
             .map { data, _ in
-                Logger.error("search request succeeded")
+                Logger.debug("search request succeeded")
                 
                 guard let imageInfos = self.parseGiphyImages(responseData: data) else {
                     Logger.error("unable to parse trending images")
@@ -347,7 +347,7 @@ enum GiphyAPI {
                 return HTTPError.generic
             }
             .tryMap { data, _ -> [GiphyImageInfo] in
-                Logger.error("search request succeeded")
+                Logger.debug("search request succeeded")
                 
                 guard let imageInfos = self.parseGiphyImages(responseData: data) else {
                     throw HTTPError.invalidResponse

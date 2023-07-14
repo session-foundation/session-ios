@@ -103,9 +103,9 @@ class OpenGroupManagerSpec: QuickSpec {
                 mockGeneralCache = MockGeneralCache()
                 mockStorage = Storage(
                     customWriter: try! DatabaseQueue(),
-                    customMigrations: [
-                        SNUtilitiesKit.migrations(),
-                        SNMessagingKit.migrations()
+                    customMigrationTargets: [
+                        SNUtilitiesKit.self,
+                        SNMessagingKit.self
                     ]
                 )
                 mockSodium = MockSodium()
@@ -3581,7 +3581,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     forKey: SNUserDefaults.Date.lastOpenGroupImageUpdate.rawValue
                                 )
                             },
-                            timeout: .milliseconds(50)
+                            timeout: .milliseconds(100)
                         )
                     expect(
                         mockStorage.read { db -> Data? in

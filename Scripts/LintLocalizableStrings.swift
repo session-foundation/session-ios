@@ -26,6 +26,7 @@ var pathFiles: [String] = {
     return fileUrls
         .filter {
             ((try? $0.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == false) && // No directories
+            !$0.path.contains("build/") &&                                // Exclude files under the build folder (CI)
             !$0.path.contains("Pods/") &&                                 // Exclude files under the pods folder
             !$0.path.contains(".xcassets") &&                             // Exclude asset bundles
             !$0.path.contains(".app/") &&                                 // Exclude files in the app build directories

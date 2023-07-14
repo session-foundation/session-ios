@@ -134,12 +134,12 @@ final class LinkDeviceVC: BaseVC, UIPageViewControllerDataSource, UIPageViewCont
         dismiss(animated: true, completion: nil)
     }
     
-    func controller(_ controller: QRCodeScanningViewController, didDetectQRCodeWith string: String) {
+    func controller(_ controller: QRCodeScanningViewController, didDetectQRCodeWith string: String, onError: (() -> ())?) {
         let seed = Data(hex: string)
-        continueWithSeed(seed)
+        continueWithSeed(seed, onError: onError)
     }
     
-    func continueWithSeed(_ seed: Data) {
+    func continueWithSeed(_ seed: Data, onError: (() -> ())?) {
         if (seed.count != 16) {
             let modal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
@@ -147,9 +147,7 @@ final class LinkDeviceVC: BaseVC, UIPageViewControllerDataSource, UIPageViewCont
                     body: .text("INVALID_RECOVERY_PHRASE_MESSAGE".localized()),
                     cancelTitle: "BUTTON_OK".localized(),
                     cancelStyle: .alert_text,
-                    afterClosed: { [weak self] in
-                        self?.scanQRCodeWrapperVC.startCapture()
-                    }
+                    afterClosed: onError
                 )
             )
             present(modal, animated: true)
@@ -319,7 +317,7 @@ private final class RecoveryPhraseVC: UIViewController {
             let hexEncodedSeed = try Mnemonic.decode(mnemonic: mnemonic)
             let seed = Data(hex: hexEncodedSeed)
             mnemonicTextView.resignFirstResponder()
-            linkDeviceVC.continueWithSeed(seed)
+            linkDeviceVC.continueWithSeed(seed, onError: nil)
         } catch let error {
             let error = error as? Mnemonic.DecodingError ?? Mnemonic.DecodingError.generic
             showError(title: error.errorDescription!)
