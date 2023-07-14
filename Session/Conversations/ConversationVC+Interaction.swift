@@ -1019,7 +1019,9 @@ extension ConversationVC:
     
     func startThread(with sessionId: String, openGroupServer: String?, openGroupPublicKey: String?) {
         guard viewModel.threadData.canWrite else { return }
-        guard SessionId.Prefix(from: sessionId) == .blinded15 || SessionId.Prefix(from: sessionId) == .blinded25 else {
+        // FIXME: Add in support for starting a thread with a 'blinded25' id
+        guard SessionId.Prefix(from: sessionId) != .blinded25 else { return }
+        guard SessionId.Prefix(from: sessionId) == .blinded15 else {
             Storage.shared.write { db in
                 try SessionThread
                     .fetchOrCreate(db, id: sessionId, variant: .contact, shouldBeVisible: nil)

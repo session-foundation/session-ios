@@ -59,7 +59,7 @@ class SessionIdSpec: QuickSpec {
                         expect(SessionId.Prefix(from: "00")).to(equal(.unblinded))
                         expect(SessionId.Prefix(from: "05")).to(equal(.standard))
                         expect(SessionId.Prefix(from: "15")).to(equal(.blinded15))
-                        expect(SessionId.Prefix(from: "s5")).to(equal(.blinded25))
+                        expect(SessionId.Prefix(from: "25")).to(equal(.blinded25))
                     }
                     
                     it("fails when nil") {
