@@ -1,19 +1,18 @@
-//
-//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
-//
+// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import Photos
-import PromiseKit
 import SessionUIKit
 import SignalUtilitiesKit
+import SignalCoreKit
 
 protocol ImagePickerGridControllerDelegate: AnyObject {
     func imagePickerDidCompleteSelection(_ imagePicker: ImagePickerGridController)
     func imagePickerDidCancel(_ imagePicker: ImagePickerGridController)
 
     func imagePicker(_ imagePicker: ImagePickerGridController, isAssetSelected asset: PHAsset) -> Bool
-    func imagePicker(_ imagePicker: ImagePickerGridController, didSelectAsset asset: PHAsset, attachmentPromise: Promise<SignalAttachment>)
+    func imagePicker(_ imagePicker: ImagePickerGridController, didSelectAsset asset: PHAsset, attachmentPublisher: AnyPublisher<SignalAttachment, Error>)
     func imagePicker(_ imagePicker: ImagePickerGridController, didDeselectAsset asset: PHAsset)
 
     var isInBatchSelectMode: Bool { get }
@@ -180,8 +179,11 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
                 return
             }
 
-            let attachmentPromise: Promise<SignalAttachment> = photoCollectionContents.outgoingAttachment(for: asset)
-            delegate.imagePicker(self, didSelectAsset: asset, attachmentPromise: attachmentPromise)
+            delegate.imagePicker(
+                self,
+                didSelectAsset: asset,
+                attachmentPublisher: photoCollectionContents.outgoingAttachment(for: asset)
+            )
             collectionView.selectItem(at: indexPath, animated: true, scrollPosition: [])
         case .deselect:
             delegate.imagePicker(self, didDeselectAsset: asset)
@@ -201,8 +203,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         let scale = UIScreen.main.scale
         let cellSize = collectionViewFlowLayout.itemSize
         photoMediaSize.thumbnailSize = CGSize(width: cellSize.width * scale, height: cellSize.height * scale)
-
-        reloadDataAndRestoreSelection()
+ 
         if !hasEverAppeared {
             scrollToBottom(animated: false)
         }
@@ -289,30 +290,6 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         }
     }
 
-    private func reloadDataAndRestoreSelection() {
-        guard let collectionView = collectionView else {
-            owsFailDebug("Missing collectionView.")
-            return
-        }
-
-        guard let delegate = delegate else {
-            owsFailDebug("delegate was unexpectedly nil")
-            return
-        }
-
-        collectionView.reloadData()
-        collectionView.layoutIfNeeded()
-
-        let count = photoCollectionContents.assetCount
-        for index in 0..<count {
-            let asset = photoCollectionContents.asset(at: index)
-            if delegate.imagePicker(self, isAssetSelected: asset) {
-                collectionView.selectItem(at: IndexPath(row: index, section: 0),
-                                          animated: false, scrollPosition: [])
-            }
-        }
-    }
-
     // MARK: - Actions
 
     @objc
@@ -363,7 +340,6 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         }
 
         collectionView.allowsMultipleSelection = delegate.isInBatchSelectMode
-        reloadDataAndRestoreSelection()
     }
 
     func clearCollectionViewSelection() {
@@ -400,7 +376,6 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
 
     func photoLibraryDidChange(_ photoLibrary: PhotoLibrary) {
         photoCollectionContents = photoCollection.contents()
-        reloadDataAndRestoreSelection()
     }
 
     // MARK: - PhotoCollectionPicker Presentation
@@ -447,11 +422,11 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         
         // Initially position offscreen, we'll animate it in.
         collectionPickerView.frame = collectionPickerView.frame.offsetBy(dx: 0, dy: collectionPickerView.frame.height)
-
-        UIView.animate(.promise, duration: 0.25, delay: 0, options: .curveEaseInOut) {
+        
+        UIView.animate(withDuration: 0.25) {
             collectionPickerView.superview?.layoutIfNeeded()
             self.titleView.rotateIcon(.up)
-        }.retainUntilComplete()
+        }
     }
 
     func hideCollectionPicker() {
@@ -459,14 +434,18 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
 
         assert(isShowingCollectionPickerController)
         isShowingCollectionPickerController = false
-
-        UIView.animate(.promise, duration: 0.25, delay: 0, options: .curveEaseInOut) {
-            self.collectionPickerController.view.frame = self.view.frame.offsetBy(dx: 0, dy: self.view.frame.height)
-            self.titleView.rotateIcon(.down)
-        }.done { _ in
-            self.collectionPickerController.view.removeFromSuperview()
-            self.collectionPickerController.removeFromParent()
-        }.retainUntilComplete()
+        
+        UIView.animate(
+            withDuration: 0.25,
+            animations: {
+                self.collectionPickerController.view.frame = self.view.frame.offsetBy(dx: 0, dy: self.view.frame.height)
+                self.titleView.rotateIcon(.down)
+            },
+            completion: { [weak self] _ in
+                self?.collectionPickerController.view.removeFromSuperview()
+                self?.collectionPickerController.removeFromParent()
+            }
+        )
     }
     
     // MARK: - UICollectionView
@@ -491,8 +470,11 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         }
 
         let asset: PHAsset = photoCollectionContents.asset(at: indexPath.item)
-        let attachmentPromise: Promise<SignalAttachment> = photoCollectionContents.outgoingAttachment(for: asset)
-        delegate.imagePicker(self, didSelectAsset: asset, attachmentPromise: attachmentPromise)
+        delegate.imagePicker(
+            self,
+            didSelectAsset: asset,
+            attachmentPublisher: photoCollectionContents.outgoingAttachment(for: asset)
+        )
 
         if !delegate.isInBatchSelectMode {
             // Don't show "selected" badge unless we're in batch mode
@@ -524,7 +506,8 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         let cell: PhotoGridViewCell = collectionView.dequeue(type: PhotoGridViewCell.self, for: indexPath)
         let assetItem = photoCollectionContents.assetItem(at: indexPath.item, photoMediaSize: photoMediaSize)
         cell.configure(item: assetItem)
-
+        cell.isAccessibilityElement = true
+        cell.accessibilityIdentifier = "\(assetItem.asset.modificationDate.map { "\($0)" } ?? "Unknown Date")"
         cell.isSelected = delegate.imagePicker(self, isAssetSelected: assetItem.asset)
 
         return cell

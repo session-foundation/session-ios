@@ -2,8 +2,8 @@
 
 import Foundation
 import CallKit
-import SignalCoreKit
 import SessionUtilitiesKit
+import SignalCoreKit
 
 extension SessionCallManager: CXProviderDelegate {
     public func providerDidReset(_ provider: CXProvider) {

@@ -71,10 +71,13 @@ final class ConversationTitleView: UIView {
 
     // MARK: - Content
     
-    public func initialSetup(with threadVariant: SessionThread.Variant) {
+    public func initialSetup(
+        with threadVariant: SessionThread.Variant,
+        isNoteToSelf: Bool
+    ) {
         self.update(
             with: " ",
-            isNoteToSelf: false,
+            isNoteToSelf: isNoteToSelf,
             threadVariant: threadVariant,
             mutedUntilTimestamp: nil,
             onlyNotifyForMentions: false,
@@ -139,9 +142,9 @@ final class ConversationTitleView: UIView {
             
             guard Date().timeIntervalSince1970 > (mutedUntilTimestamp ?? 0) else {
                 subtitleLabel?.attributedText = NSAttributedString(
-                    string: "\u{e067}  ",
+                    string: FullConversationCell.mutePrefix,
                     attributes: [
-                        .font: UIFont.ows_elegantIconsFont(10),
+                        .font: UIFont(name: "ElegantIcons", size: 10) as Any,
                         .foregroundColor: textPrimary
                     ]
                 )
@@ -168,12 +171,12 @@ final class ConversationTitleView: UIView {
             switch threadVariant {
                 case .contact: break
                     
-                case .closedGroup:
+                case .legacyGroup, .group:
                     subtitleLabel?.attributedText = NSAttributedString(
                         string: "\(userCount) member\(userCount == 1 ? "" : "s")"
                     )
                     
-                case .openGroup:
+                case .community:
                     subtitleLabel?.attributedText = NSAttributedString(
                         string: "\(userCount) active member\(userCount == 1 ? "" : "s")"
                     )

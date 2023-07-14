@@ -9,11 +9,13 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
-final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITableViewDataSource, UITableViewDelegate {
+final class ConversationVC: BaseVC, SessionUtilRespondingViewController, ConversationSearchControllerDelegate, UITableViewDataSource, UITableViewDelegate {
     private static let loadingHeaderHeight: CGFloat = 40
     
     internal let viewModel: ConversationViewModel
-    private var dataChangeObservable: DatabaseCancellable?
+    private var dataChangeObservable: DatabaseCancellable? {
+        didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
+    }
     private var hasLoadedInitialThreadData: Bool = false
     private var hasLoadedInitialInteractionData: Bool = false
     private var currentTargetOffset: CGPoint?
@@ -25,12 +27,9 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     /// never have disappeared before - this is only needed for value observers since they run asynchronously)
     private var hasReloadedThreadDataAfterDisappearance: Bool = true
     
-    var focusedInteractionId: Int64?
+    var focusedInteractionInfo: Interaction.TimestampInfo?
+    var focusBehaviour: ConversationViewModel.FocusBehaviour = .none
     var shouldHighlightNextScrollToInteraction: Bool = false
-    var scrollButtonBottomConstraint: NSLayoutConstraint?
-    var scrollButtonMessageRequestsBottomConstraint: NSLayoutConstraint?
-    var scrollButtonPendingMessageRequestInfoBottomConstraint: NSLayoutConstraint?
-    var messageRequestsViewBotomConstraint: NSLayoutConstraint?
     
     // Search
     var isShowingSearchUI = false
@@ -39,8 +38,6 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     var audioPlayer: OWSAudioPlayer?
     var audioRecorder: AVAudioRecorder?
     var audioTimer: Timer?
-    
-    private var searchBarWidth: NSLayoutConstraint?
     
     // Context menu
     var contextMenuWindow: ContextMenuWindow?
@@ -129,6 +126,11 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
 
     // MARK: - UI
     
+    var scrollButtonBottomConstraint: NSLayoutConstraint?
+    var scrollButtonMessageRequestsBottomConstraint: NSLayoutConstraint?
+    var messageRequestsViewBotomConstraint: NSLayoutConstraint?
+    var messageRequestDescriptionLabelBottomConstraint: NSLayoutConstraint?
+    
     lazy var titleView: ConversationTitleView = {
         let result: ConversationTitleView = ConversationTitleView()
         let tapGestureRecognizer = UITapGestureRecognizer(
@@ -158,10 +160,13 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         )
         result.registerHeaderFooterView(view: UITableViewHeaderFooterView.self)
         result.register(view: DateHeaderCell.self)
+        result.register(view: UnreadMarkerCell.self)
         result.register(view: VisibleMessageCell.self)
         result.register(view: InfoMessageCell.self)
         result.register(view: TypingIndicatorCell.self)
         result.register(view: CallMessageCell.self)
+        result.estimatedSectionHeaderHeight = ConversationVC.loadingHeaderHeight
+        result.sectionFooterHeight = 0
         result.dataSource = self
         result.delegate = self
 
@@ -181,6 +186,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         result.set(.width, greaterThanOrEqualTo: ConversationVC.unreadCountViewSize)
         result.set(.height, to: ConversationVC.unreadCountViewSize)
         result.isHidden = true
+        result.alpha = 0
         
         return result
     }()
@@ -207,6 +213,37 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         
         return result
     }()
+    
+    private lazy var emptyStateLabel: UILabel = {
+        let text: String = String(
+            format: {
+                switch (viewModel.threadData.threadIsNoteToSelf, viewModel.threadData.canWrite) {
+                    case (true, _): return "CONVERSATION_EMPTY_STATE_NOTE_TO_SELF".localized()
+                    case (_, false): return "CONVERSATION_EMPTY_STATE_READ_ONLY".localized()
+                    default: return "CONVERSATION_EMPTY_STATE".localized()
+                }
+            }(),
+            viewModel.threadData.displayName
+        )
+        
+        let result: UILabel = UILabel()
+        result.accessibilityLabel = "Empty state label"
+        result.translatesAutoresizingMaskIntoConstraints = false
+        result.font = .systemFont(ofSize: Values.verySmallFontSize)
+        result.attributedText = NSAttributedString(string: text)
+            .adding(
+                attributes: [.font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize)],
+                range: text.range(of: self.viewModel.threadData.displayName)
+                    .map { NSRange($0, in: text) }
+                    .defaulting(to: NSRange(location: 0, length: 0))
+            )
+        result.themeTextColor = .textSecondary
+        result.textAlignment = .center
+        result.lineBreakMode = .byWordWrapping
+        result.numberOfLines = 0
+
+        return result
+    }()
 
     lazy var footerControlsStackView: UIStackView = {
         let result: UIStackView = UIStackView()
@@ -221,12 +258,36 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         return result
     }()
 
-    lazy var scrollButton: ScrollToBottomButton = ScrollToBottomButton(delegate: self)
-
-    lazy var messageRequestView: UIView = {
+    lazy var scrollButton: RoundIconButton = {
+        let result: RoundIconButton = RoundIconButton(
+            image: UIImage(named: "ic_chevron_down")?
+                .withRenderingMode(.alwaysTemplate)
+        ) { [weak self] in
+            // The table view's content size is calculated by the estimated height of cells,
+            // so the result may be inaccurate before all the cells are loaded. Use this
+            // to scroll to the last row instead.
+            self?.scrollToBottom(isAnimated: true)
+        }
+        result.alpha = 0
+        
+        return result
+    }()
+    
+    lazy var messageRequestBackgroundView: UIView = {
         let result: UIView = UIView()
         result.translatesAutoresizingMaskIntoConstraints = false
         result.themeBackgroundColor = .backgroundPrimary
+        result.isHidden = messageRequestStackView.isHidden
+
+        return result
+    }()
+    
+    lazy var messageRequestStackView: UIStackView = {
+        let result: UIStackView = UIStackView()
+        result.translatesAutoresizingMaskIntoConstraints = false
+        result.axis = .vertical
+        result.alignment = .fill
+        result.distribution = .fill
         result.isHidden = (
             self.viewModel.threadData.threadIsMessageRequest == false ||
             self.viewModel.threadData.threadRequiresApproval == true
@@ -234,15 +295,37 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
 
         return result
     }()
+    
+    private lazy var messageRequestDescriptionContainerView: UIView = {
+        let result: UIView = UIView()
+        result.translatesAutoresizingMaskIntoConstraints = false
+        
+        return result
+    }()
 
-    private let messageRequestDescriptionLabel: UILabel = {
+    private lazy var messageRequestDescriptionLabel: UILabel = {
         let result: UILabel = UILabel()
         result.translatesAutoresizingMaskIntoConstraints = false
+        result.setContentCompressionResistancePriority(.required, for: .vertical)
         result.font = UIFont.systemFont(ofSize: 12)
-        result.text = "MESSAGE_REQUESTS_INFO".localized()
+        result.text = (self.viewModel.threadData.threadRequiresApproval == false ?
+            "MESSAGE_REQUESTS_INFO".localized() :
+            "MESSAGE_REQUEST_PENDING_APPROVAL_INFO".localized()
+        )
         result.themeTextColor = .textSecondary
         result.textAlignment = .center
         result.numberOfLines = 0
+
+        return result
+    }()
+    
+    private lazy var messageRequestActionStackView: UIStackView = {
+        let result: UIStackView = UIStackView()
+        result.translatesAutoresizingMaskIntoConstraints = false
+        result.axis = .horizontal
+        result.alignment = .fill
+        result.distribution = .fill
+        result.spacing = (UIDevice.current.isIPad ? Values.iPadButtonSpacing : 20)
 
         return result
     }()
@@ -260,10 +343,10 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
 
     private lazy var messageRequestDeleteButton: UIButton = {
         let result: SessionButton = SessionButton(style: .destructive, size: .medium)
-        result.accessibilityLabel = "Decline message request"
+        result.accessibilityLabel = "Delete message request"
         result.isAccessibilityElement = true
         result.translatesAutoresizingMaskIntoConstraints = false
-        result.setTitle("TXT_DECLINE_TITLE".localized(), for: .normal)
+        result.setTitle("TXT_DELETE_TITLE".localized(), for: .normal)
         result.addTarget(self, action: #selector(deleteMessageRequest), for: .touchUpInside)
 
         return result
@@ -277,25 +360,9 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         result.titleLabel?.font = UIFont.boldSystemFont(ofSize: 16)
         result.setTitle("TXT_BLOCK_USER_TITLE".localized(), for: .normal)
         result.setThemeTitleColor(.danger, for: .normal)
-        result.addTarget(self, action: #selector(block), for: .touchUpInside)
+        result.addTarget(self, action: #selector(blockMessageRequest), for: .touchUpInside)
+        result.isHidden = (self.viewModel.threadData.threadVariant != .contact)
 
-        return result
-    }()
-    
-    private lazy var pendingMessageRequestExplanationLabel: UILabel = {
-        let result: UILabel = UILabel()
-        result.translatesAutoresizingMaskIntoConstraints = false
-        result.setContentCompressionResistancePriority(.required, for: .vertical)
-        result.font = UIFont.systemFont(ofSize: 12)
-        result.text = "MESSAGE_REQUEST_PENDING_APPROVAL_INFO".localized()
-        result.themeTextColor = .textSecondary
-        result.textAlignment = .center
-        result.numberOfLines = 0
-        result.isHidden = (
-            !self.messageRequestView.isHidden ||
-            self.viewModel.threadData.threadRequiresApproval == false
-        )
-        
         return result
     }()
 
@@ -315,8 +382,8 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
 
     // MARK: - Initialization
     
-    init(threadId: String, threadVariant: SessionThread.Variant, focusedInteractionId: Int64? = nil) {
-        self.viewModel = ConversationViewModel(threadId: threadId, threadVariant: threadVariant, focusedInteractionId: focusedInteractionId)
+    init(threadId: String, threadVariant: SessionThread.Variant, focusedInteractionInfo: Interaction.TimestampInfo? = nil) {
+        self.viewModel = ConversationViewModel(threadId: threadId, threadVariant: threadVariant, focusedInteractionInfo: focusedInteractionInfo)
         
         Storage.shared.addObserver(viewModel.pagedDataObserver)
         
@@ -342,8 +409,16 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         // nav will be offset incorrectly during the push animation (unfortunately the profile icon still
         // doesn't appear until after the animation, I assume it's taking a snapshot or something, but
         // there isn't much we can do about that unfortunately)
-        updateNavBarButtons(threadData: nil, initialVariant: self.viewModel.initialThreadVariant)
-        titleView.initialSetup(with: self.viewModel.initialThreadVariant)
+        updateNavBarButtons(
+            threadData: nil,
+            initialVariant: self.viewModel.initialThreadVariant,
+            initialIsNoteToSelf: self.viewModel.threadData.threadIsNoteToSelf,
+            initialIsBlocked: (self.viewModel.threadData.threadIsBlocked == true)
+        )
+        titleView.initialSetup(
+            with: self.viewModel.initialThreadVariant,
+            isNoteToSelf: self.viewModel.threadData.threadIsNoteToSelf
+        )
         
         // Constraints
         view.addSubview(tableView)
@@ -351,43 +426,40 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
 
         // Message requests view & scroll to bottom
         view.addSubview(scrollButton)
-        view.addSubview(messageRequestView)
-        view.addSubview(pendingMessageRequestExplanationLabel)
-
-        messageRequestView.addSubview(messageRequestBlockButton)
-        messageRequestView.addSubview(messageRequestDescriptionLabel)
-        messageRequestView.addSubview(messageRequestAcceptButton)
-        messageRequestView.addSubview(messageRequestDeleteButton)
-
-        scrollButton.pin(.right, to: .right, of: view, withInset: -20)
-        messageRequestView.pin(.left, to: .left, of: view)
-        messageRequestView.pin(.right, to: .right, of: view)
-        messageRequestsViewBotomConstraint = messageRequestView.pin(.bottom, to: .bottom, of: view, withInset: -16)
-        scrollButtonBottomConstraint = scrollButton.pin(.bottom, to: .bottom, of: view, withInset: -16)
-        scrollButtonBottomConstraint?.isActive = false // Note: Need to disable this to avoid a conflict with the other bottom constraint
-        scrollButtonMessageRequestsBottomConstraint = scrollButton.pin(.bottom, to: .top, of: messageRequestView, withInset: -16)
-        scrollButtonPendingMessageRequestInfoBottomConstraint = scrollButton.pin(.bottom, to: .top, of: pendingMessageRequestExplanationLabel, withInset: -16)
-
-        messageRequestBlockButton.pin(.top, to: .top, of: messageRequestView, withInset: 10)
-        messageRequestBlockButton.center(.horizontal, in: messageRequestView)
+        view.addSubview(emptyStateLabel)
+        view.addSubview(messageRequestBackgroundView)
+        view.addSubview(messageRequestStackView)
         
-        messageRequestDescriptionLabel.pin(.top, to: .bottom, of: messageRequestBlockButton, withInset: 5)
-        messageRequestDescriptionLabel.pin(.left, to: .left, of: messageRequestView, withInset: 40)
-        messageRequestDescriptionLabel.pin(.right, to: .right, of: messageRequestView, withInset: -40)
-
-        messageRequestAcceptButton.pin(.top, to: .bottom, of: messageRequestDescriptionLabel, withInset: 20)
-        messageRequestAcceptButton.pin(.left, to: .left, of: messageRequestView, withInset: 20)
-        messageRequestAcceptButton.pin(.bottom, to: .bottom, of: messageRequestView)
+        emptyStateLabel.pin(.top, to: .top, of: view, withInset: Values.largeSpacing)
+        emptyStateLabel.pin(.leading, to: .leading, of: view, withInset: Values.veryLargeSpacing)
+        emptyStateLabel.pin(.trailing, to: .trailing, of: view, withInset: -Values.veryLargeSpacing)
         
-        messageRequestDeleteButton.pin(.top, to: .bottom, of: messageRequestDescriptionLabel, withInset: 20)
-        messageRequestDeleteButton.pin(.left, to: .right, of: messageRequestAcceptButton, withInset: UIDevice.current.isIPad ? Values.iPadButtonSpacing : 20)
-        messageRequestDeleteButton.pin(.right, to: .right, of: messageRequestView, withInset: -20)
-        messageRequestDeleteButton.pin(.bottom, to: .bottom, of: messageRequestView)
+        messageRequestStackView.addArrangedSubview(messageRequestBlockButton)
+        messageRequestStackView.addArrangedSubview(messageRequestDescriptionContainerView)
+        messageRequestStackView.addArrangedSubview(messageRequestActionStackView)
+        messageRequestDescriptionContainerView.addSubview(messageRequestDescriptionLabel)
+        messageRequestActionStackView.addArrangedSubview(messageRequestAcceptButton)
+        messageRequestActionStackView.addArrangedSubview(messageRequestDeleteButton)
+        
+        scrollButton.pin(.trailing, to: .trailing, of: view, withInset: -20)
+        messageRequestStackView.pin(.leading, to: .leading, of: view, withInset: 16)
+        messageRequestStackView.pin(.trailing, to: .trailing, of: view, withInset: -16)
+        self.messageRequestsViewBotomConstraint = messageRequestStackView.pin(.bottom, to: .bottom, of: view, withInset: -16)
+        self.scrollButtonBottomConstraint = scrollButton.pin(.bottom, to: .bottom, of: view, withInset: -16)
+        self.scrollButtonBottomConstraint?.isActive = false // Note: Need to disable this to avoid a conflict with the other bottom constraint
+        self.scrollButtonMessageRequestsBottomConstraint = scrollButton.pin(.bottom, to: .top, of: messageRequestStackView, withInset: -4)
+        
+        messageRequestDescriptionLabel.pin(.top, to: .top, of: messageRequestDescriptionContainerView, withInset: 4)
+        messageRequestDescriptionLabel.pin(.leading, to: .leading, of: messageRequestDescriptionContainerView, withInset: 20)
+        messageRequestDescriptionLabel.pin(.trailing, to: .trailing, of: messageRequestDescriptionContainerView, withInset: -20)
+        self.messageRequestDescriptionLabelBottomConstraint = messageRequestDescriptionLabel.pin(.bottom, to: .bottom, of: messageRequestDescriptionContainerView, withInset: -20)
+        messageRequestActionStackView.pin(.top, to: .bottom, of: messageRequestDescriptionContainerView)
+
         messageRequestDeleteButton.set(.width, to: .width, of: messageRequestAcceptButton)
-        
-        pendingMessageRequestExplanationLabel.pin(.left, to: .left, of: messageRequestView, withInset: 40)
-        pendingMessageRequestExplanationLabel.pin(.right, to: .right, of: messageRequestView, withInset: -40)
-        pendingMessageRequestExplanationLabel.pin(.bottom, to: .bottom, of: messageRequestView, withInset: -16)
+        messageRequestBackgroundView.pin(.top, to: .top, of: messageRequestStackView)
+        messageRequestBackgroundView.pin(.leading, to: .leading, of: view)
+        messageRequestBackgroundView.pin(.trailing, to: .trailing, of: view)
+        messageRequestBackgroundView.pin(.bottom, to: .bottom, of: view)
 
         // Unread count view
         view.addSubview(unreadCountView)
@@ -429,6 +501,12 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             name: UIApplication.userDidTakeScreenshotNotification,
             object: nil
         )
+        
+        // The first time the view loads we should mark the thread as read (in case it was manually
+        // marked as unread) - doing this here means if we add a "mark as unread" action within the
+        // conversation settings then we don't need to worry about the conversation getting marked as
+        // when when the user returns back through this view controller
+        self.viewModel.markAsRead(target: .thread, timestampMs: nil)
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -441,6 +519,16 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        
+        /// When the `ConversationVC` is on the screen we want to store it so we can avoid sending notification without accessing the
+        /// main thread (we don't currently care if it's still in the nav stack though - so if a user is on a conversation settings screen this should
+        /// get cleared within `viewWillDisappear`)
+        ///
+        /// **Note:** We do this on an async queue because `Atomic<T>` can block if something else is mutating it and we want to avoid
+        /// the risk of blocking the conversation transition
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            SessionApp.currentlyOpenConversationViewController.mutate { $0 = self }
+        }
         
         if delayFirstResponder || isShowingSearchUI {
             delayFirstResponder = false
@@ -464,6 +552,16 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         
+        /// When the `ConversationVC` is on the screen we want to store it so we can avoid sending notification without accessing the
+        /// main thread (we don't currently care if it's still in the nav stack though - so if a user leaves a conversation settings screen we clear
+        /// it, and if a user moves to a different `ConversationVC` this will get updated to that one within `viewDidAppear`)
+        ///
+        /// **Note:** We do this on an async queue because `Atomic<T>` can block if something else is mutating it and we want to avoid
+        /// the risk of blocking the conversation transition
+        DispatchQueue.global(qos: .userInitiated).async {
+            SessionApp.currentlyOpenConversationViewController.mutate { $0 = nil }
+        }
+        
         viewIsDisappearing = true
         
         // Don't set the draft or resign the first responder if we are replacing the thread (want the keyboard
@@ -481,6 +579,27 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         mediaCache.removeAllObjects()
         hasReloadedThreadDataAfterDisappearance = false
         viewIsDisappearing = false
+        
+        // If the user just created this thread but didn't send a message then we want to delete the
+        // "shadow" thread since it's not actually in use (this is to prevent it from taking up database
+        // space or unintentionally getting synced via libSession in the future)
+        let threadId: String = viewModel.threadData.threadId
+        
+        if
+            viewModel.threadData.threadIsNoteToSelf == false &&
+            viewModel.threadData.threadShouldBeVisible == false &&
+            !SessionUtil.conversationInConfig(
+                threadId: threadId,
+                threadVariant: viewModel.threadData.threadVariant,
+                visibleOnly: true
+            )
+        {
+            Storage.shared.writeAsync { db in
+                _ = try SessionThread   // Intentionally use `deleteAll` here instead of `deleteOrLeave`
+                    .filter(id: threadId)
+                    .deleteAll(db)
+            }
+        }
     }
     
     @objc func applicationDidBecomeActive(_ notification: Notification) {
@@ -491,7 +610,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         
         recoverInputView()
         
-        if !isShowingSearchUI {
+        if !isShowingSearchUI && self.presentedViewController == nil {
             if !self.isFirstResponder {
                 self.becomeFirstResponder()
             }
@@ -505,16 +624,11 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         stopObservingChanges()
     }
     
-    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
-        super.viewWillTransition(to: size, with: coordinator)
-        searchBarWidth?.constant = size.width - 32
-        tableView.reloadData()
-    }
-    
     // MARK: - Updating
     
     private func startObservingChanges(didReturnFromBackground: Bool = false) {
-        // Start observing for data changes
+        guard dataChangeObservable == nil else { return }
+        
         dataChangeObservable = Storage.shared.start(
             viewModel.observableThreadData,
             onError:  { _ in },
@@ -524,7 +638,10 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                     // and need to swap over to the new one
                     guard
                         let sessionId: String = self?.viewModel.threadData.threadId,
-                        SessionId.Prefix(from: sessionId) == .blinded,
+                        (
+                            SessionId.Prefix(from: sessionId) == .blinded15 ||
+                            SessionId.Prefix(from: sessionId) == .blinded25
+                        ),
                         let blindedLookup: BlindedIdLookup = Storage.shared.read({ db in
                             try BlindedIdLookup
                                 .filter(id: sessionId)
@@ -532,8 +649,18 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                         }),
                         let unblindedId: String = blindedLookup.sessionId
                     else {
-                        // If we don't have an unblinded id then something has gone very wrong so pop to the HomeVC
-                        self?.navigationController?.popToRootViewController(animated: true)
+                        // If we don't have an unblinded id then something has gone very wrong so pop to the
+                        // nearest conversation list
+                        let maybeTargetViewController: UIViewController? = self?.navigationController?
+                            .viewControllers
+                            .last(where: { ($0 as? SessionUtilRespondingViewController)?.isConversationList == true })
+                        
+                        if let targetViewController: UIViewController = maybeTargetViewController {
+                            self?.navigationController?.popToViewController(targetViewController, animated: true)
+                        }
+                        else {
+                            self?.navigationController?.popToRootViewController(animated: true)
+                        }
                         return
                     }
                     
@@ -564,16 +691,17 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                     // PagedDatabaseObserver won't have them so we need to force a re-fetch of the current
                     // data to ensure everything is up to date
                     if didReturnFromBackground {
-                        self?.viewModel.pagedDataObserver?.reload()
+                        DispatchQueue.global(qos: .background).async {
+                            self?.viewModel.pagedDataObserver?.reload()
+                        }
                     }
                 }
             }
         )
     }
     
-    private func stopObservingChanges() {
-        // Stop observing database changes
-        dataChangeObservable?.cancel()
+    func stopObservingChanges() {
+        self.dataChangeObservable = nil
         self.viewModel.onInteractionChange = nil
     }
     
@@ -615,59 +743,78 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                 onlyNotifyForMentions: (updatedThreadData.threadOnlyNotifyForMentions == true),
                 userCount: updatedThreadData.userCount
             )
+            
+            // Update the empty state
+            let text: String = String(
+                format: {
+                    switch (updatedThreadData.threadIsNoteToSelf, updatedThreadData.canWrite) {
+                        case (true, _): return "CONVERSATION_EMPTY_STATE_NOTE_TO_SELF".localized()
+                        case (_, false): return "CONVERSATION_EMPTY_STATE_READ_ONLY".localized()
+                        default: return "CONVERSATION_EMPTY_STATE".localized()
+                    }
+                }(),
+                updatedThreadData.displayName
+            )
+            
+            emptyStateLabel.attributedText = NSAttributedString(string: text)
+                .adding(
+                    attributes: [.font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize)],
+                    range: text.range(of: updatedThreadData.displayName)
+                        .map { NSRange($0, in: text) }
+                        .defaulting(to: NSRange(location: 0, length: 0))
+                )
         }
         
         if
             initialLoad ||
+            viewModel.threadData.threadVariant != updatedThreadData.threadVariant ||
+            viewModel.threadData.threadIsBlocked != updatedThreadData.threadIsBlocked ||
             viewModel.threadData.threadRequiresApproval != updatedThreadData.threadRequiresApproval ||
             viewModel.threadData.threadIsMessageRequest != updatedThreadData.threadIsMessageRequest ||
             viewModel.threadData.profile != updatedThreadData.profile
         {
-            updateNavBarButtons(threadData: updatedThreadData, initialVariant: viewModel.initialThreadVariant)
+            updateNavBarButtons(
+                threadData: updatedThreadData,
+                initialVariant: viewModel.initialThreadVariant,
+                initialIsNoteToSelf: viewModel.threadData.threadIsNoteToSelf,
+                initialIsBlocked: (viewModel.threadData.threadIsBlocked == true)
+            )
+            
+            messageRequestDescriptionLabel.text = (updatedThreadData.threadRequiresApproval == false ?
+                "MESSAGE_REQUESTS_INFO".localized() :
+                "MESSAGE_REQUEST_PENDING_APPROVAL_INFO".localized()
+            )
             
             let messageRequestsViewWasVisible: Bool = (
-                messageRequestView.isHidden == false
-            )
-            let pendingMessageRequestInfoWasVisible: Bool = (
-                pendingMessageRequestExplanationLabel.isHidden == false
+                messageRequestStackView.isHidden == false
             )
             
             UIView.animate(withDuration: 0.3) { [weak self] in
-                self?.messageRequestView.isHidden = (
-                    updatedThreadData.threadIsMessageRequest == false ||
+                self?.messageRequestBlockButton.isHidden = (
+                    self?.viewModel.threadData.threadVariant != .contact ||
                     updatedThreadData.threadRequiresApproval == true
                 )
-                self?.pendingMessageRequestExplanationLabel.isHidden = (
-                    self?.messageRequestView.isHidden == false ||
+                self?.messageRequestActionStackView.isHidden = (
+                    updatedThreadData.threadRequiresApproval == true
+                )
+                self?.messageRequestStackView.isHidden = (
+                    updatedThreadData.threadIsMessageRequest == false &&
                     updatedThreadData.threadRequiresApproval == false
                 )
+                self?.messageRequestBackgroundView.isHidden = (self?.messageRequestStackView.isHidden == true)
+                self?.messageRequestDescriptionLabelBottomConstraint?.constant = (updatedThreadData.threadRequiresApproval == true ? -4 : -20)
             
                 self?.scrollButtonMessageRequestsBottomConstraint?.isActive = (
-                    self?.messageRequestView.isHidden == false
-                )
-                self?.scrollButtonPendingMessageRequestInfoBottomConstraint?.isActive = (
-                    self?.scrollButtonPendingMessageRequestInfoBottomConstraint?.isActive == false &&
-                    self?.pendingMessageRequestExplanationLabel.isHidden == false
+                    self?.messageRequestStackView.isHidden == false
                 )
                 self?.scrollButtonBottomConstraint?.isActive = (
-                    self?.scrollButtonMessageRequestsBottomConstraint?.isActive == false &&
-                    self?.scrollButtonPendingMessageRequestInfoBottomConstraint?.isActive == false
+                    self?.scrollButtonMessageRequestsBottomConstraint?.isActive == false
                 )
                 
                 // Update the table content inset and offset to account for
                 // the dissapearance of the messageRequestsView
-                if messageRequestsViewWasVisible {
-                    let messageRequestsOffset: CGFloat = ((self?.messageRequestView.bounds.height ?? 0) + 16)
-                    let oldContentInset: UIEdgeInsets = (self?.tableView.contentInset ?? UIEdgeInsets.zero)
-                    self?.tableView.contentInset = UIEdgeInsets(
-                        top: 0,
-                        leading: 0,
-                        bottom: max(oldContentInset.bottom - messageRequestsOffset, 0),
-                        trailing: 0
-                    )
-                }
-                else if pendingMessageRequestInfoWasVisible {
-                    let messageRequestsOffset: CGFloat = ((self?.pendingMessageRequestExplanationLabel.bounds.height ?? 0) + (16 * 2))
+                if messageRequestsViewWasVisible != (self?.messageRequestStackView.isHidden == false) {
+                    let messageRequestsOffset: CGFloat = ((self?.messageRequestStackView.bounds.height ?? 0) + 12)
                     let oldContentInset: UIEdgeInsets = (self?.tableView.contentInset ?? UIEdgeInsets.zero)
                     self?.tableView.contentInset = UIEdgeInsets(
                         top: 0,
@@ -718,22 +865,35 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         changeset: StagedChangeset<[ConversationViewModel.SectionModel]>,
         initialLoad: Bool = false
     ) {
+        // Determine if we have any messages for the empty state
+        let hasMessages: Bool = (updatedData
+            .filter { $0.model == .messages }
+            .first?
+            .elements
+            .isEmpty == false)
+        
         // Ensure the first load or a load when returning from a child screen runs without
         // animations (if we don't do this the cells will animate in from a frame of
         // CGRect.zero or have a buggy transition)
         guard self.hasLoadedInitialInteractionData else {
             // Need to dispatch async to prevent this from causing glitches in the push animation
             DispatchQueue.main.async {
-                self.hasLoadedInitialInteractionData = true
                 self.viewModel.updateInteractionData(updatedData)
+                
+                // Update the empty state
+                self.emptyStateLabel.isHidden = hasMessages
                 
                 UIView.performWithoutAnimation {
                     self.tableView.reloadData()
+                    self.hasLoadedInitialInteractionData = true
                     self.performInitialScrollIfNeeded()
                 }
             }
             return
         }
+        
+        // Update the empty state
+        self.emptyStateLabel.isHidden = hasMessages
         
         // Update the ReactionListSheet (if one exists)
         if let messageUpdates: [MessageViewModel] = updatedData.first(where: { $0.model == .messages })?.elements {
@@ -742,9 +902,34 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         
         // Store the 'sentMessageBeforeUpdate' state locally
         let didSendMessageBeforeUpdate: Bool = self.viewModel.sentMessageBeforeUpdate
+        let onlyReplacedOptimisticUpdate: Bool = {
+            // Replacing an optimistic update means making a delete and an insert, which will be done
+            // as separate changes at the same positions
+            guard
+                changeset.count > 1 &&
+                changeset[changeset.count - 2].elementDeleted == changeset[changeset.count - 1].elementInserted
+            else { return false }
+            
+            let deletedModels: [MessageViewModel] = changeset[changeset.count - 2]
+                .elementDeleted
+                .map { self.viewModel.interactionData[$0.section].elements[$0.element] }
+            let insertedModels: [MessageViewModel] = changeset[changeset.count - 1]
+                .elementInserted
+                .map { updatedData[$0.section].elements[$0.element] }
+            
+            // Make sure all the deleted models were optimistic updates, the inserted models were not
+            // optimistic updates and they have the same timestamps
+            return (
+                deletedModels.map { $0.id }.asSet() == [MessageViewModel.optimisticUpdateId] &&
+                insertedModels.map { $0.id }.asSet() != [MessageViewModel.optimisticUpdateId] &&
+                deletedModels.map { $0.timestampMs }.asSet() == insertedModels.map { $0.timestampMs }.asSet()
+            )
+        }()
         let wasOnlyUpdates: Bool = (
-            changeset.count == 1 &&
-            changeset[0].elementUpdated.count == changeset[0].changeCount
+            onlyReplacedOptimisticUpdate || (
+                changeset.count == 1 &&
+                changeset[0].elementUpdated.count == changeset[0].changeCount
+            )
         )
         self.viewModel.sentMessageBeforeUpdate = false
         
@@ -756,11 +941,20 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             self.viewModel.updateInteractionData(updatedData)
             self.tableView.reloadData()
             
-            // Note: The scroll button alpha won't get set correctly in this case so we forcibly set it to
-            // have an alpha of 0 to stop it appearing buggy
-            self.scrollToBottom(isAnimated: false)
-            self.scrollButton.alpha = 0
-            self.unreadCountView.alpha = scrollButton.alpha
+            // If we just sent a message then we want to jump to the bottom of the conversation instantly
+            if didSendMessageBeforeUpdate {
+                // We need to dispatch to the next run loop because it seems trying to scroll immediately after
+                // triggering a 'reloadData' doesn't work
+                DispatchQueue.main.async { [weak self] in
+                    self?.tableView.layoutIfNeeded()
+                    self?.scrollToBottom(isAnimated: false)
+                    
+                    // Note: The scroll button alpha won't get set correctly in this case so we forcibly set it to
+                    // have an alpha of 0 to stop it appearing buggy
+                    self?.scrollButton.alpha = 0
+                    self?.unreadCountView.alpha = 0
+                }
+            }
             return
         }
         
@@ -809,7 +1003,6 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                     .firstIndex(where: { item -> Bool in
                         // Since the first item is probably a `DateHeaderCell` (which would likely
                         // be removed when inserting items above it) we check if the id matches
-                        // either the first or second item
                         let messages: [MessageViewModel] = self.viewModel
                             .interactionData[oldSectionIndex]
                             .elements
@@ -853,8 +1046,8 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             
             // Animate to the target interaction (or the bottom) after a slightly delay to prevent buggy
             // animation conflicts
-            if let focusedInteractionId: Int64 = self.focusedInteractionId {
-                // If we had a focusedInteractionId then scroll to it (and hide the search
+            if let focusedInteractionInfo: Interaction.TimestampInfo = self.focusedInteractionInfo {
+                // If we had a focusedInteractionInfo then scroll to it (and hide the search
                 // result bar loading indicator)
                 let delay: DispatchTime = (didSwapAllContent ?
                     .now() :
@@ -864,9 +1057,9 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                 DispatchQueue.main.asyncAfter(deadline: delay) { [weak self] in
                     self?.searchController.resultsBar.stopLoading()
                     self?.scrollToInteractionIfNeeded(
-                        with: focusedInteractionId,
-                        isAnimated: true,
-                        highlight: (self?.shouldHighlightNextScrollToInteraction == true)
+                        with: focusedInteractionInfo,
+                        focusBehaviour: (self?.shouldHighlightNextScrollToInteraction == true ? .highlight : .none),
+                        isAnimated: true
                     )
                     
                     if wasLoadingMore {
@@ -893,8 +1086,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             }
             else {
                 // Need to update the scroll button alpha in case new messages were added but we didn't scroll
-                self.scrollButton.alpha = self.getScrollButtonOpacity()
-                self.unreadCountView.alpha = self.scrollButton.alpha
+                self.updateScrollToBottom()
             }
             return
         }
@@ -936,15 +1128,15 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                         self?.tableView.contentOffset.y += oldCellTopOffset
                     }
                     
-                    if let focusedInteractionId: Int64 = self?.focusedInteractionId {
+                    if let focusedInteractionInfo: Interaction.TimestampInfo = self?.focusedInteractionInfo {
                         DispatchQueue.main.async { [weak self] in
-                            // If we had a focusedInteractionId then scroll to it (and hide the search
+                            // If we had a focusedInteractionInfo then scroll to it (and hide the search
                             // result bar loading indicator)
                             self?.searchController.resultsBar.stopLoading()
                             self?.scrollToInteractionIfNeeded(
-                                with: focusedInteractionId,
-                                isAnimated: true,
-                                highlight: (self?.shouldHighlightNextScrollToInteraction == true)
+                                with: focusedInteractionInfo,
+                                focusBehaviour: (self?.shouldHighlightNextScrollToInteraction == true ? .highlight : .none),
+                                isAnimated: true
                             )
                         }
                     }
@@ -956,15 +1148,15 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             )
         }
         else if wasLoadingMore {
-            if let focusedInteractionId: Int64 = self.focusedInteractionId {
+            if let focusedInteractionInfo: Interaction.TimestampInfo = self.focusedInteractionInfo {
                 DispatchQueue.main.async { [weak self] in
-                    // If we had a focusedInteractionId then scroll to it (and hide the search
+                    // If we had a focusedInteractionInfo then scroll to it (and hide the search
                     // result bar loading indicator)
                     self?.searchController.resultsBar.stopLoading()
                     self?.scrollToInteractionIfNeeded(
-                        with: focusedInteractionId,
-                        isAnimated: true,
-                        highlight: (self?.shouldHighlightNextScrollToInteraction == true)
+                        with: focusedInteractionInfo,
+                        focusBehaviour: (self?.shouldHighlightNextScrollToInteraction == true ? .highlight : .none),
+                        isAnimated: true
                     )
                     
                     // Complete page loading
@@ -1004,15 +1196,18 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         // Scroll to the last unread message if possible; otherwise scroll to the bottom.
         // When the unread message count is more than the number of view items of a page,
         // the screen will scroll to the bottom instead of the first unread message
-        if let focusedInteractionId: Int64 = self.viewModel.focusedInteractionId {
-            self.scrollToInteractionIfNeeded(with: focusedInteractionId, isAnimated: false, highlight: true)
+        if let focusedInteractionInfo: Interaction.TimestampInfo = self.viewModel.focusedInteractionInfo {
+            self.scrollToInteractionIfNeeded(
+                with: focusedInteractionInfo,
+                focusBehaviour: self.viewModel.focusBehaviour,
+                isAnimated: false
+            )
         }
         else {
             self.scrollToBottom(isAnimated: false)
         }
 
-        self.scrollButton.alpha = self.getScrollButtonOpacity()
-        self.unreadCountView.alpha = self.scrollButton.alpha
+        self.updateScrollToBottom()
         self.hasPerformedInitialScroll = true
         
         // Now that the data has loaded we need to check if either of the "load more" sections are
@@ -1024,7 +1219,11 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     }
     
     private func autoLoadNextPageIfNeeded() {
-        guard !self.isAutoLoadingNextPage && !self.isLoadingMore else { return }
+        guard
+            self.hasLoadedInitialInteractionData &&
+            !self.isAutoLoadingNextPage &&
+            !self.isLoadingMore
+        else { return }
         
         self.isAutoLoadingNextPage = true
         
@@ -1064,7 +1263,12 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         }
     }
     
-    func updateNavBarButtons(threadData: SessionThreadViewModel?, initialVariant: SessionThread.Variant) {
+    func updateNavBarButtons(
+        threadData: SessionThreadViewModel?,
+        initialVariant: SessionThread.Variant,
+        initialIsNoteToSelf: Bool,
+        initialIsBlocked: Bool
+    ) {
         navigationItem.hidesBackButton = isShowingSearchUI
 
         if isShowingSearchUI {
@@ -1072,6 +1276,13 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             navigationItem.rightBarButtonItems = []
         }
         else {
+            let shouldHaveCallButton: Bool = (
+                SessionCall.isEnabled &&
+                (threadData?.threadVariant ?? initialVariant) == .contact &&
+                (threadData?.threadIsNoteToSelf ?? initialIsNoteToSelf) == false &&
+                (threadData?.threadIsBlocked ?? initialIsBlocked) == false
+            )
+            
             guard
                 let threadData: SessionThreadViewModel = threadData,
                 (
@@ -1094,7 +1305,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                             )
                         )
                     ),
-                    (initialVariant == .contact ?
+                    (shouldHaveCallButton ?
                         UIBarButtonItem(customView: UIView(frame: CGRect(x: 0, y: 0, width: 44, height: 44))) :
                         nil
                     )
@@ -1104,15 +1315,15 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             
             switch threadData.threadVariant {
                 case .contact:
-                    let profilePictureView = ProfilePictureView()
-                    profilePictureView.size = Values.verySmallProfilePictureSize
+                    let profilePictureView = ProfilePictureView(size: .navigation)
                     profilePictureView.update(
                         publicKey: threadData.threadId,  // Contact thread uses the contactId
+                        threadVariant: threadData.threadVariant,
+                        customImageData: nil,
                         profile: threadData.profile,
-                        threadVariant: threadData.threadVariant
+                        additionalProfile: nil
                     )
-                    profilePictureView.set(.width, to: (44 - 16))   // Width of the standard back button
-                    profilePictureView.set(.height, to: Values.verySmallProfilePictureSize)
+                    profilePictureView.customWidth = (44 - 16)   // Width of the standard back button
 
                     let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(openSettings))
                     profilePictureView.addGestureRecognizer(tapGestureRecognizer)
@@ -1121,19 +1332,20 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                     settingsButtonItem.accessibilityLabel = "More options"
                     settingsButtonItem.isAccessibilityElement = true
                     
-                    if SessionCall.isEnabled && !threadData.threadIsNoteToSelf {
+                    if shouldHaveCallButton {
                         let callButton = UIBarButtonItem(
                             image: UIImage(named: "Phone"),
                             style: .plain,
                             target: self,
                             action: #selector(startCall)
                         )
-                        callButton.accessibilityLabel = "Call button"
+                        callButton.accessibilityLabel = "Call"
+                        callButton.isAccessibilityElement = true
                         
                         navigationItem.rightBarButtonItems = [settingsButtonItem, callButton]
                     }
                     else {
-                        navigationItem.rightBarButtonItem = settingsButtonItem
+                        navigationItem.rightBarButtonItems = [settingsButtonItem]
                     }
                     
                 default:
@@ -1164,7 +1376,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         // needed for proper calculations, so force an initial layout if it doesn't have a size)
         var hasDoneLayout: Bool = true
 
-        if messageRequestView.bounds.height <= CGFloat.leastNonzeroMagnitude {
+        if messageRequestStackView.bounds.height <= CGFloat.leastNonzeroMagnitude {
             hasDoneLayout = false
 
             UIView.performWithoutAnimation {
@@ -1173,25 +1385,21 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         }
         
         let keyboardTop = (UIScreen.main.bounds.height - keyboardRect.minY)
-        let messageRequestsOffset: CGFloat = (messageRequestView.isHidden ? 0 : messageRequestView.bounds.height + 16)
-        let pendingMessageRequestsOffset: CGFloat = (pendingMessageRequestExplanationLabel.isHidden ? 0 : (pendingMessageRequestExplanationLabel.bounds.height + (16  * 2)))
+        let messageRequestsOffset: CGFloat = (messageRequestStackView.isHidden ? 0 : messageRequestStackView.bounds.height + 12)
         let oldContentInset: UIEdgeInsets = tableView.contentInset
         let newContentInset: UIEdgeInsets = UIEdgeInsets(
             top: 0,
             leading: 0,
-            bottom: (Values.mediumSpacing + keyboardTop + messageRequestsOffset + pendingMessageRequestsOffset),
+            bottom: (Values.mediumSpacing + keyboardTop + messageRequestsOffset),
             trailing: 0
         )
         let newContentOffsetY: CGFloat = (tableView.contentOffset.y + (newContentInset.bottom - oldContentInset.bottom))
         let changes = { [weak self] in
-            self?.scrollButtonBottomConstraint?.constant = -(keyboardTop + 16)
-            self?.messageRequestsViewBotomConstraint?.constant = -(keyboardTop + 16)
+            self?.scrollButtonBottomConstraint?.constant = -(keyboardTop + 12)
+            self?.messageRequestsViewBotomConstraint?.constant = -(keyboardTop + 12)
             self?.tableView.contentInset = newContentInset
             self?.tableView.contentOffset.y = newContentOffsetY
-
-            let scrollButtonOpacity: CGFloat = (self?.getScrollButtonOpacity() ?? 0)
-            self?.scrollButton.alpha = scrollButtonOpacity
-            self?.unreadCountView.alpha = scrollButtonOpacity
+            self?.updateScrollToBottom()
 
             self?.view.setNeedsLayout()
             self?.view.layoutIfNeeded()
@@ -1231,12 +1439,9 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             delay: 0,
             options: options,
             animations: { [weak self] in
-                self?.scrollButtonBottomConstraint?.constant = -(keyboardTop + 16)
-                self?.messageRequestsViewBotomConstraint?.constant = -(keyboardTop + 16)
-
-                let scrollButtonOpacity: CGFloat = (self?.getScrollButtonOpacity() ?? 0)
-                self?.scrollButton.alpha = scrollButtonOpacity
-                self?.unreadCountView.alpha = scrollButtonOpacity
+                self?.scrollButtonBottomConstraint?.constant = -(keyboardTop + 12)
+                self?.messageRequestsViewBotomConstraint?.constant = -(keyboardTop + 12)
+                self?.updateScrollToBottom()
 
                 self?.view.setNeedsLayout()
                 self?.view.layoutIfNeeded()
@@ -1349,14 +1554,6 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     }
     
     // MARK: - UITableViewDelegate
-
-    func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {
-        return UITableView.automaticDimension
-    }
-
-    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        return UITableView.automaticDimension
-    }
     
     func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
         let section: ConversationViewModel.SectionModel = viewModel.interactionData[section]
@@ -1405,25 +1602,27 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         
         guard !self.didFinishInitialLayout || !hasNewerItems else {
             let messages: [MessageViewModel] = self.viewModel.interactionData[messagesSectionIndex].elements
-            let lastInteractionId: Int64 = self.viewModel.threadData.interactionId
-                .defaulting(to: messages[messages.count - 1].id)
+            let lastInteractionInfo: Interaction.TimestampInfo = {
+                guard
+                    let interactionId: Int64 = self.viewModel.threadData.interactionId,
+                    let timestampMs: Int64 = self.viewModel.threadData.interactionTimestampMs
+                else {
+                    return Interaction.TimestampInfo(
+                        id: messages[messages.count - 1].id,
+                        timestampMs: messages[messages.count - 1].timestampMs
+                    )
+                }
+                
+                return Interaction.TimestampInfo(id: interactionId, timestampMs: timestampMs)
+            }()
             
             self.scrollToInteractionIfNeeded(
-                with: lastInteractionId,
+                with: lastInteractionInfo,
                 position: .bottom,
                 isJumpingToLastInteraction: true,
                 isAnimated: true
             )
             return
-        }
-        
-        // Note: In this case we need to force a tableView layout to ensure updating the
-        // scroll position has the correct offset (otherwise there are some cases where
-        // the screen will jump up - eg. when sending a reply while the soft keyboard
-        // is visible)
-        UIView.performWithoutAnimation {
-            self.tableView.setNeedsLayout()
-            self.tableView.layoutIfNeeded()
         }
         
         let targetIndexPath: IndexPath = IndexPath(
@@ -1436,7 +1635,10 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             animated: isAnimated
         )
         
-        self.viewModel.markAsRead(beforeInclusive: nil)
+        self.viewModel.markAsRead(
+            target: .threadAndInteractions(interactionsBeforeInclusive: nil),
+            timestampMs: nil
+        )
     }
 
     func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
@@ -1448,55 +1650,31 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     }
 
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        self.scrollButton.alpha = self.getScrollButtonOpacity()
-        self.unreadCountView.alpha = self.scrollButton.alpha
+        self.updateScrollToBottom()
         
-        // We want to mark messages as read while we scroll, so grab the newest message and mark
-        // everything older as read
-        //
-        // Note: For the 'tableVisualBottom' we remove the 'Values.mediumSpacing' as that is the distance
-        // the table content appears above the input view
-        let tableVisualBottom: CGFloat = (tableView.frame.maxY - (tableView.contentInset.bottom - Values.mediumSpacing))
+        // The initial scroll can trigger this logic but we already mark the initially focused message
+        // as read so don't run the below until the user actually scrolls after the initial layout
+        guard self.didFinishInitialLayout else { return }
         
-        if
-            let visibleIndexPaths: [IndexPath] = self.tableView.indexPathsForVisibleRows,
-            let messagesSection: Int = visibleIndexPaths
-                .first(where: { self.viewModel.interactionData[$0.section].model == .messages })?
-                .section,
-            let newestCellViewModel: MessageViewModel = visibleIndexPaths
-                .sorted()
-                .filter({ $0.section == messagesSection })
-                .compactMap({ indexPath -> (frame: CGRect, cellViewModel: MessageViewModel)? in
-                    guard let frame: CGRect = tableView.cellForRow(at: indexPath)?.frame else {
-                        return nil
-                    }
-                    
-                    return (
-                        view.convert(frame, from: tableView),
-                        self.viewModel.interactionData[indexPath.section].elements[indexPath.row]
-                    )
-                })
-                // Exclude messages that are partially off the bottom of the screen
-                .filter({ $0.frame.maxY <= tableVisualBottom })
-                .last?
-                .cellViewModel
-        {
-            self.viewModel.markAsRead(beforeInclusive: newestCellViewModel.id)
-        }
+        self.markFullyVisibleAndOlderCellsAsRead(interactionInfo: nil)
     }
     
     func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
         guard
-            let focusedInteractionId: Int64 = self.focusedInteractionId,
+            let focusedInteractionInfo: Interaction.TimestampInfo = self.focusedInteractionInfo,
             self.shouldHighlightNextScrollToInteraction
         else {
-            self.focusedInteractionId = nil
+            self.focusedInteractionInfo = nil
+            self.focusBehaviour = .none
             self.shouldHighlightNextScrollToInteraction = false
             return
         }
         
+        let behaviour: ConversationViewModel.FocusBehaviour = self.focusBehaviour
+        
         DispatchQueue.main.async { [weak self] in
-            self?.highlightCellIfNeeded(interactionId: focusedInteractionId)
+            self?.markFullyVisibleAndOlderCellsAsRead(interactionInfo: focusedInteractionInfo)
+            self?.highlightCellIfNeeded(interactionId: focusedInteractionInfo.id, behaviour: behaviour)
         }
     }
 
@@ -1507,12 +1685,29 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         unreadCountLabel.font = .boldSystemFont(ofSize: fontSize)
         unreadCountView.isHidden = (unreadCount == 0)
     }
-
-    func getScrollButtonOpacity() -> CGFloat {
-        let contentOffsetY = tableView.contentOffset.y
+    
+    public func updateScrollToBottom(force: Bool = false) {
+        // Don't update the scroll button until we have actually setup the initial scroll position to avoid
+        // any odd flickering or incorrect appearance
+        guard self.didFinishInitialLayout || force else { return }
+        
+        // If we have a 'loadNewer' item in the interaction data then there are subsequent pages and the
+        // 'scrollToBottom' actions should always be visible to allow the user to jump to the bottom (without
+        // this the button will fade out as the user gets close to the bottom of the current page)
+        guard !self.viewModel.interactionData.contains(where: { $0.model == .loadNewer }) else {
+            self.scrollButton.alpha = 1
+            self.unreadCountView.alpha = 1
+            return
+        }
+        
+        // Calculate the target opacity for the scroll button
+        let contentOffsetY: CGFloat = tableView.contentOffset.y
         let x = (lastPageTop - ConversationVC.bottomInset - contentOffsetY).clamp(0, .greatestFiniteMagnitude)
         let a = 1 / (ConversationVC.scrollButtonFullVisibilityThreshold - ConversationVC.scrollButtonNoVisibilityThreshold)
-        return max(0, min(1, a * x))
+        let targetOpacity: CGFloat = max(0, min(1, a * x))
+        
+        self.scrollButton.alpha = targetOpacity
+        self.unreadCountView.alpha = targetOpacity
     }
 
     // MARK: - Search
@@ -1542,7 +1737,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         searchBar.sizeToFit()
         searchBar.layoutMargins = UIEdgeInsets.zero
         searchBarContainer.set(.height, to: 44)
-        searchBarWidth = searchBarContainer.set(.width, to: UIScreen.main.bounds.width - 32)
+        searchBarContainer.set(.width, to: UIScreen.main.bounds.width - 32)
         searchBarContainer.addSubview(searchBar)
         navigationItem.titleView = searchBarContainer
         
@@ -1564,7 +1759,12 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         }
         
         // Nav bar buttons
-        updateNavBarButtons(threadData: self.viewModel.threadData, initialVariant: viewModel.initialThreadVariant)
+        updateNavBarButtons(
+            threadData: viewModel.threadData,
+            initialVariant: viewModel.initialThreadVariant,
+            initialIsNoteToSelf: viewModel.threadData.threadIsNoteToSelf,
+            initialIsBlocked: (viewModel.threadData.threadIsBlocked == true)
+        )
         
         // Hack so that the ResultsBar stays on the screen when dismissing the search field
         // keyboard.
@@ -1599,7 +1799,12 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
     @objc func hideSearchUI() {
         isShowingSearchUI = false
         navigationItem.titleView = titleView
-        updateNavBarButtons(threadData: self.viewModel.threadData, initialVariant: viewModel.initialThreadVariant)
+        updateNavBarButtons(
+            threadData: viewModel.threadData,
+            initialVariant: viewModel.initialThreadVariant,
+            initialIsNoteToSelf: viewModel.threadData.threadIsNoteToSelf,
+            initialIsBlocked: (viewModel.threadData.threadIsBlocked == true)
+        )
         
         searchController.uiSearchController.stubbableSearchBar.stubbedNextResponder = nil
         becomeFirstResponder()
@@ -1610,26 +1815,25 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         hideSearchUI()
     }
     
-    func conversationSearchController(_ conversationSearchController: ConversationSearchController, didUpdateSearchResults results: [Int64]?, searchText: String?) {
+    func conversationSearchController(_ conversationSearchController: ConversationSearchController, didUpdateSearchResults results: [Interaction.TimestampInfo]?, searchText: String?) {
         viewModel.lastSearchedText = searchText
         tableView.reloadRows(at: tableView.indexPathsForVisibleRows ?? [], with: UITableView.RowAnimation.none)
     }
 
-    func conversationSearchController(_ conversationSearchController: ConversationSearchController, didSelectInteractionId interactionId: Int64) {
-        scrollToInteractionIfNeeded(with: interactionId, highlight: true)
+    func conversationSearchController(_ conversationSearchController: ConversationSearchController, didSelectInteractionInfo interactionInfo: Interaction.TimestampInfo) {
+        scrollToInteractionIfNeeded(with: interactionInfo, focusBehaviour: .highlight)
     }
 
     func scrollToInteractionIfNeeded(
-        with interactionId: Int64,
+        with interactionInfo: Interaction.TimestampInfo,
+        focusBehaviour: ConversationViewModel.FocusBehaviour = .none,
         position: UITableView.ScrollPosition = .middle,
         isJumpingToLastInteraction: Bool = false,
-        isAnimated: Bool = true,
-        highlight: Bool = false
+        isAnimated: Bool = true
     ) {
         // Store the info incase we need to load more data (call will be re-triggered)
-        self.focusedInteractionId = interactionId
-        self.shouldHighlightNextScrollToInteraction = highlight
-        self.viewModel.markAsRead(beforeInclusive: interactionId)
+        self.focusedInteractionInfo = interactionInfo
+        self.shouldHighlightNextScrollToInteraction = (focusBehaviour == .highlight)
         
         // Ensure the target interaction has been loaded
         guard
@@ -1637,7 +1841,7 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                 .firstIndex(where: { $0.model == .messages }),
             let targetMessageIndex = self.viewModel.interactionData[messageSectionIndex]
                 .elements
-                .firstIndex(where: { $0.id == interactionId })
+                .firstIndex(where: { $0.id == interactionInfo.id })
         else {
             // If not the make sure we have finished the initial layout before trying to
             // load the up until the specified interaction
@@ -1649,13 +1853,13 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                 if isJumpingToLastInteraction {
                     self?.viewModel.pagedDataObserver?.load(.jumpTo(
-                        id: interactionId,
+                        id: interactionInfo.id,
                         paddingForInclusive: 5
                     ))
                 }
                 else {
                     self?.viewModel.pagedDataObserver?.load(.untilInclusive(
-                        id: interactionId,
+                        id: interactionInfo.id,
                         padding: 5
                     ))
                 }
@@ -1663,35 +1867,62 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
             return
         }
         
-        // Note: If the tableView needs to layout then we should do it first without an animation
-        // to prevent an annoying issue where the screen jumps slightly after the scroll completes
-        UIView.performWithoutAnimation {
-            self.tableView.layoutIfNeeded()
-        }
-        
-        let targetIndexPath: IndexPath = IndexPath(
-            row: targetMessageIndex,
-            section: messageSectionIndex
-        )
+        // If it's before the initial layout and the index before the target is an 'UnreadMarker' then
+        // we should scroll to that instead (will be better UX)
+        let targetIndexPath: IndexPath = {
+            guard
+                !self.didFinishInitialLayout &&
+                targetMessageIndex > 0 &&
+                self.viewModel.interactionData[messageSectionIndex]
+                    .elements[targetMessageIndex - 1]
+                    .cellType == .unreadMarker
+            else {
+                return IndexPath(
+                    row: targetMessageIndex,
+                    section: messageSectionIndex
+                )
+            }
+            
+            return IndexPath(
+                row: (targetMessageIndex - 1),
+                section: messageSectionIndex
+            )
+        }()
+        let targetPosition: UITableView.ScrollPosition = {
+            guard position == .middle else { return position }
+            
+            // Make sure the target cell isn't too large for the screen (if it is then we want to scroll
+            // it to the top rather than the middle
+            let cellSize: CGSize = self.tableView(
+                tableView,
+                cellForRowAt: targetIndexPath
+            ).systemLayoutSizeFitting(view.bounds.size)
+            
+            guard cellSize.height > tableView.frame.size.height else { return position }
+            
+            return .top
+        }()
         
         // If we aren't animating or aren't highlighting then everything can be run immediately
-        guard isAnimated && highlight else {
+        guard isAnimated else {
             self.tableView.scrollToRow(
                 at: targetIndexPath,
-                at: position,
+                at: targetPosition,
                 animated: (self.didFinishInitialLayout && isAnimated)
             )
             
-            // If we haven't finished the initial layout then we want to delay the highlight slightly
-            // so it doesn't look buggy with the push transition
-            if highlight {
-                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(self.didFinishInitialLayout ? 0 : 150)) { [weak self] in
-                    self?.highlightCellIfNeeded(interactionId: interactionId)
-                }
+            // If we haven't finished the initial layout then we want to delay the highlight/markRead slightly
+            // so it doesn't look buggy with the push transition and we know for sure the correct visible cells
+            // have been loaded
+            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(self.didFinishInitialLayout ? 0 : 150)) { [weak self] in
+                self?.markFullyVisibleAndOlderCellsAsRead(interactionInfo: interactionInfo)
+                self?.highlightCellIfNeeded(interactionId: interactionInfo.id, behaviour: focusBehaviour)
+                self?.updateScrollToBottom(force: true)
             }
             
             self.shouldHighlightNextScrollToInteraction = false
-            self.focusedInteractionId = nil
+            self.focusedInteractionInfo = nil
+            self.focusBehaviour = .none
             return
         }
         
@@ -1702,16 +1933,70 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
         let targetRect: CGRect = self.tableView.rectForRow(at: targetIndexPath)
         
         guard !self.tableView.bounds.contains(targetRect) else {
-            self.highlightCellIfNeeded(interactionId: interactionId)
+            self.markFullyVisibleAndOlderCellsAsRead(interactionInfo: interactionInfo)
+            self.highlightCellIfNeeded(interactionId: interactionInfo.id, behaviour: focusBehaviour)
             return
         }
         
-        self.tableView.scrollToRow(at: targetIndexPath, at: position, animated: true)
+        self.tableView.scrollToRow(at: targetIndexPath, at: targetPosition, animated: true)
     }
     
-    func highlightCellIfNeeded(interactionId: Int64) {
+    func markFullyVisibleAndOlderCellsAsRead(interactionInfo: Interaction.TimestampInfo?) {
+        // We want to mark messages as read on load and while we scroll, so grab the newest message and mark
+        // everything older as read
+        //
+        // Note: For the 'tableVisualBottom' we remove the 'Values.mediumSpacing' as that is the distance
+        // the table content appears above the input view
+        let tableVisualBottom: CGFloat = (tableView.frame.maxY - (tableView.contentInset.bottom - Values.mediumSpacing))
+        
+        guard
+            let visibleIndexPaths: [IndexPath] = self.tableView.indexPathsForVisibleRows,
+            let messagesSection: Int = visibleIndexPaths
+                .first(where: { self.viewModel.interactionData[$0.section].model == .messages })?
+                .section,
+            let newestCellViewModel: MessageViewModel = visibleIndexPaths
+                .sorted()
+                .filter({ $0.section == messagesSection })
+                .compactMap({ indexPath -> (frame: CGRect, cellViewModel: MessageViewModel)? in
+                    guard let cell: VisibleMessageCell = tableView.cellForRow(at: indexPath) as? VisibleMessageCell else {
+                        return nil
+                    }
+                    
+                    return (
+                        view.convert(cell.frame, from: tableView),
+                        self.viewModel.interactionData[indexPath.section].elements[indexPath.row]
+                    )
+                })
+                // Exclude messages that are partially off the bottom of the screen
+                .filter({ $0.frame.maxY <= tableVisualBottom })
+                .last?
+                .cellViewModel
+        else {
+            // If we weren't able to get any visible cells for some reason then we should fall back to
+            // marking the provided interactionInfo as read just in case
+            if let interactionInfo: Interaction.TimestampInfo = interactionInfo {
+                self.viewModel.markAsRead(
+                    target: .threadAndInteractions(interactionsBeforeInclusive: interactionInfo.id),
+                    timestampMs: interactionInfo.timestampMs
+                )
+            }
+            return
+        }
+        
+        // Mark all interactions before the newest entirely-visible one as read
+        self.viewModel.markAsRead(
+            target: .threadAndInteractions(interactionsBeforeInclusive: newestCellViewModel.id),
+            timestampMs: newestCellViewModel.timestampMs
+        )
+    }
+    
+    func highlightCellIfNeeded(interactionId: Int64, behaviour: ConversationViewModel.FocusBehaviour) {
         self.shouldHighlightNextScrollToInteraction = false
-        self.focusedInteractionId = nil
+        self.focusedInteractionInfo = nil
+        self.focusBehaviour = .none
+        
+        // Only trigger the highlight if that's the desired behaviour
+        guard behaviour == .highlight else { return }
         
         // Trigger on the next run loop incase we are still finishing some other animation
         DispatchQueue.main.async {
@@ -1721,5 +2006,11 @@ final class ConversationVC: BaseVC, ConversationSearchControllerDelegate, UITabl
                 .asType(VisibleMessageCell.self)?
                 .highlight()
         }
+    }
+    
+    // MARK: - SessionUtilRespondingViewController
+    
+    func isConversation(in threadIds: [String]) -> Bool {
+        return threadIds.contains(self.viewModel.threadData.threadId)
     }
 }

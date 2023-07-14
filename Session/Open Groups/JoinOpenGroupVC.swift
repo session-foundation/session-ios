@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Combine
 import AVFoundation
 import GRDB
 import SessionUIKit
@@ -143,77 +144,104 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         dismiss(animated: true, completion: nil)
     }
 
-    func controller(_ controller: QRCodeScanningViewController, didDetectQRCodeWith string: String) {
-        joinOpenGroup(with: string)
+    func controller(_ controller: QRCodeScanningViewController, didDetectQRCodeWith string: String, onError: (() -> ())?) {
+        joinOpenGroup(with: string, onError: onError)
     }
 
-    fileprivate func joinOpenGroup(with urlString: String) {
+    fileprivate func joinOpenGroup(with urlString: String, onError: (() -> ())?) {
         // A V2 open group URL will look like: <optional scheme> + <host> + <optional port> + <room> + <public key>
         // The host doesn't parse if no explicit scheme is provided
-        guard let (room, server, publicKey) = OpenGroupManager.parseOpenGroup(from: urlString) else {
+        guard let (room, server, publicKey) = SessionUtil.parseCommunity(url: urlString) else {
             showError(
                 title: "invalid_url".localized(),
-                message: "COMMUNITY_ERROR_INVALID_URL".localized()
+                message: "COMMUNITY_ERROR_INVALID_URL".localized(),
+                onError: onError
             )
             return
         }
         
-        joinOpenGroup(roomToken: room, server: server, publicKey: publicKey)
+        joinOpenGroup(roomToken: room, server: server, publicKey: publicKey, shouldOpenCommunity: true, onError: onError)
     }
 
-    fileprivate func joinOpenGroup(roomToken: String, server: String, publicKey: String, shouldOpenCommunity: Bool = false) {
+    fileprivate func joinOpenGroup(roomToken: String, server: String, publicKey: String, shouldOpenCommunity: Bool, onError: (() -> ())?) {
         guard !isJoining, let navigationController: UINavigationController = navigationController else { return }
         
         isJoining = true
         
         ModalActivityIndicatorViewController.present(fromViewController: navigationController, canCancel: false) { [weak self] _ in
             Storage.shared
-                .writeAsync { db in
+                .writePublisher { db in
                     OpenGroupManager.shared.add(
                         db,
                         roomToken: roomToken,
                         server: server,
                         publicKey: publicKey,
-                        isConfigMessage: false
+                        calledFromConfigHandling: false
                     )
                 }
-                .done(on: DispatchQueue.main) { [weak self] _ in
-                    Storage.shared.writeAsync { db in
-                        try MessageSender.syncConfiguration(db, forceSyncNow: true).retainUntilComplete() // FIXME: It's probably cleaner to do this inside addOpenGroup(...)
-                    }
-                    
-                    self?.presentingViewController?.dismiss(animated: true, completion: nil)
-                    
-                    if shouldOpenCommunity {
-                        SessionApp.presentConversation(
-                            for: OpenGroup.idFor(roomToken: roomToken, server: server),
-                            threadVariant: .openGroup,
-                            isMessageRequest: false,
-                            action: .compose,
-                            focusInteractionId: nil,
-                            animated: false
-                        )
-                    }
+                .flatMap { successfullyAddedGroup in
+                    OpenGroupManager.shared.performInitialRequestsAfterAdd(
+                        successfullyAddedGroup: successfullyAddedGroup,
+                        roomToken: roomToken,
+                        server: server,
+                        publicKey: publicKey,
+                        calledFromConfigHandling: false
+                    )
                 }
-                .catch(on: DispatchQueue.main) { [weak self] error in
-                    self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-                    let title = "COMMUNITY_ERROR_GENERIC".localized()
-                    let message = error.localizedDescription
-                    self?.isJoining = false
-                    self?.showError(title: title, message: message)
-                }
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+                .receive(on: DispatchQueue.main)
+                .sinkUntilComplete(
+                    receiveCompletion: { result in
+                        switch result {
+                            case .failure(let error):
+                                // If there was a failure then the group will be in invalid state until
+                                // the next launch so remove it (the user will be left on the previous
+                                // screen so can re-trigger the join)
+                                Storage.shared.writeAsync { db in
+                                    OpenGroupManager.shared.delete(
+                                        db,
+                                        openGroupId: OpenGroup.idFor(roomToken: roomToken, server: server),
+                                        calledFromConfigHandling: false
+                                    )
+                                }
+                                
+                                // Show the user an error indicating they failed to properly join the group
+                                self?.isJoining = false
+                                self?.dismiss(animated: true) { // Dismiss the loader
+                                    self?.showError(
+                                        title: "COMMUNITY_ERROR_GENERIC".localized(),
+                                        message: error.localizedDescription,
+                                        onError: onError
+                                    )
+                                }
+                                
+                            case .finished:
+                                self?.presentingViewController?.dismiss(animated: true, completion: nil)
+                                
+                                if shouldOpenCommunity {
+                                    SessionApp.presentConversationCreatingIfNeeded(
+                                        for: OpenGroup.idFor(roomToken: roomToken, server: server),
+                                        variant: .community,
+                                        dismissing: nil,
+                                        animated: false
+                                    )
+                                }
+                        }
+                    }
+                )
         }
     }
 
     // MARK: - Convenience
 
-    private func showError(title: String, message: String = "") {
+    private func showError(title: String, message: String = "", onError: (() -> ())?) {
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: title,
                 body: .text(message),
                 cancelTitle: "BUTTON_OK".localized(),
-                cancelStyle: .alert_text
+                cancelStyle: .alert_text,
+                afterClosed: onError
             )
         )
         self.navigationController?.present(confirmationModal, animated: true, completion: nil)
@@ -374,13 +402,14 @@ private final class EnterURLVC: UIViewController, UIGestureRecognizerDelegate, O
             roomToken: room.token,
             server: OpenGroupAPI.defaultServer,
             publicKey: OpenGroupAPI.defaultServerPublicKey,
-            shouldOpenCommunity: true
+            shouldOpenCommunity: true,
+            onError: nil
         )
     }
 
     @objc private func joinOpenGroup() {
         let url = urlTextView.text?.trimmingCharacters(in: .whitespaces) ?? ""
-        joinOpenGroupVC?.joinOpenGroup(with: url)
+        joinOpenGroupVC?.joinOpenGroup(with: url, onError: nil)
     }
     
     // MARK: - Updating

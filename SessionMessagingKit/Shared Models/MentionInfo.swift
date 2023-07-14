@@ -21,7 +21,7 @@ public extension MentionInfo {
         userPublicKey: String,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        targetPrefix: SessionId.Prefix,
+        targetPrefixes: [SessionId.Prefix],
         pattern: FTS5Pattern?
     ) -> AdaptedFetchRequest<SQLRequest<MentionInfo>>? {
         guard threadVariant != .contact || userPublicKey != threadId else { return nil }
@@ -31,14 +31,16 @@ public extension MentionInfo {
         let openGroup: TypedTableAlias<OpenGroup> = TypedTableAlias()
         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
         
-        let prefixLiteral: SQL = SQL(stringLiteral: "\(targetPrefix.rawValue)%")
+        let prefixesLiteral: SQLExpression = targetPrefixes
+            .map { SQL("\(profile[.id]) LIKE '\(SQL(stringLiteral: "\($0.rawValue)%"))'") }
+            .joined(operator: .or)
         let profileFullTextSearch: SQL = SQL(stringLiteral: Profile.fullTextSearchTableName)
         
         /// The query needs to differ depending on the thread variant because the behaviour should be different:
         ///
         /// **Contact:** We should show the profile directly (filtered out if the pattern doesn't match)
-        /// **Closed Group:** We should show all profiles within the group, filtered by the pattern
-        /// **Open Group:** We should show only the 20 most recent profiles which match the pattern
+        /// **Group:** We should show all profiles within the group, filtered by the pattern
+        /// **Community:** We should show only the 20 most recent profiles which match the pattern
         let request: SQLRequest<MentionInfo> = {
             let hasValidPattern: Bool = (pattern != nil && pattern?.rawPattern != "\"\"*")
             let targetJoin: SQL = {
@@ -49,8 +51,8 @@ public extension MentionInfo {
                     JOIN \(Profile.self) ON (
                         \(Profile.self).rowid = \(profileFullTextSearch).rowid AND
                         \(SQL("\(profile[.id]) != \(userPublicKey)")) AND (
-                            \(SQL("\(threadVariant) != \(SessionThread.Variant.openGroup)")) OR
-                            \(SQL("\(profile[.id]) LIKE '\(prefixLiteral)'"))
+                            \(SQL("\(threadVariant) != \(SessionThread.Variant.community)")) OR
+                            \(prefixesLiteral)
                         )
                     )
                 """
@@ -60,8 +62,8 @@ public extension MentionInfo {
                     return """
                         WHERE (
                             \(SQL("\(profile[.id]) != \(userPublicKey)")) AND (
-                                \(SQL("\(threadVariant) != \(SessionThread.Variant.openGroup)")) OR
-                                \(SQL("\(profile[.id]) LIKE '\(prefixLiteral)'"))
+                                \(SQL("\(threadVariant) != \(SessionThread.Variant.community)")) OR
+                                \(prefixesLiteral)
                             )
                         )
                     """
@@ -83,7 +85,7 @@ public extension MentionInfo {
                         \(targetWhere) AND \(SQL("\(profile[.id]) = \(threadId)"))
                     """)
                     
-                case .closedGroup:
+                case .legacyGroup, .group:
                     return SQLRequest("""
                         SELECT
                             \(Profile.self).*,
@@ -100,7 +102,7 @@ public extension MentionInfo {
                         ORDER BY IFNULL(\(profile[.nickname]), \(profile[.name])) ASC
                     """)
                     
-                case .openGroup:
+                case .community:
                     return SQLRequest("""
                         SELECT
                             \(Profile.self).*,

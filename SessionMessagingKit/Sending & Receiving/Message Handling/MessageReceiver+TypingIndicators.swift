@@ -5,28 +5,46 @@ import GRDB
 import SessionUtilitiesKit
 
 extension MessageReceiver {
-    internal static func handleTypingIndicator(_ db: Database, message: TypingIndicator) throws {
-        guard
-            let senderPublicKey: String = message.sender,
-            let thread: SessionThread = try SessionThread.fetchOne(db, id: senderPublicKey)
-        else { return }
+    internal static func handleTypingIndicator(
+        _ db: Database,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        message: TypingIndicator
+    ) throws {
+        guard try SessionThread.exists(db, id: threadId) else { return }
         
         switch message.kind {
             case .started:
+                let userPublicKey: String = getUserHexEncodedPublicKey(db)
+                let threadIsBlocked: Bool = (
+                    threadVariant == .contact &&
+                    (try? Contact
+                        .filter(id: threadId)
+                        .select(.isBlocked)
+                        .asRequest(of: Bool.self)
+                        .fetchOne(db))
+                        .defaulting(to: false)
+                )
+                let threadIsMessageRequest: Bool = (try? SessionThread
+                    .filter(id: threadId)
+                    .filter(SessionThread.isMessageRequest(userPublicKey: userPublicKey, includeNonVisible: true))
+                    .isEmpty(db))
+                    .defaulting(to: false)
                 let needsToStartTypingIndicator: Bool = TypingIndicators.didStartTypingNeedsToStart(
-                    threadId: thread.id,
-                    threadVariant: thread.variant,
-                    threadIsMessageRequest: thread.isMessageRequest(db),
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    threadIsBlocked: threadIsBlocked,
+                    threadIsMessageRequest: threadIsMessageRequest,
                     direction: .incoming,
                     timestampMs: message.sentTimestamp.map { Int64($0) }
                 )
                 
                 if needsToStartTypingIndicator {
-                    TypingIndicators.start(db, threadId: thread.id, direction: .incoming)
+                    TypingIndicators.start(db, threadId: threadId, direction: .incoming)
                 }
                 
             case .stopped:
-                TypingIndicators.didStopTyping(db, threadId: thread.id, direction: .incoming)
+                TypingIndicators.didStopTyping(db, threadId: threadId, direction: .incoming)
             
             default:
                 SNLog("Unknown TypingIndicator Kind ignored")

@@ -24,14 +24,16 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public static let threadIsMessageRequestKey: SQL = SQL(stringLiteral: CodingKeys.threadIsMessageRequest.stringValue)
     public static let threadRequiresApprovalKey: SQL = SQL(stringLiteral: CodingKeys.threadRequiresApproval.stringValue)
     public static let threadShouldBeVisibleKey: SQL = SQL(stringLiteral: CodingKeys.threadShouldBeVisible.stringValue)
-    public static let threadIsPinnedKey: SQL = SQL(stringLiteral: CodingKeys.threadIsPinned.stringValue)
+    public static let threadPinnedPriorityKey: SQL = SQL(stringLiteral: CodingKeys.threadPinnedPriority.stringValue)
     public static let threadIsBlockedKey: SQL = SQL(stringLiteral: CodingKeys.threadIsBlocked.stringValue)
     public static let threadMutedUntilTimestampKey: SQL = SQL(stringLiteral: CodingKeys.threadMutedUntilTimestamp.stringValue)
     public static let threadOnlyNotifyForMentionsKey: SQL = SQL(stringLiteral: CodingKeys.threadOnlyNotifyForMentions.stringValue)
     public static let threadMessageDraftKey: SQL = SQL(stringLiteral: CodingKeys.threadMessageDraft.stringValue)
     public static let threadContactIsTypingKey: SQL = SQL(stringLiteral: CodingKeys.threadContactIsTyping.stringValue)
+    public static let threadWasMarkedUnreadKey: SQL = SQL(stringLiteral: CodingKeys.threadWasMarkedUnread.stringValue)
     public static let threadUnreadCountKey: SQL = SQL(stringLiteral: CodingKeys.threadUnreadCount.stringValue)
     public static let threadUnreadMentionCountKey: SQL = SQL(stringLiteral: CodingKeys.threadUnreadMentionCount.stringValue)
+    public static let disappearingMessagesConfigurationKey: SQL = SQL(stringLiteral: CodingKeys.disappearingMessagesConfiguration.stringValue)
     public static let contactProfileKey: SQL = SQL(stringLiteral: CodingKeys.contactProfile.stringValue)
     public static let closedGroupNameKey: SQL = SQL(stringLiteral: CodingKeys.closedGroupName.stringValue)
     public static let closedGroupUserCountKey: SQL = SQL(stringLiteral: CodingKeys.closedGroupUserCount.stringValue)
@@ -60,10 +62,12 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public static let authorNameInternalKey: SQL = SQL(stringLiteral: CodingKeys.authorNameInternal.stringValue)
     public static let currentUserPublicKeyKey: SQL = SQL(stringLiteral: CodingKeys.currentUserPublicKey.stringValue)
     
+    public static let threadWasMarkedUnreadString: String = CodingKeys.threadWasMarkedUnread.stringValue
     public static let threadUnreadCountString: String = CodingKeys.threadUnreadCount.stringValue
     public static let threadUnreadMentionCountString: String = CodingKeys.threadUnreadMentionCount.stringValue
     public static let closedGroupUserCountString: String = CodingKeys.closedGroupUserCount.stringValue
     public static let openGroupUserCountString: String = CodingKeys.openGroupUserCount.stringValue
+    public static let disappearingMessagesConfigurationString: String = CodingKeys.disappearingMessagesConfiguration.stringValue
     public static let contactProfileString: String = CodingKeys.contactProfile.stringValue
     public static let closedGroupProfileFrontString: String = CodingKeys.closedGroupProfileFront.stringValue
     public static let closedGroupProfileBackString: String = CodingKeys.closedGroupProfileBack.stringValue
@@ -87,31 +91,34 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     /// This flag indicates whether the thread is an incoming message request
     public let threadRequiresApproval: Bool?
     public let threadShouldBeVisible: Bool?
-    public let threadIsPinned: Bool
+    public let threadPinnedPriority: Int32
     public let threadIsBlocked: Bool?
     public let threadMutedUntilTimestamp: TimeInterval?
     public let threadOnlyNotifyForMentions: Bool?
     public let threadMessageDraft: String?
     
     public let threadContactIsTyping: Bool?
+    public let threadWasMarkedUnread: Bool?
     public let threadUnreadCount: UInt?
     public let threadUnreadMentionCount: UInt?
     
     public var canWrite: Bool {
         switch threadVariant {
             case .contact: return true
-            case .closedGroup:
+            case .legacyGroup, .group:
                 return (
                     currentUserIsClosedGroupMember == true &&
                     interactionVariant?.isGroupLeavingStatus != true
                 )
                 
-            case .openGroup:
+            case .community:
                 return (openGroupPermissions?.contains(.write) ?? false)
         }
     }
     
     // Thread display info
+    
+    public let disappearingMessagesConfiguration: DisappearingMessagesConfiguration?
     
     private let contactProfile: Profile?
     private let closedGroupProfileFront: Profile?
@@ -133,7 +140,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     
     public let interactionId: Int64?
     public let interactionVariant: Interaction.Variant?
-    private let interactionTimestampMs: Int64?
+    public let interactionTimestampMs: Int64?
     public let interactionBody: String?
     public let interactionState: RecipientState.State?
     public let interactionHasAtLeastOneReadReceipt: Bool?
@@ -145,7 +152,8 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     private let threadContactNameInternal: String?
     private let authorNameInternal: String?
     public let currentUserPublicKey: String
-    public let currentUserBlindedPublicKey: String?
+    public let currentUserBlinded15PublicKey: String?
+    public let currentUserBlinded25PublicKey: String?
     public let recentReactionEmoji: [String]?
     
     // UI specific logic
@@ -164,14 +172,15 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public var profile: Profile? {
         switch threadVariant {
             case .contact: return contactProfile
-            case .closedGroup: return (closedGroupProfileBack ?? closedGroupProfileBackFallback)
-            case .openGroup: return nil
+            case .legacyGroup, .group:
+                return (closedGroupProfileBack ?? closedGroupProfileBackFallback)
+            case .community: return nil
         }
     }
     
     public var additionalProfile: Profile? {
         switch threadVariant {
-            case .closedGroup: return closedGroupProfileFront
+            case .legacyGroup, .group: return closedGroupProfileFront
             default: return nil
         }
     }
@@ -196,8 +205,8 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public var userCount: Int? {
         switch threadVariant {
             case .contact: return nil
-            case .closedGroup: return closedGroupUserCount
-            case .openGroup: return openGroupUserCount
+            case .legacyGroup, .group: return closedGroupUserCount
+            case .community: return openGroupUserCount
         }
     }
     
@@ -233,25 +242,117 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
             )
         )
     }
+    
+    // MARK: - Marking as Read
+    
+    public enum ReadTarget {
+        /// Only the thread should be marked as read
+        case thread
+        
+        /// Both the thread and interactions should be marked as read, if no interaction id is provided then all interactions for the
+        /// thread will be marked as read
+        case threadAndInteractions(interactionsBeforeInclusive: Int64?)
+    }
+    
+    /// This method marks a thread as read and depending on the target may also update the interactions within a thread as read
+    public func markAsRead(target: ReadTarget) {
+        // Store the logic to mark a thread as read (to paths need to run this)
+        let threadId: String = self.threadId
+        let threadWasMarkedUnread: Bool? = self.threadWasMarkedUnread
+        let markThreadAsReadIfNeeded: () -> () = {
+            // Only make this change if needed (want to avoid triggering a thread update
+            // if not needed)
+            guard threadWasMarkedUnread == true else { return }
+            
+            Storage.shared.writeAsync { db in
+                try SessionThread
+                    .filter(id: threadId)
+                    .updateAllAndConfig(
+                        db,
+                        SessionThread.Columns.markedAsUnread.set(to: false)
+                    )
+            }
+        }
+        
+        // Determine what we want to mark as read
+        switch target {
+            // Only mark the thread as read
+            case .thread: markThreadAsReadIfNeeded()
+            
+            // We want to mark both the thread and interactions as read
+            case .threadAndInteractions(let interactionId):
+                guard
+                    (self.threadUnreadCount ?? 0) > 0,
+                    let targetInteractionId: Int64 = (interactionId ?? self.interactionId)
+                else {
+                    // No unread interactions so just mark the thread as read if needed
+                    markThreadAsReadIfNeeded()
+                    return
+                }
+                
+                let threadId: String = self.threadId
+                let threadVariant: SessionThread.Variant = self.threadVariant
+                let threadIsBlocked: Bool? = self.threadIsBlocked
+                let threadIsMessageRequest: Bool? = self.threadIsMessageRequest
+                
+                Storage.shared.writeAsync { db in
+                    markThreadAsReadIfNeeded()
+                    
+                    try Interaction.markAsRead(
+                        db,
+                        interactionId: targetInteractionId,
+                        threadId: threadId,
+                        threadVariant: threadVariant,
+                        includingOlder: true,
+                        trySendReadReceipt: try SessionThread.canSendReadReceipt(
+                            db,
+                            threadId: threadId,
+                            threadVariant: threadVariant,
+                            isBlocked: threadIsBlocked,
+                            isMessageRequest: threadIsMessageRequest
+                        )
+                    )
+                }
+        }
+    }
+    
+    /// This method will mark a thread as read
+    public func markAsUnread() {
+        guard self.threadWasMarkedUnread != true else { return }
+        
+        let threadId: String = self.threadId
+        
+        Storage.shared.writeAsync { db in
+            try SessionThread
+                .filter(id: threadId)
+                .updateAllAndConfig(
+                    db,
+                    SessionThread.Columns.markedAsUnread.set(to: true)
+                )
+        }
+    }
 }
 
 // MARK: - Convenience Initialization
 
 public extension SessionThreadViewModel {
     static let invalidId: String = "INVALID_THREAD_ID"
+    static let messageRequestsSectionId: String = "MESSAGE_REQUESTS_SECTION_INVALID_THREAD_ID"
     
     // Note: This init method is only used system-created cells or empty states
     init(
-        threadId: String? = nil,
+        threadId: String,
         threadVariant: SessionThread.Variant? = nil,
         threadIsNoteToSelf: Bool = false,
+        threadIsBlocked: Bool? = nil,
         contactProfile: Profile? = nil,
         currentUserIsClosedGroupMember: Bool? = nil,
         openGroupPermissions: OpenGroup.Permissions? = nil,
-        unreadCount: UInt = 0
+        unreadCount: UInt = 0,
+        disappearingMessagesConfiguration: DisappearingMessagesConfiguration? = nil
     ) {
         self.rowId = -1
-        self.threadId = (threadId ?? SessionThreadViewModel.invalidId)
+        self.threadId = threadId
         self.threadVariant = (threadVariant ?? .contact)
         self.threadCreationDateTimestamp = 0
         self.threadMemberNames = nil
@@ -260,17 +361,20 @@ public extension SessionThreadViewModel {
         self.threadIsMessageRequest = false
         self.threadRequiresApproval = false
         self.threadShouldBeVisible = false
-        self.threadIsPinned = false
-        self.threadIsBlocked = nil
+        self.threadPinnedPriority = 0
+        self.threadIsBlocked = threadIsBlocked
         self.threadMutedUntilTimestamp = nil
         self.threadOnlyNotifyForMentions = nil
         self.threadMessageDraft = nil
         
         self.threadContactIsTyping = nil
+        self.threadWasMarkedUnread = nil
         self.threadUnreadCount = unreadCount
         self.threadUnreadMentionCount = nil
         
         // Thread display info
+        
+        self.disappearingMessagesConfiguration = disappearingMessagesConfiguration
         
         self.contactProfile = contactProfile
         self.closedGroupProfileFront = nil
@@ -304,7 +408,8 @@ public extension SessionThreadViewModel {
         self.threadContactNameInternal = nil
         self.authorNameInternal = nil
         self.currentUserPublicKey = getUserHexEncodedPublicKey()
-        self.currentUserBlindedPublicKey = nil
+        self.currentUserBlinded15PublicKey = nil
+        self.currentUserBlinded25PublicKey = nil
         self.recentReactionEmoji = nil
     }
 }
@@ -325,14 +430,16 @@ public extension SessionThreadViewModel {
             threadIsMessageRequest: self.threadIsMessageRequest,
             threadRequiresApproval: self.threadRequiresApproval,
             threadShouldBeVisible: self.threadShouldBeVisible,
-            threadIsPinned: self.threadIsPinned,
+            threadPinnedPriority: self.threadPinnedPriority,
             threadIsBlocked: self.threadIsBlocked,
             threadMutedUntilTimestamp: self.threadMutedUntilTimestamp,
             threadOnlyNotifyForMentions: self.threadOnlyNotifyForMentions,
             threadMessageDraft: self.threadMessageDraft,
             threadContactIsTyping: self.threadContactIsTyping,
+            threadWasMarkedUnread: self.threadWasMarkedUnread,
             threadUnreadCount: self.threadUnreadCount,
             threadUnreadMentionCount: self.threadUnreadMentionCount,
+            disappearingMessagesConfiguration: self.disappearingMessagesConfiguration,
             contactProfile: self.contactProfile,
             closedGroupProfileFront: self.closedGroupProfileFront,
             closedGroupProfileBack: self.closedGroupProfileBack,
@@ -361,14 +468,16 @@ public extension SessionThreadViewModel {
             threadContactNameInternal: self.threadContactNameInternal,
             authorNameInternal: self.authorNameInternal,
             currentUserPublicKey: self.currentUserPublicKey,
-            currentUserBlindedPublicKey: self.currentUserBlindedPublicKey,
+            currentUserBlinded15PublicKey: self.currentUserBlinded15PublicKey,
+            currentUserBlinded25PublicKey: self.currentUserBlinded25PublicKey,
             recentReactionEmoji: (recentReactionEmoji ?? self.recentReactionEmoji)
         )
     }
     
-    func populatingCurrentUserBlindedKey(
+    func populatingCurrentUserBlindedKeys(
         _ db: Database? = nil,
-        currentUserBlindedPublicKeyForThisThread: String? = nil
+        currentUserBlinded15PublicKeyForThisThread: String? = nil,
+        currentUserBlinded25PublicKeyForThisThread: String? = nil
     ) -> SessionThreadViewModel {
         return SessionThreadViewModel(
             rowId: self.rowId,
@@ -380,14 +489,16 @@ public extension SessionThreadViewModel {
             threadIsMessageRequest: self.threadIsMessageRequest,
             threadRequiresApproval: self.threadRequiresApproval,
             threadShouldBeVisible: self.threadShouldBeVisible,
-            threadIsPinned: self.threadIsPinned,
+            threadPinnedPriority: self.threadPinnedPriority,
             threadIsBlocked: self.threadIsBlocked,
             threadMutedUntilTimestamp: self.threadMutedUntilTimestamp,
             threadOnlyNotifyForMentions: self.threadOnlyNotifyForMentions,
             threadMessageDraft: self.threadMessageDraft,
             threadContactIsTyping: self.threadContactIsTyping,
+            threadWasMarkedUnread: self.threadWasMarkedUnread,
             threadUnreadCount: self.threadUnreadCount,
             threadUnreadMentionCount: self.threadUnreadMentionCount,
+            disappearingMessagesConfiguration: self.disappearingMessagesConfiguration,
             contactProfile: self.contactProfile,
             closedGroupProfileFront: self.closedGroupProfileFront,
             closedGroupProfileBack: self.closedGroupProfileBack,
@@ -416,12 +527,22 @@ public extension SessionThreadViewModel {
             threadContactNameInternal: self.threadContactNameInternal,
             authorNameInternal: self.authorNameInternal,
             currentUserPublicKey: self.currentUserPublicKey,
-            currentUserBlindedPublicKey: (
-                currentUserBlindedPublicKeyForThisThread ??
+            currentUserBlinded15PublicKey: (
+                currentUserBlinded15PublicKeyForThisThread ??
                 SessionThread.getUserHexEncodedBlindedKey(
                     db,
                     threadId: self.threadId,
-                    threadVariant: self.threadVariant
+                    threadVariant: self.threadVariant,
+                    blindingPrefix: .blinded15
+                )
+            ),
+            currentUserBlinded25PublicKey: (
+                currentUserBlinded25PublicKeyForThisThread ??
+                SessionThread.getUserHexEncodedBlindedKey(
+                    db,
+                    threadId: self.threadId,
+                    threadVariant: self.threadVariant,
+                    blindingPrefix: .blinded25
                 )
             ),
             recentReactionEmoji: self.recentReactionEmoji
@@ -474,7 +595,7 @@ public extension SessionThreadViewModel {
             /// parse and might throw
             ///
             /// Explicitly set default values for the fields ignored for search results
-            let numColumnsBeforeProfiles: Int = 12
+            let numColumnsBeforeProfiles: Int = 14
             let numColumnsBetweenProfilesAndAttachmentInfo: Int = 12 // The attachment info columns will be combined
             let request: SQLRequest<ViewModel> = """
                 SELECT
@@ -484,12 +605,18 @@ public extension SessionThreadViewModel {
                     \(thread[.creationDateTimestamp]) AS \(ViewModel.threadCreationDateTimestampKey),
 
                     (\(SQL("\(thread[.id]) = \(userPublicKey)"))) AS \(ViewModel.threadIsNoteToSelfKey),
-                    \(thread[.isPinned]) AS \(ViewModel.threadIsPinnedKey),
+                    IFNULL(\(thread[.pinnedPriority]), 0) AS \(ViewModel.threadPinnedPriorityKey),
                     \(contact[.isBlocked]) AS \(ViewModel.threadIsBlockedKey),
                     \(thread[.mutedUntilTimestamp]) AS \(ViewModel.threadMutedUntilTimestampKey),
                     \(thread[.onlyNotifyForMentions]) AS \(ViewModel.threadOnlyNotifyForMentionsKey),
-
+                    (
+                        \(SQL("\(thread[.variant]) = \(SessionThread.Variant.contact)")) AND
+                        \(SQL("\(thread[.id]) != \(userPublicKey)")) AND
+                        IFNULL(\(contact[.isApproved]), false) = false
+                    ) AS \(ViewModel.threadIsMessageRequestKey),
+            
                     (\(typingIndicator[.threadId]) IS NOT NULL) AS \(ViewModel.threadContactIsTypingKey),
+                    \(thread[.markedAsUnread]) AS \(ViewModel.threadWasMarkedUnreadKey),
                     \(aggregateInteractionLiteral).\(ViewModel.threadUnreadCountKey),
                     \(aggregateInteractionLiteral).\(ViewModel.threadUnreadMentionCountKey),
 
@@ -679,7 +806,6 @@ public extension SessionThreadViewModel {
     static func homeFilterSQL(userPublicKey: String) -> SQL {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         let contact: TypedTableAlias<Contact> = TypedTableAlias()
-        let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
         
         return """
             \(thread[.shouldBeVisible]) = true AND (
@@ -687,10 +813,6 @@ public extension SessionThreadViewModel {
                 \(SQL("\(thread[.variant]) != \(SessionThread.Variant.contact)")) OR
                 \(SQL("\(thread[.id]) = \(userPublicKey)")) OR
                 \(contact[.isApproved]) = true
-            ) AND (
-                -- Only show the 'Note to Self' thread if it has an interaction
-                \(SQL("\(thread[.id]) != \(userPublicKey)")) OR
-                \(interaction[.timestampMs]) IS NOT NULL
             )
         """
     }
@@ -720,8 +842,8 @@ public extension SessionThreadViewModel {
         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
         
         return SQL("""
-            \(thread[.isPinned]) DESC,
-            CASE WHEN \(interaction[.timestampMs]) IS NOT NULL THEN \(interaction[.timestampMs]) ELSE (\(thread[.creationDateTimestamp]) * 1000) END DESC
+            (IFNULL(\(thread[.pinnedPriority]), 0) > 0) DESC,
+            IFNULL(\(interaction[.timestampMs]), (\(thread[.creationDateTimestamp]) * 1000)) DESC
         """)
     }()
     
@@ -740,6 +862,7 @@ public extension SessionThreadViewModel {
     /// but including this warning just in case there is a discrepancy)
     static func conversationQuery(threadId: String, userPublicKey: String) -> AdaptedFetchRequest<SQLRequest<SessionThreadViewModel>> {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
+        let disappearingMessagesConfiguration: TypedTableAlias<DisappearingMessagesConfiguration> = TypedTableAlias()
         let contact: TypedTableAlias<Contact> = TypedTableAlias()
         let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
@@ -747,7 +870,6 @@ public extension SessionThreadViewModel {
         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
         
         let aggregateInteractionLiteral: SQL = SQL(stringLiteral: "aggregateInteraction")
-        let timestampMsColumnLiteral: SQL = SQL(stringLiteral: Interaction.Columns.timestampMs.name)
         let closedGroupUserCountTableLiteral: SQL = SQL(stringLiteral: "\(ViewModel.closedGroupUserCountString)_table")
         let groupMemberGroupIdColumnLiteral: SQL = SQL(stringLiteral: GroupMember.Columns.groupId.name)
         let profileIdColumnLiteral: SQL = SQL(stringLiteral: Profile.Columns.id.name)
@@ -757,7 +879,7 @@ public extension SessionThreadViewModel {
         /// parse and might throw
         ///
         /// Explicitly set default values for the fields ignored for search results
-        let numColumnsBeforeProfiles: Int = 14
+        let numColumnsBeforeProfiles: Int = 15
         let request: SQLRequest<ViewModel> = """
             SELECT
                 \(thread.alias[Column.rowID]) AS \(ViewModel.rowIdKey),
@@ -777,13 +899,16 @@ public extension SessionThreadViewModel {
                 ) AS \(ViewModel.threadRequiresApprovalKey),
                 \(thread[.shouldBeVisible]) AS \(ViewModel.threadShouldBeVisibleKey),
         
-                \(thread[.isPinned]) AS \(ViewModel.threadIsPinnedKey),
+                IFNULL(\(thread[.pinnedPriority]), 0) AS \(ViewModel.threadPinnedPriorityKey),
                 \(contact[.isBlocked]) AS \(ViewModel.threadIsBlockedKey),
                 \(thread[.mutedUntilTimestamp]) AS \(ViewModel.threadMutedUntilTimestampKey),
                 \(thread[.onlyNotifyForMentions]) AS \(ViewModel.threadOnlyNotifyForMentionsKey),
                 \(thread[.messageDraft]) AS \(ViewModel.threadMessageDraftKey),
-        
+                
+                \(thread[.markedAsUnread]) AS \(ViewModel.threadWasMarkedUnreadKey),
                 \(aggregateInteractionLiteral).\(ViewModel.threadUnreadCountKey),
+        
+                \(ViewModel.disappearingMessagesConfigurationKey).*,
             
                 \(ViewModel.contactProfileKey).*,
                 \(closedGroup[.name]) AS \(ViewModel.closedGroupNameKey),
@@ -807,16 +932,18 @@ public extension SessionThreadViewModel {
                 \(openGroup[.permissions]) AS \(ViewModel.openGroupPermissionsKey),
         
                 \(aggregateInteractionLiteral).\(ViewModel.interactionIdKey),
+                \(aggregateInteractionLiteral).\(ViewModel.interactionTimestampMsKey),
             
                 \(SQL("\(userPublicKey)")) AS \(ViewModel.currentUserPublicKeyKey)
             
             FROM \(SessionThread.self)
+            LEFT JOIN \(DisappearingMessagesConfiguration.self) ON \(disappearingMessagesConfiguration[.threadId]) = \(thread[.id])
             LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])
             LEFT JOIN (
                 SELECT
                     \(interaction[.id]) AS \(ViewModel.interactionIdKey),
                     \(interaction[.threadId]) AS \(ViewModel.threadIdKey),
-                    MAX(\(interaction[.timestampMs])) AS \(timestampMsColumnLiteral),
+                    MAX(\(interaction[.timestampMs])) AS \(ViewModel.interactionTimestampMsKey),
                     SUM(\(interaction[.wasRead]) = false) AS \(ViewModel.threadUnreadCountKey)
                 FROM \(Interaction.self)
                 WHERE (
@@ -845,11 +972,13 @@ public extension SessionThreadViewModel {
         return request.adapted { db in
             let adapters = try splittingRowAdapters(columnCounts: [
                 numColumnsBeforeProfiles,
+                DisappearingMessagesConfiguration.numberOfSelectedColumns(db),
                 Profile.numberOfSelectedColumns(db)
             ])
             
             return ScopeAdapter([
-                ViewModel.contactProfileString: adapters[1]
+                ViewModel.disappearingMessagesConfigurationString: adapters[1],
+                ViewModel.contactProfileString: adapters[2]
             ])
         }
     }
@@ -879,7 +1008,7 @@ public extension SessionThreadViewModel {
                 
                 (\(SQL("\(thread[.id]) = \(userPublicKey)"))) AS \(ViewModel.threadIsNoteToSelfKey),
                 
-                \(thread[.isPinned]) AS \(ViewModel.threadIsPinnedKey),
+                IFNULL(\(thread[.pinnedPriority]), 0) AS \(ViewModel.threadPinnedPriorityKey),
                 \(contact[.isBlocked]) AS \(ViewModel.threadIsBlockedKey),
                 \(thread[.mutedUntilTimestamp]) AS \(ViewModel.threadMutedUntilTimestampKey),
                 \(thread[.onlyNotifyForMentions]) AS \(ViewModel.threadOnlyNotifyForMentionsKey),
@@ -996,20 +1125,30 @@ public extension SessionThreadViewModel {
         /// Step 1 - Keep any "quoted" sections as stand-alone search
         /// Step 2 - Separate any words outside of quotes
         /// Step 3 - Join the different search term parts with 'OR" (include results for each individual term)
-        /// Step 4 - Append a wild-card character to the final word
-        return searchTerm
-            .split(separator: "\"")
-            .enumerated()
-            .flatMap { index, value -> [String] in
-                guard index % 2 == 1 else {
-                    return String(value)
-                        .split(separator: " ")
-                        .map { "\"\(String($0))\"" }
-                }
-                
-                return ["\"\(value)\""]
-            }
-            .filter { !$0.isEmpty }
+        /// Step 4 - Append a wild-card character to the final word (as long as the last word doesn't end in a quote)
+        let normalisedTerm: String = standardQuotes(searchTerm)
+        
+        guard let regex = try? NSRegularExpression(pattern: "[^\\s\"']+|\"([^\"]*)\"") else {
+            // Fallback to removing the quotes and just splitting on spaces
+            return normalisedTerm
+                .replacingOccurrences(of: "\"", with: "")
+                .split(separator: " ")
+                .map { "\"\($0)\"" }
+                .filter { !$0.isEmpty }
+        }
+            
+        return regex
+            .matches(in: normalisedTerm, range: NSRange(location: 0, length: normalisedTerm.count))
+            .compactMap { Range($0.range, in: normalisedTerm) }
+            .map { normalisedTerm[$0].trimmingCharacters(in: CharacterSet(charactersIn: "\"")) }
+            .map { "\"\($0)\"" }
+    }
+    
+    static func standardQuotes(_ term: String) -> String {
+        // Apple like to use the special '”“' quote characters when typing so replace them with normal ones
+        return term
+            .replacingOccurrences(of: "”", with: "\"")
+            .replacingOccurrences(of: "“", with: "\"")
     }
     
     static func pattern(_ db: Database, searchTerm: String) throws -> FTS5Pattern {
@@ -1019,22 +1158,31 @@ public extension SessionThreadViewModel {
     static func pattern<T>(_ db: Database, searchTerm: String, forTable table: T.Type) throws -> FTS5Pattern where T: TableRecord, T: ColumnExpressible {
         // Note: FTS doesn't support both prefix/suffix wild cards so don't bother trying to
         // add a prefix one
-        let rawPattern: String = searchTermParts(searchTerm)
-            .joined(separator: " OR ")
-            .appending("*")
+        let rawPattern: String = {
+            let result: String = searchTermParts(searchTerm)
+                .joined(separator: " OR ")
+            
+            // If the last character is a quotation mark then assume the user doesn't want to append
+            // a wildcard character
+            guard !standardQuotes(searchTerm).hasSuffix("\"") else { return result }
+            
+            return "\(result)*"
+        }()
         let fallbackTerm: String = "\(searchSafeTerm(searchTerm))*"
         
         /// There are cases where creating a pattern can fail, we want to try and recover from those cases
         /// by failling back to simpler patterns if needed
-        let maybePattern: FTS5Pattern? = (try? db.makeFTS5Pattern(rawPattern: rawPattern, forTable: table))
-            .defaulting(
-                to: (try? db.makeFTS5Pattern(rawPattern: fallbackTerm, forTable: table))
-                    .defaulting(to: FTS5Pattern(matchingAnyTokenIn: fallbackTerm))
-            )
-        
-        guard let pattern: FTS5Pattern = maybePattern else { throw StorageError.invalidSearchPattern }
-        
-        return pattern
+        return try {
+            if let pattern: FTS5Pattern = try? db.makeFTS5Pattern(rawPattern: rawPattern, forTable: table) {
+                return pattern
+            }
+            
+            if let pattern: FTS5Pattern = try? db.makeFTS5Pattern(rawPattern: fallbackTerm, forTable: table) {
+                return pattern
+            }
+            
+            return try FTS5Pattern(matchingAnyTokenIn: fallbackTerm) ?? { throw StorageError.invalidSearchPattern }()
+        }()
     }
     
     static func messagesQuery(userPublicKey: String, pattern: FTS5Pattern) -> AdaptedFetchRequest<SQLRequest<SessionThreadViewModel>> {
@@ -1062,7 +1210,7 @@ public extension SessionThreadViewModel {
                 \(thread[.creationDateTimestamp]) AS \(ViewModel.threadCreationDateTimestampKey),
                 
                 (\(SQL("\(thread[.id]) = \(userPublicKey)"))) AS \(ViewModel.threadIsNoteToSelfKey),
-                \(thread[.isPinned]) AS \(ViewModel.threadIsPinnedKey),
+                IFNULL(\(thread[.pinnedPriority]), 0) AS \(ViewModel.threadPinnedPriorityKey),
                 
                 \(ViewModel.contactProfileKey).*,
                 \(ViewModel.closedGroupProfileFrontKey).*,
@@ -1075,7 +1223,7 @@ public extension SessionThreadViewModel {
                 \(interaction[.id]) AS \(ViewModel.interactionIdKey),
                 \(interaction[.variant]) AS \(ViewModel.interactionVariantKey),
                 \(interaction[.timestampMs]) AS \(ViewModel.interactionTimestampMsKey),
-                \(interaction[.body]) AS \(ViewModel.interactionBodyKey),
+                snippet(\(interactionFullTextSearch), -1, '', '', '...', 6) AS \(ViewModel.interactionBodyKey),
         
                 \(interaction[.authorId]),
                 IFNULL(\(profile[.nickname]), \(profile[.name])) AS \(ViewModel.authorNameInternalKey),
@@ -1156,12 +1304,18 @@ public extension SessionThreadViewModel {
     /// - Closed group member name
     /// - Open group name
     /// - "Note to self" text match
+    /// - Hidden contact nickname
+    /// - Hidden contact name
+    ///
+    /// **Note 2:** Since the "Hidden Contact" records don't have associated threads the `rowId` value in the
+    /// returned results will always be `-1` for those results
     static func contactsAndGroupsQuery(userPublicKey: String, pattern: FTS5Pattern, searchTerm: String) -> AdaptedFetchRequest<SQLRequest<SessionThreadViewModel>> {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
         let openGroup: TypedTableAlias<OpenGroup> = TypedTableAlias()
         let profile: TypedTableAlias<Profile> = TypedTableAlias()
+        let contact: TypedTableAlias<Contact> = TypedTableAlias()
         let profileIdColumnLiteral: SQL = SQL(stringLiteral: Profile.Columns.id.name)
         let profileNicknameColumnLiteral: SQL = SQL(stringLiteral: Profile.Columns.nickname.name)
         let profileNameColumnLiteral: SQL = SQL(stringLiteral: Profile.Columns.name.name)
@@ -1199,7 +1353,7 @@ public extension SessionThreadViewModel {
                 \(groupMemberInfoLiteral).\(ViewModel.threadMemberNamesKey),
                 
                 (\(SQL("\(thread[.id]) = \(userPublicKey)"))) AS \(ViewModel.threadIsNoteToSelfKey),
-                \(thread[.isPinned]) AS \(ViewModel.threadIsPinnedKey),
+                IFNULL(\(thread[.pinnedPriority]), 0) AS \(ViewModel.threadPinnedPriorityKey),
                 
                 \(ViewModel.contactProfileKey).*,
                 \(ViewModel.closedGroupProfileFrontKey).*,
@@ -1310,7 +1464,10 @@ public extension SessionThreadViewModel {
             LEFT JOIN \(Profile.self) AS \(ViewModel.contactProfileKey) ON false
             LEFT JOIN \(OpenGroup.self) ON false
         
-            WHERE \(SQL("\(thread[.variant]) = \(SessionThread.Variant.closedGroup)"))
+            WHERE (
+                \(SQL("\(thread[.variant]) = \(SessionThread.Variant.legacyGroup)")) OR
+                \(SQL("\(thread[.variant]) = \(SessionThread.Variant.group)"))
+            )
             GROUP BY \(thread[.id])
         """
         
@@ -1388,7 +1545,7 @@ public extension SessionThreadViewModel {
             ) AS \(groupMemberInfoLiteral) ON false
         
             WHERE
-                \(SQL("\(thread[.variant]) = \(SessionThread.Variant.openGroup)")) AND
+                \(SQL("\(thread[.variant]) = \(SessionThread.Variant.community)")) AND
                 \(SQL("\(thread[.id]) != \(userPublicKey)"))
             GROUP BY \(thread[.id])
         """
@@ -1469,6 +1626,83 @@ public extension SessionThreadViewModel {
             WHERE \(SQL("\(thread[.id]) = \(userPublicKey)"))
         """
         
+        // MARK: --Contacts without threads
+        let hiddenContactQuery: SQL = """
+            SELECT
+                IFNULL(\(Column.rank), 100) AS \(Column.rank),
+                
+                -1 AS \(ViewModel.rowIdKey),
+                \(contact[.id]) AS \(ViewModel.threadIdKey),
+                \(SQL("\(SessionThread.Variant.contact)")) AS \(ViewModel.threadVariantKey),
+                0 AS \(ViewModel.threadCreationDateTimestampKey),
+                \(groupMemberInfoLiteral).\(ViewModel.threadMemberNamesKey),
+                
+                false AS \(ViewModel.threadIsNoteToSelfKey),
+                -1 AS \(ViewModel.threadPinnedPriorityKey),
+                
+                \(ViewModel.contactProfileKey).*,
+                \(ViewModel.closedGroupProfileFrontKey).*,
+                \(ViewModel.closedGroupProfileBackKey).*,
+                \(ViewModel.closedGroupProfileBackFallbackKey).*,
+                \(closedGroup[.name]) AS \(ViewModel.closedGroupNameKey),
+                \(openGroup[.name]) AS \(ViewModel.openGroupNameKey),
+                \(openGroup[.imageData]) AS \(ViewModel.openGroupProfilePictureDataKey),
+                
+                \(SQL("\(userPublicKey)")) AS \(ViewModel.currentUserPublicKeyKey)
+
+            FROM \(Contact.self)
+        """
+        let hiddenContactQueryCommonJoins: SQL = """
+            JOIN \(Profile.self) AS \(ViewModel.contactProfileKey) ON \(ViewModel.contactProfileKey).\(profileIdColumnLiteral) = \(contact[.id])
+            LEFT JOIN \(SessionThread.self) ON \(thread[.id]) = \(contact[.id])
+            LEFT JOIN \(Profile.self) AS \(ViewModel.closedGroupProfileFrontKey) ON false
+            LEFT JOIN \(Profile.self) AS \(ViewModel.closedGroupProfileBackKey) ON false
+            LEFT JOIN \(Profile.self) AS \(ViewModel.closedGroupProfileBackFallbackKey) ON false
+            LEFT JOIN \(ClosedGroup.self) ON false
+            LEFT JOIN \(OpenGroup.self) ON false
+            LEFT JOIN (
+                SELECT
+                    \(groupMember[.groupId]),
+                    '' AS \(ViewModel.threadMemberNamesKey)
+                FROM \(GroupMember.self)
+            ) AS \(groupMemberInfoLiteral) ON false
+        
+            WHERE \(thread[.id]) IS NULL
+            GROUP BY \(contact[.id])
+        """
+        
+        // Hidden contact by nickname
+        sqlQuery += """
+        
+            UNION ALL
+        
+        """
+        sqlQuery += hiddenContactQuery
+        sqlQuery += """
+        
+            JOIN \(profileFullTextSearch) ON (
+                \(profileFullTextSearch).rowid = \(ViewModel.contactProfileKey).rowid AND
+                \(profileFullTextSearch).\(profileNicknameColumnLiteral) MATCH \(pattern)
+            )
+        """
+        sqlQuery += hiddenContactQueryCommonJoins
+        
+        // Hidden contact by name
+        sqlQuery += """
+        
+            UNION ALL
+        
+        """
+        sqlQuery += hiddenContactQuery
+        sqlQuery += """
+        
+            JOIN \(profileFullTextSearch) ON (
+                \(profileFullTextSearch).rowid = \(ViewModel.contactProfileKey).rowid AND
+                \(profileFullTextSearch).\(profileNameColumnLiteral) MATCH \(pattern)
+            )
+        """
+        sqlQuery += hiddenContactQueryCommonJoins
+        
         // Group everything by 'threadId' (the same thread can be found in multiple queries due
         // to seaerching both nickname and name), then order everything by 'rank' (relevance)
         // first, 'Note to Self' second (want it to appear at the bottom of threads unless it
@@ -1543,7 +1777,7 @@ public extension SessionThreadViewModel {
                 '' AS \(ViewModel.threadMemberNamesKey),
                 
                 true AS \(ViewModel.threadIsNoteToSelfKey),
-                \(thread[.isPinned]) AS \(ViewModel.threadIsPinnedKey),
+                IFNULL(\(thread[.pinnedPriority]), 0) AS \(ViewModel.threadPinnedPriorityKey),
                 
                 \(ViewModel.contactProfileKey).*,
                 
@@ -1601,7 +1835,7 @@ public extension SessionThreadViewModel {
                 
                 (\(SQL("\(thread[.id]) = \(userPublicKey)"))) AS \(ViewModel.threadIsNoteToSelfKey),
                 
-                \(thread[.isPinned]) AS \(ViewModel.threadIsPinnedKey),
+                IFNULL(\(thread[.pinnedPriority]), 0) AS \(ViewModel.threadPinnedPriorityKey),
                 \(contact[.isBlocked]) AS \(ViewModel.threadIsBlockedKey),
         
                 \(ViewModel.contactProfileKey).*,

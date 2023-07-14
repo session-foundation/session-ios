@@ -1,7 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import PromiseKit
 import SessionUIKit
 
 // The initial presentation is intended to be indistinguishable from the Launch Screen.

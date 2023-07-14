@@ -1,10 +1,11 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
-import PromiseKit
 import SessionMessagingKit
 import SignalUtilitiesKit
+import SignalCoreKit
 
 /// There are two primary components in our system notification integration:
 ///
@@ -36,6 +37,7 @@ enum AppNotificationAction: CaseIterable {
 
 struct AppNotificationUserInfoKey {
     static let threadId = "Signal.AppNotificationsUserInfoKey.threadId"
+    static let threadVariantRaw = "Signal.AppNotificationsUserInfoKey.threadVariantRaw"
     static let callBackNumber = "Signal.AppNotificationsUserInfoKey.callBackNumber"
     static let localCallId = "Signal.AppNotificationsUserInfoKey.localCallId"
     static let threadNotificationCounter = "Session.AppNotificationsUserInfoKey.threadNotificationCounter"
@@ -87,7 +89,7 @@ let kAudioNotificationsThrottleInterval: TimeInterval = 5
 
 protocol NotificationPresenterAdaptee: AnyObject {
 
-    func registerNotificationSettings() -> Promise<Void>
+    func registerNotificationSettings() -> AnyPublisher<Void, Never>
 
     func notify(
         category: AppNotificationCategory,
@@ -98,6 +100,7 @@ protocol NotificationPresenterAdaptee: AnyObject {
         sound: Preferences.Sound?,
         threadVariant: SessionThread.Variant,
         threadName: String,
+        applicationState: UIApplication.State,
         replacingIdentifier: String?
     )
 
@@ -115,7 +118,8 @@ extension NotificationPresenterAdaptee {
         previewType: Preferences.NotificationPreviewType,
         sound: Preferences.Sound?,
         threadVariant: SessionThread.Variant,
-        threadName: String
+        threadName: String,
+        applicationState: UIApplication.State
     ) {
         notify(
             category: category,
@@ -126,32 +130,31 @@ extension NotificationPresenterAdaptee {
             sound: sound,
             threadVariant: threadVariant,
             threadName: threadName,
+            applicationState: applicationState,
             replacingIdentifier: nil
         )
     }
 }
 
-@objc(OWSNotificationPresenter)
-public class NotificationPresenter: NSObject, NotificationsProtocol {
+public class NotificationPresenter: NotificationsProtocol {
+    private let adaptee: NotificationPresenterAdaptee = UserNotificationPresenterAdaptee()
 
-    private let adaptee: NotificationPresenterAdaptee
-
-    @objc
-    public override init() {
-        self.adaptee = UserNotificationPresenterAdaptee()
-
-        super.init()
-
+    public init() {
         SwiftSingletons.register(self)
     }
 
     // MARK: - Presenting Notifications
 
-    func registerNotificationSettings() -> Promise<Void> {
+    func registerNotificationSettings() -> AnyPublisher<Void, Never> {
         return adaptee.registerNotificationSettings()
     }
 
-    public func notifyUser(_ db: Database, for interaction: Interaction, in thread: SessionThread) {
+    public func notifyUser(
+        _ db: Database,
+        for interaction: Interaction,
+        in thread: SessionThread,
+        applicationState: UIApplication.State
+    ) {
         let isMessageRequest: Bool = thread.isMessageRequest(db, includeNonVisible: true)
         
         // Ensure we should be showing a notification for the thread
@@ -161,7 +164,7 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
         
         // Try to group notifications for interactions from open groups
         let identifier: String = interaction.notificationIdentifier(
-            shouldGroupMessagesForThread: (thread.variant == .openGroup)
+            shouldGroupMessagesForThread: (thread.variant == .community)
         )
 
         // While batch processing, some of the necessary changes have not been commited.
@@ -201,7 +204,7 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
                     case .contact:
                         notificationTitle = (isMessageRequest ? "Session" : senderName)
                         
-                    case .closedGroup, .openGroup:
+                    case .legacyGroup, .group, .community:
                         notificationTitle = String(
                             format: NotificationStrings.incomingGroupMessageTitleFormat,
                             senderName,
@@ -230,50 +233,68 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
         // "no longer verified".
         let category = AppNotificationCategory.incomingMessage
 
-        let userInfo = [
-            AppNotificationUserInfoKey.threadId: thread.id
+        let userInfo: [AnyHashable: Any] = [
+            AppNotificationUserInfoKey.threadId: thread.id,
+            AppNotificationUserInfoKey.threadVariantRaw: thread.variant.rawValue
         ]
         
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
-        let userBlindedKey: String? = SessionThread.getUserHexEncodedBlindedKey(
+        let userBlinded15Key: String? = SessionThread.getUserHexEncodedBlindedKey(
             db,
             threadId: thread.id,
-            threadVariant: thread.variant
+            threadVariant: thread.variant,
+            blindingPrefix: .blinded15
+        )
+        let userBlinded25Key: String? = SessionThread.getUserHexEncodedBlindedKey(
+            db,
+            threadId: thread.id,
+            threadVariant: thread.variant,
+            blindingPrefix: .blinded25
         )
         let fallbackSound: Preferences.Sound = db[.defaultNotificationSound]
             .defaulting(to: Preferences.Sound.defaultNotificationSound)
 
-        DispatchQueue.main.async {
-            let sound: Preferences.Sound? = self.requestSound(
-                thread: thread,
-                fallbackSound: fallbackSound
-            )
-            
-            notificationBody = MentionUtilities.highlightMentionsNoAttributes(
-                in: (notificationBody ?? ""),
-                threadVariant: thread.variant,
-                currentUserPublicKey: userPublicKey,
-                currentUserBlindedPublicKey: userBlindedKey
-            )
-            
-            self.adaptee.notify(
-                category: category,
-                title: notificationTitle,
-                body: (notificationBody ?? ""),
-                userInfo: userInfo,
-                previewType: previewType,
-                sound: sound,
-                threadVariant: thread.variant,
-                threadName: groupName,
-                replacingIdentifier: identifier
-            )
-        }
+        let sound: Preferences.Sound? = requestSound(
+            thread: thread,
+            fallbackSound: fallbackSound,
+            applicationState: applicationState
+        )
+        
+        notificationBody = MentionUtilities.highlightMentionsNoAttributes(
+            in: (notificationBody ?? ""),
+            threadVariant: thread.variant,
+            currentUserPublicKey: userPublicKey,
+            currentUserBlinded15PublicKey: userBlinded15Key,
+            currentUserBlinded25PublicKey: userBlinded25Key
+        )
+        
+        self.adaptee.notify(
+            category: category,
+            title: notificationTitle,
+            body: (notificationBody ?? ""),
+            userInfo: userInfo,
+            previewType: previewType,
+            sound: sound,
+            threadVariant: thread.variant,
+            threadName: groupName,
+            applicationState: applicationState,
+            replacingIdentifier: identifier
+        )
     }
     
-    public func notifyUser(_ db: Database, forIncomingCall interaction: Interaction, in thread: SessionThread) {
+    public func notifyUser(
+        _ db: Database,
+        forIncomingCall interaction: Interaction,
+        in thread: SessionThread,
+        applicationState: UIApplication.State
+    ) {
         // No call notifications for muted or group threads
         guard Date().timeIntervalSince1970 > (thread.mutedUntilTimestamp ?? 0) else { return }
-        guard thread.variant != .closedGroup && thread.variant != .openGroup else { return }
+        guard
+            thread.variant != .legacyGroup &&
+            thread.variant != .group &&
+            thread.variant != .community
+        else { return }
         guard
             interaction.variant == .infoCall,
             let infoMessageData: Data = (interaction.body ?? "").data(using: .utf8),
@@ -290,8 +311,9 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
         let previewType: Preferences.NotificationPreviewType = db[.preferencesNotificationPreviewType]
             .defaulting(to: .nameAndPreview)
         
-        let userInfo = [
-            AppNotificationUserInfoKey.threadId: thread.id
+        let userInfo: [AnyHashable: Any] = [
+            AppNotificationUserInfoKey.threadId: thread.id,
+            AppNotificationUserInfoKey.threadVariantRaw: thread.variant.rawValue
         ]
         
         let notificationTitle: String = "Session"
@@ -315,33 +337,41 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
         
         let fallbackSound: Preferences.Sound = db[.defaultNotificationSound]
             .defaulting(to: Preferences.Sound.defaultNotificationSound)
+        let sound = self.requestSound(
+            thread: thread,
+            fallbackSound: fallbackSound,
+            applicationState: applicationState
+        )
         
-        DispatchQueue.main.async {
-            let sound = self.requestSound(
-                thread: thread,
-                fallbackSound: fallbackSound
-            )
-            
-            self.adaptee.notify(
-                category: category,
-                title: notificationTitle,
-                body: (notificationBody ?? ""),
-                userInfo: userInfo,
-                previewType: previewType,
-                sound: sound,
-                threadVariant: thread.variant,
-                threadName: senderName,
-                replacingIdentifier: UUID().uuidString
-            )
-        }
+        self.adaptee.notify(
+            category: category,
+            title: notificationTitle,
+            body: (notificationBody ?? ""),
+            userInfo: userInfo,
+            previewType: previewType,
+            sound: sound,
+            threadVariant: thread.variant,
+            threadName: senderName,
+            applicationState: applicationState,
+            replacingIdentifier: UUID().uuidString
+        )
     }
     
-    public func notifyUser(_ db: Database, forReaction reaction: Reaction, in thread: SessionThread) {
+    public func notifyUser(
+        _ db: Database,
+        forReaction reaction: Reaction,
+        in thread: SessionThread,
+        applicationState: UIApplication.State
+    ) {
         let isMessageRequest: Bool = thread.isMessageRequest(db, includeNonVisible: true)
         
         // No reaction notifications for muted, group threads or message requests
         guard Date().timeIntervalSince1970 > (thread.mutedUntilTimestamp ?? 0) else { return }
-        guard thread.variant != .closedGroup && thread.variant != .openGroup else { return }
+        guard
+            thread.variant != .legacyGroup &&
+            thread.variant != .group &&
+            thread.variant != .community
+        else { return }
         guard !isMessageRequest else { return }
         
         let senderName: String = Profile.displayName(db, id: reaction.authorId, threadVariant: thread.variant)
@@ -359,8 +389,9 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
         
         let category = AppNotificationCategory.incomingMessage
 
-        let userInfo = [
-            AppNotificationUserInfoKey.threadId: thread.id
+        let userInfo: [AnyHashable: Any] = [
+            AppNotificationUserInfoKey.threadId: thread.id,
+            AppNotificationUserInfoKey.threadVariantRaw: thread.variant.rawValue
         ]
         
         let threadName: String = SessionThread.displayName(
@@ -371,28 +402,31 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
         )
         let fallbackSound: Preferences.Sound = db[.defaultNotificationSound]
             .defaulting(to: Preferences.Sound.defaultNotificationSound)
-
-        DispatchQueue.main.async {
-            let sound = self.requestSound(
-                thread: thread,
-                fallbackSound: fallbackSound
-            )
-            
-            self.adaptee.notify(
-                category: category,
-                title: notificationTitle,
-                body: notificationBody,
-                userInfo: userInfo,
-                previewType: previewType,
-                sound: sound,
-                threadVariant: thread.variant,
-                threadName: threadName,
-                replacingIdentifier: UUID().uuidString
-            )
-        }
+        let sound = self.requestSound(
+            thread: thread,
+            fallbackSound: fallbackSound,
+            applicationState: applicationState
+        )
+        
+        self.adaptee.notify(
+            category: category,
+            title: notificationTitle,
+            body: notificationBody,
+            userInfo: userInfo,
+            previewType: previewType,
+            sound: sound,
+            threadVariant: thread.variant,
+            threadName: threadName,
+            applicationState: applicationState,
+            replacingIdentifier: UUID().uuidString
+        )
     }
 
-    public func notifyForFailedSend(_ db: Database, in thread: SessionThread) {
+    public func notifyForFailedSend(
+        _ db: Database,
+        in thread: SessionThread,
+        applicationState: UIApplication.State
+    ) {
         let notificationTitle: String?
         let previewType: Preferences.NotificationPreviewType = db[.preferencesNotificationPreviewType]
             .defaulting(to: .defaultPreviewType)
@@ -418,29 +452,29 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
 
         let notificationBody = NotificationStrings.failedToSendBody
 
-        let userInfo = [
-            AppNotificationUserInfoKey.threadId: thread.id
+        let userInfo: [AnyHashable: Any] = [
+            AppNotificationUserInfoKey.threadId: thread.id,
+            AppNotificationUserInfoKey.threadVariantRaw: thread.variant.rawValue
         ]
         let fallbackSound: Preferences.Sound = db[.defaultNotificationSound]
             .defaulting(to: Preferences.Sound.defaultNotificationSound)
-
-        DispatchQueue.main.async {
-            let sound: Preferences.Sound? = self.requestSound(
-                thread: thread,
-                fallbackSound: fallbackSound
-            )
-            
-            self.adaptee.notify(
-                category: .errorMessage,
-                title: notificationTitle,
-                body: notificationBody,
-                userInfo: userInfo,
-                previewType: previewType,
-                sound: sound,
-                threadVariant: thread.variant,
-                threadName: threadName
-            )
-        }
+        let sound: Preferences.Sound? = self.requestSound(
+            thread: thread,
+            fallbackSound: fallbackSound,
+            applicationState: applicationState
+        )
+        
+        self.adaptee.notify(
+            category: .errorMessage,
+            title: notificationTitle,
+            body: notificationBody,
+            userInfo: userInfo,
+            previewType: previewType,
+            sound: sound,
+            threadVariant: thread.variant,
+            threadName: threadName,
+            applicationState: applicationState
+        )
     }
     
     @objc
@@ -462,32 +496,30 @@ public class NotificationPresenter: NSObject, NotificationsProtocol {
 
     // MARK: -
 
-    var mostRecentNotifications = TruncatedList<UInt64>(maxLength: kAudioNotificationsThrottleCount)
+    var mostRecentNotifications: Atomic<TruncatedList<UInt64>> = Atomic(TruncatedList<UInt64>(maxLength: kAudioNotificationsThrottleCount))
 
-    private func requestSound(thread: SessionThread, fallbackSound: Preferences.Sound) -> Preferences.Sound? {
-        guard checkIfShouldPlaySound() else {
-            return nil
-        }
+    private func requestSound(
+        thread: SessionThread,
+        fallbackSound: Preferences.Sound,
+        applicationState: UIApplication.State
+    ) -> Preferences.Sound? {
+        guard checkIfShouldPlaySound(applicationState: applicationState) else { return nil }
         
         return (thread.notificationSound ?? fallbackSound)
     }
 
-    private func checkIfShouldPlaySound() -> Bool {
-        AssertIsOnMainThread()
-
-        guard UIApplication.shared.applicationState == .active else { return true }
+    private func checkIfShouldPlaySound(applicationState: UIApplication.State) -> Bool {
+        guard applicationState == .active else { return true }
         guard Storage.shared[.playNotificationSoundInForeground] else { return false }
 
         let nowMs: UInt64 = UInt64(floor(Date().timeIntervalSince1970 * 1000))
         let recentThreshold = nowMs - UInt64(kAudioNotificationsThrottleInterval * Double(kSecondInMs))
 
-        let recentNotifications = mostRecentNotifications.filter { $0 > recentThreshold }
+        let recentNotifications = mostRecentNotifications.wrappedValue.filter { $0 > recentThreshold }
 
-        guard recentNotifications.count < kAudioNotificationsThrottleCount else {
-            return false
-        }
+        guard recentNotifications.count < kAudioNotificationsThrottleCount else { return false }
 
-        mostRecentNotifications.append(nowMs)
+        mostRecentNotifications.mutate { $0.append(nowMs) }
         return true
     }
 }
@@ -504,118 +536,149 @@ class NotificationActionHandler {
 
     // MARK: -
 
-    func markAsRead(userInfo: [AnyHashable: Any]) throws -> Promise<Void> {
+    func markAsRead(userInfo: [AnyHashable: Any]) -> AnyPublisher<Void, Error> {
         guard let threadId: String = userInfo[AppNotificationUserInfoKey.threadId] as? String else {
-            throw NotificationError.failDebug("threadId was unexpectedly nil")
+            return Fail(error: NotificationError.failDebug("threadId was unexpectedly nil"))
+                .eraseToAnyPublisher()
+        }
+        
+        guard Storage.shared.read({ db in try SessionThread.exists(db, id: threadId) }) == true else {
+            return Fail(error: NotificationError.failDebug("unable to find thread with id: \(threadId)"))
+                .eraseToAnyPublisher()
         }
 
-        guard let thread: SessionThread = Storage.shared.read({ db in try SessionThread.fetchOne(db, id: threadId) }) else {
-            throw NotificationError.failDebug("unable to find thread with id: \(threadId)")
-        }
-
-        return markAsRead(thread: thread)
+        return markAsRead(threadId: threadId)
     }
 
-    func reply(userInfo: [AnyHashable: Any], replyText: String) throws -> Promise<Void> {
+    func reply(
+        userInfo: [AnyHashable: Any],
+        replyText: String,
+        applicationState: UIApplication.State
+    ) -> AnyPublisher<Void, Error> {
         guard let threadId = userInfo[AppNotificationUserInfoKey.threadId] as? String else {
-            throw NotificationError.failDebug("threadId was unexpectedly nil")
+            return Fail<Void, Error>(error: NotificationError.failDebug("threadId was unexpectedly nil"))
+                .eraseToAnyPublisher()
         }
-
+        
         guard let thread: SessionThread = Storage.shared.read({ db in try SessionThread.fetchOne(db, id: threadId) }) else {
-            throw NotificationError.failDebug("unable to find thread with id: \(threadId)")
+            return Fail<Void, Error>(error: NotificationError.failDebug("unable to find thread with id: \(threadId)"))
+                .eraseToAnyPublisher()
         }
         
-        let (promise, seal) = Promise<Void>.pending()
-        
-        Storage.shared.writeAsync { db in
-            let interaction: Interaction = try Interaction(
-                threadId: thread.id,
-                authorId: getUserHexEncodedPublicKey(db),
-                variant: .standardOutgoing,
-                body: replyText,
-                timestampMs: SnodeAPI.currentOffsetTimestampMs(),
-                hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: replyText),
-                expiresInSeconds: try? DisappearingMessagesConfiguration
-                    .select(.durationSeconds)
-                    .filter(id: threadId)
-                    .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
-                    .asRequest(of: TimeInterval.self)
-                    .fetchOne(db)
-            ).inserted(db)
-            
-            try Interaction.markAsRead(
-                db,
-                interactionId: interaction.id,
-                threadId: thread.id,
-                threadVariant: thread.variant,
-                includingOlder: true,
-                trySendReadReceipt: true
-            )
-            
-            return try MessageSender.sendNonDurably(
-                db,
-                interaction: interaction,
-                in: thread
-            )
-        }
-        .done { seal.fulfill(()) }
-        .catch { error in
-            Storage.shared.read { [weak self] db in
-                self?.notificationPresenter.notifyForFailedSend(db, in: thread)
+        return Storage.shared
+            .writePublisher { db in
+                let interaction: Interaction = try Interaction(
+                    threadId: threadId,
+                    authorId: getUserHexEncodedPublicKey(db),
+                    variant: .standardOutgoing,
+                    body: replyText,
+                    timestampMs: SnodeAPI.currentOffsetTimestampMs(),
+                    hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: replyText),
+                    expiresInSeconds: try? DisappearingMessagesConfiguration
+                        .select(.durationSeconds)
+                        .filter(id: threadId)
+                        .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
+                        .asRequest(of: TimeInterval.self)
+                        .fetchOne(db)
+                ).inserted(db)
+                
+                try Interaction.markAsRead(
+                    db,
+                    interactionId: interaction.id,
+                    threadId: threadId,
+                    threadVariant: thread.variant,
+                    includingOlder: true,
+                    trySendReadReceipt: try SessionThread.canSendReadReceipt(
+                        db,
+                        threadId: threadId,
+                        threadVariant: thread.variant
+                    )
+                )
+                
+                return try MessageSender.preparedSendData(
+                    db,
+                    interaction: interaction,
+                    threadId: threadId,
+                    threadVariant: thread.variant
+                )
             }
-            
-            seal.reject(error)
-        }
-        .retainUntilComplete()
-        
-        return promise
+            .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
+            .handleEvents(
+                receiveCompletion: { result in
+                    switch result {
+                        case .finished: break
+                        case .failure:
+                            Storage.shared.read { [weak self] db in
+                                self?.notificationPresenter.notifyForFailedSend(
+                                    db,
+                                    in: thread,
+                                    applicationState: applicationState
+                                )
+                            }
+                    }
+                }
+            )
+            .eraseToAnyPublisher()
     }
 
-    func showThread(userInfo: [AnyHashable: Any]) throws -> Promise<Void> {
-        guard let threadId = userInfo[AppNotificationUserInfoKey.threadId] as? String else {
-            return showHomeVC()
-        }
+    func showThread(userInfo: [AnyHashable: Any]) -> AnyPublisher<Void, Never> {
+        guard
+            let threadId = userInfo[AppNotificationUserInfoKey.threadId] as? String,
+            let threadVariantRaw = userInfo[AppNotificationUserInfoKey.threadVariantRaw] as? Int,
+            let threadVariant: SessionThread.Variant = SessionThread.Variant(rawValue: threadVariantRaw)
+        else { return showHomeVC() }
 
         // If this happens when the the app is not, visible we skip the animation so the thread
         // can be visible to the user immediately upon opening the app, rather than having to watch
         // it animate in from the homescreen.
-        let shouldAnimate: Bool = (UIApplication.shared.applicationState == .active)
-        SessionApp.presentConversation(for: threadId, animated: shouldAnimate)
-        return Promise.value(())
-    }
-    
-    func showHomeVC() -> Promise<Void> {
-        SessionApp.showHomeView()
-        return Promise.value(())
-    }
-
-    private func markAsRead(thread: SessionThread) -> Promise<Void> {
-        let (promise, seal) = Promise<Void>.pending()
-        
-        Storage.shared.writeAsync(
-            updates: { db in
-                try Interaction.markAsRead(
-                    db,
-                    interactionId: try thread.interactions
-                        .select(.id)
-                        .order(Interaction.Columns.timestampMs.desc)
-                        .asRequest(of: Int64.self)
-                        .fetchOne(db),
-                    threadId: thread.id,
-                    threadVariant: thread.variant,
-                    includingOlder: true,
-                    trySendReadReceipt: true
-                )
-            },
-            completion: { _, result in
-                switch result {
-                    case .success: seal.fulfill(())
-                    case .failure(let error): seal.reject(error)
-                }
-            }
+        SessionApp.presentConversationCreatingIfNeeded(
+            for: threadId,
+            variant: threadVariant,
+            dismissing: nil,
+            animated: (UIApplication.shared.applicationState == .active)
         )
         
-        return promise
+        return Just(())
+            .eraseToAnyPublisher()
+    }
+    
+    func showHomeVC() -> AnyPublisher<Void, Never> {
+        SessionApp.showHomeView()
+        return Just(())
+            .eraseToAnyPublisher()
+    }
+    
+    private func markAsRead(threadId: String) -> AnyPublisher<Void, Error> {
+        return Storage.shared
+            .writePublisher { db in
+                guard
+                    let threadVariant: SessionThread.Variant = try SessionThread
+                        .filter(id: threadId)
+                        .select(.variant)
+                        .asRequest(of: SessionThread.Variant.self)
+                        .fetchOne(db),
+                    let lastInteractionId: Int64 = try Interaction
+                        .select(.id)
+                        .filter(Interaction.Columns.threadId == threadId)
+                        .order(Interaction.Columns.timestampMs.desc)
+                        .asRequest(of: Int64.self)
+                        .fetchOne(db)
+                else { throw NotificationError.failDebug("unable to required thread info: \(threadId)") }
+
+                try Interaction.markAsRead(
+                    db,
+                    interactionId: lastInteractionId,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    includingOlder: true,
+                    trySendReadReceipt: try SessionThread.canSendReadReceipt(
+                        db,
+                        threadId: threadId,
+                        threadVariant: threadVariant
+                    )
+                )
+            }
+            .eraseToAnyPublisher()
     }
 }
 

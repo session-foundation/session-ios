@@ -3,7 +3,7 @@
 import UIKit
 
 public final class Separator: UIView {
-    private static let height: CGFloat = 24
+    public static let height: CGFloat = 32
     
     // MARK: - Components
     
@@ -25,7 +25,6 @@ public final class Separator: UIView {
     
     private lazy var titleLabel: UILabel = {
         let result = UILabel()
-        result.setContentCompressionResistancePriority(.required, for: .vertical)
         result.font = .systemFont(ofSize: Values.smallFontSize)
         result.themeTextColor = .textSecondary
         result.textAlignment = .center

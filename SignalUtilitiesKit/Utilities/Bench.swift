@@ -1,8 +1,7 @@
-//
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
-//
 
 import Foundation
+import SignalCoreKit
 
 /// Benchmark async code by calling the passed in block parameter when the work
 /// is done.

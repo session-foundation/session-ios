@@ -1,8 +1,9 @@
 import Foundation
+import GRDB
 import SessionUtilitiesKit
 
-public enum SNMessagingKit { // Just to make the external API nice
-    public static func migrations() -> TargetMigrations {
+public enum SNMessagingKit: MigratableTarget { // Just to make the external API nice
+    public static func migrations(_ db: Database) -> TargetMigrations {
         return TargetMigrations(
             identifier: .messagingKit,
             migrations: [
@@ -24,10 +25,20 @@ public enum SNMessagingKit { // Just to make the external API nice
                 [
                     _008_EmojiReacts.self,
                     _009_OpenGroupPermission.self,
-                    _010_AddThreadIdToFTS.self,
+                    _010_AddThreadIdToFTS.self
+                ],  // Add job priorities
+                [
                     _011_AddPendingReadReceipts.self,
-                    _012_AddFTSIfNeeded.self
-                ]
+                    _012_AddFTSIfNeeded.self,
+                    _013_SessionUtilChanges.self,
+                    // Wait until the feature is turned on before doing the migration that generates
+                    // the config dump data
+                    // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
+                    (Features.useSharedUtilForUserConfig(db) ?
+                        _014_GenerateInitialUserConfigDumps.self :
+                        (nil as Migration.Type?)
+                    )
+                ].compactMap { $0 }
             ]
         )
     }
@@ -44,8 +55,10 @@ public enum SNMessagingKit { // Just to make the external API nice
         JobRunner.add(executor: MessageReceiveJob.self, for: .messageReceive)
         JobRunner.add(executor: NotifyPushServerJob.self, for: .notifyPushServer)
         JobRunner.add(executor: SendReadReceiptsJob.self, for: .sendReadReceipts)
-        JobRunner.add(executor: AttachmentDownloadJob.self, for: .attachmentDownload)
         JobRunner.add(executor: AttachmentUploadJob.self, for: .attachmentUpload)
         JobRunner.add(executor: GroupLeavingJob.self, for: .groupLeaving)
+        JobRunner.add(executor: AttachmentDownloadJob.self, for: .attachmentDownload)
+        JobRunner.add(executor: ConfigurationSyncJob.self, for: .configurationSync)
+        JobRunner.add(executor: ConfigMessageReceiveJob.self, for: .configMessageReceive)
     }
 }

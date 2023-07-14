@@ -35,10 +35,12 @@ enum _001_ThemePreferences: Migration {
         db[.themePrimaryColor] = targetPrimaryColor
         
         // Looks like the ThemeManager will load it's default values before this migration gets run
-        // as a result we need to update the ThemeManage to ensure the correct theme is applied
-        ThemeManager.currentTheme = targetTheme
-        ThemeManager.primaryColor = targetPrimaryColor
-        ThemeManager.matchSystemNightModeSetting = matchSystemNightModeSetting
+        // as a result we need to update the ThemeManager to ensure the correct theme is applied
+        ThemeManager.setInitialThemeState(
+            theme: targetTheme,
+            primaryColor: targetPrimaryColor,
+            matchSystemNightModeSetting: matchSystemNightModeSetting
+        )
         
         Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
     }

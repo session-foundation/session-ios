@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import SignalCoreKit
 import SessionUtilitiesKit
 
 public enum FailedMessageSendsJob: JobExecutor {
@@ -17,6 +16,9 @@ public enum FailedMessageSendsJob: JobExecutor {
         failure: @escaping (Job, Error?, Bool) -> (),
         deferred: @escaping (Job) -> ()
     ) {
+        var changeCount: Int = -1
+        var attachmentChangeCount: Int = -1
+        
         // Update all 'sending' message states to 'failed'
         Storage.shared.write { db in
             let sendChangeCount: Int = try RecipientState
@@ -25,14 +27,13 @@ public enum FailedMessageSendsJob: JobExecutor {
             let syncChangeCount: Int = try RecipientState
                 .filter(RecipientState.Columns.state == RecipientState.State.syncing)
                 .updateAll(db, RecipientState.Columns.state.set(to: RecipientState.State.failedToSync))
-            let attachmentChangeCount: Int = try Attachment
+            attachmentChangeCount = try Attachment
                 .filter(Attachment.Columns.state == Attachment.State.uploading)
                 .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.failedUpload))
-            let changeCount: Int = (sendChangeCount + syncChangeCount)
-            
-            SNLog("Marked \(changeCount) message\(changeCount == 1 ? "" : "s") as failed (\(attachmentChangeCount) upload\(attachmentChangeCount == 1 ? "" : "s") cancelled)")
+            changeCount = (sendChangeCount + syncChangeCount)
         }
         
+        SNLog("[FailedMessageSendsJob] Marked \(changeCount) message\(changeCount == 1 ? "" : "s") as failed (\(attachmentChangeCount) upload\(attachmentChangeCount == 1 ? "" : "s") cancelled)")
         success(job, false)
     }
 }

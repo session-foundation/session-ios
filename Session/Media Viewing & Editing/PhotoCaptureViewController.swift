@@ -1,10 +1,11 @@
-//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
+// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Combine
 import AVFoundation
-import PromiseKit
 import SessionUIKit
 import SignalUtilitiesKit
+import SignalCoreKit
 
 protocol PhotoCaptureViewControllerDelegate: AnyObject {
     func photoCaptureViewController(_ photoCaptureViewController: PhotoCaptureViewController, didFinishProcessingAttachment attachment: SignalAttachment)
@@ -39,9 +40,15 @@ class PhotoCaptureViewController: OWSViewController {
     deinit {
         UIDevice.current.endGeneratingDeviceOrientationNotifications()
         if let photoCapture = photoCapture {
-            photoCapture.stopCapture().done {
-                Logger.debug("stopCapture completed")
-            }.retainUntilComplete()
+            photoCapture.stopCapture()
+                .sinkUntilComplete(
+                    receiveCompletion: { result in
+                        switch result {
+                            case .failure: break
+                            case .finished: Logger.debug("stopCapture completed")
+                        }
+                    }
+                )
         }
     }
 
@@ -186,17 +193,29 @@ class PhotoCaptureViewController: OWSViewController {
             let epsilonToForceCounterClockwiseRotation: CGFloat = 0.00001
             self.switchCameraControl.button.transform = self.switchCameraControl.button.transform.rotate(.pi + epsilonToForceCounterClockwiseRotation)
         }
-        photoCapture.switchCamera().catch { error in
-            self.showFailureUI(error: error)
-        }.retainUntilComplete()
+        
+        photoCapture.switchCamera()
+            .receive(on: DispatchQueue.main)
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self] result in
+                    switch result {
+                        case .finished: break
+                        case .failure(let error): self?.showFailureUI(error: error)
+                    }
+                }
+            )
     }
 
     @objc
     func didTapFlashMode() {
         Logger.debug("")
-        photoCapture.switchFlashMode().done {
-            self.updateFlashModeControl()
-        }.retainUntilComplete()
+        photoCapture.switchFlashMode()
+            .receive(on: DispatchQueue.main)
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self] _ in
+                    self?.updateFlashModeControl()
+                }
+            )
     }
 
     @objc
@@ -287,13 +306,15 @@ class PhotoCaptureViewController: OWSViewController {
         previewView = CapturePreviewView(session: photoCapture.session)
 
         photoCapture.startCapture()
-            .done { [weak self] in
-                self?.showCaptureUI()
-            }
-            .catch { [weak self] error in
-                self?.showFailureUI(error: error)
-            }
-            .retainUntilComplete()
+            .receive(on: DispatchQueue.main)
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self] result in
+                    switch result {
+                        case .finished: self?.showCaptureUI()
+                        case .failure(let error): self?.showFailureUI(error: error)
+                    }
+                }
+            )
     }
 
     private func showCaptureUI() {
@@ -580,7 +601,7 @@ class RecordingTimerView: UIView {
 
     private lazy var label: UILabel = {
         let label: UILabel = UILabel()
-        label.font = .ows_monospacedDigitFont(withSize: 20)
+        label.font = UIFont.monospacedDigitSystemFont(ofSize: 20, weight: .regular)
         label.themeTextColor = .textPrimary
         label.textAlignment = .center
         label.layer.shadowOffset = CGSize.zero

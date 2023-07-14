@@ -9,6 +9,13 @@ final class ReactionContainerView: UIView {
     private static let arrowSize: CGSize = CGSize(width: 15, height: 13)
     private static let arrowSpacing: CGFloat = Values.verySmallSpacing
     
+    // We have explicit limits on the number of emoji which should be displayed before they
+    // automatically get collapsed, these values are consistent across platforms so are set
+    // here (even though the logic will automatically calculate and limit to a single line
+    // of reactions dynamically for the size of the view)
+    private static let numCollapsedEmoji: Int = 4
+    private static let maxEmojiBeforeCollapse: Int = 6
+    
     private var maxWidth: CGFloat = 0
     private var collapsedCount: Int = 0
     private var showingAllReactions: Bool = false
@@ -173,7 +180,10 @@ final class ReactionContainerView: UIView {
                 numReactions += 1
             }
             
-            return numReactions
+            return (numReactions > ReactionContainerView.maxEmojiBeforeCollapse ?
+                ReactionContainerView.numCollapsedEmoji :
+                numReactions
+            )
         }()
         self.showNumbers = showNumbers
         self.reactionViews = []

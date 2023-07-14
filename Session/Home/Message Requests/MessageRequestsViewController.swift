@@ -7,15 +7,18 @@ import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
 
-class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDataSource {
+class MessageRequestsViewController: BaseVC, SessionUtilRespondingViewController, UITableViewDelegate, UITableViewDataSource {
     private static let loadingHeaderHeight: CGFloat = 40
     
     private let viewModel: MessageRequestsViewModel = MessageRequestsViewModel()
-    private var dataChangeObservable: DatabaseCancellable?
     private var hasLoadedInitialThreadData: Bool = false
     private var isLoadingMore: Bool = false
     private var isAutoLoadingNextPage: Bool = false
     private var viewHasAppeared: Bool = false
+    
+    // MARK: - SessionUtilRespondingViewController
+    
+    let isConversationList: Bool = true
     
     // MARK: - Intialization
     
@@ -103,6 +106,7 @@ class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDat
         result.translatesAutoresizingMaskIntoConstraints = false
         result.setTitle("MESSAGE_REQUESTS_CLEAR_ALL".localized(), for: .normal)
         result.addTarget(self, action: #selector(clearAllTapped), for: .touchUpInside)
+        result.accessibilityIdentifier = "Clear all"
 
         return result
     }()
@@ -157,8 +161,7 @@ class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDat
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         
-        // Stop observing database changes
-        dataChangeObservable?.cancel()
+        stopObservingChanges()
     }
     
     @objc func applicationDidBecomeActive(_ notification: Notification) {
@@ -169,8 +172,7 @@ class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDat
     }
     
     @objc func applicationDidResignActive(_ notification: Notification) {
-        // Stop observing database changes
-        dataChangeObservable?.cancel()
+        stopObservingChanges()
     }
 
     // MARK: - Layout
@@ -219,6 +221,10 @@ class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDat
         }
     }
     
+    private func stopObservingChanges() {
+        self.viewModel.onThreadChange = nil
+    }
+    
     private func handleThreadUpdates(
         _ updatedData: [MessageRequestsViewModel.SectionModel],
         changeset: StagedChangeset<[MessageRequestsViewModel.SectionModel]>,
@@ -227,9 +233,18 @@ class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDat
         // Ensure the first load runs without animations (if we don't do this the cells will animate
         // in from a frame of CGRect.zero)
         guard hasLoadedInitialThreadData else {
-            hasLoadedInitialThreadData = true
             UIView.performWithoutAnimation {
-                handleThreadUpdates(updatedData, changeset: changeset, initialLoad: true)
+                // Hide the 'loading conversations' label (now that we have received conversation data)
+                loadingConversationsLabel.isHidden = true
+                
+                // Show the empty state if there is no data
+                clearAllButton.isHidden = !(updatedData.first?.elements.isEmpty == false)
+                emptyStateLabel.isHidden = !clearAllButton.isHidden
+                
+                // Update the content
+                viewModel.updateThreadData(updatedData)
+                tableView.reloadData()
+                hasLoadedInitialThreadData = true
             }
             return
         }
@@ -266,7 +281,11 @@ class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDat
     }
     
     private func autoLoadNextPageIfNeeded() {
-        guard !self.isAutoLoadingNextPage && !self.isLoadingMore else { return }
+        guard
+            self.hasLoadedInitialThreadData &&
+            !self.isAutoLoadingNextPage &&
+            !self.isLoadingMore
+        else { return }
         
         self.isAutoLoadingNextPage = true
         
@@ -393,31 +412,33 @@ class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDat
         return true
     }
     
+    func tableView(_ tableView: UITableView, willBeginEditingRowAt indexPath: IndexPath) {
+        UIContextualAction.willBeginEditing(indexPath: indexPath, tableView: tableView)
+    }
+    
+    func tableView(_ tableView: UITableView, didEndEditingRowAt indexPath: IndexPath?) {
+        UIContextualAction.didEndEditing(indexPath: indexPath, tableView: tableView)
+    }
+    
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         let section: MessageRequestsViewModel.SectionModel = self.viewModel.threadData[indexPath.section]
+        let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
         
         switch section.model {
             case .threads:
-                let threadId: String = section.elements[indexPath.row].threadId
-                let delete: UIContextualAction = UIContextualAction(
-                    style: .destructive,
-                    title: "TXT_DELETE_TITLE".localized()
-                ) { [weak self] _, _, completionHandler in
-                    self?.delete(threadId)
-                    completionHandler(true)
-                }
-                delete.themeBackgroundColor = .conversationButton_swipeDestructive
-            
-                let block: UIContextualAction = UIContextualAction(
-                    style: .normal,
-                    title: "BLOCK_LIST_BLOCK_BUTTON".localized()
-                ) { [weak self] _, _, completionHandler in
-                    self?.block(threadId)
-                    completionHandler(true)
-                }
-                block.themeBackgroundColor = .conversationButton_swipeSecondary
-
-                return UISwipeActionsConfiguration(actions: [ delete, block ])
+                return UIContextualAction.configuration(
+                    for: UIContextualAction.generateSwipeActions(
+                        [
+                            (threadViewModel.threadVariant != .contact ? nil : .block),
+                            .delete
+                        ].compactMap { $0 },
+                        for: .trailing,
+                        indexPath: indexPath,
+                        tableView: tableView,
+                        threadViewModel: threadViewModel,
+                        viewController: self
+                    )
+                )
                 
             default: return nil
         }
@@ -430,9 +451,16 @@ class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDat
             return
         }
         
-        let threadIds: [String] = (viewModel.threadData
+        let contactThreadIds: [String] = (viewModel.threadData
             .first { $0.model == .threads }?
             .elements
+            .filter { $0.threadVariant == .contact }
+            .map { $0.threadId })
+            .defaulting(to: [])
+        let groupThreadIds: [String] = (viewModel.threadData
+            .first { $0.model == .threads }?
+            .elements
+            .filter { $0.threadVariant == .legacyGroup || $0.threadVariant == .group }
             .map { $0.threadId })
             .defaulting(to: [])
         let alertVC: UIAlertController = UIAlertController(
@@ -444,69 +472,11 @@ class MessageRequestsViewController: BaseVC, UITableViewDelegate, UITableViewDat
             title: "MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_ACTON".localized(),
             style: .destructive
         ) { _ in
-            // Clear the requests
-            Storage.shared.write { db in
-                _ = try SessionThread
-                    .filter(ids: threadIds)
-                    .deleteAll(db)
-            }
+            MessageRequestsViewModel.clearAllRequests(
+                contactThreadIds: contactThreadIds,
+                groupThreadIds: groupThreadIds
+            )
         })
-        alertVC.addAction(UIAlertAction(title: "TXT_CANCEL_TITLE".localized(), style: .cancel, handler: nil))
-        
-        Modal.setupForIPadIfNeeded(alertVC, targetView: self.view)
-        self.present(alertVC, animated: true, completion: nil)
-    }
-
-    private func delete(_ threadId: String) {
-        let alertVC: UIAlertController = UIAlertController(
-            title: "MESSAGE_REQUESTS_DELETE_CONFIRMATION_ACTON".localized(),
-            message: nil,
-            preferredStyle: .actionSheet
-        )
-        alertVC.addAction(UIAlertAction(
-            title: "TXT_DELETE_TITLE".localized(),
-            style: .destructive
-        ) { _ in
-            Storage.shared.write { db in
-                _ = try SessionThread
-                    .filter(id: threadId)
-                    .deleteAll(db)
-            }
-        })
-        
-        alertVC.addAction(UIAlertAction(title: "TXT_CANCEL_TITLE".localized(), style: .cancel, handler: nil))
-        
-        Modal.setupForIPadIfNeeded(alertVC, targetView: self.view)
-        self.present(alertVC, animated: true, completion: nil)
-    }
-    
-    private func block(_ threadId: String) {
-        let alertVC: UIAlertController = UIAlertController(
-            title: "MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON".localized(),
-            message: nil,
-            preferredStyle: .actionSheet
-        )
-        alertVC.addAction(UIAlertAction(
-            title: "BLOCK_LIST_BLOCK_BUTTON".localized(),
-            style: .destructive
-        ) { _ in
-            Storage.shared.write { db in
-                _ = try SessionThread
-                    .filter(id: threadId)
-                    .deleteAll(db)
-                _ = try Contact
-                    .fetchOrCreate(db, id: threadId)
-                    .with(
-                        isApproved: false,
-                        isBlocked: true
-                    )
-                    .saved(db)
-                
-                // Force a config sync
-                try MessageSender.syncConfiguration(db, forceSyncNow: true).retainUntilComplete()
-            }
-        })
-        
         alertVC.addAction(UIAlertAction(title: "TXT_CANCEL_TITLE".localized(), style: .cancel, handler: nil))
         
         Modal.setupForIPadIfNeeded(alertVC, targetView: self.view)

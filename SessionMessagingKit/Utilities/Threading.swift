@@ -1,6 +1,5 @@
 import Foundation
 
-internal enum Threading {
-
-    internal static let pollerQueue = DispatchQueue(label: "SessionMessagingKit.pollerQueue")
+public enum Threading {
+    public static let pollerQueue = DispatchQueue(label: "SessionMessagingKit.pollerQueue")
 }

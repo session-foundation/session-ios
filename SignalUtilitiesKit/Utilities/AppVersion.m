@@ -4,6 +4,7 @@
 
 #import "AppVersion.h"
 #import "NSUserDefaults+OWS.h"
+#import <SignalCoreKit/OWSAsserts.h>
 
 NS_ASSUME_NONNULL_BEGIN
 

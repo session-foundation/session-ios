@@ -1,6 +1,11 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import GRDB
+
+public protocol MigratableTarget {
+    static func migrations(_ db: Database) -> TargetMigrations
+}
 
 public struct TargetMigrations: Comparable {
     /// This identifier is used to determine the order each set of migrations should run in.

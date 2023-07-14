@@ -157,14 +157,6 @@ typedef struct {
             return CGSizeZero;
         }
         
-        const CGFloat kExpectedBytePerPixel = 4;
-        CGFloat kMaxValidImageDimension = OWSMediaUtils.kMaxAnimatedImageDimensions;
-        CGFloat kMaxBytes = kMaxValidImageDimension * kMaxValidImageDimension * kExpectedBytePerPixel;
-        
-        if (data.length > kMaxBytes) {
-            return CGSizeZero;
-        }
-        
         return imageSize;
     }
 
@@ -176,7 +168,8 @@ typedef struct {
     ImageDimensionInfo dimensionInfo = [self ows_imageDimensionWithImageSource:imageSource isAnimated:isAnimated];
     CFRelease(imageSource);
     
-    if (![self ows_isValidImageDimension:dimensionInfo.pixelSize depthBytes:dimensionInfo.depthBytes isAnimated:isAnimated]) {
+    if (dimensionInfo.pixelSize.width < 1 || dimensionInfo.pixelSize.height < 1 || dimensionInfo.depthBytes < 1) {
+        // Invalid metadata.
         return CGSizeZero;
     }
     

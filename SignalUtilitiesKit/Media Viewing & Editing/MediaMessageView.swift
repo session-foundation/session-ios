@@ -1,13 +1,13 @@
-//
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
-//
 
-import Foundation
+import UIKit
+import Combine
 import MediaPlayer
 import YYImage
 import NVActivityIndicatorView
 import SessionUIKit
 import SessionMessagingKit
+import SignalCoreKit
 
 public protocol MediaMessageViewAudioDelegate: AnyObject {
     func progressChanged(_ progressSeconds: CGFloat, durationSeconds: CGFloat)
@@ -22,6 +22,7 @@ public class MediaMessageView: UIView, OWSAudioPlayerDelegate {
 
     // MARK: Properties
 
+    private var disposables: Set<AnyCancellable> = Set()
     public let mode: Mode
     public let attachment: SignalAttachment
 
@@ -259,15 +260,15 @@ public class MediaMessageView: UIView, OWSAudioPlayerDelegate {
         // Styling
         switch mode {
             case .attachmentApproval:
-                label.font = UIFont.ows_boldFont(withSize: ScaleFromIPhone5To7Plus(16, 22))
+                label.font = UIFont.boldSystemFont(ofSize: ScaleFromIPhone5To7Plus(16, 22))
                 label.themeTextColor = .textPrimary
                 
             case .large:
-                label.font = UIFont.ows_regularFont(withSize: ScaleFromIPhone5To7Plus(18, 24))
+                label.font = UIFont.systemFont(ofSize: ScaleFromIPhone5To7Plus(18, 24))
                 label.themeTextColor = .primary
                 
             case .small:
-                label.font = UIFont.ows_regularFont(withSize: ScaleFromIPhone5To7Plus(14, 14))
+                label.font = UIFont.systemFont(ofSize: ScaleFromIPhone5To7Plus(14, 14))
                 label.themeTextColor = .primary
         }
         
@@ -314,15 +315,15 @@ public class MediaMessageView: UIView, OWSAudioPlayerDelegate {
         // Styling
         switch mode {
             case .attachmentApproval:
-                label.font = UIFont.ows_regularFont(withSize: ScaleFromIPhone5To7Plus(12, 18))
+                label.font = UIFont.systemFont(ofSize: ScaleFromIPhone5To7Plus(12, 18))
                 label.themeTextColor = .textSecondary
                 
             case .large:
-                label.font = UIFont.ows_regularFont(withSize: ScaleFromIPhone5To7Plus(18, 24))
+                label.font = UIFont.systemFont(ofSize: ScaleFromIPhone5To7Plus(18, 24))
                 label.themeTextColor = .primary
                 
             case .small:
-                label.font = UIFont.ows_regularFont(withSize: ScaleFromIPhone5To7Plus(14, 14))
+                label.font = UIFont.systemFont(ofSize: ScaleFromIPhone5To7Plus(14, 14))
                 label.themeTextColor = .primary
         }
         
@@ -331,7 +332,7 @@ public class MediaMessageView: UIView, OWSAudioPlayerDelegate {
             // We only load Link Previews for HTTPS urls so append an explanation for not
             if let linkPreviewURL: String = linkPreviewInfo?.url {
                 if let targetUrl: URL = URL(string: linkPreviewURL), targetUrl.scheme?.lowercased() != "https" {
-                    label.font = UIFont.ows_regularFont(withSize: Values.verySmallFontSize)
+                    label.font = UIFont.systemFont(ofSize: Values.verySmallFontSize)
                     label.text = "vc_share_link_previews_unsecure".localized()
                     label.themeTextColor = (mode == .attachmentApproval ?
                         .textSecondary :
@@ -352,7 +353,7 @@ public class MediaMessageView: UIView, OWSAudioPlayerDelegate {
             // Format string for file size label in call interstitial view.
             // Embeds: {{file size as 'N mb' or 'N kb'}}.
             let fileSize: UInt = attachment.dataLength
-            label.text = String(format: "ATTACHMENT_APPROVAL_FILE_SIZE_FORMAT".localized(), OWSFormat.formatFileSize(UInt(fileSize)))
+            label.text = String(format: "ATTACHMENT_APPROVAL_FILE_SIZE_FORMAT".localized(), Format.fileSize(fileSize))
             label.textAlignment = .center
         }
         
@@ -566,44 +567,52 @@ public class MediaMessageView: UIView, OWSAudioPlayerDelegate {
         loadingView.startAnimating()
         
         LinkPreview.tryToBuildPreviewInfo(previewUrl: linkPreviewURL)
-            .done { [weak self] draft in
-                // TODO: Look at refactoring this behaviour to consolidate attachment mutations
-                self?.attachment.linkPreviewDraft = draft
-                self?.linkPreviewInfo = (url: linkPreviewURL, draft: draft)
-                
-                // Update the UI
-                self?.titleLabel.text = (draft.title ?? self?.titleLabel.text)
-                self?.loadingView.alpha = 0
-                self?.loadingView.stopAnimating()
-                self?.imageView.alpha = 1
-                
-                if let jpegImageData: Data = draft.jpegImageData, let loadedImage: UIImage = UIImage(data: jpegImageData) {
-                    self?.imageView.image = loadedImage
-                    self?.imageView.contentMode = .scaleAspectFill
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { [weak self] result in
+                    switch result {
+                        case .finished: break
+                        case .failure:
+                            self?.loadingView.alpha = 0
+                            self?.loadingView.stopAnimating()
+                            self?.imageView.alpha = 1
+                            self?.titleLabel.numberOfLines = 1  // Truncates the URL at 1 line so the error is more readable
+                            self?.subtitleLabel.isHidden = false
+                            
+                            // Set the error text appropriately
+                            if let targetUrl: URL = URL(string: linkPreviewURL), targetUrl.scheme?.lowercased() != "https" {
+                                // This error case is handled already in the 'subtitleLabel' creation
+                            }
+                            else {
+                                self?.subtitleLabel.font = UIFont.systemFont(ofSize: Values.verySmallFontSize)
+                                self?.subtitleLabel.text = "vc_share_link_previews_error".localized()
+                                self?.subtitleLabel.themeTextColor = (self?.mode == .attachmentApproval ?
+                                    .textSecondary :
+                                    .primary
+                                )
+                                self?.subtitleLabel.textAlignment = .left
+                            }
+                    }
+                },
+                receiveValue: { [weak self] draft in
+                    // TODO: Look at refactoring this behaviour to consolidate attachment mutations
+                    self?.attachment.linkPreviewDraft = draft
+                    self?.linkPreviewInfo = (url: linkPreviewURL, draft: draft)
+                    
+                    // Update the UI
+                    self?.titleLabel.text = (draft.title ?? self?.titleLabel.text)
+                    self?.loadingView.alpha = 0
+                    self?.loadingView.stopAnimating()
+                    self?.imageView.alpha = 1
+                    
+                    if let jpegImageData: Data = draft.jpegImageData, let loadedImage: UIImage = UIImage(data: jpegImageData) {
+                        self?.imageView.image = loadedImage
+                        self?.imageView.contentMode = .scaleAspectFill
+                    }
                 }
-            }
-            .catch { [weak self] _ in
-                self?.loadingView.alpha = 0
-                self?.loadingView.stopAnimating()
-                self?.imageView.alpha = 1
-                self?.titleLabel.numberOfLines = 1  // Truncates the URL at 1 line so the error is more readable
-                self?.subtitleLabel.isHidden = false
-                
-                // Set the error text appropriately
-                if let targetUrl: URL = URL(string: linkPreviewURL), targetUrl.scheme?.lowercased() != "https" {
-                    // This error case is handled already in the 'subtitleLabel' creation
-                }
-                else {
-                    self?.subtitleLabel.font = UIFont.ows_regularFont(withSize: Values.verySmallFontSize)
-                    self?.subtitleLabel.text = "vc_share_link_previews_error".localized()
-                    self?.subtitleLabel.themeTextColor = (self?.mode == .attachmentApproval ?
-                        .textSecondary :
-                        .primary
-                    )
-                    self?.subtitleLabel.textAlignment = .left
-                }
-            }
-            .retainUntilComplete()
+            )
+            .store(in: &disposables)
     }
     
     // MARK: - Functions

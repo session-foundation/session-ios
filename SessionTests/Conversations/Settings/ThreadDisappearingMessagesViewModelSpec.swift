@@ -4,11 +4,13 @@ import Combine
 import GRDB
 import Quick
 import Nimble
+import SessionUIKit
+import SessionSnodeKit
 
 @testable import Session
 
-class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
-    typealias ParentType = SessionTableViewModel<ThreadDisappearingMessagesViewModel.NavButton, ThreadDisappearingMessagesViewModel.Section, ThreadDisappearingMessagesViewModel.Item>
+class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
+    typealias ParentType = SessionTableViewModel<ThreadDisappearingMessagesSettingsViewModel.NavButton, ThreadDisappearingMessagesSettingsViewModel.Section, ThreadDisappearingMessagesSettingsViewModel.Item>
     
     // MARK: - Spec
 
@@ -16,19 +18,19 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
         var mockStorage: Storage!
         var cancellables: [AnyCancellable] = []
         var dependencies: Dependencies!
-        var viewModel: ThreadDisappearingMessagesViewModel!
+        var viewModel: ThreadDisappearingMessagesSettingsViewModel!
         
-        describe("a ThreadDisappearingMessagesViewModel") {
+        describe("a ThreadDisappearingMessagesSettingsViewModel") {
             // MARK: - Configuration
             
             beforeEach {
                 mockStorage = Storage(
                     customWriter: try! DatabaseQueue(),
-                    customMigrations: [
-                        SNUtilitiesKit.migrations(),
-                        SNSnodeKit.migrations(),
-                        SNMessagingKit.migrations(),
-                        SNUIKit.migrations()
+                    customMigrationTargets: [
+                        SNUtilitiesKit.self,
+                        SNSnodeKit.self,
+                        SNMessagingKit.self,
+                        SNUIKit.self
                     ]
                 )
                 dependencies = Dependencies(
@@ -41,17 +43,18 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
                         variant: .contact
                     ).insert(db)
                 }
-                viewModel = ThreadDisappearingMessagesViewModel(
+                viewModel = ThreadDisappearingMessagesSettingsViewModel(
                     dependencies: dependencies,
                     threadId: "TestId",
+                    threadVariant: .contact,
                     config: DisappearingMessagesConfiguration.defaultWith("TestId")
                 )
                 cancellables.append(
-                    viewModel.observableSettingsData
-                        .receiveOnMain(immediately: true)
+                    viewModel.observableTableData
+                        .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
-                            receiveValue: { viewModel.updateSettings($0) }
+                            receiveValue: { viewModel.updateTableData($0.0) }
                         )
                 )
             }
@@ -72,20 +75,21 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
             }
             
             it("has the correct number of items") {
-                expect(viewModel.settingsData.count)
+                expect(viewModel.tableData.count)
                     .to(equal(1))
-                expect(viewModel.settingsData.first?.elements.count)
+                expect(viewModel.tableData.first?.elements.count)
                     .to(equal(12))
             }
             
             it("has the correct default state") {
-                expect(viewModel.settingsData.first?.elements.first)
+                expect(viewModel.tableData.first?.elements.first)
                     .to(
                         equal(
                             SessionCell.Info(
-                                id: ThreadDisappearingMessagesViewModel.Item(
+                                id: ThreadDisappearingMessagesSettingsViewModel.Item(
                                     title: "DISAPPEARING_MESSAGES_OFF".localized()
                                 ),
+                                position: .top,
                                 title: "DISAPPEARING_MESSAGES_OFF".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { true }
@@ -97,11 +101,12 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
                 let title: String = (DisappearingMessagesConfiguration.validDurationsSeconds.last?
                     .formatted(format: .long))
                     .defaulting(to: "")
-                expect(viewModel.settingsData.first?.elements.last)
+                expect(viewModel.tableData.first?.elements.last)
                     .to(
                         equal(
                             SessionCell.Info(
-                                id: ThreadDisappearingMessagesViewModel.Item(title: title),
+                                id: ThreadDisappearingMessagesSettingsViewModel.Item(title: title),
+                                position: .bottom,
                                 title: title,
                                 rightAccessory: .radio(
                                     isSelected: { false }
@@ -121,27 +126,29 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
                 mockStorage.write { db in
                     _ = try config.saved(db)
                 }
-                viewModel = ThreadDisappearingMessagesViewModel(
+                viewModel = ThreadDisappearingMessagesSettingsViewModel(
                     dependencies: dependencies,
                     threadId: "TestId",
+                    threadVariant: .contact,
                     config: config
                 )
                 cancellables.append(
-                    viewModel.observableSettingsData
-                        .receiveOnMain(immediately: true)
+                    viewModel.observableTableData
+                        .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
-                            receiveValue: { viewModel.updateSettings($0) }
+                            receiveValue: { viewModel.updateTableData($0.0) }
                         )
                 )
                 
-                expect(viewModel.settingsData.first?.elements.first)
+                expect(viewModel.tableData.first?.elements.first)
                     .to(
                         equal(
                             SessionCell.Info(
-                                id: ThreadDisappearingMessagesViewModel.Item(
+                                id: ThreadDisappearingMessagesSettingsViewModel.Item(
                                     title: "DISAPPEARING_MESSAGES_OFF".localized()
                                 ),
+                                position: .top,
                                 title: "DISAPPEARING_MESSAGES_OFF".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { false }
@@ -153,11 +160,12 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
                 let title: String = (DisappearingMessagesConfiguration.validDurationsSeconds.last?
                     .formatted(format: .long))
                     .defaulting(to: "")
-                expect(viewModel.settingsData.first?.elements.last)
+                expect(viewModel.tableData.first?.elements.last)
                     .to(
                         equal(
                             SessionCell.Info(
-                                id: ThreadDisappearingMessagesViewModel.Item(title: title),
+                                id: ThreadDisappearingMessagesSettingsViewModel.Item(title: title),
+                                position: .bottom,
                                 title: title,
                                 rightAccessory: .radio(
                                     isSelected: { true }
@@ -172,7 +180,7 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
                 
                 cancellables.append(
                     viewModel.rightNavItems
-                        .receiveOnMain(immediately: true)
+                        .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
                             receiveValue: { navItems in items = navItems }
@@ -188,14 +196,14 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
                 beforeEach {
                     cancellables.append(
                         viewModel.rightNavItems
-                            .receiveOnMain(immediately: true)
+                            .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },
                                 receiveValue: { navItems in items = navItems }
                             )
                     )
                     
-                    viewModel.settingsData.first?.elements.last?.onTap?(nil)
+                    viewModel.tableData.first?.elements.last?.onTap?()
                 }
                 
                 it("shows the save button") {
@@ -215,7 +223,7 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
                         
                         cancellables.append(
                             viewModel.dismissScreen
-                                .receiveOnMain(immediately: true)
+                                .receive(on: ImmediateScheduler.shared)
                                 .sink(
                                     receiveCompletion: { _ in },
                                     receiveValue: { _ in didDismissScreen = true }
@@ -238,16 +246,9 @@ class ThreadDisappearingMessagesViewModelSpec: QuickSpec {
                             try DisappearingMessagesConfiguration.fetchOne(db, id: "TestId")
                         }
                         
-                        expect(updatedConfig?.isEnabled)
-                            .toEventually(
-                                beTrue(),
-                                timeout: .milliseconds(100)
-                            )
+                        expect(updatedConfig?.isEnabled).to(beTrue())
                         expect(updatedConfig?.durationSeconds)
-                            .toEventually(
-                                equal(DisappearingMessagesConfiguration.validDurationsSeconds.last ?? -1),
-                                timeout: .milliseconds(100)
-                            )
+                            .to(equal(DisappearingMessagesConfiguration.validDurationsSeconds.last ?? -1))
                     }
                 }
             }

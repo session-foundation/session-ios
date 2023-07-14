@@ -1,12 +1,11 @@
-//
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
-//
 
 import UIKit
 import SessionUIKit
+import SignalCoreKit
 
 @objc
-public protocol VAlignTextViewDelegate: class {
+public protocol VAlignTextViewDelegate: AnyObject {
     func textViewDidComplete()
 }
 

@@ -447,7 +447,16 @@ public extension UIToolbar {
 
 public extension UIContextualAction {
     var themeBackgroundColor: ThemeValue? {
-        set { ThemeManager.set(self, keyPath: \.backgroundColor, to: newValue) }
+        set {
+            guard let newValue: ThemeValue = newValue else {
+                self.backgroundColor = nil
+                return
+            }
+            
+            self.backgroundColor = UIColor(dynamicProvider: { _ in
+                (ThemeManager.currentTheme.color(for: newValue) ?? .clear)
+            })
+        }
         get { return nil }
     }
 }

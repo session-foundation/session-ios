@@ -22,7 +22,6 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     private lazy var authorLabelTopConstraint = authorLabel.pin(.top, to: .top, of: self)
     private lazy var authorLabelHeightConstraint = authorLabel.set(.height, to: 0)
     private lazy var profilePictureViewLeadingConstraint = profilePictureView.pin(.leading, to: .leading, of: self, withInset: VisibleMessageCell.groupThreadHSpacing)
-    private lazy var profilePictureViewWidthConstraint = profilePictureView.set(.width, to: Values.verySmallProfilePictureSize)
     private lazy var contentViewLeadingConstraint1 = snContentView.pin(.leading, to: .trailing, of: profilePictureView, withInset: VisibleMessageCell.groupThreadHSpacing)
     private lazy var contentViewLeadingConstraint2 = snContentView.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: VisibleMessageCell.gutterSize)
     private lazy var contentViewTopConstraint = snContentView.pin(.top, to: .bottom, of: authorLabel, withInset: VisibleMessageCell.authorLabelBottomSpacing)
@@ -51,22 +50,13 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     private lazy var viewsToMoveForReply: [UIView] = [
         snContentView,
         profilePictureView,
-        moderatorIconImageView,
         replyButton,
         timerView,
         messageStatusImageView,
         reactionContainerView
     ]
     
-    private lazy var profilePictureView: ProfilePictureView = {
-        let result: ProfilePictureView = ProfilePictureView()
-        result.set(.height, to: Values.verySmallProfilePictureSize)
-        result.size = Values.verySmallProfilePictureSize
-        
-        return result
-    }()
-
-    private lazy var moderatorIconImageView = UIImageView(image: #imageLiteral(resourceName: "Crown"))
+    private lazy var profilePictureView: ProfilePictureView = ProfilePictureView(size: .message)
     
     lazy var bubbleBackgroundView: UIView = {
         let result = UIView()
@@ -176,7 +166,6 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     private static let messageStatusImageViewSize: CGFloat = 12
     private static let authorLabelBottomSpacing: CGFloat = 4
     private static let groupThreadHSpacing: CGFloat = 12
-    private static let profilePictureSize = Values.verySmallProfilePictureSize
     private static let authorLabelInset: CGFloat = 12
     private static let replyButtonSize: CGFloat = 24
     private static let maxBubbleTranslationX: CGFloat = 40
@@ -186,7 +175,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     static let contactThreadHSpacing = Values.mediumSpacing
 
     static var gutterSize: CGFloat = {
-        var result = groupThreadHSpacing + profilePictureSize + groupThreadHSpacing
+        var result = groupThreadHSpacing + ProfilePictureView.Size.message.viewSize + groupThreadHSpacing
         
         if UIDevice.current.isIPad {
             result += 168
@@ -195,7 +184,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         return result
     }()
     
-    static var leftGutterSize: CGFloat { groupThreadHSpacing + profilePictureSize + groupThreadHSpacing }
+    static var leftGutterSize: CGFloat { groupThreadHSpacing + ProfilePictureView.Size.message.viewSize + groupThreadHSpacing }
     
     // MARK: Direction & Position
     
@@ -214,21 +203,13 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         // Profile picture view
         addSubview(profilePictureView)
         profilePictureViewLeadingConstraint.isActive = true
-        profilePictureViewWidthConstraint.isActive = true
-        
-        // Moderator icon image view
-        moderatorIconImageView.set(.width, to: 20)
-        moderatorIconImageView.set(.height, to: 20)
-        addSubview(moderatorIconImageView)
-        moderatorIconImageView.pin(.trailing, to: .trailing, of: profilePictureView, withInset: 1)
-        moderatorIconImageView.pin(.bottom, to: .bottom, of: profilePictureView, withInset: 4.5)
         
         // Content view
         addSubview(snContentView)
         contentViewLeadingConstraint1.isActive = true
         contentViewTopConstraint.isActive = true
         contentViewTrailingConstraint1.isActive = true
-        snContentView.pin(.bottom, to: .bottom, of: profilePictureView, withInset: -1)
+        snContentView.pin(.bottom, to: .bottom, of: profilePictureView)
         
         // Bubble background view
         bubbleBackgroundView.addSubview(bubbleView)
@@ -301,9 +282,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         lastSearchText: String?
     ) {
         self.viewModel = cellViewModel
-        self.bubbleView.accessibilityIdentifier = "Message Body"
-        self.bubbleView.isAccessibilityElement = true
-        self.bubbleView.accessibilityLabel = cellViewModel.body
+        
         // We want to add spacing between "clusters" of messages to indicate that time has
         // passed (even if there wasn't enough time to warrant showing a date header)
         let shouldAddTopInset: Bool = (
@@ -313,18 +292,28 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 cellViewModel.isOnlyMessageInCluster
             )
         )
-        let isGroupThread: Bool = (cellViewModel.threadVariant == .openGroup || cellViewModel.threadVariant == .closedGroup)
+        let isGroupThread: Bool = (
+            cellViewModel.threadVariant == .community ||
+            cellViewModel.threadVariant == .legacyGroup ||
+            cellViewModel.threadVariant == .group
+        )
         
-        // Profile picture view
+        // Profile picture view (should always be handled as a standard 'contact' profile picture)
+        let profileShouldBeVisible: Bool = (
+            cellViewModel.canHaveProfile &&
+            cellViewModel.shouldShowProfile &&
+            cellViewModel.profile != nil
+        )
         profilePictureViewLeadingConstraint.constant = (isGroupThread ? VisibleMessageCell.groupThreadHSpacing : 0)
-        profilePictureViewWidthConstraint.constant = (isGroupThread ? VisibleMessageCell.profilePictureSize : 0)
-        profilePictureView.isHidden = (!cellViewModel.shouldShowProfile || cellViewModel.profile == nil)
+        profilePictureView.isHidden = !cellViewModel.canHaveProfile
+        profilePictureView.alpha = (profileShouldBeVisible ? 1 : 0)
         profilePictureView.update(
             publicKey: cellViewModel.authorId,
+            threadVariant: .contact,    // Always show the display picture in 'contact' mode
+            customImageData: nil,
             profile: cellViewModel.profile,
-            threadVariant: cellViewModel.threadVariant
+            profileIcon: (cellViewModel.isSenderOpenGroupModerator ? .crown : .none)
         )
-        moderatorIconImageView.isHidden = (!cellViewModel.isSenderOpenGroupModerator || !cellViewModel.shouldShowProfile)
        
         // Bubble view
         contentViewLeadingConstraint1.isActive = (
@@ -355,6 +344,10 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             playbackInfo: playbackInfo,
             lastSearchText: lastSearchText
         )
+        
+        bubbleView.accessibilityIdentifier = "Message Body"
+        bubbleView.accessibilityLabel = bodyTappableLabel?.attributedText?.string
+        bubbleView.isAccessibilityElement = true
         
         // Author label
         authorLabelTopConstraint.constant = (shouldAddTopInset ? Values.mediumSpacing : 0)
@@ -392,11 +385,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         )
         
         // Swipe to reply
-        if cellViewModel.variant == .standardIncomingDeleted || cellViewModel.variant == .infoCall {
-            removeGestureRecognizer(panGestureRecognizer)
+        if ContextMenuVC.viewModelCanReply(cellViewModel) {
+            addGestureRecognizer(panGestureRecognizer)
         }
         else {
-            addGestureRecognizer(panGestureRecognizer)
+            removeGestureRecognizer(panGestureRecognizer)
         }
         
         // Under bubble content
@@ -496,7 +489,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         }
 
         switch cellViewModel.cellType {
-            case .typingIndicator, .dateHeader: break
+            case .typingIndicator, .dateHeader, .unreadMarker: break
             
             case .textOnlyMessage:
                 let inset: CGFloat = 12
@@ -549,7 +542,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                             quotedText: quote.body,
                             threadVariant: cellViewModel.threadVariant,
                             currentUserPublicKey: cellViewModel.currentUserPublicKey,
-                            currentUserBlindedPublicKey: cellViewModel.currentUserBlindedPublicKey,
+                            currentUserBlinded15PublicKey: cellViewModel.currentUserBlinded15PublicKey,
+                            currentUserBlinded25PublicKey: cellViewModel.currentUserBlinded25PublicKey,
                             direction: (cellViewModel.variant == .standardOutgoing ?
                                 .outgoing :
                                 .incoming
@@ -718,8 +712,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             maxWidth: maxWidth,
             showingAllReactions: showExpandedReactions,
             showNumbers: (
-                cellViewModel.threadVariant == .closedGroup ||
-                cellViewModel.threadVariant == .openGroup
+                cellViewModel.threadVariant == .legacyGroup ||
+                cellViewModel.threadVariant == .group ||
+                cellViewModel.threadVariant == .community
             )
         )
     }
@@ -873,8 +868,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         
         if profilePictureView.bounds.contains(profilePictureView.convert(location, from: self)), cellViewModel.shouldShowProfile {
             // For open groups only attempt to start a conversation if the author has a blinded id
-            guard cellViewModel.threadVariant != .openGroup else {
-                guard SessionId.Prefix(from: cellViewModel.authorId) == .blinded else { return }
+            guard cellViewModel.threadVariant != .community else {
+                // FIXME: Add in support for opening a conversation with a 'blinded25' id
+                guard SessionId.Prefix(from: cellViewModel.authorId) == .blinded15 else { return }
                 
                 delegate?.startThread(
                     with: cellViewModel.authorId,
@@ -1083,8 +1079,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 
             case .standardIncoming, .standardIncomingDeleted:
                 let isGroupThread = (
-                    cellViewModel.threadVariant == .openGroup ||
-                    cellViewModel.threadVariant == .closedGroup
+                    cellViewModel.threadVariant == .community ||
+                    cellViewModel.threadVariant == .legacyGroup ||
+                    cellViewModel.threadVariant == .group
                 )
                 let leftGutterSize = (isGroupThread ? leftGutterSize : contactThreadHSpacing)
                 
@@ -1123,7 +1120,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     in: (cellViewModel.body ?? ""),
                     threadVariant: cellViewModel.threadVariant,
                     currentUserPublicKey: cellViewModel.currentUserPublicKey,
-                    currentUserBlindedPublicKey: cellViewModel.currentUserBlindedPublicKey,
+                    currentUserBlinded15PublicKey: cellViewModel.currentUserBlinded15PublicKey,
+                    currentUserBlinded25PublicKey: cellViewModel.currentUserBlinded25PublicKey,
                     isOutgoingMessage: isOutgoing,
                     textColor: actualTextColor,
                     theme: theme,

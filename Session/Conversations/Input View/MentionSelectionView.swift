@@ -92,6 +92,11 @@ final class MentionSelectionView: UIView, UITableViewDataSource, UITableViewDele
             ),
             isLast: (indexPath.row == (candidates.count - 1))
         )
+        cell.accessibilityIdentifier = "Contact"
+        cell.accessibilityLabel = candidates[indexPath.row].profile.displayName(
+            for: candidates[indexPath.row].threadVariant
+        )
+        cell.isAccessibilityElement = true
         
         return cell
     }
@@ -111,9 +116,7 @@ private extension MentionSelectionView {
     final class Cell: UITableViewCell {
         // MARK: - UI
         
-        private lazy var profilePictureView: ProfilePictureView = ProfilePictureView()
-
-        private lazy var moderatorIconImageView: UIImageView = UIImageView(image: #imageLiteral(resourceName: "Crown"))
+        private lazy var profilePictureView: ProfilePictureView = ProfilePictureView(size: .message)
 
         private lazy var displayNameLabel: UILabel = {
             let result: UILabel = UILabel()
@@ -155,31 +158,18 @@ private extension MentionSelectionView {
             selectedBackgroundView.themeBackgroundColor = .highlighted(.settings_tabBackground)
             self.selectedBackgroundView = selectedBackgroundView
             
-            // Profile picture image view
-            let profilePictureViewSize = Values.smallProfilePictureSize
-            profilePictureView.set(.width, to: profilePictureViewSize)
-            profilePictureView.set(.height, to: profilePictureViewSize)
-            profilePictureView.size = profilePictureViewSize
-            
             // Main stack view
             let mainStackView = UIStackView(arrangedSubviews: [ profilePictureView, displayNameLabel ])
             mainStackView.axis = .horizontal
             mainStackView.alignment = .center
             mainStackView.spacing = Values.mediumSpacing
-            mainStackView.set(.height, to: profilePictureViewSize)
+            mainStackView.set(.height, to: ProfilePictureView.Size.message.viewSize)
             contentView.addSubview(mainStackView)
             mainStackView.pin(.leading, to: .leading, of: contentView, withInset: Values.mediumSpacing)
             mainStackView.pin(.top, to: .top, of: contentView, withInset: Values.smallSpacing)
             contentView.pin(.trailing, to: .trailing, of: mainStackView, withInset: Values.mediumSpacing)
             contentView.pin(.bottom, to: .bottom, of: mainStackView, withInset: Values.smallSpacing)
             mainStackView.set(.width, to: UIScreen.main.bounds.width - 2 * Values.mediumSpacing)
-            
-            // Moderator icon image view
-            moderatorIconImageView.set(.width, to: 20)
-            moderatorIconImageView.set(.height, to: 20)
-            contentView.addSubview(moderatorIconImageView)
-            moderatorIconImageView.pin(.trailing, to: .trailing, of: profilePictureView, withInset: 1)
-            moderatorIconImageView.pin(.bottom, to: .bottom, of: profilePictureView, withInset: 4.5)
             
             // Separator
             addSubview(separator)
@@ -199,10 +189,11 @@ private extension MentionSelectionView {
             displayNameLabel.text = profile.displayName(for: threadVariant)
             profilePictureView.update(
                 publicKey: profile.id,
+                threadVariant: .contact,    // Always show the display picture in 'contact' mode
+                customImageData: nil,
                 profile: profile,
-                threadVariant: threadVariant
+                profileIcon: (isUserModeratorOrAdmin ? .crown : .none)
             )
-            moderatorIconImageView.isHidden = !isUserModeratorOrAdmin
             separator.isHidden = isLast
         }
     }

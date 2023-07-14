@@ -3,6 +3,8 @@
 import UIKit
 import GRDB
 import SignalUtilitiesKit
+import SignalCoreKit
+import SessionUIKit
 
 public class StyledSearchController: UISearchController {
     public override var preferredStatusBarStyle: UIStatusBarStyle {
@@ -83,7 +85,7 @@ extension ConversationSearchController: UISearchResultsUpdating {
         let threadId: String = self.threadId
         
         DispatchQueue.global(qos: .default).async { [weak self] in
-            let results: [Int64]? = Storage.shared.read { db -> [Int64] in
+            let results: [Interaction.TimestampInfo]? = Storage.shared.read { db -> [Interaction.TimestampInfo] in
                 self?.resultsBar.willStartSearching(readConnection: db)
                 
                 return try Interaction.idsForTermWithin(
@@ -96,7 +98,7 @@ extension ConversationSearchController: UISearchResultsUpdating {
             // If we didn't get results back then we most likely interrupted the query so
             // should ignore the results (if there are no results we would succeed and get
             // an empty array back)
-            guard let results: [Int64] = results else { return }
+            guard let results: [Interaction.TimestampInfo] = results else { return }
             
             DispatchQueue.main.async {
                 guard let strongSelf = self else { return }
@@ -115,11 +117,11 @@ extension ConversationSearchController: SearchResultsBarDelegate {
     func searchResultsBar(
         _ searchResultsBar: SearchResultsBar,
         setCurrentIndex currentIndex: Int,
-        results: [Int64]
+        results: [Interaction.TimestampInfo]
     ) {
-        guard let interactionId: Int64 = results[safe: currentIndex] else { return }
+        guard let interactionInfo: Interaction.TimestampInfo = results[safe: currentIndex] else { return }
         
-        self.delegate?.conversationSearchController(self, didSelectInteractionId: interactionId)
+        self.delegate?.conversationSearchController(self, didSelectInteractionInfo: interactionInfo)
     }
 }
 
@@ -127,13 +129,13 @@ protocol SearchResultsBarDelegate: AnyObject {
     func searchResultsBar(
         _ searchResultsBar: SearchResultsBar,
         setCurrentIndex currentIndex: Int,
-        results: [Int64]
+        results: [Interaction.TimestampInfo]
     )
 }
 
 public final class SearchResultsBar: UIView {
     private var readConnection: Atomic<Database?> = Atomic(nil)
-    private var results: Atomic<[Int64]?> = Atomic(nil)
+    private var results: Atomic<[Interaction.TimestampInfo]?> = Atomic(nil)
     
     var currentIndex: Int?
     weak var resultsBarDelegate: SearchResultsBarDelegate?
@@ -248,7 +250,7 @@ public final class SearchResultsBar: UIView {
     // MARK: - Actions
     
     @objc public func handleUpButtonTapped() {
-        guard let results: [Int64] = results.wrappedValue else { return }
+        guard let results: [Interaction.TimestampInfo] = results.wrappedValue else { return }
         guard let currentIndex: Int = currentIndex else { return }
         guard currentIndex + 1 < results.count else { return }
 
@@ -260,7 +262,7 @@ public final class SearchResultsBar: UIView {
 
     @objc public func handleDownButtonTapped() {
         Logger.debug("")
-        guard let results: [Int64] = results.wrappedValue else { return }
+        guard let results: [Interaction.TimestampInfo] = results.wrappedValue else { return }
         guard let currentIndex: Int = currentIndex, currentIndex > 0 else { return }
 
         let newIndex = currentIndex - 1
@@ -287,12 +289,12 @@ public final class SearchResultsBar: UIView {
         self.readConnection.mutate { $0 = readConnection }
     }
 
-    func updateResults(results: [Int64]?) {
+    func updateResults(results: [Interaction.TimestampInfo]?) {
         // We want to ignore search results that don't match the current searchId (this
         // will happen when searching large threads with short terms as the shorter terms
         // will take much longer to resolve than the longer terms)
         currentIndex = {
-            guard let results: [Int64] = results, !results.isEmpty else { return nil }
+            guard let results: [Interaction.TimestampInfo] = results, !results.isEmpty else { return nil }
             
             if let currentIndex: Int = currentIndex {
                 return max(0, min(currentIndex, results.count - 1))
@@ -312,10 +314,11 @@ public final class SearchResultsBar: UIView {
     }
 
     func updateBarItems() {
-        guard let results: [Int64] = results.wrappedValue else {
+        guard let results: [Interaction.TimestampInfo] = results.wrappedValue else {
             label.text = ""
             downButton.isEnabled = false
             upButton.isEnabled = false
+            stopLoading()
             return
         }
 
@@ -362,6 +365,6 @@ public final class SearchResultsBar: UIView {
 // MARK: - ConversationSearchControllerDelegate
 
 public protocol ConversationSearchControllerDelegate: UISearchControllerDelegate {
-    func conversationSearchController(_ conversationSearchController: ConversationSearchController, didUpdateSearchResults results: [Int64]?, searchText: String?)
-    func conversationSearchController(_ conversationSearchController: ConversationSearchController, didSelectInteractionId: Int64)
+    func conversationSearchController(_ conversationSearchController: ConversationSearchController, didUpdateSearchResults results: [Interaction.TimestampInfo]?, searchText: String?)
+    func conversationSearchController(_ conversationSearchController: ConversationSearchController, didSelectInteractionInfo: Interaction.TimestampInfo)
 }

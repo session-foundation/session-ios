@@ -6,7 +6,12 @@ import SessionSnodeKit
 import SessionUtilitiesKit
 
 extension MessageReceiver {
-    public static func handleUnsendRequest(_ db: Database, message: UnsendRequest) throws {
+    public static func handleUnsendRequest(
+        _ db: Database,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        message: UnsendRequest
+    ) throws {
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         
         guard message.sender == message.author || userPublicKey == message.sender else { return }
@@ -19,12 +24,7 @@ extension MessageReceiver {
         
         guard
             let interactionId: Int64 = maybeInteraction?.id,
-            let interaction: Interaction = maybeInteraction,
-            let threadVariant: SessionThread.Variant = try SessionThread
-                .filter(id: interaction.threadId)
-                .select(.variant)
-                .asRequest(of: SessionThread.Variant.self)
-                .fetchOne(db)
+            let interaction: Interaction = maybeInteraction
         else { return }
         
         // Mark incoming messages as read and remove any of their notifications
@@ -43,7 +43,13 @@ extension MessageReceiver {
         }
         
         if author == message.sender, let serverHash: String = interaction.serverHash {
-            SnodeAPI.deleteMessage(publicKey: author, serverHashes: [serverHash]).retainUntilComplete()
+            SnodeAPI
+                .deleteMessages(
+                    publicKey: author,
+                    serverHashes: [serverHash]
+                )
+                .subscribe(on: DispatchQueue.global(qos: .background))
+                .sinkUntilComplete()
         }
          
         switch (interaction.variant, (author == message.sender)) {

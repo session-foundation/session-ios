@@ -50,7 +50,7 @@ public final class InputTextView: UITextView, UITextViewDelegate {
     
     public override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
         if action == #selector(paste(_:)) {
-            if let _ = UIPasteboard.general.image {
+            if UIPasteboard.general.hasImages {
                 return true
             }
         }

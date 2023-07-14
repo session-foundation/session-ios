@@ -3,6 +3,7 @@
 import Foundation
 import UIKit
 import SessionUIKit
+import SignalCoreKit
 
 protocol AttachmentApprovalInputAccessoryViewDelegate: AnyObject {
     func attachmentApprovalInputUpdateMediaRail()

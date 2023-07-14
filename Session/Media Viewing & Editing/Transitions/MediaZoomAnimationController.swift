@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import SessionUIKit
 
 class MediaZoomAnimationController: NSObject {
     private let mediaItem: Media
@@ -34,6 +35,18 @@ extension MediaZoomAnimationController: UIViewControllerAnimatedTransitioning {
         switch fromVC {
             case let contextProvider as MediaPresentationContextProvider:
                 fromContextProvider = contextProvider
+                
+            case let topBannerController as TopBannerController:
+                guard
+                    let firstChild: UIViewController = topBannerController.children.first,
+                    let navController: UINavigationController = firstChild as? UINavigationController,
+                    let contextProvider = navController.topViewController as? MediaPresentationContextProvider
+                else {
+                    transitionContext.completeTransition(false)
+                    return
+                }
+                
+                fromContextProvider = contextProvider
 
             case let navController as UINavigationController:
                 guard let contextProvider = navController.topViewController as? MediaPresentationContextProvider else {
@@ -50,6 +63,18 @@ extension MediaZoomAnimationController: UIViewControllerAnimatedTransitioning {
 
         switch toVC {
             case let contextProvider as MediaPresentationContextProvider:
+                toContextProvider = contextProvider
+                
+            case let topBannerController as TopBannerController:
+                guard
+                    let firstChild: UIViewController = topBannerController.children.first,
+                    let navController: UINavigationController = firstChild as? UINavigationController,
+                    let contextProvider = navController.topViewController as? MediaPresentationContextProvider
+                else {
+                    transitionContext.completeTransition(false)
+                    return
+                }
+                
                 toContextProvider = contextProvider
 
             case let navController as UINavigationController:

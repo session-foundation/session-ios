@@ -29,4 +29,11 @@ public extension Set {
         
         return updatedSet
     }
+    
+    mutating func popRandomElement() -> Element? {
+        guard let value: Element = randomElement() else { return nil }
+        
+        self.remove(value)
+        return value
+    }
 }

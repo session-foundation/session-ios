@@ -1,4 +1,7 @@
-import PromiseKit
+// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+
+import Foundation
+import Combine
 import NVActivityIndicatorView
 import SessionMessagingKit
 import SessionUIKit
@@ -6,7 +9,7 @@ import SessionUIKit
 final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
     private let itemsPerSection: Int = (UIDevice.current.isIPad ? 4 : 2)
     private var maxWidth: CGFloat
-    private var rooms: [OpenGroupAPI.Room] = [] { didSet { update() } }
+    private var data: [OpenGroupManager.DefaultRoomInfo] = [] { didSet { update() } }
     private var heightConstraint: NSLayoutConstraint!
     
     var delegate: OpenGroupSuggestionGridDelegate?
@@ -15,7 +18,7 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
     
     private static let cellHeight: CGFloat = 40
     private static let separatorWidth = Values.separatorThickness
-    private static let numHorizontalCells: CGFloat = (UIDevice.current.isIPad ? 4 : 2)
+    fileprivate static let numHorizontalCells: Int = (UIDevice.current.isIPad ? 4 : 2)
     
     private lazy var layout: LastRowCenteredLayout = {
         let result = LastRowCenteredLayout()
@@ -140,12 +143,17 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
         widthAnchor.constraint(greaterThanOrEqualToConstant: OpenGroupSuggestionGrid.cellHeight).isActive = true
         
         OpenGroupManager.getDefaultRoomsIfNeeded()
-            .done { [weak self] rooms in
-                self?.rooms = rooms
-            }
-            .catch { [weak self] _ in
-                self?.update()
-            }
+            .subscribe(on: DispatchQueue.global(qos: .default))
+            .receive(on: DispatchQueue.main)
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self] result in
+                    switch result {
+                        case .finished: break
+                        case .failure: self?.update()
+                    }
+                },
+                receiveValue: { [weak self] roomInfo in self?.data = roomInfo }
+            )
     }
     
     // MARK: - Updating
@@ -154,8 +162,8 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
         spinner.stopAnimating()
         spinner.isHidden = true
         
-        let roomCount: CGFloat = CGFloat(min(rooms.count, 8)) // Cap to a maximum of 8 (4 rows of 2)
-        let numRows: CGFloat = ceil(roomCount / OpenGroupSuggestionGrid.numHorizontalCells)
+        let roomCount: CGFloat = CGFloat(min(data.count, 8)) // Cap to a maximum of 8 (4 rows of 2)
+        let numRows: CGFloat = ceil(roomCount / CGFloat(OpenGroupSuggestionGrid.numHorizontalCells))
         let height: CGFloat = ((OpenGroupSuggestionGrid.cellHeight * numRows) + ((numRows - 1) * layout.minimumLineSpacing))
         heightConstraint.constant = height
         collectionView.reloadData()
@@ -170,18 +178,18 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
     // MARK: - Layout
     
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
-        guard
-            indexPath.item == (collectionView.numberOfItems(inSection: indexPath.section) - 1) &&
-            indexPath.item % 2 == 0
-        else {
-            let cellWidth: CGFloat = ((maxWidth / OpenGroupSuggestionGrid.numHorizontalCells) - ((OpenGroupSuggestionGrid.numHorizontalCells - 1) * layout.minimumInteritemSpacing))
+        let totalItems: Int = collectionView.numberOfItems(inSection: indexPath.section)
+        let itemsInFinalRow: Int = (totalItems % OpenGroupSuggestionGrid.numHorizontalCells)
+        
+        guard indexPath.item >= (totalItems - itemsInFinalRow) && itemsInFinalRow != 0 else {
+            let cellWidth: CGFloat = ((maxWidth / CGFloat(OpenGroupSuggestionGrid.numHorizontalCells)) - ((CGFloat(OpenGroupSuggestionGrid.numHorizontalCells) - 1) * layout.minimumInteritemSpacing))
             
             return CGSize(width: cellWidth, height: OpenGroupSuggestionGrid.cellHeight)
         }
         
-        // If the last item is by itself then we want to make it wider
+        // If there isn't an even number of items then we want to calculate proper sizing
         return CGSize(
-            width: (Cell.calculatedWith(for: rooms[indexPath.item].name)),
+            width: Cell.calculatedWith(for: data[indexPath.item].room.name),
             height: OpenGroupSuggestionGrid.cellHeight
         )
     }
@@ -189,12 +197,12 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
     // MARK: - Data Source
     
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return min(rooms.count, 8) // Cap to a maximum of 8 (4 rows of 2)
+        return min(data.count, 8) // Cap to a maximum of 8 (4 rows of 2)
     }
     
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell: Cell = collectionView.dequeue(type: Cell.self, for: indexPath)
-        cell.room = rooms[indexPath.item]
+        cell.update(with: data[indexPath.item].room, existingImageData: data[indexPath.item].existingImageData)
         
         return cell
     }
@@ -202,7 +210,7 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
     // MARK: - Interaction
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        let room = rooms[indexPath.section * itemsPerSection + indexPath.item]
+        let room = data[indexPath.section * itemsPerSection + indexPath.item].room
         delegate?.join(room)
     }
 }
@@ -228,8 +236,6 @@ extension OpenGroupSuggestionGrid {
                 1   // Not sure why this is needed but it seems things are sometimes truncated without it
             )
         }
-        
-        var room: OpenGroupAPI.Room? { didSet { update() } }
         
         private lazy var snContentView: UIView = {
             let result: UIView = UIView()
@@ -304,9 +310,7 @@ extension OpenGroupSuggestionGrid {
             snContentView.pin(to: self)
         }
         
-        private func update() {
-            guard let room: OpenGroupAPI.Room = room else { return }
-            
+        fileprivate func update(with room: OpenGroupAPI.Room, existingImageData: Data?) {
             label.text = room.name
             
             // Only continue if we have a room image
@@ -315,24 +319,44 @@ extension OpenGroupSuggestionGrid {
                 return
             }
             
-            let promise = Storage.shared.read { db in
-                OpenGroupManager.roomImage(db, fileId: imageId, for: room.token, on: OpenGroupAPI.defaultServer)
-            }
+            imageView.image = nil
             
-            if let imageData: Data = promise.value {
-                imageView.image = UIImage(data: imageData)
-                imageView.isHidden = (imageView.image == nil)
-            }
-            else {
-                imageView.isHidden = true
-                
-                _ = promise.done { [weak self] imageData in
-                    DispatchQueue.main.async {
+            Publishers
+                .MergeMany(
+                    OpenGroupManager
+                        .roomImage(
+                            fileId: imageId,
+                            for: room.token,
+                            on: OpenGroupAPI.defaultServer,
+                            existingData: existingImageData
+                        )
+                        .map { ($0, true) }
+                        .eraseToAnyPublisher(),
+                    // If we have already received the room image then the above will emit first and
+                    // we can ignore this 'Just' call which is used to hide the image while loading
+                    Just((Data(), false))
+                        .setFailureType(to: Error.self)
+                        .delay(for: .milliseconds(10), scheduler: DispatchQueue.main)
+                        .eraseToAnyPublisher()
+                )
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+                .receive(on: DispatchQueue.main)
+                .sinkUntilComplete(
+                    receiveValue: { [weak self] imageData, hasData in
+                        guard hasData else {
+                            // This will emit twice (once with the data and once without it), if we
+                            // have actually received the images then we don't want the second emission
+                            // to hide the imageView anymore
+                            if self?.imageView.image == nil {
+                                self?.imageView.isHidden = true
+                            }
+                            return
+                        }
+                        
                         self?.imageView.image = UIImage(data: imageData)
                         self?.imageView.isHidden = (self?.imageView.image == nil)
                     }
-                }
-            }
+                )
         }
     }
 }
@@ -361,16 +385,30 @@ class LastRowCenteredLayout: UICollectionViewFlowLayout {
         }()
         
         guard
-            (elementAttributes?.count ?? 0) % 2 == 1,
-            let lastItemAttributes: UICollectionViewLayoutAttributes = elementAttributes?.last
+            let remainingItems: Int = elementAttributes.map({ $0.count % OpenGroupSuggestionGrid.numHorizontalCells }),
+            remainingItems != 0,
+            let lastItems: [UICollectionViewLayoutAttributes] = elementAttributes?.suffix(remainingItems),
+            !lastItems.isEmpty
         else { return elementAttributes }
         
-        lastItemAttributes.frame = CGRect(
-            x: ((targetViewWidth - lastItemAttributes.frame.size.width) / 2),
-            y: lastItemAttributes.frame.origin.y,
-            width: lastItemAttributes.frame.size.width,
-            height: lastItemAttributes.frame.size.height
-        )
+        let totalItemWidth: CGFloat = lastItems
+            .map { $0.frame.size.width }
+            .reduce(0, +)
+        let lastRowWidth: CGFloat = (totalItemWidth + (CGFloat(lastItems.count - 1) * minimumInteritemSpacing))
+        
+        // Offset the start width by half of the remaining space
+        var itemXPos: CGFloat = ((targetViewWidth - lastRowWidth) / 2)
+        
+        lastItems.forEach { item in
+            item.frame = CGRect(
+                x: itemXPos,
+                y: item.frame.origin.y,
+                width: item.frame.size.width,
+                height: item.frame.size.height
+            )
+            
+            itemXPos += (item.frame.size.width + minimumInteritemSpacing)
+        }
         
         return elementAttributes
     }

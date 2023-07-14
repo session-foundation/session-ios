@@ -36,7 +36,7 @@ public extension Dictionary {
     
     func getting(_ key: Key?) -> Value? {
         guard let key: Key = key else { return nil }
-
+        
         return self[key]
     }
     

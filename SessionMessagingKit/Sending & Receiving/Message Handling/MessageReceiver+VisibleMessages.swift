@@ -3,15 +3,16 @@
 import Foundation
 import GRDB
 import Sodium
-import SignalCoreKit
+import SessionSnodeKit
 import SessionUtilitiesKit
 
 extension MessageReceiver {
     @discardableResult public static func handleVisibleMessage(
         _ db: Database,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
         message: VisibleMessage,
         associatedWithProto proto: SNProtoContent,
-        openGroupId: String?,
         dependencies: Dependencies = Dependencies()
     ) throws -> Int64 {
         guard let sender: String = message.sender, let dataMessage = proto.dataMessage else {
@@ -26,33 +27,55 @@ extension MessageReceiver {
         // Update profile if needed (want to do this regardless of whether the message exists or
         // not to ensure the profile info gets sync between a users devices at every chance)
         if let profile = message.profile {
-            var contactProfileKey: OWSAES256Key? = nil
-            if let profileKey = profile.profileKey { contactProfileKey = OWSAES256Key(data: profileKey) }
-            
-            try MessageReceiver.updateProfileIfNeeded(
+            try ProfileManager.updateProfileIfNeeded(
                 db,
                 publicKey: sender,
                 name: profile.displayName,
-                profilePictureUrl: profile.profilePictureUrl,
-                profileKey: contactProfileKey,
+                avatarUpdate: {
+                    guard
+                        let profilePictureUrl: String = profile.profilePictureUrl,
+                        let profileKey: Data = profile.profileKey
+                    else { return .remove }
+                    
+                    return .updateTo(
+                        url: profilePictureUrl,
+                        key: profileKey,
+                        fileName: nil
+                    )
+                }(),
                 sentTimestamp: messageSentTimestamp
             )
         }
         
-        // Get or create thread
-        guard let threadInfo: (id: String, variant: SessionThread.Variant) = MessageReceiver.threadInfo(db, message: message, openGroupId: openGroupId) else {
-            throw MessageReceiverError.noThread
+        switch threadVariant {
+            case .contact: break // Always continue
+            
+            case .community:
+                // Only process visible messages for communities if they have an existing thread
+                guard (try? SessionThread.exists(db, id: threadId)) == true else {
+                    throw MessageReceiverError.noThread
+                }
+                        
+            case .legacyGroup, .group:
+                // Only process visible messages for groups if they have a ClosedGroup record
+                guard (try? ClosedGroup.exists(db, id: threadId)) == true else {
+                    throw MessageReceiverError.noThread
+                }
         }
         
         // Store the message variant so we can run variant-specific behaviours
         let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
         let thread: SessionThread = try SessionThread
-            .fetchOrCreate(db, id: threadInfo.id, variant: threadInfo.variant)
+            .fetchOrCreate(db, id: threadId, variant: threadVariant, shouldBeVisible: nil)
+        let maybeOpenGroup: OpenGroup? = {
+            guard threadVariant == .community else { return nil }
+            
+            return try? OpenGroup.fetchOne(db, id: threadId)
+        }()
         let variant: Interaction.Variant = {
             guard
-                let openGroupId: String = openGroupId,
                 let senderSessionId: SessionId = SessionId(from: sender),
-                let openGroup: OpenGroup = try? OpenGroup.fetchOne(db, id: openGroupId)
+                let openGroup: OpenGroup = maybeOpenGroup
             else {
                 return (sender == currentUserPublicKey ?
                     .standardOutgoing :
@@ -62,19 +85,24 @@ extension MessageReceiver {
 
             // Need to check if the blinded id matches for open groups
             switch senderSessionId.prefix {
-                case .blinded:
+                case .blinded15, .blinded25:
                     let sodium: Sodium = Sodium()
                     
                     guard
-                        let userEdKeyPair: Box.KeyPair = Identity.fetchUserEd25519KeyPair(db),
-                        let blindedKeyPair: Box.KeyPair = sodium.blindedKeyPair(
+                        let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
+                        let blindedKeyPair: KeyPair = sodium.blindedKeyPair(
                             serverPublicKey: openGroup.publicKey,
                             edKeyPair: userEdKeyPair,
                             genericHash: sodium.genericHash
                         )
                     else { return .standardIncoming }
                     
-                    return (sender == SessionId(.blinded, publicKey: blindedKeyPair.publicKey).hexString ?
+                    let senderIdCurrentUserBlinded: Bool = (
+                        sender == SessionId(.blinded15, publicKey: blindedKeyPair.publicKey).hexString ||
+                        sender == SessionId(.blinded25, publicKey: blindedKeyPair.publicKey).hexString
+                    )
+                    
+                    return (senderIdCurrentUserBlinded ?
                         .standardOutgoing :
                         .standardIncoming
                     )
@@ -88,7 +116,15 @@ extension MessageReceiver {
         }()
         
         // Handle emoji reacts first (otherwise it's essentially an invalid message)
-        if let interactionId: Int64 = try handleEmojiReactIfNeeded(db, message: message, associatedWithProto: proto, sender: sender, messageSentTimestamp: messageSentTimestamp, openGroupId: openGroupId, thread: thread) {
+        if let interactionId: Int64 = try handleEmojiReactIfNeeded(
+            db,
+            thread: thread,
+            message: message,
+            associatedWithProto: proto,
+            sender: sender,
+            messageSentTimestamp: messageSentTimestamp,
+            openGroup: maybeOpenGroup
+        ) {
             return interactionId
         }
         
@@ -112,7 +148,17 @@ extension MessageReceiver {
                 variant: variant,
                 body: message.text,
                 timestampMs: Int64(messageSentTimestamp * 1000),
-                wasRead: (variant == .standardOutgoing), // Auto-mark sent messages as read
+                wasRead: (
+                    // Auto-mark sent messages or messages older than the 'lastReadTimestampMs' as read
+                    variant == .standardOutgoing ||
+                    SessionUtil.timestampAlreadyRead(
+                        threadId: thread.id,
+                        threadVariant: thread.variant,
+                        timestampMs: Int64(messageSentTimestamp * 1000),
+                        userPublicKey: currentUserPublicKey,
+                        openGroup: maybeOpenGroup
+                    )
+                ),
                 hasMention: Interaction.isUserMentioned(
                     db,
                     threadId: thread.id,
@@ -157,7 +203,7 @@ extension MessageReceiver {
                     // If we receive an outgoing message that already exists in the database
                     // then we still need up update the recipient and read states for the
                     // message (even if we don't need to do anything else)
-                    try updateRecipientAndReadStates(
+                    try updateRecipientAndReadStatesForOutgoingInteraction(
                         db,
                         thread: thread,
                         interactionId: existingInteractionId,
@@ -175,7 +221,7 @@ extension MessageReceiver {
         guard let interactionId: Int64 = interaction.id else { throw StorageError.failedToSave }
         
         // Update and recipient and read states as needed
-        try updateRecipientAndReadStates(
+        try updateRecipientAndReadStatesForOutgoingInteraction(
             db,
             thread: thread,
             interactionId: interactionId,
@@ -278,20 +324,20 @@ extension MessageReceiver {
             try MessageReceiver.updateContactApprovalStatusIfNeeded(
                 db,
                 senderSessionId: sender,
-                threadId: thread.id,
-                forceConfigSync: false
+                threadId: thread.id
             )
         }
         
         // Notify the user if needed
-        guard variant == .standardIncoming else { return interactionId }
+        guard variant == .standardIncoming && !interaction.wasRead else { return interactionId }
         
         // Use the same identifier for notifications when in backgroud polling to prevent spam
         Environment.shared?.notificationsManager.wrappedValue?
             .notifyUser(
                 db,
                 for: interaction,
-                in: thread
+                in: thread,
+                applicationState: (isMainAppActive ? .active : .background)
             )
         
         return interactionId
@@ -299,12 +345,12 @@ extension MessageReceiver {
     
     private static func handleEmojiReactIfNeeded(
         _ db: Database,
+        thread: SessionThread,
         message: VisibleMessage,
         associatedWithProto proto: SNProtoContent,
         sender: String,
         messageSentTimestamp: TimeInterval,
-        openGroupId: String?,
-        thread: SessionThread
+        openGroup: OpenGroup?
     ) throws -> Int64? {
         guard
             let reaction: VisibleMessage.VMReaction = message.reaction,
@@ -332,22 +378,37 @@ extension MessageReceiver {
         
         switch reaction.kind {
             case .react:
-                let reaction = Reaction(
+                // Determine whether the app is active based on the prefs rather than the UIApplication state to avoid
+                // requiring main-thread execution
+                let isMainAppActive: Bool = (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false)
+                let timestampMs: Int64 = Int64(messageSentTimestamp * 1000)
+                let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
+                let reaction: Reaction = try Reaction(
                     interactionId: interactionId,
                     serverHash: message.serverHash,
-                    timestampMs: Int64(messageSentTimestamp * 1000),
+                    timestampMs: timestampMs,
                     authorId: sender,
                     emoji: reaction.emoji,
                     count: 1,
                     sortId: sortId
+                ).inserted(db)
+                let timestampAlreadyRead: Bool = SessionUtil.timestampAlreadyRead(
+                    threadId: thread.id,
+                    threadVariant: thread.variant,
+                    timestampMs: timestampMs,
+                    userPublicKey: currentUserPublicKey,
+                    openGroup: openGroup
                 )
-                try reaction.insert(db)
-                if sender != getUserHexEncodedPublicKey(db) {
+                
+                // Don't notify if the reaction was added before the lastest read timestamp for
+                // the conversation
+                if sender != currentUserPublicKey && !timestampAlreadyRead {
                     Environment.shared?.notificationsManager.wrappedValue?
                         .notifyUser(
                             db,
                             forReaction: reaction,
-                            in: thread
+                            in: thread,
+                            applicationState: (isMainAppActive ? .active : .background)
                         )
                 }
             case .remove:
@@ -361,7 +422,7 @@ extension MessageReceiver {
         return interactionId
     }
     
-    private static func updateRecipientAndReadStates(
+    private static func updateRecipientAndReadStatesForOutgoingInteraction(
         _ db: Database,
         thread: SessionThread,
         interactionId: Int64,
@@ -388,7 +449,7 @@ extension MessageReceiver {
                     ).save(db)
                 }
                 
-            case .closedGroup:
+            case .legacyGroup, .group:
                 try GroupMember
                     .filter(GroupMember.Columns.groupId == thread.id)
                     .fetchAll(db)
@@ -400,7 +461,7 @@ extension MessageReceiver {
                         ).save(db)
                     }
                 
-            case .openGroup:
+            case .community:
                 try RecipientState(
                     interactionId: interactionId,
                     recipientId: thread.id, // For open groups this will always be the thread id
@@ -417,7 +478,7 @@ extension MessageReceiver {
             threadId: thread.id,
             threadVariant: thread.variant,
             includingOlder: true,
-            trySendReadReceipt: true
+            trySendReadReceipt: false
         )
         
         // Process any PendingReadReceipt values

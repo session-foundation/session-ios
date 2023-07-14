@@ -5,6 +5,7 @@ import Foundation
 public enum StorageError: Error {
     case generic
     case databaseInvalid
+    case startupFailed
     case migrationFailed
     case invalidKeySpec
     case decodingFailed
@@ -14,6 +15,7 @@ public enum StorageError: Error {
     case objectNotSaved
     
     case invalidSearchPattern
+    case invalidData
     
     case devRemigrationRequired
 }

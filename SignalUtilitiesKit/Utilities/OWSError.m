@@ -3,6 +3,7 @@
 //
 
 #import "OWSError.h"
+#import <SignalCoreKit/OWSAsserts.h>
 
 NS_ASSUME_NONNULL_BEGIN
 

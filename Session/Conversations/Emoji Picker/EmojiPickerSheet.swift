@@ -177,9 +177,6 @@ class EmojiPickerSheet: BaseVC {
         let curveValue: Int = ((userInfo[UIResponder.keyboardAnimationCurveUserInfoKey] as? Int) ?? Int(UIView.AnimationOptions.curveEaseInOut.rawValue))
         let options: UIView.AnimationOptions = UIView.AnimationOptions(rawValue: UInt(curveValue << 16))
 
-        let keyboardRect: CGRect = ((userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect) ?? CGRect.zero)
-        let keyboardTop = (UIScreen.main.bounds.height - keyboardRect.minY)
-
         UIView.animate(
             withDuration: duration,
             delay: 0,

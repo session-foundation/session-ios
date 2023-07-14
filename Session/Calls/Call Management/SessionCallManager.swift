@@ -4,6 +4,8 @@ import UIKit
 import CallKit
 import GRDB
 import SessionMessagingKit
+import SignalCoreKit
+import SignalUtilitiesKit
 
 public final class SessionCallManager: NSObject, CallManagerProtocol {
     let provider: CXProvider?
@@ -205,9 +207,9 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
                 return
             }
             
-            guard CurrentAppContext().isMainAppAndActive else { return }
-            
             DispatchQueue.main.async {
+                guard CurrentAppContext().isMainAppAndActive else { return }
+                
                 guard let presentingVC = CurrentAppContext().frontmostViewController() else {
                     preconditionFailure()   // FIXME: Handle more gracefully
                 }

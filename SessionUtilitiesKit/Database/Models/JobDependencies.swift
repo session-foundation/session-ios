@@ -7,8 +7,8 @@ public struct JobDependencies: Codable, Equatable, Hashable, FetchableRecord, Pe
     public static var databaseTableName: String { "jobDependencies" }
     internal static let jobForeignKey = ForeignKey([Columns.jobId], to: [Job.Columns.id])
     internal static let dependantForeignKey = ForeignKey([Columns.dependantId], to: [Job.Columns.id])
-    internal static let job = belongsTo(Job.self, using: jobForeignKey)
-    internal static let dependant = hasOne(Job.self, using: Job.dependencyForeignKey)
+    public static let job = belongsTo(Job.self, using: jobForeignKey)
+    public static let dependant = hasOne(Job.self, using: Job.dependencyForeignKey)
     
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression {

@@ -77,12 +77,36 @@ public extension Anchorable {
     }
     
     @discardableResult
+    func pin(_ constraineeEdge: UIView.HorizontalEdge, greaterThanOrEqualTo constrainerEdge: UIView.HorizontalEdge, of anchorable: Anchorable, withInset inset: CGFloat = 0) -> NSLayoutConstraint {
+        (self as? UIView)?.translatesAutoresizingMaskIntoConstraints = false
+        
+        return anchor(from: constraineeEdge)
+            .constraint(
+                greaterThanOrEqualTo: anchorable.anchor(from: constrainerEdge),
+                constant: inset
+            )
+            .setting(isActive: true)
+    }
+    
+    @discardableResult
     func pin(_ constraineeEdge: UIView.VerticalEdge, to constrainerEdge: UIView.VerticalEdge, of anchorable: Anchorable, withInset inset: CGFloat = 0) -> NSLayoutConstraint {
         (self as? UIView)?.translatesAutoresizingMaskIntoConstraints = false
         
         return anchor(from: constraineeEdge)
             .constraint(
                 equalTo: anchorable.anchor(from: constrainerEdge),
+                constant: inset
+            )
+            .setting(isActive: true)
+    }
+    
+    @discardableResult
+    func pin(_ constraineeEdge: UIView.VerticalEdge, greaterThanOrEqualTo constrainerEdge: UIView.VerticalEdge, of anchorable: Anchorable, withInset inset: CGFloat = 0) -> NSLayoutConstraint {
+        (self as? UIView)?.translatesAutoresizingMaskIntoConstraints = false
+        
+        return anchor(from: constraineeEdge)
+            .constraint(
+                greaterThanOrEqualTo: anchorable.anchor(from: constrainerEdge),
                 constant: inset
             )
             .setting(isActive: true)

@@ -1,12 +1,10 @@
-//
-//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
-//
+// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import PromiseKit
-import SignalUtilitiesKit
-import SignalUtilitiesKit
+import Combine
 import YYImage
+import SignalUtilitiesKit
+import SignalCoreKit
 
 class GifPickerCell: UICollectionViewCell {
 
@@ -222,7 +220,7 @@ class GifPickerCell: UICollectionViewCell {
         self.themeBackgroundColor = nil
 
         if self.isCellSelected {
-            let activityIndicator = UIActivityIndicatorView(style: .gray)
+            let activityIndicator = UIActivityIndicatorView(style: .medium)
             self.activityIndicator = activityIndicator
             addSubview(activityIndicator)
             activityIndicator.autoCenterInSuperview()
@@ -245,29 +243,27 @@ class GifPickerCell: UICollectionViewCell {
         }
     }
 
-    public func requestRenditionForSending() -> Promise<ProxiedContentAsset> {
+    public func requestRenditionForSending() -> AnyPublisher<ProxiedContentAsset, Error> {
         guard let renditionForSending = self.renditionForSending else {
             owsFailDebug("renditionForSending was unexpectedly nil")
-            return Promise(error: GiphyError.assertionError(description: "renditionForSending was unexpectedly nil"))
+            return Fail(error: GiphyError.assertionError(description: "renditionForSending was unexpectedly nil"))
+                .eraseToAnyPublisher()
         }
-
-        let (promise, resolver) = Promise<ProxiedContentAsset>.pending()
 
         // We don't retain a handle on the asset request, since there will only ever
         // be one selected asset, and we never want to cancel it.
-        _ = GiphyDownloader.giphyDownloader.requestAsset(assetDescription: renditionForSending,
-                                                         priority: .high,
-                                                         success: { _, asset in
-                                                            resolver.fulfill(asset)
-        },
-                                                         failure: { _ in
-                                                            // TODO GiphyDownloader API should pass through a useful failing error
-                                                            // so we can pass it through here
-                                                            Logger.error("request failed")
-                                                            resolver.reject(GiphyError.fetchFailure)
-        })
-
-        return promise
+        return GiphyDownloader.giphyDownloader
+            .requestAsset(
+                assetDescription: renditionForSending,
+                priority: .high
+            )
+            .mapError { _ -> Error in
+                // TODO: GiphyDownloader API should pass through a useful failing error so we can pass it through here
+                Logger.error("request failed")
+                return GiphyError.fetchFailure
+            }
+            .map { asset, _ in asset }
+            .eraseToAnyPublisher()
     }
 
     private func clearViewState() {

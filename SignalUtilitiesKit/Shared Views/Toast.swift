@@ -2,6 +2,7 @@
 
 import UIKit
 import SessionUIKit
+import SignalCoreKit
 
 public class ToastController: ToastViewDelegate {
     static var currentToastController: ToastController?

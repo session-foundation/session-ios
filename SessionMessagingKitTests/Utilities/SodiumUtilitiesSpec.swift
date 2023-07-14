@@ -2,6 +2,7 @@
 
 import Foundation
 import Sodium
+import SessionUtilitiesKit
 
 import Quick
 import Nimble
@@ -86,7 +87,7 @@ class SodiumUtilitiesSpec: QuickSpec {
                 it("successfully generates a blinded key pair") {
                     let result = sodium.blindedKeyPair(
                         serverPublicKey: TestConstants.serverPublicKey,
-                        edKeyPair: Box.KeyPair(
+                        edKeyPair: KeyPair(
                             publicKey: Data(hex: TestConstants.edPublicKey).bytes,
                             secretKey: Data(hex: TestConstants.edSecretKey).bytes
                         ),
@@ -102,7 +103,7 @@ class SodiumUtilitiesSpec: QuickSpec {
                 it("fails if the edKeyPair public key length wrong") {
                     let result = sodium.blindedKeyPair(
                         serverPublicKey: TestConstants.serverPublicKey,
-                        edKeyPair: Box.KeyPair(
+                        edKeyPair: KeyPair(
                             publicKey: Data(hex: String(TestConstants.edPublicKey.prefix(4))).bytes,
                             secretKey: Data(hex: TestConstants.edSecretKey).bytes
                         ),
@@ -115,7 +116,7 @@ class SodiumUtilitiesSpec: QuickSpec {
                 it("fails if the edKeyPair secret key length wrong") {
                     let result = sodium.blindedKeyPair(
                         serverPublicKey: TestConstants.serverPublicKey,
-                        edKeyPair: Box.KeyPair(
+                        edKeyPair: KeyPair(
                             publicKey: Data(hex: TestConstants.edPublicKey).bytes,
                             secretKey: Data(hex: String(TestConstants.edSecretKey.prefix(4))).bytes
                         ),
@@ -128,7 +129,7 @@ class SodiumUtilitiesSpec: QuickSpec {
                 it("fails if it cannot generate a blinding factor") {
                     let result = sodium.blindedKeyPair(
                         serverPublicKey: "Test",
-                        edKeyPair: Box.KeyPair(
+                        edKeyPair: KeyPair(
                             publicKey: Data(hex: TestConstants.edPublicKey).bytes,
                             secretKey: Data(hex: TestConstants.edSecretKey).bytes
                         ),

@@ -3,6 +3,7 @@
 import Foundation
 import SessionUtilitiesKit
 import UIKit
+import SignalCoreKit
 
 @objc public extension UIApplication {
 

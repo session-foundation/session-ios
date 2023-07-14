@@ -34,6 +34,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     public static let currentUserPublicKeyKey: SQL = SQL(stringLiteral: CodingKeys.currentUserPublicKey.stringValue)
     public static let cellTypeKey: SQL = SQL(stringLiteral: CodingKeys.cellType.stringValue)
     public static let authorNameKey: SQL = SQL(stringLiteral: CodingKeys.authorName.stringValue)
+    public static let canHaveProfileKey: SQL = SQL(stringLiteral: CodingKeys.canHaveProfile.stringValue)
     public static let shouldShowProfileKey: SQL = SQL(stringLiteral: CodingKeys.shouldShowProfile.stringValue)
     public static let shouldShowDateHeaderKey: SQL = SQL(stringLiteral: CodingKeys.shouldShowDateHeader.stringValue)
     public static let positionInClusterKey: SQL = SQL(stringLiteral: CodingKeys.positionInCluster.stringValue)
@@ -54,6 +55,16 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         case genericAttachment
         case typingIndicator
         case dateHeader
+        case unreadMarker
+        
+        /// A number of the `CellType` entries are dynamically added to the dataset after processing, this flag indicates
+        /// whether the given type is one of them
+        public var isPostProcessed: Bool {
+            switch self {
+                case .typingIndicator, .dateHeader, .unreadMarker: return true
+                default: return false
+            }
+        }
     }
     
     public var differenceIdentifier: Int64 { id }
@@ -72,6 +83,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     
     public let rowId: Int64
     public let id: Int64
+    public let openGroupServerMessageId: Int64?
     public let variant: Interaction.Variant
     public let timestampMs: Int64
     public let receivedAtTimestampMs: Int64
@@ -115,6 +127,9 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     /// **Note:** This will only be populated for incoming messages
     public let senderName: String?
 
+    /// A flag indicating whether the profile view can be displayed
+    public let canHaveProfile: Bool
+    
     /// A flag indicating whether the profile view should be displayed
     public let shouldShowProfile: Bool
 
@@ -147,14 +162,17 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     
     public let isLastOutgoing: Bool
     
-    /// This is the users blinded key (will only be set for messages within open groups)
-    public let currentUserBlindedPublicKey: String?
+    /// This is the users blinded15 key (will only be set for messages within open groups)
+    public let currentUserBlinded15PublicKey: String?
+    
+    /// This is the users blinded25 key (will only be set for messages within open groups)
+    public let currentUserBlinded25PublicKey: String?
 
     // MARK: - Mutation
     
     public func with(
-        attachments: Updatable<[Attachment]> = .existing,
-        reactionInfo: Updatable<[ReactionInfo]> = .existing
+        attachments: [Attachment]? = nil,
+        reactionInfo: [ReactionInfo]? = nil
     ) -> MessageViewModel {
         return MessageViewModel(
             threadId: self.threadId,
@@ -166,6 +184,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             threadContactNameInternal: self.threadContactNameInternal,
             rowId: self.rowId,
             id: self.id,
+            openGroupServerMessageId: self.openGroupServerMessageId,
             variant: self.variant,
             timestampMs: self.timestampMs,
             receivedAtTimestampMs: self.receivedAtTimestampMs,
@@ -191,6 +210,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             cellType: self.cellType,
             authorName: self.authorName,
             senderName: self.senderName,
+            canHaveProfile: self.canHaveProfile,
             shouldShowProfile: self.shouldShowProfile,
             shouldShowDateHeader: self.shouldShowDateHeader,
             containsOnlyEmoji: self.containsOnlyEmoji,
@@ -200,7 +220,8 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             isOnlyMessageInCluster: self.isOnlyMessageInCluster,
             isLast: self.isLast,
             isLastOutgoing: self.isLastOutgoing,
-            currentUserBlindedPublicKey: self.currentUserBlindedPublicKey
+            currentUserBlinded15PublicKey: self.currentUserBlinded15PublicKey,
+            currentUserBlinded25PublicKey: self.currentUserBlinded25PublicKey
         )
     }
     
@@ -209,7 +230,8 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         nextModel: MessageViewModel?,
         isLast: Bool,
         isLastOutgoing: Bool,
-        currentUserBlindedPublicKey: String?
+        currentUserBlinded15PublicKey: String?,
+        currentUserBlinded25PublicKey: String?
     ) -> MessageViewModel {
         let cellType: CellType = {
             guard self.isTypingIndicator != true else { return .typingIndicator }
@@ -313,6 +335,11 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
                 case (false, true): return (.bottom, isOnlyMessageInCluster)
             }
         }()
+        let isGroupThread: Bool = (
+            self.threadVariant == .community ||
+            self.threadVariant == .legacyGroup ||
+            self.threadVariant == .group
+        )
         
         return ViewModel(
             threadId: self.threadId,
@@ -324,6 +351,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             threadContactNameInternal: self.threadContactNameInternal,
             rowId: self.rowId,
             id: self.id,
+            openGroupServerMessageId: self.openGroupServerMessageId,
             variant: self.variant,
             timestampMs: self.timestampMs,
             receivedAtTimestampMs: self.receivedAtTimestampMs,
@@ -374,9 +402,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             authorName: authorDisplayName,
             senderName: {
                 // Only show for group threads
-                guard self.threadVariant == .openGroup || self.threadVariant == .closedGroup else {
-                    return nil
-                }
+                guard isGroupThread else { return nil }
                 
                 // Only show for incoming messages
                 guard self.variant == .standardIncoming || self.variant == .standardIncomingDeleted else {
@@ -390,9 +416,14 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
                     
                 return authorDisplayName
             }(),
+            canHaveProfile: (
+                // Only group threads and incoming messages
+                isGroupThread &&
+                self.variant == .standardIncoming
+            ),
             shouldShowProfile: (
                 // Only group threads
-                (self.threadVariant == .openGroup || self.threadVariant == .closedGroup) &&
+                isGroupThread &&
                 
                 // Only incoming messages
                 (self.variant == .standardIncoming || self.variant == .standardIncomingDeleted) &&
@@ -415,7 +446,8 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             isOnlyMessageInCluster: isOnlyMessageInCluster,
             isLast: isLast,
             isLastOutgoing: isLastOutgoing,
-            currentUserBlindedPublicKey: currentUserBlindedPublicKey
+            currentUserBlinded15PublicKey: currentUserBlinded15PublicKey,
+            currentUserBlinded25PublicKey: currentUserBlinded25PublicKey
         )
     }
 }
@@ -501,8 +533,9 @@ public extension MessageViewModel {
 public extension MessageViewModel {
     static let genericId: Int64 = -1
     static let typingIndicatorId: Int64 = -2
+    static let optimisticUpdateId: Int64 = -3
     
-    // Note: This init method is only used system-created cells or empty states
+    /// This init method is only used for system-created cells or empty states
     init(
         variant: Interaction.Variant = .standardOutgoing,
         timestampMs: Int64 = Int64.max,
@@ -532,6 +565,7 @@ public extension MessageViewModel {
         }()
         self.rowId = targetId
         self.id = targetId
+        self.openGroupServerMessageId = nil
         self.variant = variant
         self.timestampMs = timestampMs
         self.receivedAtTimestampMs = receivedAtTimestampMs
@@ -553,14 +587,15 @@ public extension MessageViewModel {
         self.linkPreview = nil
         self.linkPreviewAttachment = nil
         self.currentUserPublicKey = ""
+        self.attachments = nil
+        self.reactionInfo = nil
         
         // Post-Query Processing Data
         
-        self.attachments = nil
-        self.reactionInfo = nil
         self.cellType = cellType
         self.authorName = ""
         self.senderName = nil
+        self.canHaveProfile = false
         self.shouldShowProfile = false
         self.shouldShowDateHeader = false
         self.containsOnlyEmoji = nil
@@ -570,7 +605,87 @@ public extension MessageViewModel {
         self.isOnlyMessageInCluster = true
         self.isLast = isLast
         self.isLastOutgoing = isLastOutgoing
-        self.currentUserBlindedPublicKey = nil
+        self.currentUserBlinded15PublicKey = nil
+        self.currentUserBlinded25PublicKey = nil
+    }
+    
+    /// This init method is only used for optimistic outgoing messages
+    init(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        threadHasDisappearingMessagesEnabled: Bool,
+        threadOpenGroupServer: String?,
+        threadOpenGroupPublicKey: String?,
+        threadContactNameInternal: String,
+        timestampMs: Int64,
+        receivedAtTimestampMs: Int64,
+        authorId: String,
+        authorNameInternal: String,
+        body: String?,
+        expiresStartedAtMs: Double?,
+        expiresInSeconds: TimeInterval?,
+        isSenderOpenGroupModerator: Bool,
+        currentUserProfile: Profile,
+        quote: Quote?,
+        quoteAttachment: Attachment?,
+        linkPreview: LinkPreview?,
+        linkPreviewAttachment: Attachment?,
+        attachments: [Attachment]?
+    ) {
+        self.threadId = threadId
+        self.threadVariant = threadVariant
+        self.threadIsTrusted = false
+        self.threadHasDisappearingMessagesEnabled = threadHasDisappearingMessagesEnabled
+        self.threadOpenGroupServer = threadOpenGroupServer
+        self.threadOpenGroupPublicKey = threadOpenGroupPublicKey
+        self.threadContactNameInternal = threadContactNameInternal
+        
+        // Interaction Info
+        
+        self.rowId = MessageViewModel.optimisticUpdateId
+        self.id = MessageViewModel.optimisticUpdateId
+        self.openGroupServerMessageId = nil
+        self.variant = .standardOutgoing
+        self.timestampMs = timestampMs
+        self.receivedAtTimestampMs = receivedAtTimestampMs
+        self.authorId = authorId
+        self.authorNameInternal = authorNameInternal
+        self.body = body
+        self.rawBody = body
+        self.expiresStartedAtMs = expiresStartedAtMs
+        self.expiresInSeconds = expiresInSeconds
+        
+        self.state = .sending
+        self.hasAtLeastOneReadReceipt = false
+        self.mostRecentFailureText = nil
+        self.isSenderOpenGroupModerator = isSenderOpenGroupModerator
+        self.isTypingIndicator = false
+        self.profile = currentUserProfile
+        self.quote = quote
+        self.quoteAttachment = quoteAttachment
+        self.linkPreview = linkPreview
+        self.linkPreviewAttachment = linkPreviewAttachment
+        self.currentUserPublicKey = currentUserProfile.id
+        self.attachments = attachments
+        self.reactionInfo = nil
+        
+        // Post-Query Processing Data
+        
+        self.cellType = .textOnlyMessage
+        self.authorName = ""
+        self.senderName = nil
+        self.canHaveProfile = false
+        self.shouldShowProfile = false
+        self.shouldShowDateHeader = false
+        self.containsOnlyEmoji = nil
+        self.glyphCount = nil
+        self.previousVariant = nil
+        self.positionInCluster = .middle
+        self.isOnlyMessageInCluster = true
+        self.isLast = false
+        self.isLastOutgoing = false
+        self.currentUserBlinded15PublicKey = nil
+        self.currentUserBlinded25PublicKey = nil
     }
 }
 
@@ -637,7 +752,8 @@ public extension MessageViewModel {
     
     static func baseQuery(
         userPublicKey: String,
-        blindedPublicKey: String?,
+        blinded15PublicKey: String?,
+        blinded25PublicKey: String?,
         orderSQL: SQL,
         groupSQL: SQL?
     ) -> (([Int64]) -> AdaptedFetchRequest<SQLRequest<MessageViewModel>>) {
@@ -673,7 +789,7 @@ public extension MessageViewModel {
             let interactionAttachmentAttachmentIdColumn: SQL = SQL(stringLiteral: InteractionAttachment.Columns.attachmentId.name)
             let interactionAttachmentAlbumIndexColumn: SQL = SQL(stringLiteral: InteractionAttachment.Columns.albumIndex.name)
             
-            let numColumnsBeforeLinkedRecords: Int = 21
+            let numColumnsBeforeLinkedRecords: Int = 22
             let finalGroupSQL: SQL = (groupSQL ?? "")
             let request: SQLRequest<ViewModel> = """
                 SELECT
@@ -689,6 +805,7 @@ public extension MessageViewModel {
             
                     \(interaction.alias[Column.rowID]) AS \(ViewModel.rowIdKey),
                     \(interaction[.id]),
+                    \(interaction[.openGroupServerMessageId]),
                     \(interaction[.variant]),
                     \(interaction[.timestampMs]),
                     \(interaction[.receivedAtTimestampMs]),
@@ -709,7 +826,7 @@ public extension MessageViewModel {
                         WHERE (
                             \(groupMember[.groupId]) = \(interaction[.threadId]) AND
                             \(groupMember[.profileId]) = \(interaction[.authorId]) AND
-                            \(SQL("\(thread[.variant]) = \(SessionThread.Variant.openGroup)")) AND
+                            \(SQL("\(thread[.variant]) = \(SessionThread.Variant.community)")) AND
                             \(SQL("\(groupMember[.role]) IN \([GroupMember.Role.moderator, GroupMember.Role.admin])"))
                         )
                     ) AS \(ViewModel.isSenderOpenGroupModeratorKey),
@@ -730,6 +847,7 @@ public extension MessageViewModel {
                     -- query from crashing when decoding we need to provide default values
                     \(CellType.textOnlyMessage) AS \(ViewModel.cellTypeKey),
                     '' AS \(ViewModel.authorNameKey),
+                    false AS \(ViewModel.canHaveProfileKey),
                     false AS \(ViewModel.shouldShowProfileKey),
                     false AS \(ViewModel.shouldShowDateHeaderKey),
                     \(Position.middle) AS \(ViewModel.positionInClusterKey),
@@ -750,8 +868,11 @@ public extension MessageViewModel {
                         \(quoteInteraction).\(authorIdColumn) = \(quote[.authorId]) OR (
                             -- A users outgoing message is stored in some cases using their standard id
                             -- but the quote will use their blinded id so handle that case
-                            \(quote[.authorId]) = \(blindedPublicKey ?? "''") AND
-                            \(quoteInteraction).\(authorIdColumn) = \(userPublicKey)
+                            \(quoteInteraction).\(authorIdColumn) = \(userPublicKey) AND
+                            (
+                                \(quote[.authorId]) = \(blinded15PublicKey ?? "''") OR
+                                \(quote[.authorId]) = \(blinded25PublicKey ?? "''")
+                            )
                         )
                     )
                 )
@@ -871,11 +992,9 @@ public extension MessageViewModel.AttachmentInteractionInfo {
                     
                     updatedPagedDataCache = updatedPagedDataCache.upserting(
                         dataToUpdate.with(
-                            attachments: .update(
-                                attachments
-                                    .sorted()
-                                    .map { $0.attachment }
-                            )
+                            attachments: attachments
+                                .sorted()
+                                .map { $0.attachment }
                         )
                     )
                 }
@@ -953,7 +1072,7 @@ public extension MessageViewModel.ReactionInfo {
                     else { return }
                     
                     updatedPagedDataCache = updatedPagedDataCache.upserting(
-                        dataToUpdate.with(reactionInfo: .update(reactionInfo.sorted()))
+                        dataToUpdate.with(reactionInfo: reactionInfo.sorted())
                     )
                     pagedRowIdsWithNoReactions.remove(interactionRowId)
                 }
@@ -963,7 +1082,7 @@ public extension MessageViewModel.ReactionInfo {
                 items: pagedRowIdsWithNoReactions
                     .compactMap { rowId -> ViewModel? in updatedPagedDataCache.data[rowId] }
                     .filter { viewModel -> Bool in (viewModel.reactionInfo?.isEmpty == false) }
-                    .map { viewModel -> ViewModel in viewModel.with(reactionInfo: nil) }
+                    .map { viewModel -> ViewModel in viewModel.with(reactionInfo: []) }
             )
             
             return updatedPagedDataCache

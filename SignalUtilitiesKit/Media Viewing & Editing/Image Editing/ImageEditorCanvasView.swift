@@ -2,6 +2,7 @@
 
 import UIKit
 import SessionUIKit
+import SignalCoreKit
 
 public class EditorTextLayer: CATextLayer {
     let itemId: String
