@@ -2,10 +2,11 @@
 
 import Foundation
 import GRDB
+import SessionSnodeKit
 import SessionUtilitiesKit
 
 public extension Message {
-    enum Destination: Codable {
+    enum Destination: Codable, Hashable {
         case contact(publicKey: String)
         case closedGroup(groupPublicKey: String)
         case openGroup(
@@ -16,33 +17,44 @@ public extension Message {
             fileIds: [String]? = nil
         )
         case openGroupInbox(server: String, openGroupPublicKey: String, blindedPublicKey: String)
-
-        static func from(
+        
+        public var defaultNamespace: SnodeAPI.Namespace? {
+            switch self {
+                case .contact: return .`default`
+                case .closedGroup: return .legacyClosedGroup
+                default: return nil
+            }
+        }
+        
+        public static func from(
             _ db: Database,
-            thread: SessionThread,
+            threadId: String,
+            threadVariant: SessionThread.Variant,
             fileIds: [String]? = nil
         ) throws -> Message.Destination {
-            switch thread.variant {
+            switch threadVariant {
                 case .contact:
-                    if SessionId.Prefix(from: thread.id) == .blinded {
-                        guard let lookup: BlindedIdLookup = try? BlindedIdLookup.fetchOne(db, id: thread.id) else {
+                    let prefix: SessionId.Prefix? = SessionId.Prefix(from: threadId)
+                    
+                    if prefix == .blinded15 || prefix == .blinded25 {
+                        guard let lookup: BlindedIdLookup = try? BlindedIdLookup.fetchOne(db, id: threadId) else {
                             preconditionFailure("Attempting to send message to blinded id without the Open Group information")
                         }
                         
                         return .openGroupInbox(
                             server: lookup.openGroupServer,
                             openGroupPublicKey: lookup.openGroupPublicKey,
-                            blindedPublicKey: thread.id
+                            blindedPublicKey: threadId
                         )
                     }
                     
-                    return .contact(publicKey: thread.id)
+                    return .contact(publicKey: threadId)
                 
-                case .closedGroup:
-                    return .closedGroup(groupPublicKey: thread.id)
+                case .legacyGroup, .group:
+                    return .closedGroup(groupPublicKey: threadId)
                 
-                case .openGroup:
-                    guard let openGroup: OpenGroup = try thread.openGroup.fetchOne(db) else {
+                case .community:
+                    guard let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId) else {
                         throw StorageError.objectNotFound
                     }
                     

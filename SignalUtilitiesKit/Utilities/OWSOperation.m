@@ -3,8 +3,11 @@
 //
 
 #import "OWSOperation.h"
-#import "OWSBackgroundTask.h"
 #import "OWSError.h"
+#import <SignalCoreKit/OWSAsserts.h>
+#import <SignalCoreKit/NSObject+OWS.h>
+#import <SessionUtilitiesKit/OWSBackgroundTask.h>
+#import <SessionUtilitiesKit/NSTimer+Proxying.h>
 
 NS_ASSUME_NONNULL_BEGIN
 

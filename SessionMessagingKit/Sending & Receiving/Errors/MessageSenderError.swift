@@ -2,7 +2,7 @@
 
 import Foundation
 
-public enum MessageSenderError: LocalizedError {
+public enum MessageSenderError: LocalizedError, Equatable {
     case invalidMessage
     case protoConversionFailed
     case noUserX25519KeyPair
@@ -10,6 +10,7 @@ public enum MessageSenderError: LocalizedError {
     case signingFailed
     case encryptionFailed
     case noUsername
+    case attachmentsNotUploaded
     
     // Closed groups
     case noThread
@@ -34,12 +35,35 @@ public enum MessageSenderError: LocalizedError {
             case .signingFailed: return "Couldn't sign message."
             case .encryptionFailed: return "Couldn't encrypt message."
             case .noUsername: return "Missing username."
+            case .attachmentsNotUploaded: return "Attachments for this message have not been uploaded."
             
             // Closed groups
             case .noThread: return "Couldn't find a thread associated with the given group public key."
             case .noKeyPair: return "Couldn't find a private key associated with the given group public key."
             case .invalidClosedGroupUpdate: return "Invalid group update."
             case .other(let error): return error.localizedDescription
+        }
+    }
+    
+    public static func == (lhs: MessageSenderError, rhs: MessageSenderError) -> Bool {
+        switch (lhs, rhs) {
+            case (.invalidMessage, .invalidMessage): return true
+            case (.protoConversionFailed, .protoConversionFailed): return true
+            case (.noUserX25519KeyPair, .noUserX25519KeyPair): return true
+            case (.noUserED25519KeyPair, .noUserED25519KeyPair): return true
+            case (.signingFailed, .signingFailed): return true
+            case (.encryptionFailed, .encryptionFailed): return true
+            case (.noUsername, .noUsername): return true
+            case (.attachmentsNotUploaded, .attachmentsNotUploaded): return true
+            case (.noThread, .noThread): return true
+            case (.noKeyPair, .noKeyPair): return true
+            case (.invalidClosedGroupUpdate, .invalidClosedGroupUpdate): return true
+            
+            case (.other(let lhsError), .other(let rhsError)):
+                // Not ideal but the best we can do
+                return (lhsError.localizedDescription == rhsError.localizedDescription)
+                
+            default: return false
         }
     }
 }

@@ -1,6 +1,9 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+
 import WebRTC
 import Foundation
+import SessionUtilitiesKit
+import SignalCoreKit
 
 #if targetEnvironment(simulator)
 // Note: 'RTCMTLVideoView' doesn't seem to work on the simulator so use 'RTCEAGLVideoView' instead
@@ -27,7 +30,7 @@ class RemoteVideoView: TargetView {
             return
         }
         
-        DispatchMainThreadSafe {
+        Threading.dispatchMainThreadSafe {
             let frameRatio = Double(frame.height) / Double(frame.width)
             let frameRotation = frame.rotation
             let deviceRotation = UIDevice.current.orientation
@@ -90,7 +93,8 @@ class LocalVideoView: TargetView {
 
     override func renderFrame(_ frame: RTCVideoFrame?) {
         super.renderFrame(frame)
-        DispatchMainThreadSafe {
+        
+        Threading.dispatchMainThreadSafe {
             // This is a workaround for a weird issue that
             // sometimes the rotationOverride is not working
             // if it is only set once on initialization

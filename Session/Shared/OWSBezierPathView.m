@@ -2,7 +2,9 @@
 //  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
 //
 
+#import <UIKit/UIKit.h>
 #import "OWSBezierPathView.h"
+#import <SignalCoreKit/OWSAsserts.h>
 
 NS_ASSUME_NONNULL_BEGIN
 

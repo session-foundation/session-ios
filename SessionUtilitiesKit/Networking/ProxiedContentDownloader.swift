@@ -3,6 +3,7 @@
 //
 
 import Foundation
+import Combine
 import ObjectiveC
 
 // Stills should be loaded before full GIFs.
@@ -495,6 +496,42 @@ open class ProxiedContentDownloader: NSObject, URLSessionTaskDelegate, URLSessio
         // method before its success/failure handler is called.
         processRequestQueueAsync()
         return assetRequest
+    }
+    
+    public func requestAsset(
+        assetDescription: ProxiedContentAssetDescription,
+        priority: ProxiedContentRequestPriority,
+        shouldIgnoreSignalProxy: Bool = false
+    ) -> AnyPublisher<(ProxiedContentAsset, ProxiedContentAssetRequest?), Error> {
+        if let asset = assetMap.get(key: assetDescription.url) {
+            // Synchronous cache hit.
+            return Just((asset, nil))
+                .setFailureType(to: Error.self)
+                .eraseToAnyPublisher()
+        }
+        
+        // Cache miss.
+        //
+        // Asset requests are done queued and performed asynchronously.
+        return Deferred {
+            Future { [weak self] resolver in
+                let assetRequest = ProxiedContentAssetRequest(
+                    assetDescription: assetDescription,
+                    priority: priority,
+                    success: { request, asset in resolver(Result.success((asset, request))) },
+                    failure: { request in
+                        resolver(Result.failure(HTTPError.generic))
+                    }
+                )
+                assetRequest.shouldIgnoreSignalProxy = shouldIgnoreSignalProxy
+                self?.assetRequestQueue.append(assetRequest)
+                // Process the queue (which may start this request)
+                // asynchronously so that the caller has time to store
+                // a reference to the asset request returned by this
+                // method before its success/failure handler is called.
+                self?.processRequestQueueAsync()
+            }
+        }.eraseToAnyPublisher()
     }
 
     public func cancelAllRequests() {

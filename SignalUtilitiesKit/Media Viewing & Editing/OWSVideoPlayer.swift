@@ -1,10 +1,9 @@
-//
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
-//
 
 import Foundation
 import AVFoundation
 import SessionMessagingKit
+import SignalCoreKit
 
 public protocol OWSVideoPlayerDelegate: AnyObject {
     func videoPlayerDidPlayToCompletion(_ videoPlayer: OWSVideoPlayer)

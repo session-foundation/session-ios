@@ -8,6 +8,7 @@ public enum ProfileManagerError: LocalizedError {
     case avatarEncryptionFailed
     case avatarUploadFailed
     case avatarUploadMaxFileSizeExceeded
+    case invalidCall
     
     var localizedDescription: String {
         switch self {
@@ -16,6 +17,7 @@ public enum ProfileManagerError: LocalizedError {
             case .avatarEncryptionFailed: return "Avatar encryption failed."
             case .avatarUploadFailed: return "Avatar upload failed."
             case .avatarUploadMaxFileSizeExceeded: return "Maximum file size exceeded."
+            case .invalidCall: return "Attempted to remove avatar using the wrong method."
         }
     }
 }

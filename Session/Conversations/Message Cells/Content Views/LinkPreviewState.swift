@@ -2,6 +2,7 @@
 
 import UIKit
 import SessionMessagingKit
+import SignalCoreKit
 
 protocol LinkPreviewState {
     var isLoaded: Bool { get }

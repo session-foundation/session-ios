@@ -1,8 +1,7 @@
-//
 //  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
-//
 
 import Foundation
+import SignalCoreKit
 
 // This is intended to be a drop-in replacement for DispatchQueue
 // that processes its queue in reverse order.

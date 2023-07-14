@@ -4,6 +4,7 @@ import Foundation
 import GRDB
 import DifferenceKit
 import SignalUtilitiesKit
+import SessionMessagingKit
 import SessionUtilitiesKit
 
 public class HomeViewModel {
@@ -19,38 +20,45 @@ public class HomeViewModel {
     
     // MARK: - Variables
     
-    public static let pageSize: Int = 15
+    public static let pageSize: Int = (UIDevice.current.isIPad ? 20 : 15)
     
     public struct State: Equatable {
         let showViewedSeedBanner: Bool
         let hasHiddenMessageRequests: Bool
         let unreadMessageRequestThreadCount: Int
-        let userProfile: Profile?
-        
-        init(
-            showViewedSeedBanner: Bool = !Storage.shared[.hasViewedSeed],
-            hasHiddenMessageRequests: Bool = Storage.shared[.hasHiddenMessageRequests],
-            unreadMessageRequestThreadCount: Int = 0,
-            userProfile: Profile? = nil
-        ) {
-            self.showViewedSeedBanner = showViewedSeedBanner
-            self.hasHiddenMessageRequests = hasHiddenMessageRequests
-            self.unreadMessageRequestThreadCount = unreadMessageRequestThreadCount
-            self.userProfile = userProfile
-        }
+        let userProfile: Profile
     }
     
     // MARK: - Initialization
     
     init() {
-        self.state = State()
+        typealias InitialData = (
+            showViewedSeedBanner: Bool,
+            hasHiddenMessageRequests: Bool,
+            profile: Profile
+        )
+        
+        let initialData: InitialData? = Storage.shared.read { db -> InitialData in
+            (
+                !db[.hasViewedSeed],
+                db[.hasHiddenMessageRequests],
+                Profile.fetchOrCreateCurrentUser(db)
+            )
+        }
+        
+        self.state = State(
+            showViewedSeedBanner: (initialData?.showViewedSeedBanner ?? true),
+            hasHiddenMessageRequests: (initialData?.hasHiddenMessageRequests ?? false),
+            unreadMessageRequestThreadCount: 0,
+            userProfile: (initialData?.profile ?? Profile.fetchOrCreateCurrentUser())
+        )
         self.pagedDataObserver = nil
         
         // Note: Since this references self we need to finish initializing before setting it, we
         // also want to skip the initial query and trigger it async so that the push animation
         // doesn't stutter (it should load basically immediately but without this there is a
         // distinct stutter)
-        let userPublicKey: String = getUserHexEncodedPublicKey()
+        let userPublicKey: String = self.state.userProfile.id
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         self.pagedDataObserver = PagedDatabaseObserver(
             pagedTable: SessionThread.self,
@@ -62,9 +70,10 @@ public class HomeViewModel {
                     columns: [
                         .id,
                         .shouldBeVisible,
-                        .isPinned,
+                        .pinnedPriority,
                         .mutedUntilTimestamp,
-                        .onlyNotifyForMentions
+                        .onlyNotifyForMentions,
+                        .markedAsUnread
                     ]
                 ),
                 PagedData.ObservedChanges(
@@ -76,7 +85,7 @@ public class HomeViewModel {
                     joinToPagedType: {
                         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
                         
-                        return SQL("LEFT JOIN \(Interaction.self) ON \(interaction[.threadId]) = \(thread[.id])")
+                        return SQL("JOIN \(Interaction.self) ON \(interaction[.threadId]) = \(thread[.id])")
                     }()
                 ),
                 PagedData.ObservedChanges(
@@ -85,7 +94,7 @@ public class HomeViewModel {
                     joinToPagedType: {
                         let contact: TypedTableAlias<Contact> = TypedTableAlias()
                         
-                        return SQL("LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])")
+                        return SQL("JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])")
                     }()
                 ),
                 PagedData.ObservedChanges(
@@ -93,8 +102,53 @@ public class HomeViewModel {
                     columns: [.name, .nickname, .profilePictureFileName],
                     joinToPagedType: {
                         let profile: TypedTableAlias<Profile> = TypedTableAlias()
+                        let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
+                        let threadVariants: [SessionThread.Variant] = [.legacyGroup, .group]
+                        let targetRole: GroupMember.Role = GroupMember.Role.standard
                         
-                        return SQL("LEFT JOIN \(Profile.self) ON \(profile[.id]) = \(thread[.id])")
+                        return SQL("""
+                            JOIN \(Profile.self) ON (
+                                (   -- Contact profile change
+                                    \(profile[.id]) = \(thread[.id]) AND
+                                    \(SQL("\(thread[.variant]) = \(SessionThread.Variant.contact)"))
+                                ) OR ( -- Closed group profile change
+                                    \(SQL("\(thread[.variant]) IN \(threadVariants)")) AND (
+                                        profile.id = (  -- Front profile
+                                            SELECT MIN(\(groupMember[.profileId]))
+                                            FROM \(GroupMember.self)
+                                            JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
+                                            WHERE (
+                                                \(groupMember[.groupId]) = \(thread[.id]) AND
+                                                \(SQL("\(groupMember[.role]) = \(targetRole)")) AND
+                                                \(groupMember[.profileId]) != \(userPublicKey)
+                                            )
+                                        ) OR
+                                        profile.id = (  -- Back profile
+                                            SELECT MAX(\(groupMember[.profileId]))
+                                            FROM \(GroupMember.self)
+                                            JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
+                                            WHERE (
+                                                \(groupMember[.groupId]) = \(thread[.id]) AND
+                                                \(SQL("\(groupMember[.role]) = \(targetRole)")) AND
+                                                \(groupMember[.profileId]) != \(userPublicKey)
+                                            )
+                                        ) OR (  -- Fallback profile
+                                            profile.id = \(userPublicKey) AND
+                                            (
+                                                SELECT COUNT(\(groupMember[.profileId]))
+                                                FROM \(GroupMember.self)
+                                                JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
+                                                WHERE (
+                                                    \(groupMember[.groupId]) = \(thread[.id]) AND
+                                                    \(SQL("\(groupMember[.role]) = \(targetRole)")) AND
+                                                    \(groupMember[.profileId]) != \(userPublicKey)
+                                                )
+                                            ) = 1
+                                        )
+                                    )
+                                )
+                            )
+                        """)
                     }()
                 ),
                 PagedData.ObservedChanges(
@@ -103,7 +157,7 @@ public class HomeViewModel {
                     joinToPagedType: {
                         let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
                         
-                        return SQL("LEFT JOIN \(ClosedGroup.self) ON \(closedGroup[.threadId]) = \(thread[.id])")
+                        return SQL("JOIN \(ClosedGroup.self) ON \(closedGroup[.threadId]) = \(thread[.id])")
                     }()
                 ),
                 PagedData.ObservedChanges(
@@ -112,7 +166,7 @@ public class HomeViewModel {
                     joinToPagedType: {
                         let openGroup: TypedTableAlias<OpenGroup> = TypedTableAlias()
                         
-                        return SQL("LEFT JOIN \(OpenGroup.self) ON \(openGroup[.threadId]) = \(thread[.id])")
+                        return SQL("JOIN \(OpenGroup.self) ON \(openGroup[.threadId]) = \(thread[.id])")
                     }()
                 ),
                 PagedData.ObservedChanges(
@@ -123,8 +177,8 @@ public class HomeViewModel {
                         let recipientState: TypedTableAlias<RecipientState> = TypedTableAlias()
                         
                         return """
-                            LEFT JOIN \(Interaction.self) ON \(interaction[.threadId]) = \(thread[.id])
-                            LEFT JOIN \(RecipientState.self) ON \(recipientState[.interactionId]) = \(interaction[.id])
+                            JOIN \(Interaction.self) ON \(interaction[.threadId]) = \(thread[.id])
+                            JOIN \(RecipientState.self) ON \(recipientState[.interactionId]) = \(interaction[.id])
                         """
                     }()
                 ),
@@ -134,7 +188,7 @@ public class HomeViewModel {
                     joinToPagedType: {
                         let typingIndicator: TypedTableAlias<ThreadTypingIndicator> = TypedTableAlias()
                         
-                        return SQL("LEFT JOIN \(ThreadTypingIndicator.self) ON \(typingIndicator[.threadId]) = \(thread[.id])")
+                        return SQL("JOIN \(ThreadTypingIndicator.self) ON \(typingIndicator[.threadId]) = \(thread[.id])")
                     }()
                 )
             ],
@@ -155,15 +209,22 @@ public class HomeViewModel {
                     currentDataRetriever: { self?.threadData },
                     onDataChange: self?.onThreadChange,
                     onUnobservedDataChange: { updatedData, changeset in
-                        self?.unobservedThreadDataChanges = (updatedData, changeset)
+                        self?.unobservedThreadDataChanges = (changeset.isEmpty ?
+                            nil :
+                            (updatedData, changeset)
+                        )
                     }
                 )
+                
+                self?.hasReceivedInitialThreadData = true
             }
         )
         
-        // Run the initial query on the main thread so we prevent the app from leaving the loading screen
-        // until we have data (Note: the `.pageBefore` will query from a `0` offset loading the first page)
-        self.pagedDataObserver?.load(.pageBefore)
+        // Run the initial query on a background thread so we don't block the main thread
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            // The `.pageBefore` will query from a `0` offset loading the first page
+            self?.pagedDataObserver?.load(.pageBefore)
+        }
     }
     
     // MARK: - State
@@ -181,6 +242,7 @@ public class HomeViewModel {
     public lazy var observableState = ValueObservation
         .trackingConstantRegion { db -> State in try HomeViewModel.retrieveState(db) }
         .removeDuplicates()
+        .handleEvents(didFail: { SNLog("[HomeViewModel] Observation failed with error: \($0)") })
     
     private static func retrieveState(_ db: Database) throws -> State {
         let hasViewedSeed: Bool = db[.hasViewedSeed]
@@ -203,8 +265,10 @@ public class HomeViewModel {
         let oldState: State = self.state
         self.state = updatedState
         
-        // If the messageRequest content changed then we need to re-process the thread data
+        // If the messageRequest content changed then we need to re-process the thread data (assuming
+        // we've received the initial thread data)
         guard
+            self.hasReceivedInitialThreadData,
             (
                 oldState.hasHiddenMessageRequests != updatedState.hasHiddenMessageRequests ||
                 oldState.unreadMessageRequestThreadCount != updatedState.unreadMessageRequestThreadCount
@@ -215,7 +279,7 @@ public class HomeViewModel {
         /// **MUST** have the same logic as in the 'PagedDataObserver.onChangeUnsorted' above
         let currentData: [SectionModel] = (self.unobservedThreadDataChanges?.0 ?? self.threadData)
         let updatedThreadData: [SectionModel] = self.process(
-            data: currentData.flatMap { $0.elements },
+            data: (currentData.first(where: { $0.model == .threads })?.elements ?? []),
             for: currentPageInfo
         )
         
@@ -223,14 +287,18 @@ public class HomeViewModel {
             updatedData: updatedThreadData,
             currentDataRetriever: { [weak self] in (self?.unobservedThreadDataChanges?.0 ?? self?.threadData) },
             onDataChange: onThreadChange,
-            onUnobservedDataChange: { [weak self] updatedThreadData, changeset in
-                self?.unobservedThreadDataChanges = (updatedThreadData, changeset)
+            onUnobservedDataChange: { [weak self] updatedData, changeset in
+                self?.unobservedThreadDataChanges = (changeset.isEmpty ?
+                    nil :
+                    (updatedData, changeset)
+                )
             }
         )
     }
     
     // MARK: - Thread Data
     
+    private var hasReceivedInitialThreadData: Bool = false
     public private(set) var unobservedThreadDataChanges: ([SectionModel], StagedChangeset<[SectionModel]>)?
     public private(set) var threadData: [SectionModel] = []
     public private(set) var pagedDataObserver: PagedDatabaseObserver<SessionThread, SessionThreadViewModel>?
@@ -239,8 +307,14 @@ public class HomeViewModel {
         didSet {
             // When starting to observe interaction changes we want to trigger a UI update just in case the
             // data was changed while we weren't observing
-            if let unobservedThreadDataChanges: ([SectionModel], StagedChangeset<[SectionModel]>) = self.unobservedThreadDataChanges {
-                onThreadChange?(unobservedThreadDataChanges.0, unobservedThreadDataChanges.1)
+            if let changes: ([SectionModel], StagedChangeset<[SectionModel]>) = self.unobservedThreadDataChanges {
+                let performChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ())? = onThreadChange
+                
+                switch Thread.isMainThread {
+                    case true: performChange?(changes.0, changes.1)
+                    case false: DispatchQueue.main.async { performChange?(changes.0, changes.1) }
+                }
+                
                 self.unobservedThreadDataChanges = nil
             }
         }
@@ -264,7 +338,10 @@ public class HomeViewModel {
                 [SectionModel(
                     section: .messageRequests,
                     elements: [
-                        SessionThreadViewModel(unreadCount: UInt(finalUnreadMessageRequestCount))
+                        SessionThreadViewModel(
+                            threadId: SessionThreadViewModel.messageRequestsSectionId,
+                            unreadCount: UInt(finalUnreadMessageRequestCount)
+                        )
                     ]
                 )]
             ),
@@ -272,18 +349,25 @@ public class HomeViewModel {
                 SectionModel(
                     section: .threads,
                     elements: data
-                        .filter { $0.id != SessionThreadViewModel.invalidId }
+                        .filter { threadViewModel in
+                            threadViewModel.id != SessionThreadViewModel.invalidId &&
+                            threadViewModel.id != SessionThreadViewModel.messageRequestsSectionId
+                        }
                         .sorted { lhs, rhs -> Bool in
-                            if lhs.threadIsPinned && !rhs.threadIsPinned { return true }
-                            if !lhs.threadIsPinned && rhs.threadIsPinned { return false }
+                            guard lhs.threadPinnedPriority == rhs.threadPinnedPriority else {
+                                return lhs.threadPinnedPriority > rhs.threadPinnedPriority
+                            }
                             
                             return lhs.lastInteractionDate > rhs.lastInteractionDate
                         }
                         .map { viewModel -> SessionThreadViewModel in
-                            viewModel.populatingCurrentUserBlindedKey(
-                                currentUserBlindedPublicKeyForThisThread: groupedOldData[viewModel.threadId]?
+                            viewModel.populatingCurrentUserBlindedKeys(
+                                currentUserBlinded15PublicKeyForThisThread: groupedOldData[viewModel.threadId]?
                                     .first?
-                                    .currentUserBlindedPublicKey
+                                    .currentUserBlinded15PublicKey,
+                                currentUserBlinded25PublicKeyForThisThread: groupedOldData[viewModel.threadId]?
+                                    .first?
+                                    .currentUserBlinded25PublicKey
                             )
                         }
                 )
@@ -297,33 +381,5 @@ public class HomeViewModel {
     
     public func updateThreadData(_ updatedData: [SectionModel]) {
         self.threadData = updatedData
-    }
-    
-    // MARK: - Functions
-    
-    public func delete(threadId: String, threadVariant: SessionThread.Variant, force: Bool = false) {
-        
-        func delete(_ db: Database, threadId: String) throws {
-            _ = try SessionThread
-                .filter(id: threadId)
-                .deleteAll(db)
-        }
-        
-        Storage.shared.writeAsync { db in
-            switch (threadVariant, force) {
-                case (.closedGroup, false):
-                    try MessageSender.leave(
-                        db,
-                        groupPublicKey: threadId,
-                        deleteThread: true
-                    )
-                    
-                case (.openGroup, _):
-                    OpenGroupManager.shared.delete(db, openGroupId: threadId)
-                    
-                default:
-                    try delete(db, threadId: threadId)
-            }
-        }
     }
 }

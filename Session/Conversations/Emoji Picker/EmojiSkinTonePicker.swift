@@ -2,6 +2,8 @@
 
 import UIKit
 import SessionUIKit
+import SignalCoreKit
+import SignalUtilitiesKit
 
 class EmojiSkinTonePicker: UIView {
     let emoji: Emoji

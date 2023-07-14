@@ -8,12 +8,10 @@ import SessionUtilitiesKit
 /// Abstract base class for `VisibleMessage` and `ControlMessage`.
 public class Message: Codable {
     public var id: String?
-    public var threadId: String?
     public var sentTimestamp: UInt64?
     public var receivedTimestamp: UInt64?
     public var recipient: String?
     public var sender: String?
-    public var groupPublicKey: String?
     public var openGroupServerMessageId: UInt64?
     public var serverHash: String?
 
@@ -34,7 +32,6 @@ public class Message: Codable {
     
     public init(
         id: String? = nil,
-        threadId: String? = nil,
         sentTimestamp: UInt64? = nil,
         receivedTimestamp: UInt64? = nil,
         recipient: String? = nil,
@@ -44,12 +41,10 @@ public class Message: Codable {
         serverHash: String? = nil
     ) {
         self.id = id
-        self.threadId = threadId
         self.sentTimestamp = sentTimestamp
         self.receivedTimestamp = receivedTimestamp
         self.recipient = recipient
         self.sender = sender
-        self.groupPublicKey = groupPublicKey
         self.openGroupServerMessageId = openGroupServerMessageId
         self.serverHash = serverHash
     }
@@ -63,31 +58,18 @@ public class Message: Codable {
     public func toProto(_ db: Database) -> SNProtoContent? {
         preconditionFailure("toProto(_:) is abstract and must be overridden.")
     }
-
-    public func setGroupContextIfNeeded(_ db: Database, on dataMessage: SNProtoDataMessage.SNProtoDataMessageBuilder) throws {
-        guard
-            let threadId: String = threadId,
-            (try? ClosedGroup.exists(db, id: threadId)) == true,
-            let legacyGroupId: Data = "\(SMKLegacy.closedGroupIdPrefix)\(threadId)".data(using: .utf8)
-        else { return }
-        
-        // Android needs a group context or it'll interpret the message as a one-to-one message
-        let groupProto = SNProtoGroupContext.builder(id: legacyGroupId, type: .deliver)
-        dataMessage.setGroup(try groupProto.build())
-    }
 }
 
 // MARK: - Message Parsing/Processing
 
 public typealias ProcessedMessage = (
-    threadId: String?,
+    threadId: String,
+    threadVariant: SessionThread.Variant,
     proto: SNProtoContent,
     messageInfo: MessageReceiveJob.Details.MessageInfo
 )
 
 public extension Message {
-    static let nonThreadMessageId: String = "NON_THREAD_MESSAGE"
-    
     enum Variant: String, Codable {
         case readReceipt
         case typingIndicator
@@ -99,6 +81,7 @@ public extension Message {
         case messageRequestResponse
         case visibleMessage
         case callMessage
+        case sharedConfigMessage
         
         init?(from type: Message) {
             switch type {
@@ -112,6 +95,7 @@ public extension Message {
                 case is MessageRequestResponse: self = .messageRequestResponse
                 case is VisibleMessage: self = .visibleMessage
                 case is CallMessage: self = .callMessage
+                case is SharedConfigMessage: self = .sharedConfigMessage
                 default: return nil
             }
         }
@@ -128,6 +112,7 @@ public extension Message {
                 case .messageRequestResponse: return MessageRequestResponse.self
                 case .visibleMessage: return VisibleMessage.self
                 case .callMessage: return CallMessage.self
+                case .sharedConfigMessage: return SharedConfigMessage.self
             }
         }
 
@@ -148,6 +133,7 @@ public extension Message {
                 case .messageRequestResponse: return try container.decode(MessageRequestResponse.self, forKey: key)
                 case .visibleMessage: return try container.decode(VisibleMessage.self, forKey: key)
                 case .callMessage: return try container.decode(CallMessage.self, forKey: key)
+                case .sharedConfigMessage: return try container.decode(SharedConfigMessage.self, forKey: key)
             }
         }
     }
@@ -165,7 +151,8 @@ public extension Message {
             .unsendRequest,
             .messageRequestResponse,
             .visibleMessage,
-            .callMessage
+            .callMessage,
+            .sharedConfigMessage
         ]
         
         return prioritisedVariants
@@ -174,6 +161,26 @@ public extension Message {
                 
                 return variant.messageType.fromProto(proto, sender: sender)
             }
+    }
+    
+    static func requiresExistingConversation(message: Message, threadVariant: SessionThread.Variant) -> Bool {
+        switch threadVariant {
+            case .contact, .community: return false
+                
+            case .legacyGroup:
+                switch message {
+                    case let controlMessage as ClosedGroupControlMessage:
+                        switch controlMessage.kind {
+                            case .new: return false
+                            default: return true
+                        }
+                        
+                    default: return true
+                }
+                
+            case .group:
+                return false
+        }
     }
     
     static func shouldSync(message: Message) -> Bool {
@@ -199,6 +206,28 @@ public extension Message {
         }
     }
     
+    static func threadId(forMessage message: Message, destination: Message.Destination) -> String {
+        switch destination {
+            case .contact(let publicKey):
+                // Extract the 'syncTarget' value if there is one
+                let maybeSyncTarget: String?
+                
+                switch message {
+                    case let message as VisibleMessage: maybeSyncTarget = message.syncTarget
+                    case let message as ExpirationTimerUpdate: maybeSyncTarget = message.syncTarget
+                    default: maybeSyncTarget = nil
+                }
+                
+                return (maybeSyncTarget ?? publicKey)
+                
+            case .closedGroup(let groupPublicKey): return groupPublicKey
+            case .openGroup(let roomToken, let server, _, _, _):
+                return OpenGroup.idFor(roomToken: roomToken, server: server)
+            
+            case .openGroupInbox(_, _, let blindedPublicKey): return blindedPublicKey
+        }
+    }
+    
     static func processRawReceivedMessage(
         _ db: Database,
         rawMessage: SnodeReceivedMessage
@@ -215,6 +244,19 @@ public extension Message {
                 serverHash: rawMessage.info.hash,
                 handleClosedGroupKeyUpdateMessages: true
             )
+            
+            // Ensure we actually want to de-dupe messages for this namespace, otherwise just
+            // succeed early
+            guard rawMessage.namespace.shouldDedupeMessages else {
+                // If we want to track the last hash then upsert the raw message info (don't
+                // want to fail if it already exsits because we don't want to dedupe messages
+                // in this namespace)
+                if rawMessage.namespace.shouldFetchSinceLastHash {
+                    _ = try rawMessage.info.saved(db)
+                }
+                
+                return processedMessage
+            }
             
             // Retrieve the number of entries we have for the hash of this message
             let numExistingHashes: Int = (try? SnodeReceivedMessageInfo
@@ -235,15 +277,9 @@ public extension Message {
             return processedMessage
         }
         catch {
-            // If we get 'selfSend' or 'duplicateControlMessage' errors then we still want to insert
-            // the SnodeReceivedMessageInfo to prevent retrieving and attempting to process the same
-            // message again (as well as ensure the next poll doesn't retrieve the same message)
-            switch error {
-                case MessageReceiverError.selfSend, MessageReceiverError.duplicateControlMessage:
-                    _ = try? rawMessage.info.inserted(db)
-                    break
-                
-                default: break
+            // For some error cases we want to update the last hash so do so
+            if (error as? MessageReceiverError)?.shouldUpdateLastHash == true {
+                _ = try? rawMessage.info.inserted(db)
             }
             
             throw error
@@ -368,12 +404,21 @@ public extension Message {
         var results: [Reaction] = []
         guard let reactions = message.reactions else { return results }
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
-        let blindedUserPublicKey: String? = SessionThread
+        let blinded15UserPublicKey: String? = SessionThread
             .getUserHexEncodedBlindedKey(
                 db,
                 threadId: openGroupId,
-                threadVariant: .openGroup
+                threadVariant: .community,
+                blindingPrefix: .blinded15
             )
+        let blinded25UserPublicKey: String? = SessionThread
+            .getUserHexEncodedBlindedKey(
+                db,
+                threadId: openGroupId,
+                threadVariant: .community,
+                blindingPrefix: .blinded25
+            )
+        
         for (encodedEmoji, rawReaction) in reactions {
             if let decodedEmoji = encodedEmoji.removingPercentEncoding,
                rawReaction.count > 0,
@@ -420,7 +465,11 @@ public extension Message {
                 let timestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
                 let maxLength: Int = shouldAddSelfReaction ? 4 : 5
                 let desiredReactorIds: [String] = reactors
-                    .filter { $0 != blindedUserPublicKey && $0 != userPublicKey } // Remove current user for now, will add back if needed
+                    .filter { id -> Bool in
+                        id != blinded15UserPublicKey &&
+                        id != blinded25UserPublicKey &&
+                        id != userPublicKey
+                    } // Remove current user for now, will add back if needed
                     .prefix(maxLength)
                     .map{ $0 }
 
@@ -489,7 +538,7 @@ public extension Message {
         handleClosedGroupKeyUpdateMessages: Bool,
         dependencies: SMKDependencies = SMKDependencies()
     ) throws -> ProcessedMessage? {
-        let (message, proto, threadId) = try MessageReceiver.parse(
+        let (message, proto, threadId, threadVariant) = try MessageReceiver.parse(
             db,
             envelope: envelope,
             serverExpirationTimestamp: serverExpirationTimestamp,
@@ -515,7 +564,12 @@ public extension Message {
                 case let closedGroupControlMessage as ClosedGroupControlMessage:
                     switch closedGroupControlMessage.kind {
                         case .encryptionKeyPair:
-                            try MessageReceiver.handleClosedGroupControlMessage(db, closedGroupControlMessage)
+                            try MessageReceiver.handleClosedGroupControlMessage(
+                                db,
+                                threadId: threadId,
+                                threadVariant: threadVariant,
+                                message: closedGroupControlMessage
+                            )
                             return nil
                             
                         default: break
@@ -544,10 +598,12 @@ public extension Message {
         
         return (
             threadId,
+            threadVariant,
             proto,
             try MessageReceiveJob.Details.MessageInfo(
                 message: message,
                 variant: variant,
+                threadVariant: threadVariant,
                 serverExpirationTimestamp: serverExpirationTimestamp,
                 proto: proto
             )

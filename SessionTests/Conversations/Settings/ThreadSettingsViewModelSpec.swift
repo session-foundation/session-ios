@@ -4,6 +4,8 @@ import Combine
 import GRDB
 import Quick
 import Nimble
+import SessionUIKit
+import SessionSnodeKit
 
 @testable import Session
 
@@ -15,7 +17,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
     override func spec() {
         var mockStorage: Storage!
         var mockGeneralCache: MockGeneralCache!
-        var cancellables: [AnyCancellable] = []
+        var disposables: [AnyCancellable] = []
         var dependencies: Dependencies!
         var viewModel: ThreadSettingsViewModel!
         var didTriggerSearchCallbackTriggered: Bool = false
@@ -26,16 +28,16 @@ class ThreadSettingsViewModelSpec: QuickSpec {
             beforeEach {
                 mockStorage = SynchronousStorage(
                     customWriter: try! DatabaseQueue(),
-                    customMigrations: [
-                        SNUtilitiesKit.migrations(),
-                        SNSnodeKit.migrations(),
-                        SNMessagingKit.migrations(),
-                        SNUIKit.migrations()
+                    customMigrationTargets: [
+                        SNUtilitiesKit.self,
+                        SNSnodeKit.self,
+                        SNMessagingKit.self,
+                        SNUIKit.self
                     ]
                 )
                 mockGeneralCache = MockGeneralCache()
                 dependencies = Dependencies(
-                    generalCache: Atomic(mockGeneralCache),
+                    generalCache: mockGeneralCache,
                     storage: mockStorage,
                     scheduler: .immediate
                 )
@@ -53,12 +55,16 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     
                     try Profile(
                         id: "05\(TestConstants.publicKey)",
-                        name: "TestMe"
+                        name: "TestMe",
+                        lastNameUpdate: 0,
+                        lastProfilePictureUpdate: 0
                     ).insert(db)
                     
                     try Profile(
                         id: "TestId",
-                        name: "TestUser"
+                        name: "TestUser",
+                        lastNameUpdate: 0,
+                        lastProfilePictureUpdate: 0
                     ).insert(db)
                 }
                 viewModel = ThreadSettingsViewModel(
@@ -69,21 +75,21 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         didTriggerSearchCallbackTriggered = true
                     }
                 )
-                cancellables.append(
-                    viewModel.observableSettingsData
-                        .receiveOnMain(immediately: true)
+                disposables.append(
+                    viewModel.observableTableData
+                        .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
-                            receiveValue: { viewModel.updateSettings($0) }
+                            receiveValue: { viewModel.updateTableData($0.0) }
                         )
                 )
             }
             
             afterEach {
-                cancellables.forEach { $0.cancel() }
+                disposables.forEach { $0.cancel() }
                 
                 mockStorage = nil
-                cancellables = []
+                disposables = []
                 dependencies = nil
                 viewModel = nil
                 didTriggerSearchCallbackTriggered = false
@@ -93,21 +99,21 @@ class ThreadSettingsViewModelSpec: QuickSpec {
             
             context("with any conversation type") {
                 it("triggers the search callback when tapping search") {
-                    viewModel.settingsData
+                    viewModel.tableData
                         .first(where: { $0.model == .content })?
                         .elements
                         .first(where: { $0.id == .searchConversation })?
-                        .onTap?(nil)
+                        .onTap?()
                     
                     expect(didTriggerSearchCallbackTriggered).to(beTrue())
                 }
                 
                 it("mutes a conversation") {
-                    viewModel.settingsData
+                    viewModel.tableData
                         .first(where: { $0.model == .content })?
                         .elements
                         .first(where: { $0.id == .notificationMute })?
-                        .onTap?(nil)
+                        .onTap?()
                     
                     expect(
                         mockStorage
@@ -133,11 +139,11 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     )
                     .toNot(beNil())
                     
-                    viewModel.settingsData
+                    viewModel.tableData
                         .first(where: { $0.model == .content })?
                         .elements
                         .first(where: { $0.id == .notificationMute })?
-                        .onTap?(nil)
+                        .onTap?()
                 
                     expect(
                         mockStorage
@@ -167,12 +173,12 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                             didTriggerSearchCallbackTriggered = true
                         }
                     )
-                    cancellables.append(
-                        viewModel.observableSettingsData
-                            .receiveOnMain(immediately: true)
+                    disposables.append(
+                        viewModel.observableTableData
+                            .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },
-                                receiveValue: { viewModel.updateSettings($0) }
+                                receiveValue: { viewModel.updateTableData($0.0) }
                             )
                     )
                 }
@@ -198,7 +204,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 
                 it("has no mute button") {
                     expect(
-                        viewModel.settingsData
+                        viewModel.tableData
                             .first(where: { $0.model == .content })?
                             .elements
                             .first(where: { $0.id == .notificationMute })
@@ -207,16 +213,9 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 
                 context("when entering edit mode") {
                     beforeEach {
+                        viewModel.navState.sinkAndStore(in: &disposables)
                         viewModel.rightNavItems.firstValue()??.first?.action?()
-                        
-                        let leftAccessory: SessionCell.Accessory? = viewModel.settingsData.first?
-                            .elements.first?
-                            .leftAccessory
-                        
-                        switch leftAccessory {
-                            case .threadInfo(_, _, _, _, let titleChanged): titleChanged?("TestNew")
-                            default: break
-                        }
+                        viewModel.textChanged("TestNew", for: .nickname)
                     }
                     
                     it("enters the editing state") {
@@ -228,7 +227,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                                 ParentType.NavItem(
                                     id: .cancel,
                                     systemItem: .cancel,
-                                    accessibilityIdentifier: "Cancel"
+                                    accessibilityIdentifier: "Cancel button"
                                 )
                             ]))
                         expect(viewModel.rightNavItems.firstValue())
@@ -340,16 +339,9 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 
                 context("when entering edit mode") {
                     beforeEach {
+                        viewModel.navState.sinkAndStore(in: &disposables)
                         viewModel.rightNavItems.firstValue()??.first?.action?()
-                        
-                        let leftAccessory: SessionCell.Accessory? = viewModel.settingsData.first?
-                            .elements.first?
-                            .leftAccessory
-                        
-                        switch leftAccessory {
-                            case .threadInfo(_, _, _, _, let titleChanged): titleChanged?("TestUserNew")
-                            default: break
-                        }
+                        viewModel.textChanged("TestUserNew", for: .nickname)
                     }
                     
                     it("enters the editing state") {
@@ -443,24 +435,24 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         
                         try SessionThread(
                             id: "TestId",
-                            variant: .closedGroup
+                            variant: .legacyGroup
                         ).insert(db)
                     }
                     
                     viewModel = ThreadSettingsViewModel(
                         dependencies: dependencies,
                         threadId: "TestId",
-                        threadVariant: .closedGroup,
+                        threadVariant: .legacyGroup,
                         didTriggerSearch: {
                             didTriggerSearchCallbackTriggered = true
                         }
                     )
-                    cancellables.append(
-                        viewModel.observableSettingsData
-                            .receiveOnMain(immediately: true)
+                    disposables.append(
+                        viewModel.observableTableData
+                            .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },
-                                receiveValue: { viewModel.updateSettings($0) }
+                                receiveValue: { viewModel.updateTableData($0.0) }
                             )
                     )
                 }
@@ -485,24 +477,24 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         
                         try SessionThread(
                             id: "TestId",
-                            variant: .openGroup
+                            variant: .community
                         ).insert(db)
                     }
                     
                     viewModel = ThreadSettingsViewModel(
                         dependencies: dependencies,
                         threadId: "TestId",
-                        threadVariant: .openGroup,
+                        threadVariant: .community,
                         didTriggerSearch: {
                             didTriggerSearchCallbackTriggered = true
                         }
                     )
-                    cancellables.append(
-                        viewModel.observableSettingsData
-                            .receiveOnMain(immediately: true)
+                    disposables.append(
+                        viewModel.observableTableData
+                            .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },
-                                receiveValue: { viewModel.updateSettings($0) }
+                                receiveValue: { viewModel.updateTableData($0.0) }
                             )
                     )
                 }

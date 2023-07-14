@@ -17,7 +17,7 @@ enum _003_YDBToGRDBMigration: Migration {
     
     static func migrate(_ db: Database) throws {
         guard let dbConnection: YapDatabaseConnection = SUKLegacy.newDatabaseConnection() else {
-            SNLog("[Migration Warning] No legacy database, skipping \(target.key(with: self))")
+            SNLogNotTests("[Migration Warning] No legacy database, skipping \(target.key(with: self))")
             return
         }
         

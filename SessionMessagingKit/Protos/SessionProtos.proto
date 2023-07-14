@@ -57,6 +57,7 @@ message Content {
   optional DataExtractionNotification dataExtractionNotification = 8;
   optional UnsendRequest              unsendRequest              = 9;
   optional MessageRequestResponse     messageRequestResponse     = 10;
+  optional SharedConfigMessage        sharedConfigMessage        = 11;
 }
 
 message CallMessage {
@@ -193,7 +194,7 @@ message DataMessage {
 
   optional string                    body                      = 1;
   repeated AttachmentPointer         attachments               = 2;
-  optional GroupContext              group                     = 3;
+  // optional GroupContext           group                     = 3;  // No longer used
   optional uint32                    flags                     = 4;
   optional uint32                    expireTimer               = 5;
   optional bytes                     profileKey                = 6;
@@ -271,22 +272,18 @@ message AttachmentPointer {
   optional string  url         = 101;
 }
 
-message GroupContext {
+message SharedConfigMessage {
+    enum Kind {
+        USER_PROFILE            = 1;
+        CONTACTS                = 2;
+        CONVO_INFO_VOLATILE     = 3;
+        USER_GROUPS             = 4;
+    }
 
-  enum Type {
-    UNKNOWN      = 0;
-    UPDATE       = 1;
-    DELIVER      = 2;
-    QUIT         = 3;
-    REQUEST_INFO = 4;
-  }
-
-  // @required
-  optional bytes             id      = 1;
-  // @required
-  optional Type              type    = 2;
-  optional string            name    = 3;
-  repeated string            members = 4;
-  optional AttachmentPointer avatar  = 5;
-  repeated string            admins  = 6;
+    // @required
+    required Kind              kind             = 1;
+    // @required
+    required int64             seqno            = 2;
+    // @required
+    required bytes             data             = 3;
 }

@@ -69,6 +69,7 @@ internal enum Theme_ClassicLight: ThemeColors {
         .solidButton_background: .classicLight3,
         
         // Settings
+        .settings_tertiaryAction: .classicLight0,
         .settings_tabBackground: .classicLight5,
         
         // AppearanceButton
@@ -89,6 +90,7 @@ internal enum Theme_ClassicLight: ThemeColors {
         .conversationButton_swipeDestructive: .dangerLight,
         .conversationButton_swipeSecondary: .classicLight1,
         .conversationButton_swipeTertiary: Theme.PrimaryColor.orange.color,
+        .conversationButton_swipeRead: .classicLight3,
         
         // InputButton
         .inputButton_background: .classicLight4,
@@ -108,6 +110,14 @@ internal enum Theme_ClassicLight: ThemeColors {
         .reactions_contextMoreBackground: .classicLight6,
         
         // NewConversation
-        .newConversation_background: .classicLight6
+        .newConversation_background: .classicLight6,
+        
+        // Profile
+        .profileIcon: .primary,
+        .profileIcon_greenPrimaryColor: .primary,
+        .profileIcon_background: .black,
+        
+        // Unread Marker
+        .unreadMarker: .black
     ]
 }

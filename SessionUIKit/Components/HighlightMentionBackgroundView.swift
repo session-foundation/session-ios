@@ -92,7 +92,7 @@ public class HighlightMentionBackgroundView: UIView {
             var ascent: CGFloat = 0
             var descent: CGFloat = 0
             var leading: CGFloat = 0
-            let lineWidth = CGFloat(CTLineGetTypographicBounds(line, &ascent, &descent, &leading))
+            _ = CGFloat(CTLineGetTypographicBounds(line, &ascent, &descent, &leading))
             
             for run in runs {
                 let attributes: NSDictionary = CTRunGetAttributes(run)

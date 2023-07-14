@@ -77,13 +77,6 @@ public final class ExpirationTimerUpdate: ControlMessage {
         dataMessageProto.setFlags(UInt32(SNProtoDataMessage.SNProtoDataMessageFlags.expirationTimerUpdate.rawValue))
         dataMessageProto.setExpireTimer(duration)
         if let syncTarget = syncTarget { dataMessageProto.setSyncTarget(syncTarget) }
-        // Group context
-        do {
-            try setGroupContextIfNeeded(db, on: dataMessageProto)
-        } catch {
-            SNLog("Couldn't construct expiration timer update proto from: \(self).")
-            return nil
-        }
         let contentProto = SNProtoContent.builder()
         do {
             contentProto.setDataMessage(try dataMessageProto.build())

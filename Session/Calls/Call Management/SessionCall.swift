@@ -1,10 +1,12 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
-import Foundation
+import UIKit
+import YYImage
+import Combine
 import CallKit
 import GRDB
 import WebRTC
-import PromiseKit
+import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
 
@@ -25,6 +27,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     
     let contactName: String
     let profilePicture: UIImage
+    let animatedProfilePicture: YYImage?
     
     // MARK: - Control
     
@@ -151,10 +154,18 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         self.webRTCSession = WebRTCSession.current ?? WebRTCSession(for: sessionId, with: uuid)
         self.isOutgoing = outgoing
         
+        let avatarData: Data? = ProfileManager.profileAvatar(db, id: sessionId)
         self.contactName = Profile.displayName(db, id: sessionId, threadVariant: .contact)
-        self.profilePicture = ProfileManager.profileAvatar(db, id: sessionId)
+        self.profilePicture = avatarData
             .map { UIImage(data: $0) }
-            .defaulting(to: Identicon.generatePlaceholderIcon(seed: sessionId, text: self.contactName, size: 300))
+            .defaulting(to: PlaceholderIcon.generate(seed: sessionId, text: self.contactName, size: 300))
+        self.animatedProfilePicture = avatarData
+            .map { data in
+                switch data.guessedImageFormat {
+                    case .gif, .webp: return YYImage(data: data)
+                    default: return nil
+                }
+            }
         
         WebRTCSession.current = self.webRTCSession
         self.webRTCSession.delegate = self
@@ -206,6 +217,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
             let thread: SessionThread = try? SessionThread.fetchOne(db, id: sessionId)
         else { return }
         
+        let webRTCSession: WebRTCSession = self.webRTCSession
         let timestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
         let message: CallMessage = CallMessage(
             uuid: self.uuid,
@@ -224,21 +236,18 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         .inserted(db)
         
         self.callInteractionId = interaction?.id
-        try? self.webRTCSession
+        
+        try? webRTCSession
             .sendPreOffer(
                 db,
                 message: message,
                 interactionId: interaction?.id,
                 in: thread
             )
-            .done { [weak self] _ in
-                Storage.shared.writeAsync { db in
-                    self?.webRTCSession.sendOffer(db, to: sessionId)
-                }
-                
-                self?.setupTimeoutTimer()
-            }
-            .retainUntilComplete()
+            // Start the timeout timer for the call
+            .handleEvents(receiveOutput: { [weak self] _ in self?.setupTimeoutTimer() })
+            .flatMap { _ in webRTCSession.sendOffer(to: thread) }
+            .sinkUntilComplete()
     }
     
     func answerSessionCall() {
@@ -418,9 +427,14 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         let sessionId: String = self.sessionId
         let webRTCSession: WebRTCSession = self.webRTCSession
         
-        Storage.shared
-            .read { db in webRTCSession.sendOffer(db, to: sessionId, isRestartingICEConnection: true) }
-            .retainUntilComplete()
+        guard let thread: SessionThread = Storage.shared.read({ db in try SessionThread.fetchOne(db, id: sessionId) }) else {
+            return
+        }
+        
+        webRTCSession
+            .sendOffer(to: thread, isRestartingICEConnection: true)
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+            .sinkUntilComplete()
     }
     
     // MARK: - Timeout

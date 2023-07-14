@@ -1,19 +1,10 @@
-//
-//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
-//
+// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
-import AFNetworking
 import Foundation
 
-@objc
-public class ContentProxy: NSObject {
+public enum ContentProxy {
 
-    @available(*, unavailable, message:"do not instantiate this class.")
-    private override init() {
-    }
-
-    @objc
-    public class func sessionConfiguration() -> URLSessionConfiguration {
+    public static func sessionConfiguration() -> URLSessionConfiguration {
         let configuration = URLSessionConfiguration.ephemeral
         let proxyHost = "contentproxy.signal.org"
         let proxyPort = 443
@@ -28,32 +19,9 @@ public class ContentProxy: NSObject {
         return configuration
     }
 
-    @objc
-    public class func sessionManager(baseUrl baseUrlString: String?) -> AFHTTPSessionManager? {
-        guard let baseUrlString = baseUrlString else {
-            return AFHTTPSessionManager(baseURL: nil, sessionConfiguration: sessionConfiguration())
-        }
-        guard let baseUrl = URL(string: baseUrlString) else {
-            return nil
-        }
-        let sessionManager = AFHTTPSessionManager(baseURL: baseUrl,
-                                                  sessionConfiguration: sessionConfiguration())
-        return sessionManager
-    }
-
-    @objc
-    public class func jsonSessionManager(baseUrl: String) -> AFHTTPSessionManager? {
-        guard let sessionManager = self.sessionManager(baseUrl: baseUrl) else {
-            return nil
-        }
-        sessionManager.requestSerializer = AFJSONRequestSerializer()
-        sessionManager.responseSerializer = AFJSONResponseSerializer()
-        return sessionManager
-    }
-
     static let userAgent = "Signal iOS (+https://signal.org/download)"
 
-    public class func configureProxiedRequest(request: inout URLRequest) -> Bool {
+    public static func configureProxiedRequest(request: inout URLRequest) -> Bool {
         request.addValue(userAgent, forHTTPHeaderField: "User-Agent")
 
         padRequestSize(request: &request)
@@ -66,39 +34,7 @@ public class ContentProxy: NSObject {
         return true
     }
 
-    // This mutates the session manager state, so its the caller's obligation to avoid conflicts by:
-    //
-    // * Using a new session manager for each request.
-    // * Pooling session managers.
-    // * Using a single session manager on a single queue.
-    @objc
-    public class func configureSessionManager(sessionManager: AFHTTPSessionManager,
-                                              forUrl urlString: String) -> Bool {
-
-        guard let url = URL(string: urlString, relativeTo: sessionManager.baseURL) else {
-            return false
-        }
-
-        var request = URLRequest(url: url)
-
-        guard configureProxiedRequest(request: &request) else {
-            return false
-        }
-
-        // Remove all headers from the request.
-        for headerField in sessionManager.requestSerializer.httpRequestHeaders.keys {
-            sessionManager.requestSerializer.setValue(nil, forHTTPHeaderField: headerField)
-        }
-        // Honor the request's headers.
-        if let allHTTPHeaderFields = request.allHTTPHeaderFields {
-            for (headerField, headerValue) in allHTTPHeaderFields {
-                sessionManager.requestSerializer.setValue(headerValue, forHTTPHeaderField: headerField)
-            }
-        }
-        return true
-    }
-
-    public class func padRequestSize(request: inout URLRequest) {
+    public static func padRequestSize(request: inout URLRequest) {
         // Generate 1-64 chars of padding.
         let paddingLength: Int = 1 + Int(arc4random_uniform(64))
         let padding = self.padding(withLength: paddingLength)
@@ -106,7 +42,7 @@ public class ContentProxy: NSObject {
         request.addValue(padding, forHTTPHeaderField: "X-SignalPadding")
     }
 
-    private class func padding(withLength length: Int) -> String {
+    private static func padding(withLength length: Int) -> String {
         // Pick a random ASCII char in the range 48-122
         var result = ""
         // Min and max values, inclusive.

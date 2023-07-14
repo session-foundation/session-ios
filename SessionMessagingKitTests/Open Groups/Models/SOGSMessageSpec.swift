@@ -106,7 +106,7 @@ class SOGSMessageSpec: QuickSpec {
                         expect {
                             try decoder.decode(OpenGroupAPI.Message.self, from: messageData)
                         }
-                        .to(throwError(HTTP.Error.parsingFailed))
+                        .to(throwError(HTTPError.parsingFailed))
                     }
                     
                     it("errors if the data is not a base64 encoded string") {
@@ -128,7 +128,7 @@ class SOGSMessageSpec: QuickSpec {
                         expect {
                             try decoder.decode(OpenGroupAPI.Message.self, from: messageData)
                         }
-                        .to(throwError(HTTP.Error.parsingFailed))
+                        .to(throwError(HTTPError.parsingFailed))
                     }
                     
                     it("errors if the signature is not a base64 encoded string") {
@@ -150,7 +150,7 @@ class SOGSMessageSpec: QuickSpec {
                         expect {
                             try decoder.decode(OpenGroupAPI.Message.self, from: messageData)
                         }
-                        .to(throwError(HTTP.Error.parsingFailed))
+                        .to(throwError(HTTPError.parsingFailed))
                     }
                     
                     it("errors if the dependencies are not provided to the JSONDecoder") {
@@ -159,7 +159,7 @@ class SOGSMessageSpec: QuickSpec {
                         expect {
                             try decoder.decode(OpenGroupAPI.Message.self, from: messageData)
                         }
-                        .to(throwError(HTTP.Error.parsingFailed))
+                        .to(throwError(HTTPError.parsingFailed))
                     }
                     
                     it("errors if the session_id value is not valid") {
@@ -181,7 +181,7 @@ class SOGSMessageSpec: QuickSpec {
                         expect {
                             try decoder.decode(OpenGroupAPI.Message.self, from: messageData)
                         }
-                        .to(throwError(HTTP.Error.parsingFailed))
+                        .to(throwError(HTTPError.parsingFailed))
                     }
                     
                     
@@ -239,7 +239,7 @@ class SOGSMessageSpec: QuickSpec {
                             expect {
                                 try decoder.decode(OpenGroupAPI.Message.self, from: messageData)
                             }
-                            .to(throwError(HTTP.Error.parsingFailed))
+                            .to(throwError(HTTPError.parsingFailed))
                         }
                     }
                     
@@ -274,7 +274,7 @@ class SOGSMessageSpec: QuickSpec {
                             expect {
                                 try decoder.decode(OpenGroupAPI.Message.self, from: messageData)
                             }
-                            .to(throwError(HTTP.Error.parsingFailed))
+                            .to(throwError(HTTPError.parsingFailed))
                         }
                     }
                 }

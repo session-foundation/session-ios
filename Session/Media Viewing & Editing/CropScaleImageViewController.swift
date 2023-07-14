@@ -1,11 +1,10 @@
-//
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
-//
 
 import Foundation
 import MediaPlayer
 import SessionUIKit
 import SignalUtilitiesKit
+import SignalCoreKit
 
 // This kind of view is tricky.  I've tried to organize things in the 
 // simplest possible way.
@@ -32,7 +31,7 @@ import SignalUtilitiesKit
 
     let srcImage: UIImage
 
-    let successCompletion: ((UIImage) -> Void)
+    let successCompletion: ((Data) -> Void)
 
     var imageView: UIView!
 
@@ -79,7 +78,7 @@ import SignalUtilitiesKit
         notImplemented()
     }
 
-    @objc required init(srcImage: UIImage, successCompletion : @escaping (UIImage) -> Void) {
+    @objc required init(srcImage: UIImage, successCompletion : @escaping (Data) -> Void) {
         // normalized() can be slightly expensive but in practice this is fine.
         self.srcImage = srcImage.normalized()
         self.successCompletion = successCompletion
@@ -487,10 +486,9 @@ import SignalUtilitiesKit
     @objc func donePressed(sender: UIButton) {
         let successCompletion = self.successCompletion
         dismiss(animated: true, completion: {
-            guard let dstImage = self.generateDstImage() else {
-                return
-            }
-            successCompletion(dstImage)
+            guard let dstImageData: Data = self.generateDstImageData() else { return }
+            
+            successCompletion(dstImageData)
         })
     }
 
@@ -516,5 +514,9 @@ import SignalUtilitiesKit
         }
         UIGraphicsEndImageContext()
         return scaledImage
+    }
+    
+    func generateDstImageData() -> Data? {
+        return generateDstImage().map { $0.pngData() }
     }
 }

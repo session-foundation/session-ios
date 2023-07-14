@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import os
@@ -202,10 +202,18 @@ class BaseContext(object):
             return 'UInt32'
         elif field.proto_type == 'fixed64':
             return 'UInt64'
+        elif field.proto_type == 'int64':
+            return 'Int64'
+        elif field.proto_type == 'int32':
+            return 'Int32'
         elif field.proto_type == 'bool':
             return 'Bool'
         elif field.proto_type == 'bytes':
             return 'Data'
+        elif field.proto_type == 'double':
+            return 'Double'
+        elif field.proto_type == 'float':
+            return 'Float'
         else:
             matching_context = self.context_for_proto_type(field)
             if matching_context is not None:
@@ -236,7 +244,11 @@ class BaseContext(object):
         return field.proto_type in ('uint64',
             'uint32',
             'fixed64',
-            'bool', )
+            'int64',
+            'int32',
+            'bool',
+            'double',
+            'float', )
         
     def can_field_be_optional(self, field):
         if self.is_field_primitive(field):
@@ -288,8 +300,16 @@ class BaseContext(object):
             return '0'
         elif field.proto_type == 'fixed64':
             return '0'
+        elif field.proto_type == 'int64':
+            return '0'
+        elif field.proto_type == 'int32':
+            return '0'
         elif field.proto_type == 'bool':
             return 'false'
+        elif field.proto_type == 'double':
+            return '0'
+        elif field.proto_type == 'float':
+            return '0'
         elif self.is_field_an_enum(field):
             # TODO: Assert that rules is empty.
             enum_context = self.context_for_proto_type(field)

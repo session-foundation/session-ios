@@ -2,6 +2,7 @@
 
 import Foundation
 import SignalUtilitiesKit
+import SignalCoreKit
 
 public class AppEnvironment {
 

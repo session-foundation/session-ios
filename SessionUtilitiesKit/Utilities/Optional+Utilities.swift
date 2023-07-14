@@ -20,6 +20,11 @@ extension Optional {
     public func defaulting(to value: Wrapped) -> Wrapped {
         return (self ?? value)
     }
+    
+    public mutating func setting(to value: Wrapped) -> Wrapped {
+        self = value
+        return value
+    }
 }
 
 extension Optional where Wrapped == String {

@@ -13,11 +13,17 @@ public protocol Migration {
 }
 
 public extension Migration {
-    static func loggedMigrate(_ targetIdentifier: TargetMigrations.Identifier) -> ((_ db: Database) throws -> ()) {
+    static func loggedMigrate(
+        _ storage: Storage?,
+        targetIdentifier: TargetMigrations.Identifier
+    ) -> ((_ db: Database) throws -> ()) {
         return { (db: Database) in
-            SNLog("[Migration Info] Starting \(targetIdentifier.key(with: self))")
+            SNLogNotTests("[Migration Info] Starting \(targetIdentifier.key(with: self))")
+            storage?.internalCurrentlyRunningMigration.mutate { $0 = (targetIdentifier, self) }
+            defer { storage?.internalCurrentlyRunningMigration.mutate { $0 = nil } }
+            
             try migrate(db)
-            SNLog("[Migration Info] Completed \(targetIdentifier.key(with: self))")
+            SNLogNotTests("[Migration Info] Completed \(targetIdentifier.key(with: self))")
         }
     }
 }

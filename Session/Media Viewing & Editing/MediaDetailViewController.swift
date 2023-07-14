@@ -5,6 +5,7 @@ import YYImage
 import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
+import SignalCoreKit
 
 public enum MediaGalleryOption {
     case sliderEnabled

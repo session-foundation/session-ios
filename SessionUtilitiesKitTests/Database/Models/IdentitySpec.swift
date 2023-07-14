@@ -18,8 +18,8 @@ class IdentitySpec: QuickSpec {
             beforeEach {
                 mockStorage = Storage(
                     customWriter: try! DatabaseQueue(),
-                    customMigrations: [
-                        SNUtilitiesKit.migrations()
+                    customMigrationTargets: [
+                        SNUtilitiesKit.self
                     ]
                 )
             }

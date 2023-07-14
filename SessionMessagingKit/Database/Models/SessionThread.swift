@@ -11,7 +11,7 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
     public static let contact = hasOne(Contact.self, using: Contact.threadForeignKey)
     public static let closedGroup = hasOne(ClosedGroup.self, using: ClosedGroup.threadForeignKey)
     public static let openGroup = hasOne(OpenGroup.self, using: OpenGroup.threadForeignKey)
-    private static let disappearingMessagesConfiguration = hasOne(
+    public static let disappearingMessagesConfiguration = hasOne(
         DisappearingMessagesConfiguration.self,
         using: DisappearingMessagesConfiguration.threadForeignKey
     )
@@ -32,12 +32,15 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
         case notificationSound
         case mutedUntilTimestamp
         case onlyNotifyForMentions
+        case markedAsUnread
+        case pinnedPriority
     }
     
-    public enum Variant: Int, Codable, Hashable, DatabaseValueConvertible {
+    public enum Variant: Int, Codable, Hashable, DatabaseValueConvertible, CaseIterable {
         case contact
-        case closedGroup
-        case openGroup
+        case legacyGroup
+        case community
+        case group
     }
 
     /// Unique identifier for a thread (formerly known as uniqueId)
@@ -58,7 +61,8 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
     public let shouldBeVisible: Bool
     
     /// A flag indicating whether the thread is pinned
-    public let isPinned: Bool
+    @available(*, unavailable, message: "use 'pinnedPriority' instead")
+    public let isPinned: Bool = false
     
     /// The value the user started entering into the input field before they left the conversation screen
     public let messageDraft: String?
@@ -73,6 +77,12 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
     
     /// A flag indicating whether the thread should only notify for mentions
     public let onlyNotifyForMentions: Bool
+    
+    /// A flag indicating whether this thread has been manually marked as unread by the user
+    public let markedAsUnread: Bool?
+    
+    /// A value indicating the priority of this conversation within the pinned conversations
+    public let pinnedPriority: Int32?
     
     // MARK: - Relationships
     
@@ -111,17 +121,22 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
         messageDraft: String? = nil,
         notificationSound: Preferences.Sound? = nil,
         mutedUntilTimestamp: TimeInterval? = nil,
-        onlyNotifyForMentions: Bool = false
+        onlyNotifyForMentions: Bool = false,
+        markedAsUnread: Bool? = false,
+        pinnedPriority: Int32? = nil
     ) {
         self.id = id
         self.variant = variant
         self.creationDateTimestamp = creationDateTimestamp
         self.shouldBeVisible = shouldBeVisible
-        self.isPinned = isPinned
         self.messageDraft = messageDraft
         self.notificationSound = notificationSound
         self.mutedUntilTimestamp = mutedUntilTimestamp
         self.onlyNotifyForMentions = onlyNotifyForMentions
+        self.markedAsUnread = markedAsUnread
+        self.pinnedPriority = ((pinnedPriority ?? 0) > 0 ? pinnedPriority :
+            (isPinned ? 1 : 0)
+        )
     }
     
     // MARK: - Custom Database Interaction
@@ -131,56 +146,214 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
     }
 }
 
-// MARK: - Mutation
-
-public extension SessionThread {
-    func with(
-        shouldBeVisible: Bool? = nil,
-        isPinned: Bool? = nil
-    ) -> SessionThread {
-        return SessionThread(
-            id: id,
-            variant: variant,
-            creationDateTimestamp: creationDateTimestamp,
-            shouldBeVisible: (shouldBeVisible ?? self.shouldBeVisible),
-            isPinned: (isPinned ?? self.isPinned),
-            messageDraft: messageDraft,
-            notificationSound: notificationSound,
-            mutedUntilTimestamp: mutedUntilTimestamp,
-            onlyNotifyForMentions: onlyNotifyForMentions
-        )
-    }
-}
-
 // MARK: - GRDB Interactions
 
 public extension SessionThread {
-    /// Fetches or creates a SessionThread with the specified id and variant
+    /// Fetches or creates a SessionThread with the specified id, variant and visible state
     ///
     /// **Notes:**
     /// - The `variant` will be ignored if an existing thread is found
     /// - This method **will** save the newly created SessionThread to the database
-    static func fetchOrCreate(_ db: Database, id: ID, variant: Variant) throws -> SessionThread {
+    @discardableResult static func fetchOrCreate(
+        _ db: Database,
+        id: ID,
+        variant: Variant,
+        shouldBeVisible: Bool?
+    ) throws -> SessionThread {
         guard let existingThread: SessionThread = try? fetchOne(db, id: id) else {
-            return try SessionThread(id: id, variant: variant)
-                .saved(db)
+            return try SessionThread(
+                id: id,
+                variant: variant,
+                shouldBeVisible: (shouldBeVisible ?? false)
+            ).saved(db)
         }
         
-        return existingThread
+        // If the `shouldBeVisible` state matches then we can finish early
+        guard
+            let desiredVisibility: Bool = shouldBeVisible,
+            existingThread.shouldBeVisible != desiredVisibility
+        else { return existingThread }
+        
+        // Update the `shouldBeVisible` state
+        try SessionThread
+            .filter(id: id)
+            .updateAllAndConfig(
+                db,
+                SessionThread.Columns.shouldBeVisible.set(to: shouldBeVisible)
+            )
+        
+        // Retrieve the updated thread and return it (we don't recursively call this method
+        // just in case something weird happened and the above update didn't work, as that
+        // would result in an infinite loop)
+        return (try fetchOne(db, id: id))
+            .defaulting(
+                to: try SessionThread(id: id, variant: variant, shouldBeVisible: desiredVisibility)
+                    .saved(db)
+            )
     }
     
-    func isMessageRequest(_ db: Database, includeNonVisible: Bool = false) -> Bool {
+    static func canSendReadReceipt(
+        _ db: Database,
+        threadId: String,
+        threadVariant maybeThreadVariant: SessionThread.Variant? = nil,
+        isBlocked maybeIsBlocked: Bool? = nil,
+        isMessageRequest maybeIsMessageRequest: Bool? = nil
+    ) throws -> Bool {
+        let threadVariant: SessionThread.Variant = try {
+            try maybeThreadVariant ??
+            SessionThread
+                .filter(id: threadId)
+                .select(.variant)
+                .asRequest(of: SessionThread.Variant.self)
+                .fetchOne(db, orThrow: StorageError.objectNotFound)
+        }()
+        let threadIsBlocked: Bool = try {
+            try maybeIsBlocked ??
+            (
+                threadVariant == .contact &&
+                Contact
+                    .filter(id: threadId)
+                    .select(.isBlocked)
+                    .asRequest(of: Bool.self)
+                    .fetchOne(db, orThrow: StorageError.objectNotFound)
+            )
+        }()
+        let threadIsMessageRequest: Bool = SessionThread
+            .filter(id: threadId)
+            .filter(
+                SessionThread.isMessageRequest(
+                    userPublicKey: getUserHexEncodedPublicKey(db),
+                    includeNonVisible: true
+                )
+            )
+            .isNotEmpty(db)
+        
         return (
-            (includeNonVisible || shouldBeVisible) &&
-            variant == .contact &&
-            id != getUserHexEncodedPublicKey(db) && // Note to self
-            (try? Contact
-                .filter(id: id)
-                .select(.isApproved)
-                .asRequest(of: Bool.self)
-                .fetchOne(db))
-                .defaulting(to: false) == false
+            !threadIsBlocked &&
+            !threadIsMessageRequest
         )
+    }
+    
+    @available(*, unavailable, message: "should not be used until pin re-ordering is built")
+    static func refreshPinnedPriorities(_ db: Database, adding threadId: String) throws {
+        struct PinnedPriority: TableRecord, ColumnExpressible {
+            public typealias Columns = CodingKeys
+            public enum CodingKeys: String, CodingKey, ColumnExpression {
+                case id
+                case rowIndex
+            }
+        }
+        
+        let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
+        let pinnedPriority: TypedTableAlias<PinnedPriority> = TypedTableAlias()
+        let rowIndexLiteral: SQL = SQL(stringLiteral: PinnedPriority.Columns.rowIndex.name)
+        let pinnedPriorityLiteral: SQL = SQL(stringLiteral: SessionThread.Columns.pinnedPriority.name)
+        
+        try db.execute(literal: """
+            WITH \(PinnedPriority.self) AS (
+                SELECT
+                    \(thread[.id]),
+                    ROW_NUMBER() OVER (
+                        ORDER BY \(SQL("\(thread[.id]) != \(threadId)")),
+                        \(thread[.pinnedPriority]) ASC
+                    ) AS \(rowIndexLiteral)
+                FROM \(SessionThread.self)
+                WHERE
+                    \(thread[.pinnedPriority]) > 0 OR
+                    \(SQL("\(thread[.id]) = \(threadId)"))
+            )
+
+            UPDATE \(SessionThread.self)
+            SET \(pinnedPriorityLiteral) = (
+                SELECT \(pinnedPriority[.rowIndex])
+                FROM \(PinnedPriority.self)
+                WHERE \(pinnedPriority[.id]) = \(thread[.id])
+            )
+        """)
+    }
+    
+    static func deleteOrLeave(
+        _ db: Database,
+        threadId: String,
+        threadVariant: Variant,
+        groupLeaveType: ClosedGroup.LeaveType,
+        calledFromConfigHandling: Bool
+    ) throws {
+        try deleteOrLeave(
+            db,
+            threadIds: [threadId],
+            threadVariant: threadVariant,
+            groupLeaveType: groupLeaveType,
+            calledFromConfigHandling: calledFromConfigHandling
+        )
+    }
+    
+    static func deleteOrLeave(
+        _ db: Database,
+        threadIds: [String],
+        threadVariant: Variant,
+        groupLeaveType: ClosedGroup.LeaveType,
+        calledFromConfigHandling: Bool
+    ) throws {
+        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
+        let remainingThreadIds: [String] = threadIds.filter { $0 != currentUserPublicKey }
+        
+        switch (threadVariant, groupLeaveType) {
+            case (.contact, _):
+                // We need to custom handle the 'Note to Self' conversation (it should just be
+                // hidden rather than deleted
+                if threadIds.contains(currentUserPublicKey) {
+                    _ = try Interaction
+                        .filter(Interaction.Columns.threadId == currentUserPublicKey)
+                        .deleteAll(db)
+                    
+                    _ = try SessionThread
+                        .filter(id: currentUserPublicKey)
+                        .updateAllAndConfig(
+                            db,
+                            SessionThread.Columns.pinnedPriority.set(to: 0),
+                            SessionThread.Columns.shouldBeVisible.set(to: false)
+                        )
+                    return
+                }
+                
+                // If this wasn't called from config handling then we need to hide the conversation
+                if !calledFromConfigHandling {
+                    try SessionUtil
+                        .hide(db, contactIds: threadIds)
+                }
+                
+                _ = try SessionThread
+                    .filter(ids: remainingThreadIds)
+                    .deleteAll(db)
+                
+            case (.legacyGroup, .standard), (.group, .standard):
+                try threadIds.forEach { threadId in
+                    try MessageSender
+                        .leave(
+                            db,
+                            groupPublicKey: threadId,
+                            deleteThread: true
+                        )
+                }
+                
+            case (.legacyGroup, .silent), (.legacyGroup, .forced), (.group, .forced), (.group, .silent):
+                try ClosedGroup.removeKeysAndUnsubscribe(
+                    db,
+                    threadIds: threadIds,
+                    removeGroupData: true,
+                    calledFromConfigHandling: calledFromConfigHandling
+                )
+                
+            case (.community, _):
+                threadIds.forEach { threadId in
+                    OpenGroupManager.shared.delete(
+                        db,
+                        openGroupId: threadId,
+                        calledFromConfigHandling: calledFromConfigHandling
+                    )
+                }
+        }
     }
 }
 
@@ -244,6 +417,38 @@ public extension SessionThread {
         ).sqlExpression
     }
     
+    func isMessageRequest(_ db: Database, includeNonVisible: Bool = false) -> Bool {
+        return SessionThread.isMessageRequest(
+            id: id,
+            variant: variant,
+            currentUserPublicKey: getUserHexEncodedPublicKey(db),
+            shouldBeVisible: shouldBeVisible,
+            contactIsApproved: (try? Contact
+                .filter(id: id)
+                .select(.isApproved)
+                .asRequest(of: Bool.self)
+                .fetchOne(db))
+                .defaulting(to: false),
+            includeNonVisible: includeNonVisible
+        )
+    }
+    
+    static func isMessageRequest(
+        id: String,
+        variant: SessionThread.Variant?,
+        currentUserPublicKey: String,
+        shouldBeVisible: Bool?,
+        contactIsApproved: Bool?,
+        includeNonVisible: Bool = false
+    ) -> Bool {
+        return (
+            (includeNonVisible || shouldBeVisible == true) &&
+            variant == .contact &&
+            id != currentUserPublicKey && // Note to self
+            ((contactIsApproved ?? false) == false)
+        )
+    }
+    
     func isNoteToSelf(_ db: Database? = nil) -> Bool {
         return (
             variant == .contact &&
@@ -304,8 +509,8 @@ public extension SessionThread {
         profile: Profile? = nil
     ) -> String {
         switch variant {
-            case .closedGroup: return (closedGroupName ?? "Unknown Group")
-            case .openGroup: return (openGroupName ?? "Unknown Group")
+            case .legacyGroup, .group: return (closedGroupName ?? "Unknown Group")
+            case .community: return (openGroupName ?? "Unknown Community")
             case .contact:
                 guard !isNoteToSelf else { return "NOTE_TO_SELF".localized() }
                 guard let profile: Profile = profile else {
@@ -319,12 +524,13 @@ public extension SessionThread {
     static func getUserHexEncodedBlindedKey(
         _ db: Database? = nil,
         threadId: String,
-        threadVariant: Variant
+        threadVariant: Variant,
+        blindingPrefix: SessionId.Prefix
     ) -> String? {
-        guard threadVariant == .openGroup else { return nil }
+        guard threadVariant == .community else { return nil }
         guard let db: Database = db else {
             return Storage.shared.read { db in
-                getUserHexEncodedBlindedKey(db, threadId: threadId, threadVariant: threadVariant)
+                getUserHexEncodedBlindedKey(db, threadId: threadId, threadVariant: threadVariant, blindingPrefix: blindingPrefix)
             }
         }
         
@@ -335,7 +541,7 @@ public extension SessionThread {
         }
         
         guard
-            let userEdKeyPair: Box.KeyPair = Identity.fetchUserEd25519KeyPair(db),
+            let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
             let openGroupInfo: OpenGroupInfo = try? OpenGroup
                 .filter(id: threadId)
                 .select(.publicKey, .server)
@@ -355,14 +561,14 @@ public extension SessionThread {
         
         let sodium: Sodium = Sodium()
         
-        let blindedKeyPair: Box.KeyPair? = sodium.blindedKeyPair(
+        let blindedKeyPair: KeyPair? = sodium.blindedKeyPair(
             serverPublicKey: openGroupInfo.publicKey,
             edKeyPair: userEdKeyPair,
             genericHash: sodium.getGenericHash()
         )
         
         return blindedKeyPair.map { keyPair -> String in
-            SessionId(.blinded, publicKey: keyPair.publicKey).hexString
+            SessionId(blindingPrefix, publicKey: keyPair.publicKey).hexString
         }
     }
 }

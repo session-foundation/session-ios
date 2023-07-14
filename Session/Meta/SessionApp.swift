@@ -3,64 +3,110 @@
 import Foundation
 import SessionUtilitiesKit
 import SessionMessagingKit
+import SignalCoreKit
+import SessionUIKit
 
 public struct SessionApp {
+    // FIXME: Refactor this to be protocol based for unit testing (or even dynamic based on view hierarchy - do want to avoid needing to use the main thread to access them though)
     static let homeViewController: Atomic<HomeVC?> = Atomic(nil)
+    static let currentlyOpenConversationViewController: Atomic<ConversationVC?> = Atomic(nil)
+    
+    static var versionInfo: String {
+        let buildNumber: String = (Bundle.main.infoDictionary?["CFBundleVersion"] as? String)
+            .map { " (\($0))" }
+            .defaulting(to: "")
+        let appVersion: String? = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String)
+            .map { "App: \($0)\(buildNumber)" }
+        #if DEBUG
+        let commitInfo: String? = (Bundle.main.infoDictionary?["GitCommitHash"] as? String).map { "Commit: \($0)" }
+        #else
+        let commitInfo: String? = nil
+        #endif
+        
+        let versionInfo: [String] = [
+            "iOS \(UIDevice.current.systemVersion)",
+            appVersion,
+            "libSession: \(SessionUtil.libSessionVersion)",
+            commitInfo
+        ].compactMap { $0 }
+        
+        return versionInfo.joined(separator: ", ")
+    }
     
     // MARK: - View Convenience Methods
     
-    public static func presentConversation(for threadId: String, action: ConversationViewModel.Action = .none, animated: Bool) {
-        let maybeThreadInfo: (thread: SessionThread, isMessageRequest: Bool)? = Storage.shared.write { db in
-            let thread: SessionThread = try SessionThread.fetchOrCreate(db, id: threadId, variant: .contact)
-            
-            return (thread, thread.isMessageRequest(db))
-        }
-        
-        guard
-            let variant: SessionThread.Variant = maybeThreadInfo?.thread.variant,
-            let isMessageRequest: Bool = maybeThreadInfo?.isMessageRequest
-        else { return }
-        
-        self.presentConversation(
-            for: threadId,
-            threadVariant: variant,
-            isMessageRequest: isMessageRequest,
-            action: action,
-            focusInteractionId: nil,
-            animated: animated
-        )
-    }
-    
-    public static func presentConversation(
+    public static func presentConversationCreatingIfNeeded(
         for threadId: String,
-        threadVariant: SessionThread.Variant,
-        isMessageRequest: Bool,
-        action: ConversationViewModel.Action,
-        focusInteractionId: Int64?,
+        variant: SessionThread.Variant,
+        action: ConversationViewModel.Action = .none,
+        dismissing presentingViewController: UIViewController?,
         animated: Bool
     ) {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async {
-                self.presentConversation(
-                    for: threadId,
-                    threadVariant: threadVariant,
-                    isMessageRequest: isMessageRequest,
-                    action: action,
-                    focusInteractionId: focusInteractionId,
-                    animated: animated
-                )
+        let threadInfo: (threadExists: Bool, isMessageRequest: Bool)? = Storage.shared.read { db in
+            let isMessageRequest: Bool = {
+                switch variant {
+                    case .contact:
+                        return SessionThread
+                            .isMessageRequest(
+                                id: threadId,
+                                variant: .contact,
+                                currentUserPublicKey: getUserHexEncodedPublicKey(db),
+                                shouldBeVisible: nil,
+                                contactIsApproved: (try? Contact
+                                    .filter(id: threadId)
+                                    .select(.isApproved)
+                                    .asRequest(of: Bool.self)
+                                    .fetchOne(db))
+                                    .defaulting(to: false),
+                                includeNonVisible: true
+                            )
+                        
+                    default: return false
+                }
+            }()
+            
+            return (SessionThread.filter(id: threadId).isNotEmpty(db), isMessageRequest)
+        }
+        
+        // Store the post-creation logic in a closure to avoid duplication
+        let afterThreadCreated: () -> () = {
+            presentingViewController?.dismiss(animated: true, completion: nil)
+            
+            homeViewController.wrappedValue?.show(
+                threadId,
+                variant: variant,
+                isMessageRequest: (threadInfo?.isMessageRequest == true),
+                with: action,
+                focusedInteractionInfo: nil,
+                animated: animated
+            )
+        }
+        
+        /// The thread should generally exist at the time of calling this method, but on the off change it doesn't then we need to `fetchOrCreate` it and
+        /// should do it on a background thread just in case something is keeping the DBWrite thread busy as in the past this could cause the app to hang
+        guard threadInfo?.threadExists == true else {
+            DispatchQueue.global(qos: .userInitiated).async {
+                Storage.shared.write { db in
+                    try SessionThread.fetchOrCreate(db, id: threadId, variant: variant, shouldBeVisible: nil)
+                }
+
+                // Send back to main thread for UI transitions
+                DispatchQueue.main.async {
+                    afterThreadCreated()
+                }
             }
             return
         }
         
-        homeViewController.wrappedValue?.show(
-            threadId,
-            variant: threadVariant,
-            isMessageRequest: isMessageRequest,
-            with: action,
-            focusedInteractionId: focusInteractionId,
-            animated: animated
-        )
+        // Send to main thread if needed
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                afterThreadCreated()
+            }
+            return
+        }
+        
+        afterThreadCreated()
     }
 
     // MARK: - Functions
@@ -69,7 +115,8 @@ public struct SessionApp {
         // This _should_ be wiped out below.
         Logger.error("")
         DDLog.flushLog()
-
+        
+        SessionUtil.clearMemoryState()
         Storage.resetAllStorage()
         ProfileManager.resetProfileStorage()
         Attachment.resetAttachmentStorage()

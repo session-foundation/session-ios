@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Combine
 import GRDB
 import DifferenceKit
 import SessionUIKit
@@ -9,17 +10,13 @@ import SessionUtilitiesKit
 public class SessionCell: UITableViewCell {
     public static let cornerRadius: CGFloat = 17
     
-    public enum Style {
-        case rounded
-        case roundedEdgeToEdge
-        case edgeToEdge
-    }
-    
-    /// This value is here to allow the theming update callback to be released when preparing for reuse
-    private var instanceView: UIView = UIView()
-    private var position: Position?
+    private var isEditingTitle = false
+    public private(set) var interactionMode: SessionCell.TextInfo.Interaction = .none
+    private var shouldHighlightTitle: Bool = true
+    private var originalInputValue: String?
+    private var titleExtraView: UIView?
     private var subtitleExtraView: UIView?
-    private var onExtraActionTap: (() -> Void)?
+    var disposables: Set<AnyCancellable> = Set()
     
     // MARK: - UI
     
@@ -29,8 +26,18 @@ public class SessionCell: UITableViewCell {
     private var topSeparatorRightConstraint: NSLayoutConstraint = NSLayoutConstraint()
     private var botSeparatorLeftConstraint: NSLayoutConstraint = NSLayoutConstraint()
     private var botSeparatorRightConstraint: NSLayoutConstraint = NSLayoutConstraint()
+    private lazy var contentStackViewTopConstraint: NSLayoutConstraint = contentStackView.pin(.top, to: .top, of: cellBackgroundView)
+    private lazy var contentStackViewLeadingConstraint: NSLayoutConstraint = contentStackView.pin(.leading, to: .leading, of: cellBackgroundView)
+    private lazy var contentStackViewTrailingConstraint: NSLayoutConstraint = contentStackView.pin(.trailing, to: .trailing, of: cellBackgroundView)
+    private lazy var contentStackViewBottomConstraint: NSLayoutConstraint = contentStackView.pin(.bottom, to: .bottom, of: cellBackgroundView)
+    private lazy var contentStackViewHorizontalCenterConstraint: NSLayoutConstraint = contentStackView.center(.horizontal, in: cellBackgroundView)
     private lazy var leftAccessoryFillConstraint: NSLayoutConstraint = contentStackView.set(.height, to: .height, of: leftAccessoryView)
+    private lazy var titleTextFieldLeadingConstraint: NSLayoutConstraint = titleTextField.pin(.leading, to: .leading, of: cellBackgroundView)
+    private lazy var titleTextFieldTrailingConstraint: NSLayoutConstraint = titleTextField.pin(.trailing, to: .trailing, of: cellBackgroundView)
+    private lazy var titleMinHeightConstraint: NSLayoutConstraint = titleStackView.heightAnchor
+        .constraint(greaterThanOrEqualTo: titleTextField.heightAnchor)
     private lazy var rightAccessoryFillConstraint: NSLayoutConstraint = contentStackView.set(.height, to: .height, of: rightAccessoryView)
+    private lazy var accessoryWidthMatchConstraint: NSLayoutConstraint = leftAccessoryView.set(.width, to: .width, of: rightAccessoryView)
     
     private let cellBackgroundView: UIView = {
         let result: UIView = UIView()
@@ -65,7 +72,6 @@ public class SessionCell: UITableViewCell {
         result.distribution = .fill
         result.alignment = .center
         result.spacing = Values.mediumSpacing
-        result.isLayoutMarginsRelativeArrangement = true
         
         return result
     }()
@@ -89,10 +95,10 @@ public class SessionCell: UITableViewCell {
         return result
     }()
     
-    private let titleLabel: UILabel = {
-        let result: UILabel = UILabel()
+    fileprivate let titleLabel: SRCopyableLabel = {
+        let result: SRCopyableLabel = SRCopyableLabel()
         result.translatesAutoresizingMaskIntoConstraints = false
-        result.font = .boldSystemFont(ofSize: 15)
+        result.isUserInteractionEnabled = false
         result.themeTextColor = .textPrimary
         result.numberOfLines = 0
         result.setCompressionResistanceHorizontalLow()
@@ -101,42 +107,26 @@ public class SessionCell: UITableViewCell {
         return result
     }()
     
-    private let subtitleLabel: UILabel = {
-        let result: UILabel = UILabel()
+    fileprivate let titleTextField: UITextField = {
+        let textField: TextField = TextField(placeholder: "", usesDefaultHeight: false)
+        textField.translatesAutoresizingMaskIntoConstraints = false
+        textField.textAlignment = .center
+        textField.alpha = 0
+        textField.isHidden = true
+        textField.set(.height, to: Values.largeButtonHeight)
+        
+        return textField
+    }()
+    
+    private let subtitleLabel: SRCopyableLabel = {
+        let result: SRCopyableLabel = SRCopyableLabel()
         result.translatesAutoresizingMaskIntoConstraints = false
-        result.font = .systemFont(ofSize: 13)
+        result.isUserInteractionEnabled = false
         result.themeTextColor = .textPrimary
         result.numberOfLines = 0
         result.isHidden = true
         result.setCompressionResistanceHorizontalLow()
         result.setContentHuggingLow()
-        
-        return result
-    }()
-    
-    private lazy var extraActionTopSpacingView: UIView = UIView.spacer(withHeight: Values.smallSpacing)
-    
-    private lazy var extraActionButton: UIButton = {
-        let result: UIButton = UIButton()
-        result.translatesAutoresizingMaskIntoConstraints = false
-        result.titleLabel?.font = .boldSystemFont(ofSize: Values.smallFontSize)
-        result.titleLabel?.numberOfLines = 0
-        result.contentHorizontalAlignment = .left
-        result.contentEdgeInsets = UIEdgeInsets(
-            top: 8,
-            left: 0,
-            bottom: 0,
-            right: 0
-        )
-        result.addTarget(self, action: #selector(extraActionTapped), for: .touchUpInside)
-        result.isHidden = true
-        
-        ThemeManager.onThemeChange(observer: result) { [weak result] theme, _ in
-            switch theme.interfaceStyle {
-                case .light: result?.setThemeTitleColor(.textPrimary, for: .normal)
-                default: result?.setThemeTitleColor(.primary, for: .normal)
-            }
-        }
         
         return result
     }()
@@ -186,8 +176,8 @@ public class SessionCell: UITableViewCell {
         
         titleStackView.addArrangedSubview(titleLabel)
         titleStackView.addArrangedSubview(subtitleLabel)
-        titleStackView.addArrangedSubview(extraActionTopSpacingView)
-        titleStackView.addArrangedSubview(extraActionButton)
+        
+        cellBackgroundView.addSubview(titleTextField)
         
         setupLayout()
     }
@@ -204,7 +194,10 @@ public class SessionCell: UITableViewCell {
         topSeparatorLeftConstraint = topSeparator.pin(.left, to: .left, of: cellBackgroundView)
         topSeparatorRightConstraint = topSeparator.pin(.right, to: .right, of: cellBackgroundView)
         
-        contentStackView.pin(to: cellBackgroundView)
+        contentStackViewTopConstraint.isActive = true
+        contentStackViewBottomConstraint.isActive = true
+        
+        titleTextField.center(.vertical, in: titleLabel)
         
         botSeparatorLeftConstraint = botSeparator.pin(.left, to: .left, of: cellBackgroundView)
         botSeparatorRightConstraint = botSeparator.pin(.right, to: .right, of: cellBackgroundView)
@@ -217,55 +210,59 @@ public class SessionCell: UITableViewCell {
         // Need to force the contentStackView to layout if needed as it might not have updated it's
         // sizing yet
         self.contentStackView.layoutIfNeeded()
+        repositionExtraView(titleExtraView, for: titleLabel)
+        repositionExtraView(subtitleExtraView, for: subtitleLabel)
+    }
+    
+    private func repositionExtraView(_ targetView: UIView?, for label: UILabel) {
+        guard
+            let targetView: UIView = targetView,
+            let content: String = label.text,
+            let font: UIFont = label.font
+        else { return }
         
-        // Position the 'subtitleExtraView' at the end of the last line of text
-        if
-            let subtitleExtraView: UIView = self.subtitleExtraView,
-            let subtitle: String = subtitleLabel.text,
-            let font: UIFont = subtitleLabel.font
-        {
-            let layoutManager: NSLayoutManager = NSLayoutManager()
-            let textStorage = NSTextStorage(
-                attributedString: NSAttributedString(
-                    string: subtitle,
-                    attributes: [ .font: font ]
-                )
+        // Position the 'targetView' at the end of the last line of text
+        let layoutManager: NSLayoutManager = NSLayoutManager()
+        let textStorage = NSTextStorage(
+            attributedString: NSAttributedString(
+                string: content,
+                attributes: [ .font: font ]
             )
-            textStorage.addLayoutManager(layoutManager)
-            
-            let textContainer: NSTextContainer = NSTextContainer(
-                size: CGSize(
-                    width: subtitleLabel.bounds.size.width,
-                    height: 999
-                )
+        )
+        textStorage.addLayoutManager(layoutManager)
+        
+        let textContainer: NSTextContainer = NSTextContainer(
+            size: CGSize(
+                width: label.bounds.size.width,
+                height: 999
             )
-            textContainer.lineFragmentPadding = 0
-            layoutManager.addTextContainer(textContainer)
-            
-            var glyphRange: NSRange = NSRange()
-            layoutManager.characterRange(
-                forGlyphRange: NSRange(location: subtitle.glyphCount - 1, length: 1),
-                actualGlyphRange: &glyphRange
-            )
-            let lastGlyphRect: CGRect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
-            
-            // Remove and re-add the 'subtitleExtraView' to clear any old constraints
-            subtitleExtraView.removeFromSuperview()
-            contentView.addSubview(subtitleExtraView)
-            
-            subtitleExtraView.pin(
-                .top,
-                to: .top,
-                of: subtitleLabel,
-                withInset: (lastGlyphRect.minY + ((lastGlyphRect.height / 2) - (subtitleExtraView.bounds.height / 2)))
-            )
-            subtitleExtraView.pin(
-                .leading,
-                to: .leading,
-                of: subtitleLabel,
-                withInset: lastGlyphRect.maxX
-            )
-        }
+        )
+        textContainer.lineFragmentPadding = 0
+        layoutManager.addTextContainer(textContainer)
+        
+        var glyphRange: NSRange = NSRange()
+        layoutManager.characterRange(
+            forGlyphRange: NSRange(location: content.glyphCount - 1, length: 1),
+            actualGlyphRange: &glyphRange
+        )
+        let lastGlyphRect: CGRect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
+        
+        // Remove and re-add the 'subtitleExtraView' to clear any old constraints
+        targetView.removeFromSuperview()
+        contentView.addSubview(targetView)
+        
+        targetView.pin(
+            .top,
+            to: .top,
+            of: label,
+            withInset: (lastGlyphRect.minY + ((lastGlyphRect.height / 2) - (targetView.bounds.height / 2)))
+        )
+        targetView.pin(
+            .leading,
+            to: .leading,
+            of: label,
+            withInset: lastGlyphRect.maxX
+        )
     }
     
     // MARK: - Content
@@ -273,108 +270,189 @@ public class SessionCell: UITableViewCell {
     public override func prepareForReuse() {
         super.prepareForReuse()
         
-        self.instanceView = UIView()
-        self.position = nil
-        self.onExtraActionTap = nil
-        self.accessibilityIdentifier = nil
+        isEditingTitle = false
+        interactionMode = .none
+        shouldHighlightTitle = true
+        accessibilityIdentifier = nil
+        accessibilityLabel = nil
+        isAccessibilityElement = false
+        originalInputValue = nil
+        titleExtraView?.removeFromSuperview()
+        titleExtraView = nil
+        subtitleExtraView?.removeFromSuperview()
+        subtitleExtraView = nil
+        disposables = Set()
         
+        contentStackView.spacing = Values.mediumSpacing
+        contentStackViewLeadingConstraint.isActive = false
+        contentStackViewTrailingConstraint.isActive = false
+        contentStackViewHorizontalCenterConstraint.isActive = false
+        titleMinHeightConstraint.isActive = false
         leftAccessoryView.prepareForReuse()
+        leftAccessoryView.alpha = 1
         leftAccessoryFillConstraint.isActive = false
         titleLabel.text = ""
+        titleLabel.textAlignment = .left
         titleLabel.themeTextColor = .textPrimary
+        titleLabel.alpha = 1
+        titleTextField.text = ""
+        titleTextField.textAlignment = .center
+        titleTextField.themeTextColor = .textPrimary
+        titleTextField.isHidden = true
+        titleTextField.alpha = 0
+        subtitleLabel.isUserInteractionEnabled = false
         subtitleLabel.text = ""
         subtitleLabel.themeTextColor = .textPrimary
         rightAccessoryView.prepareForReuse()
+        rightAccessoryView.alpha = 1
         rightAccessoryFillConstraint.isActive = false
+        accessoryWidthMatchConstraint.isActive = false
         
         topSeparator.isHidden = true
         subtitleLabel.isHidden = true
-        extraActionTopSpacingView.isHidden = true
-        extraActionButton.setTitle("", for: .normal)
-        extraActionButton.isHidden = true
         botSeparator.isHidden = true
-        
-        subtitleExtraView?.removeFromSuperview()
-        subtitleExtraView = nil
     }
     
-    public func update<ID: Hashable & Differentiable>(
-        with info: Info<ID>,
-        style: Style,
-        position: Position
-    ) {
-        self.instanceView = UIView()
-        self.position = position
-        self.subtitleExtraView = info.subtitleExtraViewGenerator?()
-        self.onExtraActionTap = info.extraAction?.onTap
-        self.accessibilityIdentifier = info.accessibilityIdentifier
-        self.accessibilityLabel = info.accessibilityLabel
-        self.isAccessibilityElement = true
+    public func update<ID: Hashable & Differentiable>(with info: Info<ID>) {
+        interactionMode = (info.title?.interaction ?? .none)
+        shouldHighlightTitle = (info.title?.interaction != .copy)
+        titleExtraView = info.title?.extraViewGenerator?()
+        subtitleExtraView = info.subtitle?.extraViewGenerator?()
+        accessibilityIdentifier = info.accessibility?.identifier
+        accessibilityLabel = info.accessibility?.label
+        isAccessibilityElement = true
+        originalInputValue = info.title?.text
         
+        // Convenience Flags
         let leftFitToEdge: Bool = (info.leftAccessory?.shouldFitToEdge == true)
         let rightFitToEdge: Bool = (!leftFitToEdge && info.rightAccessory?.shouldFitToEdge == true)
-        leftAccessoryFillConstraint.isActive = leftFitToEdge
+        
+        // Content
+        contentStackView.spacing = (info.styling.customPadding?.interItem ?? Values.mediumSpacing)
         leftAccessoryView.update(
             with: info.leftAccessory,
-            tintColor: info.tintColor,
-            isEnabled: info.isEnabled,
-            accessibilityLabel: info.leftAccessoryAccessibilityLabel
+            tintColor: info.styling.tintColor,
+            isEnabled: info.isEnabled
         )
+        titleStackView.isHidden = (info.title == nil && info.subtitle == nil)
+        titleLabel.isUserInteractionEnabled = (info.title?.interaction == .copy)
+        titleLabel.font = info.title?.font
+        titleLabel.text = info.title?.text
+        titleLabel.themeTextColor = info.styling.tintColor
+        titleLabel.textAlignment = (info.title?.textAlignment ?? .left)
+        titleLabel.isHidden = (info.title == nil)
+        titleTextField.text = info.title?.text
+        titleTextField.textAlignment = (info.title?.textAlignment ?? .left)
+        titleTextField.placeholder = info.title?.editingPlaceholder
+        titleTextField.isHidden = (info.title == nil)
+        titleTextField.accessibilityIdentifier = info.accessibility?.identifier
+        titleTextField.accessibilityLabel = info.accessibility?.label
+        subtitleLabel.isUserInteractionEnabled = (info.subtitle?.interaction == .copy)
+        subtitleLabel.font = info.subtitle?.font
+        subtitleLabel.text = info.subtitle?.text
+        subtitleLabel.themeTextColor = info.styling.tintColor
+        subtitleLabel.textAlignment = (info.subtitle?.textAlignment ?? .left)
+        subtitleLabel.isHidden = (info.subtitle == nil)
         rightAccessoryView.update(
             with: info.rightAccessory,
-            tintColor: info.tintColor,
-            isEnabled: info.isEnabled,
-            accessibilityLabel: info.rightAccessoryAccessibilityLabel
-        )
-        rightAccessoryFillConstraint.isActive = rightFitToEdge
-        contentStackView.layoutMargins = UIEdgeInsets(
-            top: (leftFitToEdge || rightFitToEdge ? 0 : Values.mediumSpacing),
-            left: (leftFitToEdge ? 0 : Values.largeSpacing),
-            bottom: (leftFitToEdge || rightFitToEdge ? 0 : Values.mediumSpacing),
-            right: (rightFitToEdge ? 0 : Values.largeSpacing)
+            tintColor: info.styling.tintColor,
+            isEnabled: info.isEnabled
         )
         
-        titleLabel.text = info.title
-        titleLabel.themeTextColor = info.tintColor
-        subtitleLabel.text = info.subtitle
-        subtitleLabel.themeTextColor = info.tintColor
-        subtitleLabel.isHidden = (info.subtitle == nil)
-        extraActionTopSpacingView.isHidden = (info.extraAction == nil)
-        extraActionButton.setTitle(info.extraAction?.title, for: .normal)
-        extraActionButton.isHidden = (info.extraAction == nil)
+        contentStackViewLeadingConstraint.isActive = (info.styling.alignment == .leading)
+        contentStackViewTrailingConstraint.isActive = (info.styling.alignment == .leading)
+        contentStackViewHorizontalCenterConstraint.constant = ((info.styling.customPadding?.leading ?? 0) + (info.styling.customPadding?.trailing ?? 0))
+        contentStackViewHorizontalCenterConstraint.isActive = (info.styling.alignment == .centerHugging)
+        leftAccessoryFillConstraint.isActive = leftFitToEdge
+        rightAccessoryFillConstraint.isActive = rightFitToEdge
+        accessoryWidthMatchConstraint.isActive = {
+            switch (info.leftAccessory, info.rightAccessory) {
+                case (.button, .button): return true
+                default: return false
+            }
+        }()
+        titleLabel.setContentHuggingPriority(
+            (info.rightAccessory != nil ? .defaultLow : .required),
+            for: .horizontal
+        )
+        titleLabel.setContentCompressionResistancePriority(
+            (info.rightAccessory != nil ? .defaultLow : .required),
+            for: .horizontal
+        )
+        contentStackViewTopConstraint.constant = {
+            if let customPadding: CGFloat = info.styling.customPadding?.top {
+                return customPadding
+            }
+            
+            return (leftFitToEdge || rightFitToEdge ? 0 : Values.mediumSpacing)
+        }()
+        contentStackViewLeadingConstraint.constant = {
+            if let customPadding: CGFloat = info.styling.customPadding?.leading {
+                return customPadding
+            }
+            
+            return (leftFitToEdge ? 0 : Values.mediumSpacing)
+        }()
+        contentStackViewTrailingConstraint.constant = {
+            if let customPadding: CGFloat = info.styling.customPadding?.trailing {
+                return -customPadding
+            }
+            
+            return -(rightFitToEdge ? 0 : Values.mediumSpacing)
+        }()
+        contentStackViewBottomConstraint.constant = {
+            if let customPadding: CGFloat = info.styling.customPadding?.bottom {
+                return -customPadding
+            }
+            
+            return -(leftFitToEdge || rightFitToEdge ? 0 : Values.mediumSpacing)
+        }()
+        titleTextFieldLeadingConstraint.constant = {
+            guard info.styling.backgroundStyle != .noBackground else { return 0 }
+            
+            return (leftFitToEdge ? 0 : Values.mediumSpacing)
+        }()
+        titleTextFieldTrailingConstraint.constant = {
+            guard info.styling.backgroundStyle != .noBackground else { return 0 }
+            
+            return -(rightFitToEdge ? 0 : Values.mediumSpacing)
+        }()
         
         // Styling and positioning
         let defaultEdgePadding: CGFloat
-        cellBackgroundView.themeBackgroundColor = (info.shouldHaveBackground ?
-            .settings_tabBackground :
-            nil
-        )
-        cellSelectedBackgroundView.isHidden = (!info.isEnabled || !info.shouldHaveBackground)
         
-        switch style {
+        switch info.styling.backgroundStyle {
             case .rounded:
+                cellBackgroundView.themeBackgroundColor = .settings_tabBackground
+                cellSelectedBackgroundView.isHidden = !info.isEnabled
+                
                 defaultEdgePadding = Values.mediumSpacing
                 backgroundLeftConstraint.constant = Values.largeSpacing
                 backgroundRightConstraint.constant = -Values.largeSpacing
                 cellBackgroundView.layer.cornerRadius = SessionCell.cornerRadius
                 
             case .edgeToEdge:
+                cellBackgroundView.themeBackgroundColor = .settings_tabBackground
+                cellSelectedBackgroundView.isHidden = !info.isEnabled
+                
                 defaultEdgePadding = 0
                 backgroundLeftConstraint.constant = 0
                 backgroundRightConstraint.constant = 0
                 cellBackgroundView.layer.cornerRadius = 0
                 
-            case .roundedEdgeToEdge:
+            case .noBackground:
                 defaultEdgePadding = Values.mediumSpacing
-                backgroundLeftConstraint.constant = 0
-                backgroundRightConstraint.constant = 0
-                cellBackgroundView.layer.cornerRadius = SessionCell.cornerRadius
+                backgroundLeftConstraint.constant = Values.largeSpacing
+                backgroundRightConstraint.constant = -Values.largeSpacing
+                cellBackgroundView.themeBackgroundColor = nil
+                cellBackgroundView.layer.cornerRadius = 0
+                cellSelectedBackgroundView.isHidden = true
         }
         
         let fittedEdgePadding: CGFloat = {
             func targetSize(accessory: Accessory?) -> CGFloat {
                 switch accessory {
-                    case .icon(_, let iconSize, _, _), .iconAsync(let iconSize, _, _, _):
+                    case .icon(_, let iconSize, _, _, _), .iconAsync(let iconSize, _, _, _, _):
                         return iconSize.size
                         
                     default: return defaultEdgePadding
@@ -394,43 +472,103 @@ public class SessionCell: UITableViewCell {
         botSeparatorLeftConstraint.constant = (leftFitToEdge ? fittedEdgePadding : defaultEdgePadding)
         botSeparatorRightConstraint.constant = (rightFitToEdge ? -fittedEdgePadding : -defaultEdgePadding)
         
-        switch position {
+        switch info.position {
             case .top:
                 cellBackgroundView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
-                topSeparator.isHidden = (style != .edgeToEdge)
-                botSeparator.isHidden = false
+                topSeparator.isHidden = (
+                    !info.styling.allowedSeparators.contains(.top) ||
+                    info.styling.backgroundStyle != .edgeToEdge
+                )
+                botSeparator.isHidden = (
+                    !info.styling.allowedSeparators.contains(.bottom) ||
+                    info.styling.backgroundStyle == .noBackground
+                )
                 
             case .middle:
                 cellBackgroundView.layer.maskedCorners = []
                 topSeparator.isHidden = true
-                botSeparator.isHidden = false
+                botSeparator.isHidden = (
+                    !info.styling.allowedSeparators.contains(.bottom) ||
+                    info.styling.backgroundStyle == .noBackground
+                )
                 
             case .bottom:
                 cellBackgroundView.layer.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
-                topSeparator.isHidden = false
-                botSeparator.isHidden = (style != .edgeToEdge)
+                topSeparator.isHidden = true
+                botSeparator.isHidden = (
+                    !info.styling.allowedSeparators.contains(.bottom) ||
+                    info.styling.backgroundStyle != .edgeToEdge
+                )
                 
             case .individual:
                 cellBackgroundView.layer.maskedCorners = [
                     .layerMinXMinYCorner, .layerMaxXMinYCorner,
                     .layerMinXMaxYCorner, .layerMaxXMaxYCorner
                 ]
-                topSeparator.isHidden = (style != .edgeToEdge)
-                botSeparator.isHidden = (style != .edgeToEdge)
+                topSeparator.isHidden = (
+                    !info.styling.allowedSeparators.contains(.top) ||
+                    info.styling.backgroundStyle != .edgeToEdge
+                )
+                botSeparator.isHidden = (
+                    !info.styling.allowedSeparators.contains(.bottom) ||
+                    info.styling.backgroundStyle != .edgeToEdge
+                )
         }
     }
     
-    public func update(isEditing: Bool, animated: Bool) {}
+    public func update(isEditing: Bool, becomeFirstResponder: Bool, animated: Bool) {
+        // Note: We set 'isUserInteractionEnabled' based on the 'info.isEditable' flag
+        // so can use that to determine whether this element can become editable
+        guard interactionMode == .editable || interactionMode == .alwaysEditing else { return }
+        
+        self.isEditingTitle = isEditing
+        
+        let changes = { [weak self] in
+            self?.titleLabel.alpha = (isEditing ? 0 : 1)
+            self?.titleTextField.alpha = (isEditing ? 1 : 0)
+            self?.leftAccessoryView.alpha = (isEditing ? 0 : 1)
+            self?.rightAccessoryView.alpha = (isEditing ? 0 : 1)
+            self?.titleMinHeightConstraint.isActive = isEditing
+        }
+        let completion: (Bool) -> Void = { [weak self] complete in
+            self?.titleTextField.text = self?.originalInputValue
+        }
+
+        if animated {
+            UIView.animate(withDuration: 0.25, animations: changes, completion: completion)
+        }
+        else {
+            changes()
+            completion(true)
+        }
+
+        if isEditing && becomeFirstResponder {
+            titleTextField.becomeFirstResponder()
+        }
+        else if !isEditing {
+            titleTextField.resignFirstResponder()
+        }
+    }
     
     // MARK: - Interaction
     
     public override func setHighlighted(_ highlighted: Bool, animated: Bool) {
         super.setHighlighted(highlighted, animated: animated)
         
+        // When editing disable the highlighted state changes (would result in UI elements
+        // reappearing otherwise)
+        guard !self.isEditingTitle else { return }
+        
         // If the 'cellSelectedBackgroundView' is hidden then there is no background so we
         // should update the titleLabel to indicate the highlighted state
-        if cellSelectedBackgroundView.isHidden {
-            titleLabel.alpha = (highlighted ? 0.8 : 1)
+        if cellSelectedBackgroundView.isHidden && shouldHighlightTitle {
+            // Note: We delay the "unhighlight" of the titleLabel so that the transition doesn't
+            // conflict with the transition into edit mode
+            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(10)) { [weak self] in
+                guard self?.isEditingTitle == false else { return }
+                
+                self?.titleLabel.alpha = (highlighted ? 0.8 : 1)
+            }
         }
 
         cellSelectedBackgroundView.alpha = (highlighted ? 1 : 0)
@@ -440,12 +578,27 @@ public class SessionCell: UITableViewCell {
     
     public override func setSelected(_ selected: Bool, animated: Bool) {
         super.setSelected(selected, animated: animated)
-        
+
         leftAccessoryView.setSelected(selected, animated: animated)
         rightAccessoryView.setSelected(selected, animated: animated)
     }
-    
-    @objc private func extraActionTapped() {
-        onExtraActionTap?()
+}
+
+// MARK: - Compose
+
+extension CombineCompatible where Self: SessionCell {
+    var textPublisher: AnyPublisher<String, Never> {
+        return self.titleTextField.publisher(for: [.editingChanged, .editingDidEnd])
+            .handleEvents(
+                receiveOutput: { [weak self] textField in
+                    // When editing the text update the 'accessibilityLabel' of the cell to match
+                    // the text
+                    let targetText: String? = (textField.isEditing ? textField.text : self?.titleLabel.text)
+                    self?.accessibilityLabel = (targetText ?? self?.accessibilityLabel)
+                }
+            )
+            .filter { $0.isEditing }    // Don't bother sending events for 'editingDidEnd'
+            .map { textField -> String in (textField.text ?? "") }
+            .eraseToAnyPublisher()
     }
 }

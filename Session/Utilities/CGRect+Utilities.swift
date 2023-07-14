@@ -1,6 +1,8 @@
+// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+
+import Foundation
 
 extension CGRect {
-
     init(center: CGPoint, size: CGSize) {
         let originX = center.x - size.width / 2
         let originY = center.y - size.height / 2

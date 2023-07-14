@@ -1,7 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import WebRTC
 import SessionUIKit
 
 public protocol VideoPreviewDelegate: AnyObject {

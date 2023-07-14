@@ -1,20 +1,21 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Combine
 import GRDB
-import PromiseKit
 import DifferenceKit
-import Sodium
 import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
 
 final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableViewDelegate, AttachmentApprovalViewControllerDelegate {
     private let viewModel: ThreadPickerViewModel = ThreadPickerViewModel()
-    private var dataChangeObservable: DatabaseCancellable?
+    private var dataChangeObservable: DatabaseCancellable? {
+        didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
+    }
     private var hasLoadedInitialData: Bool = false
     
-    var shareVC: ShareVC?
+    var shareNavController: ShareNavController?
     
     // MARK: - Intialization
     
@@ -80,8 +81,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         
-        // Stop observing database changes
-        dataChangeObservable?.cancel()
+        stopObservingChanges()
     }
     
     @objc func applicationDidBecomeActive(_ notification: Notification) {
@@ -92,8 +92,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     }
     
     @objc func applicationDidResignActive(_ notification: Notification) {
-        // Stop observing database changes
-        dataChangeObservable?.cancel()
+        stopObservingChanges()
     }
     
     // MARK: Layout
@@ -105,6 +104,8 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     // MARK: - Updating
     
     private func startObservingChanges() {
+        guard dataChangeObservable == nil else { return }
+        
         // Start observing for data changes
         dataChangeObservable = Storage.shared.start(
             viewModel.observableViewData,
@@ -114,6 +115,10 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 self?.handleUpdates(viewData)
             }
         )
+    }
+    
+    private func stopObservingChanges() {
+        dataChangeObservable = nil
     }
     
     private func handleUpdates(_ updatedViewData: [SessionThreadViewModel]) {
@@ -153,14 +158,21 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         
-        guard let attachments: [SignalAttachment] = ShareVC.attachmentPrepPromise?.value else { return }
-        
-        let approvalVC: UINavigationController = AttachmentApprovalViewController.wrappedInNavController(
-            threadId: self.viewModel.viewData[indexPath.row].threadId,
-            attachments: attachments,
-            approvalDelegate: self
-        )
-        self.navigationController?.present(approvalVC, animated: true, completion: nil)
+        ShareNavController.attachmentPrepPublisher?
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+            .receive(on: DispatchQueue.main)
+            .sinkUntilComplete(
+                receiveValue: { [weak self] attachments in
+                    guard let strongSelf = self else { return }
+                    
+                    let approvalVC: UINavigationController = AttachmentApprovalViewController.wrappedInNavController(
+                        threadId: strongSelf.viewModel.viewData[indexPath.row].threadId,
+                        attachments: attachments,
+                        approvalDelegate: strongSelf
+                    )
+                    strongSelf.navigationController?.present(approvalVC, animated: true, completion: nil)
+                }
+            )
     }
     
     func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didApproveAttachments attachments: [SignalAttachment], forThreadId threadId: String, messageText: String?) {
@@ -180,18 +192,21 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             messageText
         )
         
-        shareVC?.dismiss(animated: true, completion: nil)
+        shareNavController?.dismiss(animated: true, completion: nil)
         
-        ModalActivityIndicatorViewController.present(fromViewController: shareVC!, canCancel: false, message: "vc_share_sending_message".localized()) { activityIndicator in
+        ModalActivityIndicatorViewController.present(fromViewController: shareNavController!, canCancel: false, message: "vc_share_sending_message".localized()) { activityIndicator in
             // Resume database
             NotificationCenter.default.post(name: Database.resumeNotification, object: self)
+            
             Storage.shared
-                .writeAsync { [weak self] db -> Promise<Void> in
-                    guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
-                        activityIndicator.dismiss { }
-                        self?.shareVC?.shareViewFailed(error: MessageSenderError.noThread)
-                        return Promise(error: MessageSenderError.noThread)
-                    }
+                .writePublisher { db -> MessageSender.PreparedSendData in
+                    guard
+                        let threadVariant: SessionThread.Variant = try SessionThread
+                            .filter(id: threadId)
+                            .select(.variant)
+                            .asRequest(of: SessionThread.Variant.self)
+                            .fetchOne(db)
+                    else { throw MessageSenderError.noThread }
                     
                     // Create the interaction
                     let interaction: Interaction = try Interaction(
@@ -209,7 +224,11 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                             .fetchOne(db),
                         linkPreviewUrl: (isSharingUrl ? attachments.first?.linkPreviewDraft?.urlString : nil)
                     ).inserted(db)
-
+                    
+                    guard let interactionId: Int64 = interaction.id else {
+                        throw StorageError.failedToSave
+                    }
+                    
                     // If the user is sharing a Url, there is a LinkPreview and it doesn't match an existing
                     // one then add it now
                     if
@@ -220,33 +239,49 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         try LinkPreview(
                             url: linkPreviewDraft.urlString,
                             title: linkPreviewDraft.title,
-                            attachmentId: LinkPreview.saveAttachmentIfPossible(
-                                db,
-                                imageData: linkPreviewDraft.jpegImageData,
-                                mimeType: OWSMimeTypeImageJpeg
-                            )
+                            attachmentId: LinkPreview
+                                .generateAttachmentIfPossible(
+                                    imageData: linkPreviewDraft.jpegImageData,
+                                    mimeType: OWSMimeTypeImageJpeg
+                                )?
+                                .inserted(db)
+                                .id
                         ).insert(db)
                     }
-
-                    return try MessageSender.sendNonDurably(
+                    
+                    // Prepare any attachments
+                    try Attachment.process(
                         db,
-                        interaction: interaction,
-                        with: finalAttachments,
-                        in: thread
+                        data: Attachment.prepare(attachments: finalAttachments),
+                        for: interactionId
                     )
+                    
+                    // Prepare the message send data
+                    return try MessageSender
+                        .preparedSendData(
+                            db,
+                            interaction: interaction,
+                            threadId: threadId,
+                            threadVariant: threadVariant
+                        )
                 }
-                .done { [weak self] _ in
-                    // Suspend the database
-                    NotificationCenter.default.post(name: Database.suspendNotification, object: self)
-                    activityIndicator.dismiss { }
-                    self?.shareVC?.shareViewWasCompleted()
-                }
-                .catch { [weak self] error in
-                    // Suspend the database
-                    NotificationCenter.default.post(name: Database.suspendNotification, object: self)
-                    activityIndicator.dismiss { }
-                    self?.shareVC?.shareViewFailed(error: error)
-                }
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+                .flatMap { MessageSender.performUploadsIfNeeded(preparedSendData: $0) }
+                .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+                .receive(on: DispatchQueue.main)
+                .sinkUntilComplete(
+                    receiveCompletion: { [weak self] result in
+                        // Suspend the database
+                        NotificationCenter.default.post(name: Database.suspendNotification, object: self)
+                        activityIndicator.dismiss { }
+                        
+                        switch result {
+                            case .finished: self?.shareNavController?.shareViewWasCompleted()
+                            case .failure(let error): self?.shareNavController?.shareViewFailed(error: error)
+                        }
+                    }
+                )
         }
     }
 

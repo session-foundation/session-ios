@@ -1,7 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import PromiseKit
+import Combine
 import SessionSnodeKit
 import SessionUtilitiesKit
 
@@ -21,6 +21,7 @@ public enum NotifyPushServerJob: JobExecutor {
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
         else {
+            SNLog("[NotifyPushServerJob] Failing due to missing details")
             failure(job, JobRunnerError.missingRequiredDetails, true)
             return
         }
@@ -29,12 +30,18 @@ public enum NotifyPushServerJob: JobExecutor {
             .notify(
                 recipient: details.message.recipient,
                 with: details.message.data,
-                maxRetryCount: 4,
-                queue: queue
+                maxRetryCount: 4
             )
-            .done(on: queue) { _ in success(job, false) }
-            .catch(on: queue) { error in failure(job, error, false) }
-            .retainUntilComplete()
+            .subscribe(on: queue)
+            .receive(on: queue)
+            .sinkUntilComplete(
+                receiveCompletion: { result in
+                    switch result {
+                        case .finished: success(job, false)
+                        case .failure(let error): failure(job, error, false)
+                    }
+                }
+            )
     }
 }
 

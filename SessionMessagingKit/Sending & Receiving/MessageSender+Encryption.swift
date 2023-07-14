@@ -1,16 +1,18 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import GRDB
 import Sodium
 import SessionUtilitiesKit
 
 extension MessageSender {
     internal static func encryptWithSessionProtocol(
-        _ plaintext: Data,
+        _ db: Database,
+        plaintext: Data,
         for recipientHexEncodedX25519PublicKey: String,
         using dependencies: SMKDependencies = SMKDependencies()
     ) throws -> Data {
-        guard let userEd25519KeyPair: Box.KeyPair = dependencies.storage.read({ db in Identity.fetchUserEd25519KeyPair(db) }) else {
+        guard let userEd25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
             throw MessageSenderError.noUserED25519KeyPair
         }
         
@@ -30,13 +32,17 @@ extension MessageSender {
     }
     
     internal static func encryptWithSessionBlindingProtocol(
-        _ plaintext: Data,
+        _ db: Database,
+        plaintext: Data,
         for recipientBlindedId: String,
         openGroupPublicKey: String,
         using dependencies: SMKDependencies = SMKDependencies()
     ) throws -> Data {
-        guard SessionId.Prefix(from: recipientBlindedId) == .blinded else { throw MessageSenderError.signingFailed }
-        guard let userEd25519KeyPair: Box.KeyPair = dependencies.storage.read({ db in Identity.fetchUserEd25519KeyPair(db) }) else {
+        guard
+            SessionId.Prefix(from: recipientBlindedId) == .blinded15 ||
+            SessionId.Prefix(from: recipientBlindedId) == .blinded25
+        else { throw MessageSenderError.signingFailed }
+        guard let userEd25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
             throw MessageSenderError.noUserED25519KeyPair
         }
         guard let blindedKeyPair = dependencies.sodium.blindedKeyPair(serverPublicKey: openGroupPublicKey, edKeyPair: userEd25519KeyPair, genericHash: dependencies.genericHash) else {

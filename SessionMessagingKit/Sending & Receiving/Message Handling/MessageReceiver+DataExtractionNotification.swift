@@ -3,19 +3,28 @@
 import Foundation
 import GRDB
 import SessionSnodeKit
+import SessionUtilitiesKit
 
 extension MessageReceiver {
-    internal static func handleDataExtractionNotification(_ db: Database, message: DataExtractionNotification) throws {
+    internal static func handleDataExtractionNotification(
+        _ db: Database,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        message: DataExtractionNotification
+    ) throws {
         guard
+            threadVariant == .contact,
             let sender: String = message.sender,
-            let messageKind: DataExtractionNotification.Kind = message.kind,
-            let thread: SessionThread = try? SessionThread.fetchOne(db, id: sender),
-            thread.variant == .contact
-        else { return }
+            let messageKind: DataExtractionNotification.Kind = message.kind
+        else { throw MessageReceiverError.invalidMessage }
         
+        let timestampMs: Int64 = (
+            message.sentTimestamp.map { Int64($0) } ??
+            SnodeAPI.currentOffsetTimestampMs()
+        )
         _ = try Interaction(
             serverHash: message.serverHash,
-            threadId: thread.id,
+            threadId: threadId,
             authorId: sender,
             variant: {
                 switch messageKind {
@@ -23,9 +32,13 @@ extension MessageReceiver {
                     case .mediaSaved: return .infoMediaSavedNotification
                 }
             }(),
-            timestampMs: (
-                message.sentTimestamp.map { Int64($0) } ??
-                SnodeAPI.currentOffsetTimestampMs()
+            timestampMs: timestampMs,
+            wasRead: SessionUtil.timestampAlreadyRead(
+                threadId: threadId,
+                threadVariant: threadVariant,
+                timestampMs: (timestampMs * 1000),
+                userPublicKey: getUserHexEncodedPublicKey(db),
+                openGroup: nil
             )
         ).inserted(db)
     }

@@ -17,7 +17,7 @@ public class MessageRequestsViewModel {
     
     // MARK: - Variables
     
-    public static let pageSize: Int = 15
+    public static let pageSize: Int = (UIDevice.current.isIPad ? 20 : 15)
     
     // MARK: - Initialization
     
@@ -51,7 +51,7 @@ public class MessageRequestsViewModel {
                     joinToPagedType: {
                         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
                         
-                        return SQL("LEFT JOIN \(Interaction.self) ON \(interaction[.threadId]) = \(thread[.id])")
+                        return SQL("JOIN \(Interaction.self) ON \(interaction[.threadId]) = \(thread[.id])")
                     }()
                 ),
                 PagedData.ObservedChanges(
@@ -60,7 +60,7 @@ public class MessageRequestsViewModel {
                     joinToPagedType: {
                         let contact: TypedTableAlias<Contact> = TypedTableAlias()
                         
-                        return SQL("LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])")
+                        return SQL("JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])")
                     }()
                 ),
                 PagedData.ObservedChanges(
@@ -69,7 +69,7 @@ public class MessageRequestsViewModel {
                     joinToPagedType: {
                         let profile: TypedTableAlias<Profile> = TypedTableAlias()
                         
-                        return SQL("LEFT JOIN \(Profile.self) ON \(profile[.id]) = \(thread[.id])")
+                        return SQL("JOIN \(Profile.self) ON \(profile[.id]) = \(thread[.id])")
                     }()
                 ),
                 PagedData.ObservedChanges(
@@ -80,8 +80,8 @@ public class MessageRequestsViewModel {
                         let recipientState: TypedTableAlias<RecipientState> = TypedTableAlias()
                         
                         return """
-                            LEFT JOIN \(Interaction.self) ON \(interaction[.threadId]) = \(thread[.id])
-                            LEFT JOIN \(RecipientState.self) ON \(recipientState[.interactionId]) = \(interaction[.id])
+                            JOIN \(Interaction.self) ON \(interaction[.threadId]) = \(thread[.id])
+                            JOIN \(RecipientState.self) ON \(recipientState[.interactionId]) = \(interaction[.id])
                         """
                     }()
                 )
@@ -103,7 +103,10 @@ public class MessageRequestsViewModel {
                     currentDataRetriever: { self?.threadData },
                     onDataChange: self?.onThreadChange,
                     onUnobservedDataChange: { updatedData, changeset in
-                        self?.unobservedThreadDataChanges = (updatedData, changeset)
+                        self?.unobservedThreadDataChanges = (changeset.isEmpty ?
+                            nil :
+                            (updatedData, changeset)
+                        )
                     }
                 )
             }
@@ -126,8 +129,14 @@ public class MessageRequestsViewModel {
         didSet {
             // When starting to observe interaction changes we want to trigger a UI update just in case the
             // data was changed while we weren't observing
-            if let unobservedThreadDataChanges: ([SectionModel], StagedChangeset<[SectionModel]>) = self.unobservedThreadDataChanges {
-                self.onThreadChange?(unobservedThreadDataChanges.0, unobservedThreadDataChanges.1)
+            if let changes: ([SectionModel], StagedChangeset<[SectionModel]>) = self.unobservedThreadDataChanges {
+                let performChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ())? = onThreadChange
+                
+                switch Thread.isMainThread {
+                    case true: performChange?(changes.0, changes.1)
+                    case false: DispatchQueue.main.async { performChange?(changes.0, changes.1) }
+                }
+                
                 self.unobservedThreadDataChanges = nil
             }
         }
@@ -147,10 +156,13 @@ public class MessageRequestsViewModel {
                     elements: data
                         .sorted { lhs, rhs -> Bool in lhs.lastInteractionDate > rhs.lastInteractionDate }
                         .map { viewModel -> SessionThreadViewModel in
-                            viewModel.populatingCurrentUserBlindedKey(
-                                currentUserBlindedPublicKeyForThisThread: groupedOldData[viewModel.threadId]?
+                            viewModel.populatingCurrentUserBlindedKeys(
+                                currentUserBlinded15PublicKeyForThisThread: groupedOldData[viewModel.threadId]?
                                     .first?
-                                    .currentUserBlindedPublicKey
+                                    .currentUserBlinded15PublicKey,
+                                currentUserBlinded25PublicKeyForThisThread: groupedOldData[viewModel.threadId]?
+                                    .first?
+                                    .currentUserBlinded25PublicKey
                             )
                         }
                 )
@@ -164,5 +176,33 @@ public class MessageRequestsViewModel {
     
     public func updateThreadData(_ updatedData: [SectionModel]) {
         self.threadData = updatedData
+    }
+    
+    // MARK: - Functions
+    
+    static func clearAllRequests(
+        contactThreadIds: [String],
+        groupThreadIds: [String]
+    ) {
+        // Clear the requests
+        Storage.shared.write { db in
+            // Remove the one-to-one requests
+            try SessionThread.deleteOrLeave(
+                db,
+                threadIds: contactThreadIds,
+                threadVariant: .contact,
+                groupLeaveType: .silent,
+                calledFromConfigHandling: false
+            )
+            
+            // Remove the group requests
+            try SessionThread.deleteOrLeave(
+                db,
+                threadIds: groupThreadIds,
+                threadVariant: .group,
+                groupLeaveType: .silent,
+                calledFromConfigHandling: false
+            )
+        }
     }
 }

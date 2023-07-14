@@ -69,10 +69,9 @@ public extension UIContextualAction {
         stackView.spacing = 4
         
         if let icon: UIImage = icon {
-            let scale: Double = iconHeight / icon.size.height
             let aspectRatio: CGFloat = (icon.size.width / icon.size.height)
             let imageView: UIImageView = UIImageView(image: icon)
-            imageView.frame = CGRect(x: 0, y: 0, width: iconHeight * aspectRatio, height: iconHeight)
+            imageView.frame = CGRect(x: 0, y: 0, width: (iconHeight * aspectRatio), height: iconHeight)
             imageView.contentMode = .scaleAspectFit
             imageView.themeTintColor = themeTintColor
             stackView.addArrangedSubview(imageView)
@@ -80,7 +79,7 @@ public extension UIContextualAction {
         
         if let title: String = title {
             let label: UILabel = UILabel()
-            label.font = .systemFont(ofSize: Values.verySmallFontSize)
+            label.font = .systemFont(ofSize: Values.smallFontSize)
             label.text = title
             label.textAlignment = .center
             label.themeTextColor = themeTintColor

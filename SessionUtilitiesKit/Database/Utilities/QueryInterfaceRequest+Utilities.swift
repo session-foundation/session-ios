@@ -10,7 +10,7 @@ public extension QueryInterfaceRequest {
     ///
     /// - parameter db: A database connection.
     /// - returns: Whether the request matches a row in the database.
-    func isNotEmpty(_ db: Database) throws -> Bool {
+    func isNotEmpty(_ db: Database) -> Bool {
         return ((try? SQLRequest("SELECT \(exists())").fetchOne(db)) ?? false)
     }
 }

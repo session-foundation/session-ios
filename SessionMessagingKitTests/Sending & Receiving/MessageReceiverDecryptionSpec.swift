@@ -27,9 +27,9 @@ class MessageReceiverDecryptionSpec: QuickSpec {
             beforeEach {
                 mockStorage = Storage(
                     customWriter: try! DatabaseQueue(),
-                    customMigrations: [
-                        SNUtilitiesKit.migrations(),
-                        SNMessagingKit.migrations()
+                    customMigrationTargets: [
+                        SNUtilitiesKit.self,
+                        SNMessagingKit.self
                     ]
                 )
                 mockSodium = MockSodium()
@@ -69,7 +69,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                 mockSodium
                     .when { $0.blindedKeyPair(serverPublicKey: any(), edKeyPair: any(), genericHash: mockGenericHash) }
                     .thenReturn(
-                        Box.KeyPair(
+                        KeyPair(
                             publicKey: Data(hex: TestConstants.blindedPublicKey).bytes,
                             secretKey: Data(hex: TestConstants.edSecretKey).bytes
                         )
@@ -113,7 +113,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             "sFMhE5G4PbRtQFey1hsxLl221Qivc3ayaX2Mm/X89Dl8e45BC+Lb/KU9EdesxIK4pVgYXs9XrMtX3v8" +
                             "dt0eBaXneOBfr7qB8pHwwMZjtkOu1ED07T9nszgbWabBphUfWXe2U9K3PTRisSCI="
                         )!,
-                        using: Box.KeyPair(
+                        using: KeyPair(
                             publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
                             secretKey: Data.data(fromHex: TestConstants.privateKey)!.bytes
                         ),
@@ -139,7 +139,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                     expect {
                         try MessageReceiver.decryptWithSessionProtocol(
                             ciphertext: "TestMessage".data(using: .utf8)!,
-                            using: Box.KeyPair(
+                            using: KeyPair(
                                 publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
                                 secretKey: Data.data(fromHex: TestConstants.privateKey)!.bytes
                             ),
@@ -163,7 +163,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                     expect {
                         try MessageReceiver.decryptWithSessionProtocol(
                             ciphertext: "TestMessage".data(using: .utf8)!,
-                            using: Box.KeyPair(
+                            using: KeyPair(
                                 publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
                                 secretKey: Data.data(fromHex: TestConstants.privateKey)!.bytes
                             ),
@@ -181,7 +181,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                     expect {
                         try MessageReceiver.decryptWithSessionProtocol(
                             ciphertext: "TestMessage".data(using: .utf8)!,
-                            using: Box.KeyPair(
+                            using: KeyPair(
                                 publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
                                 secretKey: Data.data(fromHex: TestConstants.privateKey)!.bytes
                             ),
@@ -197,7 +197,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                     expect {
                         try MessageReceiver.decryptWithSessionProtocol(
                             ciphertext: "TestMessage".data(using: .utf8)!,
-                            using: Box.KeyPair(
+                            using: KeyPair(
                                 publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
                                 secretKey: Data.data(fromHex: TestConstants.privateKey)!.bytes
                             ),
@@ -219,7 +219,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                         isOutgoing: true,
                         otherBlindedPublicKey: "15\(TestConstants.blindedPublicKey)",
                         with: TestConstants.serverPublicKey,
-                        userEd25519KeyPair: Box.KeyPair(
+                        userEd25519KeyPair: KeyPair(
                             publicKey: Data.data(fromHex: TestConstants.edPublicKey)!.bytes,
                             secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
                         ),
@@ -241,7 +241,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                         isOutgoing: false,
                         otherBlindedPublicKey: "15\(TestConstants.blindedPublicKey)",
                         with: TestConstants.serverPublicKey,
-                        userEd25519KeyPair: Box.KeyPair(
+                        userEd25519KeyPair: KeyPair(
                             publicKey: Data.data(fromHex: TestConstants.edPublicKey)!.bytes,
                             secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
                         ),
@@ -260,7 +260,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             isOutgoing: true,
                             otherBlindedPublicKey: "15\(TestConstants.blindedPublicKey)",
                             with: TestConstants.serverPublicKey,
-                            userEd25519KeyPair: Box.KeyPair(
+                            userEd25519KeyPair: KeyPair(
                                 publicKey: Data.data(fromHex: TestConstants.edPublicKey)!.bytes,
                                 secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
                             ),
@@ -285,7 +285,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             isOutgoing: true,
                             otherBlindedPublicKey: "15\(TestConstants.blindedPublicKey)",
                             with: TestConstants.serverPublicKey,
-                            userEd25519KeyPair: Box.KeyPair(
+                            userEd25519KeyPair: KeyPair(
                                 publicKey: Data.data(fromHex: TestConstants.edPublicKey)!.bytes,
                                 secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
                             ),
@@ -318,7 +318,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             isOutgoing: true,
                             otherBlindedPublicKey: "15\(TestConstants.blindedPublicKey)",
                             with: TestConstants.serverPublicKey,
-                            userEd25519KeyPair: Box.KeyPair(
+                            userEd25519KeyPair: KeyPair(
                                 publicKey: Data.data(fromHex: TestConstants.edPublicKey)!.bytes,
                                 secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
                             ),
@@ -339,7 +339,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             isOutgoing: true,
                             otherBlindedPublicKey: "15\(TestConstants.blindedPublicKey)",
                             with: TestConstants.serverPublicKey,
-                            userEd25519KeyPair: Box.KeyPair(
+                            userEd25519KeyPair: KeyPair(
                                 publicKey: Data.data(fromHex: TestConstants.edPublicKey)!.bytes,
                                 secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
                             ),
@@ -364,7 +364,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             isOutgoing: true,
                             otherBlindedPublicKey: "15\(TestConstants.blindedPublicKey)",
                             with: TestConstants.serverPublicKey,
-                            userEd25519KeyPair: Box.KeyPair(
+                            userEd25519KeyPair: KeyPair(
                                 publicKey: Data.data(fromHex: TestConstants.edPublicKey)!.bytes,
                                 secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
                             ),
@@ -389,7 +389,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             isOutgoing: true,
                             otherBlindedPublicKey: "15\(TestConstants.blindedPublicKey)",
                             with: TestConstants.serverPublicKey,
-                            userEd25519KeyPair: Box.KeyPair(
+                            userEd25519KeyPair: KeyPair(
                                 publicKey: Data.data(fromHex: TestConstants.edPublicKey)!.bytes,
                                 secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
                             ),
@@ -414,7 +414,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             isOutgoing: true,
                             otherBlindedPublicKey: "15\(TestConstants.blindedPublicKey)",
                             with: TestConstants.serverPublicKey,
-                            userEd25519KeyPair: Box.KeyPair(
+                            userEd25519KeyPair: KeyPair(
                                 publicKey: Data.data(fromHex: TestConstants.edPublicKey)!.bytes,
                                 secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
                             ),
@@ -439,7 +439,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             isOutgoing: true,
                             otherBlindedPublicKey: "15\(TestConstants.blindedPublicKey)",
                             with: TestConstants.serverPublicKey,
-                            userEd25519KeyPair: Box.KeyPair(
+                            userEd25519KeyPair: KeyPair(
                                 publicKey: Data.data(fromHex: TestConstants.edPublicKey)!.bytes,
                                 secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
                             ),
@@ -464,7 +464,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             isOutgoing: true,
                             otherBlindedPublicKey: "15\(TestConstants.blindedPublicKey)",
                             with: TestConstants.serverPublicKey,
-                            userEd25519KeyPair: Box.KeyPair(
+                            userEd25519KeyPair: KeyPair(
                                 publicKey: Data.data(fromHex: TestConstants.edPublicKey)!.bytes,
                                 secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
                             ),
@@ -489,7 +489,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             isOutgoing: true,
                             otherBlindedPublicKey: "15\(TestConstants.blindedPublicKey)",
                             with: TestConstants.serverPublicKey,
-                            userEd25519KeyPair: Box.KeyPair(
+                            userEd25519KeyPair: KeyPair(
                                 publicKey: Data.data(fromHex: TestConstants.edPublicKey)!.bytes,
                                 secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
                             ),

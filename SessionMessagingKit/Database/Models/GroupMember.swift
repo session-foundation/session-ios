@@ -4,7 +4,7 @@ import Foundation
 import GRDB
 import SessionUtilitiesKit
 
-public struct GroupMember: Codable, Equatable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+public struct GroupMember: Codable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "groupMember" }
     internal static let openGroupForeignKey = ForeignKey([Columns.groupId], to: [OpenGroup.Columns.threadId])
     internal static let closedGroupForeignKey = ForeignKey([Columns.groupId], to: [ClosedGroup.Columns.threadId])
@@ -58,41 +58,5 @@ public struct GroupMember: Codable, Equatable, FetchableRecord, PersistableRecor
         self.profileId = profileId
         self.role = role
         self.isHidden = isHidden
-    }
-}
-
-// MARK: - Objective-C Support
-
-// FIXME: Remove when possible
-
-@objc(SMKGroupMember)
-public class SMKGroupMember: NSObject {
-    @objc(isCurrentUserMemberOf:)
-    public static func isCurrentUserMember(of groupId: String) -> Bool {
-        return Storage.shared.read { db in
-            let userPublicKey: String = getUserHexEncodedPublicKey(db)
-            let numEntries: Int = try GroupMember
-                .filter(GroupMember.Columns.groupId == groupId)
-                .filter(GroupMember.Columns.profileId == userPublicKey)
-                .fetchCount(db)
-            
-            return (numEntries > 0)
-        }
-        .defaulting(to: false)
-    }
-    
-    @objc(isCurrentUserAdminOf:)
-    public static func isCurrentUserAdmin(of groupId: String) -> Bool {
-        return Storage.shared.read { db in
-            let userPublicKey: String = getUserHexEncodedPublicKey(db)
-            let numEntries: Int = try GroupMember
-                .filter(GroupMember.Columns.groupId == groupId)
-                .filter(GroupMember.Columns.profileId == userPublicKey)
-                .filter(GroupMember.Columns.role == GroupMember.Role.admin)
-                .fetchCount(db)
-            
-            return (numEntries > 0)
-        }
-        .defaulting(to: false)
     }
 }

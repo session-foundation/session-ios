@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import SessionUtilitiesKit
 
 extension OpenGroupAPI {
     public enum Endpoint: EndpointType {
@@ -58,7 +59,7 @@ extension OpenGroupAPI {
         case userUnban(String)
         case userModerator(String)
         
-        var path: String {
+        public var path: String {
             switch self {
                 // Utility
                 

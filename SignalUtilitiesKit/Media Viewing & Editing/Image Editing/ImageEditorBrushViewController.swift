@@ -2,6 +2,7 @@
 
 import UIKit
 import SessionUIKit
+import SignalCoreKit
 
 @objc
 public protocol ImageEditorBrushViewControllerDelegate: AnyObject {

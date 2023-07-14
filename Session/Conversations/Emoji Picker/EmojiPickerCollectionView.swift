@@ -3,6 +3,7 @@
 import UIKit
 import SessionUIKit
 import SessionUtilitiesKit
+import SignalCoreKit
 
 protocol EmojiPickerCollectionViewDelegate: AnyObject {
     func emojiPicker(_ emojiPicker: EmojiPickerCollectionView?, didSelectEmoji emoji: EmojiWithSkinTones)

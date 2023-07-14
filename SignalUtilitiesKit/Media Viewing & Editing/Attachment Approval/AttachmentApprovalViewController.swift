@@ -6,7 +6,6 @@ import Foundation
 import AVFoundation
 import MediaPlayer
 import CoreServices
-import PromiseKit
 import SessionUIKit
 import SessionMessagingKit
 import SignalCoreKit

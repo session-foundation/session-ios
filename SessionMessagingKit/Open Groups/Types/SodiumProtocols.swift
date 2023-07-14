@@ -3,6 +3,7 @@
 import Foundation
 import Sodium
 import Curve25519Kit
+import SessionUtilitiesKit
 
 public protocol SodiumType {
     func getBox() -> BoxType
@@ -11,7 +12,7 @@ public protocol SodiumType {
     func getAeadXChaCha20Poly1305Ietf() -> AeadXChaCha20Poly1305IetfType
     
     func generateBlindingFactor(serverPublicKey: String, genericHash: GenericHashType) -> Bytes?
-    func blindedKeyPair(serverPublicKey: String, edKeyPair: Box.KeyPair, genericHash: GenericHashType) -> Box.KeyPair?
+    func blindedKeyPair(serverPublicKey: String, edKeyPair: KeyPair, genericHash: GenericHashType) -> KeyPair?
     func sogsSignature(message: Bytes, secretKey: Bytes, blindedSecretKey ka: Bytes, blindedPublicKey kA: Bytes) -> Bytes?
     
     func combineKeys(lhsKeyBytes: Bytes, rhsKeyBytes: Bytes) -> Bytes?
@@ -29,7 +30,7 @@ public protocol AeadXChaCha20Poly1305IetfType {
 }
 
 public protocol Ed25519Type {
-    func sign(data: Bytes, keyPair: Box.KeyPair) throws -> Bytes?
+    func sign(data: Bytes, keyPair: KeyPair) throws -> Bytes?
     func verifySignature(_ signature: Data, publicKey: Data, data: Data) throws -> Bool
 }
 
@@ -81,7 +82,7 @@ extension Sodium: SodiumType {
     public func getSign() -> SignType { return sign }
     public func getAeadXChaCha20Poly1305Ietf() -> AeadXChaCha20Poly1305IetfType { return aead.xchacha20poly1305ietf }
     
-    public func blindedKeyPair(serverPublicKey: String, edKeyPair: Box.KeyPair) -> Box.KeyPair? {
+    public func blindedKeyPair(serverPublicKey: String, edKeyPair: KeyPair) -> KeyPair? {
         return blindedKeyPair(serverPublicKey: serverPublicKey, edKeyPair: edKeyPair, genericHash: getGenericHash())
     }
 }
@@ -92,7 +93,7 @@ extension Sign: SignType {}
 extension Aead.XChaCha20Poly1305Ietf: AeadXChaCha20Poly1305IetfType {}
 
 struct Ed25519Wrapper: Ed25519Type {
-    func sign(data: Bytes, keyPair: Box.KeyPair) throws -> Bytes? {
+    func sign(data: Bytes, keyPair: KeyPair) throws -> Bytes? {
         let ecKeyPair: ECKeyPair = try ECKeyPair(
             publicKeyData: Data(keyPair.publicKey),
             privateKeyData: Data(keyPair.secretKey)

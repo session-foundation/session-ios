@@ -71,10 +71,12 @@ final class ContextMenuVC: UIViewController {
     
     private lazy var fallbackTimestampLabel: UILabel = {
         let result: UILabel = UILabel()
+        result.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         result.font = .systemFont(ofSize: Values.verySmallFontSize)
         result.text = cellViewModel.dateForUI.formattedForDisplay
         result.themeTextColor = .textPrimary
         result.alpha = 0
+        result.numberOfLines = 2
         
         return result
     }()
@@ -189,10 +191,14 @@ final class ContextMenuVC: UIViewController {
         fallbackTimestampLabel.set(.height, to: ContextMenuVC.actionViewHeight)
         
         if cellViewModel.variant == .standardOutgoing {
+            fallbackTimestampLabel.textAlignment = .right
             fallbackTimestampLabel.pin(.right, to: .left, of: menuView, withInset: -Values.mediumSpacing)
+            fallbackTimestampLabel.pin(.left, to: .left, of: view, withInset: Values.mediumSpacing)
         }
         else {
+            fallbackTimestampLabel.textAlignment = .left
             fallbackTimestampLabel.pin(.left, to: .right, of: menuView, withInset: Values.mediumSpacing)
+            fallbackTimestampLabel.pin(.right, to: .right, of: view, withInset: -Values.mediumSpacing)
         }
         
         // Constrains

@@ -60,7 +60,7 @@ extension Snode {
         }
         catch {
             SNLog("Failed to parse snode: \(error.localizedDescription).")
-            throw HTTP.Error.invalidJSON
+            throw HTTPError.invalidJSON
         }
     }
 }
@@ -89,8 +89,10 @@ internal extension Snode {
         
         return try SnodeSet
             .filter(SnodeSet.Columns.key.like("\(SnodeSet.onionRequestPathPrefix)%"))
-            .order(SnodeSet.Columns.nodeIndex)
-            .order(SnodeSet.Columns.key)
+            .order(
+                SnodeSet.Columns.nodeIndex,
+                SnodeSet.Columns.key
+            )
             .including(required: SnodeSet.node)
             .asRequest(of: ResultWrapper.self)
             .fetchAll(db)

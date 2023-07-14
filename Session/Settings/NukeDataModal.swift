@@ -149,75 +149,92 @@ final class NukeDataModal: Modal {
     
     private func clearDeviceOnly() {
         ModalActivityIndicatorViewController.present(fromViewController: self, canCancel: false) { [weak self] _ in
-            Storage.shared
-                .writeAsync { db in try MessageSender.syncConfiguration(db, forceSyncNow: true) }
-                .ensure(on: DispatchQueue.main) {
-                    self?.deleteAllLocalData()
-                    self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-                }
-                .retainUntilComplete()
+            ConfigurationSyncJob.run()
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+                .receive(on: DispatchQueue.main)
+                .sinkUntilComplete(
+                    receiveCompletion: { _ in
+                        self?.deleteAllLocalData()
+                        self?.dismiss(animated: true, completion: nil) // Dismiss the loader
+                    }
+                )
         }
     }
     
     private func clearEntireAccount(presentedViewController: UIViewController) {
         ModalActivityIndicatorViewController
             .present(fromViewController: presentedViewController, canCancel: false) { [weak self] _ in
-                SnodeAPI.clearAllData()
-                    .done(on: DispatchQueue.main) { confirmations in
-                        self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-                        
-                        let potentiallyMaliciousSnodes = confirmations.compactMap { $0.value == false ? $0.key : nil }
-                        
-                        if potentiallyMaliciousSnodes.isEmpty {
-                            self?.deleteAllLocalData()
-                        }
-                        else {
-                            let message: String
-                            if potentiallyMaliciousSnodes.count == 1 {
-                                message = String(format: "dialog_clear_all_data_deletion_failed_1".localized(), potentiallyMaliciousSnodes[0])
+                SnodeAPI.deleteAllMessages(namespace: .all)
+                    .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+                    .receive(on: DispatchQueue.main)
+                    .sinkUntilComplete(
+                        receiveCompletion: { result in
+                            switch result {
+                                case .finished: break
+                                case .failure(let error):
+                                    self?.dismiss(animated: true, completion: nil) // Dismiss the loader
+                                    
+                                    let modal: ConfirmationModal = ConfirmationModal(
+                                        targetView: self?.view,
+                                        info: ConfirmationModal.Info(
+                                            title: "ALERT_ERROR_TITLE".localized(),
+                                            body: .text(error.localizedDescription),
+                                            cancelTitle: "BUTTON_OK".localized(),
+                                            cancelStyle: .alert_text
+                                        )
+                                    )
+                                    self?.present(modal, animated: true)
+                            }
+                        },
+                        receiveValue: { confirmations in
+                            self?.dismiss(animated: true, completion: nil) // Dismiss the loader
+                            
+                            let potentiallyMaliciousSnodes = confirmations
+                                .compactMap { ($0.value == false ? $0.key : nil) }
+                            
+                            if potentiallyMaliciousSnodes.isEmpty {
+                                self?.deleteAllLocalData()
                             }
                             else {
-                                message = String(format: "dialog_clear_all_data_deletion_failed_2".localized(), String(potentiallyMaliciousSnodes.count), potentiallyMaliciousSnodes.joined(separator: ", "))
-                            }
-                            
-                            let modal: ConfirmationModal = ConfirmationModal(
-                                targetView: self?.view,
-                                info: ConfirmationModal.Info(
-                                    title: "ALERT_ERROR_TITLE".localized(),
-                                    body: .text(message),
-                                    cancelTitle: "BUTTON_OK".localized(),
-                                    cancelStyle: .alert_text
+                                let message: String
+                                if potentiallyMaliciousSnodes.count == 1 {
+                                    message = String(format: "dialog_clear_all_data_deletion_failed_1".localized(), potentiallyMaliciousSnodes[0])
+                                }
+                                else {
+                                    message = String(format: "dialog_clear_all_data_deletion_failed_2".localized(), String(potentiallyMaliciousSnodes.count), potentiallyMaliciousSnodes.joined(separator: ", "))
+                                }
+                                
+                                let modal: ConfirmationModal = ConfirmationModal(
+                                    targetView: self?.view,
+                                    info: ConfirmationModal.Info(
+                                        title: "ALERT_ERROR_TITLE".localized(),
+                                        body: .text(message),
+                                        cancelTitle: "BUTTON_OK".localized(),
+                                        cancelStyle: .alert_text
+                                    )
                                 )
-                            )
-                            self?.present(modal, animated: true)
+                                self?.present(modal, animated: true)
+                            }
                         }
-                    }
-                    .catch(on: DispatchQueue.main) { error in
-                        self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-                        
-                        let modal: ConfirmationModal = ConfirmationModal(
-                            targetView: self?.view,
-                            info: ConfirmationModal.Info(
-                                title: "ALERT_ERROR_TITLE".localized(),
-                                body: .text(error.localizedDescription),
-                                cancelTitle: "BUTTON_OK".localized(),
-                                cancelStyle: .alert_text
-                            )
-                        )
-                        self?.present(modal, animated: true)
-                    }
+                    )
             }
     }
     
-    private func deleteAllLocalData() {
+    private func deleteAllLocalData(using dependencies: Dependencies = Dependencies()) {
         // Unregister push notifications if needed
         let isUsingFullAPNs: Bool = UserDefaults.standard[.isUsingFullAPNs]
         let maybeDeviceToken: String? = UserDefaults.standard[.deviceToken]
         
         if isUsingFullAPNs, let deviceToken: String = maybeDeviceToken {
             let data: Data = Data(hex: deviceToken)
-            PushNotificationAPI.unregister(data).retainUntilComplete()
+            PushNotificationAPI.unregister(data).sinkUntilComplete()
         }
+        
+        /// Stop and cancel all current jobs (don't want to inadvertantly have a job store data after it's table has already been cleared)
+        ///
+        /// **Note:** This is file as long as this process kills the app, if it doesn't then we need an alternate mechanism to flag that
+        /// the `JobRunner` is allowed to start it's queues again
+        JobRunner.stopAndClearPendingJobs()
         
         // Clear the app badge and notifications
         AppEnvironment.shared.notificationPresenter.clearAllNotifications()
@@ -227,7 +244,10 @@ final class NukeDataModal: Modal {
         UserDefaults.removeAll()
         
         // Remove the cached key so it gets re-cached on next access
-        General.cache.mutate { $0.encodedPublicKey = nil }
+        dependencies.mutableGeneralCache.mutate {
+            $0.encodedPublicKey = nil
+            $0.recentReactionTimestamps = []
+        }
         
         // Clear the Snode pool
         SnodeAPI.clearSnodePool()

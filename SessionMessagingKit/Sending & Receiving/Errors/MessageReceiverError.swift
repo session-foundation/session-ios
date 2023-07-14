@@ -19,15 +19,32 @@ public enum MessageReceiverError: LocalizedError {
     case decryptionFailed
     case invalidGroupPublicKey
     case noGroupKeyPair
+    case invalidSharedConfigMessageHandling
+    case requiredThreadNotInConfig
+    case outdatedMessage
 
     public var isRetryable: Bool {
         switch self {
             case .duplicateMessage, .duplicateMessageNewSnode, .duplicateControlMessage,
                 .invalidMessage, .unknownMessage, .unknownEnvelopeType, .invalidSignature,
-                .noData, .senderBlocked, .noThread, .selfSend, .decryptionFailed:
+                .noData, .senderBlocked, .noThread, .selfSend, .decryptionFailed,
+                .invalidSharedConfigMessageHandling, .requiredThreadNotInConfig, .outdatedMessage:
                 return false
                 
             default: return true
+        }
+    }
+    
+    public var shouldUpdateLastHash: Bool {
+        switch self {
+            // If we get one of these errors then we still want to update the last hash to prevent
+            // retrieving and attempting to process the same messages again (as well as ensure the
+            // next poll doesn't retrieve the same message - these errors are essentially considered
+            // "already successfully processed")
+            case .selfSend, .duplicateControlMessage, .outdatedMessage:
+                return true
+                
+            default: return false
         }
     }
 
@@ -51,6 +68,10 @@ public enum MessageReceiverError: LocalizedError {
             // Shared sender keys
             case .invalidGroupPublicKey: return "Invalid group public key."
             case .noGroupKeyPair: return "Missing group key pair."
+                
+            case .invalidSharedConfigMessageHandling: return "Invalid handling of a shared config message."
+            case .requiredThreadNotInConfig: return "Required thread not in config."
+            case .outdatedMessage: return "Message was sent before a config change which would have removed the message."
         }
     }
 }

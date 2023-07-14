@@ -84,6 +84,17 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
         }
     }
     
+    private struct TestTarget: MigratableTarget {
+        static func migrations(_ db: Database) -> TargetMigrations {
+            return TargetMigrations(
+                identifier: .test,
+                migrations: (0..<100)
+                    .map { _ in [] }
+                    .appending([TestInsertTestTypeMigration.self])
+            )
+        }
+    }
+    
     // MARK: - Spec
 
     override func spec() {
@@ -96,13 +107,8 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                 PersistableRecordUtilitiesSpec.customWriter = customWriter
                 mockStorage = Storage(
                     customWriter: customWriter,
-                    customMigrations: [
-                        TargetMigrations(
-                            identifier: .test,
-                            migrations: (0..<100)
-                                .map { _ in [] }
-                                .appending([TestInsertTestTypeMigration.self])
-                        )
+                    customMigrationTargets: [
+                        TestTarget.self
                     ]
                 )
             }
@@ -274,7 +280,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                 it("succeeds when using the migration safe mutable upsert and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
-                            var result = MutableTestType(columnA: "Test14", columnB: "Test14B")
+                            let result = MutableTestType(columnA: "Test14", columnB: "Test14B")
                             try result.migrationSafeUpsert(db)
                             return result
                         }
@@ -340,7 +346,8 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                 beforeEach {
                     var migrator: DatabaseMigrator = DatabaseMigrator()
                     migrator.registerMigration(
-                        TestAddColumnMigration.target,
+                        mockStorage,
+                        targetIdentifier: TestAddColumnMigration.target,
                         migration: TestAddColumnMigration.self
                     )
                     
@@ -620,7 +627,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                 it("succeeds when using the migration safe mutable upsert and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
-                            var result = MutableTestType(columnA: "Test21", columnB: "Test21B")
+                            let result = MutableTestType(columnA: "Test21", columnB: "Test21B")
                             try result.migrationSafeUpsert(db)
                             return result
                         }
@@ -650,7 +657,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                                 sql: "INSERT INTO MutableTestType (columnA) VALUES (?)",
                                 arguments: StatementArguments(["Test23"])
                             )
-                            var result = MutableTestType(id: 1, columnA: "Test23", columnB: "Test23B")
+                            let result = MutableTestType(id: 1, columnA: "Test23", columnB: "Test23B")
                             try result.migrationSafeUpsert(db)
                             return result
                         }
@@ -661,7 +668,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                                 sql: "INSERT INTO MutableTestType (columnA) VALUES (?)",
                                 arguments: StatementArguments(["Test24"])
                             )
-                            var result = MutableTestType(id: 2, columnA: "Test24", columnB: "Test24B")
+                            let result = MutableTestType(id: 2, columnA: "Test24", columnB: "Test24B")
                             try result.migrationSafeUpsert(db)
                             return result.id
                         }

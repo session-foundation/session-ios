@@ -3,6 +3,7 @@
 //
 
 import Foundation
+import SignalUtilitiesKit
 
 @objc class OWSImagePickerController: UIImagePickerController {
 
