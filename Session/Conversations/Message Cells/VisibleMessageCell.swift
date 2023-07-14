@@ -542,7 +542,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                             quotedText: quote.body,
                             threadVariant: cellViewModel.threadVariant,
                             currentUserPublicKey: cellViewModel.currentUserPublicKey,
-                            currentUserBlindedPublicKey: cellViewModel.currentUserBlindedPublicKey,
+                            currentUserBlinded15PublicKey: cellViewModel.currentUserBlinded15PublicKey,
+                            currentUserBlinded25PublicKey: cellViewModel.currentUserBlinded25PublicKey,
                             direction: (cellViewModel.variant == .standardOutgoing ?
                                 .outgoing :
                                 .incoming
@@ -868,7 +869,10 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         if profilePictureView.bounds.contains(profilePictureView.convert(location, from: self)), cellViewModel.shouldShowProfile {
             // For open groups only attempt to start a conversation if the author has a blinded id
             guard cellViewModel.threadVariant != .community else {
-                guard SessionId.Prefix(from: cellViewModel.authorId) == .blinded else { return }
+                guard
+                    SessionId.Prefix(from: cellViewModel.authorId) == .blinded15 ||
+                    SessionId.Prefix(from: cellViewModel.authorId) == .blinded25
+                else { return }
                 
                 delegate?.startThread(
                     with: cellViewModel.authorId,
@@ -1118,7 +1122,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     in: (cellViewModel.body ?? ""),
                     threadVariant: cellViewModel.threadVariant,
                     currentUserPublicKey: cellViewModel.currentUserPublicKey,
-                    currentUserBlindedPublicKey: cellViewModel.currentUserBlindedPublicKey,
+                    currentUserBlinded15PublicKey: cellViewModel.currentUserBlinded15PublicKey,
+                    currentUserBlinded25PublicKey: cellViewModel.currentUserBlinded25PublicKey,
                     isOutgoingMessage: isOutgoing,
                     textColor: actualTextColor,
                     theme: theme,

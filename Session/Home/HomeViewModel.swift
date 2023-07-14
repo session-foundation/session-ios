@@ -361,10 +361,13 @@ public class HomeViewModel {
                             return lhs.lastInteractionDate > rhs.lastInteractionDate
                         }
                         .map { viewModel -> SessionThreadViewModel in
-                            viewModel.populatingCurrentUserBlindedKey(
-                                currentUserBlindedPublicKeyForThisThread: groupedOldData[viewModel.threadId]?
+                            viewModel.populatingCurrentUserBlindedKeys(
+                                currentUserBlinded15PublicKeyForThisThread: groupedOldData[viewModel.threadId]?
                                     .first?
-                                    .currentUserBlindedPublicKey
+                                    .currentUserBlinded15PublicKey,
+                                currentUserBlinded25PublicKeyForThisThread: groupedOldData[viewModel.threadId]?
+                                    .first?
+                                    .currentUserBlinded25PublicKey
                             )
                         }
                 )

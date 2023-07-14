@@ -310,7 +310,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                     nil
                 ),
                 currentUserPublicKey: cellViewModel.currentUserPublicKey,
-                currentUserBlindedPublicKey: cellViewModel.currentUserBlindedPublicKey,
+                currentUserBlinded15PublicKey: cellViewModel.currentUserBlinded15PublicKey,
+                currentUserBlinded25PublicKey: cellViewModel.currentUserBlinded25PublicKey,
                 searchText: searchText.lowercased(),
                 fontSize: Values.smallFontSize,
                 textColor: textColor
@@ -339,7 +340,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             displayNameLabel?.attributedText = self?.getHighlightedSnippet(
                 content: cellViewModel.displayName,
                 currentUserPublicKey: cellViewModel.currentUserPublicKey,
-                currentUserBlindedPublicKey: cellViewModel.currentUserBlindedPublicKey,
+                currentUserBlinded15PublicKey: cellViewModel.currentUserBlinded15PublicKey,
+                currentUserBlinded25PublicKey: cellViewModel.currentUserBlinded25PublicKey,
                 searchText: searchText.lowercased(),
                 fontSize: Values.mediumFontSize,
                 textColor: textColor
@@ -358,7 +360,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                         snippetLabel?.attributedText = self?.getHighlightedSnippet(
                             content: (cellViewModel.threadMemberNames ?? ""),
                             currentUserPublicKey: cellViewModel.currentUserPublicKey,
-                            currentUserBlindedPublicKey: cellViewModel.currentUserBlindedPublicKey,
+                            currentUserBlinded15PublicKey: cellViewModel.currentUserBlinded15PublicKey,
+                            currentUserBlinded25PublicKey: cellViewModel.currentUserBlinded25PublicKey,
                             searchText: searchText.lowercased(),
                             fontSize: Values.smallFontSize,
                             textColor: textColor
@@ -598,7 +601,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                 in: previewText,
                 threadVariant: cellViewModel.threadVariant,
                 currentUserPublicKey: cellViewModel.currentUserPublicKey,
-                currentUserBlindedPublicKey: cellViewModel.currentUserBlindedPublicKey
+                currentUserBlinded15PublicKey: cellViewModel.currentUserBlinded15PublicKey,
+                currentUserBlinded25PublicKey: cellViewModel.currentUserBlinded25PublicKey
             ),
             attributes: [ .foregroundColor: textColor ]
         ))
@@ -610,7 +614,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         content: String,
         authorName: String? = nil,
         currentUserPublicKey: String,
-        currentUserBlindedPublicKey: String?,
+        currentUserBlinded15PublicKey: String?,
+        currentUserBlinded25PublicKey: String?,
         searchText: String,
         fontSize: CGFloat,
         textColor: UIColor
@@ -633,7 +638,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             in: content,
             threadVariant: .contact,
             currentUserPublicKey: currentUserPublicKey,
-            currentUserBlindedPublicKey: currentUserBlindedPublicKey
+            currentUserBlinded15PublicKey: currentUserBlinded15PublicKey,
+            currentUserBlinded25PublicKey: currentUserBlinded25PublicKey
         )
         let result: NSMutableAttributedString = NSMutableAttributedString(
             string: mentionReplacedContent,

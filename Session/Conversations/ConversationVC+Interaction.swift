@@ -739,7 +739,8 @@ extension ConversationVC:
                 for: cellViewModel,
                 recentEmojis: (self.viewModel.threadData.recentReactionEmoji ?? []).compactMap { EmojiWithSkinTones(rawValue: $0) },
                 currentUserPublicKey: self.viewModel.threadData.currentUserPublicKey,
-                currentUserBlindedPublicKey: self.viewModel.threadData.currentUserBlindedPublicKey,
+                currentUserBlinded15PublicKey: self.viewModel.threadData.currentUserBlinded15PublicKey,
+                currentUserBlinded25PublicKey: self.viewModel.threadData.currentUserBlinded25PublicKey,
                 currentUserIsOpenGroupModerator: OpenGroupManager.isUserModeratorOrAdmin(
                     self.viewModel.threadData.currentUserPublicKey,
                     for: self.viewModel.threadData.openGroupRoomToken,
@@ -1018,7 +1019,7 @@ extension ConversationVC:
     
     func startThread(with sessionId: String, openGroupServer: String?, openGroupPublicKey: String?) {
         guard viewModel.threadData.canWrite else { return }
-        guard SessionId.Prefix(from: sessionId) == .blinded else {
+        guard SessionId.Prefix(from: sessionId) == .blinded15 || SessionId.Prefix(from: sessionId) == .blinded25 else {
             Storage.shared.write { db in
                 try SessionThread
                     .fetchOrCreate(db, id: sessionId, variant: .contact, shouldBeVisible: nil)
@@ -1661,7 +1662,8 @@ extension ConversationVC:
             attachments: cellViewModel.attachments,
             linkPreviewAttachment: cellViewModel.linkPreviewAttachment,
             currentUserPublicKey: cellViewModel.currentUserPublicKey,
-            currentUserBlindedPublicKey: cellViewModel.currentUserBlindedPublicKey
+            currentUserBlinded15PublicKey: cellViewModel.currentUserBlinded15PublicKey,
+            currentUserBlinded25PublicKey: cellViewModel.currentUserBlinded25PublicKey
         )
         
         guard let quoteDraft: QuotedReplyModel = maybeQuoteDraft else { return }

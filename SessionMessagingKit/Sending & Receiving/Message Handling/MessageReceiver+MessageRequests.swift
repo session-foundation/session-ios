@@ -55,7 +55,10 @@ extension MessageReceiver {
         let blindedThreadIds: Set<String> = (try? SessionThread
             .select(.id)
             .filter(SessionThread.Columns.variant == SessionThread.Variant.contact)
-            .filter(SessionThread.Columns.id.like("\(SessionId.Prefix.blinded.rawValue)%"))
+            .filter(
+                SessionThread.Columns.id.like("\(SessionId.Prefix.blinded15.rawValue)%") ||
+                SessionThread.Columns.id.like("\(SessionId.Prefix.blinded25.rawValue)%")
+            )
             .asRequest(of: String.self)
             .fetchSet(db))
             .defaulting(to: [])

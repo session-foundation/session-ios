@@ -79,7 +79,7 @@ extension MessageReceiver {
                 
                 // If the contact is a blinded contact then only add them if they haven't already been
                 // unblinded
-                if SessionId.Prefix(from: sessionId) == .blinded {
+                if SessionId.Prefix(from: sessionId) == .blinded15 || SessionId.Prefix(from: sessionId) == .blinded25 {
                     let hasUnblindedContact: Bool = BlindedIdLookup
                         .filter(BlindedIdLookup.Columns.blindedId == sessionId)
                         .filter(BlindedIdLookup.Columns.sessionId != nil)

@@ -85,7 +85,7 @@ extension MessageReceiver {
 
             // Need to check if the blinded id matches for open groups
             switch senderSessionId.prefix {
-                case .blinded:
+                case .blinded15, .blinded25:
                     let sodium: Sodium = Sodium()
                     
                     guard
@@ -97,7 +97,12 @@ extension MessageReceiver {
                         )
                     else { return .standardIncoming }
                     
-                    return (sender == SessionId(.blinded, publicKey: blindedKeyPair.publicKey).hexString ?
+                    let senderIdCurrentUserBlinded: Bool = (
+                        sender == SessionId(.blinded15, publicKey: blindedKeyPair.publicKey).hexString ||
+                        sender == SessionId(.blinded25, publicKey: blindedKeyPair.publicKey).hexString
+                    )
+                    
+                    return (senderIdCurrentUserBlinded ?
                         .standardOutgoing :
                         .standardIncoming
                     )

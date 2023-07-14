@@ -3,8 +3,6 @@
 import Foundation
 import SessionUtilitiesKit
 
-@testable import SessionMessagingKit
-
 class MockGeneralCache: Mock<MutableGeneralCacheType>, MutableGeneralCacheType {
     var encodedPublicKey: String? {
         get { return accept() as? String }

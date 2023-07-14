@@ -524,12 +524,13 @@ public extension SessionThread {
     static func getUserHexEncodedBlindedKey(
         _ db: Database? = nil,
         threadId: String,
-        threadVariant: Variant
+        threadVariant: Variant,
+        blindingPrefix: SessionId.Prefix
     ) -> String? {
         guard threadVariant == .community else { return nil }
         guard let db: Database = db else {
             return Storage.shared.read { db in
-                getUserHexEncodedBlindedKey(db, threadId: threadId, threadVariant: threadVariant)
+                getUserHexEncodedBlindedKey(db, threadId: threadId, threadVariant: threadVariant, blindingPrefix: blindingPrefix)
             }
         }
         
@@ -567,7 +568,7 @@ public extension SessionThread {
         )
         
         return blindedKeyPair.map { keyPair -> String in
-            SessionId(.blinded, publicKey: keyPair.publicKey).hexString
+            SessionId(blindingPrefix, publicKey: keyPair.publicKey).hexString
         }
     }
 }

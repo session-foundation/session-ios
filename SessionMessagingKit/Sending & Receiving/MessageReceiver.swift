@@ -45,7 +45,7 @@ public enum MessageReceiver {
                             
                             (plaintext, sender) = try decryptWithSessionProtocol(ciphertext: ciphertext, using: userX25519KeyPair)
                             
-                        case .blinded:
+                        case .blinded15, .blinded25:
                             guard let otherBlindedPublicKey: String = otherBlindedPublicKey else {
                                 throw MessageReceiverError.noData
                             }

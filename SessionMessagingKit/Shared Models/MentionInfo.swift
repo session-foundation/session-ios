@@ -21,7 +21,7 @@ public extension MentionInfo {
         userPublicKey: String,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        targetPrefix: SessionId.Prefix,
+        targetPrefixes: [SessionId.Prefix],
         pattern: FTS5Pattern?
     ) -> AdaptedFetchRequest<SQLRequest<MentionInfo>>? {
         guard threadVariant != .contact || userPublicKey != threadId else { return nil }
@@ -31,7 +31,9 @@ public extension MentionInfo {
         let openGroup: TypedTableAlias<OpenGroup> = TypedTableAlias()
         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
         
-        let prefixLiteral: SQL = SQL(stringLiteral: "\(targetPrefix.rawValue)%")
+        let prefixesLiteral: SQLExpression = targetPrefixes
+            .map { SQL("\(profile[.id]) LIKE '\(SQL(stringLiteral: "\($0.rawValue)%"))'") }
+            .joined(operator: .or)
         let profileFullTextSearch: SQL = SQL(stringLiteral: Profile.fullTextSearchTableName)
         
         /// The query needs to differ depending on the thread variant because the behaviour should be different:
@@ -50,7 +52,7 @@ public extension MentionInfo {
                         \(Profile.self).rowid = \(profileFullTextSearch).rowid AND
                         \(SQL("\(profile[.id]) != \(userPublicKey)")) AND (
                             \(SQL("\(threadVariant) != \(SessionThread.Variant.community)")) OR
-                            \(SQL("\(profile[.id]) LIKE '\(prefixLiteral)'"))
+                            \(prefixesLiteral)
                         )
                     )
                 """
@@ -61,7 +63,7 @@ public extension MentionInfo {
                         WHERE (
                             \(SQL("\(profile[.id]) != \(userPublicKey)")) AND (
                                 \(SQL("\(threadVariant) != \(SessionThread.Variant.community)")) OR
-                                \(SQL("\(profile[.id]) LIKE '\(prefixLiteral)'"))
+                                \(prefixesLiteral)
                             )
                         )
                     """
