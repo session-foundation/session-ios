@@ -2,12 +2,17 @@
 
 import SwiftUI
 
-struct SessionCarouselView_SwiftUI: View {
+public struct SessionCarouselView_SwiftUI: View {
     @State var index = 0
 
-    var colors: [Color] = [.red, .orange, .blue]
-    var body: some View {
-        HStack {
+    var colors: [Color]
+    
+    public init(colors: [Color]) {
+        self.colors = colors
+    }
+    
+    public var body: some View {
+        HStack(spacing: 0) {
             ArrowView(value: $index.animation(.easeInOut), range: 0...(colors.count - 1), type: .decrement)
                 .zIndex(1)
             
@@ -175,7 +180,7 @@ struct SessionCarouselView_SwiftUI_Previews: PreviewProvider {
                 Color.black
             }
             
-            SessionCarouselView_SwiftUI()
+            SessionCarouselView_SwiftUI(colors: [.red, .orange, .blue])
         }
     }
 }
