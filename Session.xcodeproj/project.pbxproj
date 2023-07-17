@@ -161,6 +161,7 @@
 		7BD687D42A5E852600D8E455 /* ProfilePictureView+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BD687D32A5E852600D8E455 /* ProfilePictureView+SwiftUI.swift */; };
 		7BDCFC08242186E700641C39 /* NotificationServiceExtensionContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BDCFC07242186E700641C39 /* NotificationServiceExtensionContext.swift */; };
 		7BDCFC0B2421EB7600641C39 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = B6F509951AA53F760068F56A /* Localizable.strings */; };
+		7BE2701E2A64C11500CEB71A /* SessionCarouselView+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BE2701D2A64C11500CEB71A /* SessionCarouselView+SwiftUI.swift */; };
 		7BFA8AE32831D0D4001876F3 /* ContextMenuVC+EmojiReactsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFA8AE22831D0D4001876F3 /* ContextMenuVC+EmojiReactsView.swift */; };
 		7BFD1A8A2745C4F000FB91B9 /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFD1A892745C4F000FB91B9 /* Permissions.swift */; };
 		7BFD1A8C2747150E00FB91B9 /* TurnServerInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFD1A8B2747150E00FB91B9 /* TurnServerInfo.swift */; };
@@ -1266,6 +1267,7 @@
 		7BD687D32A5E852600D8E455 /* ProfilePictureView+SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ProfilePictureView+SwiftUI.swift"; sourceTree = "<group>"; };
 		7BDCFC0424206E7300641C39 /* SessionNotificationServiceExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SessionNotificationServiceExtension.entitlements; sourceTree = "<group>"; };
 		7BDCFC07242186E700641C39 /* NotificationServiceExtensionContext.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NotificationServiceExtensionContext.swift; sourceTree = "<group>"; };
+		7BE2701D2A64C11500CEB71A /* SessionCarouselView+SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionCarouselView+SwiftUI.swift"; sourceTree = "<group>"; };
 		7BFA8AE22831D0D4001876F3 /* ContextMenuVC+EmojiReactsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ContextMenuVC+EmojiReactsView.swift"; sourceTree = "<group>"; };
 		7BFD1A892745C4F000FB91B9 /* Permissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Permissions.swift; sourceTree = "<group>"; };
 		7BFD1A8B2747150E00FB91B9 /* TurnServerInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TurnServerInfo.swift; sourceTree = "<group>"; };
@@ -2930,6 +2932,7 @@
 				7BD687D32A5E852600D8E455 /* ProfilePictureView+SwiftUI.swift */,
 				FD71165A28E6DDBC00B47552 /* StyledNavigationController.swift */,
 				FD0B77AF29B69A65009169BA /* TopBannerController.swift */,
+				7BE2701D2A64C11500CEB71A /* SessionCarouselView+SwiftUI.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -5355,8 +5358,8 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
-				"$BUILT_PRODUCTS_DIR/$INFOPLIST_PATH",
-				"$TARGET_BUILD_DIR/$INFOPLIST_PATH",
+				$BUILT_PRODUCTS_DIR/$INFOPLIST_PATH,
+				$TARGET_BUILD_DIR/$INFOPLIST_PATH,
 			);
 			name = "Add Commit Hash To Build Info Plist";
 			outputFileListPaths = (
@@ -5423,6 +5426,7 @@
 				FD37E9D328A1FCDB003AE748 /* Theme+OceanDark.swift in Sources */,
 				FD71165928E436E800B47552 /* ConfirmationModal.swift in Sources */,
 				7BBBDC44286EAD2D00747E59 /* TappableLabel.swift in Sources */,
+				7BE2701E2A64C11500CEB71A /* SessionCarouselView+SwiftUI.swift in Sources */,
 				FD09B7E328865FDA00ED0B66 /* HighlightMentionBackgroundView.swift in Sources */,
 				C331FFB82558FA8D00070591 /* DeviceUtilities.swift in Sources */,
 				C331FFE72558FB0000070591 /* TextField.swift in Sources */,
