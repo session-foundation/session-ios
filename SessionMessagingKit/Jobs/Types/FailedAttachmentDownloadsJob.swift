@@ -18,15 +18,16 @@ public enum FailedAttachmentDownloadsJob: JobExecutor {
         deferred: @escaping (Job, Dependencies) -> (),
         dependencies: Dependencies = Dependencies()
     ) {
+        var changeCount: Int = -1
+        
         // Update all 'sending' message states to 'failed'
         dependencies.storage.write { db in
-            let changeCount: Int = try Attachment
+            changeCount = try Attachment
                 .filter(Attachment.Columns.state == Attachment.State.downloading)
                 .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.failedDownload))
-        
-            Logger.debug("Marked \(changeCount) attachments as failed")
         }
         
+        SNLog("[FailedAttachmentDownloadsJob] Marked \(changeCount) attachments as failed")
         success(job, false, dependencies)
     }
 }

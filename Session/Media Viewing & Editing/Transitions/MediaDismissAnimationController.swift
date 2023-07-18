@@ -1,7 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import PromiseKit
+import SessionUIKit
 
 class MediaDismissAnimationController: NSObject {
     private let mediaItem: Media
@@ -47,6 +47,18 @@ extension MediaDismissAnimationController: UIViewControllerAnimatedTransitioning
         switch fromVC {
             case let contextProvider as MediaPresentationContextProvider:
                 fromContextProvider = contextProvider
+                
+            case let topBannerController as TopBannerController:
+                guard
+                    let firstChild: UIViewController = topBannerController.children.first,
+                    let navController: UINavigationController = firstChild as? UINavigationController,
+                    let contextProvider = navController.topViewController as? MediaPresentationContextProvider
+                else {
+                    transitionContext.completeTransition(false)
+                    return
+                }
+                
+                fromContextProvider = contextProvider
 
             case let navController as UINavigationController:
                 guard let contextProvider = navController.topViewController as? MediaPresentationContextProvider else {
@@ -63,6 +75,19 @@ extension MediaDismissAnimationController: UIViewControllerAnimatedTransitioning
 
         switch toVC {
             case let contextProvider as MediaPresentationContextProvider:
+                toVC.view.layoutIfNeeded()
+                toContextProvider = contextProvider
+                
+            case let topBannerController as TopBannerController:
+                guard
+                    let firstChild: UIViewController = topBannerController.children.first,
+                    let navController: UINavigationController = firstChild as? UINavigationController,
+                    let contextProvider = navController.topViewController as? MediaPresentationContextProvider
+                else {
+                    transitionContext.completeTransition(false)
+                    return
+                }
+                
                 toVC.view.layoutIfNeeded()
                 toContextProvider = contextProvider
 

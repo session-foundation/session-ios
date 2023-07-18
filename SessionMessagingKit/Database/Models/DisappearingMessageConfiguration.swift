@@ -5,7 +5,7 @@ import GRDB
 import SessionUtilitiesKit
 import SessionSnodeKit
 
-public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "disappearingMessagesConfiguration" }
     internal static let threadForeignKey = ForeignKey([Columns.threadId], to: [SessionThread.Columns.id])
     private static let thread = belongsTo(SessionThread.self, using: threadForeignKey)
@@ -17,11 +17,17 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatabl
         case durationSeconds
     }
     
+    public enum DisappearingMessageType: Int, Codable, Hashable, DatabaseValueConvertible {
+        case disappearAfterRead
+        case disappearAfterSend
+    }
+    
     public var id: String { threadId }  // Identifiable
 
     public let threadId: String
     public let isEnabled: Bool
     public let durationSeconds: TimeInterval
+    public var type: DisappearingMessageType? { return nil }    // TODO: Add as part of Disappearing Message Rebuild
     
     // MARK: - Relationships
     
@@ -45,7 +51,8 @@ public extension DisappearingMessagesConfiguration {
     
     func with(
         isEnabled: Bool? = nil,
-        durationSeconds: TimeInterval? = nil
+        durationSeconds: TimeInterval? = nil,
+        type: DisappearingMessageType? = nil
     ) -> DisappearingMessagesConfiguration {
         return DisappearingMessagesConfiguration(
             threadId: threadId,
@@ -125,101 +132,4 @@ extension DisappearingMessagesConfiguration {
     public static var maxDurationSeconds: TimeInterval = {
         return (validDurationsSeconds.max() ?? 0)
     }()
-}
-
-// MARK: - Objective-C Support
-
-// TODO: Remove this when possible
-
-@objc(SMKDisappearingMessagesConfiguration)
-public class SMKDisappearingMessagesConfiguration: NSObject {
-    @objc public static var maxDurationSeconds: UInt = UInt(DisappearingMessagesConfiguration.maxDurationSeconds)
-    
-    @objc public static var validDurationsSeconds: [UInt] = DisappearingMessagesConfiguration
-        .validDurationsSeconds
-        .map { UInt($0) }
-    
-    @objc(isEnabledFor:)
-    public static func isEnabled(for threadId: String) -> Bool {
-        return Storage.shared
-            .read { db in
-                try DisappearingMessagesConfiguration
-                    .select(.isEnabled)
-                    .filter(id: threadId)
-                    .asRequest(of: Bool.self)
-                    .fetchOne(db)
-            }
-            .defaulting(to: false)
-    }
-    
-    @objc(durationIndexFor:)
-    public static func durationIndex(for threadId: String) -> Int {
-        let durationSeconds: TimeInterval = Storage.shared
-            .read { db in
-                try DisappearingMessagesConfiguration
-                    .select(.durationSeconds)
-                    .filter(id: threadId)
-                    .asRequest(of: TimeInterval.self)
-                    .fetchOne(db)
-            }
-            .defaulting(to: DisappearingMessagesConfiguration.defaultDuration)
-        
-        return DisappearingMessagesConfiguration.validDurationsSeconds
-            .firstIndex(of: durationSeconds)
-            .defaulting(to: 0)
-    }
-    
-    @objc(durationStringFor:)
-    public static func durationString(for index: Int) -> String {
-        let durationSeconds: TimeInterval = (
-            index >= 0 && index < DisappearingMessagesConfiguration.validDurationsSeconds.count ?
-                DisappearingMessagesConfiguration.validDurationsSeconds[index] :
-                DisappearingMessagesConfiguration.validDurationsSeconds[0]
-        )
-        
-        return floor(durationSeconds).formatted(format: .long)
-    }
-    
-    @objc(update:isEnabled:durationIndex:)
-    public static func update(_ threadId: String, isEnabled: Bool, durationIndex: Int) {
-        let durationSeconds: TimeInterval = (
-            durationIndex >= 0 && durationIndex < DisappearingMessagesConfiguration.validDurationsSeconds.count ?
-                DisappearingMessagesConfiguration.validDurationsSeconds[durationIndex] :
-                DisappearingMessagesConfiguration.validDurationsSeconds[0]
-        )
-        
-        Storage.shared.write { db in
-            guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
-                return
-            }
-            
-            let config: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
-                .fetchOne(db, id: threadId)
-                .defaulting(to: DisappearingMessagesConfiguration.defaultWith(threadId))
-                .with(
-                    isEnabled: isEnabled,
-                    durationSeconds: durationSeconds
-                )
-                .saved(db)
-            
-            let interaction: Interaction = try Interaction(
-                threadId: threadId,
-                authorId: getUserHexEncodedPublicKey(db),
-                variant: .infoDisappearingMessagesUpdate,
-                body: config.messageInfoString(with: nil),
-                timestampMs: SnodeAPI.currentOffsetTimestampMs()
-            )
-            .inserted(db)
-            
-            try MessageSender.send(
-                db,
-                message: ExpirationTimerUpdate(
-                    syncTarget: nil,
-                    duration: UInt32(floor(isEnabled ? durationSeconds : 0))
-                ),
-                interactionId: interaction.id,
-                in: thread
-            )
-        }
-    }
 }

@@ -1,8 +1,7 @@
-//
 //  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
-//
 
 import Foundation
+import SignalCoreKit
 
 public class SwiftSingletons: NSObject {
     public static let shared = SwiftSingletons()

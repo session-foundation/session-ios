@@ -10,10 +10,6 @@ public extension String {
         return (self as NSString).digitsOnly()
     }
 
-    func rtlSafeAppend(_ string: String) -> String {
-        return (self as NSString).rtlSafeAppend(string)
-    }
-
     func substring(from index: Int) -> String {
         return String(self[self.index(self.startIndex, offsetBy: index)...])
     }

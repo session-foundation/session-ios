@@ -43,7 +43,7 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
             }
         }
         
-        var style: SessionTableSectionStyle { return .title }
+        var style: SessionTableSectionStyle { return .titleRoundedContent }
     }
     
     public enum Item: Differentiable {
@@ -77,10 +77,7 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
     
     override var title: String { "PRIVACY_TITLE".localized() }
     
-    private var _settingsData: [SectionModel] = []
-    public override var settingsData: [SectionModel] { _settingsData }
-    
-    public override var observableSettingsData: ObservableData { _observableSettingsData }
+    public override var observableTableData: ObservableData { _observableTableData }
     
     /// This is all the data the screen needs to populate itself, please see the following link for tips to help optimise
     /// performance https://github.com/groue/GRDB.swift#valueobservation-performance
@@ -89,7 +86,7 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
     /// this is due to the behaviour of `ValueConcurrentObserver.asyncStartObservation` which triggers it's own
     /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
-    private lazy var _observableSettingsData: ObservableData = ValueObservation
+    private lazy var _observableTableData: ObservableData = ValueObservation
         .trackingConstantRegion { db -> [SectionModel] in
             return [
                 SectionModel(
@@ -145,34 +142,40 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                     elements: [
                         SessionCell.Info(
                             id: .typingIndicators,
-                            title: "PRIVACY_TYPING_INDICATORS_TITLE".localized(),
-                            subtitle: "PRIVACY_TYPING_INDICATORS_DESCRIPTION".localized(),
-                            subtitleExtraViewGenerator: {
-                                let targetHeight: CGFloat = 20
-                                let targetWidth: CGFloat = ceil(20 * (targetHeight / 12))
-                                let result: UIView = UIView(
-                                    frame: CGRect(x: 0, y: 0, width: targetWidth, height: targetHeight)
-                                )
-                                result.set(.width, to: targetWidth)
-                                result.set(.height, to: targetHeight)
-                                
-                                // Use a transform scale to reduce the size of the typing indicator to the
-                                // desired size (this way the animation remains intact)
-                                let cell: TypingIndicatorCell = TypingIndicatorCell()
-                                cell.transform = CGAffineTransform.scale(targetHeight / cell.bounds.height)
-                                cell.typingIndicatorView.startAnimation()
-                                result.addSubview(cell)
-                                
-                                // Note: Because we are messing with the transform these values don't work
-                                // logically so we inset the positioning to make it look visually centered
-                                // within the layout inspector
-                                cell.center(.vertical, in: result, withInset: -(targetHeight * 0.15))
-                                cell.center(.horizontal, in: result, withInset: -(targetWidth * 0.35))
-                                cell.set(.width, to: .width, of: result)
-                                cell.set(.height, to: .height, of: result)
-                                
-                                return result
-                            },
+                            title: SessionCell.TextInfo(
+                                "PRIVACY_TYPING_INDICATORS_TITLE".localized(),
+                                font: .title
+                            ),
+                            subtitle: SessionCell.TextInfo(
+                                "PRIVACY_TYPING_INDICATORS_DESCRIPTION".localized(),
+                                font: .subtitle,
+                                extraViewGenerator: {
+                                    let targetHeight: CGFloat = 20
+                                    let targetWidth: CGFloat = ceil(20 * (targetHeight / 12))
+                                    let result: UIView = UIView(
+                                        frame: CGRect(x: 0, y: 0, width: targetWidth, height: targetHeight)
+                                    )
+                                    result.set(.width, to: targetWidth)
+                                    result.set(.height, to: targetHeight)
+                                    
+                                    // Use a transform scale to reduce the size of the typing indicator to the
+                                    // desired size (this way the animation remains intact)
+                                    let cell: TypingIndicatorCell = TypingIndicatorCell()
+                                    cell.transform = CGAffineTransform.scale(targetHeight / cell.bounds.height)
+                                    cell.typingIndicatorView.startAnimation()
+                                    result.addSubview(cell)
+                                    
+                                    // Note: Because we are messing with the transform these values don't work
+                                    // logically so we inset the positioning to make it look visually centered
+                                    // within the layout inspector
+                                    cell.center(.vertical, in: result, withInset: -(targetHeight * 0.15))
+                                    cell.center(.horizontal, in: result, withInset: -(targetWidth * 0.35))
+                                    cell.set(.width, to: .width, of: result)
+                                    cell.set(.height, to: .height, of: result)
+                                    
+                                    return result
+                                }
+                            ),
                             rightAccessory: .toggle(.settingBool(key: .typingIndicatorsEnabled)),
                             onTap: {
                                 Storage.shared.write { db in
@@ -206,13 +209,15 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                             title: "PRIVACY_CALLS_TITLE".localized(),
                             subtitle: "PRIVACY_CALLS_DESCRIPTION".localized(),
                             rightAccessory: .toggle(.settingBool(key: .areCallsEnabled)),
-                            accessibilityLabel: "Allow voice and video calls",
+                            accessibility: Accessibility(
+                                label: "Allow voice and video calls"
+                            ),
                             confirmationInfo: ConfirmationModal.Info(
                                 title: "PRIVACY_CALLS_WARNING_TITLE".localized(),
                                 body: .text("PRIVACY_CALLS_WARNING_DESCRIPTION".localized()),
                                 showCondition: .disabled,
                                 confirmTitle: "continue_2".localized(),
-                                confirmAccessibilityLabel: "Enable",
+                                confirmAccessibility: Accessibility(identifier: "Enable"),
                                 confirmStyle: .textPrimary,
                                 onConfirm: { _ in Permissions.requestMicrophonePermissionIfNeeded() }
                             ),
@@ -227,11 +232,7 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
             ]
         }
         .removeDuplicates()
+        .handleEvents(didFail: { SNLog("[PrivacySettingsViewModel] Observation failed with error: \($0)") })
         .publisher(in: Storage.shared)
-    
-    // MARK: - Functions
-
-    public override func updateSettings(_ updatedSettings: [SectionModel]) {
-        self._settingsData = updatedSettings
-    }
+        .mapToSessionTableViewData(for: self)
 }

@@ -1,8 +1,7 @@
-//
 //  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
-//
 
 import Foundation
+import SignalCoreKit
 
 public class TappableView: UIView {
     let actionBlock : (() -> Void)

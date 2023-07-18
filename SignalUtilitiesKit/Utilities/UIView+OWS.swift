@@ -1,9 +1,8 @@
-//
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
-//
 
 import Foundation
 import SessionUIKit
+import SignalCoreKit
 
 public extension UIEdgeInsets {
     init(top: CGFloat, leading: CGFloat, bottom: CGFloat, trailing: CGFloat) {

@@ -9,27 +9,28 @@ public struct SnodeReceivedMessage: CustomDebugStringConvertible {
     public static let defaultExpirationSeconds: Int64 = ((15 * 24 * 60 * 60) * 1000)
     
     public let info: SnodeReceivedMessageInfo
+    public let namespace: SnodeAPI.Namespace
     public let data: Data
     
-    init?(snode: Snode, publicKey: String, namespace: Int, rawMessage: JSON) {
-        guard let hash: String = rawMessage["hash"] as? String else { return nil }
-
-        guard
-            let base64EncodedString: String = rawMessage["data"] as? String,
-            let data: Data = Data(base64Encoded: base64EncodedString)
-        else {
+    init?(
+        snode: Snode,
+        publicKey: String,
+        namespace: SnodeAPI.Namespace,
+        rawMessage: GetMessagesResponse.RawMessage
+    ) {
+        guard let data: Data = Data(base64Encoded: rawMessage.data) else {
             SNLog("Failed to decode data for message: \(rawMessage).")
             return nil
         }
         
-        let expirationDateMs: Int64? = (rawMessage["expiration"] as? Int64)
         self.info = SnodeReceivedMessageInfo(
             snode: snode,
             publicKey: publicKey,
             namespace: namespace,
-            hash: hash,
-            expirationDateMs: (expirationDateMs ?? SnodeReceivedMessage.defaultExpirationSeconds)
+            hash: rawMessage.hash,
+            expirationDateMs: (rawMessage.expiration ?? SnodeReceivedMessage.defaultExpirationSeconds)
         )
+        self.namespace = namespace
         self.data = data
     }
     

@@ -1,17 +1,17 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
 import CallKit
 import UserNotifications
 import BackgroundTasks
-import PromiseKit
 import SessionMessagingKit
 import SignalUtilitiesKit
+import SignalCoreKit
 
 public final class NotificationServiceExtension: UNNotificationServiceExtension {
     private var didPerformSetup = false
-    private var areVersionMigrationsComplete = false
     private var contentHandler: ((UNNotificationContent) -> Void)?
     private var request: UNNotificationRequest?
 
@@ -45,11 +45,17 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 
         // Handle the push notification
         AppReadiness.runNowOrWhenAppDidBecomeReady {
-            let openGroupPollingPromises = self.pollForOpenGroups()
+            let openGroupPollingPublishers: [AnyPublisher<Void, Error>] = self.pollForOpenGroups()
             defer {
-                when(resolved: openGroupPollingPromises).done { _ in
-                    self.completeSilenty()
-                }
+                Publishers
+                    .MergeMany(openGroupPollingPublishers)
+                    .subscribe(on: DispatchQueue.global(qos: .background))
+                    .subscribe(on: DispatchQueue.main)
+                    .sinkUntilComplete(
+                        receiveCompletion: { _ in
+                            self.completeSilenty()
+                        }
+                    )
             }
             
             guard
@@ -70,23 +76,22 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         return
                     }
                     
-                    let maybeVariant: SessionThread.Variant? = processedMessage.threadId
-                        .map { threadId in
-                            try? SessionThread
-                                .filter(id: threadId)
-                                .select(.variant)
-                                .asRequest(of: SessionThread.Variant.self)
-                                .fetchOne(db)
-                        }
-                    let isOpenGroup: Bool = (maybeVariant == .openGroup)
+                    // Throw if the message is outdated and shouldn't be processed
+                    try MessageReceiver.throwIfMessageOutdated(
+                        db,
+                        message: processedMessage.messageInfo.message,
+                        threadId: processedMessage.threadId,
+                        threadVariant: processedMessage.threadVariant
+                    )
                     
                     switch processedMessage.messageInfo.message {
                         case let visibleMessage as VisibleMessage:
                             let interactionId: Int64 = try MessageReceiver.handleVisibleMessage(
                                 db,
+                                threadId: processedMessage.threadId,
+                                threadVariant: processedMessage.threadVariant,
                                 message: visibleMessage,
-                                associatedWithProto: processedMessage.proto,
-                                openGroupId: (isOpenGroup ? processedMessage.threadId : nil)
+                                associatedWithProto: processedMessage.proto
                             )
                             
                             // Remove the notifications if there is an outgoing messages from a linked device
@@ -106,26 +111,58 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             }
                         
                         case let unsendRequest as UnsendRequest:
-                            try MessageReceiver.handleUnsendRequest(db, message: unsendRequest)
+                            try MessageReceiver.handleUnsendRequest(
+                                db,
+                                threadId: processedMessage.threadId,
+                                threadVariant: processedMessage.threadVariant,
+                                message: unsendRequest
+                            )
                             
                         case let closedGroupControlMessage as ClosedGroupControlMessage:
-                            try MessageReceiver.handleClosedGroupControlMessage(db, closedGroupControlMessage)
+                            try MessageReceiver.handleClosedGroupControlMessage(
+                                db,
+                                threadId: processedMessage.threadId,
+                                threadVariant: processedMessage.threadVariant,
+                                message: closedGroupControlMessage
+                            )
                             
                         case let callMessage as CallMessage:
-                            try MessageReceiver.handleCallMessage(db, message: callMessage)
+                            try MessageReceiver.handleCallMessage(
+                                db,
+                                threadId: processedMessage.threadId,
+                                threadVariant: processedMessage.threadVariant,
+                                message: callMessage
+                            )
                             
                             guard case .preOffer = callMessage.kind else { return self.completeSilenty() }
                             
                             if !db[.areCallsEnabled] {
-                                if let sender: String = callMessage.sender, let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: callMessage, state: .permissionDenied) {
-                                    let thread: SessionThread = try SessionThread.fetchOrCreate(db, id: sender, variant: .contact)
-
-                                    Environment.shared?.notificationsManager.wrappedValue?
-                                        .notifyUser(
+                                if
+                                    let sender: String = callMessage.sender,
+                                    let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(
+                                        db,
+                                        for: callMessage,
+                                        state: .permissionDenied
+                                    )
+                                {
+                                    let thread: SessionThread = try SessionThread
+                                        .fetchOrCreate(
                                             db,
-                                            forIncomingCall: interaction,
-                                            in: thread
+                                            id: sender,
+                                            variant: .contact,
+                                            shouldBeVisible: nil
                                         )
+
+                                    // Notify the user if the call message wasn't already read
+                                    if !interaction.wasRead {
+                                        Environment.shared?.notificationsManager.wrappedValue?
+                                            .notifyUser(
+                                                db,
+                                                forIncomingCall: interaction,
+                                                in: thread,
+                                                applicationState: .background
+                                            )
+                                    }
                                 }
                                 break
                             }
@@ -137,20 +174,27 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             
                             self.handleSuccessForIncomingCall(db, for: callMessage)
                             
+                        case let sharedConfigMessage as SharedConfigMessage:
+                            try SessionUtil.handleConfigMessages(
+                                db,
+                                messages: [sharedConfigMessage],
+                                publicKey: processedMessage.threadId
+                            )
+                            
                         default: break
                     }
                     
                     // Perform any required post-handling logic
                     try MessageReceiver.postHandleMessage(
                         db,
-                        message: processedMessage.messageInfo.message,
-                        openGroupId: (isOpenGroup ? processedMessage.threadId : nil)
+                        threadId: processedMessage.threadId,
+                        message: processedMessage.messageInfo.message
                     )
                 }
                 catch {
                     if let error = error as? MessageReceiverError, error.isRetryable {
                         switch error {
-                            case .invalidGroupPublicKey, .noGroupKeyPair: self.completeSilenty()
+                            case .invalidGroupPublicKey, .noGroupKeyPair, .outdatedMessage: self.completeSilenty()
                             default: self.handleFailure(for: notificationContent)
                         }
                     }
@@ -191,38 +235,42 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     $0 = NSENotificationPresenter()
                 }
             },
-            migrationsCompletion: { [weak self] _, needsConfigSync in
-                self?.versionMigrationsDidComplete(needsConfigSync: needsConfigSync)
+            migrationsCompletion: { [weak self] result, needsConfigSync in
+                switch result {
+                    // Only 'NSLog' works in the extension - viewable via Console.app
+                    case .failure: NSLog("[NotificationServiceExtension] Failed to complete migrations")
+                    case .success:
+                        DispatchQueue.main.async {
+                            self?.versionMigrationsDidComplete(needsConfigSync: needsConfigSync)
+                        }
+                }
+                
                 completion()
             }
         )
     }
     
-    @objc
     private func versionMigrationsDidComplete(needsConfigSync: Bool) {
         AssertIsOnMainThread()
 
-        areVersionMigrationsComplete = true
-        
         // If we need a config sync then trigger it now
         if needsConfigSync {
             Storage.shared.write { db in
-                try MessageSender.syncConfiguration(db, forceSyncNow: true).retainUntilComplete()
+                ConfigurationSyncJob.enqueue(db, publicKey: getUserHexEncodedPublicKey(db))
             }
         }
 
-        checkIsAppReady()
+        checkIsAppReady(migrationsCompleted: true)
     }
 
-    @objc
-    private func checkIsAppReady() {
+    private func checkIsAppReady(migrationsCompleted: Bool) {
         AssertIsOnMainThread()
 
         // Only mark the app as ready once.
         guard !AppReadiness.isAppReady() else { return }
 
         // App isn't ready until storage is ready AND all version migrations are complete.
-        guard Storage.shared.isValid && areVersionMigrationsComplete else { return }
+        guard Storage.shared.isValid && migrationsCompleted else { return }
 
         SignalUtilitiesKit.Configuration.performMainSetup()
 
@@ -318,8 +366,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     
     // MARK: - Poll for open groups
     
-    private func pollForOpenGroups() -> [Promise<Void>] {
-        let promises: [Promise<Void>] = Storage.shared
+    private func pollForOpenGroups() -> [AnyPublisher<Void, Error>] {
+        return Storage.shared
             .read { db in
                 // The default room promise creates an OpenGroup with an empty `roomToken` value,
                 // we don't want to start a poller for this as the user hasn't actually joined a room
@@ -332,16 +380,16 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     .fetchSet(db)
             }
             .defaulting(to: [])
-            .map { server in
+            .map { server -> AnyPublisher<Void, Error> in
                 OpenGroupAPI.Poller(for: server)
                     .poll(calledFromBackgroundPoller: true, isPostCapabilitiesRetry: false)
                     .timeout(
-                        seconds: 20,
-                        timeoutError: NotificationServiceError.timeout
+                        .seconds(20),
+                        scheduler: DispatchQueue.global(qos: .default),
+                        customError: { NotificationServiceError.timeout }
                     )
+                    .eraseToAnyPublisher()
             }
-        
-        return promises
     }
     
     private enum NotificationServiceError: Error {

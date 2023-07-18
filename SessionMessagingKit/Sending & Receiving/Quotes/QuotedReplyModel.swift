@@ -13,7 +13,8 @@ public struct QuotedReplyModel {
     public let sourceFileName: String?
     public let thumbnailDownloadFailed: Bool
     public let currentUserPublicKey: String?
-    public let currentUserBlindedPublicKey: String?
+    public let currentUserBlinded15PublicKey: String?
+    public let currentUserBlinded25PublicKey: String?
     
     // MARK: - Initialization
     
@@ -27,7 +28,8 @@ public struct QuotedReplyModel {
         sourceFileName: String?,
         thumbnailDownloadFailed: Bool,
         currentUserPublicKey: String?,
-        currentUserBlindedPublicKey: String?
+        currentUserBlinded15PublicKey: String?,
+        currentUserBlinded25PublicKey: String?
     ) {
         self.attachment = attachment
         self.threadId = threadId
@@ -38,7 +40,8 @@ public struct QuotedReplyModel {
         self.sourceFileName = sourceFileName
         self.thumbnailDownloadFailed = thumbnailDownloadFailed
         self.currentUserPublicKey = currentUserPublicKey
-        self.currentUserBlindedPublicKey = currentUserBlindedPublicKey
+        self.currentUserBlinded15PublicKey = currentUserBlinded15PublicKey
+        self.currentUserBlinded25PublicKey = currentUserBlinded25PublicKey
     }
     
     public static func quotedReplyForSending(
@@ -50,7 +53,8 @@ public struct QuotedReplyModel {
         attachments: [Attachment]?,
         linkPreviewAttachment: Attachment?,
         currentUserPublicKey: String?,
-        currentUserBlindedPublicKey: String?
+        currentUserBlinded15PublicKey: String?,
+        currentUserBlinded25PublicKey: String?
     ) -> QuotedReplyModel? {
         guard variant == .standardOutgoing || variant == .standardIncoming else { return nil }
         guard (body != nil && body?.isEmpty == false) || attachments?.isEmpty == false else { return nil }
@@ -67,20 +71,8 @@ public struct QuotedReplyModel {
             sourceFileName: targetAttachment?.sourceFilename,
             thumbnailDownloadFailed: false,
             currentUserPublicKey: currentUserPublicKey,
-            currentUserBlindedPublicKey: currentUserBlindedPublicKey
+            currentUserBlinded15PublicKey: currentUserBlinded15PublicKey,
+            currentUserBlinded25PublicKey: currentUserBlinded25PublicKey
         )
-    }
-}
-
-// MARK: - Convenience
-
-public extension QuotedReplyModel {
-    func generateAttachmentThumbnailIfNeeded(_ db: Database) throws -> String? {
-        guard let sourceAttachment: Attachment = self.attachment else { return nil }
-        
-        return try sourceAttachment
-            .cloneAsQuoteThumbnail()?
-            .inserted(db)
-            .id
     }
 }

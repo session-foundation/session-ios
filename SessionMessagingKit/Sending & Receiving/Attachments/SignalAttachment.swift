@@ -3,9 +3,8 @@
 //
 
 import Foundation
+import Combine
 import MobileCoreServices
-
-import PromiseKit
 import AVFoundation
 import SessionUtilitiesKit
 
@@ -887,11 +886,16 @@ public class SignalAttachment: Equatable, Hashable {
         return videoDir
     }
 
-    public class func compressVideoAsMp4(dataSource: DataSource, dataUTI: String) -> (Promise<SignalAttachment>, AVAssetExportSession?) {
+    public class func compressVideoAsMp4(dataSource: DataSource, dataUTI: String) -> (AnyPublisher<SignalAttachment, Error>, AVAssetExportSession?) {
         guard let url = dataSource.dataUrl() else {
             let attachment = SignalAttachment(dataSource: DataSourceValue.emptyDataSource(), dataUTI: dataUTI)
             attachment.error = .missingData
-            return (Promise.value(attachment), nil)
+            return (
+                Just(attachment)
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher(),
+                nil
+            )
         }
 
         let asset = AVAsset(url: url)
@@ -899,7 +903,12 @@ public class SignalAttachment: Equatable, Hashable {
         guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetMediumQuality) else {
             let attachment = SignalAttachment(dataSource: DataSourceValue.emptyDataSource(), dataUTI: dataUTI)
             attachment.error = .couldNotConvertToMpeg4
-            return (Promise.value(attachment), nil)
+            return (
+                Just(attachment)
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher(),
+                nil
+            )
         }
 
         exportSession.shouldOptimizeForNetworkUse = true
@@ -909,48 +918,45 @@ public class SignalAttachment: Equatable, Hashable {
         let exportURL = videoTempPath.appendingPathComponent(UUID().uuidString).appendingPathExtension("mp4")
         exportSession.outputURL = exportURL
 
-        let (promise, resolver) = Promise<SignalAttachment>.pending()
-
-        exportSession.exportAsynchronously {
-            let baseFilename = dataSource.sourceFilename
-            let mp4Filename = baseFilename?.filenameWithoutExtension.appendingFileExtension("mp4")
-
-            guard let dataSource = DataSourcePath.dataSource(with: exportURL,
-                                                             shouldDeleteOnDeallocation: true) else {
-                let attachment = SignalAttachment(dataSource: DataSourceValue.emptyDataSource(), dataUTI: dataUTI)
-                attachment.error = .couldNotConvertToMpeg4
-                resolver.fulfill(attachment)
-                return
+        let publisher = Deferred {
+            Future<SignalAttachment, Error> { resolver in
+                exportSession.exportAsynchronously {
+                    let baseFilename = dataSource.sourceFilename
+                    let mp4Filename = baseFilename?.filenameWithoutExtension.appendingFileExtension("mp4")
+                    
+                    guard let dataSource = DataSourcePath.dataSource(with: exportURL,
+                                                                     shouldDeleteOnDeallocation: true) else {
+                        let attachment = SignalAttachment(dataSource: DataSourceValue.emptyDataSource(), dataUTI: dataUTI)
+                        attachment.error = .couldNotConvertToMpeg4
+                        resolver(Result.success(attachment))
+                        return
+                    }
+                    
+                    dataSource.sourceFilename = mp4Filename
+                    
+                    let attachment = SignalAttachment(dataSource: dataSource, dataUTI: kUTTypeMPEG4 as String)
+                    resolver(Result.success(attachment))
+                }
             }
-
-            dataSource.sourceFilename = mp4Filename
-
-            let attachment = SignalAttachment(dataSource: dataSource, dataUTI: kUTTypeMPEG4 as String)
-            resolver.fulfill(attachment)
         }
+        .eraseToAnyPublisher()
 
-        return (promise, exportSession)
+        return (publisher, exportSession)
     }
 
-    @objc
-    public class VideoCompressionResult: NSObject {
-        @objc
-        public let attachmentPromise: AnyPromise
-
-        @objc
+    public struct VideoCompressionResult {
+        public let attachmentPublisher: AnyPublisher<SignalAttachment, Error>
         public let exportSession: AVAssetExportSession?
 
-        fileprivate init(attachmentPromise: Promise<SignalAttachment>, exportSession: AVAssetExportSession?) {
-            self.attachmentPromise = AnyPromise(attachmentPromise)
+        fileprivate init(attachmentPublisher: AnyPublisher<SignalAttachment, Error>, exportSession: AVAssetExportSession?) {
+            self.attachmentPublisher = attachmentPublisher
             self.exportSession = exportSession
-            super.init()
         }
     }
 
-    @objc
     public class func compressVideoAsMp4(dataSource: DataSource, dataUTI: String) -> VideoCompressionResult {
-        let (attachmentPromise, exportSession) = compressVideoAsMp4(dataSource: dataSource, dataUTI: dataUTI)
-        return VideoCompressionResult(attachmentPromise: attachmentPromise, exportSession: exportSession)
+        let (attachmentPublisher, exportSession) = compressVideoAsMp4(dataSource: dataSource, dataUTI: dataUTI)
+        return VideoCompressionResult(attachmentPublisher: attachmentPublisher, exportSession: exportSession)
     }
 
     @objc

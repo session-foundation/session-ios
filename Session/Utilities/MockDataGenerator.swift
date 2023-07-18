@@ -2,72 +2,10 @@
 
 import Foundation
 import GRDB
-import Sodium
 import Curve25519Kit
 import SessionMessagingKit
 
 enum MockDataGenerator {
-    // Note: This was taken from TensorFlow's Random (https://github.com/apple/swift/blob/bc8f9e61d333b8f7a625f74d48ef0b554726e349/stdlib/public/TensorFlow/Random.swift)
-    // the complex approach is needed due to an issue with Swift's randomElement(using:)
-    // generation (see https://stackoverflow.com/a/64897775 for more info)
-    struct ARC4RandomNumberGenerator: RandomNumberGenerator {
-        var state: [UInt8] = Array(0...255)
-        var iPos: UInt8 = 0
-        var jPos: UInt8 = 0
-        
-        init<T: BinaryInteger>(seed: T) {
-            self.init(
-                seed: (0..<(UInt64.bitWidth / UInt64.bitWidth)).map { index in
-                    UInt8(truncatingIfNeeded: seed >> (UInt8.bitWidth * index))
-                }
-            )
-        }
-        
-        init(seed: [UInt8]) {
-            precondition(seed.count > 0, "Length of seed must be positive")
-            precondition(seed.count <= 256, "Length of seed must be at most 256")
-            
-            // Note: Have to use a for loop instead of a 'forEach' otherwise
-            // it doesn't work properly (not sure why...)
-            var j: UInt8 = 0
-            for i: UInt8 in 0...255 {
-              j &+= S(i) &+ seed[Int(i) % seed.count]
-              swapAt(i, j)
-            }
-        }
-        
-        /// Produce the next random UInt64 from the stream, and advance the internal state
-        mutating func next() -> UInt64 {
-            // Note: Have to use a for loop instead of a 'forEach' otherwise
-            // it doesn't work properly (not sure why...)
-            var result: UInt64 = 0
-            for _ in 0..<UInt64.bitWidth / UInt8.bitWidth {
-              result <<= UInt8.bitWidth
-              result += UInt64(nextByte())
-            }
-            
-            return result
-        }
-        
-        /// Helper to access the state
-        private func S(_ index: UInt8) -> UInt8 {
-            return state[Int(index)]
-        }
-        
-        /// Helper to swap elements of the state
-        private mutating func swapAt(_ i: UInt8, _ j: UInt8) {
-            state.swapAt(Int(i), Int(j))
-        }
-
-        /// Generates the next byte in the keystream.
-        private mutating func nextByte() -> UInt8 {
-            iPos &+= 1
-            jPos &+= S(iPos)
-            swapAt(iPos, jPos)
-            return S(S(iPos) &+ S(jPos))
-        }
-    }
-    
     // MARK: - Generation
         
     static var printProgress: Bool = true
@@ -109,7 +47,8 @@ enum MockDataGenerator {
         logProgress("", "Start")
         
         // First create the thread used to indicate that the mock data has been generated
-        _ = try? SessionThread.fetchOrCreate(db, id: "MockDatabaseThread", variant: .contact)
+        _ = try? SessionThread
+            .fetchOrCreate(db, id: "MockDatabaseThread", variant: .contact, shouldBeVisible: false)
         
         // MARK: - -- DM Thread
         
@@ -125,7 +64,7 @@ enum MockDataGenerator {
                 
                 logProgress("DM Thread \(threadIndex)", "Start")
             
-                let data = Data((0..<16).map { _ in UInt8.random(in: (UInt8.min...UInt8.max), using: &dmThreadRandomGenerator) })
+                let data: Data = Data(dmThreadRandomGenerator.nextBytes(count: 16))
                 let randomSessionId: String = try! Identity.generate(from: data).x25519KeyPair.hexEncodedPublicKey
                 let isMessageRequest: Bool = Bool.random(using: &dmThreadRandomGenerator)
                 let contactNameLength: Int = ((5..<20).randomElement(using: &dmThreadRandomGenerator) ?? 0)
@@ -134,9 +73,12 @@ enum MockDataGenerator {
                 
                 // Generate the thread
                 let thread: SessionThread = try! SessionThread
-                    .fetchOrCreate(db, id: randomSessionId, variant: .contact)
-                    .with(shouldBeVisible: true)
-                    .saved(db)
+                    .fetchOrCreate(
+                        db,
+                        id: randomSessionId,
+                        variant: .contact,
+                        shouldBeVisible: true
+                    )
                 
                 // Generate the contact
                 let contact: Contact = try! Contact(
@@ -155,7 +97,9 @@ enum MockDataGenerator {
                     id: randomSessionId,
                     name: (0..<contactNameLength)
                         .compactMap { _ in stringContent.randomElement(using: &dmThreadRandomGenerator) }
-                        .joined()
+                        .joined(),
+                    lastNameUpdate: Date().timeIntervalSince1970,
+                    lastProfilePictureUpdate: Date().timeIntervalSince1970
                 )
                 .saved(db)
                 
@@ -202,7 +146,7 @@ enum MockDataGenerator {
                 
                 logProgress("Closed Group Thread \(threadIndex)", "Start")
                 
-                let data = Data((0..<16).map { _ in UInt8.random(in: (UInt8.min...UInt8.max), using: &cgThreadRandomGenerator) })
+                let data: Data = Data(cgThreadRandomGenerator.nextBytes(count: 16))
                 let randomGroupPublicKey: String = try! Identity.generate(from: data).x25519KeyPair.hexEncodedPublicKey
                 let groupNameLength: Int = ((5..<20).randomElement(using: &cgThreadRandomGenerator) ?? 0)
                 let groupName: String = (0..<groupNameLength)
@@ -217,7 +161,7 @@ enum MockDataGenerator {
                 logProgress("Closed Group Thread \(threadIndex)", "Generate \(numGroupMembers) Contacts")
                 
                 (0..<numGroupMembers).forEach { _ in
-                    let contactData = Data((0..<16).map { _ in UInt8.random(in: (UInt8.min...UInt8.max), using: &cgThreadRandomGenerator) })
+                    let contactData: Data = Data(cgThreadRandomGenerator.nextBytes(count: 16))
                     let randomSessionId: String = try! Identity.generate(from: contactData).x25519KeyPair.hexEncodedPublicKey
                     let contactNameLength: Int = ((5..<20).randomElement(using: &cgThreadRandomGenerator) ?? 0)
                     
@@ -234,7 +178,9 @@ enum MockDataGenerator {
                         id: randomSessionId,
                         name: (0..<contactNameLength)
                             .compactMap { _ in stringContent.randomElement(using: &cgThreadRandomGenerator) }
-                            .joined()
+                            .joined(),
+                        lastNameUpdate: Date().timeIntervalSince1970,
+                        lastProfilePictureUpdate: Date().timeIntervalSince1970
                     )
                     .saved(db)
                     
@@ -242,9 +188,12 @@ enum MockDataGenerator {
                 }
                 
                 let thread: SessionThread = try! SessionThread
-                    .fetchOrCreate(db, id: randomGroupPublicKey, variant: .closedGroup)
-                    .with(shouldBeVisible: true)
-                    .saved(db)
+                    .fetchOrCreate(
+                        db,
+                        id: randomGroupPublicKey,
+                        variant: .legacyGroup,
+                        shouldBeVisible: true
+                    )
                 _ = try! ClosedGroup(
                     threadId: randomGroupPublicKey,
                     name: groupName,
@@ -253,33 +202,33 @@ enum MockDataGenerator {
                 .saved(db)
                 
                 members.forEach { memberId in
-                    _ = try! GroupMember(
+                    try! GroupMember(
                         groupId: randomGroupPublicKey,
                         profileId: memberId,
                         role: .standard,
                         isHidden: false
                     )
-                    .saved(db)
+                    .save(db)
                 }
                 [members.randomElement(using: &cgThreadRandomGenerator) ?? userSessionId].forEach { adminId in
-                    _ = try! GroupMember(
+                    try! GroupMember(
                         groupId: randomGroupPublicKey,
                         profileId: adminId,
                         role: .admin,
                         isHidden: false
                     )
-                    .saved(db)
+                    .save(db)
                 }
                 
                 // Add the group to the user's set of public keys to poll for and store the key pair
                 let encryptionKeyPair = Curve25519.generateKeyPair()
-                _ = try! ClosedGroupKeyPair(
+                try! ClosedGroupKeyPair(
                     threadId: randomGroupPublicKey,
                     publicKey: encryptionKeyPair.publicKey,
                     secretKey: encryptionKeyPair.privateKey,
                     receivedTimestamp: timestampNow
                 )
-                .saved(db)
+                .save(db)
                 
                 // Generate the message history (Note: Unapproved message requests will only include incoming messages)
                 logProgress("Closed Group Thread \(threadIndex)", "Generate \(numMessages) Messages")
@@ -343,7 +292,7 @@ enum MockDataGenerator {
                 logProgress("Open Group Thread \(threadIndex)", "Generate \(numGroupMembers) Contacts")
 
                 (0..<numGroupMembers).forEach { _ in
-                    let contactData = Data((0..<16).map { _ in UInt8.random(in: (UInt8.min...UInt8.max), using: &ogThreadRandomGenerator) })
+                    let contactData: Data = Data(ogThreadRandomGenerator.nextBytes(count: 16))
                     let randomSessionId: String = try! Identity.generate(from: contactData).x25519KeyPair.hexEncodedPublicKey
                     let contactNameLength: Int = ((5..<20).randomElement(using: &ogThreadRandomGenerator) ?? 0)
                     _ = try! Contact(
@@ -359,7 +308,9 @@ enum MockDataGenerator {
                         id: randomSessionId,
                         name: (0..<contactNameLength)
                             .compactMap { _ in stringContent.randomElement(using: &ogThreadRandomGenerator) }
-                            .joined()
+                            .joined(),
+                        lastNameUpdate: Date().timeIntervalSince1970,
+                        lastProfilePictureUpdate: Date().timeIntervalSince1970
                     )
                     .saved(db)
 
@@ -368,9 +319,12 @@ enum MockDataGenerator {
                 
                 // Create the open group model and the thread
                 let thread: SessionThread = try! SessionThread
-                    .fetchOrCreate(db, id: randomGroupPublicKey, variant: .openGroup)
-                    .with(shouldBeVisible: true)
-                    .saved(db)
+                    .fetchOrCreate(
+                        db,
+                        id: randomGroupPublicKey,
+                        variant: .community,
+                        shouldBeVisible: true
+                    )
                 _ = try! OpenGroup(
                     server: serverName,
                     roomToken: roomName,

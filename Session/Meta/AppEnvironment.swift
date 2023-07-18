@@ -3,6 +3,7 @@
 import Foundation
 import SessionUtilitiesKit
 import SignalUtilitiesKit
+import SignalCoreKit
 
 public class AppEnvironment {
 

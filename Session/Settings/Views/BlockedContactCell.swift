@@ -8,7 +8,7 @@ import SignalUtilitiesKit
 class BlockedContactCell: UITableViewCell {
     // MARK: - Components
     
-    private lazy var profilePictureView: ProfilePictureView = ProfilePictureView()
+    private lazy var profilePictureView: ProfilePictureView = ProfilePictureView(size: .list)
     
     private let selectionView: RadioButton = {
         let result: RadioButton = RadioButton(size: .medium)
@@ -61,9 +61,6 @@ class BlockedContactCell: UITableViewCell {
             .constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -Values.mediumSpacing)
             .isActive = true
         profilePictureView.pin(.left, to: .left, of: contentView, withInset: Values.veryLargeSpacing)
-        profilePictureView.set(.width, to: Values.mediumProfilePictureSize)
-        profilePictureView.set(.height, to: Values.mediumProfilePictureSize)
-        profilePictureView.size = Values.mediumProfilePictureSize
         
         selectionView.center(.vertical, in: contentView)
         selectionView.topAnchor
@@ -81,8 +78,10 @@ class BlockedContactCell: UITableViewCell {
     public func update(with cellViewModel: BlockedContactsViewModel.DataModel, isSelected: Bool) {
         profilePictureView.update(
             publicKey: cellViewModel.profile.id,
+            threadVariant: .contact,
+            customImageData: nil,
             profile: cellViewModel.profile,
-            threadVariant: .contact
+            additionalProfile: nil
         )
         selectionView.text = cellViewModel.profile.displayName()
         selectionView.update(isSelected: isSelected)

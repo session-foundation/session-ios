@@ -14,6 +14,16 @@ public extension UIViewController {
             
             var nextViewController: UIViewController? = viewController.presentedViewController
             
+            if
+                let topBannerController: TopBannerController = nextViewController as? TopBannerController,
+                !topBannerController.children.isEmpty
+            {
+                nextViewController = (
+                    topBannerController.children[0].presentedViewController ??
+                    topBannerController.children[0]
+                )
+            }
+            
             if let nextViewController: UIViewController = nextViewController {
                 if !ignoringAlerts || !(nextViewController is UIAlertController) {
                     if visitedViewControllers.contains(nextViewController) {

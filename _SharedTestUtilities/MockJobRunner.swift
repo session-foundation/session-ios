@@ -13,22 +13,14 @@ class MockJobRunner: Mock<JobRunnerType>, JobRunnerType {
         accept(args: [executor, variant])
     }
     
-    func canStart(queue: JobQueue) -> Bool {
+    func canStart(queue: JobQueue?) -> Bool {
         return accept(args: [queue]) as! Bool
     }
     
     // MARK: - State Management
     
-    func isCurrentlyRunning(_ job: Job?) -> Bool {
-        return accept(args: [job]) as! Bool
-    }
-    
-    func hasJob<T: Encodable>(of variant: Job.Variant, inState state: JobRunner.JobState, with jobDetails: T) -> Bool {
-        return accept(args: [variant, state, jobDetails]) as! Bool
-    }
-    
-    func detailsFor(jobs: [Job]?, state: JobRunner.JobState, variant: Job.Variant?) -> [Int64: Data?] {
-        return accept(args: [jobs, state, variant]) as! [Int64: Data?]
+    func jobInfoFor(jobs: [Job]?, state: JobRunner.JobState, variant: Job.Variant?) -> [Int64: JobRunner.JobInfo] {
+        return accept(args: [jobs, state, variant]) as! [Int64: JobRunner.JobInfo]
     }
     
     func appDidFinishLaunching(dependencies: Dependencies) {}
@@ -42,8 +34,8 @@ class MockJobRunner: Mock<JobRunnerType>, JobRunnerType {
     
     // MARK: - Job Scheduling
     
-    func add(_ db: Database, job: Job?, canStartJob: Bool, dependencies: Dependencies) {
-        accept(args: [db, job, canStartJob])
+    @discardableResult func add(_ db: Database, job: Job?, canStartJob: Bool, dependencies: Dependencies) -> Job? {
+        return accept(args: [db, job, canStartJob]) as? Job
     }
     
     func upsert(_ db: Database, job: Job?, canStartJob: Bool, dependencies: Dependencies) {

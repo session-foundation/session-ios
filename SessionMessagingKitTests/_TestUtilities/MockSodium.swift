@@ -1,8 +1,8 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import PromiseKit
 import Sodium
+import SessionUtilitiesKit
 
 @testable import SessionMessagingKit
 
@@ -16,8 +16,8 @@ class MockSodium: Mock<SodiumType>, SodiumType {
         return accept(args: [serverPublicKey, genericHash]) as? Bytes
     }
     
-    func blindedKeyPair(serverPublicKey: String, edKeyPair: Box.KeyPair, genericHash: GenericHashType) -> Box.KeyPair? {
-        return accept(args: [serverPublicKey, edKeyPair, genericHash]) as? Box.KeyPair
+    func blindedKeyPair(serverPublicKey: String, edKeyPair: KeyPair, genericHash: GenericHashType) -> KeyPair? {
+        return accept(args: [serverPublicKey, edKeyPair, genericHash]) as? KeyPair
     }
     
     func sogsSignature(message: Bytes, secretKey: Bytes, blindedSecretKey ka: Bytes, blindedPublicKey kA: Bytes) -> Bytes? {

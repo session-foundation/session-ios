@@ -27,9 +27,9 @@ class MessageSendJobSpec: QuickSpec {
             beforeEach {
                 mockStorage = Storage(
                     customWriter: try! DatabaseQueue(),
-                    customMigrations: [
-                        SNUtilitiesKit.migrations(),
-                        SNMessagingKit.migrations()
+                    customMigrationTargets: [
+                        SNUtilitiesKit.self,
+                        SNMessagingKit.self
                     ]
                 )
                 mockJobRunner = MockJobRunner()
@@ -47,21 +47,18 @@ class MessageSendJobSpec: QuickSpec {
                 )
                 
                 mockStorage.write { db in
-                    try SessionThread.fetchOrCreate(db, id: "Test1", variant: .contact)
+                    try SessionThread.fetchOrCreate(db, id: "Test1", variant: .contact, shouldBeVisible: true)
                 }
                 
                 mockJobRunner
                     .when {
-                        $0.hasJob(
-                            of: any(),
-                            inState: .running,
-                            with: AttachmentUploadJob.Details(
-                                messageSendJobId: 1,
-                                attachmentId: attachment1.id
-                            )
+                        $0.jobInfoFor(
+                            jobs: nil,
+                            state: .running,
+                            variant: .attachmentUpload
                         )
                     }
-                    .thenReturn(false)
+                    .thenReturn([:])
                 mockJobRunner
                     .when { $0.insert(any(), job: any(), before: any(), dependencies: dependencies) }
                     .then { args in
@@ -353,16 +350,23 @@ class MessageSendJobSpec: QuickSpec {
                         it("inserts an attachment upload job before the message send job") {
                             mockJobRunner
                                 .when {
-                                    $0.hasJob(
-                                        of: any(),
-                                        inState: .running,
-                                        with: AttachmentUploadJob.Details(
-                                            messageSendJobId: 1,
-                                            attachmentId: "200"
-                                        )
+                                    $0.jobInfoFor(
+                                        jobs: nil,
+                                        state: .running,
+                                        variant: .attachmentUpload
                                     )
                                 }
-                                .thenReturn(false)
+                                .thenReturn([
+                                    2: JobRunner.JobInfo(
+                                        variant: .attachmentUpload,
+                                        threadId: nil,
+                                        interactionId: 100,
+                                        detailsData: try! JSONEncoder().encode(AttachmentUploadJob.Details(
+                                            messageSendJobId: 1,
+                                            attachmentId: "200"
+                                        ))
+                                    )
+                                ])
                             
                             MessageSendJob.run(
                                 job,

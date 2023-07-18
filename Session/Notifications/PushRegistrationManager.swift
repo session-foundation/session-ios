@@ -1,17 +1,17 @@
-//
-//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
-//
+// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import PromiseKit
+import Combine
 import PushKit
-import SignalUtilitiesKit
 import GRDB
+import SignalUtilitiesKit
+import SignalCoreKit
 
 public enum PushRegistrationError: Error {
     case assertionError(description: String)
     case pushNotSupported(description: String)
     case timeout
+    case publisherNoLongerExists
 }
 
 /**
@@ -40,63 +40,66 @@ public enum PushRegistrationError: Error {
         SwiftSingletons.register(self)
     }
 
-    private var vanillaTokenPromise: Promise<Data>?
-    private var vanillaTokenResolver: Resolver<Data>?
+    private var vanillaTokenPublisher: AnyPublisher<Data, Error>?
+    private var vanillaTokenResolver: ((Result<Data, Error>) -> ())?
 
     private var voipRegistry: PKPushRegistry?
-    private var voipTokenPromise: Promise<Data?>?
-    private var voipTokenResolver: Resolver<Data?>?
+    private var voipTokenPublisher: AnyPublisher<Data?, Error>?
+    private var voipTokenResolver: ((Result<Data?, Error>) -> ())?
 
-    // MARK: Public interface
+    // MARK: - Public interface
 
-    public func requestPushTokens() -> Promise<(pushToken: String, voipToken: String)> {
+    public func requestPushTokens() -> AnyPublisher<(pushToken: String, voipToken: String), Error> {
         Logger.info("")
+        
+        return registerUserNotificationSettings()
+            .subscribe(on: DispatchQueue.global(qos: .default))
+            .receive(on: DispatchQueue.main)    // MUST be on main thread
+            .setFailureType(to: Error.self)
+            .tryFlatMap { _ -> AnyPublisher<(pushToken: String, voipToken: String), Error> in
+                #if targetEnvironment(simulator)
+                throw PushRegistrationError.pushNotSupported(description: "Push not supported on simulators")
+                #endif
 
-        return firstly { () -> Promise<Void> in
-            self.registerUserNotificationSettings()
-        }.then { (_) -> Promise<(pushToken: String, voipToken: String)> in
-            #if targetEnvironment(simulator)
-            throw PushRegistrationError.pushNotSupported(description: "Push not supported on simulators")
-            #endif
-            
-            return self.registerForVanillaPushToken().then { vanillaPushToken -> Promise<(pushToken: String, voipToken: String)> in
-                self.registerForVoipPushToken().map { voipPushToken in
-                    (pushToken: vanillaPushToken, voipToken: voipPushToken ?? "")
-                }
+                return self.registerForVanillaPushToken()
+                    .flatMap { vanillaPushToken -> AnyPublisher<(pushToken: String, voipToken: String), Error> in
+                        self.registerForVoipPushToken()
+                            .map { voipPushToken in (vanillaPushToken, (voipPushToken ?? "")) }
+                            .eraseToAnyPublisher()
+                    }
+                    .eraseToAnyPublisher()
             }
-        }
+            .eraseToAnyPublisher()
     }
 
     // MARK: Vanilla push token
 
     // Vanilla push token is obtained from the system via AppDelegate
-    @objc
     public func didReceiveVanillaPushToken(_ tokenData: Data) {
         guard let vanillaTokenResolver = self.vanillaTokenResolver else {
-            owsFailDebug("promise completion in \(#function) unexpectedly nil")
+            owsFailDebug("publisher completion in \(#function) unexpectedly nil")
             return
         }
 
-        vanillaTokenResolver.fulfill(tokenData)
+        vanillaTokenResolver(Result.success(tokenData))
     }
 
     // Vanilla push token is obtained from the system via AppDelegate    
     @objc
     public func didFailToReceiveVanillaPushToken(error: Error) {
         guard let vanillaTokenResolver = self.vanillaTokenResolver else {
-            owsFailDebug("promise completion in \(#function) unexpectedly nil")
+            owsFailDebug("publisher completion in \(#function) unexpectedly nil")
             return
         }
 
-        vanillaTokenResolver.reject(error)
+        vanillaTokenResolver(Result.failure(error))
     }
 
     // MARK: helpers
 
     // User notification settings must be registered *before* AppDelegate will
     // return any requested push tokens.
-    public func registerUserNotificationSettings() -> Promise<Void> {
-        AssertIsOnMainThread()
+    public func registerUserNotificationSettings() -> AnyPublisher<Void, Never> {
         return notificationPresenter.registerNotificationSettings()
     }
 
@@ -125,52 +128,75 @@ public enum PushRegistrationError: Error {
         return true
     }
 
-    private func registerForVanillaPushToken() -> Promise<String> {
+    // FIXME: Might be nice to try to avoid having this required to run on the main thread (follow a similar approach to the 'SyncPushTokensJob' & `Atomic<T>`?)
+    private func registerForVanillaPushToken() -> AnyPublisher<String, Error> {
         AssertIsOnMainThread()
-
-        guard self.vanillaTokenPromise == nil else {
-            let promise = vanillaTokenPromise!
-            assert(promise.isPending)
-            return promise.map { $0.hexEncodedString }
+        
+        // Use the existing publisher if it exists
+        if let vanillaTokenPublisher: AnyPublisher<Data, Error> = self.vanillaTokenPublisher {
+            return vanillaTokenPublisher
+                .map { $0.toHexString() }
+                .eraseToAnyPublisher()
         }
-
-        // No pending vanilla token yet; create a new promise
-        let (promise, resolver) = Promise<Data>.pending()
-        self.vanillaTokenPromise = promise
-        self.vanillaTokenResolver = resolver
-
+        
         UIApplication.shared.registerForRemoteNotifications()
-
-        let kTimeout: TimeInterval = 10
-        let timeout: Promise<Data> = after(seconds: kTimeout).map { throw PushRegistrationError.timeout }
-        let promiseWithTimeout: Promise<Data> = race(promise, timeout)
-
-        return promiseWithTimeout.recover { error -> Promise<Data> in
-            switch error {
-            case PushRegistrationError.timeout:
-                if self.isSusceptibleToFailedPushRegistration {
-                    // If we've timed out on a device known to be susceptible to failures, quit trying
-                    // so the user doesn't remain indefinitely hung for no good reason.
-                    throw PushRegistrationError.pushNotSupported(description: "Device configuration disallows push notifications")
-                } else {
-                    // Sometimes registration can just take a while.
-                    // If we're not on a device known to be susceptible to push registration failure,
-                    // just return the original promise.
-                    return promise
-                }
-            default:
-                throw error
-            }
-        }.map { (pushTokenData: Data) -> String in
-            if self.isSusceptibleToFailedPushRegistration {
-                // Sentinal in case this bug is fixed
-                OWSLogger.debug("Device was unexpectedly able to complete push registration even though it was susceptible to failure.")
-            }
-
-            return pushTokenData.hexEncodedString
-        }.ensure {
-            self.vanillaTokenPromise = nil
+        
+        // No pending vanilla token yet; create a new publisher
+        let publisher: AnyPublisher<Data, Error> = Deferred {
+            Future<Data, Error> { self.vanillaTokenResolver = $0 }
         }
+        .eraseToAnyPublisher()
+        self.vanillaTokenPublisher = publisher
+        
+        return publisher
+            .timeout(
+                .seconds(10),
+                scheduler: DispatchQueue.main,
+                customError: { PushRegistrationError.timeout }
+            )
+            .catch { error -> AnyPublisher<Data, Error> in
+                switch error {
+                    case PushRegistrationError.timeout:
+                        guard self.isSusceptibleToFailedPushRegistration else {
+                            // Sometimes registration can just take a while.
+                            // If we're not on a device known to be susceptible to push registration failure,
+                            // just return the original publisher.
+                            guard let originalPublisher: AnyPublisher<Data, Error> = self.vanillaTokenPublisher else {
+                                return Fail(error: PushRegistrationError.publisherNoLongerExists)
+                                    .eraseToAnyPublisher()
+                            }
+                            
+                            return originalPublisher
+                        }
+                        
+                        // If we've timed out on a device known to be susceptible to failures, quit trying
+                        // so the user doesn't remain indefinitely hung for no good reason.
+                        return Fail(
+                            error: PushRegistrationError.pushNotSupported(
+                                description: "Device configuration disallows push notifications"
+                            )
+                        ).eraseToAnyPublisher()
+                        
+                    default:
+                        return Fail(error: error)
+                            .eraseToAnyPublisher()
+                }
+            }
+            .map { tokenData -> String in
+                if self.isSusceptibleToFailedPushRegistration {
+                    // Sentinal in case this bug is fixed
+                    OWSLogger.debug("Device was unexpectedly able to complete push registration even though it was susceptible to failure.")
+                }
+                
+                return tokenData.toHexString()
+            }
+            .handleEvents(
+                receiveCompletion: { _ in
+                    self.vanillaTokenPublisher = nil
+                    self.vanillaTokenResolver = nil
+                }
+            )
+            .eraseToAnyPublisher()
     }
     
     public func createVoipRegistryIfNecessary() {
@@ -178,61 +204,70 @@ public enum PushRegistrationError: Error {
 
         guard voipRegistry == nil else { return }
         let voipRegistry = PKPushRegistry(queue: nil)
-        self.voipRegistry  = voipRegistry
+        self.voipRegistry = voipRegistry
         voipRegistry.desiredPushTypes = [.voIP]
         voipRegistry.delegate = self
     }
     
-    private func registerForVoipPushToken() -> Promise<String?> {
+    private func registerForVoipPushToken() -> AnyPublisher<String?, Error> {
         AssertIsOnMainThread()
-
-        guard self.voipTokenPromise == nil else {
-            let promise = self.voipTokenPromise!
-            return promise.map { $0?.hexEncodedString }
+        
+        // Use the existing publisher if it exists
+        if let voipTokenPublisher: AnyPublisher<Data?, Error> = self.voipTokenPublisher {
+            return voipTokenPublisher
+                .map { $0?.toHexString() }
+                .eraseToAnyPublisher()
         }
-
-        // No pending voip token yet. Create a new promise
-        let (promise, resolver) = Promise<Data?>.pending()
-        self.voipTokenPromise = promise
-        self.voipTokenResolver = resolver
-
+        
         // We don't create the voip registry in init, because it immediately requests the voip token,
         // potentially before we're ready to handle it.
         createVoipRegistryIfNecessary()
-
-        guard let voipRegistry = self.voipRegistry else {
+        
+        guard let voipRegistry: PKPushRegistry = self.voipRegistry else {
             owsFailDebug("failed to initialize voipRegistry")
-            resolver.reject(PushRegistrationError.assertionError(description: "failed to initialize voipRegistry"))
-            return promise.map { _ in
-                // coerce expected type of returned promise - we don't really care about the value,
-                // since this promise has been rejected. In practice this shouldn't happen
-                String()
-            }
+            return Fail(
+                error: PushRegistrationError.assertionError(description: "failed to initialize voipRegistry")
+            ).eraseToAnyPublisher()
         }
-
+        
         // If we've already completed registering for a voip token, resolve it immediately,
         // rather than waiting for the delegate method to be called.
-        if let voipTokenData = voipRegistry.pushToken(for: .voIP) {
+        if let voipTokenData: Data = voipRegistry.pushToken(for: .voIP) {
             Logger.info("using pre-registered voIP token")
-            resolver.fulfill(voipTokenData)
+            return Just(voipTokenData.toHexString())
+                .setFailureType(to: Error.self)
+                .eraseToAnyPublisher()
         }
-
-        return promise.map { (voipTokenData: Data?) -> String? in
-            Logger.info("successfully registered for voip push notifications")
-            return voipTokenData?.hexEncodedString
-        }.ensure {
-            self.voipTokenPromise = nil
+        
+        // No pending voip token yet. Create a new publisher
+        let publisher: AnyPublisher<Data?, Error> = Deferred {
+            Future<Data?, Error> { self.voipTokenResolver = $0 }
         }
+        .eraseToAnyPublisher()
+        self.voipTokenPublisher = publisher
+        
+        return publisher
+            .map { voipTokenData -> String? in
+                Logger.info("successfully registered for voip push notifications")
+                return voipTokenData?.toHexString()
+            }
+            .handleEvents(
+                receiveCompletion: { _ in
+                    self.voipTokenPublisher = nil
+                    self.voipTokenResolver = nil
+                }
+            )
+            .eraseToAnyPublisher()
     }
     
-    // MARK: PKPushRegistryDelegate
+    // MARK: - PKPushRegistryDelegate
+    
     public func pushRegistry(_ registry: PKPushRegistry, didUpdate pushCredentials: PKPushCredentials, for type: PKPushType) {
         Logger.info("")
         owsAssertDebug(type == .voIP)
         owsAssertDebug(pushCredentials.type == .voIP)
-        guard let voipTokenResolver = voipTokenResolver else { return }
 
-        voipTokenResolver.fulfill(pushCredentials.token)
+        voipTokenResolver?(Result.success(pushCredentials.token))
     }
     
     // NOTE: This function MUST report an incoming call.
@@ -271,7 +306,8 @@ public enum PushRegistrationError: Error {
             }()
             
             let call: SessionCall = SessionCall(db, for: caller, uuid: uuid, mode: .answer)
-            let thread: SessionThread = try SessionThread.fetchOrCreate(db, id: caller, variant: .contact)
+            let thread: SessionThread = try SessionThread
+                .fetchOrCreate(db, id: caller, variant: .contact, shouldBeVisible: nil)
             
             let interaction: Interaction = try Interaction(
                 messageUuid: uuid,

@@ -1,13 +1,11 @@
-//
-//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
-//
+// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
-import AFNetworking
 import Foundation
-import PromiseKit
+import Combine
 import CoreServices
 import SignalUtilitiesKit
 import SessionUtilitiesKit
+import SignalCoreKit
 
 // There's no UTI type for webp!
 enum GiphyFormat {
@@ -18,13 +16,12 @@ enum GiphyError: Error {
     case assertionError(description: String)
     case fetchFailure
 }
+
 extension GiphyError: LocalizedError {
     public var errorDescription: String? {
         switch self {
-        case .assertionError:
-            return NSLocalizedString("GIF_PICKER_ERROR_GENERIC", comment: "Generic error displayed when picking a GIF")
-        case .fetchFailure:
-            return NSLocalizedString("GIF_PICKER_ERROR_FETCH_FAILURE", comment: "Error displayed when there is a failure fetching a GIF from the remote service.")
+            case .assertionError: return "GIF_PICKER_ERROR_GENERIC".localized()
+            case .fetchFailure: return "GIF_PICKER_ERROR_FETCH_FAILURE".localized()
         }
     }
 }
@@ -34,7 +31,7 @@ extension GiphyError: LocalizedError {
 // They vary in content size (i.e. width,  height), 
 // format (.jpg, .gif, .mp4, webp, etc.),
 // quality, etc.
-@objc class GiphyRendition: ProxiedContentAssetDescription {
+class GiphyRendition: ProxiedContentAssetDescription {
     let format: GiphyFormat
     let name: String
     let width: UInt
@@ -93,7 +90,7 @@ extension GiphyError: LocalizedError {
 }
 
 // Represents a single Giphy image.
-@objc class GiphyImageInfo: NSObject {
+class GiphyImageInfo: NSObject {
     let giphyId: String
     let renditions: [GiphyRendition]
     // We special-case the "original" rendition because it is the 
@@ -267,115 +264,109 @@ extension GiphyError: LocalizedError {
     }
 }
 
-@objc class GiphyAPI: NSObject {
+enum GiphyAPI {
+    private static let kGiphyBaseURL = "https://api.giphy.com"
+    private static let urlSession: URLSession = {
+        let configuration: URLSessionConfiguration = ContentProxy.sessionConfiguration()
+        
+        // Don't use any caching to protect privacy of these requests.
+        configuration.urlCache = nil
+        configuration.requestCachePolicy = .reloadIgnoringCacheData
+        
+        return URLSession(configuration: configuration)
+    }()
 
-    // MARK: - Properties
-
-    static let sharedInstance = GiphyAPI()
-
-    // Force usage as a singleton
-    override private init() {
-        super.init()
-
-        SwiftSingletons.register(self)
-    }
-
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
-
-    private let kGiphyBaseURL = "https://api.giphy.com/"
-
-    private func giphyAPISessionManager() -> AFHTTPSessionManager? {
-        return AFHTTPSessionManager(baseURL: URL(string: kGiphyBaseURL), sessionConfiguration: .ephemeral)
-    }
-
-    // MARK: Search
-    // This is the Signal iOS API key.
-    let kGiphyApiKey = "ZsUpUm2L6cVbvei347EQNp7HrROjbOdc"
-    let kGiphyPageSize = 20
+    // MARK: - Search
     
-    public func trending() -> Promise<[GiphyImageInfo]> {
-        guard let sessionManager = giphyAPISessionManager() else {
-            Logger.error("Couldn't create session manager.")
-            return Promise.value([])
-        }
+    // This is the Signal iOS API key.
+    private static let kGiphyApiKey = "ZsUpUm2L6cVbvei347EQNp7HrROjbOdc"
+    private static let kGiphyPageSize = 20
+    
+    public static func trending() -> AnyPublisher<[GiphyImageInfo], Error> {
         let urlString = "/v1/gifs/trending?api_key=\(kGiphyApiKey)&limit=\(kGiphyPageSize)"
-        let (promise, resolver) = Promise<[GiphyImageInfo]>.pending()
-        sessionManager.get(urlString,
-                           parameters: [String: AnyObject](),
-                           headers:nil,
-                           progress: nil,
-                           success: { _, value in
-                            Logger.error("search request succeeded")
-                            if let imageInfos = self.parseGiphyImages(responseJson: value) {
-                                resolver.fulfill(imageInfos)
-                            } else {
-                                Logger.error("unable to parse trending images")
-                                resolver.fulfill([])
-                            }
-                            
-        },
-                           failure: { _, error in
-                            Logger.error("search request failed: \(error)")
-                            resolver.reject(error)
-        })
-
-        return promise
+        
+        guard let url: URL = URL(string: "\(kGiphyBaseURL)\(urlString)") else {
+            return Fail(error: HTTPError.invalidURL)
+                .eraseToAnyPublisher()
+        }
+        
+        return urlSession
+            .dataTaskPublisher(for: url)
+            .mapError { urlError in
+                Logger.error("search request failed: \(urlError)")
+                
+                // URLError codes are negative values
+                return HTTPError.generic
+            }
+            .map { data, _ in
+                Logger.debug("search request succeeded")
+                
+                guard let imageInfos = self.parseGiphyImages(responseData: data) else {
+                    Logger.error("unable to parse trending images")
+                    return []
+                }
+                
+                return imageInfos
+            }
+            .eraseToAnyPublisher()
     }
 
-    public func search(query: String, success: @escaping (([GiphyImageInfo]) -> Void), failure: @escaping ((NSError?) -> Void)) {
-        guard let sessionManager = giphyAPISessionManager() else {
-            Logger.error("Couldn't create session manager.")
-            failure(nil)
-            return
-        }
-        guard NSURL(string: kGiphyBaseURL) != nil else {
-            Logger.error("Invalid base URL.")
-            failure(nil)
-            return
-        }
-
+    public static func search(query: String) -> AnyPublisher<[GiphyImageInfo], Error> {
         let kGiphyPageOffset = 0
-        guard let queryEncoded = query.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
-            Logger.error("Could not URL encode query: \(query).")
-            failure(nil)
-            return
+        
+        guard
+            let queryEncoded = query.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+            let url: URL = URL(
+                string: [
+                    kGiphyBaseURL,
+                    "/v1/gifs/search?api_key=\(kGiphyApiKey)",
+                    "&offset=\(kGiphyPageOffset)",
+                    "&limit=\(kGiphyPageSize)",
+                    "&q=\(queryEncoded)"
+                ].joined()
+            )
+        else {
+            return Fail(error: HTTPError.invalidURL)
+                .eraseToAnyPublisher()
         }
-        let urlString = "/v1/gifs/search?api_key=\(kGiphyApiKey)&offset=\(kGiphyPageOffset)&limit=\(kGiphyPageSize)&q=\(queryEncoded)"
-
-        guard ContentProxy.configureSessionManager(sessionManager: sessionManager, forUrl: urlString) else {
+        
+        var request: URLRequest = URLRequest(url: url)
+        
+        guard ContentProxy.configureProxiedRequest(request: &request) else {
             owsFailDebug("Could not configure query: \(query).")
-            failure(nil)
-            return
+            return Fail(error: HTTPError.generic)
+                .eraseToAnyPublisher()
         }
-
-        sessionManager.get(urlString,
-                           parameters: [String: AnyObject](),
-                           headers: nil,
-                           progress: nil,
-                           success: { _, value in
-                            Logger.error("search request succeeded")
-                            guard let imageInfos = self.parseGiphyImages(responseJson: value) else {
-                                failure(nil)
-                                return
-                            }
-                            success(imageInfos)
-        },
-                           failure: { _, error in
-                            Logger.error("search request failed: \(error)")
-                            failure(error as NSError)
-        })
+        
+        return urlSession
+            .dataTaskPublisher(for: request)
+            .mapError { urlError in
+                Logger.error("search request failed: \(urlError)")
+                
+                // URLError codes are negative values
+                return HTTPError.generic
+            }
+            .tryMap { data, _ -> [GiphyImageInfo] in
+                Logger.debug("search request succeeded")
+                
+                guard let imageInfos = self.parseGiphyImages(responseData: data) else {
+                    throw HTTPError.invalidResponse
+                }
+                
+                return imageInfos
+            }
+            .eraseToAnyPublisher()
     }
 
-    // MARK: Parse API Responses
+    // MARK: - Parse API Responses
 
-    private func parseGiphyImages(responseJson: Any?) -> [GiphyImageInfo]? {
-        guard let responseJson = responseJson else {
+    private static func parseGiphyImages(responseData: Data?) -> [GiphyImageInfo]? {
+        guard let responseData: Data = responseData else {
             Logger.error("Missing response.")
             return nil
         }
-        guard let responseDict = responseJson as? [String: Any] else {
+        guard let responseDict: [String: Any] = try? JSONSerialization
+            .jsonObject(with: responseData, options: [ .fragmentsAllowed ]) as? [String: Any] else {
             Logger.error("Invalid response.")
             return nil
         }
@@ -389,7 +380,7 @@ extension GiphyError: LocalizedError {
     }
 
     // Giphy API results are often incomplete or malformed, so we need to be defensive.
-    private func parseGiphyImage(imageDict: [String: Any]) -> GiphyImageInfo? {
+    private static func parseGiphyImage(imageDict: [String: Any]) -> GiphyImageInfo? {
         guard let giphyId = imageDict["id"] as? String else {
             Logger.warn("Image dict missing id.")
             return nil
@@ -424,12 +415,14 @@ extension GiphyError: LocalizedError {
             return nil
         }
 
-        return GiphyImageInfo(giphyId: giphyId,
-                              renditions: renditions,
-                              originalRendition: originalRendition)
+        return GiphyImageInfo(
+            giphyId: giphyId,
+            renditions: renditions,
+            originalRendition: originalRendition
+        )
     }
 
-    private func findOriginalRendition(renditions: [GiphyRendition]) -> GiphyRendition? {
+    private static func findOriginalRendition(renditions: [GiphyRendition]) -> GiphyRendition? {
         for rendition in renditions where rendition.name == "original" {
             return rendition
         }
@@ -439,8 +432,10 @@ extension GiphyError: LocalizedError {
     // Giphy API results are often incomplete or malformed, so we need to be defensive.
     //
     // We should discard renditions which are missing or have invalid properties.
-    private func parseGiphyRendition(renditionName: String,
-                                     renditionDict: [String: Any]) -> GiphyRendition? {
+    private static func parseGiphyRendition(
+        renditionName: String,
+        renditionDict: [String: Any]
+    ) -> GiphyRendition? {
         guard let width = parsePositiveUInt(dict: renditionDict, key: "width", typeName: "rendition") else {
             return nil
         }
@@ -488,7 +483,7 @@ extension GiphyError: LocalizedError {
         )
     }
 
-    private func parsePositiveUInt(dict: [String: Any], key: String, typeName: String) -> UInt? {
+    private static func parsePositiveUInt(dict: [String: Any], key: String, typeName: String) -> UInt? {
         guard let value = dict[key] else {
             return nil
         }
@@ -505,7 +500,7 @@ extension GiphyError: LocalizedError {
         return parsedValue
     }
 
-    private func parseLenientUInt(dict: [String: Any], key: String) -> UInt {
+    private static func parseLenientUInt(dict: [String: Any], key: String) -> UInt {
         let defaultValue = UInt(0)
 
         guard let value = dict[key] else {

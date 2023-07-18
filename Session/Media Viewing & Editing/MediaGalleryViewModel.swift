@@ -48,8 +48,14 @@ public class MediaGalleryViewModel {
         didSet {
             // When starting to observe interaction changes we want to trigger a UI update just in case the
             // data was changed while we weren't observing
-            if let unobservedGalleryDataChanges: ([SectionModel], StagedChangeset<[SectionModel]>) = self.unobservedGalleryDataChanges {
-                onGalleryChange?(unobservedGalleryDataChanges.0, unobservedGalleryDataChanges.1)
+            if let changes: ([SectionModel], StagedChangeset<[SectionModel]>) = self.unobservedGalleryDataChanges {
+                let performChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ())? = onGalleryChange
+                
+                switch Thread.isMainThread {
+                    case true: performChange?(changes.0, changes.1)
+                    case false: DispatchQueue.main.async { performChange?(changes.0, changes.1) }
+                }
+                
                 self.unobservedGalleryDataChanges = nil
             }
         }
@@ -98,7 +104,10 @@ public class MediaGalleryViewModel {
                     currentDataRetriever: { self?.galleryData },
                     onDataChange: self?.onGalleryChange,
                     onUnobservedDataChange: { updatedData, changeset in
-                        self?.unobservedGalleryDataChanges = (updatedData, changeset)
+                        self?.unobservedGalleryDataChanges = (changeset.isEmpty ?
+                            nil :
+                            (updatedData, changeset)
+                        )
                     }
                 )
             }
@@ -357,7 +366,7 @@ public class MediaGalleryViewModel {
     /// this is due to the behaviour of `ValueConcurrentObserver.asyncStartObservation` which triggers it's own
     /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
-    public typealias AlbumObservation = ValueObservation<ValueReducers.RemoveDuplicates<ValueReducers.Fetch<[Item]>>>
+    public typealias AlbumObservation = ValueObservation<ValueReducers.Trace<ValueReducers.RemoveDuplicates<ValueReducers.Fetch<[Item]>>>>
     public lazy var observableAlbumData: AlbumObservation = buildAlbumObservation(for: nil)
     
     private func buildAlbumObservation(for interactionId: Int64?) -> AlbumObservation {
@@ -380,6 +389,7 @@ public class MediaGalleryViewModel {
                     .fetchAll(db)
             }
             .removeDuplicates()
+            .handleEvents(didFail: { SNLog("[MediaGalleryViewModel] Observation failed with error: \($0)") })
     }
     
     @discardableResult public func loadAndCacheAlbumData(for interactionId: Int64, in threadId: String) -> [Item] {
@@ -620,30 +630,6 @@ public class MediaGalleryViewModel {
         return AllMediaViewController(
             mediaTitleViewController: mediaTitleViewController,
             documentTitleViewController: documentTitleViewController
-        )
-    }
-}
-
-// MARK: - Objective-C Support
-
-// FIXME: Remove when we can
-
-@objc(SNMediaGallery)
-public class SNMediaGallery: NSObject {
-    @objc(pushTileViewWithSliderEnabledForThreadId:isClosedGroup:isOpenGroup:fromNavController:)
-    static func pushTileView(threadId: String, isClosedGroup: Bool, isOpenGroup: Bool, fromNavController: UINavigationController) {
-        fromNavController.pushViewController(
-            MediaGalleryViewModel.createAllMediaViewController(
-                threadId: threadId,
-                threadVariant: {
-                    if isClosedGroup { return .closedGroup }
-                    if isOpenGroup { return .openGroup }
-
-                    return .contact
-                }(),
-                focusedAttachmentId: nil
-            ),
-            animated: true
         )
     }
 }

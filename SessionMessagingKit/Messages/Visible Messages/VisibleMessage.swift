@@ -168,12 +168,6 @@ public final class VisibleMessage: Message {
         let attachments: [Attachment] = (try? Attachment.fetchAll(db, ids: self.attachmentIds))
             .defaulting(to: [])
             .sorted { lhs, rhs in (attachmentIdIndexes[lhs.id] ?? 0) < (attachmentIdIndexes[rhs.id] ?? 0) }
-        
-        if !attachments.allSatisfy({ $0.state == .uploaded }) {
-            #if DEBUG
-            preconditionFailure("Sending a message before all associated attachments have been uploaded.")
-            #endif
-        }
         let attachmentProtos = attachments.compactMap { $0.buildProto() }
         dataMessage.setAttachments(attachmentProtos)
         
@@ -188,14 +182,6 @@ public final class VisibleMessage: Message {
         // Emoji react
         if let reaction = reaction, let reactionProto = reaction.toProto() {
             dataMessage.setReaction(reactionProto)
-        }
-        
-        // Group context
-        do {
-            try setGroupContextIfNeeded(db, on: dataMessage)
-        } catch {
-            SNLog("Couldn't construct visible message proto from: \(self).")
-            return nil
         }
         
         // Sync target
@@ -241,7 +227,10 @@ public extension VisibleMessage {
             sentTimestamp: UInt64(interaction.timestampMs),
             recipient: (try? interaction.recipientStates.fetchOne(db))?.recipientId,
             groupPublicKey: try? interaction.thread
-                .filter(SessionThread.Columns.variant == SessionThread.Variant.closedGroup)
+                .filter(
+                    SessionThread.Columns.variant == SessionThread.Variant.legacyGroup ||
+                    SessionThread.Columns.variant == SessionThread.Variant.group
+                )
                 .select(.id)
                 .asRequest(of: String.self)
                 .fetchOne(db),

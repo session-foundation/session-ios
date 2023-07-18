@@ -7,8 +7,9 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
+import SignalCoreKit
 
-class GlobalSearchViewController: BaseVC, UITableViewDelegate, UITableViewDataSource {
+class GlobalSearchViewController: BaseVC, SessionUtilRespondingViewController, UITableViewDelegate, UITableViewDataSource {
     fileprivate typealias SectionModel = ArraySection<SearchSection, SessionThreadViewModel>
     
     // MARK: - SearchSection
@@ -17,6 +18,15 @@ class GlobalSearchViewController: BaseVC, UITableViewDelegate, UITableViewDataSo
         case noResults
         case contactsAndGroups
         case messages
+    }
+    
+    // MARK: - SessionUtilRespondingViewController
+    
+    let isConversationList: Bool = true
+    
+    func forceRefreshIfNeeded() {
+        // Need to do this as the 'GlobalSearchViewController' doesn't observe database changes
+        updateSearchResults(searchText: searchText, force: true)
     }
     
     // MARK: - Variables
@@ -150,7 +160,7 @@ class GlobalSearchViewController: BaseVC, UITableViewDelegate, UITableViewDataSo
         }
     }
 
-    private func updateSearchResults(searchText rawSearchText: String) {
+    private func updateSearchResults(searchText rawSearchText: String, force: Bool = false) {
         let searchText = rawSearchText.stripped
         
         guard searchText.count > 0 else {
@@ -161,7 +171,7 @@ class GlobalSearchViewController: BaseVC, UITableViewDelegate, UITableViewDataSo
             tableView.reloadData()
             return
         }
-        guard lastSearchText != searchText else { return }
+        guard force || lastSearchText != searchText else { return }
 
         lastSearchText = searchText
 
@@ -207,7 +217,14 @@ class GlobalSearchViewController: BaseVC, UITableViewDelegate, UITableViewDataSo
                         
                         self?.termForCurrentSearchResultSet = searchText
                         self?.searchResultSet = [
-                            (hasResults ? nil : [ArraySection(model: .noResults, elements: [SessionThreadViewModel(unreadCount: 0)])]),
+                            (hasResults ? nil : [
+                                ArraySection(
+                                    model: .noResults,
+                                    elements: [
+                                        SessionThreadViewModel(threadId: SessionThreadViewModel.invalidId)
+                                    ]
+                                )
+                            ]),
                             (hasResults ? sections : nil)
                         ]
                         .compactMap { $0 }
@@ -271,23 +288,46 @@ extension GlobalSearchViewController {
                 show(
                     threadId: section.elements[indexPath.row].threadId,
                     threadVariant: section.elements[indexPath.row].threadVariant,
-                    focusedInteractionId: section.elements[indexPath.row].interactionId
+                    focusedInteractionInfo: {
+                        guard
+                            let interactionId: Int64 = section.elements[indexPath.row].interactionId,
+                            let timestampMs: Int64 = section.elements[indexPath.row].interactionTimestampMs
+                        else { return nil }
+                        
+                        return Interaction.TimestampInfo(
+                            id: interactionId,
+                            timestampMs: timestampMs
+                        )
+                    }()
                 )
         }
     }
 
-    private func show(threadId: String, threadVariant: SessionThread.Variant, focusedInteractionId: Int64? = nil, animated: Bool = true) {
+    private func show(threadId: String, threadVariant: SessionThread.Variant, focusedInteractionInfo: Interaction.TimestampInfo? = nil, animated: Bool = true) {
         guard Thread.isMainThread else {
             DispatchQueue.main.async { [weak self] in
-                self?.show(threadId: threadId, threadVariant: threadVariant, focusedInteractionId: focusedInteractionId, animated: animated)
+                self?.show(threadId: threadId, threadVariant: threadVariant, focusedInteractionInfo: focusedInteractionInfo, animated: animated)
             }
             return
+        }
+        
+        // If it's a one-to-one thread then make sure the thread exists before pushing to it (in case the
+        // contact has been hidden)
+        if threadVariant == .contact {
+            Storage.shared.write { db in
+                try SessionThread.fetchOrCreate(
+                    db,
+                    id: threadId,
+                    variant: threadVariant,
+                    shouldBeVisible: nil    // Don't change current state
+                )
+            }
         }
         
         let viewController: ConversationVC = ConversationVC(
             threadId: threadId,
             threadVariant: threadVariant,
-            focusedInteractionId: focusedInteractionId
+            focusedInteractionInfo: focusedInteractionInfo
         )
         self.navigationController?.pushViewController(viewController, animated: true)
     }

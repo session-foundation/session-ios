@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import SessionUtilitiesKit
 
 extension FileServerAPI {
     public enum Endpoint: EndpointType {
@@ -8,7 +9,7 @@ extension FileServerAPI {
         case fileIndividual(fileId: String)
         case sessionVersion
         
-        var path: String {
+        public var path: String {
             switch self {
                 case .file: return "file"
                 case .fileIndividual(let fileId): return "file/\(fileId)"

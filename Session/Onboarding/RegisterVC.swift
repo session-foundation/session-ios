@@ -2,14 +2,13 @@
 
 import UIKit
 import Sodium
-import Curve25519Kit
 import SessionUIKit
 import SignalUtilitiesKit
 
 final class RegisterVC : BaseVC {
     private var seed: Data! { didSet { updateKeyPair() } }
-    private var ed25519KeyPair: Sign.KeyPair!
-    private var x25519KeyPair: ECKeyPair! { didSet { updatePublicKeyLabel() } }
+    private var ed25519KeyPair: KeyPair!
+    private var x25519KeyPair: KeyPair! { didSet { updatePublicKeyLabel() } }
     
     // MARK: - Components
     
@@ -152,6 +151,12 @@ final class RegisterVC : BaseVC {
         updateSeed()
     }
     
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        Onboarding.Flow.register.unregister()
+    }
+    
     // MARK: General
     @objc private func enableCopyButton() {
         copyPublicKeyButton.isUserInteractionEnabled = true
@@ -161,8 +166,9 @@ final class RegisterVC : BaseVC {
     }
     
     // MARK: Updating
+    
     private func updateSeed() {
-        seed = Data.getSecureRandomData(ofSize: 16)!
+        seed = try! Randomness.generateRandomBytes(numberBytes: 16)
     }
     
     private func updateKeyPair() {
@@ -199,11 +205,18 @@ final class RegisterVC : BaseVC {
         animate()
     }
     
-    // MARK: Interaction
+    // MARK: - Interaction
+    
     @objc private func register() {
-        Onboarding.Flow.register.preregister(with: seed, ed25519KeyPair: ed25519KeyPair, x25519KeyPair: x25519KeyPair)
-        let displayNameVC = DisplayNameVC()
-        navigationController!.pushViewController(displayNameVC, animated: true)
+        Onboarding.Flow.register
+            .preregister(
+                with: seed,
+                ed25519KeyPair: ed25519KeyPair,
+                x25519KeyPair: x25519KeyPair
+            )
+            
+        let displayNameVC: DisplayNameVC = DisplayNameVC(flow: .register)
+        self.navigationController?.pushViewController(displayNameVC, animated: true)
     }
     
     @objc private func copyPublicKey() {

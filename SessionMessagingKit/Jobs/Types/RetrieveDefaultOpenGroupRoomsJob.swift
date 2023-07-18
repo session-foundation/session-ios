@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import SignalCoreKit
 import SessionUtilitiesKit
 
 public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
@@ -44,8 +43,20 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
         }
         
         OpenGroupManager.getDefaultRoomsIfNeeded()
-            .done(on: queue) { _ in success(job, false, dependencies) }
-            .catch(on: queue) { error in failure(job, error, false, dependencies) }
-            .retainUntilComplete()
+            .subscribe(on: queue)
+            .receive(on: queue)
+            .sinkUntilComplete(
+                receiveCompletion: { result in
+                    switch result {
+                        case .finished:
+                            SNLog("[RetrieveDefaultOpenGroupRoomsJob] Successfully retrieved default Community rooms")
+                            success(job, false, dependencies)
+                            
+                        case .failure(let error):
+                            SNLog("[RetrieveDefaultOpenGroupRoomsJob] Failed to get default Community rooms")
+                            failure(job, error, false, dependencies)
+                    }
+                }
+            )
     }
 }

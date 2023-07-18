@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import Curve25519Kit
 
 /// This migration sets up the standard jobs, since we want these jobs to run before any "once-off" jobs we do this migration
 /// before running the `YDBToGRDBMigration`

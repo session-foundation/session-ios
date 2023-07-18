@@ -2,6 +2,7 @@
 
 import UIKit
 import SessionUIKit
+import SignalCoreKit
 
 public protocol ImageEditorPaletteViewDelegate: AnyObject {
     func selectedColorDidChange()

@@ -618,6 +618,9 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
         if let _value = messageRequestResponse {
             builder.setMessageRequestResponse(_value)
         }
+        if let _value = sharedConfigMessage {
+            builder.setSharedConfigMessage(_value)
+        }
         return builder
     }
 
@@ -659,6 +662,10 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
             proto.messageRequestResponse = valueParam.proto
         }
 
+        @objc public func setSharedConfigMessage(_ valueParam: SNProtoSharedConfigMessage) {
+            proto.sharedConfigMessage = valueParam.proto
+        }
+
         @objc public func build() throws -> SNProtoContent {
             return try SNProtoContent.parseProto(proto)
         }
@@ -686,6 +693,8 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
 
     @objc public let messageRequestResponse: SNProtoMessageRequestResponse?
 
+    @objc public let sharedConfigMessage: SNProtoSharedConfigMessage?
+
     private init(proto: SessionProtos_Content,
                  dataMessage: SNProtoDataMessage?,
                  callMessage: SNProtoCallMessage?,
@@ -694,7 +703,8 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
                  configurationMessage: SNProtoConfigurationMessage?,
                  dataExtractionNotification: SNProtoDataExtractionNotification?,
                  unsendRequest: SNProtoUnsendRequest?,
-                 messageRequestResponse: SNProtoMessageRequestResponse?) {
+                 messageRequestResponse: SNProtoMessageRequestResponse?,
+                 sharedConfigMessage: SNProtoSharedConfigMessage?) {
         self.proto = proto
         self.dataMessage = dataMessage
         self.callMessage = callMessage
@@ -704,6 +714,7 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
         self.dataExtractionNotification = dataExtractionNotification
         self.unsendRequest = unsendRequest
         self.messageRequestResponse = messageRequestResponse
+        self.sharedConfigMessage = sharedConfigMessage
     }
 
     @objc
@@ -757,6 +768,11 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
             messageRequestResponse = try SNProtoMessageRequestResponse.parseProto(proto.messageRequestResponse)
         }
 
+        var sharedConfigMessage: SNProtoSharedConfigMessage? = nil
+        if proto.hasSharedConfigMessage {
+            sharedConfigMessage = try SNProtoSharedConfigMessage.parseProto(proto.sharedConfigMessage)
+        }
+
         // MARK: - Begin Validation Logic for SNProtoContent -
 
         // MARK: - End Validation Logic for SNProtoContent -
@@ -769,7 +785,8 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
                                     configurationMessage: configurationMessage,
                                     dataExtractionNotification: dataExtractionNotification,
                                     unsendRequest: unsendRequest,
-                                    messageRequestResponse: messageRequestResponse)
+                                    messageRequestResponse: messageRequestResponse,
+                                    sharedConfigMessage: sharedConfigMessage)
         return result
     }
 
@@ -2449,9 +2466,6 @@ extension SNProtoDataMessageClosedGroupControlMessage.SNProtoDataMessageClosedGr
             builder.setBody(_value)
         }
         builder.setAttachments(attachments)
-        if let _value = group {
-            builder.setGroup(_value)
-        }
         if hasFlags {
             builder.setFlags(flags)
         }
@@ -2504,10 +2518,6 @@ extension SNProtoDataMessageClosedGroupControlMessage.SNProtoDataMessageClosedGr
 
         @objc public func setAttachments(_ wrappedItems: [SNProtoAttachmentPointer]) {
             proto.attachments = wrappedItems.map { $0.proto }
-        }
-
-        @objc public func setGroup(_ valueParam: SNProtoGroupContext) {
-            proto.group = valueParam.proto
         }
 
         @objc public func setFlags(_ valueParam: UInt32) {
@@ -2572,8 +2582,6 @@ extension SNProtoDataMessageClosedGroupControlMessage.SNProtoDataMessageClosedGr
     fileprivate let proto: SessionProtos_DataMessage
 
     @objc public let attachments: [SNProtoAttachmentPointer]
-
-    @objc public let group: SNProtoGroupContext?
 
     @objc public let quote: SNProtoDataMessageQuote?
 
@@ -2640,7 +2648,6 @@ extension SNProtoDataMessageClosedGroupControlMessage.SNProtoDataMessageClosedGr
 
     private init(proto: SessionProtos_DataMessage,
                  attachments: [SNProtoAttachmentPointer],
-                 group: SNProtoGroupContext?,
                  quote: SNProtoDataMessageQuote?,
                  preview: [SNProtoDataMessagePreview],
                  reaction: SNProtoDataMessageReaction?,
@@ -2649,7 +2656,6 @@ extension SNProtoDataMessageClosedGroupControlMessage.SNProtoDataMessageClosedGr
                  closedGroupControlMessage: SNProtoDataMessageClosedGroupControlMessage?) {
         self.proto = proto
         self.attachments = attachments
-        self.group = group
         self.quote = quote
         self.preview = preview
         self.reaction = reaction
@@ -2671,11 +2677,6 @@ extension SNProtoDataMessageClosedGroupControlMessage.SNProtoDataMessageClosedGr
     fileprivate class func parseProto(_ proto: SessionProtos_DataMessage) throws -> SNProtoDataMessage {
         var attachments: [SNProtoAttachmentPointer] = []
         attachments = try proto.attachments.map { try SNProtoAttachmentPointer.parseProto($0) }
-
-        var group: SNProtoGroupContext? = nil
-        if proto.hasGroup {
-            group = try SNProtoGroupContext.parseProto(proto.group)
-        }
 
         var quote: SNProtoDataMessageQuote? = nil
         if proto.hasQuote {
@@ -2711,7 +2712,6 @@ extension SNProtoDataMessageClosedGroupControlMessage.SNProtoDataMessageClosedGr
 
         let result = SNProtoDataMessage(proto: proto,
                                         attachments: attachments,
-                                        group: group,
                                         quote: quote,
                                         preview: preview,
                                         reaction: reaction,
@@ -3706,152 +3706,100 @@ extension SNProtoAttachmentPointer.SNProtoAttachmentPointerBuilder {
 
 #endif
 
-// MARK: - SNProtoGroupContext
+// MARK: - SNProtoSharedConfigMessage
 
-@objc public class SNProtoGroupContext: NSObject {
+@objc public class SNProtoSharedConfigMessage: NSObject {
 
-    // MARK: - SNProtoGroupContextType
+    // MARK: - SNProtoSharedConfigMessageKind
 
-    @objc public enum SNProtoGroupContextType: Int32 {
-        case unknown = 0
-        case update = 1
-        case deliver = 2
-        case quit = 3
-        case requestInfo = 4
+    @objc public enum SNProtoSharedConfigMessageKind: Int32 {
+        case userProfile = 1
+        case contacts = 2
+        case convoInfoVolatile = 3
+        case userGroups = 4
     }
 
-    private class func SNProtoGroupContextTypeWrap(_ value: SessionProtos_GroupContext.TypeEnum) -> SNProtoGroupContextType {
+    private class func SNProtoSharedConfigMessageKindWrap(_ value: SessionProtos_SharedConfigMessage.Kind) -> SNProtoSharedConfigMessageKind {
         switch value {
-        case .unknown: return .unknown
-        case .update: return .update
-        case .deliver: return .deliver
-        case .quit: return .quit
-        case .requestInfo: return .requestInfo
+        case .userProfile: return .userProfile
+        case .contacts: return .contacts
+        case .convoInfoVolatile: return .convoInfoVolatile
+        case .userGroups: return .userGroups
         }
     }
 
-    private class func SNProtoGroupContextTypeUnwrap(_ value: SNProtoGroupContextType) -> SessionProtos_GroupContext.TypeEnum {
+    private class func SNProtoSharedConfigMessageKindUnwrap(_ value: SNProtoSharedConfigMessageKind) -> SessionProtos_SharedConfigMessage.Kind {
         switch value {
-        case .unknown: return .unknown
-        case .update: return .update
-        case .deliver: return .deliver
-        case .quit: return .quit
-        case .requestInfo: return .requestInfo
+        case .userProfile: return .userProfile
+        case .contacts: return .contacts
+        case .convoInfoVolatile: return .convoInfoVolatile
+        case .userGroups: return .userGroups
         }
     }
 
-    // MARK: - SNProtoGroupContextBuilder
+    // MARK: - SNProtoSharedConfigMessageBuilder
 
-    @objc public class func builder(id: Data, type: SNProtoGroupContextType) -> SNProtoGroupContextBuilder {
-        return SNProtoGroupContextBuilder(id: id, type: type)
+    @objc public class func builder(kind: SNProtoSharedConfigMessageKind, seqno: Int64, data: Data) -> SNProtoSharedConfigMessageBuilder {
+        return SNProtoSharedConfigMessageBuilder(kind: kind, seqno: seqno, data: data)
     }
 
     // asBuilder() constructs a builder that reflects the proto's contents.
-    @objc public func asBuilder() -> SNProtoGroupContextBuilder {
-        let builder = SNProtoGroupContextBuilder(id: id, type: type)
-        if let _value = name {
-            builder.setName(_value)
-        }
-        builder.setMembers(members)
-        if let _value = avatar {
-            builder.setAvatar(_value)
-        }
-        builder.setAdmins(admins)
+    @objc public func asBuilder() -> SNProtoSharedConfigMessageBuilder {
+        let builder = SNProtoSharedConfigMessageBuilder(kind: kind, seqno: seqno, data: data)
         return builder
     }
 
-    @objc public class SNProtoGroupContextBuilder: NSObject {
+    @objc public class SNProtoSharedConfigMessageBuilder: NSObject {
 
-        private var proto = SessionProtos_GroupContext()
+        private var proto = SessionProtos_SharedConfigMessage()
 
         @objc fileprivate override init() {}
 
-        @objc fileprivate init(id: Data, type: SNProtoGroupContextType) {
+        @objc fileprivate init(kind: SNProtoSharedConfigMessageKind, seqno: Int64, data: Data) {
             super.init()
 
-            setId(id)
-            setType(type)
+            setKind(kind)
+            setSeqno(seqno)
+            setData(data)
         }
 
-        @objc public func setId(_ valueParam: Data) {
-            proto.id = valueParam
+        @objc public func setKind(_ valueParam: SNProtoSharedConfigMessageKind) {
+            proto.kind = SNProtoSharedConfigMessageKindUnwrap(valueParam)
         }
 
-        @objc public func setType(_ valueParam: SNProtoGroupContextType) {
-            proto.type = SNProtoGroupContextTypeUnwrap(valueParam)
+        @objc public func setSeqno(_ valueParam: Int64) {
+            proto.seqno = valueParam
         }
 
-        @objc public func setName(_ valueParam: String) {
-            proto.name = valueParam
+        @objc public func setData(_ valueParam: Data) {
+            proto.data = valueParam
         }
 
-        @objc public func addMembers(_ valueParam: String) {
-            var items = proto.members
-            items.append(valueParam)
-            proto.members = items
-        }
-
-        @objc public func setMembers(_ wrappedItems: [String]) {
-            proto.members = wrappedItems
-        }
-
-        @objc public func setAvatar(_ valueParam: SNProtoAttachmentPointer) {
-            proto.avatar = valueParam.proto
-        }
-
-        @objc public func addAdmins(_ valueParam: String) {
-            var items = proto.admins
-            items.append(valueParam)
-            proto.admins = items
-        }
-
-        @objc public func setAdmins(_ wrappedItems: [String]) {
-            proto.admins = wrappedItems
-        }
-
-        @objc public func build() throws -> SNProtoGroupContext {
-            return try SNProtoGroupContext.parseProto(proto)
+        @objc public func build() throws -> SNProtoSharedConfigMessage {
+            return try SNProtoSharedConfigMessage.parseProto(proto)
         }
 
         @objc public func buildSerializedData() throws -> Data {
-            return try SNProtoGroupContext.parseProto(proto).serializedData()
+            return try SNProtoSharedConfigMessage.parseProto(proto).serializedData()
         }
     }
 
-    fileprivate let proto: SessionProtos_GroupContext
+    fileprivate let proto: SessionProtos_SharedConfigMessage
 
-    @objc public let id: Data
+    @objc public let kind: SNProtoSharedConfigMessageKind
 
-    @objc public let type: SNProtoGroupContextType
+    @objc public let seqno: Int64
 
-    @objc public let avatar: SNProtoAttachmentPointer?
+    @objc public let data: Data
 
-    @objc public var name: String? {
-        guard proto.hasName else {
-            return nil
-        }
-        return proto.name
-    }
-    @objc public var hasName: Bool {
-        return proto.hasName
-    }
-
-    @objc public var members: [String] {
-        return proto.members
-    }
-
-    @objc public var admins: [String] {
-        return proto.admins
-    }
-
-    private init(proto: SessionProtos_GroupContext,
-                 id: Data,
-                 type: SNProtoGroupContextType,
-                 avatar: SNProtoAttachmentPointer?) {
+    private init(proto: SessionProtos_SharedConfigMessage,
+                 kind: SNProtoSharedConfigMessageKind,
+                 seqno: Int64,
+                 data: Data) {
         self.proto = proto
-        self.id = id
-        self.type = type
-        self.avatar = avatar
+        self.kind = kind
+        self.seqno = seqno
+        self.data = data
     }
 
     @objc
@@ -3859,35 +3807,35 @@ extension SNProtoAttachmentPointer.SNProtoAttachmentPointerBuilder {
         return try self.proto.serializedData()
     }
 
-    @objc public class func parseData(_ serializedData: Data) throws -> SNProtoGroupContext {
-        let proto = try SessionProtos_GroupContext(serializedData: serializedData)
+    @objc public class func parseData(_ serializedData: Data) throws -> SNProtoSharedConfigMessage {
+        let proto = try SessionProtos_SharedConfigMessage(serializedData: serializedData)
         return try parseProto(proto)
     }
 
-    fileprivate class func parseProto(_ proto: SessionProtos_GroupContext) throws -> SNProtoGroupContext {
-        guard proto.hasID else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: id")
+    fileprivate class func parseProto(_ proto: SessionProtos_SharedConfigMessage) throws -> SNProtoSharedConfigMessage {
+        guard proto.hasKind else {
+            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: kind")
         }
-        let id = proto.id
+        let kind = SNProtoSharedConfigMessageKindWrap(proto.kind)
 
-        guard proto.hasType else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: type")
+        guard proto.hasSeqno else {
+            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: seqno")
         }
-        let type = SNProtoGroupContextTypeWrap(proto.type)
+        let seqno = proto.seqno
 
-        var avatar: SNProtoAttachmentPointer? = nil
-        if proto.hasAvatar {
-            avatar = try SNProtoAttachmentPointer.parseProto(proto.avatar)
+        guard proto.hasData else {
+            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: data")
         }
+        let data = proto.data
 
-        // MARK: - Begin Validation Logic for SNProtoGroupContext -
+        // MARK: - Begin Validation Logic for SNProtoSharedConfigMessage -
 
-        // MARK: - End Validation Logic for SNProtoGroupContext -
+        // MARK: - End Validation Logic for SNProtoSharedConfigMessage -
 
-        let result = SNProtoGroupContext(proto: proto,
-                                         id: id,
-                                         type: type,
-                                         avatar: avatar)
+        let result = SNProtoSharedConfigMessage(proto: proto,
+                                                kind: kind,
+                                                seqno: seqno,
+                                                data: data)
         return result
     }
 
@@ -3898,14 +3846,14 @@ extension SNProtoAttachmentPointer.SNProtoAttachmentPointerBuilder {
 
 #if DEBUG
 
-extension SNProtoGroupContext {
+extension SNProtoSharedConfigMessage {
     @objc public func serializedDataIgnoringErrors() -> Data? {
         return try! self.serializedData()
     }
 }
 
-extension SNProtoGroupContext.SNProtoGroupContextBuilder {
-    @objc public func buildIgnoringErrors() -> SNProtoGroupContext? {
+extension SNProtoSharedConfigMessage.SNProtoSharedConfigMessageBuilder {
+    @objc public func buildIgnoringErrors() -> SNProtoSharedConfigMessage? {
         return try! self.build()
     }
 }

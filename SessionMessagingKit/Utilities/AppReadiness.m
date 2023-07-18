@@ -54,9 +54,14 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (void)runNowOrWhenAppWillBecomeReady:(AppReadyBlock)block
 {
-    DispatchMainThreadSafe(^{
+    if ([NSThread isMainThread]) {
         [self.sharedManager runNowOrWhenAppWillBecomeReady:block];
-    });
+    }
+    else {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.sharedManager runNowOrWhenAppWillBecomeReady:block];
+        });
+    }
 }
 
 - (void)runNowOrWhenAppWillBecomeReady:(AppReadyBlock)block
@@ -76,9 +81,14 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (void)runNowOrWhenAppDidBecomeReady:(AppReadyBlock)block
 {
-    DispatchMainThreadSafe(^{
+    if ([NSThread isMainThread]) {
         [self.sharedManager runNowOrWhenAppDidBecomeReady:block];
-    });
+    }
+    else {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.sharedManager runNowOrWhenAppDidBecomeReady:block];
+        });
+    }
 }
 
 - (void)runNowOrWhenAppDidBecomeReady:(AppReadyBlock)block
@@ -94,6 +104,16 @@ NS_ASSUME_NONNULL_BEGIN
     }
 
     [self.appDidBecomeReadyBlocks addObject:block];
+}
+
++ (void)invalidate
+{
+    [self.sharedManager invalidate];
+}
+
+- (void)invalidate
+{
+    self.isAppReady = NO;
 }
 
 + (void)setAppIsReady

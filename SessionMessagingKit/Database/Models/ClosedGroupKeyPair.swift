@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import CryptoKit
 import GRDB
 import SessionUtilitiesKit
 
@@ -18,12 +19,14 @@ public struct ClosedGroupKeyPair: Codable, Equatable, FetchableRecord, Persistab
         case publicKey
         case secretKey
         case receivedTimestamp
+        case threadKeyPairHash
     }
     
     public let threadId: String
     public let publicKey: Data
     public let secretKey: Data
     public let receivedTimestamp: TimeInterval
+    public let threadKeyPairHash: String
     
     // MARK: - Relationships
     
@@ -43,6 +46,12 @@ public struct ClosedGroupKeyPair: Codable, Equatable, FetchableRecord, Persistab
         self.publicKey = publicKey
         self.secretKey = secretKey
         self.receivedTimestamp = receivedTimestamp
+        
+        // This value has a unique constraint and is used for key de-duping so the formula
+        // shouldn't be modified unless all existing keys have their values updated
+        self.threadKeyPairHash = Insecure.MD5
+            .hash(data: threadId.bytes + publicKey.bytes + secretKey.bytes)
+            .hexString
     }
 }
 

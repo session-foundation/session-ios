@@ -76,10 +76,7 @@ class NotificationSoundViewModel: SessionTableViewModel<NotificationSoundViewMod
     
     override var title: String { "NOTIFICATIONS_STYLE_SOUND_TITLE".localized() }
     
-    private var _settingsData: [SectionModel] = []
-    public override var settingsData: [SectionModel] { _settingsData }
-    
-    public override var observableSettingsData: ObservableData { _observableSettingsData }
+    public override var observableTableData: ObservableData { _observableTableData }
     
     /// This is all the data the screen needs to populate itself, please see the following link for tips to help optimise
     /// performance https://github.com/groue/GRDB.swift#valueobservation-performance
@@ -88,7 +85,7 @@ class NotificationSoundViewModel: SessionTableViewModel<NotificationSoundViewMod
     /// this is due to the behaviour of `ValueConcurrentObserver.asyncStartObservation` which triggers it's own
     /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
-    private lazy var _observableSettingsData: ObservableData = ValueObservation
+    private lazy var _observableTableData: ObservableData = ValueObservation
         .trackingConstantRegion { [weak self] db -> [SectionModel] in
             self?.storedSelection = try {
                 guard let threadId: String = self?.threadId else {
@@ -149,13 +146,11 @@ class NotificationSoundViewModel: SessionTableViewModel<NotificationSoundViewMod
             ]
         }
         .removeDuplicates()
+        .handleEvents(didFail: { SNLog("[NotificationSoundViewModel] Observation failed with error: \($0)") })
         .publisher(in: Storage.shared)
+        .mapToSessionTableViewData(for: self)
     
     // MARK: - Functions
-
-    public override func updateSettings(_ updatedSettings: [SectionModel]) {
-        self._settingsData = updatedSettings
-    }
     
     private func saveChanges() {
         guard let currentSelection: Preferences.Sound = self.currentSelection.value else { return }

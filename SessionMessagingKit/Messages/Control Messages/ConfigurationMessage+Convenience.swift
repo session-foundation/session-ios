@@ -9,7 +9,7 @@ extension ConfigurationMessage {
         let currentUserProfile: Profile = Profile.fetchOrCreateCurrentUser(db)
         let displayName: String = currentUserProfile.name
         let profilePictureUrl: String? = currentUserProfile.profilePictureUrl
-        let profileKey: Data? = currentUserProfile.profileEncryptionKey?.keyData
+        let profileKey: Data? = currentUserProfile.profileEncryptionKey
         let closedGroups: Set<CMClosedGroup> = try ClosedGroup.fetchAll(db)
             .compactMap { closedGroup -> CMClosedGroup? in
                 guard let latestKeyPair: ClosedGroupKeyPair = try closedGroup.fetchLatestKeyPair(db) else {
@@ -42,8 +42,8 @@ extension ConfigurationMessage {
             .filter(OpenGroup.Columns.roomToken != "")
             .filter(OpenGroup.Columns.isActive)
             .fetchAll(db)
-            .map { openGroup in
-                OpenGroup.urlFor(
+            .compactMap { openGroup in
+                SessionUtil.communityUrlFor(
                     server: openGroup.server,
                     roomToken: openGroup.roomToken,
                     publicKey: openGroup.publicKey
@@ -62,7 +62,7 @@ extension ConfigurationMessage {
                     publicKey: contact.id,
                     displayName: (profile?.name ?? contact.id),
                     profilePictureUrl: profile?.profilePictureUrl,
-                    profileKey: profile?.profileEncryptionKey?.keyData,
+                    profileKey: profile?.profileEncryptionKey,
                     hasIsApproved: true,
                     isApproved: contact.isApproved,
                     hasIsBlocked: true,

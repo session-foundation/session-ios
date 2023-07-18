@@ -4,7 +4,6 @@ import Foundation
 import AVKit
 import GRDB
 import YapDatabase
-import Curve25519Kit
 import SessionUtilitiesKit
 import SessionSnodeKit
 
@@ -21,7 +20,7 @@ enum _003_YDBToGRDBMigration: Migration {
             // We want this setting to be on by default (even if there isn't a legacy database)
             db[.trimOpenGroupMessagesOlderThanSixMonths] = true
             
-            SNLog("[Migration Warning] No legacy database, skipping \(target.key(with: self))")
+            SNLogNotTests("[Migration Warning] No legacy database, skipping \(target.key(with: self))")
             return
         }
         
@@ -76,7 +75,7 @@ enum _003_YDBToGRDBMigration: Migration {
             // same changes if the migration hasn't already run)
             transaction.enumerateKeys(inCollection: SMKLegacy.databaseMigrationCollection) { key, _ in
                 guard let legacyMigration: SMKLegacy._DBMigration = SMKLegacy._DBMigration(rawValue: key) else {
-                    SNLog("[Migration Error] Found unknown migration")
+                    SNLogNotTests("[Migration Error] Found unknown migration")
                     shouldFailMigration = true
                     return
                 }
@@ -87,7 +86,7 @@ enum _003_YDBToGRDBMigration: Migration {
             
             // MARK: --Contacts
             
-            SNLog("[Migration Info] \(target.key(with: self)) - Processing Contacts")
+            SNLogNotTests("[Migration Info] \(target.key(with: self)) - Processing Contacts")
             
             transaction.enumerateRows(inCollection: SMKLegacy.contactCollection) { _, object, _, _ in
                 guard let contact = object as? SMKLegacy._Contact else { return }
@@ -106,7 +105,7 @@ enum _003_YDBToGRDBMigration: Migration {
             
             // MARK: --Threads
             
-            SNLog("[Migration Info] \(target.key(with: self)) - Processing Threads")
+            SNLogNotTests("[Migration Info] \(target.key(with: self)) - Processing Threads")
             
             transaction.enumerateKeysAndObjects(inCollection: SMKLegacy.threadCollection) { key, object, _ in
                 guard let thread: SMKLegacy._Thread = object as? SMKLegacy._Thread else { return }
@@ -143,7 +142,7 @@ enum _003_YDBToGRDBMigration: Migration {
                         let groupId: String = String(data: groupIdData, encoding: .utf8),
                         let publicKey: String = groupId.split(separator: "!").last.map({ String($0) })
                     else {
-                        SNLog("[Migration Error] Unable to decode Closed Group")
+                        SNLogNotTests("[Migration Error] Unable to decode Closed Group")
                         shouldFailMigration = true
                         return
                     }
@@ -173,7 +172,7 @@ enum _003_YDBToGRDBMigration: Migration {
                 }
                 else if groupThread.isOpenGroup {
                     guard let openGroup: SMKLegacy._OpenGroup = transaction.object(forKey: thread.uniqueId, inCollection: SMKLegacy.openGroupCollection) as? SMKLegacy._OpenGroup else {
-                        SNLog("[Migration Error] Unable to find open group info")
+                        SNLogNotTests("[Migration Error] Unable to find open group info")
                         shouldFailMigration = true
                         return
                     }
@@ -204,7 +203,7 @@ enum _003_YDBToGRDBMigration: Migration {
             
             // MARK: --Interactions
             
-            SNLog("[Migration Info] \(target.key(with: self)) - Processing Interactions")
+            SNLogNotTests("[Migration Info] \(target.key(with: self)) - Processing Interactions")
             
             /// **Note:** There is no index on the collection column so unfortunately it takes the same amount of time to enumerate through all
             /// collections as it does to just get the count of collections, due to this, if the database is very large, importing thecollections can be
@@ -222,7 +221,7 @@ enum _003_YDBToGRDBMigration: Migration {
             
             transaction.enumerateKeysAndObjects(inCollection: SMKLegacy.interactionCollection) { _, object, _ in
                 guard let interaction: SMKLegacy._DBInteraction = object as? SMKLegacy._DBInteraction else {
-                    SNLog("[Migration Error] Unable to process interaction")
+                    SNLogNotTests("[Migration Error] Unable to process interaction")
                     shouldFailMigration = true
                     return
                 }
@@ -262,11 +261,11 @@ enum _003_YDBToGRDBMigration: Migration {
             
             // MARK: --Attachments
             
-            SNLog("[Migration Info] \(target.key(with: self)) - Processing Attachments")
+            SNLogNotTests("[Migration Info] \(target.key(with: self)) - Processing Attachments")
             
             transaction.enumerateKeysAndObjects(inCollection: SMKLegacy.attachmentsCollection) { key, object, _ in
                 guard let attachment: SMKLegacy._Attachment = object as? SMKLegacy._Attachment else {
-                    SNLog("[Migration Error] Unable to process attachment")
+                    SNLogNotTests("[Migration Error] Unable to process attachment")
                     shouldFailMigration = true
                     return
                 }
@@ -306,7 +305,7 @@ enum _003_YDBToGRDBMigration: Migration {
             
             // MARK: --Jobs
             
-            SNLog("[Migration Info] \(target.key(with: self)) - Processing Jobs")
+            SNLogNotTests("[Migration Info] \(target.key(with: self)) - Processing Jobs")
             
             transaction.enumerateRows(inCollection: SMKLegacy.notifyPushServerJobCollection) { _, object, _, _ in
                 guard let job = object as? SMKLegacy._NotifyPNServerJob else { return }
@@ -336,7 +335,7 @@ enum _003_YDBToGRDBMigration: Migration {
             
             // MARK: --Preferences
             
-            SNLog("[Migration Info] \(target.key(with: self)) - Processing Preferences")
+            SNLogNotTests("[Migration Info] \(target.key(with: self)) - Processing Preferences")
             
             transaction.enumerateKeysAndObjects(inCollection: SMKLegacy.preferencesCollection) { key, object, _ in
                 legacyPreferences[key] = object
@@ -403,7 +402,7 @@ enum _003_YDBToGRDBMigration: Migration {
         
         // MARK: - Insert Contacts
         
-        SNLog("[Migration Info] \(target.key(with: self)) - Inserting Contacts")
+        SNLogNotTests("[Migration Info] \(target.key(with: self)) - Inserting Contacts")
         
         try autoreleasepool {
             // Values for contact progress
@@ -418,10 +417,12 @@ enum _003_YDBToGRDBMigration: Migration {
                 try Profile(
                     id: legacyContact.sessionID,
                     name: (legacyContact.name ?? legacyContact.sessionID),
+                    lastNameUpdate: 0,
                     nickname: legacyContact.nickname,
                     profilePictureUrl: legacyContact.profilePictureURL,
                     profilePictureFileName: legacyContact.profilePictureFileName,
-                    profileEncryptionKey: legacyContact.profileEncryptionKey
+                    profileEncryptionKey: legacyContact.profileEncryptionKey?.keyData,
+                    lastProfilePictureUpdate: 0
                 ).migrationSafeInsert(db)
                 
                 /// **Note:** The blow "shouldForce" flags are here to allow us to avoid having to run legacy migrations they
@@ -509,7 +510,7 @@ enum _003_YDBToGRDBMigration: Migration {
         
         // MARK: - Insert Threads
         
-        SNLog("[Migration Info] \(target.key(with: self)) - Inserting Threads & Interactions")
+        SNLogNotTests("[Migration Info] \(target.key(with: self)) - Inserting Threads & Interactions")
         
         var legacyInteractionToIdMap: [String: Int64] = [:]
         var legacyInteractionIdentifierToIdMap: [String: Int64] = [:]
@@ -557,7 +558,7 @@ enum _003_YDBToGRDBMigration: Migration {
         // Sort by id just so we can make the migration process more determinstic
         try legacyThreads.sorted(by: { lhs, rhs in lhs.uniqueId < rhs.uniqueId }).forEach { legacyThread in
             guard let threadId: String = legacyThreadIdToIdMap[legacyThread.uniqueId] else {
-                SNLog("[Migration Error] Unable to migrate thread with no id mapping")
+                SNLogNotTests("[Migration Error] Unable to migrate thread with no id mapping")
                 throw StorageError.migrationFailed
             }
             
@@ -566,7 +567,7 @@ enum _003_YDBToGRDBMigration: Migration {
             
             switch legacyThread {
                 case let groupThread as SMKLegacy._GroupThread:
-                    threadVariant = (groupThread.isOpenGroup ? .openGroup : .closedGroup)
+                    threadVariant = (groupThread.isOpenGroup ? .community : .legacyGroup)
                     onlyNotifyForMentions = groupThread.isOnlyNotifyingForMentions
                     
                 default:
@@ -610,7 +611,7 @@ enum _003_YDBToGRDBMigration: Migration {
                         let groupModel: SMKLegacy._GroupModel = closedGroupModel[legacyThread.uniqueId],
                         let formationTimestamp: UInt64 = closedGroupFormation[legacyThread.uniqueId]
                     else {
-                        SNLog("[Migration Error] Closed group missing required data")
+                        SNLogNotTests("[Migration Error] Closed group missing required data")
                         throw StorageError.migrationFailed
                     }
                     
@@ -635,14 +636,16 @@ enum _003_YDBToGRDBMigration: Migration {
                     // Create the 'GroupMember' models for the group (even if the current user is no longer
                     // a member as these objects are used to generate the group avatar icon)
                     func createDummyProfile(profileId: String) {
-                        SNLog("[Migration Warning] Closed group member with unknown user found - Creating empty profile")
+                        SNLogNotTests("[Migration Warning] Closed group member with unknown user found - Creating empty profile")
                         
                         // Note: Need to upsert here because it's possible multiple quotes
                         // will use the same invalid 'authorId' value resulting in a unique
                         // constraint violation
                         try? Profile(
                             id: profileId,
-                            name: profileId
+                            name: profileId,
+                            lastNameUpdate: 0,
+                            lastProfilePictureUpdate: 0
                         ).migrationSafeSave(db)
                     }
                     
@@ -692,7 +695,7 @@ enum _003_YDBToGRDBMigration: Migration {
                         let openGroup: SMKLegacy._OpenGroup = openGroupInfo[legacyThread.uniqueId],
                         let targetOpenGroupServer: String = openGroupServer[legacyThread.uniqueId]
                     else {
-                        SNLog("[Migration Error] Open group missing required data")
+                        SNLogNotTests("[Migration Error] Open group missing required data")
                         throw StorageError.migrationFailed
                     }
                     
@@ -877,7 +880,7 @@ enum _003_YDBToGRDBMigration: Migration {
                                 }
                                 
                             default:
-                                SNLog("[Migration Error] Unsupported interaction type")
+                                SNLogNotTests("[Migration Error] Unsupported interaction type")
                                 throw StorageError.migrationFailed
                         }
                         
@@ -940,11 +943,11 @@ enum _003_YDBToGRDBMigration: Migration {
                             switch error {
                                 // Ignore duplicate interactions
                                 case DatabaseError.SQLITE_CONSTRAINT_UNIQUE:
-                                    SNLog("[Migration Warning] Found duplicate message of variant: \(variant); skipping")
+                                    SNLogNotTests("[Migration Warning] Found duplicate message of variant: \(variant); skipping")
                                     return
                                 
                                 default:
-                                    SNLog("[Migration Error] Failed to insert interaction")
+                                    SNLogNotTests("[Migration Error] Failed to insert interaction")
                                     throw StorageError.migrationFailed
                             }
                         }
@@ -961,7 +964,7 @@ enum _003_YDBToGRDBMigration: Migration {
                         receivedMessageTimestamps.remove(legacyInteraction.timestamp)
                         
                         guard let interactionId: Int64 = interaction.id else {
-                            SNLog("[Migration Error] Failed to insert interaction")
+                            SNLogNotTests("[Migration Error] Failed to insert interaction")
                             throw StorageError.migrationFailed
                         }
                         
@@ -974,7 +977,10 @@ enum _003_YDBToGRDBMigration: Migration {
                                 .keys
                                 .map { $0 })
                                 .defaulting(to: []),
-                            destination: (threadVariant == .contact ? .contact(publicKey: threadId) : nil),
+                            destination: (threadVariant == .contact ?
+                                .contact(publicKey: threadId) :
+                                nil
+                            ),
                             variant: variant,
                             useFallback: false
                         )
@@ -986,7 +992,10 @@ enum _003_YDBToGRDBMigration: Migration {
                                 .keys
                                 .map { $0 })
                                 .defaulting(to: []),
-                            destination: (threadVariant == .contact ? .contact(publicKey: threadId) : nil),
+                            destination: (threadVariant == .contact ?
+                                .contact(publicKey: threadId) :
+                                nil
+                            ),
                             variant: variant,
                             useFallback: true
                         )
@@ -1041,14 +1050,16 @@ enum _003_YDBToGRDBMigration: Migration {
                             // an older message not cached to the device) - this will cause a foreign
                             // key constraint violation so in these cases just create an empty profile
                             if !validProfileIds.contains(quotedMessage.authorId) {
-                                SNLog("[Migration Warning] Quote with unknown author found - Creating empty profile")
+                                SNLogNotTests("[Migration Warning] Quote with unknown author found - Creating empty profile")
                                 
                                 // Note: Need to upsert here because it's possible multiple quotes
                                 // will use the same invalid 'authorId' value resulting in a unique
                                 // constraint violation
                                 try Profile(
                                     id: quotedMessage.authorId,
-                                    name: quotedMessage.authorId
+                                    name: quotedMessage.authorId,
+                                    lastNameUpdate: 0,
+                                    lastProfilePictureUpdate: 0
                                 ).migrationSafeSave(db)
                             }
                             
@@ -1072,7 +1083,7 @@ enum _003_YDBToGRDBMigration: Migration {
                                     .attachmentIds
                                     .first
                                 
-                                SNLog([
+                                SNLogNotTests([
                                     "[Migration Warning] Quote with invalid attachmentId found",
                                     (quoteAttachmentId == nil ?
                                         "Unable to reconcile, leaving attachment blank" :
@@ -1151,7 +1162,7 @@ enum _003_YDBToGRDBMigration: Migration {
                             )
                             
                             guard let attachmentId: String = maybeAttachmentId else {
-                                SNLog("[Migration Warning] Failed to create invalid attachment for missing attachment")
+                                SNLogNotTests("[Migration Warning] Failed to create invalid attachment for missing attachment")
                                 return
                             }
                             
@@ -1208,7 +1219,7 @@ enum _003_YDBToGRDBMigration: Migration {
         
         // MARK: - Insert Jobs
         
-        SNLog("[Migration Info] \(target.key(with: self)) - Inserting Jobs")
+        SNLogNotTests("[Migration Info] \(target.key(with: self)) - Inserting Jobs")
         
         // MARK: --notifyPushServer
         
@@ -1327,7 +1338,7 @@ enum _003_YDBToGRDBMigration: Migration {
                 switch legacyJob.message {
                     case is SMKLegacy._VisibleMessage:
                         guard interactionId != nil else {
-                            SNLog("[Migration Warning] Unable to find associated interaction to messageSend job, ignoring.")
+                            SNLogNotTests("[Migration Warning] Unable to find associated interaction to messageSend job, ignoring.")
                             return
                         }
                         
@@ -1363,7 +1374,7 @@ enum _003_YDBToGRDBMigration: Migration {
         try autoreleasepool {
             try attachmentUploadJobs.forEach { legacyJob in
                 guard let sendJob: Job = messageSendJobLegacyMap[legacyJob.messageSendJobID], let sendJobId: Int64 = sendJob.id else {
-                    SNLog("[Migration Error] attachmentUpload job missing associated MessageSendJob")
+                    SNLogNotTests("[Migration Error] attachmentUpload job missing associated MessageSendJob")
                     throw StorageError.migrationFailed
                 }
                 
@@ -1381,7 +1392,7 @@ enum _003_YDBToGRDBMigration: Migration {
                 
                 // Add the dependency to the relevant MessageSendJob
                 guard let uploadJobId: Int64 = uploadJob?.id else {
-                    SNLog("[Migration Error] attachmentUpload job was not created")
+                    SNLogNotTests("[Migration Error] attachmentUpload job was not created")
                     throw StorageError.migrationFailed
                 }
                 
@@ -1398,12 +1409,12 @@ enum _003_YDBToGRDBMigration: Migration {
             try attachmentDownloadJobs.forEach { legacyJob in
                 guard let interactionId: Int64 = legacyInteractionToIdMap[legacyJob.tsMessageID] else {
                     // This can happen if an UnsendRequest came before an AttachmentDownloadJob completed
-                    SNLog("[Migration Warning] attachmentDownload job with no interaction found - ignoring")
+                    SNLogNotTests("[Migration Warning] attachmentDownload job with no interaction found - ignoring")
                     return
                 }
                 guard processedAttachmentIds.contains(legacyJob.attachmentID) else {
                     // Unsure how this case can occur but it seemed to happen when testing internally
-                    SNLog("[Migration Warning] attachmentDownload job unable to find attachment - ignoring")
+                    SNLogNotTests("[Migration Warning] attachmentDownload job unable to find attachment - ignoring")
                     return
                 }
                 
@@ -1440,7 +1451,7 @@ enum _003_YDBToGRDBMigration: Migration {
         
         // MARK: - Preferences
         
-        SNLog("[Migration Info] \(target.key(with: self)) - Inserting Preferences")
+        SNLogNotTests("[Migration Info] \(target.key(with: self)) - Inserting Preferences")
         
         db[.defaultNotificationSound] = Preferences.Sound(rawValue: legacyPreferences[SMKLegacy.soundsGlobalNotificationKey] as? Int ?? -1)
             .defaulting(to: Preferences.Sound.defaultNotificationSound)
@@ -1496,7 +1507,7 @@ enum _003_YDBToGRDBMigration: Migration {
         guard let legacyAttachmentId: String = legacyAttachmentId else { return nil }
         guard !processedAttachmentIds.contains(legacyAttachmentId) else {
             guard isQuotedMessage else {
-                SNLog("[Migration Error] Attempted to process duplicate attachment")
+                SNLogNotTests("[Migration Error] Attempted to process duplicate attachment")
                 throw StorageError.migrationFailed
             }
             
@@ -1504,7 +1515,7 @@ enum _003_YDBToGRDBMigration: Migration {
         }
         
         guard let legacyAttachment: SMKLegacy._Attachment = attachments[legacyAttachmentId] else {
-            SNLog("[Migration Warning] Missing attachment - interaction will show a \"failed\" attachment")
+            SNLogNotTests("[Migration Warning] Missing attachment - interaction will show a \"failed\" attachment")
             return nil
         }
 
@@ -1855,6 +1866,10 @@ enum _003_YDBToGRDBMigration: Migration {
         NSKeyedUnarchiver.setClass(
             SMKLegacy._MessageRequestResponse.self,
             forClassName: "SNMessageRequestResponse"
+        )
+        NSKeyedUnarchiver.setClass(
+            SMKLegacy._Contact._LegacyProfileKey.self,
+            forClassName: "OWSAES256Key"
         )
     }
 }

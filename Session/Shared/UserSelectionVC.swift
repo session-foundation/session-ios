@@ -68,15 +68,15 @@ final class UserSelectionVC: BaseVC, UITableViewDataSource, UITableViewDelegate 
         cell.update(
             with: SessionCell.Info(
                 id: profile,
-                leftAccessory: .profile(profile.id, profile),
+                position: Position.with(indexPath.row, count: users.count),
+                leftAccessory: .profile(id: profile.id, profile: profile),
                 title: profile.displayName(),
                 rightAccessory: .radio(isSelected: { [weak self] in
                     self?.selectedUsers.contains(profile.id) == true
                 }),
-                accessibilityIdentifier: "Contact"
-            ),
-            style: .edgeToEdge,
-            position: Position.with(indexPath.row, count: users.count)
+                styling: SessionCell.StyleInfo(backgroundStyle: .edgeToEdge),
+                accessibility: Accessibility(identifier: "Contact")
+            )
         )
         
         return cell

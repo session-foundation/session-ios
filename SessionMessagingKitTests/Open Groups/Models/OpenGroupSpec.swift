@@ -93,18 +93,6 @@ class OpenGroupSpec: QuickSpec {
                     expect(OpenGroup.idFor(roomToken: "RoOM", server: "server")).to(equal("server.RoOM"))
                 }
             }
-            
-            context("when generating a url") {
-                it("generates the url correctly") {
-                    expect(OpenGroup.urlFor(server: "server", roomToken: "room", publicKey: "key"))
-                        .to(equal("server/room?public_key=key"))
-                }
-                
-                it("maintains the casing provided") {
-                    expect(OpenGroup.urlFor(server: "SeRVer", roomToken: "RoOM", publicKey: "KEy"))
-                        .to(equal("SeRVer/RoOM?public_key=KEy"))
-                }
-            }
         }
     }
 }

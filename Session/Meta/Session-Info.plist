@@ -2,13 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>BuildDetails</key>
-	<dict>
-		<key>CarthageVersion</key>
-		<string>0.36.0</string>
-		<key>OSXVersion</key>
-		<string>10.15.6</string>
-	</dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
@@ -88,7 +81,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Session needs camera access to take pictures and scan QR codes.</string>
 	<key>NSFaceIDUsageDescription</key>
-	<string>Session's Screen Lock feature uses Face ID.</string>
+	<string>Session&apos;s Screen Lock feature uses Face ID.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>com.loki-project.loki-messenger</string>
 	<key>NSMicrophoneUsageDescription</key>

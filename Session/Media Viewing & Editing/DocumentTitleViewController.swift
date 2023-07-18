@@ -6,6 +6,7 @@ import GRDB
 import DifferenceKit
 import SessionUIKit
 import SignalUtilitiesKit
+import SignalCoreKit
 
 public class DocumentTileViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
     
@@ -152,7 +153,7 @@ public class DocumentTileViewController: UIViewController, UITableViewDelegate, 
     }
     
     private func autoLoadNextPageIfNeeded() {
-        guard !self.isAutoLoadingNextPage else { return }
+        guard self.hasLoadedInitialData && !self.isAutoLoadingNextPage else { return }
         
         self.isAutoLoadingNextPage = true
         
@@ -203,11 +204,11 @@ public class DocumentTileViewController: UIViewController, UITableViewDelegate, 
         // Ensure the first load runs without animations (if we don't do this the cells will animate
         // in from a frame of CGRect.zero)
         guard hasLoadedInitialData else {
-            self.hasLoadedInitialData = true
             self.viewModel.updateGalleryData(updatedGalleryData)
             
             UIView.performWithoutAnimation {
                 self.tableView.reloadData()
+                self.hasLoadedInitialData = true
                 self.performInitialScrollIfNeeded()
             }
             return
@@ -499,7 +500,7 @@ class DocumentCell: UITableViewCell {
     func update(with item: MediaGalleryViewModel.Item) {
         let attachment = item.attachment
         titleLabel.text = (attachment.sourceFilename ?? "File")
-        detailLabel.text = "\(OWSFormat.formatFileSize(UInt(attachment.byteCount)))"
+        detailLabel.text = "\(Format.fileSize(attachment.byteCount)))"
         timeLabel.text = Date(
             timeIntervalSince1970: TimeInterval(item.interactionTimestampMs / 1000)
         ).formattedForDisplay

@@ -2,10 +2,10 @@
 
 import UIKit
 import GRDB
-import PromiseKit
 import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
+import SignalCoreKit
 
 class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSource, UIPageViewControllerDelegate, MediaDetailViewControllerDelegate, InteractivelyDismissableViewController {
     class DynamicallySizedView: UIView {
@@ -15,7 +15,9 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
     fileprivate var mediaInteractiveDismiss: MediaInteractiveDismiss?
     
     public let viewModel: MediaGalleryViewModel
-    private var dataChangeObservable: DatabaseCancellable?
+    private var dataChangeObservable: DatabaseCancellable? {
+        didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
+    }
     private var initialPage: MediaDetailViewController
     private var cachedPages: [Int64: [MediaGalleryViewModel.Item: MediaDetailViewController]] = [:]
     
@@ -40,7 +42,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         )
         
         // Swap out the database observer
-        dataChangeObservable?.cancel()
+        stopObservingChanges()
         viewModel.replaceAlbumObservation(toObservationFor: item.interactionId)
         startObservingChanges()
 
@@ -238,8 +240,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         
-        // Stop observing database changes
-        dataChangeObservable?.cancel()
+        stopObservingChanges()
         
         resignFirstResponder()
     }
@@ -252,8 +253,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
     }
     
     @objc func applicationDidResignActive(_ notification: Notification) {
-        // Stop observing database changes
-        dataChangeObservable?.cancel()
+        stopObservingChanges()
     }
 
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
@@ -388,15 +388,21 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
     // MARK: - Updating
     
     private func startObservingChanges() {
+        guard dataChangeObservable == nil else { return }
+        
         // Start observing for data changes
         dataChangeObservable = Storage.shared.start(
             viewModel.observableAlbumData,
             onError: { _ in },
             onChange: { [weak self] albumData in
-                // The defaul scheduler emits changes on the main thread
+                // The default scheduler emits changes on the main thread
                 self?.handleUpdates(albumData)
             }
         )
+    }
+    
+    private func stopObservingChanges() {
+        dataChangeObservable = nil
     }
     
     private func handleUpdates(_ updatedViewData: [MediaGalleryViewModel.Item]) {
@@ -533,11 +539,10 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                 self.viewModel.threadVariant == .contact
             else { return }
             
+            let threadId: String = self.viewModel.threadId
+            let threadVariant: SessionThread.Variant = self.viewModel.threadVariant
+            
             Storage.shared.write { db in
-                guard let thread: SessionThread = try SessionThread.fetchOne(db, id: self.viewModel.threadId) else {
-                    return
-                }
-                
                 try MessageSender.send(
                     db,
                     message: DataExtractionNotification(
@@ -547,7 +552,8 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                         sentTimestamp: UInt64(SnodeAPI.currentOffsetTimestampMs())
                     ),
                     interactionId: nil, // Show no interaction for the current user
-                    in: thread
+                    threadId: threadId,
+                    threadVariant: threadVariant
                 )
             }
         }
@@ -710,7 +716,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         }
         
         // Swap out the database observer
-        dataChangeObservable?.cancel()
+        stopObservingChanges()
         viewModel.replaceAlbumObservation(toObservationFor: interactionIdAfter)
         startObservingChanges()
         
@@ -755,7 +761,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         }
         
         // Swap out the database observer
-        dataChangeObservable?.cancel()
+        stopObservingChanges()
         viewModel.replaceAlbumObservation(toObservationFor: interactionIdBefore)
         startObservingChanges()
         
@@ -925,24 +931,19 @@ extension MediaGalleryViewModel.Item: GalleryRailItem {
         let imageView: UIImageView = UIImageView()
         imageView.contentMode = .scaleAspectFill
         
-        getRailImage()
-            .map { [weak imageView] image in
-                guard let imageView = imageView else { return }
-                imageView.image = image
+        self.thumbnailImage { [weak imageView] image in
+            DispatchQueue.main.async {
+                imageView?.image = image
             }
-            .retainUntilComplete()
+        }
 
         return imageView
     }
-
-    public func getRailImage() -> Guarantee<UIImage> {
-        return Guarantee<UIImage> { fulfill in
-            self.thumbnailImage(async: { image in fulfill(image) })
-        }
-    }
     
     public func isEqual(to other: GalleryRailItem?) -> Bool {
-        guard let otherItem: MediaGalleryViewModel.Item = other as? MediaGalleryViewModel.Item else { return false }
+        guard let otherItem: MediaGalleryViewModel.Item = other as? MediaGalleryViewModel.Item else {
+            return false
+        }
         
         return (self == otherItem)
     }

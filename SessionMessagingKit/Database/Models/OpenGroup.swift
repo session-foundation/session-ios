@@ -8,7 +8,7 @@ public struct OpenGroup: Codable, Identifiable, FetchableRecord, PersistableReco
     public static var databaseTableName: String { "openGroup" }
     internal static let threadForeignKey = ForeignKey([Columns.threadId], to: [SessionThread.Columns.id])
     private static let thread = belongsTo(SessionThread.self, using: threadForeignKey)
-    private static let members = hasMany(GroupMember.self, using: GroupMember.openGroupForeignKey)
+    public static let members = hasMany(GroupMember.self, using: GroupMember.openGroupForeignKey)
     
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression {
@@ -60,6 +60,9 @@ public struct OpenGroup: Codable, Identifiable, FetchableRecord, PersistableReco
         
         static let all: Permissions = [ .read, .write, .upload ]
     }
+    
+    /// The Community public key takes up 32 bytes
+    static let pubkeyByteLength: Int = 32
     
     public var id: String { threadId }  // Identifiable
     
@@ -218,10 +221,6 @@ public extension OpenGroup {
     static func idFor(roomToken: String, server: String) -> String {
         // Always force the server to lowercase
         return "\(server.lowercased()).\(roomToken)"
-    }
-    
-    static func urlFor(server: String, roomToken: String, publicKey: String) -> String {
-        return "\(server)/\(roomToken)?public_key=\(publicKey)"
     }
 }
 

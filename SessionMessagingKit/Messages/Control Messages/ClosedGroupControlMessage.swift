@@ -3,7 +3,6 @@
 import Foundation
 import GRDB
 import Sodium
-import Curve25519Kit
 import SessionUtilitiesKit
 
 public final class ClosedGroupControlMessage: ControlMessage {
@@ -37,7 +36,7 @@ public final class ClosedGroupControlMessage: ControlMessage {
             case wrappers
         }
         
-        case new(publicKey: Data, name: String, encryptionKeyPair: Box.KeyPair, members: [Data], admins: [Data], expirationTimer: UInt32)
+        case new(publicKey: Data, name: String, encryptionKeyPair: KeyPair, members: [Data], admins: [Data], expirationTimer: UInt32)
 
         /// An encryption key pair encrypted for each member individually.
         ///
@@ -69,7 +68,7 @@ public final class ClosedGroupControlMessage: ControlMessage {
             let newDescription: String = Kind.new(
                 publicKey: Data(),
                 name: "",
-                encryptionKeyPair: Box.KeyPair(publicKey: [], secretKey: []),
+                encryptionKeyPair: KeyPair(publicKey: [], secretKey: []),
                 members: [],
                 admins: [],
                 expirationTimer: 0
@@ -80,7 +79,7 @@ public final class ClosedGroupControlMessage: ControlMessage {
                     self = .new(
                         publicKey: try container.decode(Data.self, forKey: .publicKey),
                         name: try container.decode(String.self, forKey: .name),
-                        encryptionKeyPair: Box.KeyPair(
+                        encryptionKeyPair: KeyPair(
                             publicKey: try container.decode([UInt8].self, forKey: .encryptionPublicKey),
                             secretKey: try container.decode([UInt8].self, forKey: .encryptionSecretKey)
                         ),
@@ -253,7 +252,7 @@ public final class ClosedGroupControlMessage: ControlMessage {
                     kind: .new(
                         publicKey: publicKey,
                         name: name,
-                        encryptionKeyPair: Box.KeyPair(
+                        encryptionKeyPair: KeyPair(
                             publicKey: encryptionKeyPairAsProto.publicKey.removingIdPrefixIfNeeded().bytes,
                             secretKey: encryptionKeyPairAsProto.privateKey.bytes
                         ),
@@ -339,8 +338,6 @@ public final class ClosedGroupControlMessage: ControlMessage {
             let contentProto = SNProtoContent.builder()
             let dataMessageProto = SNProtoDataMessage.builder()
             dataMessageProto.setClosedGroupControlMessage(try closedGroupControlMessage.build())
-            // Group context
-            try setGroupContextIfNeeded(db, on: dataMessageProto)
             contentProto.setDataMessage(try dataMessageProto.build())
             return try contentProto.build()
         } catch {
@@ -376,7 +373,7 @@ public extension ClosedGroupControlMessage.Kind {
                 let addedMemberNames: [String] = memberIds
                     .map {
                         knownMemberNameMap[$0] ??
-                        Profile.truncated(id: $0, threadVariant: .closedGroup)
+                        Profile.truncated(id: $0, threadVariant: .legacyGroup)
                     }
                 
                 return String(
@@ -399,7 +396,7 @@ public extension ClosedGroupControlMessage.Kind {
                     let removedMemberNames: [String] = memberIds.removing(userPublicKey)
                         .map {
                             knownMemberNameMap[$0] ??
-                            Profile.truncated(id: $0, threadVariant: .closedGroup)
+                            Profile.truncated(id: $0, threadVariant: .legacyGroup)
                         }
                     let format: String = (removedMemberNames.count > 1 ?
                         "GROUP_MEMBERS_REMOVED".localized() :

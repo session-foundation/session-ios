@@ -1,11 +1,10 @@
-//
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
-//
 
 import UIKit
 import SessionUIKit
+import SignalCoreKit
 
-public protocol ImageEditorCropViewControllerDelegate: class {
+public protocol ImageEditorCropViewControllerDelegate: AnyObject {
     func cropDidComplete(transform: ImageEditorTransform)
     func cropDidCancel()
 }

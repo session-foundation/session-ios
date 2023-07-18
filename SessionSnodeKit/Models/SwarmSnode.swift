@@ -40,7 +40,7 @@ extension SwarmSnode {
         }
         catch {
             SNLog("Failed to parse snode: \(error.localizedDescription).")
-            throw HTTP.Error.invalidJSON
+            throw HTTPError.invalidJSON
         }
     }
 

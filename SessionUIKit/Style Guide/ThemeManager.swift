@@ -30,8 +30,12 @@ public enum ThemeManager {
     /// Unfortunately if we don't do this the `ThemeApplier` is immediately deallocated and we can't use it to update the theme
     private static var uiRegistry: NSMapTable<AnyObject, ThemeApplier> = NSMapTable.weakToStrongObjects()
     
+    private static var _initialTheme: Theme?
+    private static var _initialPrimaryColor: Theme.PrimaryColor?
+    private static var _initialMatchSystemNightModeSetting: Bool?
+    
     public static var currentTheme: Theme = {
-        Storage.shared[.theme].defaulting(to: Theme.classicDark)
+        (_initialTheme ?? Storage.shared[.theme].defaulting(to: Theme.classicDark))
     }() {
         didSet {
             // Only update if it was changed
@@ -55,7 +59,7 @@ public enum ThemeManager {
     }
     
     public static var primaryColor: Theme.PrimaryColor = {
-        Storage.shared[.themePrimaryColor].defaulting(to: Theme.PrimaryColor.green)
+        (_initialPrimaryColor ?? Storage.shared[.themePrimaryColor].defaulting(to: Theme.PrimaryColor.green))
     }() {
         didSet {
             // Only update if it was changed
@@ -70,7 +74,7 @@ public enum ThemeManager {
     }
     
     public static var matchSystemNightModeSetting: Bool = {
-        Storage.shared[.themeMatchSystemDayNightCycle]
+        (_initialMatchSystemNightModeSetting ?? Storage.shared[.themeMatchSystemDayNightCycle])
     }() {
         didSet {
             // Only update if it was changed
@@ -98,6 +102,16 @@ public enum ThemeManager {
     }
     
     // MARK: - Functions
+    
+    public static func setInitialThemeState(
+        theme: Theme,
+        primaryColor: Theme.PrimaryColor,
+        matchSystemNightModeSetting: Bool
+    ) {
+        _initialTheme = theme
+        _initialPrimaryColor = primaryColor
+        _initialMatchSystemNightModeSetting = matchSystemNightModeSetting
+    }
     
     public static func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         let currentUserInterfaceStyle: UIUserInterfaceStyle = UITraitCollection.current.userInterfaceStyle
@@ -407,8 +421,10 @@ internal class ThemeApplier {
             .compactMap { $0?.clearingOtherAppliers() }
             .filter { $0.info != info }
         
-        // Automatically apply the theme immediately
-        self.apply(theme: ThemeManager.currentTheme, isInitialApplication: true)
+        // Automatically apply the theme immediately (if the database has been setup)
+        if Storage.hasCreatedValidInstance {
+            self.apply(theme: ThemeManager.currentTheme, isInitialApplication: true)
+        }
     }
     
     // MARK: - Functions

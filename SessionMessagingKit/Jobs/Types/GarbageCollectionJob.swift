@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import PromiseKit
 import SignalCoreKit
 import SessionUtilitiesKit
 import SessionSnodeKit
@@ -86,7 +85,7 @@ public enum GarbageCollectionJob: JobExecutor {
                             SELECT \(interaction.alias[Column.rowID])
                             FROM \(Interaction.self)
                             JOIN \(SessionThread.self) ON (
-                                \(SQL("\(thread[.variant]) = \(SessionThread.Variant.openGroup)")) AND
+                                \(SQL("\(thread[.variant]) = \(SessionThread.Variant.community)")) AND
                                 \(thread[.id]) = \(interaction[.threadId])
                             )
                             JOIN (
@@ -118,6 +117,8 @@ public enum GarbageCollectionJob: JobExecutor {
                             LEFT JOIN \(SessionThread.self) ON \(thread[.id]) = \(job[.threadId])
                             LEFT JOIN \(Interaction.self) ON \(interaction[.id]) = \(job[.interactionId])
                             WHERE (
+                                -- Never delete config sync jobs, even if their threads were deleted
+                                \(SQL("\(job[.variant]) != \(Job.Variant.configurationSync)")) AND
                                 (
                                     \(job[.threadId]) IS NOT NULL AND
                                     \(thread[.id]) IS NULL
@@ -296,6 +297,34 @@ public enum GarbageCollectionJob: JobExecutor {
                         .filter(PendingReadReceipt.Columns.serverExpirationTimestamp <= timestampNow)
                         .deleteAll(db)
                 }
+                
+                if finalTypesToCollect.contains(.shadowThreads) {
+                    // Shadow threads are thread records which were created to start a conversation that
+                    // didn't actually get turned into conversations (ie. the app was closed or crashed
+                    // before the user sent a message)
+                    let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
+                    let contact: TypedTableAlias<Contact> = TypedTableAlias()
+                    let openGroup: TypedTableAlias<OpenGroup> = TypedTableAlias()
+                    let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
+                    
+                    try db.execute(literal: """
+                        DELETE FROM \(SessionThread.self)
+                        WHERE \(Column.rowID) IN (
+                            SELECT \(thread.alias[Column.rowID])
+                            FROM \(SessionThread.self)
+                            LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])
+                            LEFT JOIN \(OpenGroup.self) ON \(openGroup[.threadId]) = \(thread[.id])
+                            LEFT JOIN \(ClosedGroup.self) ON \(closedGroup[.threadId]) = \(thread[.id])
+                            WHERE (
+                                \(contact[.id]) IS NULL AND
+                                \(openGroup[.threadId]) IS NULL AND
+                                \(closedGroup[.threadId]) IS NULL AND
+                                \(thread[.shouldBeVisible]) = false AND
+                                \(SQL("\(thread[.id]) != \(getUserHexEncodedPublicKey(db))"))
+                            )
+                        )
+                    """)
+                }
             },
             completion: { _, _ in
                 // Dispatch async so we can swap from the write queue to a read one (we are done writing)
@@ -450,6 +479,7 @@ extension GarbageCollectionJob {
         case orphanedAttachmentFiles
         case orphanedProfileAvatars
         case expiredPendingReadReceipts
+        case shadowThreads
     }
     
     public struct Details: Codable {

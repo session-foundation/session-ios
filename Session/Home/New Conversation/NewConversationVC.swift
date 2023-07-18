@@ -2,9 +2,9 @@
 
 import UIKit
 import GRDB
-import PromiseKit
 import SessionUIKit
 import SessionMessagingKit
+import SignalUtilitiesKit
 
 final class NewConversationVC: BaseVC, ThemedNavigation, UITableViewDelegate, UITableViewDataSource {
     private let newConversationViewModel = NewConversationViewModel()
@@ -143,13 +143,13 @@ final class NewConversationVC: BaseVC, ThemedNavigation, UITableViewDelegate, UI
         cell.update(
             with: SessionCell.Info(
                 id: profile,
-                leftAccessory: .profile(profile.id, profile),
-                title: profile.displayName()
-            ),
-            style: .edgeToEdge,
-            position: Position.with(
-                indexPath.row,
-                count: newConversationViewModel.sectionData[indexPath.section].contacts.count
+                position: Position.with(
+                    indexPath.row,
+                    count: newConversationViewModel.sectionData[indexPath.section].contacts.count
+                ),
+                leftAccessory: .profile(id: profile.id, profile: profile),
+                title: profile.displayName(),
+                styling: SessionCell.StyleInfo(backgroundStyle: .edgeToEdge)
             )
         )
         
@@ -179,15 +179,13 @@ final class NewConversationVC: BaseVC, ThemedNavigation, UITableViewDelegate, UI
         tableView.deselectRow(at: indexPath, animated: true)
         
         let sessionId = newConversationViewModel.sectionData[indexPath.section].contacts[indexPath.row].id
-        let maybeThread: SessionThread? = Storage.shared.write { db in
-            try SessionThread.fetchOrCreate(db, id: sessionId, variant: .contact)
-        }
         
-        guard maybeThread != nil else { return }
-        
-        self.navigationController?.dismiss(animated: true, completion: nil)
-        
-        SessionApp.presentConversation(for: sessionId, action: .compose, animated: false)
+        SessionApp.presentConversationCreatingIfNeeded(
+            for: sessionId,
+            variant: .contact,
+            dismissing: navigationController,
+            animated: false
+        )
     }
     
     func tableView(_ tableView: UITableView, willDisplayHeaderView view: UIView, forSection section: Int) {

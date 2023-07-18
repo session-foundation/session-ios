@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import WebRTC
 import SessionUtilitiesKit
 
@@ -21,7 +22,7 @@ extension WebRTCSession {
             else {
                 guard sdp.type == .offer else { return }
                 
-                self?.sendAnswer(to: sessionId).retainUntilComplete()
+                self?.sendAnswer(to: sessionId).sinkUntilComplete()
             }
         })
     }

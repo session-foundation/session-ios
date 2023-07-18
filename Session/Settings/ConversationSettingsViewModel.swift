@@ -26,7 +26,7 @@ class ConversationSettingsViewModel: SessionTableViewModel<NoNav, ConversationSe
         var style: SessionTableSectionStyle {
             switch self {
                 case .blockedContacts: return .padding
-                default: return .title
+                default: return .titleRoundedContent
             }
         }
     }
@@ -35,10 +35,7 @@ class ConversationSettingsViewModel: SessionTableViewModel<NoNav, ConversationSe
     
     override var title: String { "CONVERSATION_SETTINGS_TITLE".localized() }
     
-    private var _settingsData: [SectionModel] = []
-    public override var settingsData: [SectionModel] { _settingsData }
-    
-    public override var observableSettingsData: ObservableData { _observableSettingsData }
+    public override var observableTableData: ObservableData { _observableTableData }
     
     /// This is all the data the screen needs to populate itself, please see the following link for tips to help optimise
     /// performance https://github.com/groue/GRDB.swift#valueobservation-performance
@@ -47,7 +44,7 @@ class ConversationSettingsViewModel: SessionTableViewModel<NoNav, ConversationSe
     /// this is due to the behaviour of `ValueConcurrentObserver.asyncStartObservation` which triggers it's own
     /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
-    private lazy var _observableSettingsData: ObservableData = ValueObservation
+    private lazy var _observableTableData: ObservableData = ValueObservation
         .trackingConstantRegion { db -> [SectionModel] in
             return [
                 SectionModel(
@@ -92,10 +89,14 @@ class ConversationSettingsViewModel: SessionTableViewModel<NoNav, ConversationSe
                         SessionCell.Info(
                             id: .blockedContacts,
                             title: "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_TITLE".localized(),
-                            tintColor: .danger,
-                            shouldHaveBackground: false,
+                            styling: SessionCell.StyleInfo(
+                                tintColor: .danger,
+                                backgroundStyle: .noBackground
+                            ),
                             onTap: { [weak self] in
-                                self?.transitionToScreen(BlockedContactsViewController())
+                                self?.transitionToScreen(
+                                    SessionTableViewController(viewModel: BlockedContactsViewModel())
+                                )
                             }
                         )
                     ]
@@ -103,11 +104,7 @@ class ConversationSettingsViewModel: SessionTableViewModel<NoNav, ConversationSe
             ]
         }
         .removeDuplicates()
+        .handleEvents(didFail: { SNLog("[ConversationSettingsViewModel] Observation failed with error: \($0)") })
         .publisher(in: Storage.shared)
-    
-    // MARK: - Functions
-
-    public override func updateSettings(_ updatedSettings: [SectionModel]) {
-        self._settingsData = updatedSettings
-    }
+        .mapToSessionTableViewData(for: self)
 }

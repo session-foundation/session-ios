@@ -16,7 +16,10 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
     typealias SectionModel = SessionTableViewModel<NavItemId, Section, SettingItem>.SectionModel
     
     private let viewModel: SessionTableViewModel<NavItemId, Section, SettingItem>
-    private var hasLoadedInitialSettingsData: Bool = false
+    private var hasLoadedInitialTableData: Bool = false
+    private var isLoadingMore: Bool = false
+    private var isAutoLoadingNextPage: Bool = false
+    private var viewHasAppeared: Bool = false
     private var dataStreamJustFailed: Bool = false
     private var dataChangeCancellable: AnyCancellable?
     private var disposables: Set<AnyCancellable> = Set()
@@ -33,7 +36,6 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
         result.themeBackgroundColor = .clear
         result.showsVerticalScrollIndicator = false
         result.showsHorizontalScrollIndicator = false
-        result.register(view: SessionAvatarCell.self)
         result.register(view: SessionCell.self)
         result.registerHeaderFooterView(view: SessionHeaderView.self)
         result.dataSource = self
@@ -43,6 +45,19 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
             result.sectionHeaderTopPadding = 0
         }
         
+        return result
+    }()
+    
+    private lazy var emptyStateLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.translatesAutoresizingMaskIntoConstraints = false
+        result.isUserInteractionEnabled = false
+        result.font = .systemFont(ofSize: Values.smallFontSize)
+        result.themeTextColor = .textSecondary
+        result.textAlignment = .center
+        result.numberOfLines = 0
+        result.isHidden = true
+
         return result
     }()
     
@@ -75,6 +90,8 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
     init(viewModel: SessionTableViewModel<NavItemId, Section, SettingItem>) {
         self.viewModel = viewModel
         
+        Storage.shared.addObserver(viewModel.pagedDataObserver)
+        
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -99,6 +116,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
         
         view.themeBackgroundColor = .backgroundPrimary
         view.addSubview(tableView)
+        view.addSubview(emptyStateLabel)
         view.addSubview(fadeView)
         view.addSubview(footerButton)
         
@@ -125,6 +143,13 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
         startObservingChanges()
     }
     
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        
+        viewHasAppeared = true
+        autoLoadNextPageIfNeeded()
+    }
+    
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         
@@ -145,6 +170,10 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
     private func setupLayout() {
         tableView.pin(to: view)
         
+        emptyStateLabel.pin(.top, to: .top, of: self.view, withInset: Values.massiveSpacing)
+        emptyStateLabel.pin(.leading, to: .leading, of: self.view, withInset: Values.mediumSpacing)
+        emptyStateLabel.pin(.trailing, to: .trailing, of: self.view, withInset: -Values.mediumSpacing)
+        
         fadeView.pin(.leading, to: .leading, of: self.view)
         fadeView.pin(.trailing, to: .trailing, of: self.view)
         fadeView.pin(.bottom, to: .bottom, of: self.view)
@@ -157,13 +186,8 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
     
     private func startObservingChanges() {
         // Start observing for data changes
-        dataChangeCancellable = viewModel.observableSettingsData
-            .receiveOnMain(
-                // If we haven't done the initial load the trigger it immediately (blocking the main
-                // thread so we remain on the launch screen until it completes to be consistent with
-                // the old behaviour)
-                immediately: !hasLoadedInitialSettingsData
-            )
+        dataChangeCancellable = viewModel.observableTableData
+            .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [weak self] result in
                     switch result {
@@ -183,9 +207,9 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
                         case .finished: break
                     }
                 },
-                receiveValue: { [weak self] settingsData in
+                receiveValue: { [weak self] updatedData, changeset in
                     self?.dataStreamJustFailed = false
-                    self?.handleSettingsUpdates(settingsData)
+                    self?.handleDataUpdates(updatedData, changeset: changeset)
                 }
             )
     }
@@ -195,27 +219,91 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
         dataChangeCancellable?.cancel()
     }
     
-    private func handleSettingsUpdates(_ updatedData: [SectionModel], initialLoad: Bool = false) {
+    private func handleDataUpdates(
+        _ updatedData: [SectionModel],
+        changeset: StagedChangeset<[SectionModel]>,
+        initialLoad: Bool = false
+    ) {
+        // Determine if we have any items for the empty state
+        let itemCount: Int = updatedData
+            .map { $0.elements.count }
+            .reduce(0, +)
+        
         // Ensure the first load runs without animations (if we don't do this the cells will animate
         // in from a frame of CGRect.zero)
-        guard hasLoadedInitialSettingsData else {
-            hasLoadedInitialSettingsData = true
-            UIView.performWithoutAnimation { handleSettingsUpdates(updatedData, initialLoad: true) }
+        guard hasLoadedInitialTableData else {
+            UIView.performWithoutAnimation {
+                // Update the empty state
+                emptyStateLabel.isHidden = (itemCount > 0)
+                
+                // Update the content
+                viewModel.updateTableData(updatedData)
+                tableView.reloadData()
+                hasLoadedInitialTableData = true
+            }
             return
+        }
+        
+        // Update the empty state
+        self.emptyStateLabel.isHidden = (itemCount > 0)
+        
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { [weak self] in
+            // Complete page loading
+            self?.isLoadingMore = false
+            self?.autoLoadNextPageIfNeeded()
         }
         
         // Reload the table content (animate changes after the first load)
         tableView.reload(
-            using: StagedChangeset(source: viewModel.settingsData, target: updatedData),
+            using: changeset,
             deleteSectionsAnimation: .none,
             insertSectionsAnimation: .none,
             reloadSectionsAnimation: .none,
-            deleteRowsAnimation: .bottom,
-            insertRowsAnimation: .none,
-            reloadRowsAnimation: .none,
+            deleteRowsAnimation: .fade,
+            insertRowsAnimation: .fade,
+            reloadRowsAnimation: .fade,
             interrupt: { $0.changeCount > 100 }    // Prevent too many changes from causing performance issues
         ) { [weak self] updatedData in
-            self?.viewModel.updateSettings(updatedData)
+            self?.viewModel.updateTableData(updatedData)
+        }
+        
+        CATransaction.commit()
+    }
+    
+    private func autoLoadNextPageIfNeeded() {
+        guard
+            self.hasLoadedInitialTableData &&
+            !self.isAutoLoadingNextPage &&
+            !self.isLoadingMore
+        else { return }
+        
+        self.isAutoLoadingNextPage = true
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + PagedData.autoLoadNextPageDelay) { [weak self] in
+            self?.isAutoLoadingNextPage = false
+            
+            // Note: We sort the headers as we want to prioritise loading newer pages over older ones
+            let sections: [(Section, CGRect)] = (self?.viewModel.tableData
+                .enumerated()
+                .map { index, section in
+                    (section.model, (self?.tableView.rectForHeader(inSection: index) ?? .zero))
+                })
+                .defaulting(to: [])
+            let shouldLoadMore: Bool = sections
+                .contains { section, headerRect in
+                    section.style == .loadMore &&
+                    headerRect != .zero &&
+                    (self?.tableView.bounds.contains(headerRect) == true)
+                }
+            
+            guard shouldLoadMore else { return }
+            
+            self?.isLoadingMore = true
+            
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                self?.viewModel.loadPageAfter()
+            }
         }
     }
     
@@ -225,24 +313,32 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
         viewModel.isEditing
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isEditing in
-                self?.setEditing(isEditing, animated: true)
-                
-                self?.tableView.visibleCells.forEach { cell in
-                    switch cell {
-                        case let cell as SessionCell:
-                            cell.update(isEditing: isEditing, animated: true)
-                            
-                        case let avatarCell as SessionAvatarCell:
-                            avatarCell.update(isEditing: isEditing, animated: true)
-                            
-                        default: break
-                    }
+                UIView.animate(withDuration: 0.25) {
+                    self?.setEditing(isEditing, animated: true)
+                    
+                    self?.tableView.visibleCells
+                        .compactMap { $0 as? SessionCell }
+                        .filter { $0.interactionMode == .editable || $0.interactionMode == .alwaysEditing }
+                        .enumerated()
+                        .forEach { index, cell in
+                            cell.update(
+                                isEditing: (isEditing || cell.interactionMode == .alwaysEditing),
+                                becomeFirstResponder: (
+                                    isEditing &&
+                                    index == 0 &&
+                                    cell.interactionMode != .alwaysEditing
+                                ),
+                                animated: true
+                            )
+                        }
+                    
+                    self?.tableView.beginUpdates()
+                    self?.tableView.endUpdates()
                 }
             }
             .store(in: &disposables)
         
         viewModel.leftNavItems
-            .receiveOnMain(immediately: true)
             .sink { [weak self] maybeItems in
                 self?.navigationItem.setLeftBarButtonItems(
                     maybeItems.map { items in
@@ -252,8 +348,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
 
                             buttonItem.tapPublisher
                                 .map { _ in item.id }
-                                .handleEvents(receiveOutput: { _ in item.action?() })
-                                .sink(into: self?.viewModel.navItemTapped)
+                                .sink(receiveValue: { _ in item.action?() })
                                 .store(in: &buttonItem.disposables)
 
                             return buttonItem
@@ -265,7 +360,6 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
             .store(in: &disposables)
 
         viewModel.rightNavItems
-            .receiveOnMain(immediately: true)
             .sink { [weak self] maybeItems in
                 self?.navigationItem.setRightBarButtonItems(
                     maybeItems.map { items in
@@ -275,8 +369,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
 
                             buttonItem.tapPublisher
                                 .map { _ in item.id }
-                                .handleEvents(receiveOutput: { _ in item.action?() })
-                                .sink(into: self?.viewModel.navItemTapped)
+                                .sink(receiveValue: { _ in item.action?() })
                                 .store(in: &buttonItem.disposables)
 
                             return buttonItem
@@ -287,15 +380,19 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
             }
             .store(in: &disposables)
         
+        viewModel.emptyStateTextPublisher
+            .sink { [weak self] text in
+                self?.emptyStateLabel.text = text
+            }
+            .store(in: &disposables)
+        
         viewModel.footerView
-            .receiveOnMain(immediately: true)
             .sink { [weak self] footerView in
                 self?.tableView.tableFooterView = footerView
             }
             .store(in: &disposables)
         
         viewModel.footerButtonInfo
-            .receiveOnMain(immediately: true)
             .sink { [weak self] buttonInfo in
                 if let buttonInfo: SessionButton.Info = buttonInfo {
                     self?.footerButton.setTitle(buttonInfo.title, for: .normal)
@@ -371,6 +468,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
                         
                     case .dismiss: self?.dismiss(animated: true)
                     case .pop: self?.navigationController?.popViewController(animated: true)
+                    case .popToRoot: self?.navigationController?.popToRootViewController(animated: true)
                 }
             }
             .store(in: &disposables)
@@ -383,83 +481,47 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
     // MARK: - UITableViewDataSource
     
     func numberOfSections(in tableView: UITableView) -> Int {
-        return self.viewModel.settingsData.count
+        return self.viewModel.tableData.count
     }
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return self.viewModel.settingsData[section].elements.count
+        return self.viewModel.tableData[section].elements.count
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let section: SectionModel = viewModel.settingsData[indexPath.section]
+        let section: SectionModel = viewModel.tableData[indexPath.section]
         let info: SessionCell.Info<SettingItem> = section.elements[indexPath.row]
+        let cell: SessionCell = tableView.dequeue(type: SessionCell.self, for: indexPath)
+        cell.update(with: info)
+        cell.update(
+            isEditing: (self.isEditing || (info.title?.interaction == .alwaysEditing)),
+            becomeFirstResponder: false,
+            animated: false
+        )
+        cell.textPublisher
+            .sink(receiveValue: { [weak self] text in
+                self?.viewModel.textChanged(text, for: info.id)
+            })
+            .store(in: &cell.disposables)
         
-        switch info.leftAccessory {
-            case .threadInfo(let threadViewModel, let style, let avatarTapped, let titleTapped, let titleChanged):
-                let cell: SessionAvatarCell = tableView.dequeue(type: SessionAvatarCell.self, for: indexPath)
-                cell.update(
-                    threadViewModel: threadViewModel,
-                    style: style,
-                    viewController: self
-                )
-                cell.update(isEditing: self.isEditing, animated: false)
-                
-                cell.profilePictureTapPublisher
-                    .filter { _ in threadViewModel.threadVariant == .contact }
-                    .sink(receiveValue: { _ in avatarTapped?() })
-                    .store(in: &cell.disposables)
-                
-                cell.displayNameTapPublisher
-                    .filter { _ in threadViewModel.threadVariant == .contact }
-                    .sink(receiveValue: { _ in titleTapped?() })
-                    .store(in: &cell.disposables)
-                
-                cell.textPublisher
-                    .sink(receiveValue: { text in titleChanged?(text) })
-                    .store(in: &cell.disposables)
-                
-                return cell
-                
-            default:
-                let cell: SessionCell = tableView.dequeue(type: SessionCell.self, for: indexPath)
-                cell.update(
-                    with: info,
-                    style: .rounded,
-                    position: Position.with(indexPath.row, count: section.elements.count)
-                )
-                cell.update(isEditing: self.isEditing, animated: false)
-                
-                return cell
-        }
+        return cell
     }
     
     func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
-        let section: SectionModel = viewModel.settingsData[section]
+        let section: SectionModel = viewModel.tableData[section]
+        let result: SessionHeaderView = tableView.dequeueHeaderFooterView(type: SessionHeaderView.self)
+        result.update(
+            title: section.model.title,
+            style: section.model.style
+        )
         
-        switch section.model.style {
-            case .none:
-                return UIView()
-            
-            case .padding, .title:
-                let result: SessionHeaderView = tableView.dequeueHeaderFooterView(type: SessionHeaderView.self)
-                result.update(
-                    title: section.model.title,
-                    hasSeparator: (section.elements.first?.shouldHaveBackground != false)
-                )
-                
-                return result
-        }
+        return result
     }
     
     // MARK: - UITableViewDelegate
     
     func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
-        let section: SectionModel = viewModel.settingsData[section]
-        
-        switch section.model.style {
-            case .none: return 0
-            case .padding, .title: return UITableView.automaticDimension
-        }
+        return viewModel.tableData[section].model.style.height
     }
     
     func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {
@@ -469,11 +531,28 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         return UITableView.automaticDimension
     }
+    
+    func tableView(_ tableView: UITableView, willDisplayHeaderView view: UIView, forSection section: Int) {
+        guard self.hasLoadedInitialTableData && self.viewHasAppeared && !self.isLoadingMore else { return }
+        
+        let section: SectionModel = self.viewModel.tableData[section]
+        
+        switch section.model.style {
+            case .loadMore:
+                self.isLoadingMore = true
+                
+                DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                    self?.viewModel.loadPageAfter()
+                }
+                
+            default: break
+        }
+    }
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         
-        let section: SectionModel = self.viewModel.settingsData[indexPath.section]
+        let section: SectionModel = self.viewModel.tableData[indexPath.section]
         let info: SessionCell.Info<SettingItem> = section.elements[indexPath.row]
         
         // Do nothing if the item is disabled
@@ -486,10 +565,10 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
             }
             
             switch (info.leftAccessory, info.rightAccessory) {
-                case (_, .highlightingBackgroundLabel(_)):
+                case (_, .highlightingBackgroundLabel(_, _)):
                     return (!cell.rightAccessoryView.isHidden ? cell.rightAccessoryView : cell)
                     
-                case (.highlightingBackgroundLabel(_), _):
+                case (.highlightingBackgroundLabel(_, _), _):
                     return (!cell.leftAccessoryView.isHidden ? cell.leftAccessoryView : cell)
                 
                 default:
@@ -500,14 +579,15 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
             .enumerated()
             .first(where: { index, info in
                 switch (info.leftAccessory, info.rightAccessory) {
-                    case (_, .radio(_, let isSelected, _)): return isSelected()
-                    case (.radio(_, let isSelected, _), _): return isSelected()
+                    case (_, .radio(_, let isSelected, _, _)): return isSelected()
+                    case (.radio(_, let isSelected, _, _), _): return isSelected()
                     default: return false
                 }
             })
         
         let performAction: () -> Void = { [weak self, weak tappedView] in
-            info.onTap?(tappedView)
+            info.onTap?()
+            info.onTapView?(tappedView)
             self?.manuallyReload(indexPath: indexPath, section: section, info: info)
             
             // Update the old selection as well
@@ -535,10 +615,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             targetView: tappedView,
             info: confirmationInfo
-                .with(onConfirm: { [weak self] _ in
-                    performAction()
-                    self?.dismiss(animated: true)
-                })
+                .with(onConfirm: { _ in performAction() })
         )
         present(confirmationModal, animated: true, completion: nil)
     }
@@ -550,11 +627,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
     ) {
         // Try update the existing cell to have a nice animation instead of reloading the cell
         if let existingCell: SessionCell = tableView.cellForRow(at: indexPath) as? SessionCell {
-            existingCell.update(
-                with: info,
-                style: .rounded,
-                position: Position.with(indexPath.row, count: section.elements.count)
-            )
+            existingCell.update(with: info)
         }
         else {
             tableView.reloadRows(at: [indexPath], with: .none)

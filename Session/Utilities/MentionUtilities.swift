@@ -10,14 +10,16 @@ public enum MentionUtilities {
         in string: String,
         threadVariant: SessionThread.Variant,
         currentUserPublicKey: String,
-        currentUserBlindedPublicKey: String?
+        currentUserBlinded15PublicKey: String?,
+        currentUserBlinded25PublicKey: String?
     ) -> String {
         /// **Note:** We are returning the string here so the 'textColor' and 'primaryColor' values are irrelevant
         return highlightMentions(
             in: string,
             threadVariant: threadVariant,
             currentUserPublicKey: currentUserPublicKey,
-            currentUserBlindedPublicKey: currentUserBlindedPublicKey,
+            currentUserBlinded15PublicKey: currentUserBlinded15PublicKey,
+            currentUserBlinded25PublicKey: currentUserBlinded25PublicKey,
             isOutgoingMessage: false,
             textColor: .black,
             theme: .classicDark,
@@ -30,7 +32,8 @@ public enum MentionUtilities {
         in string: String,
         threadVariant: SessionThread.Variant,
         currentUserPublicKey: String?,
-        currentUserBlindedPublicKey: String?,
+        currentUserBlinded15PublicKey: String?,
+        currentUserBlinded25PublicKey: String?,
         isOutgoingMessage: Bool,
         textColor: UIColor,
         theme: Theme,
@@ -48,7 +51,8 @@ public enum MentionUtilities {
         var mentions: [(range: NSRange, isCurrentUser: Bool)] = []
         let currentUserPublicKeys: Set<String> = [
             currentUserPublicKey,
-            currentUserBlindedPublicKey
+            currentUserBlinded15PublicKey,
+            currentUserBlinded25PublicKey
         ]
         .compactMap { $0 }
         .asSet()

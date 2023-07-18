@@ -2,6 +2,7 @@
 
 import UIKit
 import SessionMessagingKit
+import SignalCoreKit
 
 public class MediaAlbumView: UIStackView {
     private let items: [Attachment]
@@ -110,11 +111,10 @@ public class MediaAlbumView: UIStackView {
                     tintView.autoPinEdgesToSuperviewEdges()
 
                     let moreCount = max(1, items.count - MediaAlbumView.kMaxItems)
-                    let moreCountText = OWSFormat.formatInt(Int32(moreCount))
                     let moreText = String(
                         // Format for the 'more items' indicator for media galleries. Embeds {{the number of additional items}}.
                         format: "MEDIA_GALLERY_MORE_ITEMS_FORMAT".localized(),
-                        moreCountText
+                        "\(moreCount)"
                     )
                     let moreLabel: UILabel = UILabel()
                     moreLabel.font = .systemFont(ofSize: 24)

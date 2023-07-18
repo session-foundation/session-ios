@@ -3,7 +3,6 @@
 import Foundation
 import Clibsodium
 import Sodium
-import Curve25519Kit
 
 extension Sign {
 

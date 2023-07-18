@@ -36,7 +36,7 @@ class JobRunnerSpec: QuickSpec {
     }
     
     struct InvalidDetails: Codable {
-        func encode(to encoder: Encoder) throws { throw HTTP.Error.parsingFailed }
+        func encode(to encoder: Encoder) throws { throw HTTPError.parsingFailed }
     }
     
     enum TestJob: JobExecutor {
@@ -109,8 +109,8 @@ class JobRunnerSpec: QuickSpec {
             beforeEach {
                 mockStorage = Storage(
                     customWriter: try! DatabaseQueue(),
-                    customMigrations: [
-                        SNUtilitiesKit.migrations()
+                    customMigrationTargets: [
+                        SNUtilitiesKit.self
                     ]
                 )
                 dependencies = Dependencies(
@@ -295,7 +295,7 @@ class JobRunnerSpec: QuickSpec {
                 
                 context("by getting the details for jobs") {
                     it("returns an empty dictionary when there are no jobs") {
-                        expect(jobRunner.details()).to(equal([:]))
+                        expect(jobRunner.allJobInfo()).to(equal([:]))
                     }
                     
                     it("returns an empty dictionary when there are no jobs matching the filters") {
@@ -310,7 +310,7 @@ class JobRunnerSpec: QuickSpec {
                             )
                         }
                         
-                        expect(jobRunner.detailsFor(state: .running, variant: .messageSend))
+                        expect(jobRunner.jobInfoFor(state: .running, variant: .messageSend))
                             .toEventually(
                                 equal([:]),
                                 timeout: .milliseconds(50)
@@ -331,13 +331,23 @@ class JobRunnerSpec: QuickSpec {
                         }
                         
                         // Wait for there to be data and the validate the filtering works
-                        expect(jobRunner.details())
+                        expect(jobRunner.allJobInfo())
                             .toEventuallyNot(
                                 beEmpty(),
                                 timeout: .milliseconds(50)
                             )
-                        expect(jobRunner.detailsFor(jobs: [job1])).to(equal([:]))
-                        expect(jobRunner.detailsFor(jobs: [job2])).to(equal([101: job2.details]))
+                        expect(jobRunner.jobInfoFor(jobs: [job1])).to(equal([:]))
+                        expect(jobRunner.jobInfoFor(jobs: [job2]))
+                            .to(equal(
+                                [
+                                    101: JobRunner.JobInfo(
+                                        variant: .attachmentUpload,
+                                        threadId: nil,
+                                        interactionId: nil,
+                                        detailsData: job2.details
+                                    )
+                                ]
+                            ))
                     }
                     
                     it("can filter to running jobs") {
@@ -387,12 +397,21 @@ class JobRunnerSpec: QuickSpec {
                         }
                         
                         // Wait for there to be data and the validate the filtering works
-                        expect(jobRunner.detailsFor(state: .running))
+                        expect(jobRunner.jobInfoFor(state: .running))
                             .toEventually(
-                                equal([100: try! JSONEncoder().encode(TestDetails(completeTime: 1))]),
+                                equal(
+                                    [
+                                        100: JobRunner.JobInfo(
+                                            variant: .attachmentUpload,
+                                            threadId: nil,
+                                            interactionId: nil,
+                                            detailsData: try! JSONEncoder().encode(TestDetails(completeTime: 1))
+                                        )
+                                    ]
+                                ),
                                 timeout: .milliseconds(50)
                             )
-                        expect(Array(jobRunner.details().keys).sorted()).to(equal([100, 101]))
+                        expect(Array(jobRunner.allJobInfo().keys).sorted()).to(equal([100, 101]))
                     }
                     
                     it("can filter to pending jobs") {
@@ -442,12 +461,21 @@ class JobRunnerSpec: QuickSpec {
                         }
                         
                         // Wait for there to be data and the validate the filtering works
-                        expect(jobRunner.detailsFor(state: .pending))
+                        expect(jobRunner.jobInfoFor(state: .pending))
                             .toEventually(
-                                equal([101: try! JSONEncoder().encode(TestDetails(completeTime: 1))]),
+                                equal(
+                                    [
+                                        101: JobRunner.JobInfo(
+                                            variant: .attachmentUpload,
+                                            threadId: nil,
+                                            interactionId: nil,
+                                            detailsData: try! JSONEncoder().encode(TestDetails(completeTime: 1))
+                                        )
+                                    ]
+                                ),
                                 timeout: .milliseconds(50)
                             )
-                        expect(Array(jobRunner.details().keys).sorted()).to(equal([100, 101]))
+                        expect(Array(jobRunner.allJobInfo().keys).sorted()).to(equal([100, 101]))
                     }
                     
                     it("can filter to specific variants") {
@@ -475,12 +503,21 @@ class JobRunnerSpec: QuickSpec {
                         }
                         
                         // Wait for there to be data and the validate the filtering works
-                        expect(jobRunner.detailsFor(variant: .attachmentUpload))
+                        expect(jobRunner.jobInfoFor(variant: .attachmentUpload))
                             .toEventually(
-                                equal([101: try! JSONEncoder().encode(TestDetails(completeTime: 2))]),
+                                equal(
+                                    [
+                                        101: JobRunner.JobInfo(
+                                            variant: .attachmentUpload,
+                                            threadId: nil,
+                                            interactionId: nil,
+                                            detailsData: try! JSONEncoder().encode(TestDetails(completeTime: 2))
+                                        )
+                                    ]
+                                ),
                                 timeout: .milliseconds(50)
                             )
-                        expect(Array(jobRunner.details().keys).sorted())
+                        expect(Array(jobRunner.allJobInfo().keys).sorted())
                             .toEventually(
                                 equal([100, 101]),
                                 timeout: .milliseconds(50)
@@ -500,9 +537,19 @@ class JobRunnerSpec: QuickSpec {
                             )
                         }
                         
-                        expect(jobRunner.detailsFor(state: .running, variant: .attachmentUpload))
+                        expect(jobRunner.jobInfoFor(state: .running, variant: .attachmentUpload))
                             .toEventually(
-                                equal([101: try! JSONEncoder().encode(TestDetails(completeTime: 1))]),
+                                equal(
+                                    [
+                                        101:
+                                            JobRunner.JobInfo(
+                                                variant: .attachmentUpload,
+                                                threadId: nil,
+                                                interactionId: nil,
+                                                detailsData: try! JSONEncoder().encode(TestDetails(completeTime: 1))
+                                            )
+                                    ]
+                                ),
                                 timeout: .milliseconds(50)
                             )
                     }
@@ -534,9 +581,18 @@ class JobRunnerSpec: QuickSpec {
                         
                         jobRunner.appDidFinishLaunching(dependencies: dependencies)
                         
-                        expect(jobRunner.detailsFor(state: .running, variant: .attachmentUpload))
+                        expect(jobRunner.jobInfoFor(state: .running, variant: .attachmentUpload))
                             .toEventually(
-                                equal([101: try! JSONEncoder().encode(TestDetails(completeTime: 1))]),
+                                equal(
+                                    [
+                                        101: JobRunner.JobInfo(
+                                            variant: .attachmentUpload,
+                                            threadId: nil,
+                                            interactionId: nil,
+                                            detailsData: try! JSONEncoder().encode(TestDetails(completeTime: 1))
+                                        )
+                                    ]
+                                ),
                                 timeout: .milliseconds(50)
                             )
                     }
@@ -580,7 +636,7 @@ class JobRunnerSpec: QuickSpec {
                             )
                         }
                         
-                        expect(Array(jobRunner.detailsFor(state: .pending, variant: .attachmentUpload).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .pending, variant: .attachmentUpload).keys))
                             .toEventually(
                                 equal([101]),
                                 timeout: .milliseconds(50)
@@ -602,7 +658,7 @@ class JobRunnerSpec: QuickSpec {
                             )
                         }
                         
-                        expect(Array(jobRunner.detailsFor(state: .running, variant: .attachmentUpload).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running, variant: .attachmentUpload).keys))
                             .toEventually(
                                 equal([101]),
                                 timeout: .milliseconds(50)
@@ -638,7 +694,7 @@ class JobRunnerSpec: QuickSpec {
                         
                         jobRunner.appDidFinishLaunching(dependencies: dependencies)
                         
-                        expect(Array(jobRunner.detailsFor(state: .running, variant: .attachmentUpload).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running, variant: .attachmentUpload).keys))
                             .toEventually(
                                 equal([101]),
                                 timeout: .milliseconds(50)
@@ -660,7 +716,7 @@ class JobRunnerSpec: QuickSpec {
                             )
                         }
                         
-                        expect(Array(jobRunner.detailsFor(state: .running, variant: .attachmentUpload).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running, variant: .attachmentUpload).keys))
                             .toEventually(
                                 equal([101]),
                                 timeout: .milliseconds(50)
@@ -1071,13 +1127,13 @@ class JobRunnerSpec: QuickSpec {
                             
                             // Wait for 10ms to give the job the chance to be added
                             Thread.sleep(forTimeInterval: 0.01)
-                            expect(Array(jobRunner.detailsFor(state: .running).keys))
+                            expect(Array(jobRunner.jobInfoFor(state: .running).keys))
                                 .to(beEmpty())
                         }
                         
                         // Wait for 10ms for the job to actually be added
                         Thread.sleep(forTimeInterval: 0.01)
-                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running).keys))
                             .to(equal([100]))
                     }
                 }
@@ -1097,7 +1153,7 @@ class JobRunnerSpec: QuickSpec {
                         }
                         
                         // Make sure the dependency is run
-                        expect(Array(jobRunner.detailsFor(state: .running, variant: .attachmentUpload).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running, variant: .attachmentUpload).keys))
                             .toEventually(
                                 equal([101]),
                                 timeout: .milliseconds(50)
@@ -1117,12 +1173,12 @@ class JobRunnerSpec: QuickSpec {
                         }
                         
                         // Make sure the initial job is removed from the queue
-                        expect(Array(jobRunner.detailsFor(state: .running, variant: .attachmentUpload).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running, variant: .attachmentUpload).keys))
                             .toEventually(
                                 equal([101]),
                                 timeout: .milliseconds(50)
                             )
-                        expect(jobRunner.detailsFor(state: .running, variant: .messageSend).keys).toNot(contain(100))
+                        expect(jobRunner.jobInfoFor(state: .running, variant: .messageSend).keys).toNot(contain(100))
                     }
                 
                     it("starts the initial job when the dependencies succeed") {
@@ -1138,16 +1194,16 @@ class JobRunnerSpec: QuickSpec {
                         }
                         
                         // Make sure the dependency is run
-                        expect(Array(jobRunner.detailsFor(state: .running, variant: .attachmentUpload).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running, variant: .attachmentUpload).keys))
                             .toEventually(
                                 equal([101]),
                                 timeout: .milliseconds(50)
                             )
-                        expect(jobRunner.detailsFor(state: .running, variant: .messageSend).keys).toNot(contain(100))
+                        expect(jobRunner.jobInfoFor(state: .running, variant: .messageSend).keys).toNot(contain(100))
                         
                         // Make sure the initial job starts
                         dependencies.fixedTime = 1
-                        expect(Array(jobRunner.detailsFor(state: .running, variant: .messageSend).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running, variant: .messageSend).keys))
                             .toEventually(
                                 equal([100]),
                                 timeout: .milliseconds(50)
@@ -1167,16 +1223,16 @@ class JobRunnerSpec: QuickSpec {
                         }
                         
                         // Make sure the dependency is run
-                        expect(Array(jobRunner.detailsFor(state: .running, variant: .attachmentUpload).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running, variant: .attachmentUpload).keys))
                             .toEventually(
                                 equal([101]),
                                 timeout: .milliseconds(50)
                             )
-                        expect(jobRunner.detailsFor(state: .running, variant: .messageSend).keys).toNot(contain(100))
+                        expect(jobRunner.jobInfoFor(state: .running, variant: .messageSend).keys).toNot(contain(100))
                         
                         // Make sure there are no running jobs
                         dependencies.fixedTime = 1
-                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running).keys))
                             .toEventually(
                                 beEmpty(),
                                 timeout: .milliseconds(50)
@@ -1196,16 +1252,16 @@ class JobRunnerSpec: QuickSpec {
                         }
                         
                         // Make sure the dependency is run
-                        expect(Array(jobRunner.detailsFor(state: .running, variant: .attachmentUpload).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running, variant: .attachmentUpload).keys))
                             .toEventually(
                                 equal([101]),
                                 timeout: .milliseconds(50)
                             )
-                        expect(jobRunner.detailsFor(state: .running, variant: .messageSend).keys).toNot(contain(100))
+                        expect(jobRunner.jobInfoFor(state: .running, variant: .messageSend).keys).toNot(contain(100))
                         
                         // Make sure there are no running jobs
                         dependencies.fixedTime = 1
-                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running).keys))
                             .toEventually(
                                 beEmpty(),
                                 timeout: .milliseconds(50)
@@ -1225,16 +1281,16 @@ class JobRunnerSpec: QuickSpec {
                         }
                         
                         // Make sure the dependency is run
-                        expect(Array(jobRunner.detailsFor(state: .running, variant: .attachmentUpload).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running, variant: .attachmentUpload).keys))
                             .toEventually(
                                 equal([101]),
                                 timeout: .milliseconds(50)
                             )
-                        expect(jobRunner.detailsFor(state: .running, variant: .messageSend).keys).toNot(contain(100))
+                        expect(jobRunner.jobInfoFor(state: .running, variant: .messageSend).keys).toNot(contain(100))
                         
                         // Make sure there are no running jobs
                         dependencies.fixedTime = 1
-                        expect(Array(jobRunner.detailsFor(state: .running, variant: .attachmentUpload).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running, variant: .attachmentUpload).keys))
                             .toEventually(
                                 beEmpty(),
                                 timeout: .milliseconds(50)
@@ -1260,16 +1316,16 @@ class JobRunnerSpec: QuickSpec {
                         }
                         
                         // Make sure the dependency is run
-                        expect(Array(jobRunner.detailsFor(state: .running, variant: .attachmentUpload).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running, variant: .attachmentUpload).keys))
                             .toEventually(
                                 equal([101]),
                                 timeout: .milliseconds(50)
                             )
-                        expect(jobRunner.detailsFor(state: .running, variant: .messageSend).keys).toNot(contain(100))
+                        expect(jobRunner.jobInfoFor(state: .running, variant: .messageSend).keys).toNot(contain(100))
                         
                         // Make sure there are no running jobs
                         dependencies.fixedTime = 1
-                        expect(Array(jobRunner.detailsFor(state: .running, variant: .attachmentUpload).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running, variant: .attachmentUpload).keys))
                             .toEventually(
                                 beEmpty(),
                                 timeout: .milliseconds(50)
@@ -1301,7 +1357,7 @@ class JobRunnerSpec: QuickSpec {
                         }
                         
                         // Make sure the dependency is run
-                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running).keys))
                             .toEventually(
                                 equal([100]),
                                 timeout: .milliseconds(50)
@@ -1309,7 +1365,7 @@ class JobRunnerSpec: QuickSpec {
                         
                         // Make sure there are no running jobs
                         dependencies.fixedTime = 1
-                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running).keys))
                             .toEventually(
                                 beEmpty(),
                                 timeout: .milliseconds(50)
@@ -1326,7 +1382,7 @@ class JobRunnerSpec: QuickSpec {
                         }
                         
                         // Make sure the dependency is run
-                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running).keys))
                             .toEventually(
                                 equal([100]),
                                 timeout: .milliseconds(50)
@@ -1334,7 +1390,7 @@ class JobRunnerSpec: QuickSpec {
                         
                         // Make sure there are no running jobs
                         dependencies.fixedTime = 1
-                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running).keys))
                             .toEventually(
                                 beEmpty(),
                                 timeout: .milliseconds(50)
@@ -1358,7 +1414,7 @@ class JobRunnerSpec: QuickSpec {
                         }
                         
                         // Make sure the dependency is run
-                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running).keys))
                             .toEventually(
                                 equal([100]),
                                 timeout: .milliseconds(50)
@@ -1366,7 +1422,7 @@ class JobRunnerSpec: QuickSpec {
                         
                         // Make sure there are no running jobs
                         dependencies.fixedTime = 1
-                        expect(jobRunner.detailsFor(state: .running))
+                        expect(jobRunner.jobInfoFor(state: .running))
                             .toEventually(
                                 beEmpty(),
                                 timeout: .milliseconds(50)
@@ -1385,7 +1441,7 @@ class JobRunnerSpec: QuickSpec {
                         }
                         
                         // Make sure the dependency is run
-                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running).keys))
                             .toEventually(
                                 equal([100]),
                                 timeout: .milliseconds(50)
@@ -1393,7 +1449,7 @@ class JobRunnerSpec: QuickSpec {
                         
                         // Make sure there are no running jobs
                         dependencies.fixedTime = 1
-                        expect(jobRunner.detailsFor(state: .running))
+                        expect(jobRunner.jobInfoFor(state: .running))
                             .toEventually(
                                 beEmpty(),
                                 timeout: .milliseconds(50)
@@ -1413,13 +1469,13 @@ class JobRunnerSpec: QuickSpec {
                         }
                         
                         // Make sure it runs
-                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running).keys))
                             .toEventually(
                                 equal([100]),
                                 timeout: .milliseconds(50)
                             )
                         dependencies.fixedTime = 1
-                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running).keys))
                             .toEventually(
                                 beEmpty(),
                                 timeout: .milliseconds(50)
@@ -1429,13 +1485,25 @@ class JobRunnerSpec: QuickSpec {
                         dependencies.fixedTime = 2
                         
                         // Make sure it finishes once
-                        expect(jobRunner.detailsFor(state: .running))
+                        expect(jobRunner.jobInfoFor(state: .running))
                             .toEventually(
-                                equal([100: try! JSONEncoder().encode(TestDetails(result: .deferred, completeTime: 3))]),
+                                equal(
+                                    [
+                                        100: JobRunner.JobInfo(
+                                            variant: .attachmentUpload,
+                                            threadId: nil,
+                                            interactionId: nil,
+                                            detailsData: try! JSONEncoder().encode(TestDetails(
+                                                result: .deferred,
+                                                completeTime: 3
+                                            ))
+                                        )
+                                    ]
+                                ),
                                 timeout: .milliseconds(50)
                             )
                         dependencies.fixedTime = 3
-                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running).keys))
                             .toEventually(
                                 beEmpty(),
                                 timeout: .milliseconds(50)
@@ -1445,13 +1513,25 @@ class JobRunnerSpec: QuickSpec {
                         dependencies.fixedTime = 4
                         
                         // Make sure it finishes twice
-                        expect(jobRunner.detailsFor(state: .running))
+                        expect(jobRunner.jobInfoFor(state: .running))
                             .toEventually(
-                                equal([100: try! JSONEncoder().encode(TestDetails(result: .deferred, completeTime: 5))]),
+                                equal(
+                                    [
+                                        100: JobRunner.JobInfo(
+                                            variant: .attachmentUpload,
+                                            threadId: nil,
+                                            interactionId: nil,
+                                            detailsData: try! JSONEncoder().encode(TestDetails(
+                                                result: .deferred,
+                                                completeTime: 5
+                                            ))
+                                        )
+                                    ]
+                                ),
                                 timeout: .milliseconds(50)
                             )
                         dependencies.fixedTime = 5
-                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running).keys))
                             .toEventually(
                                 beEmpty(),
                                 timeout: .milliseconds(50)
@@ -1461,13 +1541,25 @@ class JobRunnerSpec: QuickSpec {
                         dependencies.fixedTime = 6
                         
                         // Make sure it's finishes the last time
-                        expect(jobRunner.detailsFor(state: .running))
+                        expect(jobRunner.jobInfoFor(state: .running))
                             .toEventually(
-                                equal([100: try! JSONEncoder().encode(TestDetails(result: .deferred, completeTime: 7))]),
+                                equal(
+                                    [
+                                        100: JobRunner.JobInfo(
+                                            variant: .attachmentUpload,
+                                            threadId: nil,
+                                            interactionId: nil,
+                                            detailsData: try! JSONEncoder().encode(TestDetails(
+                                                result: .deferred,
+                                                completeTime: 7
+                                            ))
+                                        )
+                                    ]
+                                ),
                                 timeout: .milliseconds(50)
                             )
                         dependencies.fixedTime = 7
-                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running).keys))
                             .toEventually(
                                 beEmpty(),
                                 timeout: .milliseconds(50)
@@ -1491,7 +1583,7 @@ class JobRunnerSpec: QuickSpec {
                         }
                         
                         // Make sure the dependency is run
-                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running).keys))
                             .toEventually(
                                 equal([100]),
                                 timeout: .milliseconds(50)
@@ -1499,7 +1591,7 @@ class JobRunnerSpec: QuickSpec {
                         
                         // Make sure there are no running jobs
                         dependencies.fixedTime = 1
-                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running).keys))
                             .toEventually(
                                 beEmpty(),
                                 timeout: .milliseconds(50)
@@ -1516,7 +1608,7 @@ class JobRunnerSpec: QuickSpec {
                         }
                         
                         // Make sure the dependency is run
-                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running).keys))
                             .toEventually(
                                 equal([100]),
                                 timeout: .milliseconds(50)
@@ -1524,7 +1616,7 @@ class JobRunnerSpec: QuickSpec {
                         
                         // Make sure there are no running jobs
                         dependencies.fixedTime = 1
-                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running).keys))
                             .toEventually(
                                 beEmpty(),
                                 timeout: .milliseconds(50)
@@ -1548,7 +1640,7 @@ class JobRunnerSpec: QuickSpec {
                         }
                         
                         // Make sure the dependency is run
-                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running).keys))
                             .toEventually(
                                 equal([100]),
                                 timeout: .milliseconds(50)
@@ -1556,7 +1648,7 @@ class JobRunnerSpec: QuickSpec {
                         
                         // Make sure there are no running jobs
                         dependencies.fixedTime = 1
-                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running).keys))
                             .toEventually(
                                 beEmpty(),
                                 timeout: .milliseconds(50)
@@ -1573,7 +1665,7 @@ class JobRunnerSpec: QuickSpec {
                         }
                         
                         // Make sure the dependency is run
-                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running).keys))
                             .toEventually(
                                 equal([100]),
                                 timeout: .milliseconds(50)
@@ -1581,7 +1673,7 @@ class JobRunnerSpec: QuickSpec {
                         
                         // Make sure there are no running jobs
                         dependencies.fixedTime = 1
-                        expect(Array(jobRunner.detailsFor(state: .running).keys))
+                        expect(Array(jobRunner.jobInfoFor(state: .running).keys))
                             .toEventually(
                                 beEmpty(),
                                 timeout: .milliseconds(50)

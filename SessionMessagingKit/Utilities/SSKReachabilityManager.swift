@@ -7,6 +7,8 @@ public enum ReachabilityType: Int {
 
 @objc
 public protocol SSKReachabilityManager {
+    var reachability: Reachability { get }
+    
     var observationContext: AnyObject { get }
     func setup()
 

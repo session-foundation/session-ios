@@ -7,7 +7,15 @@ import SessionUtilitiesKit
 import SessionSnodeKit
 
 extension MessageReceiver {
-    public static func handleCallMessage(_ db: Database, message: CallMessage) throws {
+    public static func handleCallMessage(
+        _ db: Database,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        message: CallMessage
+    ) throws {
+        // Only support calls from contact threads
+        guard threadVariant == .contact else { return }
+        
         switch message.kind {
             case .preOffer: try MessageReceiver.handleNewCallMessage(db, message: message)
             case .offer: MessageReceiver.handleOfferCallMessage(db, message: message)
@@ -38,38 +46,55 @@ extension MessageReceiver {
     private static func handleNewCallMessage(_ db: Database, message: CallMessage) throws {
         SNLog("[Calls] Received pre-offer message.")
         
+        // Determine whether the app is active based on the prefs rather than the UIApplication state to avoid
+        // requiring main-thread execution
+        let isMainAppActive: Bool = (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false)
+        
         // It is enough just ignoring the pre offers, other call messages
         // for this call would be dropped because of no Session call instance
         guard
             CurrentAppContext().isMainApp,
             let sender: String = message.sender,
-            (try? Contact.fetchOne(db, id: sender))?.isApproved == true
+            (try? Contact
+                .filter(id: sender)
+                .select(.isApproved)
+                .asRequest(of: Bool.self)
+                .fetchOne(db))
+                .defaulting(to: false)
         else { return }
         guard let timestamp = message.sentTimestamp, TimestampUtils.isWithinOneMinute(timestamp: timestamp) else {
             // Add missed call message for call offer messages from more than one minute
             if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .missed) {
-                let thread: SessionThread = try SessionThread.fetchOrCreate(db, id: sender, variant: .contact)
+                let thread: SessionThread = try SessionThread
+                    .fetchOrCreate(db, id: sender, variant: .contact, shouldBeVisible: nil)
                 
-                Environment.shared?.notificationsManager.wrappedValue?
-                    .notifyUser(
-                        db,
-                        forIncomingCall: interaction,
-                        in: thread
-                    )
+                if !interaction.wasRead {
+                    Environment.shared?.notificationsManager.wrappedValue?
+                        .notifyUser(
+                            db,
+                            forIncomingCall: interaction,
+                            in: thread,
+                            applicationState: (isMainAppActive ? .active : .background)
+                        )
+                }
             }
             return
         }
         
         guard db[.areCallsEnabled] else {
             if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .permissionDenied) {
-                let thread: SessionThread = try SessionThread.fetchOrCreate(db, id: sender, variant: .contact)
+                let thread: SessionThread = try SessionThread
+                    .fetchOrCreate(db, id: sender, variant: .contact, shouldBeVisible: nil)
                 
-                Environment.shared?.notificationsManager.wrappedValue?
-                    .notifyUser(
-                        db,
-                        forIncomingCall: interaction,
-                        in: thread
-                    )
+                if !interaction.wasRead {
+                    Environment.shared?.notificationsManager.wrappedValue?
+                        .notifyUser(
+                            db,
+                            forIncomingCall: interaction,
+                            in: thread,
+                            applicationState: (isMainAppActive ? .active : .background)
+                        )
+                }
                 
                 // Trigger the missed call UI if needed
                 NotificationCenter.default.post(
@@ -181,6 +206,10 @@ extension MessageReceiver {
         
         SNLog("[Calls] Sending end call message because there is an ongoing call.")
         
+        let messageSentTimestamp: Int64 = (
+            message.sentTimestamp.map { Int64($0) } ??
+            SnodeAPI.currentOffsetTimestampMs()
+        )
         _ = try Interaction(
             serverHash: message.serverHash,
             messageUuid: message.uuid,
@@ -188,26 +217,36 @@ extension MessageReceiver {
             authorId: caller,
             variant: .infoCall,
             body: String(data: messageInfoData, encoding: .utf8),
-            timestampMs: (
-                message.sentTimestamp.map { Int64($0) } ??
-                SnodeAPI.currentOffsetTimestampMs()
+            timestampMs: messageSentTimestamp,
+            wasRead: SessionUtil.timestampAlreadyRead(
+                threadId: thread.id,
+                threadVariant: thread.variant,
+                timestampMs: (messageSentTimestamp * 1000),
+                userPublicKey: getUserHexEncodedPublicKey(db),
+                openGroup: nil
             )
         )
         .inserted(db)
         
-        try MessageSender
-            .sendNonDurably(
-                db,
-                message: CallMessage(
-                    uuid: message.uuid,
-                    kind: .endCall,
-                    sdps: [],
-                    sentTimestampMs: nil // Explicitly nil as it's a separate message from above
-                ),
-                interactionId: nil,      // Explicitly nil as it's a separate message from above
-                in: thread
-            )
-            .retainUntilComplete()
+        MessageSender.sendImmediate(
+            preparedSendData: try MessageSender
+                .preparedSendData(
+                    db,
+                    message: CallMessage(
+                        uuid: message.uuid,
+                        kind: .endCall,
+                        sdps: [],
+                        sentTimestampMs: nil // Explicitly nil as it's a separate message from above
+                    ),
+                    to: try Message.Destination.from(db, threadId: thread.id, threadVariant: thread.variant),
+                    namespace: try Message.Destination
+                        .from(db, threadId: thread.id, threadVariant: thread.variant)
+                        .defaultNamespace,
+                    interactionId: nil      // Explicitly nil as it's a separate message from above
+                )
+        )
+        .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+        .sinkUntilComplete()
     }
     
     @discardableResult public static func insertCallInfoMessage(
@@ -226,9 +265,10 @@ extension MessageReceiver {
             !thread.isMessageRequest(db)
         else { return nil }
         
+        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
         let messageInfo: CallMessage.MessageInfo = CallMessage.MessageInfo(
             state: state.defaulting(
-                to: (sender == getUserHexEncodedPublicKey(db) ?
+                to: (sender == currentUserPublicKey ?
                     .outgoing :
                     .incoming
                 )
@@ -248,7 +288,14 @@ extension MessageReceiver {
             authorId: sender,
             variant: .infoCall,
             body: String(data: messageInfoData, encoding: .utf8),
-            timestampMs: timestampMs
+            timestampMs: timestampMs,
+            wasRead: SessionUtil.timestampAlreadyRead(
+                threadId: thread.id,
+                threadVariant: thread.variant,
+                timestampMs: (timestampMs * 1000),
+                userPublicKey: currentUserPublicKey,
+                openGroup: nil
+            )
         ).inserted(db)
     }
 }

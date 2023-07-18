@@ -2,6 +2,7 @@
 
 import UIKit
 import SessionUIKit
+import SignalCoreKit
 
 protocol ApprovalRailCellViewDelegate: AnyObject {
     func approvalRailCellView(_ approvalRailCellView: ApprovalRailCellView, didRemoveItem attachmentItem: SignalAttachmentItem)

@@ -100,7 +100,7 @@ private class CaptionView: UIView {
     let textView: CaptionTextView = {
         let textView = CaptionTextView()
 
-        textView.font = UIFont.ows_dynamicTypeBody
+        textView.font = UIFont.preferredFont(forTextStyle: .body)
         textView.themeTextColor = .textPrimary
         textView.themeBackgroundColor = .clear
         textView.isEditable = false

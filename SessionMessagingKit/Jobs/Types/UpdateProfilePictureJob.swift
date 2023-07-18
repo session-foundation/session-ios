@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import SignalCoreKit
 import SessionUtilitiesKit
 
 public enum UpdateProfilePictureJob: JobExecutor {
@@ -20,8 +19,7 @@ public enum UpdateProfilePictureJob: JobExecutor {
     ) {
         // Don't run when inactive or not in main app
         guard (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false) else {
-            deferred(job, dependencies) // Don't need to do anything if it's not the main app
-            return
+            return deferred(job, dependencies) // Don't need to do anything if it's not the main app
         }
         
         // Only re-upload the profile picture if enough time has passed since the last upload
@@ -38,31 +36,33 @@ public enum UpdateProfilePictureJob: JobExecutor {
                         .updateAll(db, Job.Columns.nextRunTimestamp.set(to: 0))
                 }
             }
-            deferred(job, dependencies)
-            return
+
+            SNLog("[UpdateProfilePictureJob] Deferred as not enough time has passed since the last update")
+            return deferred(job, dependencies)
         }
         
         // Note: The user defaults flag is updated in ProfileManager
         let profile: Profile = Profile.fetchOrCreateCurrentUser(dependencies: dependencies)
-        let profileFilePath: String? = profile.profilePictureFileName
-            .map { ProfileManager.profileAvatarFilepath(filename: $0) }
+        let profilePictureData: Data? = profile.profilePictureFileName
+            .map { ProfileManager.loadProfileData(with: $0) }
         
         ProfileManager.updateLocal(
             queue: queue,
             profileName: profile.name,
-            image: nil,
-            imageFilePath: profileFilePath,
-            success: { db, _ in
-                try MessageSender.syncConfiguration(db, forceSyncNow: true).retainUntilComplete()
-                
+            avatarUpdate: (profilePictureData.map { .uploadImageData($0) } ?? .none),
+            success: { db in
                 // Need to call the 'success' closure asynchronously on the queue to prevent a reentrancy
                 // issue as it will write to the database and this closure is already called within
                 // another database write
                 queue.async {
+                    SNLog("[UpdateProfilePictureJob] Profile successfully updated")
                     success(job, false, dependencies)
                 }
             },
-            failure: { error in failure(job, error, false, dependencies) }
+            failure: { error in
+                SNLog("[UpdateProfilePictureJob] Failed to update profile")
+                failure(job, error, false, dependencies)
+            }
         )
     }
 }

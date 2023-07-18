@@ -2,12 +2,13 @@
 
 import Foundation
 import GRDB
+import DifferenceKit
 import SessionUtilitiesKit
 
 public struct ClosedGroup: Codable, Identifiable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "closedGroup" }
     internal static let threadForeignKey = ForeignKey([Columns.threadId], to: [SessionThread.Columns.id])
-    private static let thread = belongsTo(SessionThread.self, using: threadForeignKey)
+    public static let thread = belongsTo(SessionThread.self, using: threadForeignKey)
     internal static let keyPairs = hasMany(
         ClosedGroupKeyPair.self,
         using: ClosedGroupKeyPair.closedGroupForeignKey
@@ -20,6 +21,12 @@ public struct ClosedGroup: Codable, Identifiable, FetchableRecord, PersistableRe
         case name
         case formationTimestamp
     }
+    
+    /// The Group public key takes up 32 bytes
+    static let pubkeyByteLength: Int = 32
+    
+    /// The Group secret key takes up 32 bytes
+    static let secretKeyByteLength: Int = 32
     
     public var id: String { threadId }  // Identifiable
     public var publicKey: String { threadId }
@@ -85,5 +92,113 @@ public extension ClosedGroup {
         return try keyPairs
             .order(ClosedGroupKeyPair.Columns.receivedTimestamp.desc)
             .fetchOne(db)
+    }
+}
+
+// MARK: - Convenience
+
+public extension ClosedGroup {
+    enum LeaveType {
+        case standard
+        case silent
+        case forced
+    }
+    
+    static func removeKeysAndUnsubscribe(
+        _ db: Database? = nil,
+        threadId: String,
+        removeGroupData: Bool,
+        calledFromConfigHandling: Bool
+    ) throws {
+        try removeKeysAndUnsubscribe(
+            db,
+            threadIds: [threadId],
+            removeGroupData: removeGroupData,
+            calledFromConfigHandling: calledFromConfigHandling
+        )
+    }
+    
+    static func removeKeysAndUnsubscribe(
+        _ db: Database? = nil,
+        threadIds: [String],
+        removeGroupData: Bool,
+        calledFromConfigHandling: Bool
+    ) throws {
+        guard !threadIds.isEmpty else { return }
+        guard let db: Database = db else {
+            Storage.shared.write { db in
+                try ClosedGroup.removeKeysAndUnsubscribe(
+                    db,
+                    threadIds: threadIds,
+                    removeGroupData: removeGroupData,
+                    calledFromConfigHandling: calledFromConfigHandling
+                )
+            }
+            return
+        }
+        
+        // Remove the group from the database and unsubscribe from PNs
+        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        
+        threadIds.forEach { threadId in
+            ClosedGroupPoller.shared.stopPolling(for: threadId)
+            
+            PushNotificationAPI
+                .performOperation(
+                    .unsubscribe,
+                    for: threadId,
+                    publicKey: userPublicKey
+                )
+                .sinkUntilComplete()
+        }
+        
+        // Remove the keys for the group
+        try ClosedGroupKeyPair
+            .filter(threadIds.contains(ClosedGroupKeyPair.Columns.threadId))
+            .deleteAll(db)
+        
+        struct ThreadIdVariant: Decodable, FetchableRecord {
+            let id: String
+            let variant: SessionThread.Variant
+        }
+        
+        let threadVariants: [ThreadIdVariant] = try SessionThread
+            .select(.id, .variant)
+            .filter(ids: threadIds)
+            .asRequest(of: ThreadIdVariant.self)
+            .fetchAll(db)
+        
+        // Remove the remaining group data if desired
+        if removeGroupData {
+            try SessionThread   // Intentionally use `deleteAll` here as this gets triggered via `deleteOrLeave`
+                .filter(ids: threadIds)
+                .deleteAll(db)
+            
+            try ClosedGroup
+                .filter(ids: threadIds)
+                .deleteAll(db)
+            
+            try GroupMember
+                .filter(threadIds.contains(GroupMember.Columns.groupId))
+                .deleteAll(db)
+        }
+        
+        // If we weren't called from config handling then we need to remove the group
+        // data from the config
+        if !calledFromConfigHandling {
+            try SessionUtil.remove(
+                db,
+                legacyGroupIds: threadVariants
+                    .filter { $0.variant == .legacyGroup }
+                    .map { $0.id }
+            )
+            
+            try SessionUtil.remove(
+                db,
+                groupIds: threadVariants
+                    .filter { $0.variant == .group }
+                    .map { $0.id }
+            )
+        }
     }
 }
