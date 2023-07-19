@@ -54,7 +54,7 @@ struct MessageInfoView: View {
                     }
                     
                     // TODO: Attachment carousel view
-                    SessionCarouselView_SwiftUI(colors: [.orange, .gray, .blue, .yellow])
+                    SessionCarouselView_SwiftUI(contentInfos: [.orange, .gray, .blue, .yellow])
                         .frame(
                             maxWidth: .infinity,
                             maxHeight: .infinity,

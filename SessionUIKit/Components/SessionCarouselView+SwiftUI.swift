@@ -3,36 +3,44 @@
 import SwiftUI
 
 public struct SessionCarouselView_SwiftUI: View {
-    @State var index = 0
+    @State var index = 1
 
-    var colors: [Color]
+    var contentInfos: [Color]
+    let numberOfPages: Int
     
-    public init(colors: [Color]) {
-        self.colors = colors
+    public init(contentInfos: [Color]) {
+        self.contentInfos = contentInfos
+        self.numberOfPages = contentInfos.count
+        
+        let first = self.contentInfos.first!
+        let last = self.contentInfos.last!
+        self.contentInfos.append(first)
+        self.contentInfos.insert(last, at: 0)
     }
     
     public var body: some View {
         HStack(spacing: 0) {
-            ArrowView(value: $index.animation(.easeInOut), range: 0...(colors.count - 1), type: .decrement)
+            ArrowView(index: $index, numberOfPages: numberOfPages, type: .decrement)
                 .zIndex(1)
             
-            PageView(index: $index.animation(), maxIndex: colors.count - 1) {
-                ForEach(self.colors, id: \.self) { color in
+            PageView(index: $index, numberOfPages: self.numberOfPages) {
+                ForEach(self.contentInfos, id: \.self) { color in
                     Rectangle()
                         .foregroundColor(color)
                 }
             }
             .aspectRatio(1, contentMode: .fit)
             
-            ArrowView(value: $index.animation(.easeInOut), range: 0...(colors.count - 1), type: .increment)
+            ArrowView(index: $index, numberOfPages: numberOfPages, type: .increment)
                 .zIndex(1)
         }
     }
 }
 
 struct ArrowView: View {
-    @Binding var value: Int
-    let range: ClosedRange<Int>
+    @Binding var index: Int
+    let numberOfPages: Int
+    let maxIndex: Int
     let type: ArrowType
     
     enum ArrowType {
@@ -40,9 +48,10 @@ struct ArrowView: View {
         case decrement
     }
     
-    init(value: Binding<Int>, range: ClosedRange<Int>, type: ArrowType) {
-        self._value = value
-        self.range = range
+    init(index: Binding<Int>, numberOfPages: Int, type: ArrowType) {
+        self._index = index
+        self.numberOfPages = numberOfPages
+        self.maxIndex = numberOfPages + 1
         self.type = type
     }
     
@@ -63,36 +72,40 @@ struct ArrowView: View {
     }
     
     func decrement() {
-        if value > range.lowerBound {
-            value -= 1
+        withAnimation(.easeOut) {
+            self.index -= 1
         }
-        if value < range.lowerBound {
-            value = range.lowerBound
+        
+        if self.index == 0 {
+            self.index = self.maxIndex - 1
         }
     }
     
     func increment() {
-        if value < range.upperBound {
-            value += 1
+        withAnimation(.easeOut) {
+            self.index += 1
         }
-        if value > range.upperBound {
-            value = range.upperBound
+        
+        if self.index == self.maxIndex {
+            self.index = 1
         }
     }
 }
 
 struct PageView<Content>: View where Content: View {
     @Binding var index: Int
+    let numberOfPages: Int
     let maxIndex: Int
     let content: () -> Content
 
     @State private var offset = CGFloat.zero
     @State private var dragging = false
 
-    init(index: Binding<Int>, maxIndex: Int, @ViewBuilder content: @escaping () -> Content) {
+    init(index: Binding<Int>, numberOfPages: Int, @ViewBuilder content: @escaping () -> Content) {
         self._index = index
-        self.maxIndex = maxIndex
+        self.numberOfPages = numberOfPages
         self.content = content
+        self.maxIndex = numberOfPages + 1
     }
 
     var body: some View {
@@ -120,12 +133,17 @@ struct PageView<Content>: View where Content: View {
                             withAnimation(.easeOut) {
                                 self.dragging = false
                             }
+                            switch self.index {
+                                case 0: self.index = self.maxIndex - 1
+                                case self.maxIndex: self.index = 1
+                                default: break
+                            }
                         }
                 )
             }
             .clipped()
 
-            PageControl(index: $index, maxIndex: maxIndex)
+            PageControl(index: $index, maxIndex: numberOfPages - 1)
                 .padding(EdgeInsets(top: 0, leading: 0, bottom: 8, trailing: 0))
         }
     }
@@ -157,7 +175,7 @@ struct PageControl: View {
             HStack(spacing: 4) {
                 ForEach(0...maxIndex, id: \.self) { index in
                     Circle()
-                        .fill(index == self.index ? Color.white : Color.gray)
+                        .fill(index == ((self.index - 1) % (self.maxIndex + 1)) ? Color.white : Color.gray)
                         .frame(width: 6.62, height: 6.62)
                 }
             }
@@ -180,7 +198,7 @@ struct SessionCarouselView_SwiftUI_Previews: PreviewProvider {
                 Color.black
             }
             
-            SessionCarouselView_SwiftUI(colors: [.red, .orange, .blue])
+            SessionCarouselView_SwiftUI(contentInfos: [.red, .orange, .blue])
         }
     }
 }
