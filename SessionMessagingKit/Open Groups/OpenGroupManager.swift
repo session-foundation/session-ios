@@ -36,8 +36,8 @@ public final class OpenGroupManager {
                 return .greatestFiniteMagnitude
             }
             
-            _timeSinceLastOpen = dependencies.date.timeIntervalSince(lastOpen)
-            return dependencies.date.timeIntervalSince(lastOpen)
+            _timeSinceLastOpen = Date().timeIntervalSince(lastOpen)
+            return Date().timeIntervalSince(lastOpen)
         }
         
         public var pendingChanges: [OpenGroupAPI.PendingChange] = []
@@ -1129,7 +1129,7 @@ public final class OpenGroupManager {
         // there is one.
         let threadId: String = OpenGroup.idFor(roomToken: roomToken, server: server)
         let lastOpenGroupImageUpdate: Date? = dependencies.standardUserDefaults[.lastOpenGroupImageUpdate]
-        let now: Date = dependencies.date
+        let now: Date = Date()
         let timeSinceLastUpdate: TimeInterval = (lastOpenGroupImageUpdate.map { now.timeIntervalSince($0) } ?? .greatestFiniteMagnitude)
         let updateInterval: TimeInterval = (7 * 24 * 60 * 60)
         let canUseExistingImage: Bool = (

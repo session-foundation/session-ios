@@ -752,9 +752,22 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     // MARK: - Interaction
     
     func handleContinueButtonTapped(from seedReminderView: SeedReminderView) {
-        let seedVC = SeedVC()
-        let navigationController = StyledNavigationController(rootViewController: seedVC)
-        present(navigationController, animated: true, completion: nil)
+        let targetViewController: UIViewController = {
+            if let seedVC: SeedVC = try? SeedVC() {
+                return StyledNavigationController(rootViewController: seedVC)
+            }
+            
+            return ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "ALERT_ERROR_TITLE".localized(),
+                    body: .text("LOAD_RECOVERY_PASSWORD_ERROR".localized()),
+                    cancelTitle: "BUTTON_OK".localized(),
+                    cancelStyle: .alert_text
+                )
+            )
+        }()
+        
+        present(targetViewController, animated: true, completion: nil)
     }
     
     func show(
