@@ -1256,7 +1256,7 @@ public enum OpenGroupAPI {
             }
 
             return (
-                publicKey: SessionId(.blinded, publicKey: blindedKeyPair.publicKey).hexString,
+                publicKey: SessionId(.blinded15, publicKey: blindedKeyPair.publicKey).hexString,
                 signature: signatureResult
             )
         }

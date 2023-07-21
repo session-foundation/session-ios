@@ -704,13 +704,15 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
                 
                 // Cannot properly sync outgoing blinded message requests so only provide valid options
                 let shouldHavePinAction: Bool = (
-                    sessionIdPrefix != .blinded
+                    sessionIdPrefix != .blinded15 &&
+                    sessionIdPrefix != .blinded25
                 )
                 let shouldHaveMuteAction: Bool = {
                     switch threadViewModel.threadVariant {
                         case .contact: return (
                             !threadViewModel.threadIsNoteToSelf &&
-                            sessionIdPrefix != .blinded
+                            sessionIdPrefix != .blinded15 &&
+                            sessionIdPrefix != .blinded25
                         )
                             
                         case .legacyGroup, .group: return (

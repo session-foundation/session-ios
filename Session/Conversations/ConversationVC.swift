@@ -658,7 +658,10 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                     // and need to swap over to the new one
                     guard
                         let sessionId: String = self?.viewModel.threadData.threadId,
-                        SessionId.Prefix(from: sessionId) == .blinded,
+                        (
+                            SessionId.Prefix(from: sessionId) == .blinded15 ||
+                            SessionId.Prefix(from: sessionId) == .blinded25
+                        ),
                         let blindedLookup: BlindedIdLookup = Storage.shared.read({ db in
                             try BlindedIdLookup
                                 .filter(id: sessionId)

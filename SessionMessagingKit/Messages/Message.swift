@@ -417,12 +417,21 @@ public extension Message {
         var results: [Reaction] = []
         guard let reactions = message.reactions else { return results }
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
-        let blindedUserPublicKey: String? = SessionThread
+        let blinded15UserPublicKey: String? = SessionThread
             .getUserHexEncodedBlindedKey(
                 db,
                 threadId: openGroupId,
-                threadVariant: .community
+                threadVariant: .community,
+                blindingPrefix: .blinded15
             )
+        let blinded25UserPublicKey: String? = SessionThread
+            .getUserHexEncodedBlindedKey(
+                db,
+                threadId: openGroupId,
+                threadVariant: .community,
+                blindingPrefix: .blinded25
+            )
+        
         for (encodedEmoji, rawReaction) in reactions {
             if let decodedEmoji = encodedEmoji.removingPercentEncoding,
                rawReaction.count > 0,
@@ -469,7 +478,11 @@ public extension Message {
                 let timestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
                 let maxLength: Int = shouldAddSelfReaction ? 4 : 5
                 let desiredReactorIds: [String] = reactors
-                    .filter { $0 != blindedUserPublicKey && $0 != userPublicKey } // Remove current user for now, will add back if needed
+                    .filter { id -> Bool in
+                        id != blinded15UserPublicKey &&
+                        id != blinded25UserPublicKey &&
+                        id != userPublicKey
+                    } // Remove current user for now, will add back if needed
                     .prefix(maxLength)
                     .map{ $0 }
 

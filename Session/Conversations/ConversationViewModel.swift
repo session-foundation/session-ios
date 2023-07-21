@@ -71,7 +71,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             threadIsBlocked: Bool,
             currentUserIsClosedGroupMember: Bool?,
             openGroupPermissions: OpenGroup.Permissions?,
-            blindedKey: String?
+            blinded15Key: String?,
+            blinded25Key: String?
         )
         
         let initialData: InitialData? = Storage.shared.read { db -> InitialData in
@@ -110,10 +111,17 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                     .asRequest(of: OpenGroup.Permissions.self)
                     .fetchOne(db)
             )
-            let blindedKey: String? = SessionThread.getUserHexEncodedBlindedKey(
+            let blinded15Key: String? = SessionThread.getUserHexEncodedBlindedKey(
                 db,
                 threadId: threadId,
-                threadVariant: threadVariant
+                threadVariant: threadVariant,
+                blindingPrefix: .blinded15
+            )
+            let blinded25Key: String? = SessionThread.getUserHexEncodedBlindedKey(
+                db,
+                threadId: threadId,
+                threadVariant: threadVariant,
+                blindingPrefix: .blinded25
             )
             
             return (
@@ -122,7 +130,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                 threadIsBlocked,
                 currentUserIsClosedGroupMember,
                 openGroupPermissions,
-                blindedKey
+                blinded15Key,
+                blinded25Key
             )
         }
         
@@ -138,7 +147,10 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             threadIsBlocked: initialData?.threadIsBlocked,
             currentUserIsClosedGroupMember: initialData?.currentUserIsClosedGroupMember,
             openGroupPermissions: initialData?.openGroupPermissions
-        ).populatingCurrentUserBlindedKey(currentUserBlindedPublicKeyForThisThread: initialData?.blindedKey)
+        ).populatingCurrentUserBlindedKeys(
+            currentUserBlinded15PublicKeyForThisThread: initialData?.blinded15Key,
+            currentUserBlinded25PublicKeyForThisThread: initialData?.blinded25Key
+        )
         self.pagedDataObserver = nil
         
         // Note: Since this references self we need to finish initializing before setting it, we
@@ -148,10 +160,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         self.pagedDataObserver = self.setupPagedObserver(
             for: threadId,
             userPublicKey: (initialData?.currentUserPublicKey ?? getUserHexEncodedPublicKey()),
-            blindedPublicKey: SessionThread.getUserHexEncodedBlindedKey(
-                threadId: threadId,
-                threadVariant: threadVariant
-            )
+            blinded15PublicKey: initialData?.blinded15Key,
+            blinded25PublicKey: initialData?.blinded25Key
         )
         
         // Run the initial query on a background thread so we don't block the push transition
@@ -197,9 +207,10 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                 return threadViewModel
                     .map { $0.with(recentReactionEmoji: recentReactionEmoji) }
                     .map { viewModel -> SessionThreadViewModel in
-                        viewModel.populatingCurrentUserBlindedKey(
+                        viewModel.populatingCurrentUserBlindedKeys(
                             db,
-                            currentUserBlindedPublicKeyForThisThread: self?.threadData.currentUserBlindedPublicKey
+                            currentUserBlinded15PublicKeyForThisThread: self?.threadData.currentUserBlinded15PublicKey,
+                            currentUserBlinded25PublicKeyForThisThread: self?.threadData.currentUserBlinded25PublicKey
                         )
                     }
             }
@@ -237,7 +248,12 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         }
     }
     
-    private func setupPagedObserver(for threadId: String, userPublicKey: String, blindedPublicKey: String?) -> PagedDatabaseObserver<Interaction, MessageViewModel> {
+    private func setupPagedObserver(
+        for threadId: String,
+        userPublicKey: String,
+        blinded15PublicKey: String?,
+        blinded25PublicKey: String?
+    ) -> PagedDatabaseObserver<Interaction, MessageViewModel> {
         return PagedDatabaseObserver(
             pagedTable: Interaction.self,
             pageSize: ConversationViewModel.pageSize,
@@ -285,7 +301,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             orderSQL: MessageViewModel.orderSQL,
             dataQuery: MessageViewModel.baseQuery(
                 userPublicKey: userPublicKey,
-                blindedPublicKey: blindedPublicKey,
+                blinded15PublicKey: blinded15PublicKey,
+                blinded25PublicKey: blinded25PublicKey,
                 orderSQL: MessageViewModel.orderSQL,
                 groupSQL: MessageViewModel.groupSQL
             ),
@@ -391,12 +408,14 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                                     cellViewModel.id == sortedData
                                         .filter {
                                             $0.authorId == threadData.currentUserPublicKey ||
-                                            $0.authorId == threadData.currentUserBlindedPublicKey
+                                            $0.authorId == threadData.currentUserBlinded15PublicKey ||
+                                            $0.authorId == threadData.currentUserBlinded25PublicKey
                                         }
                                         .last?
                                         .id
                                 ),
-                                currentUserBlindedPublicKey: threadData.currentUserBlindedPublicKey
+                                currentUserBlinded15PublicKey: threadData.currentUserBlinded15PublicKey,
+                                currentUserBlinded25PublicKey: threadData.currentUserBlinded25PublicKey
                             )
                         }
                         .reduce([]) { result, message in
@@ -460,14 +479,15 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         let currentUserProfile: Profile = Profile.fetchOrCreateCurrentUser()
         let interaction: Interaction = Interaction(
             threadId: threadData.threadId,
-            authorId: (threadData.currentUserBlindedPublicKey ?? threadData.currentUserPublicKey),
+            authorId: (threadData.currentUserBlinded15PublicKey ?? threadData.currentUserPublicKey),
             variant: .standardOutgoing,
             body: text,
             timestampMs: sentTimestampMs,
             hasMention: Interaction.isUserMentioned(
                 publicKeysToCheck: [
                     threadData.currentUserPublicKey,
-                    threadData.currentUserBlindedPublicKey
+                    threadData.currentUserBlinded15PublicKey,
+                    threadData.currentUserBlinded25PublicKey
                 ].compactMap { $0 },
                 body: text
             ),
@@ -595,9 +615,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                         .fetchSet(db)
                 )
                 .defaulting(to: [])
-                let targetPrefix: SessionId.Prefix = (capabilities.contains(.blind) ?
-                    .blinded :
-                    .standard
+                let targetPrefixes: [SessionId.Prefix] = (capabilities.contains(.blind) ?
+                    [.blinded15, .blinded25] :
+                    [.standard]
                 )
                 
                 return (try MentionInfo
@@ -605,7 +625,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                         userPublicKey: userPublicKey,
                         threadId: threadData.threadId,
                         threadVariant: threadData.threadVariant,
-                        targetPrefix: targetPrefix,
+                        targetPrefixes: targetPrefixes,
                         pattern: pattern
                     )?
                     .fetchAll(db))
@@ -700,7 +720,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         self.pagedDataObserver = self.setupPagedObserver(
             for: updatedThreadId,
             userPublicKey: getUserHexEncodedPublicKey(),
-            blindedPublicKey: nil
+            blinded15PublicKey: nil,
+            blinded25PublicKey: nil
         )
         
         // Try load everything up to the initial visible message, fallback to just the initial page of messages

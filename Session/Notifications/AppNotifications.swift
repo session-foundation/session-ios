@@ -239,10 +239,17 @@ public class NotificationPresenter: NotificationsProtocol {
         ]
         
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
-        let userBlindedKey: String? = SessionThread.getUserHexEncodedBlindedKey(
+        let userBlinded15Key: String? = SessionThread.getUserHexEncodedBlindedKey(
             db,
             threadId: thread.id,
-            threadVariant: thread.variant
+            threadVariant: thread.variant,
+            blindingPrefix: .blinded15
+        )
+        let userBlinded25Key: String? = SessionThread.getUserHexEncodedBlindedKey(
+            db,
+            threadId: thread.id,
+            threadVariant: thread.variant,
+            blindingPrefix: .blinded25
         )
         let fallbackSound: Preferences.Sound = db[.defaultNotificationSound]
             .defaulting(to: Preferences.Sound.defaultNotificationSound)
@@ -257,7 +264,8 @@ public class NotificationPresenter: NotificationsProtocol {
             in: (notificationBody ?? ""),
             threadVariant: thread.variant,
             currentUserPublicKey: userPublicKey,
-            currentUserBlindedPublicKey: userBlindedKey
+            currentUserBlinded15PublicKey: userBlinded15Key,
+            currentUserBlinded25PublicKey: userBlinded25Key
         )
         
         self.adaptee.notify(

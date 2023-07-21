@@ -203,11 +203,16 @@ extension Sodium {
     /// This method should be used to check if a users standard sessionId matches a blinded one
     public func sessionId(_ standardSessionId: String, matchesBlindedId blindedSessionId: String, serverPublicKey: String, genericHash: GenericHashType) -> Bool {
         // Only support generating blinded keys for standard session ids
-        guard let sessionId: SessionId = SessionId(from: standardSessionId), sessionId.prefix == .standard else { return false }
-        guard let blindedId: SessionId = SessionId(from: blindedSessionId), blindedId.prefix == .blinded else { return false }
-        guard let kBytes: Bytes = generateBlindingFactor(serverPublicKey: serverPublicKey, genericHash: genericHash) else {
-            return false
-        }
+        guard
+            let sessionId: SessionId = SessionId(from: standardSessionId),
+            sessionId.prefix == .standard,
+            let blindedId: SessionId = SessionId(from: blindedSessionId),
+            (
+                blindedId.prefix == .blinded15 ||
+                blindedId.prefix == .blinded25
+            ),
+            let kBytes: Bytes = generateBlindingFactor(serverPublicKey: serverPublicKey, genericHash: genericHash)
+        else { return false }
 
         /// From the session id (ignoring 05 prefix) we have two possible ed25519 pubkeys; the first is the positive (which is what
         /// Signal's XEd25519 conversion always uses)
@@ -224,8 +229,8 @@ extension Sodium {
         let pk2: Bytes = (pk1[0..<31] + [(pk1[31] ^ 0b1000_0000)])
         
         return (
-            SessionId(.blinded, publicKey: pk1).publicKey == blindedId.publicKey ||
-            SessionId(.blinded, publicKey: pk2).publicKey == blindedId.publicKey
+            SessionId(.blinded15, publicKey: pk1).publicKey == blindedId.publicKey ||
+            SessionId(.blinded15, publicKey: pk2).publicKey == blindedId.publicKey
         )
     }
 }

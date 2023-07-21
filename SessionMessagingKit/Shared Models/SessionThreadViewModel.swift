@@ -158,7 +158,8 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     private let threadContactNameInternal: String?
     private let authorNameInternal: String?
     public let currentUserPublicKey: String
-    public let currentUserBlindedPublicKey: String?
+    public let currentUserBlinded15PublicKey: String?
+    public let currentUserBlinded25PublicKey: String?
     public let recentReactionEmoji: [String]?
     
     // UI specific logic
@@ -416,7 +417,8 @@ public extension SessionThreadViewModel {
         self.threadContactNameInternal = nil
         self.authorNameInternal = nil
         self.currentUserPublicKey = getUserHexEncodedPublicKey()
-        self.currentUserBlindedPublicKey = nil
+        self.currentUserBlinded15PublicKey = nil
+        self.currentUserBlinded25PublicKey = nil
         self.recentReactionEmoji = nil
     }
 }
@@ -477,14 +479,16 @@ public extension SessionThreadViewModel {
             threadContactNameInternal: self.threadContactNameInternal,
             authorNameInternal: self.authorNameInternal,
             currentUserPublicKey: self.currentUserPublicKey,
-            currentUserBlindedPublicKey: self.currentUserBlindedPublicKey,
+            currentUserBlinded15PublicKey: self.currentUserBlinded15PublicKey,
+            currentUserBlinded25PublicKey: self.currentUserBlinded25PublicKey,
             recentReactionEmoji: (recentReactionEmoji ?? self.recentReactionEmoji)
         )
     }
     
-    func populatingCurrentUserBlindedKey(
+    func populatingCurrentUserBlindedKeys(
         _ db: Database? = nil,
-        currentUserBlindedPublicKeyForThisThread: String? = nil
+        currentUserBlinded15PublicKeyForThisThread: String? = nil,
+        currentUserBlinded25PublicKeyForThisThread: String? = nil
     ) -> SessionThreadViewModel {
         return SessionThreadViewModel(
             rowId: self.rowId,
@@ -536,12 +540,22 @@ public extension SessionThreadViewModel {
             threadContactNameInternal: self.threadContactNameInternal,
             authorNameInternal: self.authorNameInternal,
             currentUserPublicKey: self.currentUserPublicKey,
-            currentUserBlindedPublicKey: (
-                currentUserBlindedPublicKeyForThisThread ??
+            currentUserBlinded15PublicKey: (
+                currentUserBlinded15PublicKeyForThisThread ??
                 SessionThread.getUserHexEncodedBlindedKey(
                     db,
                     threadId: self.threadId,
-                    threadVariant: self.threadVariant
+                    threadVariant: self.threadVariant,
+                    blindingPrefix: .blinded15
+                )
+            ),
+            currentUserBlinded25PublicKey: (
+                currentUserBlinded25PublicKeyForThisThread ??
+                SessionThread.getUserHexEncodedBlindedKey(
+                    db,
+                    threadId: self.threadId,
+                    threadVariant: self.threadVariant,
+                    blindingPrefix: .blinded25
                 )
             ),
             recentReactionEmoji: self.recentReactionEmoji

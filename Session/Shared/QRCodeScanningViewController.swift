@@ -110,7 +110,12 @@ class QRCodeScanningViewController: UIViewController, AVCaptureMetadataOutputObj
                     
                     // Set the input device to autoFocus (since we don't have the interaction setup for
                     // doing it manually)
-                    maybeDevice?.focusMode = .continuousAutoFocus
+                    do {
+                        try maybeDevice?.lockForConfiguration()
+                        maybeDevice?.focusMode = .continuousAutoFocus
+                        maybeDevice?.unlockForConfiguration()
+                    }
+                    catch {}
                     
                     // Device input
                     guard
