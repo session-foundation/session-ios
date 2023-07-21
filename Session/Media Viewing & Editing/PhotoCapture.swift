@@ -360,10 +360,15 @@ extension PhotoCapture: CaptureButtonDelegate {
                     do {
                         try strongSelf.startAudioCapture()
                         strongSelf.captureOutput.beginVideo(delegate: strongSelf)
-                        strongSelf.delegate?.photoCaptureDidBeginVideo(strongSelf)
+                        
+                        DispatchQueue.main.async {
+                            strongSelf.delegate?.photoCaptureDidBeginVideo(strongSelf)
+                        }
                     }
                     catch {
-                        strongSelf.delegate?.photoCapture(strongSelf, processingDidError: error)
+                        DispatchQueue.main.async {
+                            strongSelf.delegate?.photoCapture(strongSelf, processingDidError: error)
+                        }
                     }
                 }
             )
