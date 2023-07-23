@@ -162,8 +162,11 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     
     public let isLastOutgoing: Bool
     
-    /// This is the users blinded key (will only be set for messages within open groups)
-    public let currentUserBlindedPublicKey: String?
+    /// This is the users blinded15 key (will only be set for messages within open groups)
+    public let currentUserBlinded15PublicKey: String?
+    
+    /// This is the users blinded25 key (will only be set for messages within open groups)
+    public let currentUserBlinded25PublicKey: String?
 
     // MARK: - Mutation
     
@@ -217,7 +220,8 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             isOnlyMessageInCluster: self.isOnlyMessageInCluster,
             isLast: self.isLast,
             isLastOutgoing: self.isLastOutgoing,
-            currentUserBlindedPublicKey: self.currentUserBlindedPublicKey
+            currentUserBlinded15PublicKey: self.currentUserBlinded15PublicKey,
+            currentUserBlinded25PublicKey: self.currentUserBlinded25PublicKey
         )
     }
     
@@ -226,7 +230,8 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         nextModel: MessageViewModel?,
         isLast: Bool,
         isLastOutgoing: Bool,
-        currentUserBlindedPublicKey: String?
+        currentUserBlinded15PublicKey: String?,
+        currentUserBlinded25PublicKey: String?
     ) -> MessageViewModel {
         let cellType: CellType = {
             guard self.isTypingIndicator != true else { return .typingIndicator }
@@ -441,7 +446,8 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             isOnlyMessageInCluster: isOnlyMessageInCluster,
             isLast: isLast,
             isLastOutgoing: isLastOutgoing,
-            currentUserBlindedPublicKey: currentUserBlindedPublicKey
+            currentUserBlinded15PublicKey: currentUserBlinded15PublicKey,
+            currentUserBlinded25PublicKey: currentUserBlinded25PublicKey
         )
     }
 }
@@ -599,7 +605,8 @@ public extension MessageViewModel {
         self.isOnlyMessageInCluster = true
         self.isLast = isLast
         self.isLastOutgoing = isLastOutgoing
-        self.currentUserBlindedPublicKey = nil
+        self.currentUserBlinded15PublicKey = nil
+        self.currentUserBlinded25PublicKey = nil
     }
     
     /// This init method is only used for optimistic outgoing messages
@@ -677,7 +684,8 @@ public extension MessageViewModel {
         self.isOnlyMessageInCluster = true
         self.isLast = false
         self.isLastOutgoing = false
-        self.currentUserBlindedPublicKey = nil
+        self.currentUserBlinded15PublicKey = nil
+        self.currentUserBlinded25PublicKey = nil
     }
 }
 
@@ -744,7 +752,8 @@ public extension MessageViewModel {
     
     static func baseQuery(
         userPublicKey: String,
-        blindedPublicKey: String?,
+        blinded15PublicKey: String?,
+        blinded25PublicKey: String?,
         orderSQL: SQL,
         groupSQL: SQL?
     ) -> (([Int64]) -> AdaptedFetchRequest<SQLRequest<MessageViewModel>>) {
@@ -859,8 +868,11 @@ public extension MessageViewModel {
                         \(quoteInteraction).\(authorIdColumn) = \(quote[.authorId]) OR (
                             -- A users outgoing message is stored in some cases using their standard id
                             -- but the quote will use their blinded id so handle that case
-                            \(quote[.authorId]) = \(blindedPublicKey ?? "''") AND
-                            \(quoteInteraction).\(authorIdColumn) = \(userPublicKey)
+                            \(quoteInteraction).\(authorIdColumn) = \(userPublicKey) AND
+                            (
+                                \(quote[.authorId]) = \(blinded15PublicKey ?? "''") OR
+                                \(quote[.authorId]) = \(blinded25PublicKey ?? "''")
+                            )
                         )
                     )
                 )

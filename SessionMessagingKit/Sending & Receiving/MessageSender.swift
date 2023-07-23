@@ -411,7 +411,7 @@ public final class MessageSender {
                 preconditionFailure()
             }
             
-            return SessionId(.blinded, publicKey: blindedKeyPair.publicKey).hexString
+            return SessionId(.blinded15, publicKey: blindedKeyPair.publicKey).hexString
         }()
         
         // Validate the message

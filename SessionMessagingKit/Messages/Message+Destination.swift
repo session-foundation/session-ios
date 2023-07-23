@@ -34,7 +34,9 @@ public extension Message {
         ) throws -> Message.Destination {
             switch threadVariant {
                 case .contact:
-                    if SessionId.Prefix(from: threadId) == .blinded {
+                    let prefix: SessionId.Prefix? = SessionId.Prefix(from: threadId)
+                    
+                    if prefix == .blinded15 || prefix == .blinded25 {
                         guard let lookup: BlindedIdLookup = try? BlindedIdLookup.fetchOne(db, id: threadId) else {
                             preconditionFailure("Attempting to send message to blinded id without the Open Group information")
                         }

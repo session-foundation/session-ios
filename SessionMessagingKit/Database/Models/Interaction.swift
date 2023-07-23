@@ -815,9 +815,8 @@ public extension Interaction {
                     genericHash: sodium.genericHash
                 )
             {
-                publicKeysToCheck.append(
-                    SessionId(.blinded, publicKey: blindedKeyPair.publicKey).hexString
-                )
+                publicKeysToCheck.append(SessionId(.blinded15, publicKey: blindedKeyPair.publicKey).hexString)
+                publicKeysToCheck.append(SessionId(.blinded25, publicKey: blindedKeyPair.publicKey).hexString)
             }
         }
         

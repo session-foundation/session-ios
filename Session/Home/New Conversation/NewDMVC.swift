@@ -178,7 +178,7 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
                 case .standard:
                     startNewDM(with: onsNameOrPublicKey)
                     
-                case .blinded:
+                case .blinded15, .blinded25:
                     let modal: ConfirmationModal = ConfirmationModal(
                         targetView: self.view,
                         info: ConfirmationModal.Info(
@@ -233,7 +233,7 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
                                             return messageOrNil
                                         }
                                         
-                                        return (maybeSessionId?.prefix == .blinded ?
+                                        return (maybeSessionId?.prefix == .blinded15 || maybeSessionId?.prefix == .blinded25 ?
                                             "DM_ERROR_DIRECT_BLINDED_ID".localized() :
                                             "DM_ERROR_INVALID".localized()
                                         )

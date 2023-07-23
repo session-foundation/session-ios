@@ -3335,7 +3335,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     }.thenReturn(())
                 }
                 
-                it("caches the promise if there is no cached promise") {
+                it("caches the publisher if there is no cached publisher") {
                     let publisher = OpenGroupManager.getDefaultRoomsIfNeeded(using: dependencies)
                     
                     expect(mockOGMCache)
@@ -3344,7 +3344,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         })
                 }
                 
-                it("returns the cached promise if there is one") {
+                it("returns the cached publisher if there is one") {
                     let uniqueRoomInstance: OpenGroupAPI.Room = OpenGroupAPI.Room(
                         token: "UniqueId",
                         name: "",
@@ -3484,7 +3484,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     expect(TestRoomsApi.callCounter).to(equal(9))   // First attempt + 8 retries
                 }
                 
-                it("removes the cache promise if all retries fail") {
+                it("removes the cache publisher if all retries fail") {
                     class TestRoomsApi: TestOnionRequestAPI {
                         override class var mockResponse: Data? { return nil }
                     }
@@ -3626,7 +3626,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     }
                 }
                 
-                it("retrieves the image retrieval promise from the cache if it exists") {
+                it("retrieves the image retrieval publisher from the cache if it exists") {
                     let publisher = Future<Data, Error> { resolver in
                         resolver(Result.success(Data([5, 4, 3, 2, 1])))
                     }
@@ -3705,7 +3705,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         )
                 }
                 
-                it("adds the image retrieval promise to the cache") {
+                it("adds the image retrieval publisher to the cache") {
                     class TestNeverReturningApi: OnionRequestAPIType {
                         static func sendOnionRequest(_ request: URLRequest, to server: String, with x25519PublicKey: String, timeout: TimeInterval) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
                             return Future<(ResponseInfoType, Data?), Error> { _ in }.eraseToAnyPublisher()

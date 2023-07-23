@@ -38,9 +38,10 @@ extension MessageSender {
         openGroupPublicKey: String,
         using dependencies: SMKDependencies = SMKDependencies()
     ) throws -> Data {
-        guard SessionId.Prefix(from: recipientBlindedId) == .blinded else {
-            throw MessageSenderError.signingFailed
-        }
+        guard
+            SessionId.Prefix(from: recipientBlindedId) == .blinded15 ||
+            SessionId.Prefix(from: recipientBlindedId) == .blinded25
+        else { throw MessageSenderError.signingFailed }
         guard let userEd25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
             throw MessageSenderError.noUserED25519KeyPair
         }

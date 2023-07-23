@@ -927,7 +927,7 @@ public final class OpenGroupManager {
         let targetRoles: [GroupMember.Role] = [.moderator, .admin]
         
         return dependencies.storage
-            .read { db in
+            .read { db -> Bool in
                 let isDirectModOrAdmin: Bool = GroupMember
                     .filter(GroupMember.Columns.groupId == groupId)
                     .filter(GroupMember.Columns.profileId == publicKey)
@@ -959,7 +959,7 @@ public final class OpenGroupManager {
                         }
                         fallthrough
                         
-                    case .blinded:
+                    case .blinded15, .blinded25:
                         guard
                             let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
                             let openGroupPublicKey: String = try? OpenGroup
@@ -973,9 +973,14 @@ public final class OpenGroupManager {
                                 genericHash: dependencies.genericHash
                             )
                         else { return false }
-                        guard sessionId.prefix != .blinded || publicKey == SessionId(.blinded, publicKey: blindedKeyPair.publicKey).hexString else {
-                            return false
-                        }
+                        guard
+                            (
+                                sessionId.prefix != .blinded15 &&
+                                sessionId.prefix != .blinded25
+                            ) ||
+                            publicKey == SessionId(.blinded15, publicKey: blindedKeyPair.publicKey).hexString ||
+                            publicKey == SessionId(.blinded25, publicKey: blindedKeyPair.publicKey).hexString
+                        else { return false }
                         
                         // If we got to here that means that the 'publicKey' value matches one of the current
                         // users 'standard', 'unblinded' or 'blinded' keys and as such we should check if any
@@ -983,7 +988,8 @@ public final class OpenGroupManager {
                         let possibleKeys: Set<String> = Set([
                             userPublicKey,
                             SessionId(.unblinded, publicKey: userEdKeyPair.publicKey).hexString,
-                            SessionId(.blinded, publicKey: blindedKeyPair.publicKey).hexString
+                            SessionId(.blinded15, publicKey: blindedKeyPair.publicKey).hexString,
+                            SessionId(.blinded25, publicKey: blindedKeyPair.publicKey).hexString
                         ])
                         
                         return GroupMember

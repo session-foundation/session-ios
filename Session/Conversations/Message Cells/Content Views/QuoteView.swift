@@ -30,7 +30,8 @@ final class QuoteView: UIView {
         quotedText: String?,
         threadVariant: SessionThread.Variant,
         currentUserPublicKey: String?,
-        currentUserBlindedPublicKey: String?,
+        currentUserBlinded15PublicKey: String?,
+        currentUserBlinded25PublicKey: String?,
         direction: Direction,
         attachment: Attachment?,
         hInset: CGFloat,
@@ -47,7 +48,8 @@ final class QuoteView: UIView {
             quotedText: quotedText,
             threadVariant: threadVariant,
             currentUserPublicKey: currentUserPublicKey,
-            currentUserBlindedPublicKey: currentUserBlindedPublicKey,
+            currentUserBlinded15PublicKey: currentUserBlinded15PublicKey,
+            currentUserBlinded25PublicKey: currentUserBlinded25PublicKey,
             direction: direction,
             attachment: attachment,
             hInset: hInset,
@@ -69,7 +71,8 @@ final class QuoteView: UIView {
         quotedText: String?,
         threadVariant: SessionThread.Variant,
         currentUserPublicKey: String?,
-        currentUserBlindedPublicKey: String?,
+        currentUserBlinded15PublicKey: String?,
+        currentUserBlinded25PublicKey: String?,
         direction: Direction,
         attachment: Attachment?,
         hInset: CGFloat,
@@ -211,7 +214,8 @@ final class QuoteView: UIView {
                         in: $0,
                         threadVariant: threadVariant,
                         currentUserPublicKey: currentUserPublicKey,
-                        currentUserBlindedPublicKey: currentUserBlindedPublicKey,
+                        currentUserBlinded15PublicKey: currentUserBlinded15PublicKey,
+                        currentUserBlinded25PublicKey: currentUserBlinded25PublicKey,
                         isOutgoingMessage: (direction == .outgoing),
                         textColor: textColor,
                         theme: theme,
@@ -234,7 +238,8 @@ final class QuoteView: UIView {
         
         let isCurrentUser: Bool = [
             currentUserPublicKey,
-            currentUserBlindedPublicKey,
+            currentUserBlinded15PublicKey,
+            currentUserBlinded25PublicKey
         ]
         .compactMap { $0 }
         .asSet()
