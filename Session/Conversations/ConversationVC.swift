@@ -96,14 +96,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         return margin <= ConversationVC.scrollToBottomMargin
     }
 
-    lazy var mnemonic: String = {
-        if let hexEncodedSeed: String = Identity.fetchHexEncodedSeed() {
-            return Mnemonic.encode(hexEncodedString: hexEncodedSeed)
-        }
-
-        // Legacy account
-        return Mnemonic.encode(hexEncodedString: Identity.fetchUserPrivateKey()!.toHexString())
-    }()
+    lazy var mnemonic: String = { ((try? SeedVC.mnemonic()) ?? "") }()
 
     // FIXME: Would be good to create a Swift-based cache and replace this
     lazy var mediaCache: NSCache<NSString, AnyObject> = {

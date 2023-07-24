@@ -23,7 +23,7 @@ public enum Mnemonic {
     
     public struct Language: Hashable {
         fileprivate let filename: String
-        fileprivate let prefixLength: UInt
+        fileprivate let prefixLength: Int
         
         public static let english = Language(filename: "english", prefixLength: 3)
         public static let japanese = Language(filename: "japanese", prefixLength: 3)
@@ -33,7 +33,7 @@ public enum Mnemonic {
         private static var wordSetCache: [Language: [String]] = [:]
         private static var truncatedWordSetCache: [Language: [String]] = [:]
         
-        private init(filename: String, prefixLength: UInt) {
+        private init(filename: String, prefixLength: Int) {
             self.filename = filename
             self.prefixLength = prefixLength
         }
@@ -56,7 +56,7 @@ public enum Mnemonic {
                 return cachedResult
             }
             
-            let result = loadWordSet().map { $0.prefix(length: prefixLength) }
+            let result = loadWordSet().map { String($0.prefix(prefixLength)) }
             Language.truncatedWordSetCache[self] = result
             
             return result
@@ -116,9 +116,9 @@ public enum Mnemonic {
     }
     
     public static func decode(mnemonic: String, language: Language = .english) throws -> String {
-        var words = mnemonic.split(separator: " ").map { String($0) }
-        let truncatedWordSet = language.loadTruncatedWordSet()
-        let prefixLength = language.prefixLength
+        var words: [String] = mnemonic.split(separator: " ").map { String($0) }
+        let truncatedWordSet: [String] = language.loadTruncatedWordSet()
+        let prefixLength: Int = language.prefixLength
         var result = ""
         let n = truncatedWordSet.count
         
@@ -131,9 +131,12 @@ public enum Mnemonic {
         
         // Decode
         for chunkStartIndex in stride(from: 0, to: words.count, by: 3) {
-            guard let w1 = truncatedWordSet.firstIndex(of: words[chunkStartIndex].prefix(length: prefixLength)),
-                let w2 = truncatedWordSet.firstIndex(of: words[chunkStartIndex + 1].prefix(length: prefixLength)),
-                let w3 = truncatedWordSet.firstIndex(of: words[chunkStartIndex + 2].prefix(length: prefixLength)) else { throw DecodingError.invalidWord }
+            guard
+                let w1 = truncatedWordSet.firstIndex(of: String(words[chunkStartIndex].prefix(prefixLength))),
+                let w2 = truncatedWordSet.firstIndex(of: String(words[chunkStartIndex + 1].prefix(prefixLength))),
+                let w3 = truncatedWordSet.firstIndex(of: String(words[chunkStartIndex + 2].prefix(prefixLength)))
+            else { throw DecodingError.invalidWord }
+            
             let x = w1 + n * ((n - w1 + w2) % n) + n * n * ((n - w2 + w3) % n)
             guard x % n == w1 else { throw DecodingError.generic }
             let string = "0000000" + String(x, radix: 16)
@@ -143,7 +146,10 @@ public enum Mnemonic {
         // Verify checksum
         let checksumIndex = determineChecksumIndex(for: words, prefixLength: prefixLength)
         let expectedChecksumWord = words[checksumIndex]
-        guard expectedChecksumWord.prefix(length: prefixLength) == checksumWord.prefix(length: prefixLength) else { throw DecodingError.verificationFailed }
+        
+        guard expectedChecksumWord.prefix(prefixLength) == checksumWord.prefix(prefixLength) else {
+            throw DecodingError.verificationFailed
+        }
         
         // Return
         return result
@@ -162,15 +168,9 @@ public enum Mnemonic {
         return String(p1 + p2 + p3 + p4)
     }
     
-    private static func determineChecksumIndex(for x: [String], prefixLength: UInt) -> Int {
-        let checksum = CRC32.checksum(bytes: Array(x.map { $0.prefix(length: prefixLength) }.joined().utf8))
+    private static func determineChecksumIndex(for x: [String], prefixLength: Int) -> Int {
+        let checksum = CRC32.checksum(bytes: Array(x.map { $0.prefix(prefixLength) }.joined().utf8))
         
         return Int(checksum) % x.count
-    }
-}
-
-private extension String {
-    func prefix(length: UInt) -> String {
-        return String(self[startIndex..<index(startIndex, offsetBy: Int(length))])
     }
 }

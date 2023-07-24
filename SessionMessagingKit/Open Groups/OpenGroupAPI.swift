@@ -1302,7 +1302,7 @@ public enum OpenGroupAPI {
         let path: String = url.path
             .appending(url.query.map { value in "?\(value)" })
         let method: String = (request.httpMethod ?? "GET")
-        let timestamp: Int = Int(floor(dependencies.date.timeIntervalSince1970))
+        let timestamp: Int = Int(floor(Date().timeIntervalSince1970))
         let nonce: Data = Data(dependencies.nonceGenerator16.nonce())
         let serverPublicKeyData: Data = Data(hex: serverPublicKey)
         

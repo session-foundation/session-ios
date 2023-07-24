@@ -195,8 +195,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         shareNavController?.dismiss(animated: true, completion: nil)
         
         ModalActivityIndicatorViewController.present(fromViewController: shareNavController!, canCancel: false, message: "vc_share_sending_message".localized()) { activityIndicator in
-            // Resume database
-            NotificationCenter.default.post(name: Database.resumeNotification, object: self)
+            Storage.resumeDatabaseAccess()
             
             Storage.shared
                 .writePublisher { db -> MessageSender.PreparedSendData in
@@ -266,8 +265,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveCompletion: { [weak self] result in
-                        // Suspend the database
-                        NotificationCenter.default.post(name: Database.suspendNotification, object: self)
+                        Storage.suspendDatabaseAccess()
                         activityIndicator.dismiss { }
                         
                         switch result {

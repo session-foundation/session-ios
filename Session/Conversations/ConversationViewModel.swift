@@ -353,7 +353,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                         data: updatedData,
                         for: updatedPageInfo,
                         optimisticMessages: (self?.optimisticallyInsertedMessages.wrappedValue.values)
-                            .map { Array($0) },
+                            .map { $0.map { $0.messageViewModel } },
                         initialUnreadInteractionId: self?.initialUnreadInteractionId
                     ),
                     currentDataRetriever: { self?.interactionData },
@@ -377,8 +377,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     ) -> [SectionModel] {
         let typingIndicator: MessageViewModel? = data.first(where: { $0.isTypingIndicator == true })
         let sortedData: [MessageViewModel] = data
-            .appending(contentsOf: (optimisticMessages ?? []))
-            .filter { !$0.cellType.isPostProcessed }
+            .filter { $0.id != MessageViewModel.optimisticUpdateId }    // Remove old optimistic updates
+            .appending(contentsOf: (optimisticMessages ?? []))          // Insert latest optimistic updates
+            .filter { !$0.cellType.isPostProcessed }                    // Remove headers and other
             .sorted { lhs, rhs -> Bool in lhs.timestampMs < rhs.timestampMs }
         
         // We load messages from newest to oldest so having a pageOffset larger than zero means
@@ -459,12 +460,15 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     
     public typealias OptimisticMessageData = (
         id: UUID,
+        messageViewModel: MessageViewModel,
         interaction: Interaction,
         attachmentData: Attachment.PreparedData?,
-        linkPreviewAttachment: Attachment?
+        linkPreviewDraft: LinkPreviewDraft?,
+        linkPreviewAttachment: Attachment?,
+        quoteModel: QuotedReplyModel?
     )
     
-    private var optimisticallyInsertedMessages: Atomic<[UUID: MessageViewModel]> = Atomic([:])
+    private var optimisticallyInsertedMessages: Atomic<[UUID: OptimisticMessageData]> = Atomic([:])
     private var optimisticMessageAssociatedInteractionIds: Atomic<[Int64: UUID]> = Atomic([:])
     
     public func optimisticallyAppendOutgoingMessage(
@@ -501,15 +505,10 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                 mimeType: OWSMimeTypeImageJpeg
             )
         }
-        let optimisticData: OptimisticMessageData = (
-            optimisticMessageId,
-            interaction,
-            optimisticAttachments,
-            linkPreviewAttachment
-        )
         
         // Generate the actual 'MessageViewModel'
         let messageViewModel: MessageViewModel = MessageViewModel(
+            optimisticMessageId: optimisticMessageId,
             threadId: threadData.threadId,
             threadVariant: threadData.threadVariant,
             threadHasDisappearingMessagesEnabled: (threadData.disappearingMessagesConfiguration?.isEnabled ?? false),
@@ -550,13 +549,66 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             linkPreviewAttachment: linkPreviewAttachment,
             attachments: optimisticAttachments?.attachments
         )
+        let optimisticData: OptimisticMessageData = (
+            optimisticMessageId,
+            messageViewModel,
+            interaction,
+            optimisticAttachments,
+            linkPreviewDraft,
+            linkPreviewAttachment,
+            quoteModel
+        )
         
-        optimisticallyInsertedMessages.mutate { $0[optimisticMessageId] = messageViewModel }
+        optimisticallyInsertedMessages.mutate { $0[optimisticMessageId] = optimisticData }
+        forceUpdateDataIfPossible()
         
-        // If we can't get the current page data then don't bother trying to update (it's not going to work)
-        guard let currentPageInfo: PagedData.PageInfo = self.pagedDataObserver?.pageInfo.wrappedValue else {
-            return optimisticData
+        return optimisticData
+    }
+    
+    public func failedToStoreOptimisticOutgoingMessage(id: UUID, error: Error) {
+        optimisticallyInsertedMessages.mutate {
+            $0[id] = $0[id].map {
+                (
+                    $0.id,
+                    $0.messageViewModel.with(
+                        state: .failed,
+                        mostRecentFailureText: "FAILED_TO_STORE_OUTGOING_MESSAGE".localized()
+                    ),
+                    $0.interaction,
+                    $0.attachmentData,
+                    $0.linkPreviewDraft,
+                    $0.linkPreviewAttachment,
+                    $0.quoteModel
+                )
+            }
         }
+        
+        forceUpdateDataIfPossible()
+    }
+    
+    /// Record an association between an `optimisticMessageId` and a specific `interactionId`
+    public func associate(optimisticMessageId: UUID, to interactionId: Int64?) {
+        guard let interactionId: Int64 = interactionId else { return }
+        
+        optimisticMessageAssociatedInteractionIds.mutate { $0[interactionId] = optimisticMessageId }
+    }
+    
+    public func optimisticMessageData(for optimisticMessageId: UUID) -> OptimisticMessageData? {
+        return optimisticallyInsertedMessages.wrappedValue[optimisticMessageId]
+    }
+    
+    /// Remove any optimisticUpdate entries which have an associated interactionId in the provided data
+    private func resolveOptimisticUpdates(with data: [MessageViewModel]) {
+        let interactionIds: [Int64] = data.map { $0.id }
+        let idsToRemove: [UUID] = optimisticMessageAssociatedInteractionIds
+            .mutate { associatedIds in interactionIds.compactMap { associatedIds.removeValue(forKey: $0) } }
+        
+        optimisticallyInsertedMessages.mutate { messages in idsToRemove.forEach { messages.removeValue(forKey: $0) } }
+    }
+    
+    private func forceUpdateDataIfPossible() {
+        // If we can't get the current page data then don't bother trying to update (it's not going to work)
+        guard let currentPageInfo: PagedData.PageInfo = self.pagedDataObserver?.pageInfo.wrappedValue else { return }
         
         /// **MUST** have the same logic as in the 'PagedDataObserver.onChangeUnsorted' above
         let currentData: [SectionModel] = (unobservedInteractionDataChanges?.0 ?? interactionData)
@@ -565,7 +617,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             updatedData: process(
                 data: (currentData.first(where: { $0.model == .messages })?.elements ?? []),
                 for: currentPageInfo,
-                optimisticMessages: Array(optimisticallyInsertedMessages.wrappedValue.values),
+                optimisticMessages: optimisticallyInsertedMessages.wrappedValue.values.map { $0.messageViewModel },
                 initialUnreadInteractionId: initialUnreadInteractionId
             ),
             currentDataRetriever: { [weak self] in self?.interactionData },
@@ -577,24 +629,6 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                 )
             }
         )
-        
-        return optimisticData
-    }
-    
-    /// Record an association between an `optimisticMessageId` and a specific `interactionId`
-    public func associate(optimisticMessageId: UUID, to interactionId: Int64?) {
-        guard let interactionId: Int64 = interactionId else { return }
-        
-        optimisticMessageAssociatedInteractionIds.mutate { $0[interactionId] = optimisticMessageId }
-    }
-    
-    /// Remove any optimisticUpdate entries which have an associated interactionId in the provided data
-    private func resolveOptimisticUpdates(with data: [MessageViewModel]) {
-        let interactionIds: [Int64] = data.map { $0.id }
-        let idsToRemove: [UUID] = optimisticMessageAssociatedInteractionIds
-            .mutate { associatedIds in interactionIds.compactMap { associatedIds.removeValue(forKey: $0) } }
-        
-        optimisticallyInsertedMessages.mutate { messages in idsToRemove.forEach { messages.removeValue(forKey: $0) } }
     }
     
     // MARK: - Mentions

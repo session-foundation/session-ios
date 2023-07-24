@@ -286,8 +286,7 @@ public enum PushRegistrationError: Error {
             return
         }
         
-        // Resume database
-        NotificationCenter.default.post(name: Database.resumeNotification, object: self)
+        Storage.resumeDatabaseAccess()
         
         let maybeCall: SessionCall? = Storage.shared.write { db in
             let messageInfo: CallMessage.MessageInfo = CallMessage.MessageInfo(
