@@ -209,7 +209,12 @@ struct MessageInfoView: View {
                             }
                             
                             if isMessageFailed {
-                                
+                                let failureText: String = messageViewModel.mostRecentFailureText ?? "Message failed to send"
+                                InfoBlock(title: "Error:") {
+                                    Text(failureText)
+                                        .font(.system(size: 16))
+                                        .foregroundColor(.red)
+                                }
                             }
                             
                             InfoBlock(title: "From:") {
@@ -267,20 +272,22 @@ struct MessageInfoView: View {
                     )
 
                     // Actions
-        //            ZStack {
-        //                RoundedRectangle(cornerRadius: 8)
-        //                VStack {
-        //                    ForEach(
-        //                        0...(actions.count - 1),
-        //                        id: \.self
-        //                    ) { index in
-        //                        HStack {
-        //                            Image(uiImage: actions[index].icon!)
-        //                            Text(actions[index].title)
-        //                        }
-        //                    }
-        //                }
-        //            }
+                    if !actions.isEmpty {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8)
+                            VStack {
+                                ForEach(
+                                    0...(actions.count - 1),
+                                    id: \.self
+                                ) { index in
+                                    HStack {
+                                        Image(uiImage: actions[index].icon!)
+                                        Text(actions[index].title)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
