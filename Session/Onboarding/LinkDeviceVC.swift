@@ -312,8 +312,9 @@ private final class RecoveryPhraseVC: UIViewController {
             )
             self.present(modal, animated: true)
         }
-        let mnemonic = mnemonicTextView.text!.lowercased()
+        
         do {
+            let mnemonic = (mnemonicTextView.text ?? "").lowercased()
             let hexEncodedSeed = try Mnemonic.decode(mnemonic: mnemonic)
             let seed = Data(hex: hexEncodedSeed)
             mnemonicTextView.resignFirstResponder()
