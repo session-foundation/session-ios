@@ -33,6 +33,12 @@ open class Storage {
     
     public static let shared: Storage = Storage()
     public private(set) var isValid: Bool = false
+    
+    /// This property gets set when triggering the suspend/resume notifications for the database but `GRDB` will attempt to
+    /// resume the suspention when it attempts to perform a write so it's possible for this to return a **false-positive** so
+    /// this should be taken into consideration when used
+    public private(set) var isSuspendedUnsafe: Bool = false
+    
     public var hasCompletedMigrations: Bool { migrationsCompleted.wrappedValue }
     public var currentlyRunningMigration: (identifier: TargetMigrations.Identifier, migration: Migration.Type)? {
         internalCurrentlyRunningMigration.wrappedValue
@@ -352,6 +358,25 @@ open class Storage {
     }
     
     // MARK: - File Management
+    
+    /// In order to avoid the `0xdead10cc` exception when accessing the database while another target is accessing it we call
+    /// the experimental `Database.suspendNotification` notification (and store the current suspended state) to prevent
+    /// `GRDB` from trying to access the locked database file
+    ///
+    /// The generally suggested approach is to avoid this entirely by not storing the database in an AppGroup folder and sharing it
+    /// with extensions - this may be possible but will require significant refactoring and a potentially painful migration to move the
+    /// database and other files into the App folder
+    public static func suspendDatabaseAccess(using dependencies: Dependencies = Dependencies()) {
+        NotificationCenter.default.post(name: Database.suspendNotification, object: self)
+        dependencies.storage.isSuspendedUnsafe = true
+    }
+    
+    /// This method reverses the database suspension used to prevent the `0xdead10cc` exception (see `suspendDatabaseAccess()`
+    /// above for more information
+    public static func resumeDatabaseAccess(using dependencies: Dependencies = Dependencies()) {
+        NotificationCenter.default.post(name: Database.resumeNotification, object: self)
+        dependencies.storage.isSuspendedUnsafe = false
+    }
     
     public static func resetAllStorage() {
         // Just in case they haven't been removed for some reason, delete the legacy database & keys

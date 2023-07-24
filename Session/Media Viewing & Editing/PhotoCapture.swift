@@ -351,27 +351,23 @@ extension PhotoCapture: CaptureButtonDelegate {
 
         Logger.verbose("")
         
-        Just(())
-            .subscribe(on: sessionQueue)    // Must run this on a specific queue to prevent crashes
-            .sinkUntilComplete(
-                receiveCompletion: { [weak self] _ in
-                    guard let strongSelf = self else { return }
-                    
-                    do {
-                        try strongSelf.startAudioCapture()
-                        strongSelf.captureOutput.beginVideo(delegate: strongSelf)
-                        
-                        DispatchQueue.main.async {
-                            strongSelf.delegate?.photoCaptureDidBeginVideo(strongSelf)
-                        }
-                    }
-                    catch {
-                        DispatchQueue.main.async {
-                            strongSelf.delegate?.photoCapture(strongSelf, processingDidError: error)
-                        }
-                    }
+        sessionQueue.async { [weak self] in    // Must run this on a specific queue to prevent crashes
+            guard let strongSelf = self else { return }
+            
+            do {
+                try strongSelf.startAudioCapture()
+                strongSelf.captureOutput.beginVideo(delegate: strongSelf)
+                
+                DispatchQueue.main.async {
+                    strongSelf.delegate?.photoCaptureDidBeginVideo(strongSelf)
                 }
-            )
+            }
+            catch {
+                DispatchQueue.main.async {
+                    strongSelf.delegate?.photoCapture(strongSelf, processingDidError: error)
+                }
+            }
+        }
     }
 
     func didCompleteLongPressCaptureButton(_ captureButton: CaptureButton) {

@@ -5,19 +5,14 @@ import SessionUIKit
 import SessionUtilitiesKit
 
 final class SeedModal: Modal {
-    private let mnemonic: String = {
-        if let hexEncodedSeed: String = Identity.fetchHexEncodedSeed() {
-            return Mnemonic.encode(hexEncodedString: hexEncodedSeed)
-        }
-        
-        // Legacy account
-        return Mnemonic.encode(hexEncodedString: Identity.fetchUserPrivateKey()!.toHexString())
-    }()
+    private let mnemonic: String
     
     // MARK: - Initialization
     
-    override init(targetView: UIView? = nil, dismissType: DismissType = .recursive, afterClosed: (() -> ())? = nil) {
-        super.init(targetView: targetView, dismissType: dismissType, afterClosed: afterClosed)
+    init() throws {
+        self.mnemonic = try SeedVC.mnemonic()
+        
+        super.init(targetView: nil, dismissType: .recursive, afterClosed: nil)
         
         self.modalPresentationStyle = .overFullScreen
         self.modalTransitionStyle = .crossDissolve

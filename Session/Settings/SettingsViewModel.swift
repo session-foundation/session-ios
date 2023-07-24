@@ -433,7 +433,22 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                             ),
                             title: "vc_settings_recovery_phrase_button_title".localized(),
                             onTap: {
-                                self?.transitionToScreen(SeedModal(), transitionType: .present)
+                                let targetViewController: UIViewController = {
+                                    if let modal: SeedModal = try? SeedModal() {
+                                        return modal
+                                    }
+                                    
+                                    return ConfirmationModal(
+                                        info: ConfirmationModal.Info(
+                                            title: "ALERT_ERROR_TITLE".localized(),
+                                            body: .text("LOAD_RECOVERY_PASSWORD_ERROR".localized()),
+                                            cancelTitle: "BUTTON_OK".localized(),
+                                            cancelStyle: .alert_text
+                                        )
+                                    )
+                                }()
+                                
+                                self?.transitionToScreen(targetViewController, transitionType: .present)
                             }
                         ),
                         SessionCell.Info(

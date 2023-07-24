@@ -167,10 +167,15 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     
     /// This is the users blinded25 key (will only be set for messages within open groups)
     public let currentUserBlinded25PublicKey: String?
+    
+    /// This is a temporary id used before an outgoing message is persisted into the database
+    public let optimisticMessageId: UUID?
 
     // MARK: - Mutation
     
     public func with(
+        state: RecipientState.State? = nil,     // Optimistic outgoing messages
+        mostRecentFailureText: String? = nil,   // Optimistic outgoing messages
         attachments: [Attachment]? = nil,
         reactionInfo: [ReactionInfo]? = nil
     ) -> MessageViewModel {
@@ -194,9 +199,9 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             rawBody: self.rawBody,
             expiresStartedAtMs: self.expiresStartedAtMs,
             expiresInSeconds: self.expiresInSeconds,
-            state: self.state,
+            state: (state ?? self.state),
             hasAtLeastOneReadReceipt: self.hasAtLeastOneReadReceipt,
-            mostRecentFailureText: self.mostRecentFailureText,
+            mostRecentFailureText: (mostRecentFailureText ?? self.mostRecentFailureText),
             isSenderOpenGroupModerator: self.isSenderOpenGroupModerator,
             isTypingIndicator: self.isTypingIndicator,
             profile: self.profile,
@@ -221,7 +226,8 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             isLast: self.isLast,
             isLastOutgoing: self.isLastOutgoing,
             currentUserBlinded15PublicKey: self.currentUserBlinded15PublicKey,
-            currentUserBlinded25PublicKey: self.currentUserBlinded25PublicKey
+            currentUserBlinded25PublicKey: self.currentUserBlinded25PublicKey,
+            optimisticMessageId: self.optimisticMessageId
         )
     }
     
@@ -447,7 +453,8 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             isLast: isLast,
             isLastOutgoing: isLastOutgoing,
             currentUserBlinded15PublicKey: currentUserBlinded15PublicKey,
-            currentUserBlinded25PublicKey: currentUserBlinded25PublicKey
+            currentUserBlinded25PublicKey: currentUserBlinded25PublicKey,
+            optimisticMessageId: self.optimisticMessageId
         )
     }
 }
@@ -607,10 +614,12 @@ public extension MessageViewModel {
         self.isLastOutgoing = isLastOutgoing
         self.currentUserBlinded15PublicKey = nil
         self.currentUserBlinded25PublicKey = nil
+        self.optimisticMessageId = nil
     }
     
     /// This init method is only used for optimistic outgoing messages
     init(
+        optimisticMessageId: UUID,
         threadId: String,
         threadVariant: SessionThread.Variant,
         threadHasDisappearingMessagesEnabled: Bool,
@@ -687,6 +696,7 @@ public extension MessageViewModel {
         self.isLastOutgoing = false
         self.currentUserBlinded15PublicKey = nil
         self.currentUserBlinded25PublicKey = nil
+        self.optimisticMessageId = optimisticMessageId
     }
 }
 
