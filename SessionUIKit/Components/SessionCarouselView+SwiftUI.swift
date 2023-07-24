@@ -66,6 +66,7 @@ struct ArrowView: View {
             }
         } label: {
             Image(systemName: imageName)
+                .font(.system(size: 20))
                 .foregroundColor(.white)
                 .frame(width: 30, height: 30)
         }

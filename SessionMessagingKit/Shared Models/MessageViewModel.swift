@@ -624,6 +624,7 @@ public extension MessageViewModel {
         body: String?,
         expiresStartedAtMs: Double?,
         expiresInSeconds: TimeInterval?,
+        state: RecipientState.State = .sending,
         isSenderOpenGroupModerator: Bool,
         currentUserProfile: Profile,
         quote: Quote?,

@@ -53,6 +53,23 @@ struct MessageInfoView: View {
                         )
                     }
                     
+                    if [.failed, .failedToSync].contains(messageViewModel.state) {
+                        let (image, statusText, tintColor) = messageViewModel.state.statusIconInfo(
+                            variant: messageViewModel.variant,
+                            hasAtLeastOneReadReceipt: messageViewModel.hasAtLeastOneReadReceipt
+                        )
+                        
+                        HStack {
+                            if let image: UIImage = image {
+                                Image(uiImage: image)
+                            }
+                            
+                            if let statusText: String = statusText {
+                                Text(statusText)
+                            }
+                        }
+                    }
+                    
                     // TODO: Attachment carousel view
                     SessionCarouselView_SwiftUI(contentInfos: [.orange, .gray, .blue, .yellow])
                         .frame(
@@ -306,31 +323,40 @@ struct MessageInfoView: View {
 }
 
 struct MessageInfoView_Previews: PreviewProvider {
+    static var messageViewModel: MessageViewModel {
+        let result = MessageViewModel(
+            threadId: "d4f1g54sdf5g1d5f4g65ds4564df65f4g65d54gdfsg",
+            threadVariant: .contact,
+            threadHasDisappearingMessagesEnabled: false,
+            threadOpenGroupServer: nil,
+            threadOpenGroupPublicKey: nil,
+            threadContactNameInternal: "Test",
+            timestampMs: SnodeAPI.currentOffsetTimestampMs(),
+            receivedAtTimestampMs: SnodeAPI.currentOffsetTimestampMs(),
+            authorId: "d4f1g54sdf5g1d5f4g65ds4564df65f4g65d54gdfsg",
+            authorNameInternal: "Test",
+            body: "Test Message",
+            expiresStartedAtMs: nil,
+            expiresInSeconds: nil,
+            state: .failed,
+            isSenderOpenGroupModerator: false,
+            currentUserProfile: Profile.fetchOrCreateCurrentUser(),
+            quote: nil,
+            quoteAttachment: nil,
+            linkPreview: nil,
+            linkPreviewAttachment: nil,
+            attachments: nil
+        )
+        
+        return result
+    }
+    
+    static var actions: [ContextMenuVC.Action] = []
+    
     static var previews: some View {
         MessageInfoView(
-            actions: [],
-            messageViewModel: MessageViewModel(
-                threadId: "d4f1g54sdf5g1d5f4g65ds4564df65f4g65d54gdfsg",
-                threadVariant: .contact,
-                threadHasDisappearingMessagesEnabled: false,
-                threadOpenGroupServer: nil,
-                threadOpenGroupPublicKey: nil,
-                threadContactNameInternal: "Test",
-                timestampMs: SnodeAPI.currentOffsetTimestampMs(),
-                receivedAtTimestampMs: SnodeAPI.currentOffsetTimestampMs(),
-                authorId: "d4f1g54sdf5g1d5f4g65ds4564df65f4g65d54gdfsg",
-                authorNameInternal: "Test",
-                body: "Test Message",
-                expiresStartedAtMs: nil,
-                expiresInSeconds: nil,
-                isSenderOpenGroupModerator: false,
-                currentUserProfile: Profile.fetchOrCreateCurrentUser(),
-                quote: nil,
-                quoteAttachment: nil,
-                linkPreview: nil,
-                linkPreviewAttachment: nil,
-                attachments: nil
-            )
+            actions: actions,
+            messageViewModel: messageViewModel
         )
     }
 }
