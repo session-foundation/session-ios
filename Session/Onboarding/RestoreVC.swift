@@ -205,7 +205,7 @@ final class RestoreVC: BaseVC {
         let keyPairs: (ed25519KeyPair: KeyPair, x25519KeyPair: KeyPair)
         
         do {
-            let mnemonic: String = mnemonicTextView.text!.lowercased()
+            let mnemonic: String = (mnemonicTextView.text ?? "").lowercased()
             let hexEncodedSeed: String = try Mnemonic.decode(mnemonic: mnemonic)
             seed = Data(hex: hexEncodedSeed)
             keyPairs = try Identity.generate(from: seed)

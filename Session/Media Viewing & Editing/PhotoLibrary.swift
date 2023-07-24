@@ -105,28 +105,29 @@ class PhotoCollectionContents {
         return asset(at: 0)
     }
 
-    func asset(at index: Int) -> PHAsset {
+    func asset(at index: Int) -> PHAsset? {
+        guard index >= 0 && index < fetchResult.count else { return nil }
+        
         return fetchResult.object(at: index)
     }
 
     // MARK: - AssetItem Accessors
 
-    func assetItem(at index: Int, photoMediaSize: PhotoMediaSize) -> PhotoPickerAssetItem {
-        let mediaAsset = asset(at: index)
+    func assetItem(at index: Int, photoMediaSize: PhotoMediaSize) -> PhotoPickerAssetItem? {
+        guard let mediaAsset: PHAsset = asset(at: index) else { return nil }
+        
         return PhotoPickerAssetItem(asset: mediaAsset, photoCollectionContents: self, photoMediaSize: photoMediaSize)
     }
 
     func firstAssetItem(photoMediaSize: PhotoMediaSize) -> PhotoPickerAssetItem? {
-        guard let mediaAsset = firstAsset else {
-            return nil
-        }
+        guard let mediaAsset = firstAsset else { return nil }
+        
         return PhotoPickerAssetItem(asset: mediaAsset, photoCollectionContents: self, photoMediaSize: photoMediaSize)
     }
 
     func lastAssetItem(photoMediaSize: PhotoMediaSize) -> PhotoPickerAssetItem? {
-        guard let mediaAsset = lastAsset else {
-            return nil
-        }
+        guard let mediaAsset = lastAsset else { return nil }
+        
         return PhotoPickerAssetItem(asset: mediaAsset, photoCollectionContents: self, photoMediaSize: photoMediaSize)
     }
 
