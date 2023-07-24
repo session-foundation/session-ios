@@ -59,15 +59,29 @@ struct MessageInfoView: View {
                             hasAtLeastOneReadReceipt: messageViewModel.hasAtLeastOneReadReceipt
                         )
                         
-                        HStack {
-                            if let image: UIImage = image {
+                        HStack(spacing: 6) {
+                            if let image: UIImage = image?.withRenderingMode(.alwaysTemplate) {
                                 Image(uiImage: image)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .foregroundColor(.red)
+                                    .frame(width: 13, height: 12)
                             }
                             
                             if let statusText: String = statusText {
                                 Text(statusText)
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.red)
                             }
                         }
+                        .padding(
+                            EdgeInsets(
+                                top: -8,
+                                leading: 30,
+                                bottom: 4,
+                                trailing: 30
+                            )
+                        )
                     }
                     
                     // TODO: Attachment carousel view
@@ -325,6 +339,7 @@ struct MessageInfoView: View {
 struct MessageInfoView_Previews: PreviewProvider {
     static var messageViewModel: MessageViewModel {
         let result = MessageViewModel(
+            optimisticMessageId: UUID(),
             threadId: "d4f1g54sdf5g1d5f4g65ds4564df65f4g65d54gdfsg",
             threadVariant: .contact,
             threadHasDisappearingMessagesEnabled: false,

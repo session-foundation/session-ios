@@ -665,7 +665,7 @@ public extension MessageViewModel {
         self.expiresStartedAtMs = expiresStartedAtMs
         self.expiresInSeconds = expiresInSeconds
         
-        self.state = .sending
+        self.state = state
         self.hasAtLeastOneReadReceipt = false
         self.mostRecentFailureText = nil
         self.isSenderOpenGroupModerator = isSenderOpenGroupModerator
