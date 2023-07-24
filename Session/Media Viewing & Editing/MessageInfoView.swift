@@ -7,6 +7,9 @@ import SessionSnodeKit
 struct MessageInfoView: View {
     var actions: [ContextMenuVC.Action]
     var messageViewModel: MessageViewModel
+    var isMessageFailed: Bool {
+        return [.failed, .failedToSync].contains(messageViewModel.state)
+    }
     
     var body: some View {
         ZStack (alignment: .topLeading) {
@@ -53,7 +56,7 @@ struct MessageInfoView: View {
                         )
                     }
                     
-                    if [.failed, .failedToSync].contains(messageViewModel.state) {
+                    if isMessageFailed {
                         let (image, statusText, tintColor) = messageViewModel.state.statusIconInfo(
                             variant: messageViewModel.variant,
                             hasAtLeastOneReadReceipt: messageViewModel.hasAtLeastOneReadReceipt
@@ -110,14 +113,7 @@ struct MessageInfoView: View {
                                 alignment: .leading,
                                 spacing: 16
                             ) {
-                                VStack(
-                                    alignment: .leading,
-                                    spacing: 4
-                                ) {
-                                    Text("ATTACHMENT_INFO_FILE_ID".localized() + ":")
-                                        .bold()
-                                        .font(.system(size: 18))
-                                        .foregroundColor(.white)
+                                InfoBlock(title: "ATTACHMENT_INFO_FILE_ID".localized() + ":") {
                                     Text("12378965485235985214")
                                         .font(.system(size: 16))
                                         .foregroundColor(.white)
@@ -127,14 +123,7 @@ struct MessageInfoView: View {
                                     alignment: .center,
                                     spacing: 48
                                 ) {
-                                    VStack(
-                                        alignment: .leading,
-                                        spacing: 4
-                                    ) {
-                                        Text("ATTACHMENT_INFO_FILE_TYPE".localized() + ":")
-                                            .bold()
-                                            .font(.system(size: 18))
-                                            .foregroundColor(.white)
+                                    InfoBlock(title: "ATTACHMENT_INFO_FILE_TYPE".localized() + ":") {
                                         Text(".PNG")
                                             .font(.system(size: 16))
                                             .foregroundColor(.white)
@@ -142,14 +131,7 @@ struct MessageInfoView: View {
                                     
                                     Spacer()
                                     
-                                    VStack(
-                                        alignment: .leading,
-                                        spacing: 4
-                                    ) {
-                                        Text("ATTACHMENT_INFO_FILE_SIZE".localized() + ":")
-                                            .bold()
-                                            .font(.system(size: 18))
-                                            .foregroundColor(.white)
+                                    InfoBlock(title: "ATTACHMENT_INFO_FILE_SIZE".localized() + ":") {
                                         Text("6mb")
                                             .font(.system(size: 16))
                                             .foregroundColor(.white)
@@ -162,14 +144,7 @@ struct MessageInfoView: View {
                                     alignment: .center,
                                     spacing: 48
                                 ) {
-                                    VStack(
-                                        alignment: .leading,
-                                        spacing: 4
-                                    ) {
-                                        Text("ATTACHMENT_INFO_RESOLUTION".localized() + ":")
-                                            .bold()
-                                            .font(.system(size: 18))
-                                            .foregroundColor(.white)
+                                    InfoBlock(title: "ATTACHMENT_INFO_RESOLUTION".localized() + ":") {
                                         Text("550×550")
                                             .font(.system(size: 16))
                                             .foregroundColor(.white)
@@ -177,14 +152,7 @@ struct MessageInfoView: View {
                                     
                                     Spacer()
                                     
-                                    VStack(
-                                        alignment: .leading,
-                                        spacing: 4
-                                    ) {
-                                        Text("ATTACHMENT_INFO_DURATION".localized() + ":")
-                                            .bold()
-                                            .font(.system(size: 18))
-                                            .foregroundColor(.white)
+                                    InfoBlock(title: "ATTACHMENT_INFO_DURATION".localized() + ":") {
                                         Text("N/A")
                                             .font(.system(size: 16))
                                             .foregroundColor(.white)
@@ -228,40 +196,23 @@ struct MessageInfoView: View {
                             alignment: .leading,
                             spacing: 16
                         ) {
-                            VStack(
-                                alignment: .leading,
-                                spacing: 4
-                            ) {
-                                Text("Sent:")
-                                    .bold()
-                                    .font(.system(size: 18))
-                                    .foregroundColor(.white)
+                            InfoBlock(title: "Sent:") {
                                 Text(messageViewModel.dateForUI.fromattedForMessageInfo)
                                     .font(.system(size: 16))
                                     .foregroundColor(.white)
                             }
-
-                            VStack(
-                                alignment: .leading,
-                                spacing: 4
-                            ) {
-                                Text("Received:")
-                                    .bold()
-                                    .font(.system(size: 18))
-                                    .foregroundColor(.white)
+                            
+                            InfoBlock(title: "Received:") {
                                 Text(messageViewModel.receivedDateForUI.fromattedForMessageInfo)
                                     .font(.system(size: 16))
                                     .foregroundColor(.white)
                             }
-
-                            VStack(
-                                alignment: .leading,
-                                spacing: 4
-                            ) {
-                                Text("From:")
-                                    .bold()
-                                    .font(.system(size: 18))
-                                    .foregroundColor(.white)
+                            
+                            if isMessageFailed {
+                                
+                            }
+                            
+                            InfoBlock(title: "From:") {
                                 HStack(
                                     spacing: 10
                                 ) {
@@ -332,6 +283,24 @@ struct MessageInfoView: View {
         //            }
                 }
             }
+        }
+    }
+}
+
+struct InfoBlock<Content>: View where Content: View {
+    let title: String
+    let content: () -> Content
+    
+    var body: some View {
+        VStack(
+            alignment: .leading,
+            spacing: 4
+        ) {
+            Text(self.title)
+                .bold()
+                .font(.system(size: 18))
+                .foregroundColor(.white)
+            self.content()
         }
     }
 }
