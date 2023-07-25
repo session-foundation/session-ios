@@ -44,6 +44,10 @@ class MediaGalleryNavigationController: UINavigationController {
     // MARK: - Orientation
 
     public override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+        if UIDevice.current.isIPad {
+            return .all
+        }
+
         return .allButUpsideDown
     }
     
