@@ -88,20 +88,23 @@ struct MessageInfoView: View {
                     }
                     
                     // TODO: Attachment carousel view
-                    SessionCarouselView_SwiftUI(contentInfos: [.orange, .gray, .blue, .yellow])
-                        .frame(
-                            maxWidth: .infinity,
-                            maxHeight: .infinity,
-                            alignment: .topLeading
-                        )
-                        .padding(
-                            EdgeInsets(
-                                top: 4,
-                                leading: 0,
-                                bottom: 4,
-                                trailing: 0
+                    if let attachments = messageViewModel.attachments, !attachments.isEmpty {
+                        SessionCarouselView_SwiftUI(contentInfos: [.orange, .gray, .blue, .yellow])
+                            .frame(
+                                maxWidth: .infinity,
+                                maxHeight: .infinity,
+                                alignment: .topLeading
                             )
-                        )
+                            .padding(
+                                EdgeInsets(
+                                    top: 4,
+                                    leading: 0,
+                                    bottom: 4,
+                                    trailing: 0
+                                )
+                            )
+                    }
+                    
                     
                     // Attachment Info
                     if (messageViewModel.attachments?.isEmpty != false) {
@@ -120,8 +123,7 @@ struct MessageInfoView: View {
                                 }
                                 
                                 HStack(
-                                    alignment: .center,
-                                    spacing: 48
+                                    alignment: .center
                                 ) {
                                     InfoBlock(title: "ATTACHMENT_INFO_FILE_TYPE".localized() + ":") {
                                         Text(".PNG")
@@ -141,8 +143,7 @@ struct MessageInfoView: View {
                                 }
 
                                 HStack(
-                                    alignment: .center,
-                                    spacing: 48
+                                    alignment: .center
                                 ) {
                                     InfoBlock(title: "ATTACHMENT_INFO_RESOLUTION".localized() + ":") {
                                         Text("550×550")
@@ -168,10 +169,10 @@ struct MessageInfoView: View {
                             )
                             .padding(
                                 EdgeInsets(
-                                    top: 16,
-                                    leading: 16,
-                                    bottom: 16,
-                                    trailing: 16
+                                    top: 24,
+                                    leading: 24,
+                                    bottom: 24,
+                                    trailing: 24
                                 )
                             )
                         }
@@ -253,10 +254,10 @@ struct MessageInfoView: View {
                         )
                         .padding(
                             EdgeInsets(
-                                top: 16,
-                                leading: 16,
-                                bottom: 16,
-                                trailing: 16
+                                top: 24,
+                                leading: 24,
+                                bottom: 24,
+                                trailing: 24
                             )
                         )
                     }
@@ -274,19 +275,61 @@ struct MessageInfoView: View {
                     // Actions
                     if !actions.isEmpty {
                         ZStack {
-                            RoundedRectangle(cornerRadius: 8)
-                            VStack {
+                            RoundedRectangle(cornerRadius: 17)
+                                .fill(Color(red: 27.0/255, green: 27.0/255, blue: 27.0/255))
+                            
+                            VStack(
+                                alignment: .leading,
+                                spacing: 0
+                            ) {
                                 ForEach(
                                     0...(actions.count - 1),
                                     id: \.self
                                 ) { index in
-                                    HStack {
-                                        Image(uiImage: actions[index].icon!)
+                                    let tintColor: Color = actions[index].isDestructive ? .red : .white
+                                    HStack(spacing: 24) {
+                                        Image(uiImage: actions[index].icon!.withRenderingMode(.alwaysTemplate))
+                                            .resizable()
+                                            .scaledToFit()
+                                            .foregroundColor(tintColor)
+                                            .frame(width: 26, height: 26)
                                         Text(actions[index].title)
+                                            .bold()
+                                            .font(.system(size: 18))
+                                            .foregroundColor(tintColor)
+                                    }
+                                    .frame(width: .infinity, height: 60)
+                                    
+                                    if index < (actions.count - 1) {
+                                        Divider()
+                                            .foregroundColor(.gray)
                                     }
                                 }
                             }
+                            .frame(
+                                maxWidth: .infinity,
+                                maxHeight: .infinity,
+                                alignment: .topLeading
+                            )
+                            .padding(
+                                EdgeInsets(
+                                    top: 0,
+                                    leading: 24,
+                                    bottom: 0,
+                                    trailing: 24
+                                )
+                            )
                         }
+                        .frame(maxHeight: .infinity)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(
+                            EdgeInsets(
+                                top: 4,
+                                leading: 30,
+                                bottom: 4,
+                                trailing: 30
+                            )
+                        )
                     }
                 }
             }
@@ -309,6 +352,10 @@ struct InfoBlock<Content>: View where Content: View {
                 .foregroundColor(.white)
             self.content()
         }
+        .frame(
+            minWidth: 100,
+            alignment: .leading
+        )
     }
 }
 
@@ -342,7 +389,13 @@ struct MessageInfoView_Previews: PreviewProvider {
         return result
     }
     
-    static var actions: [ContextMenuVC.Action] = []
+    static var actions: [ContextMenuVC.Action] {
+        return [
+            .reply(messageViewModel, nil),
+            .retry(messageViewModel, nil),
+            .delete(messageViewModel, nil)
+        ]
+    }
     
     static var previews: some View {
         MessageInfoView(

@@ -10,6 +10,7 @@ extension ContextMenuVC {
         let isEmojiAction: Bool
         let isEmojiPlus: Bool
         let isDismissAction: Bool
+        let isDestructive: Bool
         let accessibilityLabel: String?
         let work: () -> Void
         
@@ -21,6 +22,7 @@ extension ContextMenuVC {
             isEmojiAction: Bool = false,
             isEmojiPlus: Bool = false,
             isDismissAction: Bool = false,
+            isDestructive: Bool = false,
             accessibilityLabel: String? = nil,
             work: @escaping () -> Void
         ) {
@@ -29,6 +31,7 @@ extension ContextMenuVC {
             self.isEmojiAction = isEmojiAction
             self.isEmojiPlus = isEmojiPlus
             self.isDismissAction = isDismissAction
+            self.isDestructive = isDestructive
             self.accessibilityLabel = accessibilityLabel
             self.work = work
         }
@@ -83,6 +86,7 @@ extension ContextMenuVC {
             return Action(
                 icon: UIImage(named: "ic_trash"),
                 title: "TXT_DELETE_TITLE".localized(),
+                isDestructive: true,
                 accessibilityLabel: "Delete message"
             ) { delegate?.delete(cellViewModel) }
         }
