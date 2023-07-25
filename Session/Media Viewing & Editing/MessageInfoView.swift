@@ -87,8 +87,8 @@ struct MessageInfoView: View {
                         )
                     }
                     
-                    // TODO: Attachment carousel view
                     if let attachments = messageViewModel.attachments, !attachments.isEmpty {
+                        // Attachment carousel view
                         SessionCarouselView_SwiftUI(contentInfos: [.orange, .gray, .blue, .yellow])
                             .frame(
                                 maxWidth: .infinity,
@@ -103,11 +103,8 @@ struct MessageInfoView: View {
                                     trailing: 0
                                 )
                             )
-                    }
-                    
-                    
-                    // Attachment Info
-                    if (messageViewModel.attachments?.isEmpty != false) {
+                        
+                        // Attachment Info
                         ZStack {
                             RoundedRectangle(cornerRadius: 17)
                                 .fill(Color(red: 27.0/255, green: 27.0/255, blue: 27.0/255))
