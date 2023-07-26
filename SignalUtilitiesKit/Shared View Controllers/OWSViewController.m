@@ -8,6 +8,7 @@
 #import <PureLayout/PureLayout.h>
 #import <SessionUIKit/SessionUIKit.h>
 #import <SignalCoreKit/OWSAsserts.h>
+#import <SessionUtilitiesKit/SessionUtilitiesKit.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
