@@ -3,5 +3,9 @@
 import SwiftUI
 
 public extension View {
-    
+    func themeForegroundColor(themeColor: ThemeValue) -> some View {
+        return self.foregroundColor(
+            Color(.white)
+        )
+    }
 }
