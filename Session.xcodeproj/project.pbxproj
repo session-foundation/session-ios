@@ -162,6 +162,7 @@
 		7BDCFC08242186E700641C39 /* NotificationServiceExtensionContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BDCFC07242186E700641C39 /* NotificationServiceExtensionContext.swift */; };
 		7BDCFC0B2421EB7600641C39 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = B6F509951AA53F760068F56A /* Localizable.strings */; };
 		7BE2701E2A64C11500CEB71A /* SessionCarouselView+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BE2701D2A64C11500CEB71A /* SessionCarouselView+SwiftUI.swift */; };
+		7BF8D1FB2A70AF57005F1D6E /* SwiftUI+Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BF8D1FA2A70AF57005F1D6E /* SwiftUI+Theme.swift */; };
 		7BFA8AE32831D0D4001876F3 /* ContextMenuVC+EmojiReactsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFA8AE22831D0D4001876F3 /* ContextMenuVC+EmojiReactsView.swift */; };
 		7BFD1A8A2745C4F000FB91B9 /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFD1A892745C4F000FB91B9 /* Permissions.swift */; };
 		7BFD1A8C2747150E00FB91B9 /* TurnServerInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFD1A8B2747150E00FB91B9 /* TurnServerInfo.swift */; };
@@ -1268,6 +1269,7 @@
 		7BDCFC0424206E7300641C39 /* SessionNotificationServiceExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SessionNotificationServiceExtension.entitlements; sourceTree = "<group>"; };
 		7BDCFC07242186E700641C39 /* NotificationServiceExtensionContext.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NotificationServiceExtensionContext.swift; sourceTree = "<group>"; };
 		7BE2701D2A64C11500CEB71A /* SessionCarouselView+SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionCarouselView+SwiftUI.swift"; sourceTree = "<group>"; };
+		7BF8D1FA2A70AF57005F1D6E /* SwiftUI+Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SwiftUI+Theme.swift"; sourceTree = "<group>"; };
 		7BFA8AE22831D0D4001876F3 /* ContextMenuVC+EmojiReactsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ContextMenuVC+EmojiReactsView.swift"; sourceTree = "<group>"; };
 		7BFD1A892745C4F000FB91B9 /* Permissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Permissions.swift; sourceTree = "<group>"; };
 		7BFD1A8B2747150E00FB91B9 /* TurnServerInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TurnServerInfo.swift; sourceTree = "<group>"; };
@@ -3776,6 +3778,7 @@
 				FD37E9D228A1FCDB003AE748 /* Theme+OceanDark.swift */,
 				FD37E9D428A1FCE8003AE748 /* Theme+OceanLight.swift */,
 				FD37EA0028A60473003AE748 /* UIKit+Theme.swift */,
+				7BF8D1FA2A70AF57005F1D6E /* SwiftUI+Theme.swift */,
 			);
 			path = Themes;
 			sourceTree = "<group>";
@@ -5440,6 +5443,7 @@
 				C331FFB92558FA8D00070591 /* UIView+Constraints.swift in Sources */,
 				FD0B77B029B69A65009169BA /* TopBannerController.swift in Sources */,
 				FD37E9F628A5F106003AE748 /* Configuration.swift in Sources */,
+				7BF8D1FB2A70AF57005F1D6E /* SwiftUI+Theme.swift in Sources */,
 				FDBB25E72988BBBE00F1508E /* UIContextualAction+Theming.swift in Sources */,
 				C331FFE02558FB0000070591 /* SearchBar.swift in Sources */,
 				FD16AB5B2A1DD7CA0083D849 /* PlaceholderIcon.swift in Sources */,

@@ -296,6 +296,9 @@ struct MessageInfoView: View {
                                             .foregroundColor(tintColor)
                                     }
                                     .frame(width: .infinity, height: 60)
+                                    .onTapGesture {
+                                        actions[index].work()
+                                    }
                                     
                                     if index < (actions.count - 1) {
                                         Divider()
