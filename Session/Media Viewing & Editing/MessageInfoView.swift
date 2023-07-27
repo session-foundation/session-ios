@@ -26,11 +26,19 @@ struct MessageInfoView: View {
                 ) {
                     // Message bubble snapshot
                     if let body: String = messageViewModel.body {
+                        let (bubbleBackgroundColor, bubbleTextColor): (ThemeValue, ThemeValue) = (
+                            messageViewModel.variant == .standardIncoming ||
+                            messageViewModel.variant == .standardIncomingDeleted
+                        ) ?
+                        (.messageBubble_incomingBackground, .messageBubble_incomingText) :
+                        (.messageBubble_outgoingBackground, .messageBubble_outgoingText)
+                        
                         ZStack {
                             RoundedRectangle(cornerRadius: 18)
-                                .fill(Color(red: 49.0/255, green: 241.0/255, blue: 150.0/255))
+                                .fill(themeColor: bubbleBackgroundColor)
                             
                             Text(body)
+                                .foregroundColor(themeColor: bubbleTextColor)
                                 .padding(
                                     EdgeInsets(
                                         top: 8,
@@ -67,14 +75,14 @@ struct MessageInfoView: View {
                                 Image(uiImage: image)
                                     .resizable()
                                     .scaledToFit()
-                                    .foregroundColor(.red)
+                                    .foregroundColor(themeColor: tintColor)
                                     .frame(width: 13, height: 12)
                             }
                             
                             if let statusText: String = statusText {
                                 Text(statusText)
                                     .font(.system(size: 11))
-                                    .foregroundColor(.red)
+                                    .foregroundColor(themeColor: tintColor)
                             }
                         }
                         .padding(
@@ -116,7 +124,7 @@ struct MessageInfoView: View {
                                 InfoBlock(title: "ATTACHMENT_INFO_FILE_ID".localized() + ":") {
                                     Text("12378965485235985214")
                                         .font(.system(size: 16))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(themeColor: .textPrimary)
                                 }
                                 
                                 HStack(
@@ -125,7 +133,7 @@ struct MessageInfoView: View {
                                     InfoBlock(title: "ATTACHMENT_INFO_FILE_TYPE".localized() + ":") {
                                         Text(".PNG")
                                             .font(.system(size: 16))
-                                            .foregroundColor(.white)
+                                            .foregroundColor(themeColor: .textPrimary)
                                     }
                                     
                                     Spacer()
@@ -133,7 +141,7 @@ struct MessageInfoView: View {
                                     InfoBlock(title: "ATTACHMENT_INFO_FILE_SIZE".localized() + ":") {
                                         Text("6mb")
                                             .font(.system(size: 16))
-                                            .foregroundColor(.white)
+                                            .foregroundColor(themeColor: .textPrimary)
                                     }
                                     
                                     Spacer()
@@ -145,7 +153,7 @@ struct MessageInfoView: View {
                                     InfoBlock(title: "ATTACHMENT_INFO_RESOLUTION".localized() + ":") {
                                         Text("550×550")
                                             .font(.system(size: 16))
-                                            .foregroundColor(.white)
+                                            .foregroundColor(themeColor: .textPrimary)
                                     }
                                     
                                     Spacer()
@@ -153,7 +161,7 @@ struct MessageInfoView: View {
                                     InfoBlock(title: "ATTACHMENT_INFO_DURATION".localized() + ":") {
                                         Text("N/A")
                                             .font(.system(size: 16))
-                                            .foregroundColor(.white)
+                                            .foregroundColor(themeColor: .textPrimary)
                                     }
                                     
                                     Spacer()
@@ -188,7 +196,7 @@ struct MessageInfoView: View {
                     // Message Info
                     ZStack {
                         RoundedRectangle(cornerRadius: 17)
-                            .fill(Color(red: 27.0/255, green: 27.0/255, blue: 27.0/255))
+                            .fill(themeColor: .backgroundSecondary)
                             
                         VStack(
                             alignment: .leading,
@@ -197,13 +205,13 @@ struct MessageInfoView: View {
                             InfoBlock(title: "Sent:") {
                                 Text(messageViewModel.dateForUI.fromattedForMessageInfo)
                                     .font(.system(size: 16))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(themeColor: .textPrimary)
                             }
                             
                             InfoBlock(title: "Received:") {
                                 Text(messageViewModel.receivedDateForUI.fromattedForMessageInfo)
                                     .font(.system(size: 16))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(themeColor: .textPrimary)
                             }
                             
                             if isMessageFailed {
@@ -211,7 +219,7 @@ struct MessageInfoView: View {
                                 InfoBlock(title: "Error:") {
                                     Text(failureText)
                                         .font(.system(size: 16))
-                                        .foregroundColor(.red)
+                                        .foregroundColor(themeColor: .danger)
                                 }
                             }
                             
@@ -225,7 +233,7 @@ struct MessageInfoView: View {
                                             height: 46,
                                             alignment: .topLeading
                                         )
-                                        .foregroundColor(Color(red: 49.0/255, green: 241.0/255, blue: 150.0/255))
+                                        .foregroundColor(themeColor: .primary)
     //                                ProfilePictureSwiftUI(size: .message)
                                         
                                         
@@ -236,10 +244,10 @@ struct MessageInfoView: View {
                                         Text(messageViewModel.senderName ?? "Tester")
                                             .bold()
                                             .font(.system(size: 18))
-                                            .foregroundColor(.white)
+                                            .foregroundColor(themeColor: .textPrimary)
                                         Text(messageViewModel.authorId)
                                             .font(.system(size: 16))
-                                            .foregroundColor(.white)
+                                            .foregroundColor(themeColor: .textPrimary)
                                     }
                                 }
                             }
@@ -273,7 +281,7 @@ struct MessageInfoView: View {
                     if !actions.isEmpty {
                         ZStack {
                             RoundedRectangle(cornerRadius: 17)
-                                .fill(Color(red: 27.0/255, green: 27.0/255, blue: 27.0/255))
+                                .fill(themeColor: .backgroundSecondary)
                             
                             VStack(
                                 alignment: .leading,
@@ -283,17 +291,17 @@ struct MessageInfoView: View {
                                     0...(actions.count - 1),
                                     id: \.self
                                 ) { index in
-                                    let tintColor: Color = actions[index].isDestructive ? .red : .white
+                                    let tintColor: ThemeValue = actions[index].isDestructive ? .danger : .textPrimary
                                     HStack(spacing: 24) {
                                         Image(uiImage: actions[index].icon!.withRenderingMode(.alwaysTemplate))
                                             .resizable()
                                             .scaledToFit()
-                                            .foregroundColor(tintColor)
+                                            .foregroundColor(themeColor: tintColor)
                                             .frame(width: 26, height: 26)
                                         Text(actions[index].title)
                                             .bold()
                                             .font(.system(size: 18))
-                                            .foregroundColor(tintColor)
+                                            .foregroundColor(themeColor: tintColor)
                                     }
                                     .frame(width: .infinity, height: 60)
                                     .onTapGesture {
@@ -302,7 +310,7 @@ struct MessageInfoView: View {
                                     
                                     if index < (actions.count - 1) {
                                         Divider()
-                                            .foregroundColor(.gray)
+                                            .foregroundColor(themeColor: .borderSeparator)
                                     }
                                 }
                             }
@@ -349,7 +357,7 @@ struct InfoBlock<Content>: View where Content: View {
             Text(self.title)
                 .bold()
                 .font(.system(size: 18))
-                .foregroundColor(.white)
+                .foregroundColor(themeColor: .textPrimary)
             self.content()
         }
         .frame(

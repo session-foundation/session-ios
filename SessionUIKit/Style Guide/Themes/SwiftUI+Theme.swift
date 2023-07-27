@@ -3,9 +3,17 @@
 import SwiftUI
 
 public extension View {
-    func themeForegroundColor(themeColor: ThemeValue) -> some View {
+    func foregroundColor(themeColor: ThemeValue) -> some View {
         return self.foregroundColor(
-            Color(.white)
+            ThemeManager.currentTheme.colorSwiftUI(for: themeColor)
+        )
+    }
+}
+
+public extension Shape {
+    func fill(themeColor: ThemeValue) -> some View {
+        return self.fill(
+            ThemeManager.currentTheme.colorSwiftUI(for: themeColor) ?? Color.primary
         )
     }
 }

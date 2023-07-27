@@ -176,3 +176,7 @@ internal extension Color {
     static let oceanLight6: Color = Color(#colorLiteral(red: 0.9254901961, green: 0.9803921569, blue: 0.9843137255, alpha: 1))        // #ECFAFB
     static let oceanLight7: Color = Color(#colorLiteral(red: 0.9882352941, green: 1, blue: 1, alpha: 1))        // #FCFFFF
 }
+
+public extension Color {
+    static let primary: Color = ThemeManager.primaryColor.colorSwiftUI
+}
