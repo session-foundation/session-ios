@@ -28,7 +28,7 @@ public extension Theme {
         internal init?(color: Color?) {
             guard
                 let color: Color = color,
-                let primaryColor: PrimaryColor = PrimaryColor.allCases.first(where: { $0.swiftUIColor == color })
+                let primaryColor: PrimaryColor = PrimaryColor.allCases.first(where: { $0.colorSwiftUI == color })
             else { return nil }
             
             self = primaryColor
@@ -47,7 +47,7 @@ public extension Theme {
         }
         
         // FIXME: Clean it when Xcode can show the color panel in "return Color(#colorLiteral())"
-        public var swiftUIColor: Color {
+        public var colorSwiftUI: Color {
             switch self {
                 case .green:
                     let color: Color = Color(#colorLiteral(red: 0.1921568627, green: 0.9450980392, blue: 0.5882352941, alpha: 1))         // #31F196
