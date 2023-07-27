@@ -241,12 +241,14 @@ struct MessageInfoView: View {
                                         alignment: .leading,
                                         spacing: 4
                                     ) {
-                                        Text(messageViewModel.senderName ?? "Tester")
-                                            .bold()
-                                            .font(.system(size: 18))
-                                            .foregroundColor(themeColor: .textPrimary)
+                                        if !messageViewModel.authorName.isEmpty  {
+                                            Text(messageViewModel.authorName)
+                                                .bold()
+                                                .font(.system(size: 18))
+                                                .foregroundColor(themeColor: .textPrimary)
+                                        }
                                         Text(messageViewModel.authorId)
-                                            .font(.system(size: 16))
+                                            .font(.spaceMono(size: 16))
                                             .foregroundColor(themeColor: .textPrimary)
                                     }
                                 }
