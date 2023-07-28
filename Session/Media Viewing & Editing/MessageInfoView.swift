@@ -5,6 +5,7 @@ import SessionUIKit
 import SessionSnodeKit
 
 struct MessageInfoView: View {
+    @State var index = 1
     var actions: [ContextMenuVC.Action]
     var messageViewModel: MessageViewModel
     var isMessageFailed: Bool {
@@ -95,22 +96,26 @@ struct MessageInfoView: View {
                         )
                     }
                     
-                    if let attachments = messageViewModel.attachments, !attachments.isEmpty {
-                        // Attachment carousel view
-                        SessionCarouselView_SwiftUI(contentInfos: [.orange, .gray, .blue, .yellow])
-                            .frame(
-                                maxWidth: .infinity,
-                                maxHeight: .infinity,
-                                alignment: .topLeading
-                            )
-                            .padding(
-                                EdgeInsets(
-                                    top: 4,
-                                    leading: 0,
-                                    bottom: 4,
-                                    trailing: 0
+                    if let attachments = messageViewModel.attachments {
+                        if attachments.count > 1 {
+                            // Attachment carousel view
+                            SessionCarouselView_SwiftUI(index: $index, contentInfos: [.orange, .gray, .blue, .yellow])
+                                .frame(
+                                    maxWidth: .infinity,
+                                    maxHeight: .infinity,
+                                    alignment: .topLeading
                                 )
-                            )
+                                .padding(
+                                    EdgeInsets(
+                                        top: 4,
+                                        leading: 0,
+                                        bottom: 4,
+                                        trailing: 0
+                                    )
+                                )
+                        } else {
+                            // TODO: one attachment
+                        }
                         
                         // Attachment Info
                         ZStack {
@@ -202,13 +207,13 @@ struct MessageInfoView: View {
                             alignment: .leading,
                             spacing: 16
                         ) {
-                            InfoBlock(title: "Sent:") {
+                            InfoBlock(title: "MESSAGE_INFO_SENT".localized() + ":") {
                                 Text(messageViewModel.dateForUI.fromattedForMessageInfo)
                                     .font(.system(size: 16))
                                     .foregroundColor(themeColor: .textPrimary)
                             }
                             
-                            InfoBlock(title: "Received:") {
+                            InfoBlock(title: "MESSAGE_INFO_RECEIVED".localized() + ":") {
                                 Text(messageViewModel.receivedDateForUI.fromattedForMessageInfo)
                                     .font(.system(size: 16))
                                     .foregroundColor(themeColor: .textPrimary)
@@ -216,14 +221,14 @@ struct MessageInfoView: View {
                             
                             if isMessageFailed {
                                 let failureText: String = messageViewModel.mostRecentFailureText ?? "Message failed to send"
-                                InfoBlock(title: "Error:") {
+                                InfoBlock(title: "ALERT_ERROR_TITLE".localized() + ":") {
                                     Text(failureText)
                                         .font(.system(size: 16))
                                         .foregroundColor(themeColor: .danger)
                                 }
                             }
                             
-                            InfoBlock(title: "From:") {
+                            InfoBlock(title: "MESSAGE_INFO_FROM".localized() + ":") {
                                 HStack(
                                     spacing: 10
                                 ) {

@@ -3,12 +3,12 @@
 import SwiftUI
 
 public struct SessionCarouselView_SwiftUI: View {
-    @State var index = 1
-
+    @Binding var index: Int
     var contentInfos: [Color]
     let numberOfPages: Int
     
-    public init(contentInfos: [Color]) {
+    public init(index: Binding<Int>, contentInfos: [Color]) {
+        self._index = index
         self.contentInfos = contentInfos
         self.numberOfPages = contentInfos.count
         
@@ -191,6 +191,7 @@ struct PageControl: View {
 }
 
 struct SessionCarouselView_SwiftUI_Previews: PreviewProvider {
+    @State static var index = 1
     static var previews: some View {
         ZStack {
             if #available(iOS 14.0, *) {
@@ -199,7 +200,7 @@ struct SessionCarouselView_SwiftUI_Previews: PreviewProvider {
                 Color.black
             }
             
-            SessionCarouselView_SwiftUI(contentInfos: [.red, .orange, .blue])
+            SessionCarouselView_SwiftUI(index: $index, contentInfos: [.red, .orange, .blue])
         }
     }
 }
