@@ -58,7 +58,6 @@ struct ArrowView: View {
     var body: some View {
         let imageName = self.type == .decrement ? "chevron.left" : "chevron.right"
         Button {
-            print("Tap")
             if self.type == .decrement {
                 decrement()
             } else {
