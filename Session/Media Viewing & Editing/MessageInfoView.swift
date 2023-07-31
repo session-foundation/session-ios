@@ -27,7 +27,7 @@ struct MessageInfoView: View {
                         spacing: 10
                     ) {
                         // Message bubble snapshot
-                        if let body: String = messageViewModel.body {
+                        if let body: String = messageViewModel.body, !body.isEmpty {
                             let (bubbleBackgroundColor, bubbleTextColor): (ThemeValue, ThemeValue) = (
                                 messageViewModel.variant == .standardIncoming ||
                                 messageViewModel.variant == .standardIncomingDeleted
@@ -101,7 +101,7 @@ struct MessageInfoView: View {
                             ZStack(alignment: .bottomTrailing) {
                                 if attachments.count > 1 {
                                     // Attachment carousel view
-                                    SessionCarouselView_SwiftUI(index: $index, contentInfos: [.orange, .gray, .blue, .yellow])
+                                    SessionCarouselView_SwiftUI(index: $index, contentInfos: attachments)
                                         .frame(
                                             maxWidth: .infinity,
                                             maxHeight: .infinity,
@@ -142,16 +142,17 @@ struct MessageInfoView: View {
                             )
                             
                             // Attachment Info
+                            let attachment: Attachment = attachments[index - 1]
                             ZStack {
                                 RoundedRectangle(cornerRadius: 17)
-                                    .fill(Color(red: 27.0/255, green: 27.0/255, blue: 27.0/255))
+                                    .fill(themeColor: .backgroundSecondary)
                                     
                                 VStack(
                                     alignment: .leading,
                                     spacing: 16
                                 ) {
                                     InfoBlock(title: "ATTACHMENT_INFO_FILE_ID".localized() + ":") {
-                                        Text("12378965485235985214")
+                                        Text(attachment.serverId ?? "")
                                             .font(.system(size: 16))
                                             .foregroundColor(themeColor: .textPrimary)
                                     }
@@ -160,7 +161,7 @@ struct MessageInfoView: View {
                                         alignment: .center
                                     ) {
                                         InfoBlock(title: "ATTACHMENT_INFO_FILE_TYPE".localized() + ":") {
-                                            Text(".PNG")
+                                            Text(attachment.contentType)
                                                 .font(.system(size: 16))
                                                 .foregroundColor(themeColor: .textPrimary)
                                         }
@@ -168,27 +169,34 @@ struct MessageInfoView: View {
                                         Spacer()
                                         
                                         InfoBlock(title: "ATTACHMENT_INFO_FILE_SIZE".localized() + ":") {
-                                            Text("6mb")
+                                            Text(Format.fileSize(attachment.byteCount))
                                                 .font(.system(size: 16))
                                                 .foregroundColor(themeColor: .textPrimary)
                                         }
                                         
                                         Spacer()
                                     }
-
                                     HStack(
                                         alignment: .center
                                     ) {
+                                        let resolution: String = {
+                                            guard let width = attachment.width, let height = attachment.height else { return "N/A" }
+                                            return "\(width)×\(height)"
+                                        }()
                                         InfoBlock(title: "ATTACHMENT_INFO_RESOLUTION".localized() + ":") {
-                                            Text("550×550")
+                                            Text(resolution)
                                                 .font(.system(size: 16))
                                                 .foregroundColor(themeColor: .textPrimary)
                                         }
                                         
                                         Spacer()
                                         
+                                        let duration: String = {
+                                            guard let duration = attachment.duration else { return "N/A" }
+                                            return floor(duration).formatted(format: .videoDuration)
+                                        }()
                                         InfoBlock(title: "ATTACHMENT_INFO_DURATION".localized() + ":") {
-                                            Text("N/A")
+                                            Text(duration)
                                                 .font(.system(size: 16))
                                                 .foregroundColor(themeColor: .textPrimary)
                                         }

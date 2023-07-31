@@ -159,9 +159,9 @@
 		7BD477A827EC39F5004E2822 /* Atomic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BD477A727EC39F5004E2822 /* Atomic.swift */; };
 		7BD687D12A5D0D1200D8E455 /* MessageInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BD687D02A5D0D1200D8E455 /* MessageInfoView.swift */; };
 		7BD687D42A5E852600D8E455 /* ProfilePictureView+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BD687D32A5E852600D8E455 /* ProfilePictureView+SwiftUI.swift */; };
+		7BD976972A776C76001B466F /* SessionCarouselView+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BE2701D2A64C11500CEB71A /* SessionCarouselView+SwiftUI.swift */; };
 		7BDCFC08242186E700641C39 /* NotificationServiceExtensionContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BDCFC07242186E700641C39 /* NotificationServiceExtensionContext.swift */; };
 		7BDCFC0B2421EB7600641C39 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = B6F509951AA53F760068F56A /* Localizable.strings */; };
-		7BE2701E2A64C11500CEB71A /* SessionCarouselView+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BE2701D2A64C11500CEB71A /* SessionCarouselView+SwiftUI.swift */; };
 		7BF8D1FB2A70AF57005F1D6E /* SwiftUI+Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BF8D1FA2A70AF57005F1D6E /* SwiftUI+Theme.swift */; };
 		7BFA8AE32831D0D4001876F3 /* ContextMenuVC+EmojiReactsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFA8AE22831D0D4001876F3 /* ContextMenuVC+EmojiReactsView.swift */; };
 		7BFD1A8A2745C4F000FB91B9 /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFD1A892745C4F000FB91B9 /* Permissions.swift */; };
@@ -2670,6 +2670,7 @@
 				FD52090828B59411006098F6 /* ScreenLockUI.swift */,
 				FD37EA0828AA2D27003AE748 /* SessionTableViewModel.swift */,
 				FD37EA0628AA2CCA003AE748 /* SessionTableViewController.swift */,
+				7BE2701D2A64C11500CEB71A /* SessionCarouselView+SwiftUI.swift */,
 				7B3A39312980D02B002FE4AC /* SessionCarouselView.swift */,
 				7B2561C329874851005C086C /* SessionCarouselView+Info.swift */,
 				7B3A3933298882D6002FE4AC /* SessionCarouselViewDelegate.swift */,
@@ -2934,7 +2935,6 @@
 				7BD687D32A5E852600D8E455 /* ProfilePictureView+SwiftUI.swift */,
 				FD71165A28E6DDBC00B47552 /* StyledNavigationController.swift */,
 				FD0B77AF29B69A65009169BA /* TopBannerController.swift */,
-				7BE2701D2A64C11500CEB71A /* SessionCarouselView+SwiftUI.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -5429,7 +5429,6 @@
 				FD37E9D328A1FCDB003AE748 /* Theme+OceanDark.swift in Sources */,
 				FD71165928E436E800B47552 /* ConfirmationModal.swift in Sources */,
 				7BBBDC44286EAD2D00747E59 /* TappableLabel.swift in Sources */,
-				7BE2701E2A64C11500CEB71A /* SessionCarouselView+SwiftUI.swift in Sources */,
 				FD09B7E328865FDA00ED0B66 /* HighlightMentionBackgroundView.swift in Sources */,
 				C331FFB82558FA8D00070591 /* DeviceUtilities.swift in Sources */,
 				C331FFE72558FB0000070591 /* TextField.swift in Sources */,
@@ -6063,6 +6062,7 @@
 				45C0DC1B1E68FE9000E04C47 /* UIApplication+OWS.swift in Sources */,
 				FDF222072818CECF000A4995 /* ConversationViewModel.swift in Sources */,
 				4539B5861F79348F007141FF /* PushRegistrationManager.swift in Sources */,
+				7BD976972A776C76001B466F /* SessionCarouselView+SwiftUI.swift in Sources */,
 				B8041A9525C8FA1D003C2166 /* MediaLoaderView.swift in Sources */,
 				45F32C232057297A00A300D5 /* MediaPageViewController.swift in Sources */,
 				7B9F71D42852EEE2006DFE7B /* Emoji+Name.swift in Sources */,

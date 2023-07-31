@@ -4,10 +4,10 @@ import SwiftUI
 
 public struct SessionCarouselView_SwiftUI: View {
     @Binding var index: Int
-    var contentInfos: [Color]
+    var contentInfos: [Attachment]
     let numberOfPages: Int
     
-    public init(index: Binding<Int>, contentInfos: [Color]) {
+    public init(index: Binding<Int>, contentInfos: [Attachment]) {
         self._index = index
         self.contentInfos = contentInfos
         self.numberOfPages = contentInfos.count
