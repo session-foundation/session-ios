@@ -33,7 +33,7 @@ public extension Date {
     var fromattedForMessageInfo: String {
         let formatter: DateFormatter = DateFormatter()
         formatter.locale = Locale.current
-        formatter.dateFormat = "h:mm a EEE, DD/MM/YYYY"
+        formatter.dateFormat = "h:mm a EEE, dd/MM/YYYY"
         
         return formatter.string(from: self)
     }
