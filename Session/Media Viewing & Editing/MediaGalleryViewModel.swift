@@ -5,6 +5,7 @@ import GRDB
 import DifferenceKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
+import SwiftUI
 
 public class MediaGalleryViewModel {
     public typealias SectionModel = ArraySection<Section, Item>
@@ -561,6 +562,44 @@ public class MediaGalleryViewModel {
         navController.viewControllers = [pageViewController]
         navController.modalPresentationStyle = .fullScreen
         navController.transitioningDelegate = pageViewController
+        
+        return navController
+    }
+    
+    public static func createDetailViewSwiftUI(
+        for threadId: String,
+        threadVariant: SessionThread.Variant,
+        interactionId: Int64,
+        selectedAttachmentId: String,
+        options: [MediaGalleryOption]
+    ) -> (any UIViewControllerRepresentable)? {
+        // Load the data for the album immediately (needed before pushing to the screen so
+        // transitions work nicely)
+        let viewModel: MediaGalleryViewModel = MediaGalleryViewModel(
+            threadId: threadId,
+            threadVariant: threadVariant,
+            isPagedData: false,
+            mediaType: .media
+        )
+        viewModel.loadAndCacheAlbumData(for: interactionId, in: threadId)
+        viewModel.replaceAlbumObservation(toObservationFor: interactionId)
+        
+        guard
+            !viewModel.albumData.isEmpty,
+            let initialItem: Item = viewModel.albumData[interactionId]?.first(where: { item -> Bool in
+                item.attachment.id == selectedAttachmentId
+            })
+        else { return nil }
+        
+        let pageViewController: MediaPageViewController = MediaPageViewController(
+            viewModel: viewModel,
+            initialItem: initialItem,
+            options: options
+        )
+        let navController = MediaGalleryNavigationController_SwiftUI(
+            viewControllers: [pageViewController],
+            transitioningDelegate: pageViewController
+        )
         
         return navController
     }

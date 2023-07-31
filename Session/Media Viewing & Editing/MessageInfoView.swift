@@ -406,6 +406,19 @@ struct MessageInfoView: View {
             }
         }
     }
+    
+    private func showMediaFullScreen(attachment: Attachment) {
+        let viewController: UIViewController? = MediaGalleryViewModel.createDetailViewController(
+            for: messageViewModel.threadId,
+            threadVariant: messageViewModel.threadVariant,
+            interactionId: messageViewModel.id,
+            selectedAttachmentId: attachment.id,
+            options: [ .sliderEnabled ]
+        )
+        if let viewController: UIViewController = viewController {
+            viewController.transitioningDelegate = nil
+        }
+    }
 }
 
 struct InfoBlock<Content>: View where Content: View {
