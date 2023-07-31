@@ -4,11 +4,13 @@ import SwiftUI
 
 public struct SessionCarouselView_SwiftUI: View {
     @Binding var index: Int
+    let isOutgoing: Bool
     var contentInfos: [Attachment]
     let numberOfPages: Int
     
-    public init(index: Binding<Int>, contentInfos: [Attachment]) {
+    public init(index: Binding<Int>, isOutgoing: Bool, contentInfos: [Attachment]) {
         self._index = index
+        self.isOutgoing = isOutgoing
         self.contentInfos = contentInfos
         self.numberOfPages = contentInfos.count
         
@@ -24,9 +26,12 @@ public struct SessionCarouselView_SwiftUI: View {
                 .zIndex(1)
             
             PageView(index: $index, numberOfPages: self.numberOfPages) {
-                ForEach(self.contentInfos, id: \.self) { color in
-                    Rectangle()
-                        .foregroundColor(color)
+                ForEach(self.contentInfos) { attachment in
+                    MediaView_SwiftUI(
+                        attachment: attachment,
+                        isOutgoing: self.isOutgoing,
+                        cornerRadius: 0
+                    )
                 }
             }
             .aspectRatio(1, contentMode: .fit)
@@ -66,7 +71,7 @@ struct ArrowView: View {
         } label: {
             Image(systemName: imageName)
                 .font(.system(size: 20))
-                .foregroundColor(.white)
+                .foregroundColor(themeColor: .textPrimary)
                 .frame(width: 30, height: 30)
         }
     }
@@ -199,7 +204,7 @@ struct SessionCarouselView_SwiftUI_Previews: PreviewProvider {
                 Color.black
             }
             
-            SessionCarouselView_SwiftUI(index: $index, contentInfos: [.red, .orange, .blue])
+            SessionCarouselView_SwiftUI(index: $index, isOutgoing: true, contentInfos: [])
         }
     }
 }

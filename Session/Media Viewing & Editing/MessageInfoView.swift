@@ -101,14 +101,37 @@ struct MessageInfoView: View {
                             ZStack(alignment: .bottomTrailing) {
                                 if attachments.count > 1 {
                                     // Attachment carousel view
-                                    SessionCarouselView_SwiftUI(index: $index, contentInfos: attachments)
-                                        .frame(
-                                            maxWidth: .infinity,
-                                            maxHeight: .infinity,
-                                            alignment: .topLeading
-                                        )
+                                    SessionCarouselView_SwiftUI(
+                                        index: $index,
+                                        isOutgoing: (messageViewModel.variant == .standardOutgoing),
+                                        contentInfos: attachments
+                                    )
+                                    .frame(
+                                        maxWidth: .infinity,
+                                        maxHeight: .infinity,
+                                        alignment: .topLeading
+                                    )
                                 } else {
-                                    // TODO: one attachment
+                                    MediaView_SwiftUI(
+                                        attachment: attachments[0],
+                                        isOutgoing: (messageViewModel.variant == .standardOutgoing),
+                                        cornerRadius: 0
+                                    )
+                                    .frame(
+                                        maxWidth: .infinity,
+                                        maxHeight: .infinity,
+                                        alignment: .topLeading
+                                    )
+                                    .aspectRatio(1, contentMode: .fit)
+                                    .clipShape(RoundedRectangle(cornerRadius: 15))
+                                    .padding(
+                                        EdgeInsets(
+                                            top: 0,
+                                            leading: 30,
+                                            bottom: 0,
+                                            trailing: 30
+                                        )
+                                    )
                                 }
                                 
                                 Button {
@@ -142,7 +165,7 @@ struct MessageInfoView: View {
                             )
                             
                             // Attachment Info
-                            let attachment: Attachment = attachments[index - 1]
+                            let attachment: Attachment = attachments[(index - 1 + attachments.count) % attachments.count]
                             ZStack {
                                 RoundedRectangle(cornerRadius: 17)
                                     .fill(themeColor: .backgroundSecondary)
