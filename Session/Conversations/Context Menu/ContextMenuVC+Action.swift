@@ -154,6 +154,7 @@ extension ContextMenuVC {
         currentUserBlinded25PublicKey: String?,
         currentUserIsOpenGroupModerator: Bool,
         currentThreadIsMessageRequest: Bool,
+        forMessageInfoScreen: Bool,
         delegate: ContextMenuActionDelegate?
     ) -> [Action]? {
         switch cellViewModel.variant {
@@ -225,10 +226,8 @@ extension ContextMenuVC {
                     on: cellViewModel.threadOpenGroupServer
                 )
             }
-            return !currentThreadIsMessageRequest
+            return !currentThreadIsMessageRequest && !forMessageInfoScreen
         }()
-        
-        let shouldShowInfo: Bool = (cellViewModel.attachments?.isEmpty == false)
         
         let generatedActions: [Action] = [
             (canRetry ? Action.retry(cellViewModel, delegate) : nil),
@@ -239,15 +238,15 @@ extension ContextMenuVC {
             (canDelete ? Action.delete(cellViewModel, delegate) : nil),
             (canBan ? Action.ban(cellViewModel, delegate) : nil),
             (canBan ? Action.banAndDeleteAllMessages(cellViewModel, delegate) : nil),
-            (shouldShowInfo ? Action.info(cellViewModel, delegate) : nil),
+            (forMessageInfoScreen ? nil : Action.info(cellViewModel, delegate)),
         ]
         .appending(contentsOf: (shouldShowEmojiActions ? recentEmojis : []).map { Action.react(cellViewModel, $0, delegate) })
-        .appending(Action.emojiPlusButton(cellViewModel, delegate))
+        .appending(forMessageInfoScreen ? nil : Action.emojiPlusButton(cellViewModel, delegate))
         .compactMap { $0 }
         
         guard !generatedActions.isEmpty else { return [] }
         
-        return generatedActions.appending(Action.dismiss(delegate))
+        return generatedActions.appending(forMessageInfoScreen ? nil : Action.dismiss(delegate))
     }
 }
 

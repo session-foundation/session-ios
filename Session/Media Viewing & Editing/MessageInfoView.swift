@@ -16,9 +16,9 @@ struct MessageInfoView: View {
         NavigationView {
             ZStack (alignment: .topLeading) {
                 if #available(iOS 14.0, *) {
-                    Color.black.ignoresSafeArea()
+                    ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
                 } else {
-                    Color.black
+                    ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary)
                 }
                 
                 ScrollView(.vertical, showsIndicators: false) {
@@ -373,10 +373,6 @@ struct MessageInfoView: View {
                     }
                 }
             }
-            .navigationBarTitle(
-                "Message Info",
-                displayMode: .inline
-            )
         }
     }
 }

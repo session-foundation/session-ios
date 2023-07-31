@@ -11,6 +11,7 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
+import SwiftUI
 
 extension ConversationVC:
     InputViewDelegate,
@@ -758,6 +759,7 @@ extension ConversationVC:
                     on: self.viewModel.threadData.openGroupServer
                 ),
                 currentThreadIsMessageRequest: (self.viewModel.threadData.threadIsMessageRequest == true),
+                forMessageInfoScreen: false,
                 delegate: self
             )
         else { return }
@@ -1608,14 +1610,26 @@ extension ConversationVC:
     // MARK: - ContextMenuActionDelegate
     
     func info(_ cellViewModel: MessageViewModel) {
-        let mediaInfoVC = MediaInfoVC(
-            attachments: (cellViewModel.attachments ?? []),
-            isOutgoing: (cellViewModel.variant == .standardOutgoing),
-            threadId: self.viewModel.threadData.threadId,
-            threadVariant: self.viewModel.threadData.threadVariant,
-            interactionId: cellViewModel.id
-        )
-        navigationController?.pushViewController(mediaInfoVC, animated: true)
+        let actions: [ContextMenuVC.Action] = ContextMenuVC.actions(
+            for: cellViewModel,
+            recentEmojis: [],
+            currentUserPublicKey: self.viewModel.threadData.currentUserPublicKey,
+            currentUserBlinded15PublicKey: self.viewModel.threadData.currentUserBlinded15PublicKey,
+            currentUserBlinded25PublicKey: self.viewModel.threadData.currentUserBlinded25PublicKey,
+            currentUserIsOpenGroupModerator: OpenGroupManager.isUserModeratorOrAdmin(
+                self.viewModel.threadData.currentUserPublicKey,
+                for: self.viewModel.threadData.openGroupRoomToken,
+                on: self.viewModel.threadData.openGroupServer
+            ),
+            currentThreadIsMessageRequest: (self.viewModel.threadData.threadIsMessageRequest == true),
+            forMessageInfoScreen: true,
+            delegate: self
+        ) ?? []
+        
+        let messageInfoView = MessageInfoView(actions: actions, messageViewModel: cellViewModel)
+        let hostingViewController =  UIHostingController(rootView: messageInfoView)
+        hostingViewController.title = "message_info_title".localized()
+        navigationController?.pushViewController(hostingViewController, animated: true)
     }
 
     func retry(_ cellViewModel: MessageViewModel) {
