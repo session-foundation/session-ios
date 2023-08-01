@@ -97,7 +97,7 @@ local update_cocoapods_cache = {
     type: 'exec',
     name: 'Simulator Build',
     platform: { os: 'darwin', arch: 'amd64' },
-    when: { event: { exclude: 'pull_request' } },
+    when: { event: { exclude: [ 'pull_request' ] } },
     steps: [
       clone_submodules,
       load_cocoapods_cache,
@@ -125,7 +125,7 @@ local update_cocoapods_cache = {
     type: 'exec',
     name: 'AppStore Build',
     platform: { os: 'darwin', arch: 'amd64' },
-    when: { event: { exclude: 'pull_request' } },
+    when: { event: { exclude: [ 'pull_request' ] } },
     steps: [
       clone_submodules,
       load_cocoapods_cache,
