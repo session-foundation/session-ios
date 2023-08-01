@@ -22,7 +22,7 @@ local load_cocoapods_cache = {
   commands: [
     |||
       if [[ ! -f /Users/drone/.cocoapods_cache.valid ]]; then
-        rm /Users/drone/.cocoapods_cache.lock
+        rm -f /Users/drone/.cocoapods_cache.lock
       fi
     |||,
     |||
@@ -31,14 +31,14 @@ local load_cocoapods_cache = {
       done
     |||,
     'touch /Users/drone/.cocoapods_cache.lock',
-    'rm /Users/drone/.cocoapods_cache.valid',
+    'rm -f /Users/drone/.cocoapods_cache.valid',
     |||
       if [[ -d /Users/drone/.cocoapods_cache ]]; then
         cp -r /Users/drone/.cocoapods_cache ./Pods
       fi
     |||,
     'touch /Users/drone/.cocoapods_cache.valid',
-    'rm /Users/drone/.cocoapods_cache.lock'
+    'rm -f /Users/drone/.cocoapods_cache.lock'
   ]
 };
 
@@ -47,12 +47,17 @@ local update_cocoapods_cache = {
   name: 'Update CocoaPods Cache',
   commands: [
     |||
+      if [[ ! -f /Users/drone/.cocoapods_cache.valid ]]; then
+        rm -f /Users/drone/.cocoapods_cache.lock
+      fi
+    |||,
+    |||
       while test -e /Users/drone/.cocoapods_cache.lock; do
           sleep 1
       done
     |||,
     'touch /Users/drone/.cocoapods_cache.lock',
-    'rm /Users/drone/.cocoapods_cache.valid',
+    'rm -f /Users/drone/.cocoapods_cache.valid',
     |||
       if [[ -d ./Pods ]]; then
         rm -rf /Users/drone/.cocoapods_cache
@@ -60,7 +65,7 @@ local update_cocoapods_cache = {
       fi
     |||,
     'touch /Users/drone/.cocoapods_cache.valid',
-    'rm /Users/drone/.cocoapods_cache.lock'
+    'rm -f /Users/drone/.cocoapods_cache.lock'
   ]
 };
 
