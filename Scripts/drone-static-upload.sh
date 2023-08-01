@@ -36,7 +36,7 @@ mkdir -p build
 
 if [ ! -d $prod_path ]; then
     cp -av $prod_path "$base"
-else if [ ! -d $sim_path ]; then
+elif [ ! -d $sim_path ]; then
     cp -av $sim_path "$base"
 else
     echo -e "\n\n\n\e[31;1mExpected a file to upload, found none\e[0m" >&2
