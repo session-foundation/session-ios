@@ -6,6 +6,7 @@ import SessionSnodeKit
 
 struct MessageInfoView: View {
     @State var index = 1
+    @State var showingAttachmentFullScreen = false
     var actions: [ContextMenuVC.Action]
     var messageViewModel: MessageViewModel
     var isMessageFailed: Bool {
@@ -98,6 +99,8 @@ struct MessageInfoView: View {
                         }
                         
                         if let attachments = messageViewModel.attachments {
+                            let attachment: Attachment = attachments[(index - 1 + attachments.count) % attachments.count]
+                            
                             ZStack(alignment: .bottomTrailing) {
                                 if attachments.count > 1 {
                                     // Attachment carousel view
@@ -135,7 +138,7 @@ struct MessageInfoView: View {
                                 }
                                 
                                 Button {
-                                    // TODO: full screen function
+                                    self.showingAttachmentFullScreen.toggle()
                                 } label: {
                                     ZStack {
                                         Circle()
@@ -145,6 +148,15 @@ struct MessageInfoView: View {
                                             .foregroundColor(.white)
                                     }
                                     .frame(width: 26, height: 26)
+                                }
+                                .sheet(isPresented: $showingAttachmentFullScreen) {
+                                    MediaGalleryViewModel.createDetailViewSwiftUI(
+                                        for: messageViewModel.threadId,
+                                        threadVariant: messageViewModel.threadVariant,
+                                        interactionId: messageViewModel.id,
+                                        selectedAttachmentId: attachment.id,
+                                        options: [ .sliderEnabled ]
+                                    )
                                 }
                                 .padding(
                                     EdgeInsets(
@@ -165,7 +177,6 @@ struct MessageInfoView: View {
                             )
                             
                             // Attachment Info
-                            let attachment: Attachment = attachments[(index - 1 + attachments.count) % attachments.count]
                             ZStack {
                                 RoundedRectangle(cornerRadius: 17)
                                     .fill(themeColor: .backgroundSecondary)
@@ -404,19 +415,6 @@ struct MessageInfoView: View {
                     }
                 }
             }
-        }
-    }
-    
-    private func showMediaFullScreen(attachment: Attachment) {
-        let viewController: UIViewController? = MediaGalleryViewModel.createDetailViewController(
-            for: messageViewModel.threadId,
-            threadVariant: messageViewModel.threadVariant,
-            interactionId: messageViewModel.id,
-            selectedAttachmentId: attachment.id,
-            options: [ .sliderEnabled ]
-        )
-        if let viewController: UIViewController = viewController {
-            viewController.transitioningDelegate = nil
         }
     }
 }

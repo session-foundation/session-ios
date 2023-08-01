@@ -566,13 +566,14 @@ public class MediaGalleryViewModel {
         return navController
     }
     
+    @ViewBuilder
     public static func createDetailViewSwiftUI(
         for threadId: String,
         threadVariant: SessionThread.Variant,
         interactionId: Int64,
         selectedAttachmentId: String,
         options: [MediaGalleryOption]
-    ) -> (any UIViewControllerRepresentable)? {
+    ) -> some View {
         // Load the data for the album immediately (needed before pushing to the screen so
         // transitions work nicely)
         let viewModel: MediaGalleryViewModel = MediaGalleryViewModel(
@@ -581,27 +582,29 @@ public class MediaGalleryViewModel {
             isPagedData: false,
             mediaType: .media
         )
-        viewModel.loadAndCacheAlbumData(for: interactionId, in: threadId)
-        viewModel.replaceAlbumObservation(toObservationFor: interactionId)
+        let _ = viewModel.loadAndCacheAlbumData(for: interactionId, in: threadId)
+        let _ = viewModel.replaceAlbumObservation(toObservationFor: interactionId)
         
-        guard
+        if
             !viewModel.albumData.isEmpty,
             let initialItem: Item = viewModel.albumData[interactionId]?.first(where: { item -> Bool in
                 item.attachment.id == selectedAttachmentId
             })
-        else { return nil }
-        
-        let pageViewController: MediaPageViewController = MediaPageViewController(
-            viewModel: viewModel,
-            initialItem: initialItem,
-            options: options
-        )
-        let navController = MediaGalleryNavigationController_SwiftUI(
-            viewControllers: [pageViewController],
-            transitioningDelegate: pageViewController
-        )
-        
-        return navController
+        {
+            let pageViewController: MediaPageViewController = MediaPageViewController(
+                viewModel: viewModel,
+                initialItem: initialItem,
+                options: options
+            )
+            let navController = MediaGalleryNavigationController_SwiftUI(
+                viewControllers: [pageViewController],
+                transitioningDelegate: pageViewController
+            )
+            navController
+        }
+        else {
+            EmptyView()
+        }
     }
     
     public static func createMediaTileViewController(
