@@ -69,11 +69,9 @@ local update_cocoapods_cache = {
   ]
 };
 
-
-[
-  // Unit tests
-  {
-    kind: 'pipeline',
+// Unit test pipeline
+local run_unit_tests = {
+  kind: 'pipeline',
     type: 'exec',
     name: 'Unit Tests',
     platform: { os: 'darwin', arch: 'amd64' },
@@ -90,14 +88,14 @@ local update_cocoapods_cache = {
       },
       update_cocoapods_cache
     ],
-  },
-  // Simulator build
-  {
-    kind: 'pipeline',
+};
+
+// Build for simulators
+local build_for_simulator = {
+  kind: 'pipeline',
     type: 'exec',
     name: 'Simulator Build',
     platform: { os: 'darwin', arch: 'amd64' },
-    when: { event: { exclude: [ 'pull_request' ] } },
     steps: [
       clone_submodules,
       load_cocoapods_cache,
@@ -118,14 +116,14 @@ local update_cocoapods_cache = {
         ]
       },
     ],
-  },
-  // AppStore build (generate an archive to be signed later)
-  {
-    kind: 'pipeline',
+};
+
+// Build for AppStore (generate an archive to be signed later)
+local build_for_app_store = {
+  kind: 'pipeline',
     type: 'exec',
     name: 'AppStore Build',
     platform: { os: 'darwin', arch: 'amd64' },
-    when: { event: { exclude: [ 'pull_request' ] } },
     steps: [
       clone_submodules,
       load_cocoapods_cache,
@@ -146,5 +144,14 @@ local update_cocoapods_cache = {
         ]
       },
     ],
-  },
+};
+
+
+// Setup the actual pipelines we want to run
+local isPullRequest = std.extVar('DRONE_PULL_REQUEST'); // Get the pull request status
+
+[
+  run_unit_tests,
+  if isPullRequest == 'true' then {} else build_for_simulator,
+  if isPullRequest == 'true' then {} else build_for_app_store,
 ]
