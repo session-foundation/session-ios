@@ -148,10 +148,10 @@ local build_for_app_store = {
 
 
 // Setup the actual pipelines we want to run
-local isPullRequest = std.extVar('DRONE_PULL_REQUEST'); // Get the pull request status
+local buildEvent = std.extVar('DRONE_BUILD_EVENT'); // Get the event which triggered the build
 
 [
   run_unit_tests,
-  if isPullRequest == 'true' then {} else build_for_simulator,
-  if isPullRequest == 'true' then {} else build_for_app_store,
+  if buildEvent != 'pull_request' then build_for_simulator else {},
+  if buildEvent != 'pull_request' then build_for_app_store else {},
 ]
