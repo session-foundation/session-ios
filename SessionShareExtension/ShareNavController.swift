@@ -9,6 +9,7 @@ import SignalCoreKit
 
 final class ShareNavController: UINavigationController, ShareViewDelegate {
     public static var attachmentPrepPublisher: AnyPublisher<[SignalAttachment], Error>?
+    private let versionMigrationsComplete: Atomic<Bool> = Atomic(false)
     
     // MARK: - Error
     
@@ -84,7 +85,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         /// results in the `AppSetup` not actually running (and the UI not actually being loaded correctly) - in order to avoid this
         /// we call `checkIsAppReady` explicitly here assuming that either the `AppSetup` _hasn't_ complete or won't ever
         /// get run
-        checkIsAppReady()
+        checkIsAppReady(migrationsCompleted: versionMigrationsComplete.wrappedValue)
     }
     
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -107,6 +108,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
             }
         }
 
+        versionMigrationsComplete.mutate { $0 = true }
         checkIsAppReady(migrationsCompleted: true)
     }
 

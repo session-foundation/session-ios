@@ -128,10 +128,7 @@ public enum PushRegistrationError: Error {
         return true
     }
 
-    // FIXME: Might be nice to try to avoid having this required to run on the main thread (follow a similar approach to the 'SyncPushTokensJob' & `Atomic<T>`?)
     private func registerForVanillaPushToken() -> AnyPublisher<String, Error> {
-        AssertIsOnMainThread()
-        
         // Use the existing publisher if it exists
         if let vanillaTokenPublisher: AnyPublisher<Data, Error> = self.vanillaTokenPublisher {
             return vanillaTokenPublisher
@@ -139,14 +136,16 @@ public enum PushRegistrationError: Error {
                 .eraseToAnyPublisher()
         }
         
-        UIApplication.shared.registerForRemoteNotifications()
-        
         // No pending vanilla token yet; create a new publisher
         let publisher: AnyPublisher<Data, Error> = Deferred {
             Future<Data, Error> { self.vanillaTokenResolver = $0 }
         }
+        .shareReplay(1)
         .eraseToAnyPublisher()
         self.vanillaTokenPublisher = publisher
+        
+        // Tell the device to register for remote notifications
+        DispatchQueue.main.sync { UIApplication.shared.registerForRemoteNotifications() }
         
         return publisher
             .timeout(

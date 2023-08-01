@@ -58,7 +58,7 @@ public enum SyncPushTokensJob: JobExecutor {
         guard isUsingFullAPNs else {
             Just(Storage.shared[.lastRecordedPushToken])
                 .setFailureType(to: Error.self)
-                .flatMap { lastRecordedPushToken in
+                .flatMap { lastRecordedPushToken -> AnyPublisher<String, Error> in
                     if let existingToken: String = lastRecordedPushToken {
                         SNLog("[SyncPushTokensJob] Unregister using last recorded push token: \(redact(existingToken))")
                         return Just(existingToken)
@@ -71,7 +71,7 @@ public enum SyncPushTokensJob: JobExecutor {
                         .map { token, _ in token }
                         .eraseToAnyPublisher()
                 }
-                .flatMap { pushToken in PushNotificationAPI.unregister(Data(hex: pushToken)) }
+                .flatMap { pushToken in PushNotificationAPI.unsubscribe(token: Data(hex: pushToken)) }
                 .map {
                     // Tell the device to unregister for remote notifications (essentially try to invalidate
                     // the token if needed
@@ -102,9 +102,8 @@ public enum SyncPushTokensJob: JobExecutor {
         PushRegistrationManager.shared.requestPushTokens()
             .flatMap { (pushToken: String, voipToken: String) -> AnyPublisher<Void, Error> in
                 PushNotificationAPI
-                    .register(
-                        with: Data(hex: pushToken),
-                        publicKey: getUserHexEncodedPublicKey(),
+                    .subscribe(
+                        token: Data(hex: pushToken),
                         isForcedUpdate: true
                     )
                     .retry(3)
