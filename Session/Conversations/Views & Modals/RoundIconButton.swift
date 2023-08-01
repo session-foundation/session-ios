@@ -3,8 +3,8 @@
 import UIKit
 import SessionUIKit
 
-final class ScrollToBottomButton: UIView {
-    private weak var delegate: ScrollToBottomButtonDelegate?
+final class RoundIconButton: UIView {
+    private let onTap: () -> ()
     
     // MARK: - Settings
     
@@ -13,12 +13,12 @@ final class ScrollToBottomButton: UIView {
     
     // MARK: - Lifecycle
     
-    init(delegate: ScrollToBottomButtonDelegate) {
-        self.delegate = delegate
+    init(image: UIImage?, onTap: @escaping () -> ()) {
+        self.onTap = onTap
         
         super.init(frame: CGRect.zero)
         
-        setUpViewHierarchy()
+        setUpViewHierarchy(image: image)
     }
     
     override init(frame: CGRect) {
@@ -29,7 +29,7 @@ final class ScrollToBottomButton: UIView {
         preconditionFailure("Use init(delegate:) instead.")
     }
     
-    private func setUpViewHierarchy() {
+    private func setUpViewHierarchy(image: UIImage?) {
         // Background & blur
         let backgroundView = UIView()
         backgroundView.themeBackgroundColor = .backgroundSecondary
@@ -49,9 +49,9 @@ final class ScrollToBottomButton: UIView {
         }
         
         // Size & shape
-        set(.width, to: ScrollToBottomButton.size)
-        set(.height, to: ScrollToBottomButton.size)
-        layer.cornerRadius = (ScrollToBottomButton.size / 2)
+        set(.width, to: RoundIconButton.size)
+        set(.height, to: RoundIconButton.size)
+        layer.cornerRadius = (RoundIconButton.size / 2)
         layer.masksToBounds = true
         
         // Border
@@ -59,16 +59,13 @@ final class ScrollToBottomButton: UIView {
         layer.borderWidth = Values.separatorThickness
         
         // Icon
-        let iconImageView = UIImageView(
-            image: UIImage(named: "ic_chevron_down")?
-                .withRenderingMode(.alwaysTemplate)
-        )
+        let iconImageView = UIImageView(image: image)
         iconImageView.themeTintColor = .textPrimary
         iconImageView.contentMode = .scaleAspectFit
         addSubview(iconImageView)
         iconImageView.center(in: self)
-        iconImageView.set(.width, to: ScrollToBottomButton.iconSize)
-        iconImageView.set(.height, to: ScrollToBottomButton.iconSize)
+        iconImageView.set(.width, to: RoundIconButton.iconSize)
+        iconImageView.set(.height, to: RoundIconButton.iconSize)
         
         // Gesture recognizer
         let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
@@ -78,12 +75,6 @@ final class ScrollToBottomButton: UIView {
     // MARK: - Interaction
     
     @objc private func handleTap() {
-        delegate?.handleScrollToBottomButtonTapped()
+        onTap()
     }
-}
-
-// MARK: - ScrollToBottomButtonDelegate
-
-protocol ScrollToBottomButtonDelegate: AnyObject {
-    func handleScrollToBottomButtonTapped()
 }

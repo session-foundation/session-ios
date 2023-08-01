@@ -17,6 +17,7 @@ protocol ImagePickerGridControllerDelegate: AnyObject {
 
     var isInBatchSelectMode: Bool { get }
     func imagePickerCanSelectAdditionalItems(_ imagePicker: ImagePickerGridController) -> Bool
+    func imagePicker(_ imagePicker: ImagePickerGridController, failedToRetrieveAssetAt index: Int, forCount count: Int)
 }
 
 class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegate {
@@ -127,31 +128,33 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         }
 
         switch selectionPanGesture.state {
-        case .possible:
-            break
-        case .began:
-            collectionView.isUserInteractionEnabled = false
-            collectionView.isScrollEnabled = false
+            case .possible: break
+            case .began:
+                collectionView.isUserInteractionEnabled = false
+                collectionView.isScrollEnabled = false
 
-            let location = selectionPanGesture.location(in: collectionView)
-            guard let indexPath = collectionView.indexPathForItem(at: location) else {
-                return
-            }
-            let asset = photoCollectionContents.asset(at: indexPath.item)
-            if delegate.imagePicker(self, isAssetSelected: asset) {
-                selectionPanGestureMode = .deselect
-            } else {
-                selectionPanGestureMode = .select
-            }
-        case .changed:
-            let location = selectionPanGesture.location(in: collectionView)
-            guard let indexPath = collectionView.indexPathForItem(at: location) else {
-                return
-            }
-            tryToToggleBatchSelect(at: indexPath)
-        case .cancelled, .ended, .failed:
-            collectionView.isUserInteractionEnabled = true
-            collectionView.isScrollEnabled = true
+                let location = selectionPanGesture.location(in: collectionView)
+                guard
+                    let indexPath: IndexPath = collectionView.indexPathForItem(at: location),
+                    let asset: PHAsset = photoCollectionContents.asset(at: indexPath.item)
+                else { return }
+                
+                if delegate.imagePicker(self, isAssetSelected: asset) {
+                    selectionPanGestureMode = .deselect
+                }
+                else {
+                    selectionPanGestureMode = .select
+                }
+                
+            case .changed:
+                let location = selectionPanGesture.location(in: collectionView)
+                guard let indexPath = collectionView.indexPathForItem(at: location) else { return }
+                
+                tryToToggleBatchSelect(at: indexPath)
+                
+            case .cancelled, .ended, .failed:
+                collectionView.isUserInteractionEnabled = true
+                collectionView.isScrollEnabled = true
         }
     }
 
@@ -171,7 +174,8 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
             return
         }
 
-        let asset = photoCollectionContents.asset(at: indexPath.item)
+        guard let asset: PHAsset = photoCollectionContents.asset(at: indexPath.item) else { return }
+        
         switch selectionPanGestureMode {
         case .select:
             guard delegate.imagePickerCanSelectAdditionalItems(self) else {
@@ -203,8 +207,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         let scale = UIScreen.main.scale
         let cellSize = collectionViewFlowLayout.itemSize
         photoMediaSize.thumbnailSize = CGSize(width: cellSize.width * scale, height: cellSize.height * scale)
-
-        reloadDataAndRestoreSelection()
+ 
         if !hasEverAppeared {
             scrollToBottom(animated: false)
         }
@@ -291,30 +294,6 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         }
     }
 
-    private func reloadDataAndRestoreSelection() {
-        guard let collectionView = collectionView else {
-            owsFailDebug("Missing collectionView.")
-            return
-        }
-
-        guard let delegate = delegate else {
-            owsFailDebug("delegate was unexpectedly nil")
-            return
-        }
-
-        collectionView.reloadData()
-        collectionView.layoutIfNeeded()
-
-        let count = photoCollectionContents.assetCount
-        for index in 0..<count {
-            let asset = photoCollectionContents.asset(at: index)
-            if delegate.imagePicker(self, isAssetSelected: asset) {
-                collectionView.selectItem(at: IndexPath(row: index, section: 0),
-                                          animated: false, scrollPosition: [])
-            }
-        }
-    }
-
     // MARK: - Actions
 
     @objc
@@ -365,7 +344,6 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         }
 
         collectionView.allowsMultipleSelection = delegate.isInBatchSelectMode
-        reloadDataAndRestoreSelection()
     }
 
     func clearCollectionViewSelection() {
@@ -402,7 +380,6 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
 
     func photoLibraryDidChange(_ photoLibrary: PhotoLibrary) {
         photoCollectionContents = photoCollection.contents()
-        reloadDataAndRestoreSelection()
     }
 
     // MARK: - PhotoCollectionPicker Presentation
@@ -496,7 +473,12 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
             return
         }
 
-        let asset: PHAsset = photoCollectionContents.asset(at: indexPath.item)
+        guard let asset: PHAsset = photoCollectionContents.asset(at: indexPath.item) else {
+            SNLog("Failed to select cell for asset at \(indexPath.item)")
+            delegate.imagePicker(self, failedToRetrieveAssetAt: indexPath.item, forCount: photoCollectionContents.assetCount)
+            return
+        }
+        
         delegate.imagePicker(
             self,
             didSelectAsset: asset,
@@ -517,7 +499,12 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
             return
         }
 
-        let asset = photoCollectionContents.asset(at: indexPath.item)
+        guard let asset: PHAsset = photoCollectionContents.asset(at: indexPath.item) else {
+            SNLog("Failed to deselect cell for asset at \(indexPath.item)")
+            delegate.imagePicker(self, failedToRetrieveAssetAt: indexPath.item, forCount: photoCollectionContents.assetCount)
+            return
+        }
+        
         delegate.imagePicker(self, didDeselectAsset: asset)
     }
 
@@ -531,7 +518,12 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         }
 
         let cell: PhotoGridViewCell = collectionView.dequeue(type: PhotoGridViewCell.self, for: indexPath)
-        let assetItem = photoCollectionContents.assetItem(at: indexPath.item, photoMediaSize: photoMediaSize)
+        
+        guard let assetItem: PhotoPickerAssetItem = photoCollectionContents.assetItem(at: indexPath.item, photoMediaSize: photoMediaSize) else {
+            SNLog("Failed to style cell for asset at \(indexPath.item)")
+            return cell
+        }
+         
         cell.configure(item: assetItem)
         cell.isAccessibilityElement = true
         cell.accessibilityIdentifier = "\(assetItem.asset.modificationDate.map { "\($0)" } ?? "Unknown Date")"

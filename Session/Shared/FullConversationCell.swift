@@ -9,17 +9,12 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
     public static let mutePrefix: String = "\u{e067}  "
     public static let unreadCountViewSize: CGFloat = 20
     private static let statusIndicatorSize: CGFloat = 14
-    // If a message is much too long, it will take forever to calculate its width and
-    // cause the app to be frozen. So if a search result string is longer than 100
-    // characters, we assume it cannot be shown within one line and need to be truncated
-    // to avoid the calculation.
-    private static let maxApproxCharactersCanBeShownInOneLine: Int = 100
     
     // MARK: - UI
     
     private let accentLineView: UIView = UIView()
 
-    private lazy var profilePictureView: ProfilePictureView = ProfilePictureView()
+    private lazy var profilePictureView: ProfilePictureView = ProfilePictureView(size: .list)
 
     private lazy var displayNameLabel: UILabel = {
         let result: UILabel = UILabel()
@@ -204,12 +199,6 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         accentLineView.set(.width, to: Values.accentLineThickness)
         accentLineView.set(.height, to: cellHeight)
         
-        // Profile picture view
-        let profilePictureViewSize = Values.mediumProfilePictureSize
-        profilePictureView.set(.width, to: profilePictureViewSize)
-        profilePictureView.set(.height, to: profilePictureViewSize)
-        profilePictureView.size = profilePictureViewSize
-        
         // Unread count view
         unreadCountView.addSubview(unreadCountLabel)
         unreadCountLabel.setCompressionResistanceHigh()
@@ -321,7 +310,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                     nil
                 ),
                 currentUserPublicKey: cellViewModel.currentUserPublicKey,
-                currentUserBlindedPublicKey: cellViewModel.currentUserBlindedPublicKey,
+                currentUserBlinded15PublicKey: cellViewModel.currentUserBlinded15PublicKey,
+                currentUserBlinded25PublicKey: cellViewModel.currentUserBlinded25PublicKey,
                 searchText: searchText.lowercased(),
                 fontSize: Values.smallFontSize,
                 textColor: textColor
@@ -350,7 +340,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             displayNameLabel?.attributedText = self?.getHighlightedSnippet(
                 content: cellViewModel.displayName,
                 currentUserPublicKey: cellViewModel.currentUserPublicKey,
-                currentUserBlindedPublicKey: cellViewModel.currentUserBlindedPublicKey,
+                currentUserBlinded15PublicKey: cellViewModel.currentUserBlinded15PublicKey,
+                currentUserBlinded25PublicKey: cellViewModel.currentUserBlinded25PublicKey,
                 searchText: searchText.lowercased(),
                 fontSize: Values.mediumFontSize,
                 textColor: textColor
@@ -369,7 +360,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                         snippetLabel?.attributedText = self?.getHighlightedSnippet(
                             content: (cellViewModel.threadMemberNames ?? ""),
                             currentUserPublicKey: cellViewModel.currentUserPublicKey,
-                            currentUserBlindedPublicKey: cellViewModel.currentUserBlindedPublicKey,
+                            currentUserBlinded15PublicKey: cellViewModel.currentUserBlinded15PublicKey,
+                            currentUserBlinded25PublicKey: cellViewModel.currentUserBlinded25PublicKey,
                             searchText: searchText.lowercased(),
                             fontSize: Values.smallFontSize,
                             textColor: textColor
@@ -503,7 +495,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                 case (true, false):
                     self.snippetLabel.attributedText = NSAttributedString(
                         string: FullConversationCell.mutePrefix,
-                        attributes: [ .font: UIFont.ows_elegantIconsFont(10) ]
+                        attributes: [ .font: UIFont(name: "ElegantIcons", size: 10) as Any ]
                     )
                     .appending(attrString)
                     
@@ -558,7 +550,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             result.append(NSAttributedString(
                 string: FullConversationCell.mutePrefix,
                 attributes: [
-                    .font: UIFont.ows_elegantIconsFont(10),
+                    .font: UIFont(name: "ElegantIcons", size: 10) as Any,
                     .foregroundColor: textColor
                 ]
             ))
@@ -573,7 +565,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             result.append(NSAttributedString(
                 string: "  ",
                 attributes: [
-                    .font: UIFont.ows_elegantIconsFont(10),
+                    .font: UIFont(name: "ElegantIcons", size: 10) as Any,
                     .foregroundColor: textColor
                 ]
             ))
@@ -609,7 +601,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                 in: previewText,
                 threadVariant: cellViewModel.threadVariant,
                 currentUserPublicKey: cellViewModel.currentUserPublicKey,
-                currentUserBlindedPublicKey: cellViewModel.currentUserBlindedPublicKey
+                currentUserBlinded15PublicKey: cellViewModel.currentUserBlinded15PublicKey,
+                currentUserBlinded25PublicKey: cellViewModel.currentUserBlinded25PublicKey
             ),
             attributes: [ .foregroundColor: textColor ]
         ))
@@ -621,7 +614,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         content: String,
         authorName: String? = nil,
         currentUserPublicKey: String,
-        currentUserBlindedPublicKey: String?,
+        currentUserBlinded15PublicKey: String?,
+        currentUserBlinded25PublicKey: String?,
         searchText: String,
         fontSize: CGFloat,
         textColor: UIColor
@@ -644,7 +638,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             in: content,
             threadVariant: .contact,
             currentUserPublicKey: currentUserPublicKey,
-            currentUserBlindedPublicKey: currentUserBlindedPublicKey
+            currentUserBlinded15PublicKey: currentUserBlinded15PublicKey,
+            currentUserBlinded25PublicKey: currentUserBlinded25PublicKey
         )
         let result: NSMutableAttributedString = NSMutableAttributedString(
             string: mentionReplacedContent,
@@ -662,8 +657,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             .map { part -> String in
                 guard part.hasPrefix("\"") && part.hasSuffix("\"") else { return part }
                 
-                let partRange = (part.index(after: part.startIndex)..<part.index(before: part.endIndex))
-                return String(part[partRange])
+                return part.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
             }
             .forEach { part in
                 // Highlight all ranges of the text (Note: The search logic only finds results that start
@@ -701,69 +695,18 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                     }
             }
         
-        // We then want to truncate the content so the first matching term is visible
-        let startOfSnippet: String.Index = (
-            firstMatchRange.map {
-                max(
-                    mentionReplacedContent.startIndex,
-                    mentionReplacedContent
-                        .index(
-                            $0.lowerBound,
-                            offsetBy: -10,
-                            limitedBy: mentionReplacedContent.startIndex
-                        )
-                        .defaulting(to: mentionReplacedContent.startIndex)
-                )
-            } ??
-            mentionReplacedContent.startIndex
-        )
-        
-        // This method determines if the content is probably too long and returns the truncated or untruncated
-        // content accordingly
-        func truncatingIfNeeded(approxWidth: CGFloat, content: NSAttributedString) -> NSAttributedString {
-            let approxFullWidth: CGFloat = (approxWidth + profilePictureView.size + (Values.mediumSpacing * 3))
-            
-            guard ((bounds.width - approxFullWidth) < 0) else { return content }
-            
-            return content.attributedSubstring(
-                from: NSRange(startOfSnippet..<normalizedSnippet.endIndex, in: normalizedSnippet)
-            )
-        }
-        
         // Now that we have generated the focused snippet add the author name as a prefix (if provided)
         return authorName
             .map { authorName -> NSAttributedString? in
                 guard !authorName.isEmpty else { return nil }
                 
                 let authorPrefix: NSAttributedString = NSAttributedString(
-                    string: "\(authorName): ...",
+                    string: "\(authorName): ",
                     attributes: [ .foregroundColor: textColor ]
                 )
                 
-                return authorPrefix
-                    .appending(
-                        truncatingIfNeeded(
-                            approxWidth: (
-                                authorPrefix.size().width +
-                                (
-                                    result.length > Self.maxApproxCharactersCanBeShownInOneLine ?
-                                    bounds.width :
-                                    result.size().width
-                                )
-                            ),
-                            content: result
-                        )
-                    )
+                return authorPrefix.appending(result)
             }
-            .defaulting(
-                to: truncatingIfNeeded(
-                    approxWidth: (
-                        result.length > Self.maxApproxCharactersCanBeShownInOneLine ?
-                        bounds.width :
-                        result.size().width
-                    ),
-                    content: result
-                )
-            )
+            .defaulting(to: result)
     }
 }

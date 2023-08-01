@@ -29,11 +29,12 @@ internal extension SessionUtil {
         _ db: Database,
         in conf: UnsafeMutablePointer<config_object>?,
         mergeNeedsDump: Bool,
-        latestConfigUpdateSentTimestamp: TimeInterval
+        latestConfigSentTimestampMs: Int64
     ) throws {
         guard mergeNeedsDump else { return }
         guard conf != nil else { throw SessionUtilError.nilConfigObject }
         
+        var infiniteLoopGuard: Int = 0
         var communities: [PrioritisedData<OpenGroupUrlInfo>] = []
         var legacyGroups: [LegacyGroupInfo] = []
         var community: ugroups_community_info = ugroups_community_info()
@@ -41,6 +42,8 @@ internal extension SessionUtil {
         let groupsIterator: OpaquePointer = user_groups_iterator_new(conf)
         
         while !user_groups_iterator_done(groupsIterator) {
+            try SessionUtil.checkLoopLimitReached(&infiniteLoopGuard, for: .userGroups)
+            
             if user_groups_it_is_community(groupsIterator, &community) {
                 let server: String = String(libSessionVal: community.base_url)
                 let roomToken: String = String(libSessionVal: community.room)
@@ -119,9 +122,6 @@ internal extension SessionUtil {
         }
         user_groups_iterator_free(groupsIterator) // Need to free the iterator
         
-        // If we don't have any conversations then no need to continue
-        guard !communities.isEmpty || !legacyGroups.isEmpty else { return }
-        
         // Extract all community/legacyGroup/group thread priorities
         let existingThreadInfo: [String: PriorityVisibilityInfo] = (try? SessionThread
             .select(.id, .variant, .pinnedPriority, .shouldBeVisible)
@@ -141,7 +141,7 @@ internal extension SessionUtil {
         
         // Add any new communities (via the OpenGroupManager)
         communities.forEach { community in
-            OpenGroupManager.shared
+            let successfullyAddedGroup: Bool = OpenGroupManager.shared
                 .add(
                     db,
                     roomToken: community.data.roomToken,
@@ -149,7 +149,20 @@ internal extension SessionUtil {
                     publicKey: community.data.publicKey,
                     calledFromConfigHandling: true
                 )
-                .sinkUntilComplete()
+            
+            if successfullyAddedGroup {
+                db.afterNextTransactionNested { _ in
+                    OpenGroupManager.shared.performInitialRequestsAfterAdd(
+                        successfullyAddedGroup: successfullyAddedGroup,
+                        roomToken: community.data.roomToken,
+                        server: community.data.server,
+                        publicKey: community.data.publicKey,
+                        calledFromConfigHandling: false
+                    )
+                    .subscribe(on: OpenGroupAPI.workQueue)
+                    .sinkUntilComplete()
+                }
+            }
             
             // Set the priority if it's changed (new communities will have already been inserted at
             // this stage)
@@ -222,7 +235,7 @@ internal extension SessionUtil {
                         .map { $0.profileId },
                     admins: updatedAdmins.map { $0.profileId },
                     expirationTimer: UInt32(group.disappearingConfig?.durationSeconds ?? 0),
-                    formationTimestampMs: UInt64((group.joinedAt ?? Int64(latestConfigUpdateSentTimestamp)) * 1000),
+                    formationTimestampMs: UInt64((group.joinedAt.map { $0 * 1000 } ?? latestConfigSentTimestampMs)),
                     calledFromConfigHandling: true
                 )
             }

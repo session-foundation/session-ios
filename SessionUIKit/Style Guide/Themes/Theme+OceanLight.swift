@@ -110,6 +110,14 @@ internal enum Theme_OceanLight: ThemeColors {
         .reactions_contextMoreBackground: .oceanLight6,
         
         // NewConversation
-        .newConversation_background: .oceanLight7
+        .newConversation_background: .oceanLight7,
+        
+        // Profile
+        .profileIcon: .primary,
+        .profileIcon_greenPrimaryColor: .primary,
+        .profileIcon_background: .oceanLight1,
+        
+        // Unread Marker
+        .unreadMarker: .black
     ]
 }

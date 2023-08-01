@@ -23,6 +23,7 @@ public enum GetSnodePoolJob: JobExecutor {
         // to block if we have no Snode pool and prevent other jobs from failing but avoids having to
         // wait if we already have a potentially valid snode pool
         guard !SnodeAPI.hasCachedSnodesInclusingExpired() else {
+            SNLog("[GetSnodePoolJob] Has valid cached pool, running async instead")
             SnodeAPI
                 .getSnodePool()
                 .subscribe(on: DispatchQueue.global(qos: .default))
@@ -40,8 +41,13 @@ public enum GetSnodePoolJob: JobExecutor {
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {
-                        case .finished: success(job, false)
-                        case .failure(let error): failure(job, error, false)
+                        case .finished:
+                            SNLog("[GetSnodePoolJob] Completed")
+                            success(job, false)
+                            
+                        case .failure(let error):
+                            SNLog("[GetSnodePoolJob] Failed due to error: \(error)")
+                            failure(job, error, false)
                     }
                 }
             )
@@ -50,7 +56,7 @@ public enum GetSnodePoolJob: JobExecutor {
     public static func run() {
         GetSnodePoolJob.run(
             Job(variant: .getSnodePool),
-            queue: DispatchQueue.global(qos: .background),
+            queue: .global(qos: .background),
             success: { _, _ in },
             failure: { _, _, _ in },
             deferred: { _ in }

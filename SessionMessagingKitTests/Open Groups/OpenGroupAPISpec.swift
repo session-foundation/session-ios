@@ -28,7 +28,7 @@ class OpenGroupAPISpec: QuickSpec {
         var disposables: [AnyCancellable] = []
         
         var response: (ResponseInfoType, Codable)? = nil
-        var pollResponse: (info: ResponseInfoType, data: [OpenGroupAPI.Endpoint: Codable])?
+        var pollResponse: (info: ResponseInfoType, data: OpenGroupAPI.BatchResponse)?
         var error: Error?
         
         describe("an OpenGroupAPI") {
@@ -37,9 +37,9 @@ class OpenGroupAPISpec: QuickSpec {
             beforeEach {
                 mockStorage = Storage(
                     customWriter: try! DatabaseQueue(),
-                    customMigrations: [
-                        SNUtilitiesKit.migrations(),
-                        SNMessagingKit.migrations()
+                    customMigrationTargets: [
+                        SNUtilitiesKit.self,
+                        SNMessagingKit.self
                     ]
                 )
                 mockSodium = MockSodium()
@@ -186,8 +186,8 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     it("generates the correct request") {
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI.poll(
+                            .readPublisher { db in
+                                try OpenGroupAPI.preparedPoll(
                                     db,
                                     server: "testserver",
                                     hasPerformedInitialPoll: false,
@@ -195,6 +195,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in pollResponse = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -221,8 +222,8 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     it("retrieves recent messages if there was no last message") {
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI.poll(
+                            .readPublisher { db in
+                                try OpenGroupAPI.preparedPoll(
                                     db,
                                     server: "testserver",
                                     hasPerformedInitialPoll: false,
@@ -230,6 +231,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in pollResponse = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -250,8 +252,8 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI.poll(
+                            .readPublisher { db in
+                                try OpenGroupAPI.preparedPoll(
                                     db,
                                     server: "testserver",
                                     hasPerformedInitialPoll: false,
@@ -259,6 +261,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in pollResponse = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -279,8 +282,8 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI.poll(
+                            .readPublisher { db in
+                                try OpenGroupAPI.preparedPoll(
                                     db,
                                     server: "testserver",
                                     hasPerformedInitialPoll: false,
@@ -288,6 +291,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in pollResponse = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -308,8 +312,8 @@ class OpenGroupAPISpec: QuickSpec {
                         }
 
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI.poll(
+                            .readPublisher { db in
+                                try OpenGroupAPI.preparedPoll(
                                     db,
                                     server: "testserver",
                                     hasPerformedInitialPoll: true,
@@ -317,6 +321,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in pollResponse = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -340,8 +345,8 @@ class OpenGroupAPISpec: QuickSpec {
                     
                         it("does not call the inbox and outbox endpoints") {
                             mockStorage
-                                .readPublisherFlatMap { db in
-                                    OpenGroupAPI.poll(
+                                .readPublisher { db in
+                                    try OpenGroupAPI.preparedPoll(
                                         db,
                                         server: "testserver",
                                         hasPerformedInitialPoll: false,
@@ -349,6 +354,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                                 }
+                                .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                                 .handleEvents(receiveOutput: { result in pollResponse = result })
                                 .mapError { error.setting(to: $0) }
                                 .sinkAndStore(in: &disposables)
@@ -439,8 +445,8 @@ class OpenGroupAPISpec: QuickSpec {
                     
                         it("includes the inbox and outbox endpoints") {
                             mockStorage
-                                .readPublisherFlatMap { db in
-                                    OpenGroupAPI.poll(
+                                .readPublisher { db in
+                                    try OpenGroupAPI.preparedPoll(
                                         db,
                                         server: "testserver",
                                         hasPerformedInitialPoll: false,
@@ -448,6 +454,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                                 }
+                                .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                                 .handleEvents(receiveOutput: { result in pollResponse = result })
                                 .mapError { error.setting(to: $0) }
                                 .sinkAndStore(in: &disposables)
@@ -466,8 +473,8 @@ class OpenGroupAPISpec: QuickSpec {
                         
                         it("retrieves recent inbox messages if there was no last message") {
                             mockStorage
-                                .readPublisherFlatMap { db in
-                                    OpenGroupAPI.poll(
+                                .readPublisher { db in
+                                    try OpenGroupAPI.preparedPoll(
                                         db,
                                         server: "testserver",
                                         hasPerformedInitialPoll: true,
@@ -475,6 +482,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                                 }
+                                .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                                 .handleEvents(receiveOutput: { result in pollResponse = result })
                                 .mapError { error.setting(to: $0) }
                                 .sinkAndStore(in: &disposables)
@@ -495,8 +503,8 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             
                             mockStorage
-                                .readPublisherFlatMap { db in
-                                    OpenGroupAPI.poll(
+                                .readPublisher { db in
+                                    try OpenGroupAPI.preparedPoll(
                                         db,
                                         server: "testserver",
                                         hasPerformedInitialPoll: true,
@@ -504,6 +512,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                                 }
+                                .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                                 .handleEvents(receiveOutput: { result in pollResponse = result })
                                 .mapError { error.setting(to: $0) }
                                 .sinkAndStore(in: &disposables)
@@ -519,8 +528,8 @@ class OpenGroupAPISpec: QuickSpec {
                         
                         it("retrieves recent outbox messages if there was no last message") {
                             mockStorage
-                                .readPublisherFlatMap { db in
-                                    OpenGroupAPI.poll(
+                                .readPublisher { db in
+                                    try OpenGroupAPI.preparedPoll(
                                         db,
                                         server: "testserver",
                                         hasPerformedInitialPoll: true,
@@ -528,6 +537,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                                 }
+                                .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                                 .handleEvents(receiveOutput: { result in pollResponse = result })
                                 .mapError { error.setting(to: $0) }
                                 .sinkAndStore(in: &disposables)
@@ -548,8 +558,8 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             
                             mockStorage
-                                .readPublisherFlatMap { db in
-                                    OpenGroupAPI.poll(
+                                .readPublisher { db in
+                                    try OpenGroupAPI.preparedPoll(
                                         db,
                                         server: "testserver",
                                         hasPerformedInitialPoll: true,
@@ -557,6 +567,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                                 }
+                                .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                                 .handleEvents(receiveOutput: { result in pollResponse = result })
                                 .mapError { error.setting(to: $0) }
                                 .sinkAndStore(in: &disposables)
@@ -609,8 +620,8 @@ class OpenGroupAPISpec: QuickSpec {
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI.poll(
+                            .readPublisher { db in
+                                try OpenGroupAPI.preparedPoll(
                                     db,
                                     server: "testserver",
                                     hasPerformedInitialPoll: false,
@@ -618,6 +629,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in pollResponse = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -639,8 +651,8 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     it("errors when no data is returned") {
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI.poll(
+                            .readPublisher { db in
+                                try OpenGroupAPI.preparedPoll(
                                     db,
                                     server: "testserver",
                                     hasPerformedInitialPoll: false,
@@ -648,6 +660,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in pollResponse = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -668,8 +681,8 @@ class OpenGroupAPISpec: QuickSpec {
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI.poll(
+                            .readPublisher { db in
+                                try OpenGroupAPI.preparedPoll(
                                     db,
                                     server: "testserver",
                                     hasPerformedInitialPoll: false,
@@ -677,6 +690,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in pollResponse = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -697,8 +711,8 @@ class OpenGroupAPISpec: QuickSpec {
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI.poll(
+                            .readPublisher { db in
+                                try OpenGroupAPI.preparedPoll(
                                     db,
                                     server: "testserver",
                                     hasPerformedInitialPoll: false,
@@ -706,6 +720,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in pollResponse = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -726,8 +741,8 @@ class OpenGroupAPISpec: QuickSpec {
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI.poll(
+                            .readPublisher { db in
+                                try OpenGroupAPI.preparedPoll(
                                     db,
                                     server: "testserver",
                                     hasPerformedInitialPoll: false,
@@ -735,6 +750,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in pollResponse = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -787,8 +803,8 @@ class OpenGroupAPISpec: QuickSpec {
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI.poll(
+                            .readPublisher { db in
+                                try OpenGroupAPI.preparedPoll(
                                     db,
                                     server: "testserver",
                                     hasPerformedInitialPoll: false,
@@ -796,6 +812,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in pollResponse = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -825,13 +842,14 @@ class OpenGroupAPISpec: QuickSpec {
                     var response: (info: ResponseInfoType, data: OpenGroupAPI.Capabilities)?
                     
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI.capabilities(
+                        .readPublisher { db in
+                            try OpenGroupAPI.preparedCapabilities(
                                 db,
                                 server: "testserver",
                                 using: dependencies
                             )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -895,13 +913,14 @@ class OpenGroupAPISpec: QuickSpec {
                     var response: (info: ResponseInfoType, data: [OpenGroupAPI.Room])?
                     
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI.rooms(
+                        .readPublisher { db in
+                            try OpenGroupAPI.preparedRooms(
                                 db,
                                 server: "testserver",
                                 using: dependencies
                             )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -983,17 +1002,18 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
-                        var response: OpenGroupAPI.CapabilitiesAndRoomResponse?
+                        var response: (info: ResponseInfoType, data: OpenGroupAPI.CapabilitiesAndRoomResponse)?
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI.capabilitiesAndRoom(
+                            .readPublisher { db in
+                                try OpenGroupAPI.preparedCapabilitiesAndRoom(
                                     db,
                                     for: "testRoom",
                                     on: "testserver",
                                     using: dependencies
                                 )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -1038,18 +1058,18 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
-                        var response: OpenGroupAPI.CapabilitiesAndRoomResponse?
+                        var response: (info: ResponseInfoType, data: OpenGroupAPI.CapabilitiesAndRoomResponse)?
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI
-                                    .capabilitiesAndRoom(
-                                        db,
-                                        for: "testRoom",
-                                        on: "testserver",
-                                        using: dependencies
-                                    )
+                            .readPublisher { db in
+                                try OpenGroupAPI.preparedCapabilitiesAndRoom(
+                                    db,
+                                    for: "testRoom",
+                                    on: "testserver",
+                                    using: dependencies
+                                )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -1110,18 +1130,18 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
-                        var response: OpenGroupAPI.CapabilitiesAndRoomResponse?
+                        var response: (info: ResponseInfoType, data: OpenGroupAPI.CapabilitiesAndRoomResponse)?
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI
-                                    .capabilitiesAndRoom(
-                                        db,
-                                        for: "testRoom",
-                                        on: "testserver",
-                                        using: dependencies
-                                    )
+                            .readPublisher { db in
+                                try OpenGroupAPI.preparedCapabilitiesAndRoom(
+                                    db,
+                                    for: "testRoom",
+                                    on: "testserver",
+                                    using: dependencies
+                                )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -1199,17 +1219,18 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         dependencies = dependencies.with(onionApi: TestApi.self)
                         
-                        var response: OpenGroupAPI.CapabilitiesAndRoomResponse?
+                        var response: (info: ResponseInfoType, data: OpenGroupAPI.CapabilitiesAndRoomResponse)?
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI.capabilitiesAndRoom(
+                            .readPublisher { db in
+                                try OpenGroupAPI.preparedCapabilitiesAndRoom(
                                     db,
                                     for: "testRoom",
                                     on: "testserver",
                                     using: dependencies
                                 )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -1261,9 +1282,9 @@ class OpenGroupAPISpec: QuickSpec {
                     var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                     
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .send(
+                        .readPublisher { db in
+                            try OpenGroupAPI
+                                .preparedSend(
                                     db,
                                     plaintext: "test".data(using: .utf8)!,
                                     to: "testRoom",
@@ -1274,6 +1295,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -1306,9 +1328,9 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI
-                                    .send(
+                            .readPublisher { db in
+                                try OpenGroupAPI
+                                    .preparedSend(
                                         db,
                                         plaintext: "test".data(using: .utf8)!,
                                         to: "testRoom",
@@ -1319,6 +1341,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -1346,9 +1369,9 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI
-                                    .send(
+                            .readPublisher { db in
+                                try OpenGroupAPI
+                                    .preparedSend(
                                         db,
                                         plaintext: "test".data(using: .utf8)!,
                                         to: "testRoom",
@@ -1359,6 +1382,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -1381,9 +1405,9 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI
-                                    .send(
+                            .readPublisher { db in
+                                try OpenGroupAPI
+                                    .preparedSend(
                                         db,
                                         plaintext: "test".data(using: .utf8)!,
                                         to: "testRoom",
@@ -1394,6 +1418,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -1414,9 +1439,9 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI
-                                    .send(
+                            .readPublisher { db in
+                                try OpenGroupAPI
+                                    .preparedSend(
                                         db,
                                         plaintext: "test".data(using: .utf8)!,
                                         to: "testRoom",
@@ -1427,6 +1452,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -1454,9 +1480,9 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI
-                                    .send(
+                            .readPublisher { db in
+                                try OpenGroupAPI
+                                    .preparedSend(
                                         db,
                                         plaintext: "test".data(using: .utf8)!,
                                         to: "testRoom",
@@ -1467,6 +1493,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -1494,9 +1521,9 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI
-                                    .send(
+                            .readPublisher { db in
+                                try OpenGroupAPI
+                                    .preparedSend(
                                         db,
                                         plaintext: "test".data(using: .utf8)!,
                                         to: "testRoom",
@@ -1507,6 +1534,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -1529,9 +1557,9 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI
-                                    .send(
+                            .readPublisher { db in
+                                try OpenGroupAPI
+                                    .preparedSend(
                                         db,
                                         plaintext: "test".data(using: .utf8)!,
                                         to: "testRoom",
@@ -1542,6 +1570,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -1570,9 +1599,9 @@ class OpenGroupAPISpec: QuickSpec {
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI
-                                    .send(
+                            .readPublisher { db in
+                                try OpenGroupAPI
+                                    .preparedSend(
                                         db,
                                         plaintext: "test".data(using: .utf8)!,
                                         to: "testRoom",
@@ -1583,6 +1612,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -1623,9 +1653,9 @@ class OpenGroupAPISpec: QuickSpec {
                     var response: (info: ResponseInfoType, data: OpenGroupAPI.Message)?
                     
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .message(
+                        .readPublisher { db in
+                            try OpenGroupAPI
+                                .preparedMessage(
                                     db,
                                     id: 123,
                                     in: "testRoom",
@@ -1633,6 +1663,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -1672,12 +1703,12 @@ class OpenGroupAPISpec: QuickSpec {
                 }
                 
                 it("correctly sends the update") {
-                    var response: (info: ResponseInfoType, data: Data?)?
+                    var response: (info: ResponseInfoType, data: NoResponse)?
                     
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .messageUpdate(
+                        .readPublisher { db in
+                            try OpenGroupAPI
+                                .preparedMessageUpdate(
                                     db,
                                     id: 123,
                                     plaintext: "test".data(using: .utf8)!,
@@ -1687,6 +1718,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -1713,12 +1745,12 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     
                     it("signs the message correctly") {
-                        var response: (info: ResponseInfoType, data: Data?)?
+                        var response: (info: ResponseInfoType, data: NoResponse)?
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI
-                                    .messageUpdate(
+                            .readPublisher { db in
+                                try OpenGroupAPI
+                                    .preparedMessageUpdate(
                                         db,
                                         id: 123,
                                         plaintext: "test".data(using: .utf8)!,
@@ -1728,6 +1760,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -1752,12 +1785,12 @@ class OpenGroupAPISpec: QuickSpec {
                             _ = try OpenGroup.deleteAll(db)
                         }
                         
-                        var response: (info: ResponseInfoType, data: Data?)?
+                        var response: (info: ResponseInfoType, data: NoResponse)?
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI
-                                    .messageUpdate(
+                            .readPublisher { db in
+                                try OpenGroupAPI
+                                    .preparedMessageUpdate(
                                         db,
                                         id: 123,
                                         plaintext: "test".data(using: .utf8)!,
@@ -1767,6 +1800,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -1786,12 +1820,12 @@ class OpenGroupAPISpec: QuickSpec {
                             _ = try Identity.filter(id: .x25519PrivateKey).deleteAll(db)
                         }
                         
-                        var response: (info: ResponseInfoType, data: Data?)?
+                        var response: (info: ResponseInfoType, data: NoResponse)?
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI
-                                    .messageUpdate(
+                            .readPublisher { db in
+                                try OpenGroupAPI
+                                    .preparedMessageUpdate(
                                         db,
                                         id: 123,
                                         plaintext: "test".data(using: .utf8)!,
@@ -1801,6 +1835,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -1818,12 +1853,12 @@ class OpenGroupAPISpec: QuickSpec {
                         mockEd25519.reset() // The 'keyPair' value doesn't equate so have to explicitly reset
                         mockEd25519.when { try $0.sign(data: anyArray(), keyPair: any()) }.thenReturn(nil)
                         
-                        var response: (info: ResponseInfoType, data: Data?)?
+                        var response: (info: ResponseInfoType, data: NoResponse)?
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI
-                                    .messageUpdate(
+                            .readPublisher { db in
+                                try OpenGroupAPI
+                                    .preparedMessageUpdate(
                                         db,
                                         id: 123,
                                         plaintext: "test".data(using: .utf8)!,
@@ -1833,6 +1868,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -1857,12 +1893,12 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     
                     it("signs the message correctly") {
-                        var response: (info: ResponseInfoType, data: Data?)?
+                        var response: (info: ResponseInfoType, data: NoResponse)?
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI
-                                    .messageUpdate(
+                            .readPublisher { db in
+                                try OpenGroupAPI
+                                    .preparedMessageUpdate(
                                         db,
                                         id: 123,
                                         plaintext: "test".data(using: .utf8)!,
@@ -1872,6 +1908,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -1896,12 +1933,12 @@ class OpenGroupAPISpec: QuickSpec {
                             _ = try OpenGroup.deleteAll(db)
                         }
                         
-                        var response: (info: ResponseInfoType, data: Data?)?
+                        var response: (info: ResponseInfoType, data: NoResponse)?
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI
-                                    .messageUpdate(
+                            .readPublisher { db in
+                                try OpenGroupAPI
+                                    .preparedMessageUpdate(
                                         db,
                                         id: 123,
                                         plaintext: "test".data(using: .utf8)!,
@@ -1911,6 +1948,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -1930,12 +1968,12 @@ class OpenGroupAPISpec: QuickSpec {
                             _ = try Identity.filter(id: .ed25519SecretKey).deleteAll(db)
                         }
                         
-                        var response: (info: ResponseInfoType, data: Data?)?
+                        var response: (info: ResponseInfoType, data: NoResponse)?
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI
-                                    .messageUpdate(
+                            .readPublisher { db in
+                                try OpenGroupAPI
+                                    .preparedMessageUpdate(
                                         db,
                                         id: 123,
                                         plaintext: "test".data(using: .utf8)!,
@@ -1945,6 +1983,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -1970,12 +2009,12 @@ class OpenGroupAPISpec: QuickSpec {
                             }
                             .thenReturn(nil)
                         
-                        var response: (info: ResponseInfoType, data: Data?)?
+                        var response: (info: ResponseInfoType, data: NoResponse)?
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI
-                                    .messageUpdate(
+                            .readPublisher { db in
+                                try OpenGroupAPI
+                                    .preparedMessageUpdate(
                                         db,
                                         id: 123,
                                         plaintext: "test".data(using: .utf8)!,
@@ -1985,6 +2024,7 @@ class OpenGroupAPISpec: QuickSpec {
                                         using: dependencies
                                     )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -2007,12 +2047,12 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
-                    var response: (info: ResponseInfoType, data: Data?)?
+                    var response: (info: ResponseInfoType, data: NoResponse)?
                     
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .messageDelete(
+                        .readPublisher { db in
+                            try OpenGroupAPI
+                                .preparedMessageDelete(
                                     db,
                                     id: 123,
                                     in: "testRoom",
@@ -2020,6 +2060,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -2039,7 +2080,7 @@ class OpenGroupAPISpec: QuickSpec {
             }
             
             context("when deleting all messages for a user") {
-                var response: (info: ResponseInfoType, data: Data?)?
+                var response: (info: ResponseInfoType, data: NoResponse)?
                 
                 beforeEach {
                     class TestApi: TestOnionRequestAPI {
@@ -2054,9 +2095,9 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("generates the request and handles the response correctly") {
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .messagesDeleteAll(
+                        .readPublisher { db in
+                            try OpenGroupAPI
+                                .preparedMessagesDeleteAll(
                                     db,
                                     sessionId: "testUserId",
                                     in: "testRoom",
@@ -2064,6 +2105,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -2091,12 +2133,12 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
-                    var response: ResponseInfoType?
+                    var response: (info: ResponseInfoType, data: NoResponse)?
                     
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .pinMessage(
+                        .readPublisher { db in
+                            try OpenGroupAPI
+                                .preparedPinMessage(
                                     db,
                                     id: 123,
                                     in: "testRoom",
@@ -2104,6 +2146,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -2116,7 +2159,7 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(error?.localizedDescription).to(beNil())
                     
                     // Validate request data
-                    let requestData: TestOnionRequestAPI.RequestData? = (response as? TestOnionRequestAPI.ResponseInfo)?.requestData
+                    let requestData: TestOnionRequestAPI.RequestData? = (response?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("POST"))
                     expect(requestData?.urlString).to(equal("testserver/room/testRoom/pin/123"))
                 }
@@ -2129,12 +2172,12 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
-                    var response: ResponseInfoType?
+                    var response: (info: ResponseInfoType, data: NoResponse)?
                     
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .unpinMessage(
+                        .readPublisher { db in
+                            try OpenGroupAPI
+                                .preparedUnpinMessage(
                                     db,
                                     id: 123,
                                     in: "testRoom",
@@ -2142,6 +2185,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -2154,7 +2198,7 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(error?.localizedDescription).to(beNil())
                     
                     // Validate request data
-                    let requestData: TestOnionRequestAPI.RequestData? = (response as? TestOnionRequestAPI.ResponseInfo)?.requestData
+                    let requestData: TestOnionRequestAPI.RequestData? = (response?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("POST"))
                     expect(requestData?.urlString).to(equal("testserver/room/testRoom/unpin/123"))
                 }
@@ -2167,18 +2211,19 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
-                    var response: ResponseInfoType?
+                    var response: (info: ResponseInfoType, data: NoResponse)?
                     
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .unpinAll(
+                        .readPublisher { db in
+                            try OpenGroupAPI
+                                .preparedUnpinAll(
                                     db,
                                     in: "testRoom",
                                     on: "testserver",
                                     using: dependencies
                                 )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -2191,7 +2236,7 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(error?.localizedDescription).to(beNil())
                     
                     // Validate request data
-                    let requestData: TestOnionRequestAPI.RequestData? = (response as? TestOnionRequestAPI.ResponseInfo)?.requestData
+                    let requestData: TestOnionRequestAPI.RequestData? = (response?.info as? TestOnionRequestAPI.ResponseInfo)?.requestData
                     expect(requestData?.httpMethod).to(equal("POST"))
                     expect(requestData?.urlString).to(equal("testserver/room/testRoom/unpin/all"))
                 }
@@ -2209,9 +2254,9 @@ class OpenGroupAPISpec: QuickSpec {
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .uploadFile(
+                        .readPublisher { db in
+                            try OpenGroupAPI
+                                .preparedUploadFile(
                                     db,
                                     bytes: [],
                                     to: "testRoom",
@@ -2219,6 +2264,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -2245,9 +2291,9 @@ class OpenGroupAPISpec: QuickSpec {
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .uploadFile(
+                        .readPublisher { db in
+                            try OpenGroupAPI
+                                .preparedUploadFile(
                                     db,
                                     bytes: [],
                                     to: "testRoom",
@@ -2255,6 +2301,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -2281,9 +2328,9 @@ class OpenGroupAPISpec: QuickSpec {
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .uploadFile(
+                        .readPublisher { db in
+                            try OpenGroupAPI
+                                .preparedUploadFile(
                                     db,
                                     bytes: [],
                                     fileName: "TestFileName",
@@ -2292,6 +2339,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -2319,9 +2367,9 @@ class OpenGroupAPISpec: QuickSpec {
                     dependencies = dependencies.with(onionApi: TestApi.self)
                     
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .downloadFile(
+                        .readPublisher { db in
+                            try OpenGroupAPI
+                                .preparedDownloadFile(
                                     db,
                                     fileId: "1",
                                     from: "testRoom",
@@ -2329,6 +2377,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -2376,9 +2425,9 @@ class OpenGroupAPISpec: QuickSpec {
                     var response: (info: ResponseInfoType, data: OpenGroupAPI.SendDirectMessageResponse)?
                     
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .send(
+                        .readPublisher { db in
+                            try OpenGroupAPI
+                                .preparedSend(
                                     db,
                                     ciphertext: "test".data(using: .utf8)!,
                                     toInboxFor: "testUserId",
@@ -2386,6 +2435,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -2410,7 +2460,7 @@ class OpenGroupAPISpec: QuickSpec {
             // MARK: - Users
             
             context("when banning a user") {
-                var response: (info: ResponseInfoType, data: Data?)?
+                var response: (info: ResponseInfoType, data: NoResponse)?
                 
                 beforeEach {
                     class TestApi: TestOnionRequestAPI {
@@ -2425,9 +2475,9 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("generates the request and handles the response correctly") {
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .userBan(
+                        .readPublisher { db in
+                            try OpenGroupAPI
+                                .preparedUserBan(
                                     db,
                                     sessionId: "testUserId",
                                     for: nil,
@@ -2436,6 +2486,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -2455,9 +2506,9 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("does a global ban if no room tokens are provided") {
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .userBan(
+                        .readPublisher { db in
+                            try OpenGroupAPI
+                                .preparedUserBan(
                                     db,
                                     sessionId: "testUserId",
                                     for: nil,
@@ -2466,6 +2517,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -2487,9 +2539,9 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("does room specific bans if room tokens are provided") {
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .userBan(
+                        .readPublisher { db in
+                            try OpenGroupAPI
+                                .preparedUserBan(
                                     db,
                                     sessionId: "testUserId",
                                     for: nil,
@@ -2498,6 +2550,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -2519,7 +2572,7 @@ class OpenGroupAPISpec: QuickSpec {
             }
             
             context("when unbanning a user") {
-                var response: (info: ResponseInfoType, data: Data?)?
+                var response: (info: ResponseInfoType, data: NoResponse)?
                 
                 beforeEach {
                     class TestApi: TestOnionRequestAPI {
@@ -2534,9 +2587,9 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("generates the request and handles the response correctly") {
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .userUnban(
+                        .readPublisher { db in
+                            try OpenGroupAPI
+                                .preparedUserUnban(
                                     db,
                                     sessionId: "testUserId",
                                     from: nil,
@@ -2544,6 +2597,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -2563,9 +2617,9 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("does a global ban if no room tokens are provided") {
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .userUnban(
+                        .readPublisher { db in
+                            try OpenGroupAPI
+                                .preparedUserUnban(
                                     db,
                                     sessionId: "testUserId",
                                     from: nil,
@@ -2573,6 +2627,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -2594,9 +2649,9 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("does room specific bans if room tokens are provided") {
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .userUnban(
+                        .readPublisher { db in
+                            try OpenGroupAPI
+                                .preparedUserUnban(
                                     db,
                                     sessionId: "testUserId",
                                     from: ["testRoom"],
@@ -2604,6 +2659,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -2625,7 +2681,7 @@ class OpenGroupAPISpec: QuickSpec {
             }
             
             context("when updating a users permissions") {
-                var response: (info: ResponseInfoType, data: Data?)?
+                var response: (info: ResponseInfoType, data: NoResponse)?
                 
                 beforeEach {
                     class TestApi: TestOnionRequestAPI {
@@ -2640,9 +2696,9 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("generates the request and handles the response correctly") {
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .userModeratorUpdate(
+                        .readPublisher { db in
+                            try OpenGroupAPI
+                                .preparedUserModeratorUpdate(
                                     db,
                                     sessionId: "testUserId",
                                     moderator: true,
@@ -2653,6 +2709,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -2672,9 +2729,9 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("does a global update if no room tokens are provided") {
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .userModeratorUpdate(
+                        .readPublisher { db in
+                            try OpenGroupAPI
+                                .preparedUserModeratorUpdate(
                                     db,
                                     sessionId: "testUserId",
                                     moderator: true,
@@ -2685,6 +2742,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -2706,9 +2764,9 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("does room specific updates if room tokens are provided") {
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .userModeratorUpdate(
+                        .readPublisher { db in
+                            try OpenGroupAPI
+                                .preparedUserModeratorUpdate(
                                     db,
                                     sessionId: "testUserId",
                                     moderator: true,
@@ -2719,6 +2777,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -2740,9 +2799,9 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("fails if neither moderator or admin are set") {
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .userModeratorUpdate(
+                        .readPublisher { db in
+                            try OpenGroupAPI
+                                .preparedUserModeratorUpdate(
                                     db,
                                     sessionId: "testUserId",
                                     moderator: nil,
@@ -2753,6 +2812,7 @@ class OpenGroupAPISpec: QuickSpec {
                                     using: dependencies
                                 )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -2768,7 +2828,7 @@ class OpenGroupAPISpec: QuickSpec {
             }
             
             context("when banning and deleting all messages for a user") {
-                var response: (info: ResponseInfoType, data: [OpenGroupAPI.Endpoint: ResponseInfoType])?
+                var response: (info: ResponseInfoType, data: OpenGroupAPI.BatchResponse)?
                 
                 beforeEach {
                     class TestApi: TestOnionRequestAPI {
@@ -2804,16 +2864,16 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("generates the request and handles the response correctly") {
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .userBanAndDeleteAllMessages(
-                                    db,
-                                    sessionId: "testUserId",
-                                    in: "testRoom",
-                                    on: "testserver",
-                                    using: dependencies
-                                )
+                        .readPublisher { db in
+                            try OpenGroupAPI.preparedUserBanAndDeleteAllMessages(
+                                db,
+                                sessionId: "testUserId",
+                                in: "testRoom",
+                                on: "testserver",
+                                using: dependencies
+                            )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -2833,16 +2893,16 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 it("bans the user from the specified room rather than globally") {
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .userBanAndDeleteAllMessages(
-                                    db,
-                                    sessionId: "testUserId",
-                                    in: "testRoom",
-                                    on: "testserver",
-                                    using: dependencies
-                                )
+                        .readPublisher { db in
+                            try OpenGroupAPI.preparedUserBanAndDeleteAllMessages(
+                                db,
+                                sessionId: "testUserId",
+                                in: "testRoom",
+                                on: "testserver",
+                                using: dependencies
+                            )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -2890,14 +2950,15 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .rooms(
+                        .readPublisher { db in
+                            try OpenGroupAPI
+                                .preparedRooms(
                                     db,
                                     server: "testserver",
                                     using: dependencies
                                 )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -2917,14 +2978,15 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .rooms(
+                        .readPublisher { db in
+                            try OpenGroupAPI
+                                .preparedRooms(
                                     db,
                                     server: "testserver",
                                     using: dependencies
                                 )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -2944,14 +3006,15 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     
                     mockStorage
-                        .readPublisherFlatMap { db in
-                            OpenGroupAPI
-                                .rooms(
+                        .readPublisher { db in
+                            try OpenGroupAPI
+                                .preparedRooms(
                                     db,
                                     server: "testserver",
                                     using: dependencies
                                 )
                         }
+                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
@@ -2975,14 +3038,15 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     it("signs correctly") {
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI
-                                    .rooms(
+                            .readPublisher { db in
+                                try OpenGroupAPI
+                                    .preparedRooms(
                                         db,
                                         server: "testserver",
                                         using: dependencies
                                     )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -3011,14 +3075,15 @@ class OpenGroupAPISpec: QuickSpec {
                         mockSign.when { $0.signature(message: anyArray(), secretKey: anyArray()) }.thenReturn(nil)
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI
-                                    .rooms(
+                            .readPublisher { db in
+                                try OpenGroupAPI
+                                    .preparedRooms(
                                         db,
                                         server: "testserver",
                                         using: dependencies
                                     )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -3044,14 +3109,15 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     it("signs correctly") {
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI
-                                    .rooms(
+                            .readPublisher { db in
+                                try OpenGroupAPI
+                                    .preparedRooms(
                                         db,
                                         server: "testserver",
                                         using: dependencies
                                     )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -3081,14 +3147,15 @@ class OpenGroupAPISpec: QuickSpec {
                             .thenReturn(nil)
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI
-                                    .rooms(
+                            .readPublisher { db in
+                                try OpenGroupAPI
+                                    .preparedRooms(
                                         db,
                                         server: "testserver",
                                         using: dependencies
                                     )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
@@ -3108,14 +3175,15 @@ class OpenGroupAPISpec: QuickSpec {
                             .thenReturn(nil)
                         
                         mockStorage
-                            .readPublisherFlatMap { db in
-                                OpenGroupAPI
-                                    .rooms(
+                            .readPublisher { db in
+                                try OpenGroupAPI
+                                    .preparedRooms(
                                         db,
                                         server: "testserver",
                                         using: dependencies
                                     )
                             }
+                            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
                             .handleEvents(receiveOutput: { result in response = result })
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)

@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import CryptoKit
 import Clibsodium
 import Sodium
 import Curve25519Kit
@@ -108,10 +109,10 @@ extension Sodium {
     /// pubkeys (this doesn't affect verification at all)
     public func sogsSignature(message: Bytes, secretKey: Bytes, blindedSecretKey ka: Bytes, blindedPublicKey kA: Bytes) -> Bytes? {
         /// H_rh = sha512(s.encode()).digest()[32:]
-        let H_rh: Bytes = Bytes(secretKey.sha512().suffix(32))
+        let H_rh: Bytes = Bytes(SHA512.hash(data: secretKey).suffix(32))
 
         /// r = salt.crypto_core_ed25519_scalar_reduce(sha512_multipart(H_rh, kA, message_parts))
-        let combinedHashBytes: Bytes = (H_rh + kA + message).sha512()
+        let combinedHashBytes: Bytes = SHA512.hash(data: H_rh + kA + message).bytes
         let rPtr: UnsafeMutablePointer<UInt8> = UnsafeMutablePointer<UInt8>.allocate(capacity: Sodium.scalarLength)
         
         _ = combinedHashBytes.withUnsafeBytes { (combinedHashPtr: UnsafeRawBufferPointer) -> Int32 in
@@ -129,7 +130,7 @@ extension Sodium {
         
         /// HRAM = salt.crypto_core_ed25519_scalar_reduce(sha512_multipart(sig_R, kA, message_parts))
         let sig_RBytes: Bytes = Data(bytes: sig_RPtr, count: Sodium.noClampLength).bytes
-        let HRAMHashBytes: Bytes = (sig_RBytes + kA + message).sha512()
+        let HRAMHashBytes: Bytes = SHA512.hash(data: sig_RBytes + kA + message).bytes
         let HRAMPtr: UnsafeMutablePointer<UInt8> = UnsafeMutablePointer<UInt8>.allocate(capacity: Sodium.scalarLength)
         
         _ = HRAMHashBytes.withUnsafeBytes { (HRAMHashPtr: UnsafeRawBufferPointer) -> Int32 in
@@ -202,11 +203,16 @@ extension Sodium {
     /// This method should be used to check if a users standard sessionId matches a blinded one
     public func sessionId(_ standardSessionId: String, matchesBlindedId blindedSessionId: String, serverPublicKey: String, genericHash: GenericHashType) -> Bool {
         // Only support generating blinded keys for standard session ids
-        guard let sessionId: SessionId = SessionId(from: standardSessionId), sessionId.prefix == .standard else { return false }
-        guard let blindedId: SessionId = SessionId(from: blindedSessionId), blindedId.prefix == .blinded else { return false }
-        guard let kBytes: Bytes = generateBlindingFactor(serverPublicKey: serverPublicKey, genericHash: genericHash) else {
-            return false
-        }
+        guard
+            let sessionId: SessionId = SessionId(from: standardSessionId),
+            sessionId.prefix == .standard,
+            let blindedId: SessionId = SessionId(from: blindedSessionId),
+            (
+                blindedId.prefix == .blinded15 ||
+                blindedId.prefix == .blinded25
+            ),
+            let kBytes: Bytes = generateBlindingFactor(serverPublicKey: serverPublicKey, genericHash: genericHash)
+        else { return false }
 
         /// From the session id (ignoring 05 prefix) we have two possible ed25519 pubkeys; the first is the positive (which is what
         /// Signal's XEd25519 conversion always uses)
@@ -223,8 +229,8 @@ extension Sodium {
         let pk2: Bytes = (pk1[0..<31] + [(pk1[31] ^ 0b1000_0000)])
         
         return (
-            SessionId(.blinded, publicKey: pk1).publicKey == blindedId.publicKey ||
-            SessionId(.blinded, publicKey: pk2).publicKey == blindedId.publicKey
+            SessionId(.blinded15, publicKey: pk1).publicKey == blindedId.publicKey ||
+            SessionId(.blinded15, publicKey: pk2).publicKey == blindedId.publicKey
         )
     }
 }

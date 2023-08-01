@@ -45,7 +45,7 @@ public enum MessageReceiver {
                             
                             (plaintext, sender) = try decryptWithSessionProtocol(ciphertext: ciphertext, using: userX25519KeyPair)
                             
-                        case .blinded:
+                        case .blinded15, .blinded25:
                             guard let otherBlindedPublicKey: String = otherBlindedPublicKey else {
                                 throw MessageReceiverError.noData
                             }
@@ -197,6 +197,15 @@ public enum MessageReceiver {
             SessionUtil.conversationInConfig(db, threadId: threadId, threadVariant: threadVariant, visibleOnly: false)
         else { throw MessageReceiverError.requiredThreadNotInConfig }
         
+        // Throw if the message is outdated and shouldn't be processed
+        try throwIfMessageOutdated(
+            db,
+            message: message,
+            threadId: threadId,
+            threadVariant: threadVariant,
+            dependencies: dependencies
+        )
+        
         switch message {
             case let message as ReadReceipt:
                 try MessageReceiver.handleReadReceipt(
@@ -287,10 +296,22 @@ public enum MessageReceiver {
         threadId: String,
         message: Message
     ) throws {
-        // When handling any non-typing indicator message we want to make sure the thread becomes
+        // When handling any message type which has related UI we want to make sure the thread becomes
         // visible (the only other spot this flag gets set is when sending messages)
         switch message {
+            case is ReadReceipt: break
             case is TypingIndicator: break
+            case is ConfigurationMessage: break
+            case is UnsendRequest: break
+                
+            case let message as ClosedGroupControlMessage:
+                // Only re-show a legacy group conversation if we are going to add a control text message
+                switch message.kind {
+                    case .new, .encryptionKeyPair, .encryptionKeyPairRequest: return
+                    default: break
+                }
+                
+                fallthrough
                 
             default:
                 // Only update the `shouldBeVisible` flag if the thread is currently not visible
@@ -308,7 +329,8 @@ public enum MessageReceiver {
                     .filter(id: threadId)
                     .updateAllAndConfig(
                         db,
-                        SessionThread.Columns.shouldBeVisible.set(to: true)
+                        SessionThread.Columns.shouldBeVisible.set(to: true),
+                        SessionThread.Columns.pinnedPriority.set(to: SessionUtil.visiblePriority)
                     )
         }
     }
@@ -336,5 +358,45 @@ public enum MessageReceiver {
         for reaction in openGroupReactions {
             try reaction.with(interactionId: interactionId).insert(db)
         }
+    }
+    
+    public static func throwIfMessageOutdated(
+        _ db: Database,
+        message: Message,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        dependencies: SMKDependencies = SMKDependencies()
+    ) throws {
+        switch message {
+            case is ReadReceipt: return // No visible artifact created so better to keep for more reliable read states
+            case is UnsendRequest: return // We should always process the removal of messages just in case
+            default: break
+        }
+        
+        // Determine the state of the conversation and the validity of the message
+        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
+        let conversationVisibleInConfig: Bool = SessionUtil.conversationInConfig(
+            db,
+            threadId: threadId,
+            threadVariant: threadVariant,
+            visibleOnly: true
+        )
+        let canPerformChange: Bool = SessionUtil.canPerformChange(
+            db,
+            threadId: threadId,
+            targetConfig: {
+                switch threadVariant {
+                    case .contact: return (threadId == currentUserPublicKey ? .userProfile : .contacts)
+                    default: return .userGroups
+                }
+            }(),
+            changeTimestampMs: (message.sentTimestamp.map { Int64($0) } ?? SnodeAPI.currentOffsetTimestampMs())
+        )
+        
+        // If the thread is visible or the message was sent more recently than the last config message (minus
+        // buffer period) then we should process the message, if not then throw as the message is outdated
+        guard !conversationVisibleInConfig && !canPerformChange else { return }
+        
+        throw MessageReceiverError.outdatedMessage
     }
 }

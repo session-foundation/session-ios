@@ -103,9 +103,9 @@ class OpenGroupManagerSpec: QuickSpec {
                 mockGeneralCache = MockGeneralCache()
                 mockStorage = Storage(
                     customWriter: try! DatabaseQueue(),
-                    customMigrations: [
-                        SNUtilitiesKit.migrations(),
-                        SNMessagingKit.migrations()
+                    customMigrationTargets: [
+                        SNUtilitiesKit.self,
+                        SNMessagingKit.self
                     ]
                 )
                 mockSodium = MockSodium()
@@ -116,10 +116,11 @@ class OpenGroupManagerSpec: QuickSpec {
                 mockNonce24Generator = MockNonce24Generator()
                 mockUserDefaults = MockUserDefaults()
                 dependencies = OpenGroupManager.OGMDependencies(
-                    queue: DispatchQueue.main,
-                    cache: Atomic(mockOGMCache),
+                    subscribeQueue: DispatchQueue.main,
+                    receiveQueue: DispatchQueue.main,
+                    cache: mockOGMCache,
                     onionApi: TestCapabilitiesAndRoomApi.self,
-                    generalCache: Atomic(mockGeneralCache),
+                    generalCache: mockGeneralCache,
                     storage: mockStorage,
                     sodium: mockSodium,
                     genericHash: mockGenericHash,
@@ -366,7 +367,11 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     mockOGMCache.when { $0.hasPerformedInitialPoll }.thenReturn([:])
                     mockOGMCache.when { $0.timeSinceLastPoll }.thenReturn([:])
-                    mockOGMCache.when { $0.getTimeSinceLastOpen(using: dependencies) }.thenReturn(0)
+                    mockOGMCache
+                        .when { [dependencies = dependencies!] cache in
+                            cache.getTimeSinceLastOpen(using: dependencies)
+                        }
+                        .thenReturn(0)
                     mockOGMCache.when { $0.isPolling }.thenReturn(false)
                     mockOGMCache.when { $0.pollers }.thenReturn([:])
                     
@@ -433,14 +438,6 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     mockOGMCache.when { $0.isPolling }.thenReturn(true)
                     mockOGMCache.when { $0.pollers }.thenReturn(["testserver": OpenGroupAPI.Poller(for: "testserver")])
-                    
-                    mockUserDefaults
-                        .when { (defaults: inout any UserDefaultsType) -> Any? in
-                            defaults.object(forKey: SNUserDefaults.Date.lastOpen.rawValue)
-                        }
-                        .thenReturn(Date(timeIntervalSince1970: 1234567890))
-                    
-                    openGroupManager.startPolling(using: dependencies)
                 }
                 
                 it("removes all pollers") {
@@ -815,7 +812,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     var didComplete: Bool = false   // Prevent multi-threading test bugs
                     
                     mockStorage
-                        .writePublisherFlatMap { (db: Database) -> AnyPublisher<Void, Error> in
+                        .writePublisher { (db: Database) -> Bool in
                             openGroupManager
                                 .add(
                                     db,
@@ -825,6 +822,16 @@ class OpenGroupManagerSpec: QuickSpec {
                                     calledFromConfigHandling: true, // Don't trigger SessionUtil logic
                                     dependencies: dependencies
                                 )
+                        }
+                        .flatMap { successfullyAddedGroup in
+                            openGroupManager.performInitialRequestsAfterAdd(
+                                successfullyAddedGroup: successfullyAddedGroup,
+                                roomToken: "testRoom",
+                                server: "testServer",
+                                publicKey: TestConstants.serverPublicKey,
+                                calledFromConfigHandling: true, // Don't trigger SessionUtil logic
+                                dependencies: dependencies
+                            )
                         }
                         .handleEvents(receiveCompletion: { _ in didComplete = true })
                         .sinkAndStore(in: &disposables)
@@ -846,7 +853,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     var didComplete: Bool = false   // Prevent multi-threading test bugs
                     
                     mockStorage
-                        .writePublisherFlatMap { (db: Database) -> AnyPublisher<Void, Error> in
+                        .writePublisher { (db: Database) -> Bool in
                             openGroupManager
                                 .add(
                                     db,
@@ -856,6 +863,16 @@ class OpenGroupManagerSpec: QuickSpec {
                                     calledFromConfigHandling: true, // Don't trigger SessionUtil logic
                                     dependencies: dependencies
                                 )
+                        }
+                        .flatMap { successfullyAddedGroup in
+                            openGroupManager.performInitialRequestsAfterAdd(
+                                successfullyAddedGroup: successfullyAddedGroup,
+                                roomToken: "testRoom",
+                                server: "testServer",
+                                publicKey: TestConstants.serverPublicKey,
+                                calledFromConfigHandling: true, // Don't trigger SessionUtil logic
+                                dependencies: dependencies
+                            )
                         }
                         .handleEvents(receiveCompletion: { _ in didComplete = true })
                         .sinkAndStore(in: &disposables)
@@ -883,7 +900,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         var didComplete: Bool = false   // Prevent multi-threading test bugs
                         
                         mockStorage
-                            .writePublisherFlatMap { (db: Database) -> AnyPublisher<Void, Error> in
+                            .writePublisher { (db: Database) -> Bool in
                                 openGroupManager
                                     .add(
                                         db,
@@ -895,6 +912,18 @@ class OpenGroupManagerSpec: QuickSpec {
                                         calledFromConfigHandling: true, // Don't trigger SessionUtil logic
                                         dependencies: dependencies
                                     )
+                            }
+                            .flatMap { successfullyAddedGroup in
+                                openGroupManager.performInitialRequestsAfterAdd(
+                                    successfullyAddedGroup: successfullyAddedGroup,
+                                    roomToken: "testRoom",
+                                    server: "testServer",
+                                    publicKey: TestConstants.serverPublicKey
+                                        .replacingOccurrences(of: "c3", with: "00")
+                                        .replacingOccurrences(of: "b3", with: "00"),
+                                    calledFromConfigHandling: true, // Don't trigger SessionUtil logic
+                                    dependencies: dependencies
+                                )
                             }
                             .handleEvents(receiveCompletion: { _ in didComplete = true })
                             .sinkAndStore(in: &disposables)
@@ -939,7 +968,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         var error: Error?
                         
                         mockStorage
-                            .writePublisherFlatMap { (db: Database) -> AnyPublisher<Void, Error> in
+                            .writePublisher { (db: Database) -> Bool in
                                 openGroupManager
                                     .add(
                                         db,
@@ -949,6 +978,16 @@ class OpenGroupManagerSpec: QuickSpec {
                                         calledFromConfigHandling: true, // Don't trigger SessionUtil logic
                                         dependencies: dependencies
                                     )
+                            }
+                            .flatMap { successfullyAddedGroup in
+                                openGroupManager.performInitialRequestsAfterAdd(
+                                    successfullyAddedGroup: successfullyAddedGroup,
+                                    roomToken: "testRoom",
+                                    server: "testServer",
+                                    publicKey: TestConstants.serverPublicKey,
+                                    calledFromConfigHandling: true, // Don't trigger SessionUtil logic
+                                    dependencies: dependencies
+                                )
                             }
                             .mapError { result -> Error in error.setting(to: result) }
                             .sinkAndStore(in: &disposables)
@@ -991,7 +1030,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 db,
                                 openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
                                 calledFromConfigHandling: true, // Don't trigger SessionUtil logic
-                                dependencies: dependencies
+                                using: dependencies
                             )
                     }
                     
@@ -1006,7 +1045,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 db,
                                 openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
                                 calledFromConfigHandling: true, // Don't trigger SessionUtil logic
-                                dependencies: dependencies
+                                using: dependencies
                             )
                     }
                     
@@ -1024,7 +1063,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     db,
                                     openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
                                     calledFromConfigHandling: true, // Don't trigger SessionUtil logic
-                                    dependencies: dependencies
+                                    using: dependencies
                                 )
                         }
                         
@@ -1038,7 +1077,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     db,
                                     openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
                                     calledFromConfigHandling: true, // Don't trigger SessionUtil logic
-                                    dependencies: dependencies
+                                    using: dependencies
                                 )
                         }
                         
@@ -1077,7 +1116,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     db,
                                     openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
                                     calledFromConfigHandling: true, // Don't trigger SessionUtil logic
-                                    dependencies: dependencies
+                                    using: dependencies
                                 )
                         }
                         
@@ -1130,7 +1169,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     db,
                                     openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: OpenGroupAPI.defaultServer),
                                     calledFromConfigHandling: true, // Don't trigger SessionUtil logic
-                                    dependencies: dependencies
+                                    using: dependencies
                                 )
                         }
                         
@@ -1145,7 +1184,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     db,
                                     openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: OpenGroupAPI.defaultServer),
                                     calledFromConfigHandling: true, // Don't trigger SessionUtil logic
-                                    dependencies: dependencies
+                                    using: dependencies
                                 )
                         }
                         
@@ -3296,7 +3335,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     }.thenReturn(())
                 }
                 
-                it("caches the promise if there is no cached promise") {
+                it("caches the publisher if there is no cached publisher") {
                     let publisher = OpenGroupManager.getDefaultRoomsIfNeeded(using: dependencies)
                     
                     expect(mockOGMCache)
@@ -3305,7 +3344,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         })
                 }
                 
-                it("returns the cached promise if there is one") {
+                it("returns the cached publisher if there is one") {
                     let uniqueRoomInstance: OpenGroupAPI.Room = OpenGroupAPI.Room(
                         token: "UniqueId",
                         name: "",
@@ -3333,15 +3372,16 @@ class OpenGroupManagerSpec: QuickSpec {
                         upload: false,
                         defaultUpload: nil
                     )
-                    let publisher = Future<[OpenGroupAPI.Room], Error> { resolver in
-                        resolver(Result.success([uniqueRoomInstance]))
+                    let publisher = Future<[OpenGroupManager.DefaultRoomInfo], Error> { resolver in
+                        resolver(Result.success([(uniqueRoomInstance, nil)]))
                     }
                     .shareReplay(1)
                     .eraseToAnyPublisher()
                     mockOGMCache.when { $0.defaultRoomsPublisher }.thenReturn(publisher)
                     let publisher2 = OpenGroupManager.getDefaultRoomsIfNeeded(using: dependencies)
                     
-                    expect(publisher2.firstValue()).to(equal(publisher.firstValue()))
+                    expect(publisher2.firstValue()?.map { $0.room })
+                        .to(equal(publisher.firstValue()?.map { $0.room }))
                 }
                 
                 it("stores the open group information") {
@@ -3375,13 +3415,13 @@ class OpenGroupManagerSpec: QuickSpec {
                 }
                 
                 it("fetches rooms for the server") {
-                    var response: [OpenGroupAPI.Room]?
+                    var response: [OpenGroupManager.DefaultRoomInfo]?
                     
                     OpenGroupManager.getDefaultRoomsIfNeeded(using: dependencies)
-                        .handleEvents(receiveOutput: { (data: [OpenGroupAPI.Room]) in response = data })
+                        .handleEvents(receiveOutput: { response = $0 })
                         .sinkAndStore(in: &disposables)
                     
-                    expect(response)
+                    expect(response?.map { $0.room })
                         .toEventually(
                             equal(
                                 [
@@ -3444,7 +3484,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     expect(TestRoomsApi.callCounter).to(equal(9))   // First attempt + 8 retries
                 }
                 
-                it("removes the cache promise if all retries fail") {
+                it("removes the cache publisher if all retries fail") {
                     class TestRoomsApi: TestOnionRequestAPI {
                         override class var mockResponse: Data? { return nil }
                     }
@@ -3541,7 +3581,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     forKey: SNUserDefaults.Date.lastOpenGroupImageUpdate.rawValue
                                 )
                             },
-                            timeout: .milliseconds(50)
+                            timeout: .milliseconds(100)
                         )
                     expect(
                         mockStorage.read { db -> Data? in
@@ -3586,7 +3626,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     }
                 }
                 
-                it("retrieves the image retrieval promise from the cache if it exists") {
+                it("retrieves the image retrieval publisher from the cache if it exists") {
                     let publisher = Future<Data, Error> { resolver in
                         resolver(Result.success(Data([5, 4, 3, 2, 1])))
                     }
@@ -3597,17 +3637,14 @@ class OpenGroupManagerSpec: QuickSpec {
                         .thenReturn([OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): publisher])
                     
                     var result: Data?
-                    mockStorage
-                        .readPublisherFlatMap { (db: Database) -> AnyPublisher<Data, Error> in
-                            OpenGroupManager
-                                .roomImage(
-                                    db,
-                                    fileId: "1",
-                                    for: "testRoom",
-                                    on: "testServer",
-                                    using: dependencies
-                                )
-                        }
+                    OpenGroupManager
+                        .roomImage(
+                            fileId: "1",
+                            for: "testRoom",
+                            on: "testServer",
+                            existingData: nil,
+                            using: dependencies
+                        )
                         .handleEvents(receiveOutput: { result = $0 })
                         .sinkAndStore(in: &disposables)
                     
@@ -3616,17 +3653,14 @@ class OpenGroupManagerSpec: QuickSpec {
                 
                 it("does not save the fetched image to storage") {
                     var didComplete: Bool = false
-                    mockStorage
-                        .readPublisherFlatMap { (db: Database) -> AnyPublisher<Data, Error> in
-                            OpenGroupManager
-                                .roomImage(
-                                    db,
-                                    fileId: "1",
-                                    for: "testRoom",
-                                    on: "testServer",
-                                    using: dependencies
-                                )
-                        }
+                    OpenGroupManager
+                        .roomImage(
+                            fileId: "1",
+                            for: "testRoom",
+                            on: "testServer",
+                            existingData: nil,
+                            using: dependencies
+                        )
                         .handleEvents(receiveCompletion: { _ in didComplete = true })
                         .sinkAndStore(in: &disposables)
                     
@@ -3647,17 +3681,14 @@ class OpenGroupManagerSpec: QuickSpec {
                 
                 it("does not update the image update timestamp") {
                     var didComplete: Bool = false
-                    mockStorage
-                        .readPublisherFlatMap { (db: Database) -> AnyPublisher<Data, Error> in
-                            OpenGroupManager
-                                .roomImage(
-                                    db,
-                                    fileId: "1",
-                                    for: "testRoom",
-                                    on: "testServer",
-                                    using: dependencies
-                                )
-                        }
+                    OpenGroupManager
+                        .roomImage(
+                            fileId: "1",
+                            for: "testRoom",
+                            on: "testServer",
+                            existingData: nil,
+                            using: dependencies
+                        )
                         .handleEvents(receiveCompletion: { _ in didComplete = true })
                         .sinkAndStore(in: &disposables)
                     
@@ -3674,7 +3705,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         )
                 }
                 
-                it("adds the image retrieval promise to the cache") {
+                it("adds the image retrieval publisher to the cache") {
                     class TestNeverReturningApi: OnionRequestAPIType {
                         static func sendOnionRequest(_ request: URLRequest, to server: String, with x25519PublicKey: String, timeout: TimeInterval) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
                             return Future<(ResponseInfoType, Data?), Error> { _ in }.eraseToAnyPublisher()
@@ -3689,17 +3720,14 @@ class OpenGroupManagerSpec: QuickSpec {
                     }
                     dependencies = dependencies.with(onionApi: TestNeverReturningApi.self)
                     
-                    let publisher = mockStorage
-                        .readPublisherFlatMap { (db: Database) -> AnyPublisher<Data, Error> in
-                            OpenGroupManager
-                                .roomImage(
-                                    db,
-                                    fileId: "1",
-                                    for: "testRoom",
-                                    on: "testServer",
-                                    using: dependencies
-                                )
-                        }
+                    let publisher = OpenGroupManager
+                        .roomImage(
+                            fileId: "1",
+                            for: "testRoom",
+                            on: "testServer",
+                            existingData: nil,
+                            using: dependencies
+                        )
                     publisher.sinkAndStore(in: &disposables)
                     
                     expect(mockOGMCache)
@@ -3715,17 +3743,14 @@ class OpenGroupManagerSpec: QuickSpec {
                     it("fetches a new image if there is no cached one") {
                         var result: Data?
                         
-                        mockStorage
-                            .readPublisherFlatMap { (db: Database) -> AnyPublisher<Data, Error> in
-                                OpenGroupManager
-                                    .roomImage(
-                                        db,
-                                        fileId: "1",
-                                        for: "testRoom",
-                                        on: OpenGroupAPI.defaultServer,
-                                        using: dependencies
-                                    )
-                            }
+                        OpenGroupManager
+                            .roomImage(
+                                fileId: "1",
+                                for: "testRoom",
+                                on: OpenGroupAPI.defaultServer,
+                                existingData: nil,
+                                using: dependencies
+                            )
                             .handleEvents(receiveOutput: { (data: Data) in result = data })
                             .sinkAndStore(in: &disposables)
                         
@@ -3735,17 +3760,14 @@ class OpenGroupManagerSpec: QuickSpec {
                     it("saves the fetched image to storage") {
                         var didComplete: Bool = false
                         
-                        mockStorage
-                            .readPublisherFlatMap { (db: Database) -> AnyPublisher<Data, Error> in
-                                OpenGroupManager
-                                    .roomImage(
-                                        db,
-                                        fileId: "1",
-                                        for: "testRoom",
-                                        on: OpenGroupAPI.defaultServer,
-                                        using: dependencies
-                                    )
-                            }
+                        OpenGroupManager
+                            .roomImage(
+                                fileId: "1",
+                                for: "testRoom",
+                                on: OpenGroupAPI.defaultServer,
+                                existingData: nil,
+                                using: dependencies
+                            )
                             .handleEvents(receiveCompletion: { _ in didComplete = true })
                             .sinkAndStore(in: &disposables)
                         
@@ -3767,17 +3789,14 @@ class OpenGroupManagerSpec: QuickSpec {
                     it("updates the image update timestamp") {
                         var didComplete: Bool = false
                         
-                        mockStorage
-                            .readPublisherFlatMap { (db: Database) -> AnyPublisher<Data, Error> in
-                                OpenGroupManager
-                                    .roomImage(
-                                        db,
-                                        fileId: "1",
-                                        for: "testRoom",
-                                        on: OpenGroupAPI.defaultServer,
-                                        using: dependencies
-                                    )
-                            }
+                        OpenGroupManager
+                            .roomImage(
+                                fileId: "1",
+                                for: "testRoom",
+                                on: OpenGroupAPI.defaultServer,
+                                existingData: nil,
+                                using: dependencies
+                            )
                             .handleEvents(receiveCompletion: { _ in didComplete = true })
                             .sinkAndStore(in: &disposables)
                         
@@ -3815,17 +3834,14 @@ class OpenGroupManagerSpec: QuickSpec {
                         it("retrieves the cached image") {
                             var result: Data?
                             
-                            mockStorage
-                                .readPublisherFlatMap { (db: Database) -> AnyPublisher<Data, Error> in
-                                    OpenGroupManager
-                                        .roomImage(
-                                            db,
-                                            fileId: "1",
-                                            for: "testRoom",
-                                            on: OpenGroupAPI.defaultServer,
-                                            using: dependencies
-                                        )
-                                }
+                            OpenGroupManager
+                                .roomImage(
+                                    fileId: "1",
+                                    for: "testRoom",
+                                    on: OpenGroupAPI.defaultServer,
+                                    existingData: Data([2, 3, 4]),
+                                    using: dependencies
+                                )
                                 .handleEvents(receiveOutput: { (data: Data) in result = data })
                                 .sinkAndStore(in: &disposables)
                             
@@ -3845,17 +3861,14 @@ class OpenGroupManagerSpec: QuickSpec {
                             
                             var result: Data?
                             
-                            mockStorage
-                                .readPublisherFlatMap { (db: Database) -> AnyPublisher<Data, Error> in
-                                    OpenGroupManager
-                                        .roomImage(
-                                            db,
-                                            fileId: "1",
-                                            for: "testRoom",
-                                            on: OpenGroupAPI.defaultServer,
-                                            using: dependencies
-                                        )
-                                }
+                            OpenGroupManager
+                                .roomImage(
+                                    fileId: "1",
+                                    for: "testRoom",
+                                    on: OpenGroupAPI.defaultServer,
+                                    existingData: Data([2, 3, 4]),
+                                    using: dependencies
+                                )
                                 .handleEvents(receiveOutput: { (data: Data) in result = data })
                                 .sinkAndStore(in: &disposables)
                             

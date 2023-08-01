@@ -3,6 +3,7 @@
 import WebRTC
 import Foundation
 import SessionUtilitiesKit
+import SignalCoreKit
 
 #if targetEnvironment(simulator)
 // Note: 'RTCMTLVideoView' doesn't seem to work on the simulator so use 'RTCEAGLVideoView' instead

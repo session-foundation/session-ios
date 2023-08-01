@@ -31,66 +31,19 @@ internal extension SessionUtil {
     static func handleContactsUpdate(
         _ db: Database,
         in conf: UnsafeMutablePointer<config_object>?,
-        mergeNeedsDump: Bool
+        mergeNeedsDump: Bool,
+        latestConfigSentTimestampMs: Int64
     ) throws {
-        typealias ContactData = [
-            String: (
-                contact: Contact,
-                profile: Profile,
-                priority: Int32,
-                created: TimeInterval
-            )
-        ]
-        
         guard mergeNeedsDump else { return }
         guard conf != nil else { throw SessionUtilError.nilConfigObject }
-        
-        var contactData: ContactData = [:]
-        var contact: contacts_contact = contacts_contact()
-        let contactIterator: UnsafeMutablePointer<contacts_iterator> = contacts_iterator_new(conf)
-        
-        while !contacts_iterator_done(contactIterator, &contact) {
-            let contactId: String = String(cString: withUnsafeBytes(of: contact.session_id) { [UInt8]($0) }
-                .map { CChar($0) }
-                .nullTerminated()
-            )
-            let contactResult: Contact = Contact(
-                id: contactId,
-                isApproved: contact.approved,
-                isBlocked: contact.blocked,
-                didApproveMe: contact.approved_me
-            )
-            let profilePictureUrl: String? = String(libSessionVal: contact.profile_pic.url, nullIfEmpty: true)
-            let profileResult: Profile = Profile(
-                id: contactId,
-                name: String(libSessionVal: contact.name),
-                nickname: String(libSessionVal: contact.nickname, nullIfEmpty: true),
-                profilePictureUrl: profilePictureUrl,
-                profileEncryptionKey: (profilePictureUrl == nil ? nil :
-                    Data(
-                        libSessionVal: contact.profile_pic.key,
-                        count: ProfileManager.avatarAES256KeyByteLength
-                    )
-                )
-            )
-            
-            contactData[contactId] = (
-                contactResult,
-                profileResult,
-                contact.priority,
-                TimeInterval(contact.created)
-            )
-            contacts_iterator_advance(contactIterator)
-        }
-        contacts_iterator_free(contactIterator) // Need to free the iterator
         
         // The current users contact data is handled separately so exclude it if it's present (as that's
         // actually a bug)
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
-        let targetContactData: ContactData = contactData.filter { $0.key != userPublicKey }
-        
-        // If we only updated the current user contact then no need to continue
-        guard !targetContactData.isEmpty else { return }
+        let targetContactData: [String: ContactData] = try extractContacts(
+            from: conf,
+            latestConfigSentTimestampMs: latestConfigSentTimestampMs
+        ).filter { $0.key != userPublicKey }
         
         // Since we don't sync 100% of the data stored against the contact and profile objects we
         // need to only update the data we do have to ensure we don't overwrite anything that doesn't
@@ -102,12 +55,23 @@ internal extension SessionUtil {
                 // observation system can't differ between update calls which do and don't change anything)
                 let contact: Contact = Contact.fetchOrCreate(db, id: sessionId)
                 let profile: Profile = Profile.fetchOrCreate(db, id: sessionId)
+                let profileNameShouldBeUpdated: Bool = (
+                    !data.profile.name.isEmpty &&
+                    profile.name != data.profile.name &&
+                    profile.lastNameUpdate < data.profile.lastNameUpdate
+                )
+                let profilePictureShouldBeUpdated: Bool = (
+                    (
+                        profile.profilePictureUrl != data.profile.profilePictureUrl ||
+                        profile.profileEncryptionKey != data.profile.profileEncryptionKey
+                    ) &&
+                    profile.lastProfilePictureUpdate < data.profile.lastProfilePictureUpdate
+                )
                 
                 if
-                    (!data.profile.name.isEmpty && profile.name != data.profile.name) ||
+                    profileNameShouldBeUpdated ||
                     profile.nickname != data.profile.nickname ||
-                    profile.profilePictureUrl != data.profile.profilePictureUrl ||
-                    profile.profileEncryptionKey != data.profile.profileEncryptionKey
+                    profilePictureShouldBeUpdated
                 {
                     try profile.save(db)
                     try Profile
@@ -115,8 +79,11 @@ internal extension SessionUtil {
                         .updateAll( // Handling a config update so don't use `updateAllAndConfig`
                             db,
                             [
-                                (data.profile.name.isEmpty || profile.name == data.profile.name ? nil :
+                                (!profileNameShouldBeUpdated ? nil :
                                     Profile.Columns.name.set(to: data.profile.name)
+                                ),
+                                (!profileNameShouldBeUpdated ? nil :
+                                    Profile.Columns.lastNameUpdate.set(to: data.profile.lastNameUpdate)
                                 ),
                                 (profile.nickname == data.profile.nickname ? nil :
                                     Profile.Columns.nickname.set(to: data.profile.nickname)
@@ -126,6 +93,9 @@ internal extension SessionUtil {
                                 ),
                                 (profile.profileEncryptionKey != data.profile.profileEncryptionKey ? nil :
                                     Profile.Columns.profileEncryptionKey.set(to: data.profile.profileEncryptionKey)
+                                ),
+                                (!profilePictureShouldBeUpdated ? nil :
+                                    Profile.Columns.lastProfilePictureUpdate.set(to: data.profile.lastProfilePictureUpdate)
                                 )
                             ].compactMap { $0 }
                         )
@@ -161,6 +131,7 @@ internal extension SessionUtil {
                 /// If the contact's `hidden` flag doesn't match the visibility of their conversation then create/delete the
                 /// associated contact conversation accordingly
                 let threadInfo: PriorityVisibilityInfo? = try? SessionThread
+                    .filter(id: sessionId)
                     .select(.id, .variant, .pinnedPriority, .shouldBeVisible)
                     .asRequest(of: PriorityVisibilityInfo.self)
                     .fetchOne(db)
@@ -169,12 +140,12 @@ internal extension SessionUtil {
 
                 switch (updatedShouldBeVisible, threadExists) {
                     case (false, true):
-                        SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: [contact.id])
+                        SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: [sessionId])
                         
                         try SessionThread
                             .deleteOrLeave(
                                 db,
-                                threadId: contact.id,
+                                threadId: sessionId,
                                 threadVariant: .contact,
                                 groupLeaveType: .forced,
                                 calledFromConfigHandling: true
@@ -182,7 +153,7 @@ internal extension SessionUtil {
                         
                     case (true, false):
                         try SessionThread(
-                            id: contact.id,
+                            id: sessionId,
                             variant: .contact,
                             creationDateTimestamp: data.created,
                             shouldBeVisible: true,
@@ -200,7 +171,7 @@ internal extension SessionUtil {
                         ].compactMap { $0 }
                         
                         try SessionThread
-                            .filter(id: contact.id)
+                            .filter(id: sessionId)
                             .updateAll( // Handling a config update so don't use `updateAllAndConfig`
                                 db,
                                 changes
@@ -222,7 +193,8 @@ internal extension SessionUtil {
         let threadIdsToRemove: [String] = try SessionThread
             .filter(!syncedContactIds.contains(SessionThread.Columns.id))
             .filter(SessionThread.Columns.variant == SessionThread.Variant.contact)
-            .filter(!SessionThread.Columns.id.like("\(SessionId.Prefix.blinded.rawValue)%"))
+            .filter(!SessionThread.Columns.id.like("\(SessionId.Prefix.blinded15.rawValue)%"))
+            .filter(!SessionThread.Columns.id.like("\(SessionId.Prefix.blinded25.rawValue)%"))
             .select(.id)
             .asRequest(of: String.self)
             .fetchAll(db)
@@ -315,6 +287,12 @@ internal extension SessionUtil {
                     contact.approved = updatedContact.isApproved
                     contact.approved_me = updatedContact.didApproveMe
                     contact.blocked = updatedContact.isBlocked
+                    
+                    // If we were given a `created` timestamp then set it to the min between the current
+                    // setting and the value (as long as the current setting isn't `0`)
+                    if let created: Int64 = info.created.map({ Int64(floor($0)) }) {
+                        contact.created = (contact.created > 0 ? min(contact.created, created) : created)
+                    }
                     
                     // Store the updated contact (needs to happen before variables go out of scope)
                     contacts_set(conf, &contact)
@@ -523,17 +501,91 @@ extension SessionUtil {
         let contact: Contact?
         let profile: Profile?
         let priority: Int32?
+        let created: TimeInterval?
         
         init(
             id: String,
             contact: Contact? = nil,
             profile: Profile? = nil,
-            priority: Int32? = nil
+            priority: Int32? = nil,
+            created: TimeInterval? = nil
         ) {
             self.id = id
             self.contact = contact
             self.profile = profile
             self.priority = priority
+            self.created = created
         }
+    }
+}
+
+// MARK: - ContactData
+
+private struct ContactData {
+    let contact: Contact
+    let profile: Profile
+    let priority: Int32
+    let created: TimeInterval
+}
+
+// MARK: - ThreadCount
+
+private struct ThreadCount: Codable, FetchableRecord {
+    let id: String
+    let interactionCount: Int
+}
+
+// MARK: - Convenience
+
+private extension SessionUtil {
+    static func extractContacts(
+        from conf: UnsafeMutablePointer<config_object>?,
+        latestConfigSentTimestampMs: Int64
+    ) throws -> [String: ContactData] {
+        var infiniteLoopGuard: Int = 0
+        var result: [String: ContactData] = [:]
+        var contact: contacts_contact = contacts_contact()
+        let contactIterator: UnsafeMutablePointer<contacts_iterator> = contacts_iterator_new(conf)
+        
+        while !contacts_iterator_done(contactIterator, &contact) {
+            try SessionUtil.checkLoopLimitReached(&infiniteLoopGuard, for: .contacts)
+            
+            let contactId: String = String(cString: withUnsafeBytes(of: contact.session_id) { [UInt8]($0) }
+                .map { CChar($0) }
+                .nullTerminated()
+            )
+            let contactResult: Contact = Contact(
+                id: contactId,
+                isApproved: contact.approved,
+                isBlocked: contact.blocked,
+                didApproveMe: contact.approved_me
+            )
+            let profilePictureUrl: String? = String(libSessionVal: contact.profile_pic.url, nullIfEmpty: true)
+            let profileResult: Profile = Profile(
+                id: contactId,
+                name: String(libSessionVal: contact.name),
+                lastNameUpdate: (TimeInterval(latestConfigSentTimestampMs) / 1000),
+                nickname: String(libSessionVal: contact.nickname, nullIfEmpty: true),
+                profilePictureUrl: profilePictureUrl,
+                profileEncryptionKey: (profilePictureUrl == nil ? nil :
+                    Data(
+                        libSessionVal: contact.profile_pic.key,
+                        count: ProfileManager.avatarAES256KeyByteLength
+                    )
+                ),
+                lastProfilePictureUpdate: (TimeInterval(latestConfigSentTimestampMs) / 1000)
+            )
+            
+            result[contactId] = ContactData(
+                contact: contactResult,
+                profile: profileResult,
+                priority: contact.priority,
+                created: TimeInterval(contact.created)
+            )
+            contacts_iterator_advance(contactIterator)
+        }
+        contacts_iterator_free(contactIterator) // Need to free the iterator
+        
+        return result
     }
 }

@@ -4,15 +4,37 @@ import UIKit
 import SessionUtilitiesKit
 
 // FIXME: Refactor as part of the Groups Rebuild
-public class ConfirmationModal: Modal {
-    private static let imageSize: CGFloat = 80
+public class ConfirmationModal: Modal, UITextFieldDelegate {
     private static let closeSize: CGFloat = 24
     
     private var internalOnConfirm: ((ConfirmationModal) -> ())? = nil
     private var internalOnCancel: ((ConfirmationModal) -> ())? = nil
     private var internalOnBodyTap: (() -> ())? = nil
+    private var internalOnTextChanged: ((String) -> ())? = nil
     
     // MARK: - Components
+    
+    private lazy var contentTapGestureRecognizer: UITapGestureRecognizer = {
+        let result: UITapGestureRecognizer = UITapGestureRecognizer(
+            target: self,
+            action: #selector(contentViewTapped)
+        )
+        contentView.addGestureRecognizer(result)
+        result.isEnabled = false
+        
+        return result
+    }()
+    
+    private lazy var imageViewTapGestureRecognizer: UITapGestureRecognizer = {
+        let result: UITapGestureRecognizer = UITapGestureRecognizer(
+            target: self,
+            action: #selector(imageViewTapped)
+        )
+        imageViewContainer.addGestureRecognizer(result)
+        result.isEnabled = false
+        
+        return result
+    }()
     
     private lazy var titleLabel: UILabel = {
         let result: UILabel = UILabel()
@@ -37,6 +59,26 @@ public class ConfirmationModal: Modal {
         return result
     }()
     
+    private lazy var textFieldContainer: UIView = {
+        let result: UIView = UIView()
+        result.themeBorderColor = .borderSeparator
+        result.layer.cornerRadius = 11
+        result.layer.borderWidth = 1
+        result.isHidden = true
+        result.set(.height, to: 40)
+        
+        return result
+    }()
+    
+    private lazy var textField: UITextField = {
+        let result: UITextField = UITextField()
+        result.font = .systemFont(ofSize: Values.smallFontSize)
+        result.themeTextColor = .textPrimary
+        result.delegate = self
+        
+        return result
+    }()
+    
     private lazy var imageViewContainer: UIView = {
         let result: UIView = UIView()
         result.isHidden = true
@@ -44,15 +86,7 @@ public class ConfirmationModal: Modal {
         return result
     }()
     
-    private lazy var imageView: UIImageView = {
-        let result: UIImageView = UIImageView()
-        result.clipsToBounds = true
-        result.contentMode = .scaleAspectFill
-        result.set(.width, to: ConfirmationModal.imageSize)
-        result.set(.height, to: ConfirmationModal.imageSize)
-        
-        return result
-    }()
+    private lazy var profileView: ProfilePictureView = ProfilePictureView(size: .hero)
     
     private lazy var confirmButton: UIButton = {
         let result: UIButton = Modal.createButton(
@@ -73,7 +107,7 @@ public class ConfirmationModal: Modal {
     }()
     
     private lazy var contentStackView: UIStackView = {
-        let result = UIStackView(arrangedSubviews: [ titleLabel, explanationLabel, imageViewContainer ])
+        let result = UIStackView(arrangedSubviews: [ titleLabel, explanationLabel, textFieldContainer, imageViewContainer ])
         result.axis = .vertical
         result.spacing = Values.smallSpacing
         result.isLayoutMarginsRelativeArrangement = true
@@ -83,12 +117,6 @@ public class ConfirmationModal: Modal {
             bottom: Values.verySmallSpacing,
             right: Values.largeSpacing
         )
-        
-        let gestureRecogniser: UITapGestureRecognizer = UITapGestureRecognizer(
-            target: self,
-            action: #selector(bodyTapped)
-        )
-        result.addGestureRecognizer(gestureRecogniser)
         
         return result
     }()
@@ -115,6 +143,9 @@ public class ConfirmationModal: Modal {
             bottom: 6,
             right: 6
         )
+        result.isAccessibilityElement = true
+        result.accessibilityIdentifier = "Close button"
+        result.accessibilityLabel = "Close button"
         result.set(.width, to: ConfirmationModal.closeSize)
         result.set(.height, to: ConfirmationModal.closeSize)
         result.addTarget(self, action: #selector(close), for: .touchUpInside)
@@ -138,13 +169,22 @@ public class ConfirmationModal: Modal {
     }
     
     public override func populateContentView() {
+        let gestureRecogniser: UITapGestureRecognizer = UITapGestureRecognizer(
+            target: self,
+            action: #selector(contentViewTapped)
+        )
+        contentView.addGestureRecognizer(gestureRecogniser)
+        
         contentView.addSubview(mainStackView)
         contentView.addSubview(closeButton)
         
-        imageViewContainer.addSubview(imageView)
-        imageView.center(.horizontal, in: imageViewContainer)
-        imageView.pin(.top, to: .top, of: imageViewContainer, withInset: 15)
-        imageView.pin(.bottom, to: .bottom, of: imageViewContainer, withInset: -15)
+        textFieldContainer.addSubview(textField)
+        textField.pin(to: textFieldContainer, withInset: 12)
+        
+        imageViewContainer.addSubview(profileView)
+        profileView.center(.horizontal, in: imageViewContainer)
+        profileView.pin(.top, to: .top, of: imageViewContainer)
+        profileView.pin(.bottom, to: .bottom, of: imageViewContainer)
         
         mainStackView.pin(to: contentView)
         closeButton.pin(.top, to: .top, of: contentView, withInset: 8)
@@ -155,6 +195,7 @@ public class ConfirmationModal: Modal {
     
     public func updateContent(with info: Info) {
         internalOnBodyTap = nil
+        internalOnTextChanged = nil
         internalOnConfirm = { modal in
             if info.dismissOnConfirm {
                 modal.close()
@@ -167,6 +208,8 @@ public class ConfirmationModal: Modal {
             
             info.onCancel?(modal)
         }
+        contentTapGestureRecognizer.isEnabled = true
+        imageViewTapGestureRecognizer.isEnabled = false
         
         // Set the content based on the provided info
         titleLabel.text = info.title
@@ -185,15 +228,31 @@ public class ConfirmationModal: Modal {
                 explanationLabel.attributedText = attributedText
                 explanationLabel.isHidden = false
                 
-            case .image(let placeholder, let value, let style, let onClick):
+            case .input(let explanation, let placeholder, let value, let clearButton, let onTextChanged):
+                explanationLabel.attributedText = explanation
+                explanationLabel.isHidden = (explanation == nil)
+                textField.placeholder = placeholder
+                textField.text = (value ?? "")
+                textField.clearButtonMode = (clearButton ? .always : .never)
+                textFieldContainer.isHidden = false
+                internalOnTextChanged = onTextChanged
+                
+            case .image(let placeholder, let value, let icon, let style, let accessibility, let onClick):
+                imageViewContainer.isAccessibilityElement = (accessibility != nil)
+                imageViewContainer.accessibilityIdentifier = accessibility?.identifier
+                imageViewContainer.accessibilityLabel = accessibility?.label
                 mainStackView.spacing = 0
-                imageView.image = (value ?? placeholder)
-                imageView.layer.cornerRadius = (style == .circular ?
-                    (ConfirmationModal.imageSize / 2) :
-                    0
-                )
                 imageViewContainer.isHidden = false
+                profileView.clipsToBounds = (style == .circular)
+                profileView.update(
+                    ProfilePictureView.Info(
+                        imageData: (value ?? placeholder),
+                        icon: icon
+                    )
+                )
                 internalOnBodyTap = onClick
+                contentTapGestureRecognizer.isEnabled = false
+                imageViewTapGestureRecognizer.isEnabled = true
         }
         
         confirmButton.accessibilityLabel = info.confirmAccessibility?.label
@@ -217,9 +276,39 @@ public class ConfirmationModal: Modal {
         contentView.accessibilityIdentifier = info.accessibility?.identifier
     }
     
+    // MARK: - UITextFieldDelegate
+        
+    public func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        textField.resignFirstResponder()
+        return true
+    }
+    
+    public func textFieldShouldClear(_ textField: UITextField) -> Bool {
+        internalOnTextChanged?("")
+        return true
+    }
+    
+    public func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+        if let text: String = textField.text, let textRange: Range = Range(range, in: text) {
+            let updatedText = text.replacingCharacters(in: textRange, with: string)
+            
+            internalOnTextChanged?(updatedText)
+        }
+        
+        return true
+    }
+    
     // MARK: - Interaction
     
-    @objc private func bodyTapped() {
+    @objc private func contentViewTapped() {
+        if textField.isFirstResponder {
+            textField.resignFirstResponder()
+        }
+        
+        internalOnBodyTap?()
+    }
+    
+    @objc private func imageViewTapped() {
         internalOnBodyTap?()
     }
     
@@ -401,13 +490,21 @@ public extension ConfirmationModal.Info {
         case none
         case text(String)
         case attributedText(NSAttributedString)
-        // FIXME: Implement these
-        // case input(placeholder: String, value: String?)
+        case input(
+            explanation: NSAttributedString?,
+            placeholder: String,
+            initialValue: String?,
+            clearButton: Bool,
+            onChange: (String) -> ()
+        )
+        // FIXME: Implement this
         // case radio(explanation: NSAttributedString?, options: [(title: String, selected: Bool)])
         case image(
-            placeholder: UIImage?,
-            value: UIImage?,
+            placeholderData: Data?,
+            valueData: Data?,
+            icon: ProfilePictureView.ProfileIcon = .none,
             style: ImageStyle,
+            accessibility: Accessibility?,
             onClick: (() -> ())
         )
         
@@ -417,25 +514,28 @@ public extension ConfirmationModal.Info {
                 case (.text(let lhsText), .text(let rhsText)): return (lhsText == rhsText)
                 case (.attributedText(let lhsText), .attributedText(let rhsText)): return (lhsText == rhsText)
                 
-                // FIXME: Implement these
-                //case (.input(let lhsPlaceholder, let lhsValue), .input(let rhsPlaceholder, let rhsValue)):
-                //    return (
-                //        lhsPlaceholder == rhsPlaceholder &&
-                //        lhsValue == rhsValue &&
-                //    )
+                case (.input(let lhsExplanation, let lhsPlaceholder, let lhsInitialValue, let lhsClearButton, _), .input(let rhsExplanation, let rhsPlaceholder, let rhsInitialValue, let rhsClearButton, _)):
+                   return (
+                       lhsExplanation == rhsExplanation &&
+                       lhsPlaceholder == rhsPlaceholder &&
+                       lhsInitialValue == rhsInitialValue &&
+                       lhsClearButton == rhsClearButton
+                   )
                 
-                // FIXME: Implement these
+                // FIXME: Implement this
                 //case (.radio(let lhsExplanation, let lhsOptions), .radio(let rhsExplanation, let rhsOptions)):
                 //    return (
                 //        lhsExplanation == rhsExplanation &&
                 //        lhsOptions.map { "\($0.0)-\($0.1)" } == rhsValue.map { "\($0.0)-\($0.1)" }
                 //    )
                     
-                case (.image(let lhsPlaceholder, let lhsValue, let lhsStyle, _), .image(let rhsPlaceholder, let rhsValue, let rhsStyle, _)):
+                case (.image(let lhsPlaceholder, let lhsValue, let lhsIcon, let lhsStyle, let lhsAccessibility, _), .image(let rhsPlaceholder, let rhsValue, let rhsIcon, let rhsStyle, let rhsAccessibility, _)):
                     return (
                         lhsPlaceholder == rhsPlaceholder &&
                         lhsValue == rhsValue &&
-                        lhsStyle == rhsStyle
+                        lhsIcon == rhsIcon &&
+                        lhsStyle == rhsStyle &&
+                        lhsAccessibility == rhsAccessibility
                     )
                     
                 default: return false
@@ -447,11 +547,19 @@ public extension ConfirmationModal.Info {
                 case .none: break
                 case .text(let text): text.hash(into: &hasher)
                 case .attributedText(let text): text.hash(into: &hasher)
+                    
+                case .input(let explanation, let placeholder, let initialValue, let clearButton, _):
+                    explanation.hash(into: &hasher)
+                    placeholder.hash(into: &hasher)
+                    initialValue.hash(into: &hasher)
+                    clearButton.hash(into: &hasher)
                 
-                case .image(let placeholder, let value, let style, _):
+                case .image(let placeholder, let value, let icon, let style, let accessibility, _):
                     placeholder.hash(into: &hasher)
                     value.hash(into: &hasher)
+                    icon.hash(into: &hasher)
                     style.hash(into: &hasher)
+                    accessibility.hash(into: &hasher)
             }
         }
     }

@@ -130,7 +130,7 @@ public extension LinkPreview {
         return (floor(sentTimestampMs / 1000 / LinkPreview.timstampResolution) * LinkPreview.timstampResolution)
     }
     
-    static func saveAttachmentIfPossible(_ db: Database, imageData: Data?, mimeType: String) throws -> String? {
+    static func generateAttachmentIfPossible(imageData: Data?, mimeType: String) throws -> Attachment? {
         guard let imageData: Data = imageData, !imageData.isEmpty else { return nil }
         guard let fileExtension: String = MIMETypeUtil.fileExtension(forMIMEType: mimeType) else { return nil }
         
@@ -141,9 +141,7 @@ public extension LinkPreview {
             return nil
         }
         
-        return try Attachment(contentType: mimeType, dataSource: dataSource)?
-            .inserted(db)
-            .id
+        return Attachment(contentType: mimeType, dataSource: dataSource)
     }
     
     static func isValidLinkUrl(_ urlString: String) -> Bool {
@@ -355,7 +353,6 @@ public extension LinkPreview {
         
         return session
             .dataTaskPublisher(for: request)
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .mapError { _ -> Error in HTTPError.generic }   // URLError codes are negative values
             .tryMap { data, response -> (Data, URLResponse) in
                 guard let urlResponse: HTTPURLResponse = response as? HTTPURLResponse else {

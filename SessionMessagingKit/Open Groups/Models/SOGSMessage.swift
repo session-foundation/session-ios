@@ -77,7 +77,7 @@ extension OpenGroupAPI.Message {
             let publicKey: Data = Data(hex: sender.removingIdPrefixIfNeeded())
             
             switch SessionId.Prefix(from: sender) {
-                case .blinded:
+                case .blinded15, .blinded25:
                     guard dependencies.sign.verify(message: data.bytes, publicKey: publicKey.bytes, signature: signature.bytes) else {
                         SNLog("Ignoring message with invalid signature.")
                         throw HTTPError.parsingFailed

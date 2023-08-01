@@ -4,6 +4,8 @@ import Combine
 import GRDB
 import Quick
 import Nimble
+import SessionUIKit
+import SessionSnodeKit
 
 @testable import Session
 
@@ -24,11 +26,11 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
             beforeEach {
                 mockStorage = Storage(
                     customWriter: try! DatabaseQueue(),
-                    customMigrations: [
-                        SNUtilitiesKit.migrations(),
-                        SNSnodeKit.migrations(),
-                        SNMessagingKit.migrations(),
-                        SNUIKit.migrations()
+                    customMigrationTargets: [
+                        SNUtilitiesKit.self,
+                        SNSnodeKit.self,
+                        SNMessagingKit.self,
+                        SNUIKit.self
                     ]
                 )
                 dependencies = Dependencies(
@@ -49,7 +51,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 )
                 cancellables.append(
                     viewModel.observableTableData
-                        .receiveOnMain(immediately: true)
+                        .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
                             receiveValue: { viewModel.updateTableData($0.0) }
@@ -132,7 +134,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 )
                 cancellables.append(
                     viewModel.observableTableData
-                        .receiveOnMain(immediately: true)
+                        .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
                             receiveValue: { viewModel.updateTableData($0.0) }
@@ -178,7 +180,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 
                 cancellables.append(
                     viewModel.rightNavItems
-                        .receiveOnMain(immediately: true)
+                        .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
                             receiveValue: { navItems in items = navItems }
@@ -194,7 +196,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 beforeEach {
                     cancellables.append(
                         viewModel.rightNavItems
-                            .receiveOnMain(immediately: true)
+                            .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },
                                 receiveValue: { navItems in items = navItems }
@@ -221,7 +223,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                         
                         cancellables.append(
                             viewModel.dismissScreen
-                                .receiveOnMain(immediately: true)
+                                .receive(on: ImmediateScheduler.shared)
                                 .sink(
                                     receiveCompletion: { _ in },
                                     receiveValue: { _ in didDismissScreen = true }
@@ -244,16 +246,9 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                             try DisappearingMessagesConfiguration.fetchOne(db, id: "TestId")
                         }
                         
-                        expect(updatedConfig?.isEnabled)
-                            .toEventually(
-                                beTrue(),
-                                timeout: .milliseconds(100)
-                            )
+                        expect(updatedConfig?.isEnabled).to(beTrue())
                         expect(updatedConfig?.durationSeconds)
-                            .toEventually(
-                                equal(DisappearingMessagesConfiguration.validDurationsSeconds.last ?? -1),
-                                timeout: .milliseconds(100)
-                            )
+                            .to(equal(DisappearingMessagesConfiguration.validDurationsSeconds.last ?? -1))
                     }
                 }
             }

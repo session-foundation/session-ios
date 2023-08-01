@@ -13,12 +13,12 @@ extension SnodeAPI {
         ///
         /// **Note:** If omitted when sending the request, messages are deleted from the default namespace
         /// only (namespace 0)
-        let namespace: SnodeAPI.Namespace?
+        let namespace: SnodeAPI.Namespace
         
         // MARK: - Init
         
         public init(
-            namespace: SnodeAPI.Namespace?,
+            namespace: SnodeAPI.Namespace,
             pubkey: String,
             timestampMs: UInt64,
             ed25519PublicKey: [UInt8],
@@ -39,11 +39,10 @@ extension SnodeAPI {
         override public func encode(to encoder: Encoder) throws {
             var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
             
-            // If no namespace is specified it defaults to the default namespace only (namespace
-            // 0), so instead in this case we want to explicitly delete from `all` namespaces
+            // The 'all' namespace should be sent through as `all` instead of a numerical value
             switch namespace {
-                case .some(let namespace): try container.encode(namespace, forKey: .namespace)
-                case .none: try container.encode("all", forKey: .namespace)
+                case .all: try container.encode(namespace.verificationString, forKey: .namespace)
+                default: try container.encode(namespace, forKey: .namespace)
             }
             
             try super.encode(to: encoder)
@@ -58,12 +57,7 @@ extension SnodeAPI {
             /// The signature must be signed by the ed25519 pubkey in `pubkey` (omitting the leading prefix).
             /// Must be base64 encoded for json requests; binary for OMQ requests.
             let verificationBytes: [UInt8] = SnodeAPI.Endpoint.deleteAll.rawValue.bytes
-                .appending(
-                    contentsOf: (namespace == nil ?
-                        "all" :
-                        namespace?.verificationString
-                    )?.bytes
-                )
+                .appending(contentsOf: namespace.verificationString.bytes)
                 .appending(contentsOf: timestampMs.map { "\($0)" }?.data(using: .ascii)?.bytes)
             
             guard

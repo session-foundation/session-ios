@@ -5,6 +5,7 @@ import Combine
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
+import SignalUtilitiesKit
 
 final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, MentionSelectionViewDelegate {
     // MARK: - Variables
@@ -264,7 +265,8 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
             quotedText: quoteDraftInfo.model.body,
             threadVariant: threadVariant,
             currentUserPublicKey: quoteDraftInfo.model.currentUserPublicKey,
-            currentUserBlindedPublicKey: quoteDraftInfo.model.currentUserBlindedPublicKey,
+            currentUserBlinded15PublicKey: quoteDraftInfo.model.currentUserBlinded15PublicKey,
+            currentUserBlinded25PublicKey: quoteDraftInfo.model.currentUserBlinded25PublicKey,
             direction: (quoteDraftInfo.isOutgoing ? .outgoing : .incoming),
             attachment: quoteDraftInfo.model.attachment,
             hInset: hInset,
@@ -331,6 +333,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         
         // Build the link preview
         LinkPreview.tryToBuildPreviewInfo(previewUrl: linkPreviewURL)
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [weak self] result in
@@ -499,7 +502,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     func showMentionsUI(for candidates: [MentionInfo]) {
         mentionsView.candidates = candidates
         
-        let mentionCellHeight = (Values.smallProfilePictureSize + 2 * Values.smallSpacing)
+        let mentionCellHeight = (ProfilePictureView.Size.message.viewSize + 2 * Values.smallSpacing)
         mentionsViewHeightConstraint.constant = CGFloat(min(3, candidates.count)) * mentionCellHeight
         layoutIfNeeded()
         

@@ -411,7 +411,7 @@ public final class MessageSender {
                 preconditionFailure()
             }
             
-            return SessionId(.blinded, publicKey: blindedKeyPair.publicKey).hexString
+            return SessionId(.blinded15, publicKey: blindedKeyPair.publicKey).hexString
         }()
         
         // Validate the message
@@ -606,6 +606,21 @@ public final class MessageSender {
                 )
                 
                 guard expectedAttachmentUploadCount == preparedSendData.totalAttachmentsUploaded else {
+                    // Make sure to actually handle this as a failure (if we don't then the message
+                    // won't go into an error state correctly)
+                    if let message: Message = preparedSendData.message {
+                        dependencies.storage.read { db in
+                            MessageSender.handleFailedMessageSend(
+                                db,
+                                message: message,
+                                with: .attachmentsNotUploaded,
+                                interactionId: preparedSendData.interactionId,
+                                isSyncMessage: (preparedSendData.isSyncMessage == true),
+                                using: dependencies
+                            )
+                        }
+                    }
+                    
                     return Fail(error: MessageSenderError.attachmentsNotUploaded)
                         .eraseToAnyPublisher()
                 }
@@ -643,7 +658,6 @@ public final class MessageSender {
                 snodeMessage,
                 in: namespace
             )
-            .subscribe(on: DispatchQueue.global(qos: .default))
             .flatMap { response -> AnyPublisher<Void, Error> in
                 let updatedMessage: Message = message
                 updatedMessage.serverHash = response.1.hash
@@ -703,7 +717,7 @@ public final class MessageSender {
                             Future<Void, Error> { resolver in
                                 NotifyPushServerJob.run(
                                     job,
-                                    queue: DispatchQueue.global(qos: .default),
+                                    queue: .global(qos: .default),
                                     success: { _, _ in resolver(Result.success(())) },
                                     failure: { _, _, _ in
                                         // Always fulfill because the notify PN server job isn't critical.
@@ -760,9 +774,9 @@ public final class MessageSender {
         
         // Send the result
         return dependencies.storage
-            .readPublisherFlatMap { db in
-                OpenGroupAPI
-                    .send(
+            .readPublisher { db in
+                try OpenGroupAPI
+                    .preparedSend(
                         db,
                         plaintext: plaintext,
                         to: roomToken,
@@ -773,7 +787,7 @@ public final class MessageSender {
                         using: dependencies
                     )
             }
-            .subscribe(on: DispatchQueue.global(qos: .default))
+            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
             .flatMap { (responseInfo, responseData) -> AnyPublisher<Void, Error> in
                 let serverTimestampMs: UInt64? = responseData.posted.map { UInt64(floor($0 * 1000)) }
                 let updatedMessage: Message = message
@@ -828,9 +842,9 @@ public final class MessageSender {
         
         // Send the result
         return dependencies.storage
-            .readPublisherFlatMap { db in
-                return OpenGroupAPI
-                    .send(
+            .readPublisher { db in
+                try OpenGroupAPI
+                    .preparedSend(
                         db,
                         ciphertext: ciphertext,
                         toInboxFor: recipientBlindedPublicKey,
@@ -838,7 +852,7 @@ public final class MessageSender {
                         using: dependencies
                     )
             }
-            .subscribe(on: DispatchQueue.global(qos: .default))
+            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
             .flatMap { (responseInfo, responseData) -> AnyPublisher<Void, Error> in
                 let updatedMessage: Message = message
                 updatedMessage.openGroupServerMessageId = UInt64(responseData.id)
@@ -993,7 +1007,6 @@ public final class MessageSender {
         isSyncMessage: Bool = false,
         using dependencies: SMKDependencies = SMKDependencies()
     ) -> Error {
-        // TODO: Revert the local database change
         // If the message was a reaction then we don't want to do anything to the original
         // interaciton (which the 'interactionId' is pointing to
         guard (message as? VisibleMessage)?.reaction == nil else { return error }

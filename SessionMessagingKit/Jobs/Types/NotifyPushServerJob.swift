@@ -22,6 +22,7 @@ public enum NotifyPushServerJob: JobExecutor {
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
         else {
+            SNLog("[NotifyPushServerJob] Failing due to missing details")
             failure(job, JobRunnerError.missingRequiredDetails, true)
             return
         }

@@ -63,7 +63,7 @@ open class ScreenLockViewController: UIViewController {
     open override func loadView() {
         super.loadView()
         
-        view.themeBackgroundColor = .black  // Need to match the Launch screen
+        view.themeBackgroundColorForced = .theme(.classicDark, color: .black)  // Need to match the Launch screen
 
         let edgesView: UIView = UIView.container()
         self.view.addSubview(edgesView)

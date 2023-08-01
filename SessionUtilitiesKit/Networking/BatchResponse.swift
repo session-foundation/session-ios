@@ -4,18 +4,63 @@ import Foundation
 import Combine
 
 public extension HTTP {
-    typealias BatchResponseTypes = [Codable.Type]
-    
     // MARK: - BatchResponse
     
     struct BatchResponse {
         public let info: ResponseInfoType
-        public let responses: [Codable]
+        public let responses: [Decodable]
+        
+        public static func decodingResponses(
+            from data: Data?,
+            as types: [Decodable.Type],
+            requireAllResults: Bool,
+            using dependencies: Dependencies = Dependencies()
+        ) throws -> [Decodable] {
+            // Need to split the data into an array of data so each item can be Decoded correctly
+            guard let data: Data = data else { throw HTTPError.parsingFailed }
+            guard let jsonObject: Any = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]) else {
+                throw HTTPError.parsingFailed
+            }
+            
+            let dataArray: [Data]
+            
+            switch jsonObject {
+                case let anyArray as [Any]:
+                    dataArray = anyArray.compactMap { try? JSONSerialization.data(withJSONObject: $0) }
+                    
+                    guard !requireAllResults || dataArray.count == types.count else {
+                        throw HTTPError.parsingFailed
+                    }
+                    
+                case let anyDict as [String: Any]:
+                    guard
+                        let resultsArray: [Data] = (anyDict["results"] as? [Any])?
+                            .compactMap({ try? JSONSerialization.data(withJSONObject: $0) }),
+                        (
+                            !requireAllResults ||
+                            resultsArray.count == types.count
+                        )
+                    else { throw HTTPError.parsingFailed }
+                    
+                    dataArray = resultsArray
+                    
+                default: throw HTTPError.parsingFailed
+            }
+            
+            return try zip(dataArray, types)
+                .map { data, type in try type.decoded(from: data, using: dependencies) }
+        }
     }
     
     // MARK: - BatchSubResponse<T>
     
-    struct BatchSubResponse<T: Codable>: BatchSubResponseType {
+    struct BatchSubResponse<T: Decodable>: BatchSubResponseType {
+        public enum CodingKeys: String, CodingKey {
+            case code
+            case headers
+            case body
+        }
+        
         /// The numeric http response code (e.g. 200 for success)
         public let code: Int
         
@@ -42,7 +87,7 @@ public extension HTTP {
     }
 }
 
-public protocol BatchSubResponseType: Codable {
+public protocol BatchSubResponseType: Decodable {
     var code: Int { get }
     var headers: [String: String] { get }
     var failedToParseBody: Bool { get }
@@ -51,6 +96,8 @@ public protocol BatchSubResponseType: Codable {
 extension BatchSubResponseType {
     public var responseInfo: ResponseInfoType { HTTP.ResponseInfo(code: code, headers: headers) }
 }
+
+extension HTTP.BatchSubResponse: Encodable where T: Encodable {}
 
 public extension HTTP.BatchSubResponse {
     init(from decoder: Decoder) throws {
@@ -78,50 +125,22 @@ public extension Decodable {
     }
 }
 
-public extension AnyPublisher where Output == (ResponseInfoType, Data?), Failure == Error {
+public extension Publisher where Output == (ResponseInfoType, Data?), Failure == Error {
     func decoded(
-        as types: HTTP.BatchResponseTypes,
+        as types: [Decodable.Type],
         requireAllResults: Bool = true,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<HTTP.BatchResponse, Error> {
         self
             .tryMap { responseInfo, maybeData -> HTTP.BatchResponse in
-                // Need to split the data into an array of data so each item can be Decoded correctly
-                guard let data: Data = maybeData else { throw HTTPError.parsingFailed }
-                guard let jsonObject: Any = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]) else {
-                    throw HTTPError.parsingFailed
-                }
-                
-                let dataArray: [Data]
-                
-                switch jsonObject {
-                    case let anyArray as [Any]:
-                        dataArray = anyArray.compactMap { try? JSONSerialization.data(withJSONObject: $0) }
-                        
-                        guard !requireAllResults || dataArray.count == types.count else {
-                            throw HTTPError.parsingFailed
-                        }
-                        
-                    case let anyDict as [String: Any]:
-                        guard
-                            let resultsArray: [Data] = (anyDict["results"] as? [Any])?
-                                .compactMap({ try? JSONSerialization.data(withJSONObject: $0) }),
-                            (
-                                !requireAllResults ||
-                                resultsArray.count == types.count
-                            )
-                        else { throw HTTPError.parsingFailed }
-                        
-                        dataArray = resultsArray
-                        
-                    default: throw HTTPError.parsingFailed
-                }
-                
-                // TODO: Remove the 'Swift.'
-                return HTTP.BatchResponse(
+                HTTP.BatchResponse(
                     info: responseInfo,
-                    responses: try Swift.zip(dataArray, types)
-                        .map { data, type in try type.decoded(from: data, using: dependencies) }
+                    responses: try HTTP.BatchResponse.decodingResponses(
+                        from: maybeData,
+                        as: types,
+                        requireAllResults: requireAllResults,
+                        using: dependencies
+                    )
                 )
             }
             .eraseToAnyPublisher()

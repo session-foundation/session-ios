@@ -10,6 +10,8 @@ extern NSString *const ReportedApplicationStateDidChangeNotification;
 
 @interface MainAppContext : NSObject <AppContext>
 
+- (instancetype)init;
+
 @end
 
 NS_ASSUME_NONNULL_END

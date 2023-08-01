@@ -217,7 +217,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
 
     private func createErrorLabel(text: String) -> UILabel {
         let label: UILabel = UILabel()
-        label.font = .ows_mediumFont(withSize: 20)
+        label.font = UIFont.systemFont(ofSize: 20, weight: .medium)
         label.text = text
         label.themeTextColor = .textPrimary
         label.textAlignment = .center
@@ -360,6 +360,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
         
         cell
             .requestRenditionForSending()
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [weak self] result in
@@ -490,6 +491,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
         assert(searchBar.text == nil || searchBar.text?.count == 0)
 
         GiphyAPI.trending()
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { result in
@@ -527,6 +529,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
 
         GiphyAPI
             .search(query: query)
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [weak self] result in

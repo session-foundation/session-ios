@@ -232,6 +232,7 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
             ]
         }
         .removeDuplicates()
+        .handleEvents(didFail: { SNLog("[PrivacySettingsViewModel] Observation failed with error: \($0)") })
         .publisher(in: Storage.shared)
         .mapToSessionTableViewData(for: self)
 }

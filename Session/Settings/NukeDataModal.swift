@@ -150,6 +150,7 @@ final class NukeDataModal: Modal {
     private func clearDeviceOnly() {
         ModalActivityIndicatorViewController.present(fromViewController: self, canCancel: false) { [weak self] _ in
             ConfigurationSyncJob.run()
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveCompletion: { _ in
@@ -163,8 +164,8 @@ final class NukeDataModal: Modal {
     private func clearEntireAccount(presentedViewController: UIViewController) {
         ModalActivityIndicatorViewController
             .present(fromViewController: presentedViewController, canCancel: false) { [weak self] _ in
-                SnodeAPI.deleteAllMessages()
-                    .subscribe(on: DispatchQueue.global(qos: .default))
+                SnodeAPI.deleteAllMessages(namespace: .all)
+                    .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                     .receive(on: DispatchQueue.main)
                     .sinkUntilComplete(
                         receiveCompletion: { result in
@@ -219,7 +220,7 @@ final class NukeDataModal: Modal {
             }
     }
     
-    private func deleteAllLocalData() {
+    private func deleteAllLocalData(using dependencies: Dependencies = Dependencies()) {
         // Unregister push notifications if needed
         let isUsingFullAPNs: Bool = UserDefaults.standard[.isUsingFullAPNs]
         let maybeDeviceToken: String? = UserDefaults.standard[.deviceToken]
@@ -230,6 +231,12 @@ final class NukeDataModal: Modal {
                 .sinkUntilComplete()
         }
         
+        /// Stop and cancel all current jobs (don't want to inadvertantly have a job store data after it's table has already been cleared)
+        ///
+        /// **Note:** This is file as long as this process kills the app, if it doesn't then we need an alternate mechanism to flag that
+        /// the `JobRunner` is allowed to start it's queues again
+        JobRunner.stopAndClearPendingJobs()
+        
         // Clear the app badge and notifications
         AppEnvironment.shared.notificationPresenter.clearAllNotifications()
         CurrentAppContext().setMainAppBadgeNumber(0)
@@ -238,7 +245,10 @@ final class NukeDataModal: Modal {
         UserDefaults.removeAll()
         
         // Remove the cached key so it gets re-cached on next access
-        General.cache.mutate { $0.encodedPublicKey = nil }
+        dependencies.mutableGeneralCache.mutate {
+            $0.encodedPublicKey = nil
+            $0.recentReactionTimestamps = []
+        }
         
         // Clear the Snode pool
         SnodeAPI.clearSnodePool()

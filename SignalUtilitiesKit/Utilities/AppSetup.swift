@@ -74,11 +74,11 @@ public enum AppSetup {
         var backgroundTask: OWSBackgroundTask? = (backgroundTask ?? OWSBackgroundTask(labelStr: #function))
         
         Storage.shared.perform(
-            migrations: [
-                SNUtilitiesKit.migrations(),
-                SNSnodeKit.migrations(),
-                SNMessagingKit.migrations(),
-                SNUIKit.migrations()
+            migrationTargets: [
+                SNUtilitiesKit.self,
+                SNSnodeKit.self,
+                SNMessagingKit.self,
+                SNUIKit.self
             ],
             onProgressUpdate: migrationProgressChanged,
             onComplete: { result, needsConfigSync in
@@ -98,12 +98,10 @@ public enum AppSetup {
                 // method when calling within a database read/write closure)
                 Storage.shared.read { db in SessionUtil.refreshingUserConfigsEnabled(db) }
                 
-                DispatchQueue.main.async {
-                    migrationsCompletion(result, (needsConfigSync || SessionUtil.needsSync))
-                    
-                    // The 'if' is only there to prevent the "variable never read" warning from showing
-                    if backgroundTask != nil { backgroundTask = nil }
-                }
+                migrationsCompletion(result, (needsConfigSync || SessionUtil.needsSync))
+                
+                // The 'if' is only there to prevent the "variable never read" warning from showing
+                if backgroundTask != nil { backgroundTask = nil }
             }
         )
     }

@@ -3,12 +3,18 @@
 import UIKit
 import GRDB
 import SessionUIKit
+import SessionSnodeKit
 import SessionUtil
 import SessionUtilitiesKit
 
 // MARK: - Convenience
 
 internal extension SessionUtil {
+    /// This is a buffer period within which we will process messages which would result in a config change, any message which would normally
+    /// result in a config change which was sent before `lastConfigMessage.timestamp - configChangeBufferPeriod` will not
+    /// actually have it's changes applied (info messages would still be inserted though)
+    static let configChangeBufferPeriod: TimeInterval = (2 * 60)
+    
     static let columnsRelatedToThreads: [ColumnExpression] = [
         SessionThread.Columns.pinnedPriority,
         SessionThread.Columns.shouldBeVisible
@@ -28,11 +34,14 @@ internal extension SessionUtil {
         return !allColumnsThatTriggerConfigUpdate.isDisjoint(with: targetColumns)
     }
     
+    /// A `0` `priority` value indicates visible, but not pinned
+    static let visiblePriority: Int32 = 0
+    
     /// A negative `priority` value indicates hidden
     static let hiddenPriority: Int32 = -1
     
     static func shouldBeVisible(priority: Int32) -> Bool {
-        return (priority >= 0)
+        return (priority >= SessionUtil.visiblePriority)
     }
     
     static func performAndPushChange(
@@ -50,10 +59,7 @@ internal extension SessionUtil {
         
         do {
             needsPush = try SessionUtil
-                .config(
-                    for: variant,
-                    publicKey: publicKey
-                )
+                .config(for: variant, publicKey: publicKey)
                 .mutate { conf in
                     guard conf != nil else { throw SessionUtilError.nilConfigObject }
                     
@@ -66,14 +72,15 @@ internal extension SessionUtil {
                     try SessionUtil.createDump(
                         conf: conf,
                         for: variant,
-                        publicKey: publicKey
+                        publicKey: publicKey,
+                        timestampMs: SnodeAPI.currentOffsetTimestampMs()
                     )?.save(db)
                     
                     return config_needs_push(conf)
                 }
         }
         catch {
-            SNLog("[libSession] Failed to update/dump updated \(variant) config data")
+            SNLog("[libSession] Failed to update/dump updated \(variant) config data due to error: \(error)")
             throw error
         }
         
@@ -120,8 +127,8 @@ internal extension SessionUtil {
                                     guard noteToSelf.shouldBeVisible else { return SessionUtil.hiddenPriority }
                                     
                                     return noteToSelf.pinnedPriority
-                                        .map { Int32($0 == 0 ? 0 : max($0, 1)) }
-                                        .defaulting(to: 0)
+                                        .map { Int32($0 == 0 ? SessionUtil.visiblePriority : max($0, 1)) }
+                                        .defaulting(to: SessionUtil.visiblePriority)
                                 }(),
                                 in: conf
                             )
@@ -147,8 +154,8 @@ internal extension SessionUtil {
                                             guard thread.shouldBeVisible else { return SessionUtil.hiddenPriority }
                                             
                                             return thread.pinnedPriority
-                                                .map { Int32($0 == 0 ? 0 : max($0, 1)) }
-                                                .defaulting(to: 0)
+                                                .map { Int32($0 == 0 ? SessionUtil.visiblePriority : max($0, 1)) }
+                                                .defaulting(to: SessionUtil.visiblePriority)
                                         }()
                                     )
                                 },
@@ -169,8 +176,8 @@ internal extension SessionUtil {
                                         CommunityInfo(
                                             urlInfo: urlInfo,
                                             priority: thread.pinnedPriority
-                                                .map { Int32($0 == 0 ? 0 : max($0, 1)) }
-                                                .defaulting(to: 0)
+                                                .map { Int32($0 == 0 ? SessionUtil.visiblePriority : max($0, 1)) }
+                                                .defaulting(to: SessionUtil.visiblePriority)
                                         )
                                     }
                                 },
@@ -190,8 +197,8 @@ internal extension SessionUtil {
                                     LegacyGroupInfo(
                                         id: thread.id,
                                         priority: thread.pinnedPriority
-                                            .map { Int32($0 == 0 ? 0 : max($0, 1)) }
-                                            .defaulting(to: 0)
+                                            .map { Int32($0 == 0 ? SessionUtil.visiblePriority : max($0, 1)) }
+                                            .defaulting(to: SessionUtil.visiblePriority)
                                     )
                                 },
                             in: conf
@@ -293,6 +300,44 @@ internal extension SessionUtil {
             }
         }
     }
+    
+    static func canPerformChange(
+        _ db: Database,
+        threadId: String,
+        targetConfig: ConfigDump.Variant,
+        changeTimestampMs: Int64
+    ) -> Bool {
+        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
+        guard SessionUtil.userConfigsEnabled(db) else { return true }
+        
+        let targetPublicKey: String = {
+            switch targetConfig {
+                default: return getUserHexEncodedPublicKey(db)
+            }
+        }()
+        
+        let configDumpTimestampMs: Int64 = (try? ConfigDump
+            .filter(
+                ConfigDump.Columns.variant == targetConfig &&
+                ConfigDump.Columns.publicKey == targetPublicKey
+            )
+            .select(.timestampMs)
+            .asRequest(of: Int64.self)
+            .fetchOne(db))
+            .defaulting(to: 0)
+        
+        // Ensure the change occurred after the last config message was handled (minus the buffer period)
+        return (changeTimestampMs >= (configDumpTimestampMs - Int64(SessionUtil.configChangeBufferPeriod * 1000)))
+    }
+    
+    static func checkLoopLimitReached(_ loopCounter: inout Int, for variant: ConfigDump.Variant, maxLoopCount: Int = 50000) throws {
+        loopCounter += 1
+        
+        guard loopCounter < maxLoopCount else {
+            SNLog("[libSession] Got stuck in infinite loop processing '\(variant.configMessageKind.description)' data")
+            throw SessionUtilError.processingLoopLimitReached
+        }
+    }
 }
 
 // MARK: - External Outgoing Changes
@@ -307,21 +352,30 @@ public extension SessionUtil {
         // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
         guard SessionUtil.userConfigsEnabled(db) else { return true }
         
+        let userPublicKey: String = getUserHexEncodedPublicKey()
         let configVariant: ConfigDump.Variant = {
             switch threadVariant {
-                case .contact: return .contacts
+                case .contact: return (threadId == userPublicKey ? .userProfile : .contacts)
                 case .legacyGroup, .group, .community: return .userGroups
             }
         }()
         
         return SessionUtil
-            .config(for: configVariant, publicKey: getUserHexEncodedPublicKey())
+            .config(for: configVariant, publicKey: userPublicKey)
             .wrappedValue
             .map { conf in
                 var cThreadId: [CChar] = threadId.cArray.nullTerminated()
                 
                 switch threadVariant {
                     case .contact:
+                        // The 'Note to Self' conversation is stored in the 'userProfile' config
+                        guard threadId != userPublicKey else {
+                            return (
+                                !visibleOnly ||
+                                SessionUtil.shouldBeVisible(priority: user_profile_get_nts_priority(conf))
+                            )
+                        }
+                        
                         var contact: contacts_contact = contacts_contact()
                         
                         guard contacts_get(conf, &contact, &cThreadId) else { return false }

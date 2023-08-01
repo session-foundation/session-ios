@@ -4,6 +4,8 @@ import Combine
 import GRDB
 import Quick
 import Nimble
+import SessionUIKit
+import SessionSnodeKit
 
 @testable import Session
 
@@ -26,16 +28,16 @@ class ThreadSettingsViewModelSpec: QuickSpec {
             beforeEach {
                 mockStorage = SynchronousStorage(
                     customWriter: try! DatabaseQueue(),
-                    customMigrations: [
-                        SNUtilitiesKit.migrations(),
-                        SNSnodeKit.migrations(),
-                        SNMessagingKit.migrations(),
-                        SNUIKit.migrations()
+                    customMigrationTargets: [
+                        SNUtilitiesKit.self,
+                        SNSnodeKit.self,
+                        SNMessagingKit.self,
+                        SNUIKit.self
                     ]
                 )
                 mockGeneralCache = MockGeneralCache()
                 dependencies = Dependencies(
-                    generalCache: Atomic(mockGeneralCache),
+                    generalCache: mockGeneralCache,
                     storage: mockStorage,
                     scheduler: .immediate
                 )
@@ -53,12 +55,16 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     
                     try Profile(
                         id: "05\(TestConstants.publicKey)",
-                        name: "TestMe"
+                        name: "TestMe",
+                        lastNameUpdate: 0,
+                        lastProfilePictureUpdate: 0
                     ).insert(db)
                     
                     try Profile(
                         id: "TestId",
-                        name: "TestUser"
+                        name: "TestUser",
+                        lastNameUpdate: 0,
+                        lastProfilePictureUpdate: 0
                     ).insert(db)
                 }
                 viewModel = ThreadSettingsViewModel(
@@ -71,7 +77,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 )
                 disposables.append(
                     viewModel.observableTableData
-                        .receiveOnMain(immediately: true)
+                        .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
                             receiveValue: { viewModel.updateTableData($0.0) }
@@ -169,7 +175,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     )
                     disposables.append(
                         viewModel.observableTableData
-                            .receiveOnMain(immediately: true)
+                            .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },
                                 receiveValue: { viewModel.updateTableData($0.0) }
@@ -443,7 +449,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     )
                     disposables.append(
                         viewModel.observableTableData
-                            .receiveOnMain(immediately: true)
+                            .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },
                                 receiveValue: { viewModel.updateTableData($0.0) }
@@ -485,7 +491,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     )
                     disposables.append(
                         viewModel.observableTableData
-                            .receiveOnMain(immediately: true)
+                            .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },
                                 receiveValue: { viewModel.updateTableData($0.0) }

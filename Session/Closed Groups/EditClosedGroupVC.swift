@@ -301,7 +301,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
     }
 
     private func handleMembersChanged() {
-        tableViewHeightConstraint.constant = CGFloat(membersAndZombies.count) * 72
+        tableViewHeightConstraint.constant = CGFloat(membersAndZombies.count) * 78
         tableView.reloadData()
     }
 
@@ -440,7 +440,6 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         }
         
         let threadId: String = self.threadId
-        let threadVariant: SessionThread.Variant = self.threadVariant
         let updatedName: String = self.name
         let userPublicKey: String = self.userPublicKey
         let updatedMemberIds: Set<String> = self.membersAndZombies
@@ -465,21 +464,19 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         
         ModalActivityIndicatorViewController.present(fromViewController: navigationController) { _ in
             Storage.shared
-                .writePublisherFlatMap { db -> AnyPublisher<Void, Error> in
-                    if !updatedMemberIds.contains(userPublicKey) {
-                        try MessageSender.leave(
-                            db,
-                            groupPublicKey: threadId,
-                            deleteThread: true
-                        )
-                        
-                        return Just(())
-                            .setFailureType(to: Error.self)
-                            .eraseToAnyPublisher()
-                    }
-                    
-                    return MessageSender.update(
+                .writePublisher { db in
+                    // If the user is no longer a member then leave the group
+                    guard !updatedMemberIds.contains(userPublicKey) else { return }
+
+                    try MessageSender.leave(
                         db,
+                        groupPublicKey: threadId,
+                        deleteThread: true
+                    )
+                    
+                }
+                .flatMap {
+                    MessageSender.update(
                         groupPublicKey: threadId,
                         with: updatedMemberIds,
                         name: updatedName

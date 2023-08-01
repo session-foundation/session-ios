@@ -17,7 +17,7 @@ public class MessageRequestsViewModel {
     
     // MARK: - Variables
     
-    public static let pageSize: Int = 15
+    public static let pageSize: Int = (UIDevice.current.isIPad ? 20 : 15)
     
     // MARK: - Initialization
     
@@ -129,8 +129,14 @@ public class MessageRequestsViewModel {
         didSet {
             // When starting to observe interaction changes we want to trigger a UI update just in case the
             // data was changed while we weren't observing
-            if let unobservedThreadDataChanges: ([SectionModel], StagedChangeset<[SectionModel]>) = self.unobservedThreadDataChanges {
-                self.onThreadChange?(unobservedThreadDataChanges.0, unobservedThreadDataChanges.1)
+            if let changes: ([SectionModel], StagedChangeset<[SectionModel]>) = self.unobservedThreadDataChanges {
+                let performChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ())? = onThreadChange
+                
+                switch Thread.isMainThread {
+                    case true: performChange?(changes.0, changes.1)
+                    case false: DispatchQueue.main.async { performChange?(changes.0, changes.1) }
+                }
+                
                 self.unobservedThreadDataChanges = nil
             }
         }
@@ -150,10 +156,13 @@ public class MessageRequestsViewModel {
                     elements: data
                         .sorted { lhs, rhs -> Bool in lhs.lastInteractionDate > rhs.lastInteractionDate }
                         .map { viewModel -> SessionThreadViewModel in
-                            viewModel.populatingCurrentUserBlindedKey(
-                                currentUserBlindedPublicKeyForThisThread: groupedOldData[viewModel.threadId]?
+                            viewModel.populatingCurrentUserBlindedKeys(
+                                currentUserBlinded15PublicKeyForThisThread: groupedOldData[viewModel.threadId]?
                                     .first?
-                                    .currentUserBlindedPublicKey
+                                    .currentUserBlinded15PublicKey,
+                                currentUserBlinded25PublicKeyForThisThread: groupedOldData[viewModel.threadId]?
+                                    .first?
+                                    .currentUserBlinded25PublicKey
                             )
                         }
                 )

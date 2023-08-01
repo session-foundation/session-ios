@@ -5,6 +5,7 @@ import Combine
 import Photos
 import SignalUtilitiesKit
 import SignalCoreKit
+import SessionUIKit
 
 class SendMediaNavigationController: UINavigationController {
     public override var preferredStatusBarStyle: UIStatusBarStyle {
@@ -394,6 +395,18 @@ extension SendMediaNavigationController: ImagePickerGridControllerDelegate {
     func imagePickerCanSelectAdditionalItems(_ imagePicker: ImagePickerGridController) -> Bool {
         return attachmentDraftCollection.count <= SignalAttachment.maxAttachmentsAllowed
     }
+    
+    func imagePicker(_ imagePicker: ImagePickerGridController, failedToRetrieveAssetAt index: Int, forCount count: Int) {
+        let modal: ConfirmationModal = ConfirmationModal(
+            targetView: self.view,
+            info: ConfirmationModal.Info(
+                title: "IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS".localized(),
+                cancelTitle: "BUTTON_OK".localized(),
+                cancelStyle: .alert_text
+            )
+        )
+        self.present(modal, animated: true)
+    }
 }
 
 extension SendMediaNavigationController: AttachmentApprovalViewControllerDelegate {
@@ -596,7 +609,10 @@ private class DoneButton: UIView {
 
     private lazy var badgeLabel: UILabel = {
         let result: UILabel = UILabel()
-        result.font = .ows_dynamicTypeSubheadline.ows_monospaced()
+        result.font = UIFont.monospacedDigitSystemFont(
+            ofSize: UIFont.preferredFont(forTextStyle: .subheadline).pointSize,
+            weight: .regular
+        )
         result.themeTextColor = .black   // Will render on the primary color so should always be black
         result.textAlignment = .center
         

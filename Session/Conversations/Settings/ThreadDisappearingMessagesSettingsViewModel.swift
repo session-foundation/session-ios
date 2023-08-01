@@ -7,6 +7,7 @@ import DifferenceKit
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadDisappearingMessagesSettingsViewModel.NavButton, ThreadDisappearingMessagesSettingsViewModel.Section, ThreadDisappearingMessagesSettingsViewModel.Item> {
     // MARK: - Config
@@ -149,6 +150,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
             ]
         }
         .removeDuplicates()
+        .handleEvents(didFail: { SNLog("[ThreadDisappearingMessageSettingsViewModel] Observation failed with error: \($0)") })
         .publisher(in: dependencies.storage, scheduling: dependencies.scheduler)
         .mapToSessionTableViewData(for: self)
     

@@ -3,6 +3,7 @@
 import Foundation
 import Combine
 import GRDB
+import YYImage
 import DifferenceKit
 import SessionUIKit
 import SessionMessagingKit
@@ -70,20 +71,12 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     private let userSessionId: String
     private lazy var imagePickerHandler: ImagePickerHandler = ImagePickerHandler(
         onTransition: { [weak self] in self?.transitionToScreen($0, transitionType: $1) },
-        onImagePicked: { [weak self] resultImage in
+        onImageDataPicked: { [weak self] resultImageData in
             guard let oldDisplayName: String = self?.oldDisplayName else { return }
             
             self?.updatedProfilePictureSelected(
                 name: oldDisplayName,
-                avatarUpdate: .uploadImage(resultImage)
-            )
-        },
-        onImageFilePicked: { [weak self] resultImagePath in
-            guard let oldDisplayName: String = self?.oldDisplayName else { return }
-            
-            self?.updatedProfilePictureSelected(
-                name: oldDisplayName,
-                avatarUpdate: .uploadFilePath(resultImagePath)
+                avatarUpdate: .uploadImageData(resultImageData)
             )
         }
     )
@@ -155,9 +148,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     }
     
     override var rightNavItems: AnyPublisher<[NavItem]?, Never> {
-        let userSessionId: String = self.userSessionId
-        
-        return navState
+        navState
             .map { [weak self] navState -> [NavItem] in
                 switch navState {
                     case .standard:
@@ -250,7 +241,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                             id: .avatar,
                             accessory: .profile(
                                 id: profile.id,
-                                size: .extraLarge,
+                                size: .hero,
                                 profile: profile
                             ),
                             styling: SessionCell.StyleInfo(
@@ -442,7 +433,22 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                             ),
                             title: "vc_settings_recovery_phrase_button_title".localized(),
                             onTap: {
-                                self?.transitionToScreen(SeedModal(), transitionType: .present)
+                                let targetViewController: UIViewController = {
+                                    if let modal: SeedModal = try? SeedModal() {
+                                        return modal
+                                    }
+                                    
+                                    return ConfirmationModal(
+                                        info: ConfirmationModal.Info(
+                                            title: "ALERT_ERROR_TITLE".localized(),
+                                            body: .text("LOAD_RECOVERY_PASSWORD_ERROR".localized()),
+                                            cancelTitle: "BUTTON_OK".localized(),
+                                            cancelStyle: .alert_text
+                                        )
+                                    )
+                                }()
+                                
+                                self?.transitionToScreen(targetViewController, transitionType: .present)
                             }
                         ),
                         SessionCell.Info(
@@ -475,6 +481,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
             ]
         }
         .removeDuplicates()
+        .handleEvents(didFail: { SNLog("[SettingsViewModel] Observation failed with error: \($0)") })
         .publisher(in: Storage.shared)
         .mapToSessionTableViewData(for: self)
     
@@ -487,22 +494,25 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     
     private func updateProfilePicture(currentFileName: String?) {
         let existingDisplayName: String = self.oldDisplayName
-        
-        let existingImage: UIImage? = currentFileName
-            .map { ProfileManager.loadProfileData(with: $0) }
-            .map { UIImage(data: $0) }
+        let existingImageData: Data? = ProfileManager
+            .profileAvatar(id: self.userSessionId)
         let editProfilePictureModalInfo: ConfirmationModal.Info = ConfirmationModal.Info(
             title: "update_profile_modal_title".localized(),
             body: .image(
-                placeholder: UIImage(named: "profile_placeholder"),
-                value: existingImage,
+                placeholderData: UIImage(named: "profile_placeholder")?.pngData(),
+                valueData: existingImageData,
+                icon: .rightPlus,
                 style: .circular,
+                accessibility: Accessibility(
+                    identifier: "Image picker",
+                    label: "Image picker"
+                ),
                 onClick: { [weak self] in self?.showPhotoLibraryForAvatar() }
             ),
-            confirmTitle: "update_profile_modal_upload".localized(),
+            confirmTitle: "update_profile_modal_save".localized(),
             confirmEnabled: false,
             cancelTitle: "update_profile_modal_remove".localized(),
-            cancelEnabled: (existingImage != nil),
+            cancelEnabled: (existingImageData != nil),
             hasCloseButton: true,
             dismissOnConfirm: false,
             onConfirm: { modal in modal.close() },
@@ -524,22 +534,26 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
         self.editProfilePictureModal = modal
         self.transitionToScreen(modal, transitionType: .present)
     }
-    
+
     fileprivate func updatedProfilePictureSelected(name: String, avatarUpdate: ProfileManager.AvatarUpdate) {
         guard let info: ConfirmationModal.Info = self.editProfilePictureModalInfo else { return }
         
         self.editProfilePictureModal?.updateContent(
             with: info.with(
                 body: .image(
-                    placeholder: UIImage(named: "profile_placeholder"),
-                    value: {
+                    placeholderData: UIImage(named: "profile_placeholder")?.pngData(),
+                    valueData: {
                         switch avatarUpdate {
-                            case .uploadImage(let image): return image
-                            case .uploadFilePath(let filePath): return UIImage(contentsOfFile: filePath)
+                            case .uploadImageData(let imageData): return imageData
                             default: return nil
                         }
                     }(),
+                    icon: .rightPlus,
                     style: .circular,
+                    accessibility: Accessibility(
+                        identifier: "Image picker",
+                        label: "Image picker"
+                    ),
                     onClick: { [weak self] in self?.showPhotoLibraryForAvatar() }
                 ),
                 confirmEnabled: true,
@@ -574,7 +588,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     ) {
         let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self] modalActivityIndicator in
             ProfileManager.updateLocal(
-                queue: DispatchQueue.global(qos: .default),
+                queue: .global(qos: .default),
                 profileName: name,
                 avatarUpdate: avatarUpdate,
                 success: { db in

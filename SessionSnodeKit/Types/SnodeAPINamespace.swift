@@ -14,6 +14,8 @@ public extension SnodeAPI {
         
         case legacyClosedGroup = -10
         
+        case all = -9999990
+        
         // MARK: Variables
         
         var requiresReadAuthentication: Bool {
@@ -50,7 +52,7 @@ public extension SnodeAPI {
                     
                 case .configUserProfile, .configContacts,
                     .configConvoInfoVolatile, .configUserGroups,
-                    .configClosedGroupInfo:
+                    .configClosedGroupInfo, .all:
                     return false
             }
         }
@@ -58,6 +60,7 @@ public extension SnodeAPI {
         var verificationString: String {
             switch self {
                 case .`default`: return ""
+                case .all: return "all"
                 default: return "\(self.rawValue)"
             }
         }
@@ -85,7 +88,7 @@ public extension SnodeAPI {
                     
                 case .configUserProfile, .configContacts,
                     .configConvoInfoVolatile, .configUserGroups,
-                    .configClosedGroupInfo:
+                    .configClosedGroupInfo, .all:
                     return 1
             }
         }

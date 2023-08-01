@@ -13,6 +13,7 @@ public struct ConfigDump: Codable, Equatable, Hashable, FetchableRecord, Persist
         case variant
         case publicKey
         case data
+        case timestampMs
     }
     
     public enum Variant: String, Codable, DatabaseValueConvertible {
@@ -33,14 +34,19 @@ public struct ConfigDump: Codable, Equatable, Hashable, FetchableRecord, Persist
     /// The data for this dump
     public let data: Data
     
+    /// When the configDump was created in milliseconds since epoch
+    public let timestampMs: Int64
+    
     internal init(
         variant: Variant,
         publicKey: String,
-        data: Data
+        data: Data,
+        timestampMs: Int64
     ) {
         self.variant = variant
         self.publicKey = publicKey
         self.data = data
+        self.timestampMs = timestampMs
     }
 }
 

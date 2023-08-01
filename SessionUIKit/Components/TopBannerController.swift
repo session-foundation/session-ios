@@ -163,7 +163,7 @@ public class TopBannerController: UIViewController {
             return
         }
         
-        // Not an ideal approach but should allow
+        // Not an ideal approach but should allow us to have a single banner
         guard let instance: TopBannerController = ((view?.window?.rootViewController as? TopBannerController) ?? TopBannerController.lastInstance) else {
             return
         }
@@ -184,5 +184,21 @@ public class TopBannerController: UIViewController {
             instance?.contentStackView.setNeedsLayout()
             instance?.contentStackView.layoutIfNeeded()
         }
+    }
+    
+    public static func hide(inWindowFor view: UIView? = nil) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                TopBannerController.hide(inWindowFor: view)
+            }
+            return
+        }
+        
+        // Not an ideal approach but should allow us to have a single banner
+        guard let instance: TopBannerController = ((view?.window?.rootViewController as? TopBannerController) ?? TopBannerController.lastInstance) else {
+            return
+        }
+        
+        UIView.performWithoutAnimation { instance.dismissBanner() }
     }
 }

@@ -79,7 +79,7 @@ extension MessageReceiver {
                 
                 // If the contact is a blinded contact then only add them if they haven't already been
                 // unblinded
-                if SessionId.Prefix(from: sessionId) == .blinded {
+                if SessionId.Prefix(from: sessionId) == .blinded15 || SessionId.Prefix(from: sessionId) == .blinded25 {
                     let hasUnblindedContact: Bool = BlindedIdLookup
                         .filter(BlindedIdLookup.Columns.blindedId == sessionId)
                         .filter(BlindedIdLookup.Columns.sessionId != nil)
@@ -200,7 +200,7 @@ extension MessageReceiver {
             // Open groups
             for openGroupURL in message.openGroups {
                 if let (room, server, publicKey) = SessionUtil.parseCommunity(url: openGroupURL) {
-                    OpenGroupManager.shared
+                    let successfullyAddedGroup: Bool = OpenGroupManager.shared
                         .add(
                             db,
                             roomToken: room,
@@ -208,7 +208,20 @@ extension MessageReceiver {
                             publicKey: publicKey,
                             calledFromConfigHandling: true
                         )
-                        .sinkUntilComplete()
+                    
+                    if successfullyAddedGroup {
+                        db.afterNextTransactionNested { _ in
+                            OpenGroupManager.shared.performInitialRequestsAfterAdd(
+                                successfullyAddedGroup: successfullyAddedGroup,
+                                roomToken: room,
+                                server: server,
+                                publicKey: publicKey,
+                                calledFromConfigHandling: false
+                            )
+                            .subscribe(on: OpenGroupAPI.workQueue)
+                            .sinkUntilComplete()
+                        }
+                    }
                 }
             }
         }

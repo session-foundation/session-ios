@@ -10,7 +10,9 @@ import SessionMessagingKit
 
 final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableViewDelegate, AttachmentApprovalViewControllerDelegate {
     private let viewModel: ThreadPickerViewModel = ThreadPickerViewModel()
-    private var dataChangeObservable: DatabaseCancellable?
+    private var dataChangeObservable: DatabaseCancellable? {
+        didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
+    }
     private var hasLoadedInitialData: Bool = false
     
     var shareNavController: ShareNavController?
@@ -92,8 +94,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         
-        // Stop observing database changes
-        dataChangeObservable?.cancel()
+        stopObservingChanges()
     }
     
     @objc func applicationDidBecomeActive(_ notification: Notification) {
@@ -104,8 +105,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     }
     
     @objc func applicationDidResignActive(_ notification: Notification) {
-        // Stop observing database changes
-        dataChangeObservable?.cancel()
+        stopObservingChanges()
     }
     
     // MARK: Layout
@@ -121,6 +121,8 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     // MARK: - Updating
     
     private func startObservingChanges() {
+        guard dataChangeObservable == nil else { return }
+        
         // Start observing for data changes
         dataChangeObservable = Storage.shared.start(
             viewModel.observableViewData,
@@ -130,6 +132,10 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 self?.handleUpdates(viewData)
             }
         )
+    }
+    
+    private func stopObservingChanges() {
+        dataChangeObservable = nil
     }
     
     private func handleUpdates(_ updatedViewData: [SessionThreadViewModel]) {
@@ -170,7 +176,8 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         tableView.deselectRow(at: indexPath, animated: true)
         
         ShareNavController.attachmentPrepPublisher?
-            .receiveOnMain(immediately: true)
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+            .receive(on: DispatchQueue.main)
             .sinkUntilComplete(
                 receiveValue: { [weak self] attachments in
                     guard let strongSelf = self else { return }
@@ -205,8 +212,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         shareNavController?.dismiss(animated: true, completion: nil)
         
         ModalActivityIndicatorViewController.present(fromViewController: shareNavController!, canCancel: false, message: "vc_share_sending_message".localized()) { activityIndicator in
-            // Resume database
-            NotificationCenter.default.post(name: Database.resumeNotification, object: self)
+            Storage.resumeDatabaseAccess()
             
             Storage.shared
                 .writePublisher { db -> MessageSender.PreparedSendData in
@@ -249,18 +255,20 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         try LinkPreview(
                             url: linkPreviewDraft.urlString,
                             title: linkPreviewDraft.title,
-                            attachmentId: LinkPreview.saveAttachmentIfPossible(
-                                db,
-                                imageData: linkPreviewDraft.jpegImageData,
-                                mimeType: OWSMimeTypeImageJpeg
-                            )
+                            attachmentId: LinkPreview
+                                .generateAttachmentIfPossible(
+                                    imageData: linkPreviewDraft.jpegImageData,
+                                    mimeType: OWSMimeTypeImageJpeg
+                                )?
+                                .inserted(db)
+                                .id
                         ).insert(db)
                     }
                     
                     // Prepare any attachments
-                    try Attachment.prepare(
+                    try Attachment.process(
                         db,
-                        attachments: finalAttachments,
+                        data: Attachment.prepare(attachments: finalAttachments),
                         for: interactionId
                     )
                     
@@ -274,18 +282,13 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         )
                 }
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .flatMap {
-                    MessageSender.performUploadsIfNeeded(
-                        queue: DispatchQueue.global(qos: .userInitiated),
-                        preparedSendData: $0
-                    )
-                }
+                .flatMap { MessageSender.performUploadsIfNeeded(preparedSendData: $0) }
                 .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveCompletion: { [weak self] result in
-                        // Suspend the database
-                        NotificationCenter.default.post(name: Database.suspendNotification, object: self)
+                        Storage.suspendDatabaseAccess()
                         activityIndicator.dismiss { }
                         
                         switch result {

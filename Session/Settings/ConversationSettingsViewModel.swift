@@ -104,6 +104,7 @@ class ConversationSettingsViewModel: SessionTableViewModel<NoNav, ConversationSe
             ]
         }
         .removeDuplicates()
+        .handleEvents(didFail: { SNLog("[ConversationSettingsViewModel] Observation failed with error: \($0)") })
         .publisher(in: Storage.shared)
         .mapToSessionTableViewData(for: self)
 }

@@ -146,18 +146,12 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     }
     
     public func sendOffer(
-        _ db: Database,
-        to sessionId: String,
+        to thread: SessionThread,
         isRestartingICEConnection: Bool = false
     ) -> AnyPublisher<Void, Error> {
         SNLog("[Calls] Sending offer message.")
         let uuid: String = self.uuid
         let mediaConstraints: RTCMediaConstraints = mediaConstraints(isRestartingICEConnection)
-        
-        guard let thread: SessionThread = try? SessionThread.fetchOne(db, id: sessionId) else {
-            return Fail(error: WebRTCSessionError.noThread)
-                .eraseToAnyPublisher()
-        }
         
         return Deferred {
             Future<Void, Error> { [weak self] resolver in
@@ -198,6 +192,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                                 )
                         }
                         .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
+                        .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                         .sinkUntilComplete(
                             receiveCompletion: { result in
                                 switch result {
@@ -263,6 +258,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                                     )
                             }
                             .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
+                            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                             .sinkUntilComplete(
                                 receiveCompletion: { result in
                                     switch result {

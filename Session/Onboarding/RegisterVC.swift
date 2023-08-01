@@ -151,6 +151,12 @@ final class RegisterVC : BaseVC {
         updateSeed()
     }
     
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        Onboarding.Flow.register.unregister()
+    }
+    
     // MARK: General
     @objc private func enableCopyButton() {
         copyPublicKeyButton.isUserInteractionEnabled = true

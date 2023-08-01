@@ -16,8 +16,10 @@ extension MessageReceiver {
         var blindedContactIds: [String] = []
         
         // Ignore messages which were sent from the current user
-        guard message.sender != userPublicKey else { return }
-        guard let senderId: String = message.sender else { return }
+        guard
+            message.sender != userPublicKey,
+            let senderId: String = message.sender
+        else { throw MessageReceiverError.invalidMessage }
         
         // Update profile if needed (want to do this regardless of whether the message exists or
         // not to ensure the profile info gets sync between a users devices at every chance)
@@ -53,7 +55,10 @@ extension MessageReceiver {
         let blindedThreadIds: Set<String> = (try? SessionThread
             .select(.id)
             .filter(SessionThread.Columns.variant == SessionThread.Variant.contact)
-            .filter(SessionThread.Columns.id.like("\(SessionId.Prefix.blinded.rawValue)%"))
+            .filter(
+                SessionThread.Columns.id.like("\(SessionId.Prefix.blinded15.rawValue)%") ||
+                SessionThread.Columns.id.like("\(SessionId.Prefix.blinded25.rawValue)%")
+            )
             .asRequest(of: String.self)
             .fetchSet(db))
             .defaulting(to: [])

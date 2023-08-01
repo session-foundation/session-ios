@@ -23,6 +23,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         // Create the initial config state
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let timestampMs: Int64 = Int64(Date().timeIntervalSince1970 * 1000)
         
         SessionUtil.loadState(db, userPublicKey: userPublicKey, ed25519SecretKey: secretKey)
         
@@ -56,7 +57,8 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                         .createDump(
                             conf: conf,
                             for: .userProfile,
-                            publicKey: userPublicKey
+                            publicKey: userPublicKey,
+                            timestampMs: timestampMs
                         )?
                         .save(db)
                 }
@@ -109,7 +111,8 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                                     }
                                     
                                     return Int32(allThreads[data.contact.id]?.pinnedPriority ?? 0)
-                                }()
+                                }(),
+                                created: allThreads[data.contact.id]?.creationDateTimestamp
                             )
                         },
                     in: conf
@@ -120,7 +123,8 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                         .createDump(
                             conf: conf,
                             for: .contacts,
-                            publicKey: userPublicKey
+                            publicKey: userPublicKey,
+                            timestampMs: timestampMs
                         )?
                         .save(db)
                 }
@@ -144,7 +148,8 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                         .createDump(
                             conf: conf,
                             for: .convoInfoVolatile,
-                            publicKey: userPublicKey
+                            publicKey: userPublicKey,
+                            timestampMs: timestampMs
                         )?
                         .save(db)
                 }
@@ -179,7 +184,8 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                         .createDump(
                             conf: conf,
                             for: .userGroups,
-                            publicKey: userPublicKey
+                            publicKey: userPublicKey,
+                            timestampMs: timestampMs
                         )?
                         .save(db)
                 }

@@ -2,55 +2,36 @@
 
 import UIKit
 import AVFoundation
-import ZXingObjC
 import SessionUIKit
+import SessionUtilitiesKit
 
 protocol QRScannerDelegate: AnyObject {
-    func controller(_ controller: QRCodeScanningViewController, didDetectQRCodeWith string: String)
+    func controller(_ controller: QRCodeScanningViewController, didDetectQRCodeWith string: String, onError: (() -> ())?)
 }
 
-class QRCodeScanningViewController: UIViewController, AVCaptureMetadataOutputObjectsDelegate, ZXCaptureDelegate {
+class QRCodeScanningViewController: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
     public weak var scanDelegate: QRScannerDelegate?
     
     private let captureQueue: DispatchQueue = DispatchQueue.global(qos: .default)
-    private var capture: ZXCapture?
+    private var capture: AVCaptureSession?
+    private var captureLayer: AVCaptureVideoPreviewLayer?
     private var captureEnabled: Bool = false
     
     // MARK: - Initialization
     
     deinit {
-        self.capture?.layer.removeFromSuperlayer()
+        self.captureLayer?.removeFromSuperlayer()
     }
     
     // MARK: - Components
     
-    private let maskingView: UIView = {
-        let result: OWSBezierPathView = OWSBezierPathView()
-        result.configureShapeLayerBlock = { layer, bounds in
-            // Add a circular mask
-            let path: UIBezierPath = UIBezierPath(rect: bounds)
-            let margin: CGFloat = ScaleFromIPhone5To7Plus(24, 48)
-            let radius: CGFloat = ((min(bounds.size.width, bounds.size.height) * 0.5) - margin)
-
-            // Center the circle's bounding rectangle
-            let circleRect: CGRect = CGRect(
-                x: ((bounds.size.width * 0.5) - radius),
-                y: ((bounds.size.height * 0.5) - radius),
-                width: (radius * 2),
-                height: (radius * 2)
-            )
-            let circlePath: UIBezierPath = UIBezierPath.init(
-                roundedRect: circleRect,
-                cornerRadius: 16
-            )
-            path.append(circlePath)
-            path.usesEvenOddFillRule = true
-
-            layer.path = path.cgPath
-            layer.fillRule = .evenOdd
-            layer.themeFillColor = .black
-            layer.opacity = 0.32
-        }
+    private let maskingView: UIView = UIView()
+    
+    private lazy var maskLayer: CAShapeLayer = {
+        let result: CAShapeLayer = CAShapeLayer()
+        result.fillRule = .evenOdd
+        result.themeFillColor = .black
+        result.opacity = 0.32
         
         return result
     }()
@@ -61,7 +42,8 @@ class QRCodeScanningViewController: UIViewController, AVCaptureMetadataOutputObj
         super.loadView()
         
         self.view.addSubview(maskingView)
-        maskingView.pin(to: self.view)
+        
+        maskingView.layer.addSublayer(maskLayer)
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -81,11 +63,28 @@ class QRCodeScanningViewController: UIViewController, AVCaptureMetadataOutputObj
     override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
         
-        // Note: When accessing 'capture.layer' if the setup hasn't been completed it
-        // will result in a layout being triggered which creates an infinite loop, this
-        // check prevents that case
-        if let capture: ZXCapture = self.capture {
-            capture.layer.frame = self.view.bounds
+        captureLayer?.frame = self.view.bounds
+        
+        if maskingView.frame != self.view.bounds {
+            // Add a circular mask
+            let path: UIBezierPath = UIBezierPath(rect: self.view.bounds)
+            let radius: CGFloat = ((min(self.view.bounds.size.width, self.view.bounds.size.height) * 0.5) - Values.largeSpacing)
+
+            // Center the circle's bounding rectangle
+            let circleRect: CGRect = CGRect(
+                x: ((self.view.bounds.size.width * 0.5) - radius),
+                y: ((self.view.bounds.size.height * 0.5) - radius),
+                width: (radius * 2),
+                height: (radius * 2)
+            )
+            let clippingPath: UIBezierPath = UIBezierPath.init(
+                roundedRect: circleRect,
+                cornerRadius: 16
+            )
+            path.append(clippingPath)
+            path.usesEvenOddFillRule = true
+            
+            maskLayer.path = path.cgPath
         }
     }
 
@@ -101,31 +100,81 @@ class QRCodeScanningViewController: UIViewController, AVCaptureMetadataOutputObj
         #else
             if self.capture == nil {
                 self.captureQueue.async { [weak self] in
-                    let capture: ZXCapture = ZXCapture()
-                    capture.camera = capture.back()
-                    capture.focusMode = .autoFocus
-                    capture.delegate = self
-                    capture.start()
+                    let maybeDevice: AVCaptureDevice? = {
+                        if let result = AVCaptureDevice.default(.builtInDualCamera, for: .video, position: .back) {
+                            return result
+                        }
+                        
+                        return AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)
+                    }()
                     
-                    // Note: When accessing the 'layer' for the first time it will create
-                    // an instance of 'AVCaptureVideoPreviewLayer', this can hang a little
-                    // so we do this on the background thread first
-                    if capture.layer != nil {}
+                    // Set the input device to autoFocus (since we don't have the interaction setup for
+                    // doing it manually)
+                    do {
+                        try maybeDevice?.lockForConfiguration()
+                        maybeDevice?.focusMode = .continuousAutoFocus
+                        maybeDevice?.unlockForConfiguration()
+                    }
+                    catch {}
+                    
+                    // Device input
+                    guard
+                        let device: AVCaptureDevice = maybeDevice,
+                        let input: AVCaptureInput = try? AVCaptureDeviceInput(device: device)
+                    else {
+                        return SNLog("Failed to retrieve the device for enabling the QRCode scanning camera")
+                    }
+                    
+                    // Image output
+                    let output: AVCaptureVideoDataOutput = AVCaptureVideoDataOutput()
+                    output.alwaysDiscardsLateVideoFrames = true
+                    
+                    // Metadata output the session
+                    let metadataOutput: AVCaptureMetadataOutput = AVCaptureMetadataOutput()
+                    metadataOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
+                    
+                    let capture: AVCaptureSession = AVCaptureSession()
+                    capture.beginConfiguration()
+                    if capture.canAddInput(input) { capture.addInput(input) }
+                    if capture.canAddOutput(output) { capture.addOutput(output) }
+                    if capture.canAddOutput(metadataOutput) { capture.addOutput(metadataOutput) }
+                    
+                    guard !capture.inputs.isEmpty && capture.outputs.count == 2 else {
+                        return SNLog("Failed to attach the input/output to the capture session")
+                    }
+                    
+                    guard metadataOutput.availableMetadataObjectTypes.contains(.qr) else {
+                        return SNLog("The output is unable to process QR codes")
+                    }
+                    
+                    // Specify that we want to capture QR Codes (Needs to be done after being added
+                    // to the session, 'availableMetadataObjectTypes' is empty beforehand)
+                    metadataOutput.metadataObjectTypes = [.qr]
+                    
+                    capture.commitConfiguration()
+                    
+                    // Create the layer for rendering the camera video
+                    let layer: AVCaptureVideoPreviewLayer = AVCaptureVideoPreviewLayer(session: capture)
+                    layer.videoGravity = AVLayerVideoGravity.resizeAspectFill
+
+                    // Start running the capture session
+                    capture.startRunning()
 
                     DispatchQueue.main.async {
-                        capture.layer.frame = (self?.view.bounds ?? .zero)
-                        self?.view.layer.addSublayer(capture.layer)
+                        layer.frame = (self?.view.bounds ?? .zero)
+                        self?.view.layer.addSublayer(layer)
                         
                         if let maskingView: UIView = self?.maskingView {
                             self?.view.bringSubviewToFront(maskingView)
                         }
                     
                         self?.capture = capture
+                        self?.captureLayer = layer
                     }
                 }
             }
             else {
-                self.capture?.start()
+                self.capture?.startRunning()
             }
         #endif
     }
@@ -133,18 +182,25 @@ class QRCodeScanningViewController: UIViewController, AVCaptureMetadataOutputObj
     private func stopCapture() {
         self.captureEnabled = false
         self.captureQueue.async { [weak self] in
-            self?.capture?.stop()
+            self?.capture?.stopRunning()
         }
     }
     
-    internal func captureResult(_ capture: ZXCapture, result: ZXResult) {
-        guard self.captureEnabled else { return }
+    func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject], from connection: AVCaptureConnection) {
+        guard
+            self.captureEnabled,
+            let metadata: AVMetadataObject = metadataObjects.first(where: { ($0 as? AVMetadataMachineReadableCodeObject)?.type == .qr }),
+            let qrCodeInfo: AVMetadataMachineReadableCodeObject = metadata as? AVMetadataMachineReadableCodeObject,
+            let qrCode: String = qrCodeInfo.stringValue
+        else { return }
         
         self.stopCapture()
         
         // Vibrate
         AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
-        
-        self.scanDelegate?.controller(self, didDetectQRCodeWith: result.text)
+
+        self.scanDelegate?.controller(self, didDetectQRCodeWith: qrCode) { [weak self] in
+            self?.startCapture()
+        }
     }
 }

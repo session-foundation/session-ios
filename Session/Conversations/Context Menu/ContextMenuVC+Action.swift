@@ -131,12 +131,23 @@ extension ContextMenuVC {
             ) { delegate?.contextMenuDismissed() }
         }
     }
+    
+    static func viewModelCanReply(_ cellViewModel: MessageViewModel) -> Bool {
+        return (
+            cellViewModel.variant == .standardIncoming || (
+                cellViewModel.variant == .standardOutgoing &&
+                cellViewModel.state != .failed &&
+                cellViewModel.state != .sending
+            )
+        )
+    }
 
     static func actions(
         for cellViewModel: MessageViewModel,
         recentEmojis: [EmojiWithSkinTones],
         currentUserPublicKey: String,
-        currentUserBlindedPublicKey: String?,
+        currentUserBlinded15PublicKey: String?,
+        currentUserBlinded25PublicKey: String?,
         currentUserIsOpenGroupModerator: Bool,
         currentThreadIsMessageRequest: Bool,
         delegate: ContextMenuActionDelegate?
@@ -159,12 +170,6 @@ extension ContextMenuVC {
                     cellViewModel.threadVariant == .contact &&
                     cellViewModel.state == .failedToSync
                 )
-            )
-        )
-        let canReply: Bool = (
-            cellViewModel.variant != .standardOutgoing || (
-                cellViewModel.state != .failed &&
-                cellViewModel.state != .sending
             )
         )
         let canCopy: Bool = (
@@ -200,7 +205,8 @@ extension ContextMenuVC {
             cellViewModel.threadVariant != .community ||
             currentUserIsOpenGroupModerator ||
             cellViewModel.authorId == currentUserPublicKey ||
-            cellViewModel.authorId == currentUserBlindedPublicKey ||
+            cellViewModel.authorId == currentUserBlinded15PublicKey ||
+            cellViewModel.authorId == currentUserBlinded25PublicKey ||
             cellViewModel.state == .failed
         )
         let canBan: Bool = (
@@ -210,7 +216,10 @@ extension ContextMenuVC {
         
         let shouldShowEmojiActions: Bool = {
             if cellViewModel.threadVariant == .community {
-                return OpenGroupManager.isOpenGroupSupport(.reactions, on: cellViewModel.threadOpenGroupServer)
+                return OpenGroupManager.doesOpenGroupSupport(
+                    capability: .reactions,
+                    on: cellViewModel.threadOpenGroupServer
+                )
             }
             return !currentThreadIsMessageRequest
         }()
@@ -219,7 +228,7 @@ extension ContextMenuVC {
         
         let generatedActions: [Action] = [
             (canRetry ? Action.retry(cellViewModel, delegate) : nil),
-            (canReply ? Action.reply(cellViewModel, delegate) : nil),
+            (viewModelCanReply(cellViewModel) ? Action.reply(cellViewModel, delegate) : nil),
             (canCopy ? Action.copy(cellViewModel, delegate) : nil),
             (canSave ? Action.save(cellViewModel, delegate) : nil),
             (canCopySessionId ? Action.copySessionID(cellViewModel, delegate) : nil),

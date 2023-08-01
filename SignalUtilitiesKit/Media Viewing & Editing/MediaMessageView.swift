@@ -260,15 +260,15 @@ public class MediaMessageView: UIView, OWSAudioPlayerDelegate {
         // Styling
         switch mode {
             case .attachmentApproval:
-                label.font = UIFont.ows_boldFont(withSize: ScaleFromIPhone5To7Plus(16, 22))
+                label.font = UIFont.boldSystemFont(ofSize: ScaleFromIPhone5To7Plus(16, 22))
                 label.themeTextColor = .textPrimary
                 
             case .large:
-                label.font = UIFont.ows_regularFont(withSize: ScaleFromIPhone5To7Plus(18, 24))
+                label.font = UIFont.systemFont(ofSize: ScaleFromIPhone5To7Plus(18, 24))
                 label.themeTextColor = .primary
                 
             case .small:
-                label.font = UIFont.ows_regularFont(withSize: ScaleFromIPhone5To7Plus(14, 14))
+                label.font = UIFont.systemFont(ofSize: ScaleFromIPhone5To7Plus(14, 14))
                 label.themeTextColor = .primary
         }
         
@@ -315,15 +315,15 @@ public class MediaMessageView: UIView, OWSAudioPlayerDelegate {
         // Styling
         switch mode {
             case .attachmentApproval:
-                label.font = UIFont.ows_regularFont(withSize: ScaleFromIPhone5To7Plus(12, 18))
+                label.font = UIFont.systemFont(ofSize: ScaleFromIPhone5To7Plus(12, 18))
                 label.themeTextColor = .textSecondary
                 
             case .large:
-                label.font = UIFont.ows_regularFont(withSize: ScaleFromIPhone5To7Plus(18, 24))
+                label.font = UIFont.systemFont(ofSize: ScaleFromIPhone5To7Plus(18, 24))
                 label.themeTextColor = .primary
                 
             case .small:
-                label.font = UIFont.ows_regularFont(withSize: ScaleFromIPhone5To7Plus(14, 14))
+                label.font = UIFont.systemFont(ofSize: ScaleFromIPhone5To7Plus(14, 14))
                 label.themeTextColor = .primary
         }
         
@@ -332,7 +332,7 @@ public class MediaMessageView: UIView, OWSAudioPlayerDelegate {
             // We only load Link Previews for HTTPS urls so append an explanation for not
             if let linkPreviewURL: String = linkPreviewInfo?.url {
                 if let targetUrl: URL = URL(string: linkPreviewURL), targetUrl.scheme?.lowercased() != "https" {
-                    label.font = UIFont.ows_regularFont(withSize: Values.verySmallFontSize)
+                    label.font = UIFont.systemFont(ofSize: Values.verySmallFontSize)
                     label.text = "vc_share_link_previews_unsecure".localized()
                     label.themeTextColor = (mode == .attachmentApproval ?
                         .textSecondary :
@@ -567,6 +567,7 @@ public class MediaMessageView: UIView, OWSAudioPlayerDelegate {
         loadingView.startAnimating()
         
         LinkPreview.tryToBuildPreviewInfo(previewUrl: linkPreviewURL)
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [weak self] result in
@@ -584,7 +585,7 @@ public class MediaMessageView: UIView, OWSAudioPlayerDelegate {
                                 // This error case is handled already in the 'subtitleLabel' creation
                             }
                             else {
-                                self?.subtitleLabel.font = UIFont.ows_regularFont(withSize: Values.verySmallFontSize)
+                                self?.subtitleLabel.font = UIFont.systemFont(ofSize: Values.verySmallFontSize)
                                 self?.subtitleLabel.text = "vc_share_link_previews_error".localized()
                                 self?.subtitleLabel.themeTextColor = (self?.mode == .attachmentApproval ?
                                     .textSecondary :

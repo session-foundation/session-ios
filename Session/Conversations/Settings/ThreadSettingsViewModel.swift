@@ -201,7 +201,12 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                 .conversationSettingsQuery(threadId: threadId, userPublicKey: userPublicKey)
                 .fetchOne(db)
             
-            guard let threadViewModel: SessionThreadViewModel = maybeThreadViewModel else { return [] }
+            // If we don't get a `SessionThreadViewModel` then it means the thread was probably deleted
+            // so dismiss the screen
+            guard let threadViewModel: SessionThreadViewModel = maybeThreadViewModel else {
+                self?.dismissScreen(type: .popToRoot)
+                return []
+            }
             
             // Additional Queries
             let fallbackSound: Preferences.Sound = db[.defaultNotificationSound]
@@ -239,12 +244,13 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                             id: .avatar,
                             accessory: .profile(
                                 id: threadViewModel.id,
-                                size: .extraLarge,
+                                size: .hero,
                                 threadVariant: threadVariant,
                                 customImageData: threadViewModel.openGroupProfilePictureData,
                                 profile: threadViewModel.profile,
+                                profileIcon: .none,
                                 additionalProfile: threadViewModel.additionalProfile,
-                                cornerIcon: nil,
+                                additionalProfileIcon: .none,
                                 accessibility: nil
                             ),
                             styling: SessionCell.StyleInfo(
@@ -703,6 +709,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
             ]
         }
         .removeDuplicates()
+        .handleEvents(didFail: { SNLog("[ThreadSettingsViewModel] Observation failed with error: \($0)") })
         .publisher(in: dependencies.storage, scheduling: dependencies.scheduler)
         .mapToSessionTableViewData(for: self)
     

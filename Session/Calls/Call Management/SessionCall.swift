@@ -6,6 +6,7 @@ import Combine
 import CallKit
 import GRDB
 import WebRTC
+import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
 
@@ -157,7 +158,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         self.contactName = Profile.displayName(db, id: sessionId, threadVariant: .contact)
         self.profilePicture = avatarData
             .map { UIImage(data: $0) }
-            .defaulting(to: Identicon.generatePlaceholderIcon(seed: sessionId, text: self.contactName, size: 300))
+            .defaulting(to: PlaceholderIcon.generate(seed: sessionId, text: self.contactName, size: 300))
         self.animatedProfilePicture = avatarData
             .map { data in
                 switch data.guessedImageFormat {
@@ -245,11 +246,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
             )
             // Start the timeout timer for the call
             .handleEvents(receiveOutput: { [weak self] _ in self?.setupTimeoutTimer() })
-            .flatMap { _ in
-                Storage.shared.writePublisherFlatMap { db -> AnyPublisher<Void, Error> in
-                    webRTCSession.sendOffer(db, to: sessionId)
-                }
-            }
+            .flatMap { _ in webRTCSession.sendOffer(to: thread) }
             .sinkUntilComplete()
     }
     
@@ -430,10 +427,12 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         let sessionId: String = self.sessionId
         let webRTCSession: WebRTCSession = self.webRTCSession
         
-        Storage.shared
-            .readPublisherFlatMap { db in
-                webRTCSession.sendOffer(db, to: sessionId, isRestartingICEConnection: true)
-            }
+        guard let thread: SessionThread = Storage.shared.read({ db in try SessionThread.fetchOne(db, id: sessionId) }) else {
+            return
+        }
+        
+        webRTCSession
+            .sendOffer(to: thread, isRestartingICEConnection: true)
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .sinkUntilComplete()
     }

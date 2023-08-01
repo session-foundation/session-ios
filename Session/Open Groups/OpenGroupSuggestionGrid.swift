@@ -9,7 +9,7 @@ import SessionUIKit
 final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
     private let itemsPerSection: Int = (UIDevice.current.isIPad ? 4 : 2)
     private var maxWidth: CGFloat
-    private var rooms: [OpenGroupAPI.Room] = [] { didSet { update() } }
+    private var data: [OpenGroupManager.DefaultRoomInfo] = [] { didSet { update() } }
     private var heightConstraint: NSLayoutConstraint!
     
     var delegate: OpenGroupSuggestionGridDelegate?
@@ -143,10 +143,16 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
         widthAnchor.constraint(greaterThanOrEqualToConstant: OpenGroupSuggestionGrid.cellHeight).isActive = true
         
         OpenGroupManager.getDefaultRoomsIfNeeded()
+            .subscribe(on: DispatchQueue.global(qos: .default))
             .receive(on: DispatchQueue.main)
             .sinkUntilComplete(
-                receiveCompletion: { [weak self] _ in self?.update() },
-                receiveValue: { [weak self] rooms in self?.rooms = rooms }
+                receiveCompletion: { [weak self] result in
+                    switch result {
+                        case .finished: break
+                        case .failure: self?.update()
+                    }
+                },
+                receiveValue: { [weak self] roomInfo in self?.data = roomInfo }
             )
     }
     
@@ -156,7 +162,7 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
         spinner.stopAnimating()
         spinner.isHidden = true
         
-        let roomCount: CGFloat = CGFloat(min(rooms.count, 8)) // Cap to a maximum of 8 (4 rows of 2)
+        let roomCount: CGFloat = CGFloat(min(data.count, 8)) // Cap to a maximum of 8 (4 rows of 2)
         let numRows: CGFloat = ceil(roomCount / CGFloat(OpenGroupSuggestionGrid.numHorizontalCells))
         let height: CGFloat = ((OpenGroupSuggestionGrid.cellHeight * numRows) + ((numRows - 1) * layout.minimumLineSpacing))
         heightConstraint.constant = height
@@ -183,7 +189,7 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
         
         // If there isn't an even number of items then we want to calculate proper sizing
         return CGSize(
-            width: Cell.calculatedWith(for: rooms[indexPath.item].name),
+            width: Cell.calculatedWith(for: data[indexPath.item].room.name),
             height: OpenGroupSuggestionGrid.cellHeight
         )
     }
@@ -191,12 +197,12 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
     // MARK: - Data Source
     
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return min(rooms.count, 8) // Cap to a maximum of 8 (4 rows of 2)
+        return min(data.count, 8) // Cap to a maximum of 8 (4 rows of 2)
     }
     
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell: Cell = collectionView.dequeue(type: Cell.self, for: indexPath)
-        cell.room = rooms[indexPath.item]
+        cell.update(with: data[indexPath.item].room, existingImageData: data[indexPath.item].existingImageData)
         
         return cell
     }
@@ -204,7 +210,7 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
     // MARK: - Interaction
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        let room = rooms[indexPath.section * itemsPerSection + indexPath.item]
+        let room = data[indexPath.section * itemsPerSection + indexPath.item].room
         delegate?.join(room)
     }
 }
@@ -230,8 +236,6 @@ extension OpenGroupSuggestionGrid {
                 1   // Not sure why this is needed but it seems things are sometimes truncated without it
             )
         }
-        
-        var room: OpenGroupAPI.Room? { didSet { update() } }
         
         private lazy var snContentView: UIView = {
             let result: UIView = UIView()
@@ -306,9 +310,7 @@ extension OpenGroupSuggestionGrid {
             snContentView.pin(to: self)
         }
         
-        private func update() {
-            guard let room: OpenGroupAPI.Room = room else { return }
-            
+        fileprivate func update(with room: OpenGroupAPI.Room, existingImageData: Data?) {
             label.text = room.name
             
             // Only continue if we have a room image
@@ -321,11 +323,13 @@ extension OpenGroupSuggestionGrid {
             
             Publishers
                 .MergeMany(
-                    Storage.shared
-                        .readPublisherFlatMap { db in
-                            OpenGroupManager
-                                .roomImage(db, fileId: imageId, for: room.token, on: OpenGroupAPI.defaultServer)
-                        }
+                    OpenGroupManager
+                        .roomImage(
+                            fileId: imageId,
+                            for: room.token,
+                            on: OpenGroupAPI.defaultServer,
+                            existingData: existingImageData
+                        )
                         .map { ($0, true) }
                         .eraseToAnyPublisher(),
                     // If we have already received the room image then the above will emit first and
@@ -336,7 +340,7 @@ extension OpenGroupSuggestionGrid {
                         .eraseToAnyPublisher()
                 )
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .receiveOnMain(immediately: true)
+                .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveValue: { [weak self] imageData, hasData in
                         guard hasData else {

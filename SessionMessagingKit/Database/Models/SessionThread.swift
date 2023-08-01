@@ -36,7 +36,7 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
         case pinnedPriority
     }
     
-    public enum Variant: Int, Codable, Hashable, DatabaseValueConvertible {
+    public enum Variant: Int, Codable, Hashable, DatabaseValueConvertible, CaseIterable {
         case contact
         case legacyGroup
         case community
@@ -190,20 +190,6 @@ public extension SessionThread {
                 to: try SessionThread(id: id, variant: variant, shouldBeVisible: desiredVisibility)
                     .saved(db)
             )
-    }
-    
-    func isMessageRequest(_ db: Database, includeNonVisible: Bool = false) -> Bool {
-        return (
-            (includeNonVisible || shouldBeVisible) &&
-            variant == .contact &&
-            id != getUserHexEncodedPublicKey(db) && // Note to self
-            (try? Contact
-                .filter(id: id)
-                .select(.isApproved)
-                .asRequest(of: Bool.self)
-                .fetchOne(db))
-                .defaulting(to: false) == false
-        )
     }
     
     static func canSendReadReceipt(
@@ -431,6 +417,38 @@ public extension SessionThread {
         ).sqlExpression
     }
     
+    func isMessageRequest(_ db: Database, includeNonVisible: Bool = false) -> Bool {
+        return SessionThread.isMessageRequest(
+            id: id,
+            variant: variant,
+            currentUserPublicKey: getUserHexEncodedPublicKey(db),
+            shouldBeVisible: shouldBeVisible,
+            contactIsApproved: (try? Contact
+                .filter(id: id)
+                .select(.isApproved)
+                .asRequest(of: Bool.self)
+                .fetchOne(db))
+                .defaulting(to: false),
+            includeNonVisible: includeNonVisible
+        )
+    }
+    
+    static func isMessageRequest(
+        id: String,
+        variant: SessionThread.Variant?,
+        currentUserPublicKey: String,
+        shouldBeVisible: Bool?,
+        contactIsApproved: Bool?,
+        includeNonVisible: Bool = false
+    ) -> Bool {
+        return (
+            (includeNonVisible || shouldBeVisible == true) &&
+            variant == .contact &&
+            id != currentUserPublicKey && // Note to self
+            ((contactIsApproved ?? false) == false)
+        )
+    }
+    
     func isNoteToSelf(_ db: Database? = nil) -> Bool {
         return (
             variant == .contact &&
@@ -506,12 +524,13 @@ public extension SessionThread {
     static func getUserHexEncodedBlindedKey(
         _ db: Database? = nil,
         threadId: String,
-        threadVariant: Variant
+        threadVariant: Variant,
+        blindingPrefix: SessionId.Prefix
     ) -> String? {
         guard threadVariant == .community else { return nil }
         guard let db: Database = db else {
             return Storage.shared.read { db in
-                getUserHexEncodedBlindedKey(db, threadId: threadId, threadVariant: threadVariant)
+                getUserHexEncodedBlindedKey(db, threadId: threadId, threadVariant: threadVariant, blindingPrefix: blindingPrefix)
             }
         }
         
@@ -549,7 +568,7 @@ public extension SessionThread {
         )
         
         return blindedKeyPair.map { keyPair -> String in
-            SessionId(.blinded, publicKey: keyPair.publicKey).hexString
+            SessionId(blindingPrefix, publicKey: keyPair.publicKey).hexString
         }
     }
 }

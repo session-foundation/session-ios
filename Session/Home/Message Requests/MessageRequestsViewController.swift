@@ -11,7 +11,6 @@ class MessageRequestsViewController: BaseVC, SessionUtilRespondingViewController
     private static let loadingHeaderHeight: CGFloat = 40
     
     private let viewModel: MessageRequestsViewModel = MessageRequestsViewModel()
-    private var dataChangeObservable: DatabaseCancellable?
     private var hasLoadedInitialThreadData: Bool = false
     private var isLoadingMore: Bool = false
     private var isAutoLoadingNextPage: Bool = false
@@ -107,6 +106,7 @@ class MessageRequestsViewController: BaseVC, SessionUtilRespondingViewController
         result.translatesAutoresizingMaskIntoConstraints = false
         result.setTitle("MESSAGE_REQUESTS_CLEAR_ALL".localized(), for: .normal)
         result.addTarget(self, action: #selector(clearAllTapped), for: .touchUpInside)
+        result.accessibilityIdentifier = "Clear all"
 
         return result
     }()
@@ -161,8 +161,7 @@ class MessageRequestsViewController: BaseVC, SessionUtilRespondingViewController
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         
-        // Stop observing database changes
-        dataChangeObservable?.cancel()
+        stopObservingChanges()
     }
     
     @objc func applicationDidBecomeActive(_ notification: Notification) {
@@ -173,8 +172,7 @@ class MessageRequestsViewController: BaseVC, SessionUtilRespondingViewController
     }
     
     @objc func applicationDidResignActive(_ notification: Notification) {
-        // Stop observing database changes
-        dataChangeObservable?.cancel()
+        stopObservingChanges()
     }
 
     // MARK: - Layout
@@ -223,6 +221,10 @@ class MessageRequestsViewController: BaseVC, SessionUtilRespondingViewController
         }
     }
     
+    private func stopObservingChanges() {
+        self.viewModel.onThreadChange = nil
+    }
+    
     private func handleThreadUpdates(
         _ updatedData: [MessageRequestsViewModel.SectionModel],
         changeset: StagedChangeset<[MessageRequestsViewModel.SectionModel]>,
@@ -231,9 +233,18 @@ class MessageRequestsViewController: BaseVC, SessionUtilRespondingViewController
         // Ensure the first load runs without animations (if we don't do this the cells will animate
         // in from a frame of CGRect.zero)
         guard hasLoadedInitialThreadData else {
-            hasLoadedInitialThreadData = true
             UIView.performWithoutAnimation {
-                handleThreadUpdates(updatedData, changeset: changeset, initialLoad: true)
+                // Hide the 'loading conversations' label (now that we have received conversation data)
+                loadingConversationsLabel.isHidden = true
+                
+                // Show the empty state if there is no data
+                clearAllButton.isHidden = !(updatedData.first?.elements.isEmpty == false)
+                emptyStateLabel.isHidden = !clearAllButton.isHidden
+                
+                // Update the content
+                viewModel.updateThreadData(updatedData)
+                tableView.reloadData()
+                hasLoadedInitialThreadData = true
             }
             return
         }
@@ -270,7 +281,11 @@ class MessageRequestsViewController: BaseVC, SessionUtilRespondingViewController
     }
     
     private func autoLoadNextPageIfNeeded() {
-        guard !self.isAutoLoadingNextPage && !self.isLoadingMore else { return }
+        guard
+            self.hasLoadedInitialThreadData &&
+            !self.isAutoLoadingNextPage &&
+            !self.isLoadingMore
+        else { return }
         
         self.isAutoLoadingNextPage = true
         

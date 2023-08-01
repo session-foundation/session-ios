@@ -414,7 +414,10 @@
 "DEFAULT_OPEN_GROUP_LOAD_ERROR_TITLE" = "Oops, an error occurred";
 "DEFAULT_OPEN_GROUP_LOAD_ERROR_SUBTITLE" = "Please try again later";
 "LOADING_CONVERSATIONS" = "Loading Conversations...";
-"DATABASE_SETUP_FAILED" = "An error occurred when opening the database, please restart to try again\n\nIf you contineu to see this error you can export your application logs to be able to share for troubleshooting or you can restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
+"DATABASE_STARTUP_FAILED" = "An error occurred when opening the database\n\nYou can export your application logs to share for troubleshooting or you can try to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
+"APP_STARTUP_TIMEOUT" = "The app is taking a long time to start\n\nYou can continue to wait for the app to start, export your application logs to share for troubleshooting or you can try to open the app again";
+"APP_STARTUP_EXIT" = "Exit";
+"DATABASE_RESTORE_FAILED" = "An error occurred when opening the restored database\n\nYou can export your application logs to share for troubleshooting but to continue to use Session you may need to reinstall";
 "DATABASE_MIGRATION_FAILED" = "An error occurred when optimising the database\n\nYou can export your application logs to be able to share for troubleshooting or you can restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
 "RECOVERY_PHASE_ERROR_GENERIC" = "Something went wrong. Please check your recovery phrase and try again.";
 "RECOVERY_PHASE_ERROR_LENGTH" = "Looks like you didn't enter enough words. Please check your recovery phrase and try again.";
@@ -628,7 +631,7 @@
 "hide_note_to_self_confirmation_alert_title" = "Hide Note to Self";
 "hide_note_to_self_confirmation_alert_message" = "Are you sure you want to hide %@?";
 "update_profile_modal_title" = "Set Display Picture";
-"update_profile_modal_upload" = "Upload";
+"update_profile_modal_save" = "Save";
 "update_profile_modal_remove" = "Remove";
 "update_profile_modal_remove_error_title" = "Unable to remove avatar image";
 "update_profile_modal_max_size_error_title" = "Maximum File Size Exceeded";
@@ -638,8 +641,11 @@
 "CONTACT_NICKNAME_PLACEHOLDER" = "Enter a name";
 "MARK_AS_READ" = "Mark Read";
 "MARK_AS_UNREAD" = "Mark Unread";
+"UNREAD_MESSAGES" = "Unread Messages";
 "CONVERSATION_EMPTY_STATE" = "You have no messages from %@. Send a message to start the conversation!";
 "CONVERSATION_EMPTY_STATE_READ_ONLY" = "There are no messages in %@.";
 "CONVERSATION_EMPTY_STATE_NOTE_TO_SELF" = "You have no messages in %@.";
 "USER_CONFIG_OUTDATED_WARNING" = "Some of your devices are using outdated versions. Syncing may be unreliable until they are updated.";
+"LOAD_RECOVERY_PASSWORD_ERROR" = "An error occurred when trying to load your recovery password.\n\nPlease export your logs, then upload the file though Session's Help Desk to help resolve this issue.";
+"FAILED_TO_STORE_OUTGOING_MESSAGE" = "An error occurred when trying to store the outgoing message for sending, you may need to restart the app before you can send messages.";
 "database_inaccessible_error" = "There is an issue opening the database. Please restart the app and try again.";

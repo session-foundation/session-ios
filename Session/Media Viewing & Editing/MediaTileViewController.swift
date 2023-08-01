@@ -54,6 +54,10 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
     // MARK: - UI
     
     override public var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+        if UIDevice.current.isIPad {
+            return .all
+        }
+
         return .allButUpsideDown
     }
     
@@ -246,7 +250,7 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
     }
     
     private func autoLoadNextPageIfNeeded() {
-        guard !self.isAutoLoadingNextPage else { return }
+        guard self.hasLoadedInitialData && !self.isAutoLoadingNextPage else { return }
         
         self.isAutoLoadingNextPage = true
         
@@ -307,12 +311,12 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
         // Ensure the first load runs without animations (if we don't do this the cells will animate
         // in from a frame of CGRect.zero)
         guard hasLoadedInitialData else {
-            self.hasLoadedInitialData = true
             self.viewModel.updateGalleryData(updatedGalleryData)
             self.updateSelectButton(updatedData: updatedGalleryData, inBatchSelectMode: isInBatchSelectMode)
             
             UIView.performWithoutAnimation {
                 self.collectionView.reloadData()
+                self.hasLoadedInitialData = true
                 self.performInitialScrollIfNeeded()
             }
             return

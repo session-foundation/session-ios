@@ -12,9 +12,11 @@ class LibSessionSpec: QuickSpec {
     // MARK: - Spec
 
     override func spec() {
-        ConfigContactsSpec.spec()
-        ConfigUserProfileSpec.spec()
-        ConfigConvoInfoVolatileSpec.spec()
-        ConfigUserGroupsSpec.spec()
+        describe("libSession") {
+            ConfigContactsSpec.spec()
+            ConfigUserProfileSpec.spec()
+            ConfigConvoInfoVolatileSpec.spec()
+            ConfigUserGroupsSpec.spec()
+        }
     }
 }

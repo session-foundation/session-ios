@@ -2,7 +2,9 @@ import Foundation
 
 // MARK: - Convenience Types
 
-public struct Empty: Codable {}
+public struct Empty: Codable {
+    public init() {}
+}
 
 public typealias NoBody = Empty
 public typealias NoResponse = Empty

@@ -22,87 +22,117 @@ public enum SyncPushTokensJob: JobExecutor {
         deferred: @escaping (Job) -> ()
     ) {
         // Don't run when inactive or not in main app or if the user doesn't exist yet
-        guard
-            (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false),
-            Identity.userCompletedRequiredOnboarding()
-        else {
-            deferred(job) // Don't need to do anything if it's not the main app
-            return
+        guard (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false) else {
+            return deferred(job) // Don't need to do anything if it's not the main app
+        }
+        guard Identity.userCompletedRequiredOnboarding() else {
+            SNLog("[SyncPushTokensJob] Deferred due to incomplete registration")
+            return deferred(job)
         }
         
-        // We need to check a UIApplication setting which needs to run on the main thread so if we aren't on
-        // the main thread then swap to it
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async {
-                run(job, queue: queue, success: success, failure: failure, deferred: deferred)
+        // We need to check a UIApplication setting which needs to run on the main thread so synchronously
+        // retrieve the value so we can continue
+        let isRegisteredForRemoteNotifications: Bool = {
+            guard !Thread.isMainThread else {
+                return UIApplication.shared.isRegisteredForRemoteNotifications
             }
-            return
-        }
+            
+            return DispatchQueue.main.sync {
+                return UIApplication.shared.isRegisteredForRemoteNotifications
+            }
+        }()
         
-        // Push tokens don't normally change while the app is launched, so you would assume checking once
-        // during launch is sufficient, but e.g. on iOS11, users who have disabled "Allow Notifications"
-        // and disabled "Background App Refresh" will not be able to obtain an APN token. Enabling those
-        // settings does not restart the app, so we check every activation for users who haven't yet
-        // registered.
-        //
-        // It's also possible for a device to successfully register for push notifications but fail to
-        // register with Session
-        //
-        // Due to the above we want to re-register at least once every ~12 hours to ensure users will
-        // continue to receive push notifications
-        //
-        // In addition to this if we are custom running the job (eg. by toggling the push notification
-        // setting) then we should run regardless of the other settings so users have a mechanism to force
-        // the registration to run
-        let lastPushNotificationSync: Date = UserDefaults.standard[.lastPushNotificationSync]
-            .defaulting(to: Date.distantPast)
-        
-        guard
-            job.behaviour == .runOnce ||
-            !UIApplication.shared.isRegisteredForRemoteNotifications ||
-            Date().timeIntervalSince(lastPushNotificationSync) >= SyncPushTokensJob.maxFrequency
-        else {
+        // Apple's documentation states that we should re-register for notifications on every launch:
+        // https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/HandlingRemoteNotifications.html#//apple_ref/doc/uid/TP40008194-CH6-SW1
+        guard job.behaviour == .runOnce || !isRegisteredForRemoteNotifications else {
+            SNLog("[SyncPushTokensJob] Deferred due to Fast Mode disabled")
             deferred(job) // Don't need to do anything if push notifications are already registered
             return
         }
         
-        Logger.info("Re-registering for remote notifications.")
+        // Determine if the device has 'Fast Mode' (APNS) enabled
+        let isUsingFullAPNs: Bool = UserDefaults.standard[.isUsingFullAPNs]
         
-        // Perform device registration
-        PushRegistrationManager.shared.requestPushTokens()
-            .subscribe(on: queue)
-            .flatMap { (pushToken: String, voipToken: String) -> AnyPublisher<Void, Error> in
-                Deferred {
-                    Future<Void, Error> { resolver in
-                        SyncPushTokensJob.registerForPushNotifications(
-                            pushToken: pushToken,
-                            voipToken: voipToken,
-                            isForcedUpdate: true,
-                            success: { resolver(Result.success(())) },
-                            failure: { resolver(Result.failure($0)) }
-                        )
+        // If the job is running and 'Fast Mode' is disabled then we should try to unregister the existing
+        // token
+        guard isUsingFullAPNs else {
+            Just(Storage.shared[.lastRecordedPushToken])
+                .setFailureType(to: Error.self)
+                .flatMap { lastRecordedPushToken in
+                    if let existingToken: String = lastRecordedPushToken {
+                        SNLog("[SyncPushTokensJob] Unregister using last recorded push token: \(redact(existingToken))")
+                        return Just(existingToken)
+                            .setFailureType(to: Error.self)
+                            .eraseToAnyPublisher()
                     }
+                    
+                    SNLog("[SyncPushTokensJob] Unregister using live token provided from device")
+                    return PushRegistrationManager.shared.requestPushTokens()
+                        .map { token, _ in token }
+                        .eraseToAnyPublisher()
                 }
-                .handleEvents(
+                .flatMap { pushToken in PushNotificationAPI.unregister(Data(hex: pushToken)) }
+                .map {
+                    // Tell the device to unregister for remote notifications (essentially try to invalidate
+                    // the token if needed
+                    DispatchQueue.main.sync { UIApplication.shared.unregisterForRemoteNotifications() }
+                    
+                    Storage.shared.write { db in
+                        db[.lastRecordedPushToken] = nil
+                    }
+                    return ()
+                }
+                .subscribe(on: queue)
+                .sinkUntilComplete(
                     receiveCompletion: { result in
                         switch result {
-                            case .failure: break
-                            case .finished:
-                                Logger.warn("Recording push tokens locally. pushToken: \(redact(pushToken)), voipToken: \(redact(voipToken))")
-
-                                Storage.shared.write { db in
-                                    db[.lastRecordedPushToken] = pushToken
-                                    db[.lastRecordedVoipToken] = voipToken
-                                }
+                            case .finished: SNLog("[SyncPushTokensJob] Unregister Completed")
+                            case .failure: SNLog("[SyncPushTokensJob] Unregister Failed")
                         }
+                        
+                        // We want to complete this job regardless of success or failure
+                        success(job, false)
                     }
                 )
-                .eraseToAnyPublisher()
+            return
+        }
+        
+        // Perform device registration
+        Logger.info("Re-registering for remote notifications.")
+        PushRegistrationManager.shared.requestPushTokens()
+            .flatMap { (pushToken: String, voipToken: String) -> AnyPublisher<Void, Error> in
+                PushNotificationAPI
+                    .register(
+                        with: Data(hex: pushToken),
+                        publicKey: getUserHexEncodedPublicKey(),
+                        isForcedUpdate: true
+                    )
+                    .retry(3)
+                    .handleEvents(
+                        receiveCompletion: { result in
+                            switch result {
+                                case .failure(let error):
+                                    SNLog("[SyncPushTokensJob] Failed to register due to error: \(error)")
+                                
+                                case .finished:
+                                    Logger.warn("Recording push tokens locally. pushToken: \(redact(pushToken)), voipToken: \(redact(voipToken))")
+                                    SNLog("[SyncPushTokensJob] Completed")
+                                    UserDefaults.standard[.lastPushNotificationSync] = Date()
+
+                                    Storage.shared.write { db in
+                                        db[.lastRecordedPushToken] = pushToken
+                                        db[.lastRecordedVoipToken] = voipToken
+                                    }
+                            }
+                        }
+                    )
+                    .map { _ in () }
+                    .eraseToAnyPublisher()
             }
+            .subscribe(on: queue)
             .sinkUntilComplete(
                 // We want to complete this job regardless of success or failure
-                receiveCompletion: { _ in success(job, false) },
-                receiveValue: { _ in }
+                receiveCompletion: { _ in success(job, false) }
             )
     }
     
@@ -138,68 +168,4 @@ extension SyncPushTokensJob {
 
 private func redact(_ string: String) -> String {
     return OWSIsDebugBuild() ? string : "[ READACTED \(string.prefix(2))...\(string.suffix(2)) ]"
-}
-
-extension SyncPushTokensJob {
-    fileprivate static func registerForPushNotifications(
-        pushToken: String,
-        voipToken: String,
-        isForcedUpdate: Bool,
-        success: @escaping () -> (),
-        failure: @escaping (Error) -> (),
-        remainingRetries: Int = 3
-    ) {
-        let isUsingFullAPNs: Bool = UserDefaults.standard[.isUsingFullAPNs]
-        
-        Just(Data(hex: pushToken))
-            .setFailureType(to: Error.self)
-            .flatMap { pushTokenAsData -> AnyPublisher<Bool, Error> in
-                guard isUsingFullAPNs else {
-                    return PushNotificationAPI
-                        .unsubscribe(token: pushTokenAsData)
-                        .map { _ in true }
-                        .eraseToAnyPublisher()
-                }
-                
-                return PushNotificationAPI
-                    .subscribe(
-                        token: pushTokenAsData,
-                        isForcedUpdate: isForcedUpdate
-                    )
-                    .map { _ in true }
-                    .eraseToAnyPublisher()
-            }
-            .catch { error -> AnyPublisher<Bool, Error> in
-                guard remainingRetries == 0 else {
-                    SyncPushTokensJob.registerForPushNotifications(
-                        pushToken: pushToken,
-                        voipToken: voipToken,
-                        isForcedUpdate: isForcedUpdate,
-                        success: success,
-                        failure: failure,
-                        remainingRetries: (remainingRetries - 1)
-                    )
-                    
-                    return Just(false)
-                        .setFailureType(to: Error.self)
-                        .eraseToAnyPublisher()
-                }
-                
-                return Fail(error: error)
-                    .eraseToAnyPublisher()
-            }
-            .sinkUntilComplete(
-                receiveCompletion: { result in
-                    switch result {
-                        case .finished: break
-                        case .failure(let error): failure(error)
-                    }
-                },
-                receiveValue: { didComplete in
-                    guard didComplete else { return }
-                    
-                    success()
-                }
-            )
-    }
 }

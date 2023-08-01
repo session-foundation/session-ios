@@ -417,10 +417,12 @@ enum _003_YDBToGRDBMigration: Migration {
                 try Profile(
                     id: legacyContact.sessionID,
                     name: (legacyContact.name ?? legacyContact.sessionID),
+                    lastNameUpdate: 0,
                     nickname: legacyContact.nickname,
                     profilePictureUrl: legacyContact.profilePictureURL,
                     profilePictureFileName: legacyContact.profilePictureFileName,
-                    profileEncryptionKey: legacyContact.profileEncryptionKey?.keyData
+                    profileEncryptionKey: legacyContact.profileEncryptionKey?.keyData,
+                    lastProfilePictureUpdate: 0
                 ).migrationSafeInsert(db)
                 
                 /// **Note:** The blow "shouldForce" flags are here to allow us to avoid having to run legacy migrations they
@@ -641,7 +643,9 @@ enum _003_YDBToGRDBMigration: Migration {
                         // constraint violation
                         try? Profile(
                             id: profileId,
-                            name: profileId
+                            name: profileId,
+                            lastNameUpdate: 0,
+                            lastProfilePictureUpdate: 0
                         ).migrationSafeSave(db)
                     }
                     
@@ -1053,7 +1057,9 @@ enum _003_YDBToGRDBMigration: Migration {
                                 // constraint violation
                                 try Profile(
                                     id: quotedMessage.authorId,
-                                    name: quotedMessage.authorId
+                                    name: quotedMessage.authorId,
+                                    lastNameUpdate: 0,
+                                    lastProfilePictureUpdate: 0
                                 ).migrationSafeSave(db)
                             }
                             

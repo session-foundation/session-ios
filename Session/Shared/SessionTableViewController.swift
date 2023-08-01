@@ -187,12 +187,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
     private func startObservingChanges() {
         // Start observing for data changes
         dataChangeCancellable = viewModel.observableTableData
-            .receiveOnMain(
-                // If we haven't done the initial load the trigger it immediately (blocking the main
-                // thread so we remain on the launch screen until it completes to be consistent with
-                // the old behaviour)
-                immediately: !hasLoadedInitialTableData
-            )
+            .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [weak self] result in
                     switch result {
@@ -229,21 +224,28 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
         changeset: StagedChangeset<[SectionModel]>,
         initialLoad: Bool = false
     ) {
+        // Determine if we have any items for the empty state
+        let itemCount: Int = updatedData
+            .map { $0.elements.count }
+            .reduce(0, +)
+        
         // Ensure the first load runs without animations (if we don't do this the cells will animate
         // in from a frame of CGRect.zero)
         guard hasLoadedInitialTableData else {
-            hasLoadedInitialTableData = true
             UIView.performWithoutAnimation {
-                handleDataUpdates(updatedData, changeset: changeset, initialLoad: true)
+                // Update the empty state
+                emptyStateLabel.isHidden = (itemCount > 0)
+                
+                // Update the content
+                viewModel.updateTableData(updatedData)
+                tableView.reloadData()
+                hasLoadedInitialTableData = true
             }
             return
         }
         
-        // Show the empty state if there is no data
-        let itemCount: Int = updatedData
-            .map { $0.elements.count }
-            .reduce(0, +)
-        emptyStateLabel.isHidden = (itemCount > 0)
+        // Update the empty state
+        self.emptyStateLabel.isHidden = (itemCount > 0)
         
         CATransaction.begin()
         CATransaction.setCompletionBlock { [weak self] in
@@ -270,7 +272,11 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
     }
     
     private func autoLoadNextPageIfNeeded() {
-        guard !self.isAutoLoadingNextPage && !self.isLoadingMore else { return }
+        guard
+            self.hasLoadedInitialTableData &&
+            !self.isAutoLoadingNextPage &&
+            !self.isLoadingMore
+        else { return }
         
         self.isAutoLoadingNextPage = true
         
@@ -333,7 +339,6 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
             .store(in: &disposables)
         
         viewModel.leftNavItems
-            .receiveOnMain(immediately: true)
             .sink { [weak self] maybeItems in
                 self?.navigationItem.setLeftBarButtonItems(
                     maybeItems.map { items in
@@ -355,7 +360,6 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
             .store(in: &disposables)
 
         viewModel.rightNavItems
-            .receiveOnMain(immediately: true)
             .sink { [weak self] maybeItems in
                 self?.navigationItem.setRightBarButtonItems(
                     maybeItems.map { items in
@@ -377,21 +381,18 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
             .store(in: &disposables)
         
         viewModel.emptyStateTextPublisher
-            .receiveOnMain(immediately: true)
             .sink { [weak self] text in
                 self?.emptyStateLabel.text = text
             }
             .store(in: &disposables)
         
         viewModel.footerView
-            .receiveOnMain(immediately: true)
             .sink { [weak self] footerView in
                 self?.tableView.tableFooterView = footerView
             }
             .store(in: &disposables)
         
         viewModel.footerButtonInfo
-            .receiveOnMain(immediately: true)
             .sink { [weak self] buttonInfo in
                 if let buttonInfo: SessionButton.Info = buttonInfo {
                     self?.footerButton.setTitle(buttonInfo.title, for: .normal)

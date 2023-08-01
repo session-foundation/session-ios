@@ -22,74 +22,8 @@ internal extension SessionUtil {
         guard mergeNeedsDump else { return }
         guard conf != nil else { throw SessionUtilError.nilConfigObject }
         
-        var volatileThreadInfo: [VolatileThreadInfo] = []
-        var oneToOne: convo_info_volatile_1to1 = convo_info_volatile_1to1()
-        var community: convo_info_volatile_community = convo_info_volatile_community()
-        var legacyGroup: convo_info_volatile_legacy_group = convo_info_volatile_legacy_group()
-        let convoIterator: OpaquePointer = convo_info_volatile_iterator_new(conf)
-
-        while !convo_info_volatile_iterator_done(convoIterator) {
-            if convo_info_volatile_it_is_1to1(convoIterator, &oneToOne) {
-                volatileThreadInfo.append(
-                    VolatileThreadInfo(
-                        threadId: String(libSessionVal: oneToOne.session_id),
-                        variant: .contact,
-                        changes: [
-                            .markedAsUnread(oneToOne.unread),
-                            .lastReadTimestampMs(oneToOne.last_read)
-                        ]
-                    )
-                )
-            }
-            else if convo_info_volatile_it_is_community(convoIterator, &community) {
-                let server: String = String(libSessionVal: community.base_url)
-                let roomToken: String = String(libSessionVal: community.room)
-                let publicKey: String = Data(
-                    libSessionVal: community.pubkey,
-                    count: OpenGroup.pubkeyByteLength
-                ).toHexString()
-                
-                volatileThreadInfo.append(
-                    VolatileThreadInfo(
-                        threadId: OpenGroup.idFor(roomToken: roomToken, server: server),
-                        variant: .community,
-                        openGroupUrlInfo: OpenGroupUrlInfo(
-                            threadId: OpenGroup.idFor(roomToken: roomToken, server: server),
-                            server: server,
-                            roomToken: roomToken,
-                            publicKey: publicKey
-                        ),
-                        changes: [
-                            .markedAsUnread(community.unread),
-                            .lastReadTimestampMs(community.last_read)
-                        ]
-                    )
-                )
-            }
-            else if convo_info_volatile_it_is_legacy_group(convoIterator, &legacyGroup) {
-                volatileThreadInfo.append(
-                    VolatileThreadInfo(
-                        threadId: String(libSessionVal: legacyGroup.group_id),
-                        variant: .legacyGroup,
-                        changes: [
-                            .markedAsUnread(legacyGroup.unread),
-                            .lastReadTimestampMs(legacyGroup.last_read)
-                        ]
-                    )
-                )
-            }
-            else {
-                SNLog("Ignoring unknown conversation type when iterating through volatile conversation info update")
-            }
-            
-            convo_info_volatile_iterator_advance(convoIterator)
-        }
-        convo_info_volatile_iterator_free(convoIterator) // Need to free the iterator
-
-        // If we don't have any conversations then no need to continue
-        guard !volatileThreadInfo.isEmpty else { return }
-        
-        // Get the local volatile thread info from all conversations
+        // Get the volatile thread info from the conf and local conversations
+        let volatileThreadInfo: [VolatileThreadInfo] = try extractConvoVolatileInfo(from: conf)
         let localVolatileThreadInfo: [String: VolatileThreadInfo] = VolatileThreadInfo.fetchAll(db)
             .reduce(into: [:]) { result, next in result[next.threadId] = next }
         
@@ -146,7 +80,8 @@ internal extension SessionUtil {
                 try Interaction
                     .filter(
                         Interaction.Columns.threadId == threadId &&
-                        Interaction.Columns.timestampMs <= lastReadTimestampMs
+                        Interaction.Columns.timestampMs <= lastReadTimestampMs &&
+                        Interaction.Columns.wasRead == false
                     )
                     .updateAll( // Handling a config update so don't use `updateAllAndConfig`
                         db,
@@ -380,10 +315,7 @@ public extension SessionUtil {
         openGroup: OpenGroup?
     ) -> Bool {
         return SessionUtil
-            .config(
-                for: .convoInfoVolatile,
-                publicKey: userPublicKey
-            )
+            .config(for: .convoInfoVolatile, publicKey: userPublicKey)
             .wrappedValue
             .map { conf in
                 switch threadVariant {
@@ -394,7 +326,7 @@ public extension SessionUtil {
                             return false
                         }
                         
-                        return (oneToOne.last_read > timestampMs)
+                        return (oneToOne.last_read >= timestampMs)
                         
                     case .legacyGroup:
                         var cThreadId: [CChar] = threadId.cArray.nullTerminated()
@@ -404,7 +336,7 @@ public extension SessionUtil {
                             return false
                         }
                         
-                        return (legacyGroup.last_read > timestampMs)
+                        return (legacyGroup.last_read >= timestampMs)
                         
                     case .community:
                         guard let openGroup: OpenGroup = openGroup else { return false }
@@ -417,7 +349,7 @@ public extension SessionUtil {
                             return false
                         }
                         
-                        return (convoCommunity.last_read > timestampMs)
+                        return (convoCommunity.last_read >= timestampMs)
                         
                     case .group: return false
                 }
@@ -575,6 +507,79 @@ public extension SessionUtil {
                 }
         }
     }
+    
+    internal static func extractConvoVolatileInfo(
+        from conf: UnsafeMutablePointer<config_object>?
+    ) throws -> [VolatileThreadInfo] {
+        var infiniteLoopGuard: Int = 0
+        var result: [VolatileThreadInfo] = []
+        var oneToOne: convo_info_volatile_1to1 = convo_info_volatile_1to1()
+        var community: convo_info_volatile_community = convo_info_volatile_community()
+        var legacyGroup: convo_info_volatile_legacy_group = convo_info_volatile_legacy_group()
+        let convoIterator: OpaquePointer = convo_info_volatile_iterator_new(conf)
+
+        while !convo_info_volatile_iterator_done(convoIterator) {
+            try SessionUtil.checkLoopLimitReached(&infiniteLoopGuard, for: .convoInfoVolatile)
+            
+            if convo_info_volatile_it_is_1to1(convoIterator, &oneToOne) {
+                result.append(
+                    VolatileThreadInfo(
+                        threadId: String(libSessionVal: oneToOne.session_id),
+                        variant: .contact,
+                        changes: [
+                            .markedAsUnread(oneToOne.unread),
+                            .lastReadTimestampMs(oneToOne.last_read)
+                        ]
+                    )
+                )
+            }
+            else if convo_info_volatile_it_is_community(convoIterator, &community) {
+                let server: String = String(libSessionVal: community.base_url)
+                let roomToken: String = String(libSessionVal: community.room)
+                let publicKey: String = Data(
+                    libSessionVal: community.pubkey,
+                    count: OpenGroup.pubkeyByteLength
+                ).toHexString()
+                
+                result.append(
+                    VolatileThreadInfo(
+                        threadId: OpenGroup.idFor(roomToken: roomToken, server: server),
+                        variant: .community,
+                        openGroupUrlInfo: OpenGroupUrlInfo(
+                            threadId: OpenGroup.idFor(roomToken: roomToken, server: server),
+                            server: server,
+                            roomToken: roomToken,
+                            publicKey: publicKey
+                        ),
+                        changes: [
+                            .markedAsUnread(community.unread),
+                            .lastReadTimestampMs(community.last_read)
+                        ]
+                    )
+                )
+            }
+            else if convo_info_volatile_it_is_legacy_group(convoIterator, &legacyGroup) {
+                result.append(
+                    VolatileThreadInfo(
+                        threadId: String(libSessionVal: legacyGroup.group_id),
+                        variant: .legacyGroup,
+                        changes: [
+                            .markedAsUnread(legacyGroup.unread),
+                            .lastReadTimestampMs(legacyGroup.last_read)
+                        ]
+                    )
+                )
+            }
+            else {
+                SNLog("Ignoring unknown conversation type when iterating through volatile conversation info update")
+            }
+            
+            convo_info_volatile_iterator_advance(convoIterator)
+        }
+        convo_info_volatile_iterator_free(convoIterator) // Need to free the iterator
+        
+        return result
+    }
 }
 
 fileprivate extension [SessionUtil.VolatileThreadInfo.Change] {
@@ -600,3 +605,4 @@ fileprivate extension [SessionUtil.VolatileThreadInfo.Change] {
         return nil
     }
 }
+

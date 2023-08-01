@@ -311,6 +311,19 @@ extension GlobalSearchViewController {
             return
         }
         
+        // If it's a one-to-one thread then make sure the thread exists before pushing to it (in case the
+        // contact has been hidden)
+        if threadVariant == .contact {
+            Storage.shared.write { db in
+                try SessionThread.fetchOrCreate(
+                    db,
+                    id: threadId,
+                    variant: threadVariant,
+                    shouldBeVisible: nil    // Don't change current state
+                )
+            }
+        }
+        
         let viewController: ConversationVC = ConversationVC(
             threadId: threadId,
             threadVariant: threadVariant,

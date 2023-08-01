@@ -165,12 +165,12 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
         dismiss(animated: true, completion: nil)
     }
 
-    func controller(_ controller: QRCodeScanningViewController, didDetectQRCodeWith string: String) {
+    func controller(_ controller: QRCodeScanningViewController, didDetectQRCodeWith string: String, onError: (() -> ())?) {
         let hexEncodedPublicKey = string
-        startNewDMIfPossible(with: hexEncodedPublicKey)
+        startNewDMIfPossible(with: hexEncodedPublicKey, onError: onError)
     }
     
-    fileprivate func startNewDMIfPossible(with onsNameOrPublicKey: String) {
+    fileprivate func startNewDMIfPossible(with onsNameOrPublicKey: String, onError: (() -> ())?) {
         let maybeSessionId: SessionId? = SessionId(from: onsNameOrPublicKey)
         
         if KeyPair.isValidHexEncodedPublicKey(candidate: onsNameOrPublicKey) {
@@ -178,14 +178,15 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
                 case .standard:
                     startNewDM(with: onsNameOrPublicKey)
                     
-                case .blinded:
+                case .blinded15, .blinded25:
                     let modal: ConfirmationModal = ConfirmationModal(
                         targetView: self.view,
                         info: ConfirmationModal.Info(
                             title: "ALERT_ERROR_TITLE".localized(),
                             body: .text("DM_ERROR_DIRECT_BLINDED_ID".localized()),
                             cancelTitle: "BUTTON_OK".localized(),
-                            cancelStyle: .alert_text
+                            cancelStyle: .alert_text,
+                            afterClosed: onError
                         )
                     )
                     self.present(modal, animated: true)
@@ -197,7 +198,8 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
                             title: "ALERT_ERROR_TITLE".localized(),
                             body: .text("DM_ERROR_INVALID".localized()),
                             cancelTitle: "BUTTON_OK".localized(),
-                            cancelStyle: .alert_text
+                            cancelStyle: .alert_text,
+                            afterClosed: onError
                         )
                     )
                     self.present(modal, animated: true)
@@ -210,6 +212,7 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
             .present(fromViewController: navigationController!, canCancel: false) { [weak self] modalActivityIndicator in
             SnodeAPI
                 .getSessionID(for: onsNameOrPublicKey)
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveCompletion: { result in
@@ -230,7 +233,7 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
                                             return messageOrNil
                                         }
                                         
-                                        return (maybeSessionId?.prefix == .blinded ?
+                                        return (maybeSessionId?.prefix == .blinded15 || maybeSessionId?.prefix == .blinded25 ?
                                             "DM_ERROR_DIRECT_BLINDED_ID".localized() :
                                             "DM_ERROR_INVALID".localized()
                                         )
@@ -242,7 +245,8 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
                                             title: "ALERT_ERROR_TITLE".localized(),
                                             body: .text(message),
                                             cancelTitle: "BUTTON_OK".localized(),
-                                            cancelStyle: .alert_text
+                                            cancelStyle: .alert_text,
+                                            afterClosed: onError
                                         )
                                     )
                                     self?.present(modal, animated: true)
@@ -259,16 +263,12 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
     }
 
     private func startNewDM(with sessionId: String) {
-        let maybeThread: SessionThread? = Storage.shared.write { db in
-            try SessionThread
-                .fetchOrCreate(db, id: sessionId, variant: .contact, shouldBeVisible: nil)
-        }
-        
-        guard maybeThread != nil else { return }
-        
-        presentingViewController?.dismiss(animated: true, completion: nil)
-        
-        SessionApp.presentConversation(for: sessionId, action: .compose, animated: false)
+        SessionApp.presentConversationCreatingIfNeeded(
+            for: sessionId,
+            variant: .contact,
+            dismissing: presentingViewController,
+            animated: false
+        )
     }
 }
 
@@ -666,7 +666,7 @@ private final class EnterPublicKeyVC: UIViewController {
     
     @objc fileprivate func startNewDMIfPossible() {
         let text = publicKeyTextView.text?.trimmingCharacters(in: .whitespaces) ?? ""
-        NewDMVC.startNewDMIfPossible(with: text)
+        NewDMVC.startNewDMIfPossible(with: text, onError: nil)
     }
 }
 

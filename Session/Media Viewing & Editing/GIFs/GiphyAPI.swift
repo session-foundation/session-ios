@@ -5,6 +5,7 @@ import Combine
 import CoreServices
 import SignalUtilitiesKit
 import SessionUtilitiesKit
+import SignalCoreKit
 
 // There's no UTI type for webp!
 enum GiphyFormat {
@@ -291,7 +292,6 @@ enum GiphyAPI {
         
         return urlSession
             .dataTaskPublisher(for: url)
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .mapError { urlError in
                 Logger.error("search request failed: \(urlError)")
                 
@@ -299,7 +299,7 @@ enum GiphyAPI {
                 return HTTPError.generic
             }
             .map { data, _ in
-                Logger.error("search request succeeded")
+                Logger.debug("search request succeeded")
                 
                 guard let imageInfos = self.parseGiphyImages(responseData: data) else {
                     Logger.error("unable to parse trending images")
@@ -340,7 +340,6 @@ enum GiphyAPI {
         
         return urlSession
             .dataTaskPublisher(for: request)
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .mapError { urlError in
                 Logger.error("search request failed: \(urlError)")
                 
@@ -348,7 +347,7 @@ enum GiphyAPI {
                 return HTTPError.generic
             }
             .tryMap { data, _ -> [GiphyImageInfo] in
-                Logger.error("search request succeeded")
+                Logger.debug("search request succeeded")
                 
                 guard let imageInfos = self.parseGiphyImages(responseData: data) else {
                     throw HTTPError.invalidResponse

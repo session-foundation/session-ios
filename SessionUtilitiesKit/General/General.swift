@@ -3,19 +3,16 @@
 import Foundation
 import GRDB
 
-public protocol GeneralCacheType {
-    var encodedPublicKey: String? { get set }
-    var recentReactionTimestamps: [Int64] { get set }
-}
+// MARK: - General.Cache
 
 public enum General {
-    public class Cache: GeneralCacheType {
+    public class Cache: MutableGeneralCacheType {
         public var encodedPublicKey: String? = nil
         public var recentReactionTimestamps: [Int64] = []
     }
-    
-    public static var cache: Atomic<GeneralCacheType> = Atomic(Cache())
 }
+
+// MARK: - GeneralError
 
 public enum GeneralError: Error {
     case invalidSeed
@@ -23,15 +20,31 @@ public enum GeneralError: Error {
     case randomGenerationFailed
 }
 
+// MARK: - Convenience
+
 public func getUserHexEncodedPublicKey(_ db: Database? = nil, dependencies: Dependencies = Dependencies()) -> String {
-    if let cachedKey: String = dependencies.generalCache.wrappedValue.encodedPublicKey { return cachedKey }
+    if let cachedKey: String = dependencies.generalCache.encodedPublicKey { return cachedKey }
     
     if let publicKey: Data = Identity.fetchUserPublicKey(db) { // Can be nil under some circumstances
         let sessionId: SessionId = SessionId(.standard, publicKey: publicKey.bytes)
         
-        dependencies.generalCache.mutate { $0.encodedPublicKey = sessionId.hexString }
+        dependencies.mutableGeneralCache.mutate { $0.encodedPublicKey = sessionId.hexString }
         return sessionId.hexString
     }
     
     return ""
+}
+
+// MARK: - GeneralCacheType
+
+public protocol MutableGeneralCacheType: GeneralCacheType {
+    var encodedPublicKey: String? { get set }
+    var recentReactionTimestamps: [Int64] { get set }
+}
+
+/// This is a read-only version of the `OGMMutableCacheType` designed to avoid unintentionally mutating the instance in a
+/// non-thread-safe way
+public protocol GeneralCacheType {
+    var encodedPublicKey: String? { get }
+    var recentReactionTimestamps: [Int64] { get }
 }

@@ -5,6 +5,7 @@ import Combine
 import PushKit
 import GRDB
 import SignalUtilitiesKit
+import SignalCoreKit
 
 public enum PushRegistrationError: Error {
     case assertionError(description: String)
@@ -52,8 +53,9 @@ public enum PushRegistrationError: Error {
         Logger.info("")
         
         return registerUserNotificationSettings()
-            .setFailureType(to: Error.self)
+            .subscribe(on: DispatchQueue.global(qos: .default))
             .receive(on: DispatchQueue.main)    // MUST be on main thread
+            .setFailureType(to: Error.self)
             .tryFlatMap { _ -> AnyPublisher<(pushToken: String, voipToken: String), Error> in
                 #if targetEnvironment(simulator)
                 throw PushRegistrationError.pushNotSupported(description: "Push not supported on simulators")
@@ -98,7 +100,6 @@ public enum PushRegistrationError: Error {
     // User notification settings must be registered *before* AppDelegate will
     // return any requested push tokens.
     public func registerUserNotificationSettings() -> AnyPublisher<Void, Never> {
-        AssertIsOnMainThread()
         return notificationPresenter.registerNotificationSettings()
     }
 
@@ -127,6 +128,7 @@ public enum PushRegistrationError: Error {
         return true
     }
 
+    // FIXME: Might be nice to try to avoid having this required to run on the main thread (follow a similar approach to the 'SyncPushTokensJob' & `Atomic<T>`?)
     private func registerForVanillaPushToken() -> AnyPublisher<String, Error> {
         AssertIsOnMainThread()
         
@@ -284,8 +286,7 @@ public enum PushRegistrationError: Error {
             return
         }
         
-        // Resume database
-        NotificationCenter.default.post(name: Database.resumeNotification, object: self)
+        Storage.resumeDatabaseAccess()
         
         let maybeCall: SessionCall? = Storage.shared.write { db in
             let messageInfo: CallMessage.MessageInfo = CallMessage.MessageInfo(

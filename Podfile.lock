@@ -2,7 +2,6 @@ PODS:
   - CocoaLumberjack (3.8.0):
     - CocoaLumberjack/Core (= 3.8.0)
   - CocoaLumberjack/Core (3.8.0)
-  - CryptoSwift (1.4.2)
   - Curve25519Kit (2.1.0):
     - CocoaLumberjack
     - SignalCoreKit
@@ -35,7 +34,6 @@ PODS:
   - SignalCoreKit (1.0.0):
     - CocoaLumberjack
     - OpenSSL-Universal
-  - SocketRocket (0.5.1)
   - Sodium (0.9.1)
   - SQLCipher (4.5.3):
     - SQLCipher/standard (= 4.5.3)
@@ -43,7 +41,8 @@ PODS:
   - SQLCipher/standard (4.5.3):
     - SQLCipher/common
   - SwiftProtobuf (1.5.0)
-  - WebRTC-lib (96.0.0)
+  - WebRTC-lib (114.0.0)
+  - xcbeautify (0.17.0)
   - YapDatabase/SQLCipher (3.1.1):
     - YapDatabase/SQLCipher/Core (= 3.1.1)
     - YapDatabase/SQLCipher/Extensions (= 3.1.1)
@@ -110,12 +109,8 @@ PODS:
   - YYImage/libwebp (1.0.4):
     - libwebp
     - YYImage/Core
-  - ZXingObjC (3.6.5):
-    - ZXingObjC/All (= 3.6.5)
-  - ZXingObjC/All (3.6.5)
 
 DEPENDENCIES:
-  - CryptoSwift
   - Curve25519Kit (from `https://github.com/oxen-io/session-ios-curve-25519-kit.git`, branch `session-version`)
   - DifferenceKit
   - GRDB.swift/SQLCipher
@@ -126,19 +121,17 @@ DEPENDENCIES:
   - Reachability
   - SAMKeychain
   - SignalCoreKit (from `https://github.com/oxen-io/session-ios-core-kit`, branch `session-version`)
-  - SocketRocket (~> 0.5.1)
   - Sodium (from `https://github.com/oxen-io/session-ios-swift-sodium.git`, branch `session-build`)
   - SQLCipher (~> 4.5.3)
   - SwiftProtobuf (~> 1.5.0)
   - WebRTC-lib
+  - xcbeautify
   - YapDatabase/SQLCipher (from `https://github.com/oxen-io/session-ios-yap-database.git`, branch `signal-release`)
   - YYImage/libwebp (from `https://github.com/signalapp/YYImage`)
-  - ZXingObjC
 
 SPEC REPOS:
   https://github.com/CocoaPods/Specs.git:
     - CocoaLumberjack
-    - CryptoSwift
     - DifferenceKit
     - GRDB.swift
     - libwebp
@@ -149,11 +142,11 @@ SPEC REPOS:
     - Quick
     - Reachability
     - SAMKeychain
-    - SocketRocket
     - SQLCipher
     - SwiftProtobuf
     - WebRTC-lib
-    - ZXingObjC
+  trunk:
+    - xcbeautify
 
 EXTERNAL SOURCES:
   Curve25519Kit:
@@ -190,7 +183,6 @@ CHECKOUT OPTIONS:
 
 SPEC CHECKSUMS:
   CocoaLumberjack: 78abfb691154e2a9df8ded4350d504ee19d90732
-  CryptoSwift: a532e74ed010f8c95f611d00b8bbae42e9fe7c17
   Curve25519Kit: e63f9859ede02438ae3defc5e1a87e09d1ec7ee6
   DifferenceKit: ab185c4d7f9cef8af3fcf593e5b387fb81e999ca
   GRDB.swift: fe420b1af49ec519c7e96e07887ee44f5dfa2b78
@@ -203,15 +195,14 @@ SPEC CHECKSUMS:
   Reachability: 33e18b67625424e47b6cde6d202dce689ad7af96
   SAMKeychain: 483e1c9f32984d50ca961e26818a534283b4cd5c
   SignalCoreKit: 1fbd8732163ef76de16cd1107d1fa3684b607e5d
-  SocketRocket: d57c7159b83c3c6655745cd15302aa24b6bae531
   Sodium: a7d42cb46e789d2630fa552d35870b416ed055ae
   SQLCipher: 57fa9f863fa4a3ed9dd3c90ace52315db8c0fdca
   SwiftProtobuf: 241400280f912735c1e1b9fe675fdd2c6c4d42e2
-  WebRTC-lib: 508fe02efa0c1a3a8867082a77d24c9be5d29aeb
+  WebRTC-lib: d83df8976fa608b980f1d85796b3de66d60a1953
+  xcbeautify: 6e2f57af5c3a86d490376d5758030a8dcc201c1b
   YapDatabase: b418a4baa6906e8028748938f9159807fd039af4
   YYImage: f1ddd15ac032a58b78bbed1e012b50302d318331
-  ZXingObjC: fdbb269f25dd2032da343e06f10224d62f537bdb
 
-PODFILE CHECKSUM: f461937f78a0482496fea6fc4b2bb5d1351fe044
+PODFILE CHECKSUM: dd814a5a92577bb2a94dac6a1cc482f193721cdf
 
-COCOAPODS: 1.11.3
+COCOAPODS: 1.12.1

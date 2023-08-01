@@ -128,8 +128,15 @@ final class RestoreVC: BaseVC {
         notificationCenter.addObserver(self, selector: #selector(handleKeyboardWillHideNotification(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
     }
     
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        Onboarding.Flow.register.unregister()
+    }
+    
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        
         // On small screens we hide the legal label when the keyboard is up, but it's important that the user sees it so
         // in those instances we don't make the keyboard come up automatically
         if !isIPhone5OrSmaller {
@@ -198,7 +205,7 @@ final class RestoreVC: BaseVC {
         let keyPairs: (ed25519KeyPair: KeyPair, x25519KeyPair: KeyPair)
         
         do {
-            let mnemonic: String = mnemonicTextView.text!.lowercased()
+            let mnemonic: String = (mnemonicTextView.text ?? "").lowercased()
             let hexEncodedSeed: String = try Mnemonic.decode(mnemonic: mnemonic)
             seed = Data(hex: hexEncodedSeed)
             keyPairs = try Identity.generate(from: seed)

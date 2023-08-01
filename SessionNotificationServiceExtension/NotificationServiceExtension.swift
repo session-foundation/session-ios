@@ -12,7 +12,6 @@ import SignalCoreKit
 
 public final class NotificationServiceExtension: UNNotificationServiceExtension {
     private var didPerformSetup = false
-    private var areVersionMigrationsComplete = false
     private var contentHandler: ((UNNotificationContent) -> Void)?
     private var request: UNNotificationRequest?
 
@@ -26,8 +25,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         self.contentHandler = contentHandler
         self.request = request
         
-        // Resume database
-        NotificationCenter.default.post(name: Database.resumeNotification, object: self)
+        Storage.resumeDatabaseAccess()
         
         guard let notificationContent = request.content.mutableCopy() as? UNMutableNotificationContent else {
             return self.completeSilenty()
@@ -50,6 +48,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             defer {
                 Publishers
                     .MergeMany(openGroupPollingPublishers)
+                    .subscribe(on: DispatchQueue.global(qos: .background))
+                    .subscribe(on: DispatchQueue.main)
                     .sinkUntilComplete(
                         receiveCompletion: { _ in
                             self.completeSilenty()
@@ -84,6 +84,14 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         self.handleFailure(for: notificationContent)
                         return
                     }
+                    
+                    // Throw if the message is outdated and shouldn't be processed
+                    try MessageReceiver.throwIfMessageOutdated(
+                        db,
+                        message: processedMessage.messageInfo.message,
+                        threadId: processedMessage.threadId,
+                        threadVariant: processedMessage.threadVariant
+                    )
                     
                     switch processedMessage.messageInfo.message {
                         case let visibleMessage as VisibleMessage:
@@ -138,7 +146,14 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             guard case .preOffer = callMessage.kind else { return self.completeSilenty() }
                             
                             if !db[.areCallsEnabled] {
-                                if let sender: String = callMessage.sender, let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: callMessage, state: .permissionDenied) {
+                                if
+                                    let sender: String = callMessage.sender,
+                                    let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(
+                                        db,
+                                        for: callMessage,
+                                        state: .permissionDenied
+                                    )
+                                {
                                     let thread: SessionThread = try SessionThread
                                         .fetchOrCreate(
                                             db,
@@ -147,12 +162,16 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                             shouldBeVisible: nil
                                         )
 
-                                    Environment.shared?.notificationsManager.wrappedValue?
-                                        .notifyUser(
-                                            db,
-                                            forIncomingCall: interaction,
-                                            in: thread
-                                        )
+                                    // Notify the user if the call message wasn't already read
+                                    if !interaction.wasRead {
+                                        Environment.shared?.notificationsManager.wrappedValue?
+                                            .notifyUser(
+                                                db,
+                                                forIncomingCall: interaction,
+                                                in: thread,
+                                                applicationState: .background
+                                            )
+                                    }
                                 }
                                 break
                             }
@@ -184,7 +203,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 catch {
                     if let error = error as? MessageReceiverError, error.isRetryable {
                         switch error {
-                            case .invalidGroupPublicKey, .noGroupKeyPair: self.completeSilenty()
+                            case .invalidGroupPublicKey, .noGroupKeyPair, .outdatedMessage: self.completeSilenty()
                             default: self.handleFailure(for: notificationContent)
                         }
                     }
@@ -225,19 +244,24 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     $0 = NSENotificationPresenter()
                 }
             },
-            migrationsCompletion: { [weak self] _, needsConfigSync in
-                self?.versionMigrationsDidComplete(needsConfigSync: needsConfigSync)
+            migrationsCompletion: { [weak self] result, needsConfigSync in
+                switch result {
+                    // Only 'NSLog' works in the extension - viewable via Console.app
+                    case .failure: NSLog("[NotificationServiceExtension] Failed to complete migrations")
+                    case .success:
+                        DispatchQueue.main.async {
+                            self?.versionMigrationsDidComplete(needsConfigSync: needsConfigSync)
+                        }
+                }
+                
                 completion()
             }
         )
     }
     
-    @objc
     private func versionMigrationsDidComplete(needsConfigSync: Bool) {
         AssertIsOnMainThread()
 
-        areVersionMigrationsComplete = true
-        
         // If we need a config sync then trigger it now
         if needsConfigSync {
             Storage.shared.write { db in
@@ -245,18 +269,17 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             }
         }
 
-        checkIsAppReady()
+        checkIsAppReady(migrationsCompleted: true)
     }
 
-    @objc
-    private func checkIsAppReady() {
+    private func checkIsAppReady(migrationsCompleted: Bool) {
         AssertIsOnMainThread()
 
         // Only mark the app as ready once.
         guard !AppReadiness.isAppReady() else { return }
 
         // App isn't ready until storage is ready AND all version migrations are complete.
-        guard Storage.shared.isValid && areVersionMigrationsComplete else { return }
+        guard Storage.shared.isValid && migrationsCompleted else { return }
 
         SignalUtilitiesKit.Configuration.performMainSetup()
 
@@ -275,8 +298,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     private func completeSilenty() {
         SNLog("Complete silenty")
         
-        // Suspend the database
-        NotificationCenter.default.post(name: Database.suspendNotification, object: self)
+        Storage.suspendDatabaseAccess()
         
         self.contentHandler!(.init())
     }
@@ -340,8 +362,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     }
 
     private func handleFailure(for content: UNMutableNotificationContent) {
-        // Suspend the database
-        NotificationCenter.default.post(name: Database.suspendNotification, object: self)
+        Storage.suspendDatabaseAccess()
         
         content.body = "You've got a new message"
         content.title = "Session"

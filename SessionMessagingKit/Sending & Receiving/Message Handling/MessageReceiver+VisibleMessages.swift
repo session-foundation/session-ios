@@ -3,6 +3,7 @@
 import Foundation
 import GRDB
 import Sodium
+import SessionSnodeKit
 import SessionUtilitiesKit
 
 extension MessageReceiver {
@@ -34,7 +35,7 @@ extension MessageReceiver {
                     guard
                         let profilePictureUrl: String = profile.profilePictureUrl,
                         let profileKey: Data = profile.profileKey
-                    else { return .none }
+                    else { return .remove }
                     
                     return .updateTo(
                         url: profilePictureUrl,
@@ -84,7 +85,7 @@ extension MessageReceiver {
 
             // Need to check if the blinded id matches for open groups
             switch senderSessionId.prefix {
-                case .blinded:
+                case .blinded15, .blinded25:
                     let sodium: Sodium = Sodium()
                     
                     guard
@@ -96,7 +97,12 @@ extension MessageReceiver {
                         )
                     else { return .standardIncoming }
                     
-                    return (sender == SessionId(.blinded, publicKey: blindedKeyPair.publicKey).hexString ?
+                    let senderIdCurrentUserBlinded: Bool = (
+                        sender == SessionId(.blinded15, publicKey: blindedKeyPair.publicKey).hexString ||
+                        sender == SessionId(.blinded25, publicKey: blindedKeyPair.publicKey).hexString
+                    )
+                    
+                    return (senderIdCurrentUserBlinded ?
                         .standardOutgoing :
                         .standardIncoming
                     )
@@ -120,7 +126,8 @@ extension MessageReceiver {
             message: message,
             associatedWithProto: proto,
             sender: sender,
-            messageSentTimestamp: messageSentTimestamp
+            messageSentTimestamp: messageSentTimestamp,
+            openGroup: maybeOpenGroup
         ) {
             return interactionId
         }
@@ -326,14 +333,15 @@ extension MessageReceiver {
         }
         
         // Notify the user if needed
-        guard variant == .standardIncoming else { return interactionId }
+        guard variant == .standardIncoming && !interaction.wasRead else { return interactionId }
         
         // Use the same identifier for notifications when in backgroud polling to prevent spam
         Environment.shared?.notificationsManager.wrappedValue?
             .notifyUser(
                 db,
                 for: interaction,
-                in: thread
+                in: thread,
+                applicationState: (isMainAppActive ? .active : .background)
             )
         
         return interactionId
@@ -345,7 +353,8 @@ extension MessageReceiver {
         message: VisibleMessage,
         associatedWithProto proto: SNProtoContent,
         sender: String,
-        messageSentTimestamp: TimeInterval
+        messageSentTimestamp: TimeInterval,
+        openGroup: OpenGroup?
     ) throws -> Int64? {
         guard
             let reaction: VisibleMessage.VMReaction = message.reaction,
@@ -373,22 +382,37 @@ extension MessageReceiver {
         
         switch reaction.kind {
             case .react:
+                // Determine whether the app is active based on the prefs rather than the UIApplication state to avoid
+                // requiring main-thread execution
+                let isMainAppActive: Bool = (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false)
+                let timestampMs: Int64 = Int64(messageSentTimestamp * 1000)
+                let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
                 let reaction: Reaction = try Reaction(
                     interactionId: interactionId,
                     serverHash: message.serverHash,
-                    timestampMs: Int64(messageSentTimestamp * 1000),
+                    timestampMs: timestampMs,
                     authorId: sender,
                     emoji: reaction.emoji,
                     count: 1,
                     sortId: sortId
                 ).inserted(db)
+                let timestampAlreadyRead: Bool = SessionUtil.timestampAlreadyRead(
+                    threadId: thread.id,
+                    threadVariant: thread.variant,
+                    timestampMs: timestampMs,
+                    userPublicKey: currentUserPublicKey,
+                    openGroup: openGroup
+                )
                 
-                if sender != getUserHexEncodedPublicKey(db) {
+                // Don't notify if the reaction was added before the lastest read timestamp for
+                // the conversation
+                if sender != currentUserPublicKey && !timestampAlreadyRead {
                     Environment.shared?.notificationsManager.wrappedValue?
                         .notifyUser(
                             db,
                             forReaction: reaction,
-                            in: thread
+                            in: thread,
+                            applicationState: (isMainAppActive ? .active : .background)
                         )
                 }
             case .remove:

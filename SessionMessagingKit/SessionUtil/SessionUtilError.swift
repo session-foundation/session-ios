@@ -7,4 +7,5 @@ public enum SessionUtilError: Error {
     case nilConfigObject
     case userDoesNotExist
     case getOrConstructFailedUnexpectedly
+    case processingLoopLimitReached
 }

@@ -319,7 +319,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         openGroupServerMessageId: Int64? = nil,
         openGroupWhisperMods: Bool = false,
         openGroupWhisperTo: String? = nil
-    ) throws {
+    ) {
         self.serverHash = serverHash
         self.messageUuid = messageUuid
         self.threadId = threadId
@@ -815,12 +815,23 @@ public extension Interaction {
                     genericHash: sodium.genericHash
                 )
             {
-                publicKeysToCheck.append(
-                    SessionId(.blinded, publicKey: blindedKeyPair.publicKey).hexString
-                )
+                publicKeysToCheck.append(SessionId(.blinded15, publicKey: blindedKeyPair.publicKey).hexString)
+                publicKeysToCheck.append(SessionId(.blinded25, publicKey: blindedKeyPair.publicKey).hexString)
             }
         }
         
+        return isUserMentioned(
+            publicKeysToCheck: publicKeysToCheck,
+            body: body,
+            quoteAuthorId: quoteAuthorId
+        )
+    }
+        
+    static func isUserMentioned(
+        publicKeysToCheck: [String],
+        body: String?,
+        quoteAuthorId: String? = nil
+    ) -> Bool {
         // A user is mentioned if their public key is in the body of a message or one of their messages
         // was quoted
         return publicKeysToCheck.contains { publicKey in
@@ -846,10 +857,9 @@ public extension Interaction {
                         .asRequest(of: Attachment.DescriptionInfo.self)
                         .fetchOne(db),
                     attachmentCount: try? attachments.fetchCount(db),
-                    isOpenGroupInvitation: (try? linkPreview
+                    isOpenGroupInvitation: linkPreview
                         .filter(LinkPreview.Columns.variant == LinkPreview.Variant.openGroupInvitation)
-                        .isNotEmpty(db))
-                        .defaulting(to: false)
+                        .isNotEmpty(db)
                 )
 
             case .infoMediaSavedNotification, .infoScreenshotNotification, .infoCall:
