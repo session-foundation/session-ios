@@ -148,10 +148,8 @@ local build_for_app_store = {
 
 
 // Setup the actual pipelines we want to run
-local buildEvent = std.extVar('DRONE_BUILD_EVENT'); // Get the event which triggered the build
-
 [
   run_unit_tests,
-  if buildEvent != 'pull_request' then build_for_simulator else {},
-  if buildEvent != 'pull_request' then build_for_app_store else {},
+  if '$DRONE_BUILD_EVENT' != 'pull_request' then build_for_simulator else {},
+  if '$DRONE_BUILD_EVENT' != 'pull_request' then build_for_app_store else {},
 ]
