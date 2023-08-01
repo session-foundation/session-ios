@@ -28,7 +28,7 @@ local load_cocoapods_cache = {
           sleep 1
           LOOP_BREAK=$((LOOP_BREAK + 1))
 
-          if [[ LOOP_BREAK >= 600 ]]; then
+          if [[ $LOOP_BREAK -ge 600 ]]; then
             rm -f /Users/drone/.cocoapods_cache.lock
           fi
       done
@@ -53,7 +53,7 @@ local update_cocoapods_cache = {
           sleep 1
           LOOP_BREAK=$((LOOP_BREAK + 1))
 
-          if [[ LOOP_BREAK >= 600 ]]; then
+          if [[ $LOOP_BREAK -ge 600 ]]; then
             rm -f /Users/drone/.cocoapods_cache.lock
           fi
       done
