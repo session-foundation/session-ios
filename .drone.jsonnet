@@ -13,7 +13,9 @@ local ci_dep_mirror(want_mirror) = (if want_mirror then ' -DLOCAL_MIRROR=https:/
 // 'LANG' env var so we need to work around the with https://github.com/CocoaPods/CocoaPods/issues/6333
 local install_cocoapods = {
   name: 'Install CocoaPods',
-  commands: ['LANG=en_US.UTF-8 pod install']
+  commands: ['
+    LANG=en_US.UTF-8 pod install || rm -rf ./Pods && LANG=en_US.UTF-8 pod install
+  ']
 };
 
 // Load from the cached CocoaPods directory (to speed up the build)
