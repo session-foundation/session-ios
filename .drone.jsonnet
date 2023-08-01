@@ -23,23 +23,22 @@ local load_cocoapods_cache = {
   name: 'Load CocoaPods Cache',
   commands: [
     |||
-      if [[ ! -f /Users/drone/.cocoapods_cache.valid ]]; then
-        rm -f /Users/drone/.cocoapods_cache.lock
-      fi
-    |||,
-    |||
+      LOOP_BREAK=0
       while test -e /Users/drone/.cocoapods_cache.lock; do
           sleep 1
+          LOOP_BREAK=$((LOOP_BREAK + 1))
+
+          if [[ LOOP_BREAK >= 600 ]]; then
+            'rm -f /Users/drone/.cocoapods_cache.lock'
+          fi
       done
     |||,
     'touch /Users/drone/.cocoapods_cache.lock',
-    'rm -f /Users/drone/.cocoapods_cache.valid',
     |||
       if [[ -d /Users/drone/.cocoapods_cache ]]; then
         cp -r /Users/drone/.cocoapods_cache ./Pods
       fi
     |||,
-    'touch /Users/drone/.cocoapods_cache.valid',
     'rm -f /Users/drone/.cocoapods_cache.lock'
   ]
 };
@@ -49,24 +48,23 @@ local update_cocoapods_cache = {
   name: 'Update CocoaPods Cache',
   commands: [
     |||
-      if [[ ! -f /Users/drone/.cocoapods_cache.valid ]]; then
-        rm -f /Users/drone/.cocoapods_cache.lock
-      fi
-    |||,
-    |||
+      LOOP_BREAK=0
       while test -e /Users/drone/.cocoapods_cache.lock; do
           sleep 1
+          LOOP_BREAK=$((LOOP_BREAK + 1))
+
+          if [[ LOOP_BREAK >= 600 ]]; then
+            'rm -f /Users/drone/.cocoapods_cache.lock'
+          fi
       done
     |||,
     'touch /Users/drone/.cocoapods_cache.lock',
-    'rm -f /Users/drone/.cocoapods_cache.valid',
     |||
       if [[ -d ./Pods ]]; then
         rm -rf /Users/drone/.cocoapods_cache
         cp -r ./Pods /Users/drone/.cocoapods_cache
       fi
     |||,
-    'touch /Users/drone/.cocoapods_cache.valid',
     'rm -f /Users/drone/.cocoapods_cache.lock'
   ]
 };
@@ -134,7 +132,7 @@ local update_cocoapods_cache = {
         name: 'Build',
         commands: [
           'mkdir build',
-          'xcodebuild archive -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -configuration "App Store Release" -sdk iphoneos -archivePath ./build/Session.xcarchive -destination "generic/platform=iOS" -allowProvisioningUpdates CODE_SIGNING_ALLOWED=NO'
+          'xcodebuild archive -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -configuration "App Store Release" -sdk iphoneos -archivePath ./build/Session.xcarchive -destination "generic/platform=iOS" -allowProvisioningUpdates CODE_SIGNING_ALLOWED=NO | ./Pods/xcbeautify/xcbeautify --is-ci'
         ],
       },
       update_cocoapods_cache,

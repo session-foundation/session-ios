@@ -3,8 +3,6 @@
 # Script used with Drone CI to upload build artifacts (because specifying all this in
 # .drone.jsonnet is too painful).
 
-
-
 set -o errexit
 
 if [ -z "$SSH_KEY" ]; then
@@ -35,14 +33,13 @@ prod_path="build/Session.xcarchive"
 sim_path="build/Session_sim.xcarchive/Products/Applications/Session.app"
 
 mkdir -p build
-echo "Test" > "build/test.txt"
 
 if [ ! -d $prod_path ]; then
     cp -av $prod_path "$base"
 else if [ ! -d $sim_path ]; then
     cp -av $sim_path "$base"
 else
-    echo "Expected a file to upload, found none" >&2
+    echo -e "\n\n\n\e[31;1mExpected a file to upload, found none\e[0m" >&2
     exit 1
 fi
 
