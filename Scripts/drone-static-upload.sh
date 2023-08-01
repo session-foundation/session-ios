@@ -17,31 +17,35 @@ set -o xtrace  # Don't start tracing until *after* we write the ssh key
 
 chmod 600 ssh_key
 
-if [ -n "$DRONE_TAG" ]; then
-    # For a tag build use something like `session-ios-v1.2.3`
-    base="session-ios-$DRONE_TAG"
-else
-    # Otherwise build a length name from the datetime and commit hash, such as:
-    # session-ios-20200522T212342Z-04d7dcc54
-    base="session-ios-$(date --date=@$DRONE_BUILD_CREATED +%Y%m%dT%H%M%SZ)-${DRONE_COMMIT:0:9}"
-fi
-
-mkdir -vp "$base"
-
-# Copy over the build products
+# Define the output paths
 prod_path="build/Session.xcarchive"
 sim_path="build/Session_sim.xcarchive/Products/Applications/Session.app"
 
-mkdir -p build
-
+# Validate the paths exist
 if [ -d $prod_path ]; then
-    cp -av $prod_path "$base"
+    suffix="-store"
+    target_path=$prod_path
 elif [ -d $sim_path ]; then
-    cp -av $sim_path "$base"
+    suffix="-sim"
+    target_path=$sim_path
 else
     echo -e "\n\n\n\e[31;1mExpected a file to upload, found none\e[0m" >&2
     exit 1
 fi
+
+if [ -n "$DRONE_TAG" ]; then
+    # For a tag build use something like `session-ios-v1.2.3`
+    base="session-ios-$DRONE_TAG-$suffix"
+else
+    # Otherwise build a length name from the datetime and commit hash, such as:
+    # session-ios-20200522T212342Z-04d7dcc54
+    base="session-ios-$(date --date=@$DRONE_BUILD_CREATED +%Y%m%dT%H%M%SZ)-${DRONE_COMMIT:0:9}-$suffix"
+fi
+
+# Copy over the build products
+mkdir -vp "$base"
+mkdir -p build
+cp -av $target_path "$base"
 
 # tar dat shiz up yo
 archive="$base.tar.xz"
