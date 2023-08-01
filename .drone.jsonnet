@@ -80,7 +80,10 @@ local run_unit_tests = {
         name: 'Test',
         commands: [
           'echo $DRONE_BUILD_EVENT',
-          if '$DRONE_BUILD_EVENT' != 'pull_request' then 'echo "Not PR"' else 'echo "Is PR"',
+          if "$DRONE_BUILD_EVENT" != "pull_request" then 'echo "Not PR 1"' else 'echo "Is PR 1"',
+          if $DRONE_BUILD_EVENT != pull_request then 'echo "Not PR 2"' else 'echo "Is PR 2"',
+          if "$DRONE_BUILD_EVENT" -ne "pull_request" then 'echo "Not PR 3"' else 'echo "Is PR 3"',
+          if $DRONE_BUILD_EVENT -ne pull_request then 'echo "Not PR 4"' else 'echo "Is PR 4"',
         ]
       },
       clone_submodules,
