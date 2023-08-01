@@ -17,7 +17,7 @@ public enum AttachmentDownloadJob: JobExecutor {
         success: @escaping (Job, Bool, Dependencies) -> (),
         failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
         deferred: @escaping (Job, Dependencies) -> (),
-        dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) {
         guard
             let threadId: String = job.threadId,

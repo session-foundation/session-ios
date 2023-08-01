@@ -17,15 +17,19 @@ class MockJobRunner: Mock<JobRunnerType>, JobRunnerType {
         return accept(args: [queue]) as! Bool
     }
     
+    func afterBlockingQueue(callback: @escaping () -> ()) {
+        callback()
+    }
+    
     // MARK: - State Management
     
     func jobInfoFor(jobs: [Job]?, state: JobRunner.JobState, variant: Job.Variant?) -> [Int64: JobRunner.JobInfo] {
         return accept(args: [jobs, state, variant]) as! [Int64: JobRunner.JobInfo]
     }
     
-    func appDidFinishLaunching(dependencies: Dependencies) {}
-    func appDidBecomeActive(dependencies: Dependencies) {}
-    func startNonBlockingQueues(dependencies: Dependencies) {}
+    func appDidFinishLaunching(using dependencies: Dependencies) {}
+    func appDidBecomeActive(using dependencies: Dependencies) {}
+    func startNonBlockingQueues(using dependencies: Dependencies) {}
     
     func stopAndClearPendingJobs(exceptForVariant: Job.Variant?, onComplete: (() -> ())?) {
         accept(args: [exceptForVariant, onComplete])
@@ -34,15 +38,15 @@ class MockJobRunner: Mock<JobRunnerType>, JobRunnerType {
     
     // MARK: - Job Scheduling
     
-    @discardableResult func add(_ db: Database, job: Job?, canStartJob: Bool, dependencies: Dependencies) -> Job? {
+    @discardableResult func add(_ db: Database, job: Job?, canStartJob: Bool, using dependencies: Dependencies) -> Job? {
         return accept(args: [db, job, canStartJob]) as? Job
     }
     
-    func upsert(_ db: Database, job: Job?, canStartJob: Bool, dependencies: Dependencies) {
+    func upsert(_ db: Database, job: Job?, canStartJob: Bool, using dependencies: Dependencies) {
         accept(args: [db, job, canStartJob])
     }
     
-    func insert(_ db: Database, job: Job?, before otherJob: Job, dependencies: Dependencies) -> (Int64, Job)? {
+    func insert(_ db: Database, job: Job?, before otherJob: Job) -> (Int64, Job)? {
         return accept(args: [db, job, otherJob]) as? (Int64, Job)
     }
 }

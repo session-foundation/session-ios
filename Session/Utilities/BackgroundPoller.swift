@@ -13,10 +13,7 @@ public final class BackgroundPoller {
 
     public static func poll(
         completionHandler: @escaping (UIBackgroundFetchResult) -> Void,
-        dependencies: OpenGroupManager.OGMDependencies = OpenGroupManager.OGMDependencies(
-            subscribeQueue: .global(qos: .background),
-            receiveQueue: .main
-        )
+        using dependencies: Dependencies = Dependencies()
     ) {
         Publishers
             .MergeMany(
@@ -55,8 +52,8 @@ public final class BackgroundPoller {
                             }
                     )
             )
-            .subscribe(on: dependencies.subscribeQueue)
-            .receive(on: dependencies.receiveQueue)
+            .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
+            .receive(on: DispatchQueue.main, using: dependencies)
             .collect()
             .sinkUntilComplete(
                 receiveCompletion: { result in
@@ -74,7 +71,7 @@ public final class BackgroundPoller {
     }
     
     private static func pollForMessages(
-        using dependencies: OpenGroupManager.OGMDependencies
+        using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         let userPublicKey: String = getUserHexEncodedPublicKey()
 
@@ -94,7 +91,7 @@ public final class BackgroundPoller {
     }
     
     private static func pollForClosedGroupMessages(
-        using dependencies: OpenGroupManager.OGMDependencies
+        using dependencies: Dependencies
     ) -> [AnyPublisher<Void, Error>] {
         // Fetch all closed groups (excluding any don't contain the current user as a
         // GroupMemeber as the user is no longer a member of those)

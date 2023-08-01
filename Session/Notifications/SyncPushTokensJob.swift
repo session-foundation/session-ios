@@ -20,7 +20,7 @@ public enum SyncPushTokensJob: JobExecutor {
         success: @escaping (Job, Bool, Dependencies) -> (),
         failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
         deferred: @escaping (Job, Dependencies) -> (),
-        dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies = Dependencies()
     ) {
         // Don't run when inactive or not in main app or if the user doesn't exist yet
         guard (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false) else {

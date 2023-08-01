@@ -418,7 +418,7 @@ extension SendMediaNavigationController: AttachmentApprovalViewControllerDelegat
         attachmentDraftCollection.remove(attachment: attachment)
     }
 
-    func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didApproveAttachments attachments: [SignalAttachment], forThreadId threadId: String, messageText: String?) {
+    func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didApproveAttachments attachments: [SignalAttachment], forThreadId threadId: String, messageText: String?, using dependencies: Dependencies) {
         sendMediaNavDelegate?.sendMediaNav(self, didApproveAttachments: attachments, forThreadId: threadId, messageText: messageText)
     }
 

@@ -250,7 +250,7 @@ public extension Profile {
     ///
     /// **Note:** This method intentionally does **not** save the newly created Profile,
     /// it will need to be explicitly saved after calling
-    static func fetchOrCreateCurrentUser(_ db: Database? = nil, dependencies: Dependencies = Dependencies()) -> Profile {
+    static func fetchOrCreateCurrentUser(_ db: Database? = nil, using dependencies: Dependencies = Dependencies()) -> Profile {
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         
         guard let db: Database = db else {

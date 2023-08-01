@@ -28,13 +28,13 @@ else
     base="session-ios-$(date --date=@$DRONE_BUILD_CREATED +%Y%m%dT%H%M%SZ)-${DRONE_COMMIT:0:9}"
 fi
 
-mkdir -v "$base"
+mkdir -vp "$base"
 
 # Copy over the build products
 prod_path="build/Session.xcarchive"
 sim_path="build/Session_sim.xcarchive/Products/Applications/Session.app"
 
-mkdir build
+mkdir -p build
 echo "Test" > "build/test.txt"
 
 if [ ! -d $prod_path ]; then

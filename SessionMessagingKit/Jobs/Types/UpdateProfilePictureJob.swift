@@ -15,7 +15,7 @@ public enum UpdateProfilePictureJob: JobExecutor {
         success: @escaping (Job, Bool, Dependencies) -> (),
         failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
         deferred: @escaping (Job, Dependencies) -> (),
-        dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) {
         // Don't run when inactive or not in main app
         guard (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false) else {
@@ -24,8 +24,8 @@ public enum UpdateProfilePictureJob: JobExecutor {
         
         // Only re-upload the profile picture if enough time has passed since the last upload
         guard
-            let lastProfilePictureUpload: Date = UserDefaults.standard[.lastProfilePictureUpload],
-            Date().timeIntervalSince(lastProfilePictureUpload) > (14 * 24 * 60 * 60)
+            let lastProfilePictureUpload: Date = dependencies.standardUserDefaults[.lastProfilePictureUpload],
+            dependencies.dateNow.timeIntervalSince(lastProfilePictureUpload) > (14 * 24 * 60 * 60)
         else {
             // Reset the `nextRunTimestamp` value just in case the last run failed so we don't get stuck
             // in a loop endlessly deferring the job
@@ -42,7 +42,7 @@ public enum UpdateProfilePictureJob: JobExecutor {
         }
         
         // Note: The user defaults flag is updated in ProfileManager
-        let profile: Profile = Profile.fetchOrCreateCurrentUser(dependencies: dependencies)
+        let profile: Profile = Profile.fetchOrCreateCurrentUser(using: dependencies)
         let profilePictureData: Data? = profile.profilePictureFileName
             .map { ProfileManager.loadProfileData(with: $0) }
         

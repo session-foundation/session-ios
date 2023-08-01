@@ -16,7 +16,7 @@ public enum FailedAttachmentDownloadsJob: JobExecutor {
         success: @escaping (Job, Bool, Dependencies) -> (),
         failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
         deferred: @escaping (Job, Dependencies) -> (),
-        dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) {
         var changeCount: Int = -1
         

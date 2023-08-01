@@ -53,18 +53,18 @@ public class Poller {
     }
     
     /// Calculate the delay which should occur before the next poll
-    internal func nextPollDelay(for publicKey: String) -> TimeInterval {
+    internal func nextPollDelay(for publicKey: String, using dependencies: Dependencies) -> TimeInterval {
         preconditionFailure("abstract class - override in subclass")
     }
     
     /// Perform and logic which should occur when the poll errors, will stop polling if `false` is returned
-    internal func handlePollError(_ error: Error, for publicKey: String, using dependencies: SMKDependencies) -> Bool {
+    internal func handlePollError(_ error: Error, for publicKey: String, using dependencies: Dependencies) -> Bool {
         preconditionFailure("abstract class - override in subclass")
     }
 
     // MARK: - Private API
     
-    internal func startIfNeeded(for publicKey: String) {
+    internal func startIfNeeded(for publicKey: String, using dependencies: Dependencies) {
         // Run on the 'pollerQueue' to ensure any 'Atomic' access doesn't block the main thread
         // on startup
         Threading.pollerQueue.async { [weak self] in
@@ -74,13 +74,13 @@ public class Poller {
             // and the timer is not created, if we mark the group as is polling
             // after setUpPolling. So the poller may not work, thus misses messages
             self?.isPolling.mutate { $0[publicKey] = true }
-            self?.pollRecursively(for: publicKey)
+            self?.pollRecursively(for: publicKey, using: dependencies)
         }
     }
     
     internal func getSnodeForPolling(
         for publicKey: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies
     ) -> AnyPublisher<Snode, Error> {
         // If we don't want to poll a snode multiple times then just grab a random one from the swarm
         guard maxNodePollCount > 0 else {
@@ -135,14 +135,14 @@ public class Poller {
     
     private func pollRecursively(
         for publicKey: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies
     ) {
         guard isPolling.wrappedValue[publicKey] == true else { return }
         
         let namespaces: [SnodeAPI.Namespace] = self.namespaces
-        let lastPollStart: TimeInterval = Date().timeIntervalSince1970
-        let lastPollInterval: TimeInterval = nextPollDelay(for: publicKey)
-        let getSnodePublisher: AnyPublisher<Snode, Error> = getSnodeForPolling(for: publicKey)
+        let lastPollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+        let lastPollInterval: TimeInterval = nextPollDelay(for: publicKey, using: dependencies)
+        let getSnodePublisher: AnyPublisher<Snode, Error> = getSnodeForPolling(for: publicKey, using: dependencies)
         
         // Store the publisher intp the cancellables dictionary
         cancellables.mutate { [weak self] cancellables in
@@ -156,8 +156,8 @@ public class Poller {
                         using: dependencies
                     )
                 }
-                .subscribe(on: dependencies.subscribeQueue)
-                .receive(on: dependencies.receiveQueue)
+                .subscribe(on: Threading.pollerQueue, using: dependencies)
+                .receive(on: Threading.pollerQueue, using: dependencies)
                 .sink(
                     receiveCompletion: { result in
                         switch result {
@@ -174,21 +174,21 @@ public class Poller {
                         self?.incrementPollCount(publicKey: publicKey)
                         
                         // Calculate the remaining poll delay
-                        let currentTime: TimeInterval = Date().timeIntervalSince1970
+                        let currentTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
                         let nextPollInterval: TimeInterval = (
-                            self?.nextPollDelay(for: publicKey) ??
+                            self?.nextPollDelay(for: publicKey, using: dependencies) ??
                             lastPollInterval
                         )
                         let remainingInterval: TimeInterval = max(0, nextPollInterval - (currentTime - lastPollStart))
                         
                         // Schedule the next poll
                         guard remainingInterval > 0 else {
-                            return dependencies.subscribeQueue.async {
+                            return Threading.pollerQueue.async(using: dependencies) {
                                 self?.pollRecursively(for: publicKey, using: dependencies)
                             }
                         }
                         
-                        dependencies.subscribeQueue.asyncAfter(deadline: .now() + .milliseconds(Int(remainingInterval * 1000)), qos: .default) {
+                        Threading.pollerQueue.asyncAfter(deadline: .now() + .milliseconds(Int(remainingInterval * 1000)), qos: .default, using: dependencies) {
                             self?.pollRecursively(for: publicKey, using: dependencies)
                         }
                     },
@@ -209,10 +209,7 @@ public class Poller {
         calledFromBackgroundPoller: Bool = false,
         isBackgroundPollValid: @escaping (() -> Bool) = { true },
         poller: Poller? = nil,
-        using dependencies: SMKDependencies = SMKDependencies(
-            subscribeQueue: Threading.pollerQueue,
-            receiveQueue: Threading.pollerQueue
-        )
+        using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<[Message], Error> {
         // If the polling has been cancelled then don't continue
         guard
@@ -276,7 +273,7 @@ public class Poller {
                 var standardMessageJobsToRun: [Job] = []
                 var pollerLogOutput: String = "\(pollerName) failed to process any messages"
                 
-                Storage.shared.write { db in
+                dependencies.storage.write { db in
                     let allProcessedMessages: [ProcessedMessage] = allMessages
                         .compactMap { message -> ProcessedMessage? in
                             do {
@@ -338,7 +335,7 @@ public class Poller {
                                     db,
                                     job: jobToRun,
                                     canStartJob: !calledFromBackgroundPoller,
-                                    dependencies: dependencies
+                                    using: dependencies
                                 )
                                 
                             return updatedJob?.id
@@ -372,7 +369,7 @@ public class Poller {
                                     db,
                                     job: jobToRun,
                                     canStartJob: !calledFromBackgroundPoller,
-                                    dependencies: dependencies
+                                    using: dependencies
                                 )
                             
                             // Create the dependency between the jobs
@@ -429,10 +426,11 @@ public class Poller {
                                     // Note: In the background we just want jobs to fail silently
                                     ConfigMessageReceiveJob.run(
                                         job,
-                                        queue: dependencies.receiveQueue,
+                                        queue: Threading.pollerQueue,
                                         success: { _, _, _ in resolver(Result.success(())) },
                                         failure: { _, _, _, _ in resolver(Result.success(())) },
-                                        deferred: { _, _ in resolver(Result.success(())) }
+                                        deferred: { _, _ in resolver(Result.success(())) },
+                                        using: dependencies
                                     )
                                 }
                             }
@@ -449,10 +447,11 @@ public class Poller {
                                             // Note: In the background we just want jobs to fail silently
                                             MessageReceiveJob.run(
                                                 job,
-                                                queue: dependencies.receiveQueue,
+                                                queue: Threading.pollerQueue,
                                                 success: { _, _, _ in resolver(Result.success(())) },
                                                 failure: { _, _, _, _ in resolver(Result.success(())) },
-                                                deferred: { _, _ in resolver(Result.success(())) }
+                                                deferred: { _, _ in resolver(Result.success(())) },
+                                                using: dependencies
                                             )
                                         }
                                     }

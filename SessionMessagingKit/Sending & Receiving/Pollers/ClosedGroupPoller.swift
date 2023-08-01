@@ -23,23 +23,23 @@ public final class ClosedGroupPoller: Poller {
 
     // MARK: - Public API
     
-    public func start() {
+    public func start(using dependencies: Dependencies = Dependencies()) {
         // Fetch all closed groups (excluding any don't contain the current user as a
         // GroupMemeber as the user is no longer a member of those)
-        Storage.shared
+        dependencies.storage
             .read { db in
                 try ClosedGroup
                     .select(.threadId)
                     .joining(
                         required: ClosedGroup.members
-                            .filter(GroupMember.Columns.profileId == getUserHexEncodedPublicKey(db))
+                            .filter(GroupMember.Columns.profileId == getUserHexEncodedPublicKey(db, using: dependencies))
                     )
                     .asRequest(of: String.self)
                     .fetchAll(db)
             }
             .defaulting(to: [])
             .forEach { [weak self] publicKey in
-                self?.startIfNeeded(for: publicKey)
+                self?.startIfNeeded(for: publicKey, using: dependencies)
             }
     }
 
@@ -49,7 +49,7 @@ public final class ClosedGroupPoller: Poller {
         return "closed group with public key: \(publicKey)"
     }
 
-    override func nextPollDelay(for publicKey: String) -> TimeInterval {
+    override func nextPollDelay(for publicKey: String, using dependencies: Dependencies) -> TimeInterval {
         // Get the received date of the last message in the thread. If we don't have
         // any messages yet, pick some reasonable fake time interval to use instead
         let lastMessageDate: Date = Storage.shared
@@ -68,7 +68,7 @@ public final class ClosedGroupPoller: Poller {
             }
             .defaulting(to: Date().addingTimeInterval(-5 * 60))
         
-        let timeSinceLastMessage: TimeInterval = Date().timeIntervalSince(lastMessageDate)
+        let timeSinceLastMessage: TimeInterval = dependencies.dateNow.timeIntervalSince(lastMessageDate)
         let minPollInterval: Double = ClosedGroupPoller.minPollInterval
         let limit: Double = (12 * 60 * 60)
         let a: TimeInterval = ((ClosedGroupPoller.maxPollInterval - minPollInterval) / limit)
@@ -78,11 +78,7 @@ public final class ClosedGroupPoller: Poller {
         return nextPollInterval
     }
 
-    override func handlePollError(
-        _ error: Error,
-        for publicKey: String,
-        using dependencies: SMKDependencies = SMKDependencies()
-    ) -> Bool {
+    override func handlePollError(_ error: Error, for publicKey: String, using dependencies: Dependencies) -> Bool {
         SNLog("Polling failed for closed group with public key: \(publicKey) due to error: \(error).")
         return true
     }

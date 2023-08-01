@@ -15,7 +15,7 @@ public enum ConfigMessageReceiveJob: JobExecutor {
         success: @escaping (Job, Bool, Dependencies) -> (),
         failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
         deferred: @escaping (Job, Dependencies) -> (),
-        dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies = Dependencies()
     ) {
         /// When the `configMessageReceive` job fails we want to unblock any `messageReceive` jobs it was blocking
         /// to ensure the user isn't losing any messages - this generally _shouldn't_ happen but if it does then having a temporary

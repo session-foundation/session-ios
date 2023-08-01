@@ -76,7 +76,7 @@ public extension BlindedIdLookup {
         openGroupServer: String,
         openGroupPublicKey: String,
         isCheckingForOutbox: Bool,
-        dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> BlindedIdLookup {
         var lookup: BlindedIdLookup = (try? BlindedIdLookup
             .fetchOne(db, id: blindedId))
@@ -94,11 +94,13 @@ public extension BlindedIdLookup {
         // If we we given a sessionId then validate it is correct and if so save it
         if
             let sessionId: String = sessionId,
-            dependencies.sodium.sessionId(
-                sessionId,
-                matchesBlindedId: blindedId,
-                serverPublicKey: openGroupPublicKey,
-                genericHash: dependencies.genericHash
+            dependencies.crypto.verify(
+                .sessionId(
+                    sessionId,
+                    matchesBlindedId: blindedId,
+                    serverPublicKey: openGroupPublicKey,
+                    using: dependencies
+                )
             )
         {
             lookup = try lookup
@@ -115,9 +117,16 @@ public extension BlindedIdLookup {
             .fetchCursor(db)
         
         while let contact: Contact = try contactsThatApprovedMeCursor.next() {
-            guard dependencies.sodium.sessionId(contact.id, matchesBlindedId: blindedId, serverPublicKey: openGroupPublicKey, genericHash: dependencies.genericHash) else {
-                continue
-            }
+            guard
+                dependencies.crypto.verify(
+                    .sessionId(
+                        contact.id,
+                        matchesBlindedId: blindedId,
+                        serverPublicKey: openGroupPublicKey,
+                        using: dependencies
+                    )
+                )
+            else { continue }
             
             // We found a match so update the lookup and leave the loop
             lookup = try lookup
@@ -151,11 +160,13 @@ public extension BlindedIdLookup {
         while let otherLookup: BlindedIdLookup = try blindedIdLookupCursor.next() {
             guard
                 let sessionId: String = otherLookup.sessionId,
-                dependencies.sodium.sessionId(
-                    sessionId,
-                    matchesBlindedId: blindedId,
-                    serverPublicKey: openGroupPublicKey,
-                    genericHash: dependencies.genericHash
+                dependencies.crypto.verify(
+                    .sessionId(
+                        sessionId,
+                        matchesBlindedId: blindedId,
+                        serverPublicKey: openGroupPublicKey,
+                        using: dependencies
+                    )
                 )
             else { continue }
             

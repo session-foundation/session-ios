@@ -17,7 +17,7 @@ public enum AttachmentUploadJob: JobExecutor {
         success: @escaping (Job, Bool, Dependencies) -> (),
         failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
         deferred: @escaping (Job, Dependencies) -> (),
-        dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) {
         guard
             let threadId: String = job.threadId,
@@ -72,7 +72,7 @@ public enum AttachmentUploadJob: JobExecutor {
         // reentrancy issues when the success/failure closures get called before the upload as the JobRunner
         // will attempt to update the state of the job immediately
         attachment
-            .upload(to: (openGroup.map { .openGroup($0) } ?? .fileServer))
+            .upload(to: (openGroup.map { .openGroup($0) } ?? .fileServer), using: dependencies)
             .subscribe(on: queue)
             .receive(on: queue)
             .sinkUntilComplete(
@@ -95,7 +95,8 @@ public enum AttachmentUploadJob: JobExecutor {
                                     message: details.message,
                                     with: .other(error),
                                     interactionId: interactionId,
-                                    isSyncMessage: details.isSyncMessage
+                                    isSyncMessage: details.isSyncMessage,
+                                    using: dependencies
                                 )
                             }
                             

@@ -17,7 +17,7 @@ public enum SendReadReceiptsJob: JobExecutor {
         success: @escaping (Job, Bool, Dependencies) -> (),
         failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
         deferred: @escaping (Job, Dependencies) -> (),
-        dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) {
         guard
             let threadId: String = job.threadId,
@@ -47,7 +47,7 @@ public enum SendReadReceiptsJob: JobExecutor {
                     isSyncMessage: false
                 )
             }
-            .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
+            .flatMap { MessageSender.sendImmediate(data: $0, using: dependencies) }
             .subscribe(on: queue)
             .receive(on: queue)
             .sinkUntilComplete(
@@ -59,7 +59,7 @@ public enum SendReadReceiptsJob: JobExecutor {
                             // another one for the same thread but with a 'nextRunTimestamp' set to the
                             // 'maxRunFrequency' value to throttle the read receipt requests
                             var shouldFinishCurrentJob: Bool = false
-                            let nextRunTimestamp: TimeInterval = (Date().timeIntervalSince1970 + maxRunFrequency)
+                            let nextRunTimestamp: TimeInterval = (dependencies.dateNow.timeIntervalSince1970 + maxRunFrequency)
                             
                             let updatedJob: Job? = Storage.shared.write { db in
                                 // If another 'sendReadReceipts' job was scheduled then update that one

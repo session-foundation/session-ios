@@ -175,7 +175,13 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             )
     }
     
-    func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didApproveAttachments attachments: [SignalAttachment], forThreadId threadId: String, messageText: String?) {
+    func attachmentApproval(
+        _ attachmentApproval: AttachmentApprovalViewController,
+        didApproveAttachments attachments: [SignalAttachment],
+        forThreadId threadId: String,
+        messageText: String?,
+        using dependencies: Dependencies = Dependencies()
+    ) {
         // Sharing a URL or plain text will populate the 'messageText' field so in those
         // cases we should ignore the attachments
         let isSharingUrl: Bool = (attachments.count == 1 && attachments[0].isUrl)
@@ -198,7 +204,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             // Resume database
             NotificationCenter.default.post(name: Database.resumeNotification, object: self)
             
-            Storage.shared
+            dependencies.storage
                 .writePublisher { db -> MessageSender.PreparedSendData in
                     guard
                         let threadVariant: SessionThread.Variant = try SessionThread
@@ -262,12 +268,13 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                             db,
                             interaction: interaction,
                             threadId: threadId,
-                            threadVariant: threadVariant
+                            threadVariant: threadVariant,
+                            using: dependencies
                         )
                 }
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .flatMap { MessageSender.performUploadsIfNeeded(preparedSendData: $0) }
-                .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
+                .flatMap { MessageSender.performUploadsIfNeeded(preparedSendData: $0, using: dependencies) }
+                .flatMap { MessageSender.sendImmediate(data: $0, using: dependencies) }
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(

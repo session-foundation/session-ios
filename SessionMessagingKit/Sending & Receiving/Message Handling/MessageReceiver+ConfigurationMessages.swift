@@ -7,7 +7,11 @@ import SessionUIKit
 import SessionUtilitiesKit
 
 extension MessageReceiver {
-    internal static func handleLegacyConfigurationMessage(_ db: Database, message: ConfigurationMessage) throws {
+    internal static func handleLegacyConfigurationMessage(
+        _ db: Database,
+        message: ConfigurationMessage,
+        using dependencies: Dependencies
+    ) throws {
         // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
         guard !SessionUtil.userConfigsEnabled(db) else {
             TopBannerController.show(warning: .outdatedUserConfig)
@@ -46,7 +50,8 @@ extension MessageReceiver {
                 )
             }(),
             sentTimestamp: messageSentTimestamp,
-            calledFromConfigHandling: true
+            calledFromConfigHandling: true,
+            using: dependencies
         )
         
         // Create a contact for the current user if needed (also force-approve the current user
@@ -192,7 +197,8 @@ extension MessageReceiver {
                         admins: [String](closedGroup.admins),
                         expirationTimer: closedGroup.expirationTimer,
                         formationTimestampMs: message.sentTimestamp!,
-                        calledFromConfigHandling: false // Legacy config isn't an issue
+                        calledFromConfigHandling: false, // Legacy config isn't an issue
+                        using: dependencies
                     )
                 }
             }

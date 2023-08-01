@@ -17,7 +17,7 @@ public enum GetSnodePoolJob: JobExecutor {
         success: @escaping (Job, Bool, Dependencies) -> (),
         failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
         deferred: @escaping (Job, Dependencies) -> (),
-        dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) {
         // If we already have cached Snodes then we still want to trigger the 'SnodeAPI.getSnodePool'
         // but we want to succeed this job immediately (since it's marked as blocking), this allows us
@@ -35,7 +35,7 @@ public enum GetSnodePoolJob: JobExecutor {
         // If we don't have the snode pool cached then we should also try to build the path (this will
         // speed up the onboarding process for new users because it can run before the user is created)
         SnodeAPI.getSnodePool()
-            .flatMap { _ in OnionRequestAPI.getPath(excluding: nil) }
+            .flatMap { _ in OnionRequestAPI.getPath(excluding: nil, using: dependencies) }
             .subscribe(on: queue)
             .receive(on: queue)
             .sinkUntilComplete(
@@ -53,13 +53,14 @@ public enum GetSnodePoolJob: JobExecutor {
             )
     }
     
-    public static func run() {
+    public static func run(using dependencies: Dependencies = Dependencies()) {
         GetSnodePoolJob.run(
             Job(variant: .getSnodePool),
             queue: .global(qos: .background),
             success: { _, _, _ in },
             failure: { _, _, _, _ in },
-            deferred: { _, _ in }
+            deferred: { _, _ in },
+            using: dependencies
         )
     }
 }

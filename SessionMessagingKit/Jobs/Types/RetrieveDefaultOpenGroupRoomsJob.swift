@@ -15,7 +15,7 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
         success: @escaping (Job, Bool, Dependencies) -> (),
         failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
         deferred: @escaping (Job, Dependencies) -> (),
-        dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) {
         // Don't run when inactive or not in main app
         guard (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false) else {

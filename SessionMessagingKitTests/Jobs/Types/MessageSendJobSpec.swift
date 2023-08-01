@@ -15,8 +15,8 @@ class MessageSendJobSpec: QuickSpec {
     override func spec() {
         var job: Job!
         var interaction: Interaction!
-        var attachment1: Attachment!
-        var interactionAttachment1: InteractionAttachment!
+        var attachment: Attachment!
+        var interactionAttachment: InteractionAttachment!
         var mockStorage: Storage!
         var mockJobRunner: MockJobRunner!
         var dependencies: Dependencies!
@@ -24,8 +24,10 @@ class MessageSendJobSpec: QuickSpec {
         // MARK: - JobRunner
         
         describe("a MessageSendJob") {
+            // MARK: - Configuration
+            
             beforeEach {
-                mockStorage = Storage(
+                mockStorage = SynchronousStorage(
                     customWriter: try! DatabaseQueue(),
                     customMigrationTargets: [
                         SNUtilitiesKit.self,
@@ -36,9 +38,9 @@ class MessageSendJobSpec: QuickSpec {
                 dependencies = Dependencies(
                     storage: mockStorage,
                     jobRunner: mockJobRunner,
-                    date: Date(timeIntervalSince1970: 1234567890)
+                    dateNow: Date(timeIntervalSince1970: 1234567890)
                 )
-                attachment1 = Attachment(
+                attachment = Attachment(
                     id: "200",
                     variant: .standard,
                     state: .failedDownload,
@@ -60,7 +62,7 @@ class MessageSendJobSpec: QuickSpec {
                     }
                     .thenReturn([:])
                 mockJobRunner
-                    .when { $0.insert(any(), job: any(), before: any(), dependencies: dependencies) }
+                    .when { $0.insert(any(), job: any(), before: any()) }
                     .then { args in
                         let db: Database = args[0] as! Database
                         var job: Job = args[1] as! Job
@@ -77,6 +79,7 @@ class MessageSendJobSpec: QuickSpec {
                 dependencies = nil
             }
             
+            // MARK: - fails when not given any details
             it("fails when not given any details") {
                 job = Job(variant: .messageSend)
                 
@@ -92,14 +95,15 @@ class MessageSendJobSpec: QuickSpec {
                         permanentFailure = runPermanentFailure
                     },
                     deferred: { _, _ in },
-                    dependencies: dependencies
+                    using: dependencies
                 )
                 
                 expect(error).to(matchError(JobRunnerError.missingRequiredDetails))
                 expect(permanentFailure).to(beTrue())
             }
             
-            it("fails when not given incorrect details") {
+            // MARK: - fails when given incorrect details
+            it("fails when given incorrect details") {
                 job = Job(
                     variant: .messageSend,
                     details: MessageReceiveJob.Details(messages: [], calledFromBackgroundPoller: false)
@@ -117,13 +121,14 @@ class MessageSendJobSpec: QuickSpec {
                         permanentFailure = runPermanentFailure
                     },
                     deferred: { _, _ in },
-                    dependencies: dependencies
+                    using: dependencies
                 )
                 
                 expect(error).to(matchError(JobRunnerError.missingRequiredDetails))
                 expect(permanentFailure).to(beTrue())
             }
             
+            // MARK: - of VisibleMessage
             context("of VisibleMessage") {
                 beforeEach {
                     interaction = Interaction(
@@ -162,6 +167,7 @@ class MessageSendJobSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: -- fails when there is no job id
                 it("fails when there is no job id") {
                     job = Job(
                         variant: .messageSend,
@@ -186,13 +192,14 @@ class MessageSendJobSpec: QuickSpec {
                             permanentFailure = runPermanentFailure
                         },
                         deferred: { _, _ in },
-                        dependencies: dependencies
+                        using: dependencies
                     )
                     
                     expect(error).to(matchError(JobRunnerError.missingRequiredDetails))
                     expect(permanentFailure).to(beTrue())
                 }
                 
+                // MARK: -- fails when there is no interaction id
                 it("fails when there is no interaction id") {
                     job = Job(
                         variant: .messageSend,
@@ -216,13 +223,14 @@ class MessageSendJobSpec: QuickSpec {
                             permanentFailure = runPermanentFailure
                         },
                         deferred: { _, _ in },
-                        dependencies: dependencies
+                        using: dependencies
                     )
                     
                     expect(error).to(matchError(JobRunnerError.missingRequiredDetails))
                     expect(permanentFailure).to(beTrue())
                 }
                 
+                // MARK: -- fails when there is no interaction for the provided interaction id
                 it("fails when there is no interaction for the provided interaction id") {
                     job = Job(
                         variant: .messageSend,
@@ -248,29 +256,32 @@ class MessageSendJobSpec: QuickSpec {
                             permanentFailure = runPermanentFailure
                         },
                         deferred: { _, _ in },
-                        dependencies: dependencies
+                        using: dependencies
                     )
                     
                     expect(error).to(matchError(StorageError.objectNotFound))
                     expect(permanentFailure).to(beTrue())
                 }
+                
+                // MARK: -- with an attachment
                 context("with an attachment") {
                     beforeEach {
-                        interactionAttachment1 = InteractionAttachment(
+                        interactionAttachment = InteractionAttachment(
                             albumIndex: 0,
                             interactionId: interaction.id!,
-                            attachmentId: attachment1.id
+                            attachmentId: attachment.id
                         )
                         
                         mockStorage.write { db in
-                            try attachment1.insert(db)
-                            try interactionAttachment1.insert(db)
+                            try attachment.insert(db)
+                            try interactionAttachment.insert(db)
                         }
                     }
                     
+                    // MARK: ---- it fails when trying to send with an attachment which previously failed to download
                     it("it fails when trying to send with an attachment which previously failed to download") {
                         mockStorage.write { db in
-                            try attachment1.with(state: .failedDownload).save(db)
+                            try attachment.with(state: .failedDownload).save(db)
                         }
                         
                         var error: Error? = nil
@@ -285,54 +296,27 @@ class MessageSendJobSpec: QuickSpec {
                                 permanentFailure = runPermanentFailure
                             },
                             deferred: { _, _ in },
-                            dependencies: dependencies
+                            using: dependencies
                         )
                         
                         expect(error).to(matchError(AttachmentError.notUploaded))
                         expect(permanentFailure).to(beTrue())
                     }
                     
-                    it("it fails when trying to send with an attachment that has an invalid downloadUrl") {
-                        mockStorage.write { db in
-                            try attachment1
-                                .with(
-                                    state: .uploaded,
-                                    downloadUrl: nil
-                                )
-                                .save(db)
-                        }
-                        
-                        var error: Error? = nil
-                        var permanentFailure: Bool = false
-                        
-                        MessageSendJob.run(
-                            job,
-                            queue: .main,
-                            success: { _, _, _ in },
-                            failure: { _, runError, runPermanentFailure, _ in
-                                error = runError
-                                permanentFailure = runPermanentFailure
-                            },
-                            deferred: { _, _ in },
-                            dependencies: dependencies
-                        )
-                        
-                        expect(error).to(matchError(AttachmentError.notUploaded))
-                        expect(permanentFailure).to(beTrue())
-                    }
-                    
+                    // MARK: ---- with a pending upload
                     context("with a pending upload") {
                         beforeEach {
                             mockStorage.write { db in
-                                try attachment1.with(state: .uploading).save(db)
+                                try attachment.with(state: .uploading).save(db)
                             }
                         }
                         
+                        // MARK: ------ it defers when trying to send with an attachment which is still pending upload
                         it("it defers when trying to send with an attachment which is still pending upload") {
                             var didDefer: Bool = false
                             
                             mockStorage.write { db in
-                                try attachment1.with(state: .uploading).save(db)
+                                try attachment.with(state: .uploading).save(db)
                             }
                             
                             MessageSendJob.run(
@@ -341,12 +325,38 @@ class MessageSendJobSpec: QuickSpec {
                                 success: { _, _, _ in },
                                 failure: { _, _, _, _ in },
                                 deferred: { _, _ in didDefer = true },
-                                dependencies: dependencies
+                                using: dependencies
                             )
                             
                             expect(didDefer).to(beTrue())
                         }
                         
+                        // MARK: ------ it defers when trying to send with an uploaded attachment that has an invalid downloadUrl
+                        it("it defers when trying to send with an uploaded attachment that has an invalid downloadUrl") {
+                            var didDefer: Bool = false
+                            
+                            mockStorage.write { db in
+                                try attachment
+                                    .with(
+                                        state: .uploaded,
+                                        downloadUrl: nil
+                                    )
+                                    .save(db)
+                            }
+                            
+                            MessageSendJob.run(
+                                job,
+                                queue: .main,
+                                success: { _, _, _ in },
+                                failure: { _, _, _, _ in },
+                                deferred: { _, _ in didDefer = true },
+                                using: dependencies
+                            )
+                            
+                            expect(didDefer).to(beTrue())
+                        }
+                        
+                        // MARK: ------ inserts an attachment upload job before the message send job
                         it("inserts an attachment upload job before the message send job") {
                             mockJobRunner
                                 .when {
@@ -356,17 +366,7 @@ class MessageSendJobSpec: QuickSpec {
                                         variant: .attachmentUpload
                                     )
                                 }
-                                .thenReturn([
-                                    2: JobRunner.JobInfo(
-                                        variant: .attachmentUpload,
-                                        threadId: nil,
-                                        interactionId: 100,
-                                        detailsData: try! JSONEncoder().encode(AttachmentUploadJob.Details(
-                                            messageSendJobId: 1,
-                                            attachmentId: "200"
-                                        ))
-                                    )
-                                ])
+                                .thenReturn([:])
                             
                             MessageSendJob.run(
                                 job,
@@ -374,7 +374,7 @@ class MessageSendJobSpec: QuickSpec {
                                 success: { _, _, _ in },
                                 failure: { _, _, _, _ in },
                                 deferred: { _, _ in },
-                                dependencies: dependencies
+                                using: dependencies
                             )
                             
                             expect(mockJobRunner)
@@ -392,12 +392,12 @@ class MessageSendJobSpec: QuickSpec {
                                                 attachmentId: "200"
                                             )
                                         ),
-                                        before: job,
-                                        dependencies: dependencies
+                                        before: job
                                     )
                                 })
                         }
                         
+                        // MARK: ------ creates a dependency between the new job and the existing one
                         it("creates a dependency between the new job and the existing one") {
                             MessageSendJob.run(
                                 job,
@@ -405,7 +405,7 @@ class MessageSendJobSpec: QuickSpec {
                                 success: { _, _, _ in },
                                 failure: { _, _, _, _ in },
                                 deferred: { _, _ in },
-                                dependencies: dependencies
+                                using: dependencies
                             )
                             
                             expect(mockStorage.read { db in try JobDependencies.fetchOne(db) })

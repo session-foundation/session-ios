@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
 import Sodium
 import Curve25519Kit
@@ -36,4 +37,41 @@ extension Job: Mocked {
 
 extension Job.Variant: Mocked {
     static var mockValue: Job.Variant = .messageSend
+}
+
+extension Network.RequestType: MockedGeneric {
+    typealias Generic = T
+    
+    static func mockValue(type: T.Type) -> Network.RequestType<T> {
+        return Network.RequestType(id: "mock") { Fail(error: MockError.mockedData).eraseToAnyPublisher() }
+    }
+}
+
+extension AnyPublisher: MockedGeneric where Failure == Error {
+    typealias Generic = Output
+    
+    static func mockValue(type: Output.Type) -> AnyPublisher<Output, Error> {
+        return Fail(error: MockError.mockedData).eraseToAnyPublisher()
+    }
+}
+
+extension Array: MockedGeneric {
+    typealias Generic = Element
+    
+    static func mockValue(type: Element.Type) -> [Element] { return [] }
+}
+
+extension Dictionary: MockedDoubleGeneric {
+    typealias GenericA = Key
+    typealias GenericB = Value
+    
+    static func mockValue(typeA: Key.Type, typeB: Value.Type) -> [Key: Value] { return [:] }
+}
+
+extension URLRequest: Mocked {
+    static var mockValue: URLRequest = URLRequest(url: URL(fileURLWithPath: "mock"))
+}
+
+extension NoResponse: Mocked {
+    static var mockValue: NoResponse = NoResponse()
 }

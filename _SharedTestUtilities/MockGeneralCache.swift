@@ -3,7 +3,7 @@
 import Foundation
 import SessionUtilitiesKit
 
-class MockGeneralCache: Mock<MutableGeneralCacheType>, MutableGeneralCacheType {
+class MockGeneralCache: Mock<GeneralCacheType>, GeneralCacheType {
     var encodedPublicKey: String? {
         get { return accept() as? String }
         set { accept(args: [newValue]) }

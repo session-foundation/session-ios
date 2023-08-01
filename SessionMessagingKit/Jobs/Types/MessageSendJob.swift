@@ -18,7 +18,7 @@ public enum MessageSendJob: JobExecutor {
         success: @escaping (Job, Bool, Dependencies) -> (),
         failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
         deferred: @escaping (Job, Dependencies) -> (),
-        dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) {
         guard
             let detailsData: Data = job.details,
@@ -90,6 +90,10 @@ public enum MessageSendJob: JobExecutor {
                             switch attachment.state {
                                 case .uploading, .pendingDownload, .downloading, .failedUpload, .downloaded:
                                     return true
+                                    
+                                // If we've somehow got an attachment that is in an 'uploaded' state but doesn't
+                                // have a 'downloadUrl' then it's invalid and needs to be re-uploaded
+                                case .uploaded: return (attachment.downloadUrl == nil)
 
                                 default: return false
                             }
@@ -122,7 +126,7 @@ public enum MessageSendJob: JobExecutor {
                             )
                         }
                         .compactMap { attachmentId -> (jobId: Int64, job: Job)? in
-                            JobRunner
+                            dependencies.jobRunner
                                 .insert(
                                     db,
                                     job: Job(
@@ -171,13 +175,14 @@ public enum MessageSendJob: JobExecutor {
                     to: details.destination,
                     namespace: details.destination.defaultNamespace,
                     interactionId: job.interactionId,
-                    isSyncMessage: details.isSyncMessage
+                    isSyncMessage: details.isSyncMessage,
+                    using: dependencies
                 )
             }
             .map { sendData in sendData.with(fileIds: messageFileIds) }
-            .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
-            .subscribe(on: queue)
-            .receive(on: queue)
+            .flatMap { MessageSender.sendImmediate(data: $0, using: dependencies) }
+            .subscribe(on: queue, using: dependencies)
+            .receive(on: queue, using: dependencies)
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {

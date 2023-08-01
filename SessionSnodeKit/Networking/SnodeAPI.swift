@@ -6,6 +6,18 @@ import Sodium
 import GRDB
 import SessionUtilitiesKit
 
+public extension Network.RequestType {
+    static func message(
+        _ message: SnodeMessage,
+        in namespace: SnodeAPI.Namespace,
+        using dependencies: Dependencies = Dependencies()
+    ) -> Network.RequestType<SendMessagesResponse> {
+        return Network.RequestType(id: "snodeAPI.sendMessage", args: [message, namespace]) {
+            SnodeAPI.sendMessage(message, in: namespace, using: dependencies)
+        }
+    }
+}
+
 public final class SnodeAPI {
     internal static let sodium: Atomic<Sodium> = Atomic(Sodium())
     
@@ -135,11 +147,13 @@ public final class SnodeAPI {
         return !hasInsufficientSnodes
     }
     
-    public static func getSnodePool() -> AnyPublisher<Set<Snode>, Error> {
+    public static func getSnodePool(
+        using dependencies: Dependencies = Dependencies()
+    ) -> AnyPublisher<Set<Snode>, Error> {
         loadSnodePoolIfNeeded()
         
         let now: Date = Date()
-        let hasSnodePoolExpired: Bool = Storage.shared[.lastSnodePoolRefreshDate]
+        let hasSnodePoolExpired: Bool = dependencies.storage[.lastSnodePoolRefreshDate]
             .map { now.timeIntervalSince($0) > 2 * 60 * 60 }
             .defaulting(to: true)
         let snodePool: Set<Snode> = SnodeAPI.snodePool.wrappedValue
@@ -163,10 +177,10 @@ public final class SnodeAPI {
             }
             
             let targetPublisher: AnyPublisher<Set<Snode>, Error> = {
-                guard snodePool.count >= minSnodePoolCount else { return getSnodePoolFromSeedNode() }
+                guard snodePool.count >= minSnodePoolCount else { return getSnodePoolFromSeedNode(using: dependencies) }
                 
-                return getSnodePoolFromSnode()
-                    .catch { _ in getSnodePoolFromSeedNode() }
+                return getSnodePoolFromSnode(using: dependencies)
+                    .catch { _ in getSnodePoolFromSeedNode(using: dependencies) }
                     .eraseToAnyPublisher()
             }()
             
@@ -199,7 +213,10 @@ public final class SnodeAPI {
         }
     }
     
-    public static func getSessionID(for onsName: String) -> AnyPublisher<String, Error> {
+    public static func getSessionID(
+        for onsName: String,
+        using dependencies: Dependencies = Dependencies()
+    ) -> AnyPublisher<String, Error> {
         let validationCount = 3
         
         // The name must be lowercased
@@ -236,7 +253,8 @@ public final class SnodeAPI {
                                                 )
                                             ),
                                             to: snode,
-                                            associatedWith: nil
+                                            associatedWith: nil,
+                                            using: dependencies
                                         )
                                         .decoded(as: ONSResolveResponse.self)
                                         .tryMap { _, response -> String in
@@ -264,7 +282,7 @@ public final class SnodeAPI {
     
     public static func getSwarm(
         for publicKey: String,
-        using dependencies: SSKDependencies = SSKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Set<Snode>, Error> {
         loadSwarmIfNeeded(for: publicKey)
         
@@ -304,14 +322,14 @@ public final class SnodeAPI {
         refreshingConfigHashes: [String] = [],
         from snode: Snode,
         associatedWith publicKey: String,
-        using dependencies: SSKDependencies = SSKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<[SnodeAPI.Namespace: (info: ResponseInfoType, data: (messages: [SnodeReceivedMessage], lastHash: String?)?)], Error> {
         guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair() else {
             return Fail(error: SnodeAPIError.noKeyPair)
                 .eraseToAnyPublisher()
         }
         
-        let userX25519PublicKey: String = getUserHexEncodedPublicKey()
+        let userX25519PublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
         
         return Just(())
             .setFailureType(to: Error.self)
@@ -324,14 +342,16 @@ public final class SnodeAPI {
                         SnodeReceivedMessageInfo.pruneExpiredMessageHashInfo(
                             for: snode,
                             namespace: namespace,
-                            associatedWith: publicKey
+                            associatedWith: publicKey,
+                            using: dependencies
                         )
                         
                         result[namespace] = SnodeReceivedMessageInfo
                             .fetchLastNotExpired(
                                 for: snode,
                                 namespace: namespace,
-                                associatedWith: publicKey
+                                associatedWith: publicKey,
+                                using: dependencies
                             )?
                             .hash
                     }
@@ -445,7 +465,7 @@ public final class SnodeAPI {
                                 .grouped(by: \.expiry)
                                 .mapValues({ groupedResults in groupedResults.map { $0.hash } })
                         {
-                            Storage.shared.writeAsync { db in
+                            dependencies.storage.writeAsync { db in
                                 try groupedExpiryResult.forEach { updatedExpiry, hashes in
                                     try SnodeReceivedMessageInfo
                                         .filter(hashes.contains(SnodeReceivedMessageInfo.Columns.hash))
@@ -493,7 +513,7 @@ public final class SnodeAPI {
         in namespace: SnodeAPI.Namespace,
         from snode: Snode,
         associatedWith publicKey: String,
-        using dependencies: SSKDependencies = SSKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<(info: ResponseInfoType, data: (messages: [SnodeReceivedMessage], lastHash: String?)?), Error> {
         return Deferred {
             Future<String?, Error> { resolver in
@@ -501,14 +521,16 @@ public final class SnodeAPI {
                 SnodeReceivedMessageInfo.pruneExpiredMessageHashInfo(
                     for: snode,
                     namespace: namespace,
-                    associatedWith: publicKey
+                    associatedWith: publicKey,
+                    using: dependencies
                 )
                 
                 let maybeLastHash: String? = SnodeReceivedMessageInfo
                     .fetchLastNotExpired(
                         for: snode,
                         namespace: namespace,
-                        associatedWith: publicKey
+                        associatedWith: publicKey,
+                        using: dependencies
                     )?
                     .hash
                 
@@ -592,7 +614,7 @@ public final class SnodeAPI {
     public static func sendMessage(
         _ message: SnodeMessage,
         in namespace: Namespace,
-        using dependencies: SSKDependencies = SSKDependencies()
+        using dependencies: Dependencies
     ) -> AnyPublisher<(ResponseInfoType, SendMessagesResponse), Error> {
         let publicKey: String = message.recipient
         let userX25519PublicKey: String = getUserHexEncodedPublicKey()
@@ -661,7 +683,7 @@ public final class SnodeAPI {
     public static func sendConfigMessages(
         _ messages: [(message: SnodeMessage, namespace: Namespace)],
         allObsoleteHashes: [String],
-        using dependencies: SSKDependencies = SSKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<HTTP.BatchResponse, Error> {
         guard
             !messages.isEmpty,
@@ -755,7 +777,7 @@ public final class SnodeAPI {
         publicKey: String,
         serverHashes: [String],
         updatedExpiryMs: UInt64,
-        using dependencies: SSKDependencies = SSKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<[String: [(hash: String, expiry: UInt64)]], Error> {
         guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair() else {
             return Fail(error: SnodeAPIError.noKeyPair)
@@ -796,7 +818,7 @@ public final class SnodeAPI {
     public static func revokeSubkey(
         publicKey: String,
         subkeyToRevoke: String,
-        using dependencies: SSKDependencies = SSKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
         guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair() else {
             return Fail(error: SnodeAPIError.noKeyPair)
@@ -839,14 +861,14 @@ public final class SnodeAPI {
     public static func deleteMessages(
         publicKey: String,
         serverHashes: [String],
-        using dependencies: SSKDependencies = SSKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<[String: Bool], Error> {
         guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair() else {
             return Fail(error: SnodeAPIError.noKeyPair)
                 .eraseToAnyPublisher()
         }
         
-        let userX25519PublicKey: String = getUserHexEncodedPublicKey()
+        let userX25519PublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
         
         return getSwarm(for: publicKey)
             .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: Bool], Error> in
@@ -894,7 +916,7 @@ public final class SnodeAPI {
     /// Clears all the user's data from their swarm. Returns a dictionary of snode public key to deletion confirmation.
     public static func deleteAllMessages(
         namespace: SnodeAPI.Namespace,
-        using dependencies: SSKDependencies = SSKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<[String: Bool], Error> {
         guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair() else {
             return Fail(error: SnodeAPIError.noKeyPair)
@@ -941,7 +963,7 @@ public final class SnodeAPI {
     public static func deleteAllMessages(
         beforeMs: UInt64,
         namespace: SnodeAPI.Namespace,
-        using dependencies: SSKDependencies = SSKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<[String: Bool], Error> {
         guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair() else {
             return Fail(error: SnodeAPIError.noKeyPair)
@@ -989,7 +1011,7 @@ public final class SnodeAPI {
     
     private static func getNetworkTime(
         from snode: Snode,
-        using dependencies: SSKDependencies = SSKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<UInt64, Error> {
         return SnodeAPI
             .send(
@@ -998,7 +1020,8 @@ public final class SnodeAPI {
                     body: [:]
                 ),
                 to: snode,
-                associatedWith: nil
+                associatedWith: nil,
+                using: dependencies
             )
             .decoded(as: GetNetworkTimestampResponse.self, using: dependencies)
             .map { _, response in response.timestamp }
@@ -1013,7 +1036,7 @@ public final class SnodeAPI {
     }
     
     private static func getSnodePoolFromSeedNode(
-        dependencies: SSKDependencies = SSKDependencies()
+        using dependencies: Dependencies
     ) -> AnyPublisher<Set<Snode>, Error> {
         let request: SnodeRequest = SnodeRequest(
             endpoint: .jsonGetNServiceNodes,
@@ -1073,7 +1096,7 @@ public final class SnodeAPI {
     }
     
     private static func getSnodePoolFromSnode(
-        dependencies: SSKDependencies = SSKDependencies()
+        using dependencies: Dependencies
     ) -> AnyPublisher<Set<Snode>, Error> {
         var snodePool = SnodeAPI.snodePool.wrappedValue
         var snodes: Set<Snode> = []
@@ -1110,7 +1133,8 @@ public final class SnodeAPI {
                                     )
                                 ),
                                 to: snode,
-                                associatedWith: nil
+                                associatedWith: nil,
+                                using: dependencies
                             )
                             .decoded(as: SnodePoolResponse.self, using: dependencies)
                             .mapError { error -> Error in
@@ -1149,7 +1173,7 @@ public final class SnodeAPI {
         request: SnodeRequest<T>,
         to snode: Snode,
         associatedWith publicKey: String?,
-        using dependencies: SSKDependencies = SSKDependencies()
+        using dependencies: Dependencies
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         guard let payload: Data = try? JSONEncoder().encode(request) else {
             return Fail(error: HTTPError.invalidJSON)
@@ -1175,11 +1199,8 @@ public final class SnodeAPI {
                 .eraseToAnyPublisher()
         }
         
-        return dependencies.onionApi
-            .sendOnionRequest(
-                payload,
-                to: snode
-            )
+        return dependencies.network
+            .send(.onionRequest(payload, to: snode))
             .mapError { error in
                 switch error {
                     case HTTPError.httpRequestFailed(let statusCode, let data):

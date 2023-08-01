@@ -18,7 +18,7 @@ public enum GroupLeavingJob: JobExecutor {
         success: @escaping (Job, Bool, Dependencies) -> (),
         failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
         deferred: @escaping (Job, Dependencies) -> (),
-        dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies = Dependencies()
     ) {
         guard
             let detailsData: Data = job.details,
@@ -51,10 +51,11 @@ public enum GroupLeavingJob: JobExecutor {
                     to: destination,
                     namespace: destination.defaultNamespace,
                     interactionId: job.interactionId,
-                    isSyncMessage: false
+                    isSyncMessage: false,
+                    using: dependencies
                 )
             }
-            .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
+            .flatMap { MessageSender.sendImmediate(data: $0, using: dependencies) }
             .subscribe(on: queue)
             .receive(on: queue)
             .sinkUntilComplete(
