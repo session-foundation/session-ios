@@ -76,6 +76,13 @@ local run_unit_tests = {
     name: 'Unit Tests',
     platform: { os: 'darwin', arch: 'amd64' },
     steps: [
+      {
+        name: 'Test',
+        commands: [
+          'echo $DRONE_BUILD_EVENT',
+          if '$DRONE_BUILD_EVENT' != 'pull_request' then 'echo "Not PR"' else 'echo "Is PR"',
+        ]
+      },
       clone_submodules,
       load_cocoapods_cache,
       install_cocoapods,
