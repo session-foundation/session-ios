@@ -134,8 +134,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// Apple's documentation on the matter)
         UNUserNotificationCenter.current().delegate = self
         
-        // Resume database
-        NotificationCenter.default.post(name: Database.resumeNotification, object: self)
+        Storage.resumeDatabaseAccess()
         
         // Reset the 'startTime' (since it would be invalid from the last launch)
         startTime = CACurrentMediaTime()
@@ -197,7 +196,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Stop all jobs except for message sending and when completed suspend the database
         JobRunner.stopAndClearPendingJobs(exceptForVariant: .messageSend) {
             if !self.hasCallOngoing() {
-                NotificationCenter.default.post(name: Database.suspendNotification, object: self)
+                Storage.suspendDatabaseAccess()
             }
         }
     }
@@ -249,7 +248,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
         if UIDevice.current.isIPad {
-            return .allButUpsideDown
+            return .all
         }
         
         return .portrait
@@ -258,8 +257,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     // MARK: - Background Fetching
     
     func application(_ application: UIApplication, performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-        // Resume database
-        NotificationCenter.default.post(name: Database.resumeNotification, object: self)
+        Storage.resumeDatabaseAccess()
         
         // Background tasks only last for a certain amount of time (which can result in a crash and a
         // prompt appearing for the user), we want to avoid this and need to make sure to suspend the
@@ -276,8 +274,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             BackgroundPoller.isValid = false
             
             if CurrentAppContext().isInBackground() {
-                // Suspend database
-                NotificationCenter.default.post(name: Database.suspendNotification, object: self)
+                Storage.suspendDatabaseAccess()
             }
             
             SNLog("Background poll failed due to manual timeout")
@@ -303,8 +300,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 BackgroundPoller.isValid = false
                 
                 if CurrentAppContext().isInBackground() {
-                    // Suspend database
-                    NotificationCenter.default.post(name: Database.suspendNotification, object: self)
+                    Storage.suspendDatabaseAccess()
                 }
                 
                 cancelTimer.invalidate()

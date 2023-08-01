@@ -395,6 +395,18 @@ extension SendMediaNavigationController: ImagePickerGridControllerDelegate {
     func imagePickerCanSelectAdditionalItems(_ imagePicker: ImagePickerGridController) -> Bool {
         return attachmentDraftCollection.count <= SignalAttachment.maxAttachmentsAllowed
     }
+    
+    func imagePicker(_ imagePicker: ImagePickerGridController, failedToRetrieveAssetAt index: Int, forCount count: Int) {
+        let modal: ConfirmationModal = ConfirmationModal(
+            targetView: self.view,
+            info: ConfirmationModal.Info(
+                title: "IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS".localized(),
+                cancelTitle: "BUTTON_OK".localized(),
+                cancelStyle: .alert_text
+            )
+        )
+        self.present(modal, animated: true)
+    }
 }
 
 extension SendMediaNavigationController: AttachmentApprovalViewControllerDelegate {
@@ -419,7 +431,7 @@ extension SendMediaNavigationController: AttachmentApprovalViewControllerDelegat
     }
 
     func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didApproveAttachments attachments: [SignalAttachment], forThreadId threadId: String, messageText: String?, using dependencies: Dependencies) {
-        sendMediaNavDelegate?.sendMediaNav(self, didApproveAttachments: attachments, forThreadId: threadId, messageText: messageText)
+        sendMediaNavDelegate?.sendMediaNav(self, didApproveAttachments: attachments, forThreadId: threadId, messageText: messageText, using: dependencies)
     }
 
     func attachmentApprovalDidCancel(_ attachmentApproval: AttachmentApprovalViewController) {
@@ -752,7 +764,7 @@ private class DoneButton: UIView {
 
 protocol SendMediaNavDelegate: AnyObject {
     func sendMediaNavDidCancel(_ sendMediaNavigationController: SendMediaNavigationController?)
-    func sendMediaNav(_ sendMediaNavigationController: SendMediaNavigationController, didApproveAttachments attachments: [SignalAttachment], forThreadId threadId: String, messageText: String?)
+    func sendMediaNav(_ sendMediaNavigationController: SendMediaNavigationController, didApproveAttachments attachments: [SignalAttachment], forThreadId threadId: String, messageText: String?, using dependencies: Dependencies)
 
     func sendMediaNavInitialMessageText(_ sendMediaNavigationController: SendMediaNavigationController) -> String?
     func sendMediaNav(_ sendMediaNavigationController: SendMediaNavigationController, didChangeMessageText newMessageText: String?)

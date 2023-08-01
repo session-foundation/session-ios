@@ -149,8 +149,14 @@ extension ConversationVC:
         dismiss(animated: true, completion: nil)
     }
 
-    func sendMediaNav(_ sendMediaNavigationController: SendMediaNavigationController, didApproveAttachments attachments: [SignalAttachment], forThreadId threadId: String, messageText: String?) {
-        sendMessage(text: (messageText ?? ""), attachments: attachments)
+    func sendMediaNav(
+        _ sendMediaNavigationController: SendMediaNavigationController,
+        didApproveAttachments attachments: [SignalAttachment],
+        forThreadId threadId: String,
+        messageText: String?,
+        using dependencies: Dependencies
+    ) {
+        sendMessage(text: (messageText ?? ""), attachments: attachments, using: dependencies)
         resetMentions()
         
         dismiss(animated: true) { [weak self] in
@@ -460,15 +466,13 @@ extension ConversationVC:
         // Note: 'shouldBeVisible' is set to true the first time a thread is saved so we can
         // use it to determine if the user is creating a new thread and update the 'isApproved'
         // flags appropriately
-        let threadId: String = self.viewModel.threadData.threadId
-        let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         let oldThreadShouldBeVisible: Bool = (self.viewModel.threadData.threadShouldBeVisible == true)
         let sentTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
 
         // If this was a message request then approve it
         approveMessageRequestIfNeeded(
-            for: threadId,
-            threadVariant: threadVariant,
+            for: self.viewModel.threadData.threadId,
+            threadVariant: self.viewModel.threadData.threadVariant,
             isNewThread: !oldThreadShouldBeVisible,
             timestampMs: (sentTimestampMs - 1)  // Set 1ms earlier as this is used for sorting
         )
@@ -483,10 +487,20 @@ extension ConversationVC:
             quoteModel: quoteModel
         )
         
-        DispatchQueue.global(qos:.userInitiated).async {
+        sendMessage(optimisticData: optimisticData, using: dependencies)
+    }
+    
+    private func sendMessage(
+        optimisticData: ConversationViewModel.OptimisticMessageData,
+        using dependencies: Dependencies
+    ) {
+        let threadId: String = self.viewModel.threadData.threadId
+        let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
+        
+        DispatchQueue.global(qos:.userInitiated).async(using: dependencies) {
             // Generate the quote thumbnail if needed (want this to happen outside of the DBWrite thread as
             // this can take up to 0.5s
-            let quoteThumbnailAttachment: Attachment? = quoteModel?.attachment?.cloneAsQuoteThumbnail()
+            let quoteThumbnailAttachment: Attachment? = optimisticData.quoteModel?.attachment?.cloneAsQuoteThumbnail()
             
             // Actually send the message
             dependencies.storage
@@ -505,7 +519,7 @@ extension ConversationVC:
                     
                     // If there is a LinkPreview and it doesn't match an existing one then add it now
                     if
-                        let linkPreviewDraft: LinkPreviewDraft = linkPreviewDraft,
+                        let linkPreviewDraft: LinkPreviewDraft = optimisticData.linkPreviewDraft,
                         (try? insertedInteraction.linkPreview.isEmpty(db)) == true
                     {
                         try LinkPreview(
@@ -516,7 +530,7 @@ extension ConversationVC:
                     }
                     
                     // If there is a Quote the insert it now
-                    if let interactionId: Int64 = insertedInteraction.id, let quoteModel: QuotedReplyModel = quoteModel {
+                    if let interactionId: Int64 = insertedInteraction.id, let quoteModel: QuotedReplyModel = optimisticData.quoteModel {
                         try Quote(
                             interactionId: interactionId,
                             authorId: quoteModel.authorId,
@@ -543,7 +557,13 @@ extension ConversationVC:
                 }
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .sinkUntilComplete(
-                    receiveCompletion: { [weak self] _ in
+                    receiveCompletion: { [weak self] result in
+                        switch result {
+                            case .finished: break
+                            case .failure(let error):
+                                self?.viewModel.failedToStoreOptimisticOutgoingMessage(id: optimisticData.id, error: error)
+                        }
+                        
                         self?.handleMessageSent()
                     }
                 )
@@ -1617,6 +1637,30 @@ extension ConversationVC:
     }
 
     func retry(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) {
+        guard cellViewModel.id != MessageViewModel.optimisticUpdateId else {
+            guard
+                let optimisticMessageId: UUID = cellViewModel.optimisticMessageId,
+                let optimisticMessageData: ConversationViewModel.OptimisticMessageData = self.viewModel.optimisticMessageData(for: optimisticMessageId)
+            else {
+                // Show an error for the retry
+                let modal: ConfirmationModal = ConfirmationModal(
+                    info: ConfirmationModal.Info(
+                        title: "ALERT_ERROR_TITLE".localized(),
+                        body: .text("FAILED_TO_STORE_OUTGOING_MESSAGE".localized()),
+                        cancelTitle: "BUTTON_OK".localized(),
+                        cancelStyle: .alert_text
+                    )
+                )
+                
+                self.present(modal, animated: true, completion: nil)
+                return
+            }
+            
+            // Try to send the optimistic message again
+            sendMessage(optimisticData: optimisticMessageData, using: dependencies)
+            return
+        }
+        
         dependencies.storage.writeAsync { [weak self] db in
             guard
                 let threadId: String = self?.viewModel.threadData.threadId,
@@ -2168,7 +2212,7 @@ extension ConversationVC:
 
     // MARK: - VoiceMessageRecordingViewDelegate
 
-    func startVoiceMessageRecording() {
+    func startVoiceMessageRecording(using dependencies: Dependencies) {
         // Request permission if needed
         Permissions.requestMicrophonePermissionIfNeeded() { [weak self] in
             DispatchQueue.main.async {
@@ -2217,7 +2261,7 @@ extension ConversationVC:
         // Limit voice messages to a minute
         audioTimer = Timer.scheduledTimer(withTimeInterval: 180, repeats: false, block: { [weak self] _ in
             self?.snInputView.hideVoiceMessageUI()
-            self?.endVoiceMessageRecording()
+            self?.endVoiceMessageRecording(using: dependencies)
         })
         
         // Prepare audio recorder
@@ -2233,7 +2277,7 @@ extension ConversationVC:
         }
     }
 
-    func endVoiceMessageRecording() {
+    func endVoiceMessageRecording(using dependencies: Dependencies) {
         UIApplication.shared.isIdleTimerDisabled = true
         
         // Hide the UI
@@ -2285,7 +2329,7 @@ extension ConversationVC:
         }
         
         // Send attachment
-        sendMessage(text: "", attachments: [attachment])
+        sendMessage(text: "", attachments: [attachment], using: dependencies)
     }
 
     func cancelVoiceMessageRecording() {

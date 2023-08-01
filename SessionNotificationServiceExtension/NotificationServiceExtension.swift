@@ -25,8 +25,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         self.contentHandler = contentHandler
         self.request = request
         
-        // Resume database
-        NotificationCenter.default.post(name: Database.resumeNotification, object: self)
+        Storage.resumeDatabaseAccess()
         
         guard let notificationContent = request.content.mutableCopy() as? UNMutableNotificationContent else {
             return self.completeSilenty()
@@ -289,8 +288,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     private func completeSilenty() {
         SNLog("Complete silenty")
         
-        // Suspend the database
-        NotificationCenter.default.post(name: Database.suspendNotification, object: self)
+        Storage.suspendDatabaseAccess()
         
         self.contentHandler!(.init())
     }
@@ -354,8 +352,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     }
 
     private func handleFailure(for content: UNMutableNotificationContent) {
-        // Suspend the database
-        NotificationCenter.default.post(name: Database.suspendNotification, object: self)
+        Storage.suspendDatabaseAccess()
         
         content.body = "You've got a new message"
         content.title = "Session"

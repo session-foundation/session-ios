@@ -416,14 +416,14 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         if inputViewButton == sendButton { delegate?.handleSendButtonTapped() }
     }
 
-    func handleInputViewButtonLongPressBegan(_ inputViewButton: InputViewButton?) {
+    func handleInputViewButtonLongPressBegan(_ inputViewButton: InputViewButton?, using dependencies: Dependencies) {
         guard inputViewButton == voiceMessageButton else { return }
         
         // Note: The 'showVoiceMessageUI' call MUST come before triggering 'startVoiceMessageRecording'
         // because if something goes wrong it'll trigger `hideVoiceMessageUI` and we don't want it to
         // end up in a state with the input content hidden
         showVoiceMessageUI()
-        delegate?.startVoiceMessageRecording()
+        delegate?.startVoiceMessageRecording(using: dependencies)
     }
 
     func handleInputViewButtonLongPressMoved(_ inputViewButton: InputViewButton, with touch: UITouch?) {
