@@ -69,23 +69,15 @@ local update_cocoapods_cache = {
   ]
 };
 
-// Unit test pipeline
-local run_unit_tests = {
-  kind: 'pipeline',
+
+[
+  // Unit tests
+  {
+    kind: 'pipeline',
     type: 'exec',
     name: 'Unit Tests',
     platform: { os: 'darwin', arch: 'amd64' },
     steps: [
-      {
-        name: 'Test',
-        commands: [
-          'echo $DRONE_BUILD_EVENT',
-          if "$DRONE_BUILD_EVENT" != "pull_request" then 'echo "Not PR 1"' else 'echo "Is PR 1"',
-          if $DRONE_BUILD_EVENT != pull_request then 'echo "Not PR 2"' else 'echo "Is PR 2"',
-          if "$DRONE_BUILD_EVENT" -ne "pull_request" then 'echo "Not PR 3"' else 'echo "Is PR 3"',
-          if $DRONE_BUILD_EVENT -ne pull_request then 'echo "Not PR 4"' else 'echo "Is PR 4"',
-        ]
-      },
       clone_submodules,
       load_cocoapods_cache,
       install_cocoapods,
@@ -98,14 +90,14 @@ local run_unit_tests = {
       },
       update_cocoapods_cache
     ],
-};
-
-// Build for simulators
-local build_for_simulator = {
-  kind: 'pipeline',
+  },
+  // Simulator build
+  {
+    kind: 'pipeline',
     type: 'exec',
     name: 'Simulator Build',
     platform: { os: 'darwin', arch: 'amd64' },
+    trigger: { event: { exclude: [ 'pull_request' ] } },
     steps: [
       clone_submodules,
       load_cocoapods_cache,
@@ -126,14 +118,14 @@ local build_for_simulator = {
         ]
       },
     ],
-};
-
-// Build for AppStore (generate an archive to be signed later)
-local build_for_app_store = {
-  kind: 'pipeline',
+  },
+  // AppStore build (generate an archive to be signed later)
+  {
+    kind: 'pipeline',
     type: 'exec',
     name: 'AppStore Build',
     platform: { os: 'darwin', arch: 'amd64' },
+    trigger: { event: { exclude: [ 'pull_request' ] } },
     steps: [
       clone_submodules,
       load_cocoapods_cache,
@@ -154,12 +146,5 @@ local build_for_app_store = {
         ]
       },
     ],
-};
-
-
-// Setup the actual pipelines we want to run
-[
-  run_unit_tests,
-  if '$DRONE_BUILD_EVENT' != 'pull_request' then build_for_simulator else {},
-  if '$DRONE_BUILD_EVENT' != 'pull_request' then build_for_app_store else {},
+  },
 ]
