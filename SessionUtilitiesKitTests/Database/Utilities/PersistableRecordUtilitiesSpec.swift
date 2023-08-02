@@ -9,8 +9,6 @@ import Nimble
 @testable import SessionUtilitiesKit
 
 class PersistableRecordUtilitiesSpec: QuickSpec {
-    static var customWriter: DatabaseQueue!
-    
     struct TestType: Codable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
         public static var databaseTableName: String { "TestType" }
         
@@ -104,8 +102,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
         describe("a PersistableRecord") {
             beforeEach {
                 customWriter = try! DatabaseQueue()
-                PersistableRecordUtilitiesSpec.customWriter = customWriter
-                mockStorage = Storage(
+                mockStorage = SynchronousStorage(
                     customWriter: customWriter,
                     customMigrationTargets: [
                         TestTarget.self

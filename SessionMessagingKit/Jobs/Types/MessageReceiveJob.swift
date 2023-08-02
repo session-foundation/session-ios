@@ -12,24 +12,23 @@ public enum MessageReceiveJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool) -> (),
-        failure: @escaping (Job, Error?, Bool) -> (),
-        deferred: @escaping (Job) -> ()
+        success: @escaping (Job, Bool, Dependencies) -> (),
+        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
+        deferred: @escaping (Job, Dependencies) -> (),
+        using dependencies: Dependencies = Dependencies()
     ) {
         guard
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
         else {
-            failure(job, JobRunnerError.missingRequiredDetails, true)
-            return
+            return failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
         }
         
         // Ensure no config messages are sent through this job
         guard !details.messages.contains(where: { $0.variant == .sharedConfigMessage }) else {
             SNLog("[MessageReceiveJob] Config messages incorrectly sent to the 'messageReceive' job")
-            failure(job, MessageReceiverError.invalidSharedConfigMessageHandling, true)
-            return
+            return failure(job, MessageReceiverError.invalidSharedConfigMessageHandling, true, dependencies)
         }
         
         var updatedJob: Job = job
@@ -52,7 +51,7 @@ public enum MessageReceiveJob: JobExecutor {
                 }
             }
         
-        Storage.shared.write { db in
+        dependencies.storage.write { db in
             for (messageInfo, protoContent) in messageData {
                 do {
                     try MessageReceiver.handle(
@@ -111,13 +110,13 @@ public enum MessageReceiveJob: JobExecutor {
         // Handle the result
         switch lastError {
             case let error as MessageReceiverError where !error.isRetryable:
-                failure(updatedJob, error, true)
+                failure(updatedJob, error, true, dependencies)
                 
             case .some(let error):
-                failure(updatedJob, error, false)
+                failure(updatedJob, error, false, dependencies)
                 
             case .none:
-                success(updatedJob, false)
+                success(updatedJob, false, dependencies)
         }
     }
 }

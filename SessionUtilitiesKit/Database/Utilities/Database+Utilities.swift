@@ -87,9 +87,7 @@ public extension Database {
         // Only allow a single observer per `dedupeId` per transaction, this allows us to
         // schedule an action to run at most once per transaction (eg. auto-scheduling a ConfigSyncJob
         // when receiving messages)
-        guard !TransactionHandler.registeredHandlers.wrappedValue.contains(dedupeId) else {
-            return
-        }
+        guard !TransactionHandler.registeredHandlers.wrappedValue.contains(dedupeId) else { return }
         
         add(
             transactionObserver: TransactionHandler(

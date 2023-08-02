@@ -69,7 +69,7 @@ public func call<M, T, R>(
         let actualMessage: String
         
         if callInfo.caughtException != nil {
-            actualMessage = "a thrown assertion (might not have been called or has no mocked return value)"
+            actualMessage = "a thrown assertion (invalid mock param, not called or no mocked return value)"
         }
         else if callInfo.function == nil {
             actualMessage = "no call details"
@@ -78,7 +78,9 @@ public func call<M, T, R>(
             actualMessage = "no calls"
         }
         else if !exclusiveCallsValid {
-            let otherFunctionsCalled: [String] = callInfo.allFunctionsCalled.filter { $0 != callInfo.functionName }
+            let otherFunctionsCalled: [String] = callInfo.allFunctionsCalled
+                .map { "\($0.name) (params: \($0.paramCount))" }
+                .filter { $0 != "\(callInfo.functionName) (params: \(callInfo.parameterCount))" }
             
             actualMessage = "calls to other functions: [\(otherFunctionsCalled.joined(separator: ", "))]"
         }
@@ -132,10 +134,11 @@ fileprivate struct CallInfo {
     let didError: Bool
     let caughtException: BadInstructionException?
     let function: MockFunction?
-    let allFunctionsCalled: [String]
+    let allFunctionsCalled: [FunctionConsumer.Key]
     let desiredFunctionCalls: [String]
     
     var functionName: String { "\((function?.name).map { "\($0)" } ?? "a function")" }
+    var parameterCount: Int { (function?.parameterCount ?? 0) }
     var desiredParameters: String? { function?.parameterSummary }
     
     static var error: CallInfo {
@@ -152,7 +155,7 @@ fileprivate struct CallInfo {
         didError: Bool = false,
         caughtException: BadInstructionException?,
         function: MockFunction?,
-        allFunctionsCalled: [String],
+        allFunctionsCalled: [FunctionConsumer.Key],
         desiredFunctionCalls: [String]
     ) {
         self.didError = didError
@@ -169,13 +172,16 @@ fileprivate struct CallInfo {
 
 fileprivate func generateCallInfo<M, T, R>(_ actualExpression: Expression<M>, _ functionBlock: @escaping (inout T) throws -> R) -> CallInfo where M: Mock<T> {
     var maybeFunction: MockFunction?
-    var allFunctionsCalled: [String] = []
+    var allFunctionsCalled: [FunctionConsumer.Key] = []
     var desiredFunctionCalls: [String] = []
     let builderCreator: ((M) -> MockFunctionBuilder<T, R>) = { validInstance in
         let builder: MockFunctionBuilder<T, R> = MockFunctionBuilder(functionBlock, mockInit: type(of: validInstance).init)
-        builder.returnValueGenerator = { name, parameterSummary in
+        builder.returnValueGenerator = { name, parameterCount, parameterSummary in
             validInstance.functionConsumer
-                .firstFunction(for: name, matchingParameterSummaryIfPossible: parameterSummary)?
+                .firstFunction(
+                    for: FunctionConsumer.Key(name: name, paramCount: parameterCount),
+                    matchingParameterSummaryIfPossible: parameterSummary
+                )?
                 .returnValue as? R
         }
         
@@ -200,8 +206,13 @@ fileprivate func generateCallInfo<M, T, R>(_ actualExpression: Expression<M>, _ 
                 let builder: MockFunctionBuilder<T, R> = builderCreator(validInstance)
                 validInstance.functionConsumer.trackCalls = false
                 maybeFunction = try? builder.build()
+                
+                let key: FunctionConsumer.Key = FunctionConsumer.Key(
+                    name: (maybeFunction?.name ?? ""),
+                    paramCount: (maybeFunction?.parameterCount ?? 0)
+                )
                 desiredFunctionCalls = validInstance.functionConsumer.calls
-                    .wrappedValue[maybeFunction?.name ?? ""]
+                    .wrappedValue[key]
                     .defaulting(to: [])
                 validInstance.functionConsumer.trackCalls = true
             }

@@ -89,7 +89,7 @@ class BatchResponseSpec: QuickSpec {
                         "code": 200,
                         "headers": {
                             "testKey": "testValue"
-                        },
+                        }
                     }
                     """
                     let subResponse: HTTP.BatchSubResponse<TestType?>? = try? JSONDecoder().decode(
@@ -108,7 +108,7 @@ class BatchResponseSpec: QuickSpec {
                         "code": 200,
                         "headers": {
                             "testKey": "testValue"
-                        },
+                        }
                     }
                     """
                     let subResponse: HTTP.BatchSubResponse<NoResponse>? = try? JSONDecoder().decode(
@@ -149,7 +149,7 @@ class BatchResponseSpec: QuickSpec {
                 testType2 = TestType2(intValue: 123, stringValue2: "test2")
                 data = """
                 [\([
-                    try! JSONEncoder().encode(
+                    try! JSONEncoder().with(outputFormatting: .sortedKeys).encode(
                         HTTP.BatchSubResponse(
                             code: 200,
                             headers: [:],
@@ -157,7 +157,7 @@ class BatchResponseSpec: QuickSpec {
                             failedToParseBody: false
                         )
                     ),
-                    try! JSONEncoder().encode(
+                    try! JSONEncoder().with(outputFormatting: .sortedKeys).encode(
                         HTTP.BatchSubResponse(
                             code: 200,
                             headers: [:],
@@ -200,8 +200,7 @@ class BatchResponseSpec: QuickSpec {
                     .mapError { error.setting(to: $0) }
                     .sinkUntilComplete()
                 
-                expect(error?.localizedDescription)
-                    .to(equal(HTTPError.parsingFailed.localizedDescription))
+                expect(error).to(matchError(HTTPError.parsingFailed))
             }
             
             it("fails if the data is not JSON") {
@@ -213,8 +212,7 @@ class BatchResponseSpec: QuickSpec {
                     .mapError { error.setting(to: $0) }
                     .sinkUntilComplete()
                 
-                expect(error?.localizedDescription)
-                    .to(equal(HTTPError.parsingFailed.localizedDescription))
+                expect(error).to(matchError(HTTPError.parsingFailed))
             }
             
             it("fails if the data is not a JSON array") {
@@ -226,8 +224,7 @@ class BatchResponseSpec: QuickSpec {
                     .mapError { error.setting(to: $0) }
                     .sinkUntilComplete()
                 
-                expect(error?.localizedDescription)
-                    .to(equal(HTTPError.parsingFailed.localizedDescription))
+                expect(error).to(matchError(HTTPError.parsingFailed))
             }
             
             it("fails if the JSON array does not have the same number of items as the expected types") {
@@ -243,14 +240,13 @@ class BatchResponseSpec: QuickSpec {
                     .mapError { error.setting(to: $0) }
                     .sinkUntilComplete()
                 
-                expect(error?.localizedDescription)
-                    .to(equal(HTTPError.parsingFailed.localizedDescription))
+                expect(error).to(matchError(HTTPError.parsingFailed))
             }
             
             it("fails if one of the JSON array values fails to decode") {
                 data = """
                 [\([
-                    try! JSONEncoder().encode(
+                    try! JSONEncoder().with(outputFormatting: .sortedKeys).encode(
                         HTTP.BatchSubResponse(
                             code: 200,
                             headers: [:],
@@ -274,8 +270,7 @@ class BatchResponseSpec: QuickSpec {
                     .mapError { error.setting(to: $0) }
                     .sinkUntilComplete()
                 
-                expect(error?.localizedDescription)
-                    .to(equal(HTTPError.parsingFailed.localizedDescription))
+                expect(error).to(matchError(HTTPError.parsingFailed))
             }
         }
     }

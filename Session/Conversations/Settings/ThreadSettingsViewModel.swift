@@ -60,10 +60,10 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
     // MARK: - Initialization
     
     init(
-        dependencies: Dependencies = Dependencies(),
         threadId: String,
         threadVariant: SessionThread.Variant,
-        didTriggerSearch: @escaping () -> ()
+        didTriggerSearch: @escaping () -> (),
+        using dependencies: Dependencies = Dependencies()
     ) {
         self.dependencies = dependencies
         self.threadId = threadId
@@ -196,7 +196,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
     private lazy var _observableTableData: ObservableData = ValueObservation
         .trackingConstantRegion { [weak self, dependencies, threadId = self.threadId, threadVariant = self.threadVariant] db -> [SectionModel] in
-            let userPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
+            let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
             let maybeThreadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
                 .conversationSettingsQuery(threadId: threadId, userPublicKey: userPublicKey)
                 .fetchOne(db)
@@ -755,7 +755,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
             publicKey: publicKey
         )
         
-        dependencies.storage.writeAsync { db in
+        dependencies.storage.writeAsync { [dependencies] db in
             try selectedUsers.forEach { userId in
                 let thread: SessionThread = try SessionThread
                     .fetchOrCreate(db, id: userId, variant: .contact, shouldBeVisible: nil)
@@ -786,7 +786,8 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                     db,
                     interaction: interaction,
                     threadId: thread.id,
-                    threadVariant: thread.variant
+                    threadVariant: thread.variant,
+                    using: dependencies
                 )
             }
         }

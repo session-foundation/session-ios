@@ -525,12 +525,19 @@ public extension SessionThread {
         _ db: Database? = nil,
         threadId: String,
         threadVariant: Variant,
-        blindingPrefix: SessionId.Prefix
+        blindingPrefix: SessionId.Prefix,
+        using dependencies: Dependencies = Dependencies()
     ) -> String? {
         guard threadVariant == .community else { return nil }
         guard let db: Database = db else {
-            return Storage.shared.read { db in
-                getUserHexEncodedBlindedKey(db, threadId: threadId, threadVariant: threadVariant, blindingPrefix: blindingPrefix)
+            return dependencies.storage.read { db in
+                getUserHexEncodedBlindedKey(
+                    db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    blindingPrefix: blindingPrefix,
+                    using: dependencies
+                )
             }
         }
         
@@ -559,12 +566,8 @@ public extension SessionThread {
         
         guard capabilities.isEmpty || capabilities.contains(.blind) else { return nil }
         
-        let sodium: Sodium = Sodium()
-        
-        let blindedKeyPair: KeyPair? = sodium.blindedKeyPair(
-            serverPublicKey: openGroupInfo.publicKey,
-            edKeyPair: userEdKeyPair,
-            genericHash: sodium.getGenericHash()
+        let blindedKeyPair: KeyPair? = dependencies.crypto.generate(
+            .blindedKeyPair(serverPublicKey: openGroupInfo.publicKey, edKeyPair: userEdKeyPair, using: dependencies)
         )
         
         return blindedKeyPair.map { keyPair -> String in

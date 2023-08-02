@@ -14,17 +14,17 @@ public enum NotifyPushServerJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool) -> (),
-        failure: @escaping (Job, Error?, Bool) -> (),
-        deferred: @escaping (Job) -> ()
+        success: @escaping (Job, Bool, Dependencies) -> (),
+        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
+        deferred: @escaping (Job, Dependencies) -> (),
+        using dependencies: Dependencies
     ) {
         guard
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
         else {
             SNLog("[NotifyPushServerJob] Failing due to missing details")
-            failure(job, JobRunnerError.missingRequiredDetails, true)
-            return
+            return failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
         }
         
         PushNotificationAPI
@@ -38,8 +38,8 @@ public enum NotifyPushServerJob: JobExecutor {
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {
-                        case .finished: success(job, false)
-                        case .failure(let error): failure(job, error, false)
+                        case .finished: success(job, false, dependencies)
+                        case .failure(let error): failure(job, error, false, dependencies)
                     }
                 }
             )

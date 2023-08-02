@@ -92,7 +92,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
         
         // No point continuing if we are running tests
-        guard !CurrentAppContext().isRunningTests else { return true }
+        guard !SNUtilitiesKit.isRunningTests else { return true }
 
         self.window = mainWindow
         CurrentAppContext().mainWindow = mainWindow
@@ -212,7 +212,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
     
     func applicationDidBecomeActive(_ application: UIApplication) {
-        guard !CurrentAppContext().isRunningTests else { return }
+        guard !SNUtilitiesKit.isRunningTests else { return }
         
         UserDefaults.sharedLokiProject?[.isMainAppActive] = true
         
@@ -314,7 +314,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private func completePostMigrationSetup(calledFrom lifecycleMethod: LifecycleMethod, needsConfigSync: Bool) {
         SNLog("Migrations completed, performing setup and ensuring rootViewController")
         Configuration.performMainSetup()
-        JobRunner.add(executor: SyncPushTokensJob.self, for: .syncPushTokens)
+        JobRunner.setExecutor(SyncPushTokensJob.self, for: .syncPushTokens)
         
         // Setup the UI if needed, then trigger any post-UI setup actions
         self.ensureRootViewController(calledFrom: lifecycleMethod) { [weak self] success in

@@ -69,7 +69,7 @@ extension OpenGroupAPI.Message {
             guard let sender: String = maybeSender, let data = Data(base64Encoded: base64EncodedData), let signature = Data(base64Encoded: base64EncodedSignature) else {
                 throw HTTPError.parsingFailed
             }
-            guard let dependencies: SMKDependencies = decoder.userInfo[Dependencies.userInfoKey] as? SMKDependencies else {
+            guard let dependencies: Dependencies = decoder.userInfo[Dependencies.userInfoKey] as? Dependencies else {
                 throw HTTPError.parsingFailed
             }
             
@@ -78,13 +78,21 @@ extension OpenGroupAPI.Message {
             
             switch SessionId.Prefix(from: sender) {
                 case .blinded15, .blinded25:
-                    guard dependencies.sign.verify(message: data.bytes, publicKey: publicKey.bytes, signature: signature.bytes) else {
+                    guard
+                        dependencies.crypto.verify(
+                            .signature(message: data.bytes, publicKey: publicKey.bytes, signature: signature.bytes)
+                        )
+                    else {
                         SNLog("Ignoring message with invalid signature.")
                         throw HTTPError.parsingFailed
                     }
                     
                 case .standard, .unblinded:
-                    guard (try? dependencies.ed25519.verifySignature(signature, publicKey: publicKey, data: data)) == true else {
+                    guard
+                        dependencies.crypto.verify(
+                            .signatureEd25519(signature, publicKey: publicKey, data: data)
+                        )
+                    else {
                         SNLog("Ignoring message with invalid signature.")
                         throw HTTPError.parsingFailed
                     }

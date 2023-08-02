@@ -797,22 +797,19 @@ public extension Interaction {
         _ db: Database,
         threadId: String,
         body: String?,
-        quoteAuthorId: String? = nil
+        quoteAuthorId: String? = nil,
+        using dependencies: Dependencies = Dependencies()
     ) -> Bool {
         var publicKeysToCheck: [String] = [
-            getUserHexEncodedPublicKey(db)
+            getUserHexEncodedPublicKey(db, using: dependencies)
         ]
         
         // If the thread is an open group then add the blinded id as a key to check
         if let openGroup: OpenGroup = try? OpenGroup.fetchOne(db, id: threadId) {
-            let sodium: Sodium = Sodium()
-            
             if
                 let userEd25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
-                let blindedKeyPair: KeyPair = sodium.blindedKeyPair(
-                    serverPublicKey: openGroup.publicKey,
-                    edKeyPair: userEd25519KeyPair,
-                    genericHash: sodium.genericHash
+                let blindedKeyPair: KeyPair = dependencies.crypto.generate(
+                    .blindedKeyPair(serverPublicKey: openGroup.publicKey, edKeyPair: userEd25519KeyPair, using: dependencies)
                 )
             {
                 publicKeysToCheck.append(SessionId(.blinded15, publicKey: blindedKeyPair.publicKey).hexString)

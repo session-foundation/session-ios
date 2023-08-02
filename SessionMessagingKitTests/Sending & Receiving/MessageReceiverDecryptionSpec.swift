@@ -15,93 +15,110 @@ class MessageReceiverDecryptionSpec: QuickSpec {
 
     override func spec() {
         var mockStorage: Storage!
-        var mockSodium: MockSodium!
-        var mockBox: MockBox!
-        var mockGenericHash: MockGenericHash!
-        var mockSign: MockSign!
-        var mockAeadXChaCha: MockAeadXChaCha20Poly1305Ietf!
-        var mockNonce24Generator: MockNonce24Generator!
-        var dependencies: SMKDependencies!
+        var mockCrypto: MockCrypto!
+        var dependencies: Dependencies!
         
         describe("a MessageReceiver") {
             beforeEach {
-                mockStorage = Storage(
+                mockStorage = SynchronousStorage(
                     customWriter: try! DatabaseQueue(),
                     customMigrationTargets: [
                         SNUtilitiesKit.self,
                         SNMessagingKit.self
                     ]
                 )
-                mockSodium = MockSodium()
-                mockBox = MockBox()
-                mockGenericHash = MockGenericHash()
-                mockSign = MockSign()
-                mockAeadXChaCha = MockAeadXChaCha20Poly1305Ietf()
-                mockNonce24Generator = MockNonce24Generator()
-                
-                mockAeadXChaCha
-                    .when { $0.encrypt(message: anyArray(), secretKey: anyArray(), nonce: anyArray()) }
-                    .thenReturn(nil)
-                
-                dependencies = SMKDependencies(
+                mockCrypto = MockCrypto()
+                dependencies = Dependencies(
                     storage: mockStorage,
-                    sodium: mockSodium,
-                    box: mockBox,
-                    genericHash: mockGenericHash,
-                    sign: mockSign,
-                    aeadXChaCha20Poly1305Ietf: mockAeadXChaCha,
-                    nonceGenerator24: mockNonce24Generator
+                    crypto: mockCrypto
                 )
                 
                 mockStorage.write { db in
                     try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
                     try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
                 }
-                mockBox
+                mockCrypto
+                    .when { [dependencies = dependencies!] crypto in
+                        try crypto.perform(
+                            .encryptAeadXChaCha20(
+                                message: anyArray(),
+                                secretKey: anyArray(),
+                                nonce: anyArray(),
+                                using: dependencies
+                            )
+                        )
+                    }
+                    .thenReturn(nil)
+                mockCrypto
                     .when {
-                        $0.open(
-                            anonymousCipherText: anyArray(),
-                            recipientPublicKey: anyArray(),
-                            recipientSecretKey: anyArray()
+                        try $0.perform(
+                            .open(
+                                anonymousCipherText: anyArray(),
+                                recipientPublicKey: anyArray(),
+                                recipientSecretKey: anyArray()
+                            )
                         )
                     }
                     .thenReturn([UInt8](repeating: 0, count: 100))
-                mockSodium
-                    .when { $0.blindedKeyPair(serverPublicKey: any(), edKeyPair: any(), genericHash: mockGenericHash) }
+                mockCrypto
+                    .when { [dependencies = dependencies!] crypto in
+                        crypto.generate(
+                            .blindedKeyPair(
+                                serverPublicKey: any(),
+                                edKeyPair: any(),
+                                using: dependencies
+                            )
+                        )
+                    }
                     .thenReturn(
                         KeyPair(
                             publicKey: Data(hex: TestConstants.blindedPublicKey).bytes,
                             secretKey: Data(hex: TestConstants.edSecretKey).bytes
                         )
                     )
-                mockSodium
-                    .when {
-                        $0.sharedBlindedEncryptionKey(
-                            secretKey: anyArray(),
-                            otherBlindedPublicKey: anyArray(),
-                            fromBlindedPublicKey: anyArray(),
-                            toBlindedPublicKey: anyArray(),
-                            genericHash: mockGenericHash
+                mockCrypto
+                    .when { [dependencies = dependencies!] crypto in
+                        try crypto.perform(
+                            .sharedBlindedEncryptionKey(
+                                secretKey: anyArray(),
+                                otherBlindedPublicKey: anyArray(),
+                                fromBlindedPublicKey: anyArray(),
+                                toBlindedPublicKey: anyArray(),
+                                using: dependencies
+                            )
                         )
                     }
                     .thenReturn([])
-                mockSodium
-                    .when { $0.generateBlindingFactor(serverPublicKey: any(), genericHash: mockGenericHash) }
+                mockCrypto
+                    .when { [dependencies = dependencies!] crypto in
+                        try crypto.perform(.generateBlindingFactor(serverPublicKey: any(), using: dependencies))
+                    }
                     .thenReturn([])
-                mockSodium
-                    .when { $0.combineKeys(lhsKeyBytes: anyArray(), rhsKeyBytes: anyArray()) }
+                mockCrypto
+                    .when { try $0.perform(.combineKeys(lhsKeyBytes: anyArray(), rhsKeyBytes: anyArray())) }
                     .thenReturn(Data(hex: TestConstants.blindedPublicKey).bytes)
-                mockSign
-                    .when { $0.toX25519(ed25519PublicKey: anyArray()) }
+                mockCrypto
+                    .when { try $0.perform(.toX25519(ed25519PublicKey: anyArray())) }
                     .thenReturn(Data(hex: TestConstants.publicKey).bytes)
-                mockSign
-                    .when { $0.verify(message: anyArray(), publicKey: anyArray(), signature: anyArray()) }
+                mockCrypto
+                    .when { $0.verify(.signature(message: anyArray(), publicKey: anyArray(), signature: anyArray())) }
                     .thenReturn(true)
-                mockAeadXChaCha
-                    .when { $0.decrypt(authenticatedCipherText: anyArray(), secretKey: anyArray(), nonce: anyArray()) }
+                mockCrypto
+                    .when {
+                        try $0.perform(
+                            .decryptAeadXChaCha20(
+                                authenticatedCipherText: anyArray(),
+                                secretKey: anyArray(),
+                                nonce: anyArray()
+                            )
+                        )
+                    }
                     .thenReturn("TestMessage".data(using: .utf8)!.bytes + [UInt8](repeating: 0, count: 32))
-                mockNonce24Generator
-                    .when { $0.nonce() }
+                mockCrypto.when { $0.size(.nonce24) }.thenReturn(24)
+                mockCrypto.when { $0.size(.publicKey) }.thenReturn(32)
+                mockCrypto.when { $0.size(.signature) }.thenReturn(64)
+                mockCrypto
+                    .when { try $0.perform(.generateNonce24()) }
                     .thenReturn(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!.bytes)
             }
             
@@ -117,7 +134,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
                             secretKey: Data.data(fromHex: TestConstants.privateKey)!.bytes
                         ),
-                        dependencies: SMKDependencies()
+                        using: Dependencies()
                     )
                     
                     expect(String(data: (result?.plaintext ?? Data()), encoding: .utf8)).to(equal("TestMessage"))
@@ -126,12 +143,14 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                 }
                 
                 it("throws an error if it cannot open the message") {
-                    mockBox
+                    mockCrypto
                         .when {
-                            $0.open(
-                                anonymousCipherText: anyArray(),
-                                recipientPublicKey: anyArray(),
-                                recipientSecretKey: anyArray()
+                            try $0.perform(
+                                .open(
+                                    anonymousCipherText: anyArray(),
+                                    recipientPublicKey: anyArray(),
+                                    recipientSecretKey: anyArray()
+                                )
                             )
                         }
                         .thenReturn(nil)
@@ -143,19 +162,21 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                                 publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
                                 secretKey: Data.data(fromHex: TestConstants.privateKey)!.bytes
                             ),
-                            dependencies: dependencies
+                            using: dependencies
                         )
                     }
                     .to(throwError(MessageReceiverError.decryptionFailed))
                 }
                 
                 it("throws an error if the open message is too short") {
-                    mockBox
+                    mockCrypto
                         .when {
-                            $0.open(
-                                anonymousCipherText: anyArray(),
-                                recipientPublicKey: anyArray(),
-                                recipientSecretKey: anyArray()
+                            try $0.perform(
+                                .open(
+                                    anonymousCipherText: anyArray(),
+                                    recipientPublicKey: anyArray(),
+                                    recipientSecretKey: anyArray()
+                                )
                             )
                         }
                         .thenReturn([1, 2, 3])
@@ -167,15 +188,15 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                                 publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
                                 secretKey: Data.data(fromHex: TestConstants.privateKey)!.bytes
                             ),
-                            dependencies: dependencies
+                            using: dependencies
                         )
                     }
                     .to(throwError(MessageReceiverError.decryptionFailed))
                 }
                 
                 it("throws an error if it cannot verify the message") {
-                    mockSign
-                        .when { $0.verify(message: anyArray(), publicKey: anyArray(), signature: anyArray()) }
+                    mockCrypto
+                        .when { $0.verify(.signature(message: anyArray(), publicKey: anyArray(), signature: anyArray())) }
                         .thenReturn(false)
                     
                     expect {
@@ -185,14 +206,14 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                                 publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
                                 secretKey: Data.data(fromHex: TestConstants.privateKey)!.bytes
                             ),
-                            dependencies: dependencies
+                            using: dependencies
                         )
                     }
                     .to(throwError(MessageReceiverError.invalidSignature))
                 }
                 
                 it("throws an error if it cannot get the senders x25519 public key") {
-                    mockSign.when { $0.toX25519(ed25519PublicKey: anyArray()) }.thenReturn(nil)
+                    mockCrypto.when { try $0.perform(.toX25519(ed25519PublicKey: anyArray())) }.thenReturn(nil)
                     
                     expect {
                         try MessageReceiver.decryptWithSessionProtocol(
@@ -201,7 +222,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                                 publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
                                 secretKey: Data.data(fromHex: TestConstants.privateKey)!.bytes
                             ),
-                            dependencies: dependencies
+                            using: dependencies
                         )
                     }
                     .to(throwError(MessageReceiverError.decryptionFailed))
@@ -223,7 +244,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             publicKey: Data.data(fromHex: TestConstants.edPublicKey)!.bytes,
                             secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
                         ),
-                        using: SMKDependencies()
+                        using: Dependencies()
                     )
                     
                     expect(String(data: (result?.plaintext ?? Data()), encoding: .utf8)).to(equal("TestMessage"))
@@ -271,8 +292,16 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                 }
                 
                 it("throws an error if it cannot get the blinded keyPair") {
-                    mockSodium
-                        .when { $0.blindedKeyPair(serverPublicKey: any(), edKeyPair: any(), genericHash: mockGenericHash) }
+                    mockCrypto
+                        .when { [dependencies = dependencies!] crypto in
+                            crypto.generate(
+                                .blindedKeyPair(
+                                    serverPublicKey: any(),
+                                    edKeyPair: any(),
+                                    using: dependencies
+                                )
+                            )
+                        }
                         .thenReturn(nil)
                     
                     expect {
@@ -296,14 +325,16 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                 }
                 
                 it("throws an error if it cannot get the decryption key") {
-                    mockSodium
-                        .when {
-                            $0.sharedBlindedEncryptionKey(
-                                secretKey: anyArray(),
-                                otherBlindedPublicKey: anyArray(),
-                                fromBlindedPublicKey: anyArray(),
-                                toBlindedPublicKey: anyArray(),
-                                genericHash: mockGenericHash
+                    mockCrypto
+                        .when { [dependencies = dependencies!] crypto in
+                            try crypto.perform(
+                                .sharedBlindedEncryptionKey(
+                                    secretKey: anyArray(),
+                                    otherBlindedPublicKey: anyArray(),
+                                    fromBlindedPublicKey: anyArray(),
+                                    toBlindedPublicKey: anyArray(),
+                                    using: dependencies
+                                )
                             )
                         }
                         .thenReturn(nil)
@@ -350,8 +381,16 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                 }
                 
                 it("throws an error if it cannot decrypt the data") {
-                    mockAeadXChaCha
-                        .when { $0.decrypt(authenticatedCipherText: anyArray(), secretKey: anyArray(), nonce: anyArray()) }
+                    mockCrypto
+                        .when {
+                            try $0.perform(
+                                .decryptAeadXChaCha20(
+                                    authenticatedCipherText: anyArray(),
+                                    secretKey: anyArray(),
+                                    nonce: anyArray()
+                                )
+                            )
+                        }
                         .thenReturn(nil)
                     
                     expect {
@@ -375,8 +414,16 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                 }
                 
                 it("throws an error if the inner bytes are too short") {
-                    mockAeadXChaCha
-                        .when { $0.decrypt(authenticatedCipherText: anyArray(), secretKey: anyArray(), nonce: anyArray()) }
+                    mockCrypto
+                        .when {
+                            try $0.perform(
+                                .decryptAeadXChaCha20(
+                                    authenticatedCipherText: anyArray(),
+                                    secretKey: anyArray(),
+                                    nonce: anyArray()
+                                )
+                            )
+                        }
                         .thenReturn([1, 2, 3])
                     
                     expect {
@@ -400,8 +447,10 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                 }
                 
                 it("throws an error if it cannot generate the blinding factor") {
-                    mockSodium
-                        .when { $0.generateBlindingFactor(serverPublicKey: any(), genericHash: mockGenericHash) }
+                    mockCrypto
+                        .when { [dependencies = dependencies!] crypto in
+                            try crypto.perform(.generateBlindingFactor(serverPublicKey: any(), using: dependencies))
+                        }
                         .thenReturn(nil)
                     
                     expect {
@@ -425,8 +474,8 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                 }
                 
                 it("throws an error if it cannot generate the combined key") {
-                    mockSodium
-                        .when { $0.combineKeys(lhsKeyBytes: anyArray(), rhsKeyBytes: anyArray()) }
+                    mockCrypto
+                        .when { try $0.perform(.combineKeys(lhsKeyBytes: anyArray(), rhsKeyBytes: anyArray())) }
                         .thenReturn(nil)
                     
                     expect {
@@ -450,8 +499,8 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                 }
                 
                 it("throws an error if the combined key does not match kA") {
-                    mockSodium
-                        .when { $0.combineKeys(lhsKeyBytes: anyArray(), rhsKeyBytes: anyArray()) }
+                    mockCrypto
+                        .when { try $0.perform(.combineKeys(lhsKeyBytes: anyArray(), rhsKeyBytes: anyArray())) }
                         .thenReturn(Data(hex: TestConstants.publicKey).bytes)
                     
                     expect {
@@ -475,8 +524,8 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                 }
                 
                 it("throws an error if it cannot get the senders x25519 public key") {
-                    mockSign
-                        .when { $0.toX25519(ed25519PublicKey: anyArray()) }
+                    mockCrypto
+                        .when { try $0.perform(.toX25519(ed25519PublicKey: anyArray())) }
                         .thenReturn(nil)
                     
                     expect {

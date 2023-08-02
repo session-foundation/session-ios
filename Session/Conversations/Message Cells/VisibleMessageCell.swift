@@ -861,7 +861,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         isHandlingLongPress = true
     }
 
-    @objc private func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
+    @objc private func handleTap(_ gestureRecognizer: UITapGestureRecognizer) { onTap(gestureRecognizer) }
+    
+    private func onTap(_ gestureRecognizer: UITapGestureRecognizer, using dependencies: Dependencies = Dependencies()) {
         guard let cellViewModel: MessageViewModel = self.viewModel else { return }
         
         let location = gestureRecognizer.location(in: self)
@@ -897,10 +899,10 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 if reactionContainerView.convert(reactionView.frame, from: reactionView.superview).contains(convertedLocation) {
                     
                     if reactionView.viewModel.showBorder {
-                        delegate?.removeReact(cellViewModel, for: reactionView.viewModel.emoji)
+                        delegate?.removeReact(cellViewModel, for: reactionView.viewModel.emoji, using: dependencies)
                     }
                     else {
-                        delegate?.react(cellViewModel, with: reactionView.viewModel.emoji)
+                        delegate?.react(cellViewModel, with: reactionView.viewModel.emoji, using: dependencies)
                     }
                     return
                 }
@@ -917,7 +919,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             }
         }
         else if snContentView.bounds.contains(snContentView.convert(location, from: self)) {
-            delegate?.handleItemTapped(cellViewModel, gestureRecognizer: gestureRecognizer)
+            delegate?.handleItemTapped(cellViewModel, gestureRecognizer: gestureRecognizer, using: dependencies)
         }
     }
 
@@ -985,11 +987,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         }
     }
 
-    private func reply() {
+    private func reply(using dependencies: Dependencies = Dependencies()) {
         guard let cellViewModel: MessageViewModel = self.viewModel else { return }
         
         resetReply()
-        delegate?.handleReplyButtonTapped(for: cellViewModel)
+        delegate?.handleReplyButtonTapped(for: cellViewModel, using: dependencies)
     }
 
     // MARK: - Convenience

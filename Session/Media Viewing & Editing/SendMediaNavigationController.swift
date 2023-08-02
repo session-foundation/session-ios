@@ -430,8 +430,8 @@ extension SendMediaNavigationController: AttachmentApprovalViewControllerDelegat
         attachmentDraftCollection.remove(attachment: attachment)
     }
 
-    func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didApproveAttachments attachments: [SignalAttachment], forThreadId threadId: String, messageText: String?) {
-        sendMediaNavDelegate?.sendMediaNav(self, didApproveAttachments: attachments, forThreadId: threadId, messageText: messageText)
+    func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didApproveAttachments attachments: [SignalAttachment], forThreadId threadId: String, messageText: String?, using dependencies: Dependencies) {
+        sendMediaNavDelegate?.sendMediaNav(self, didApproveAttachments: attachments, forThreadId: threadId, messageText: messageText, using: dependencies)
     }
 
     func attachmentApprovalDidCancel(_ attachmentApproval: AttachmentApprovalViewController) {
@@ -764,7 +764,7 @@ private class DoneButton: UIView {
 
 protocol SendMediaNavDelegate: AnyObject {
     func sendMediaNavDidCancel(_ sendMediaNavigationController: SendMediaNavigationController?)
-    func sendMediaNav(_ sendMediaNavigationController: SendMediaNavigationController, didApproveAttachments attachments: [SignalAttachment], forThreadId threadId: String, messageText: String?)
+    func sendMediaNav(_ sendMediaNavigationController: SendMediaNavigationController, didApproveAttachments attachments: [SignalAttachment], forThreadId threadId: String, messageText: String?, using dependencies: Dependencies)
 
     func sendMediaNavInitialMessageText(_ sendMediaNavigationController: SendMediaNavigationController) -> String?
     func sendMediaNav(_ sendMediaNavigationController: SendMediaNavigationController, didChangeMessageText newMessageText: String?)

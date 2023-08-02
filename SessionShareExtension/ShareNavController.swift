@@ -5,6 +5,7 @@ import Combine
 import CoreServices
 import SignalUtilitiesKit
 import SessionUIKit
+import SessionUtilitiesKit
 import SignalCoreKit
 
 final class ShareNavController: UINavigationController, ShareViewDelegate {
@@ -49,7 +50,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
 
         // We don't need to use applySignalAppearence in the SAE.
 
-        if CurrentAppContext().isRunningTests {
+        if SNUtilitiesKit.isRunningTests {
             // TODO: Do we need to implement isRunningTests in the SAE context?
             return
         }

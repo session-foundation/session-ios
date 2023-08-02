@@ -4,7 +4,6 @@ import Foundation
 import Combine
 import GRDB
 import Sodium
-import Curve25519Kit
 import SessionUtilitiesKit
 import SessionSnodeKit
 
@@ -13,21 +12,21 @@ extension MessageSender {
     
     public static func createClosedGroup(
         name: String,
-        members: Set<String>
+        members: Set<String>,
+        using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<SessionThread, Error> {
-        Storage.shared
+        dependencies.storage
             .writePublisher { db -> (String, SessionThread, [MessageSender.PreparedSendData], Set<String>) in
-                let userPublicKey: String = getUserHexEncodedPublicKey(db)
-                var members: Set<String> = members
+                // Generate the group's two keys
+                guard
+                    let groupKeyPair: KeyPair = dependencies.crypto.generate(.x25519KeyPair()),
+                    let encryptionKeyPair: KeyPair = dependencies.crypto.generate(.x25519KeyPair())
+                else { throw MessageSenderError.noKeyPair }
                 
-                // Generate the group's public key
-                let groupKeyPair: ECKeyPair = Curve25519.generateKeyPair()
-                let groupPublicKey: String = KeyPair(
-                    publicKey: groupKeyPair.publicKey.bytes,
-                    secretKey: groupKeyPair.privateKey.bytes
-                ).hexEncodedPublicKey // Includes the 'SessionId.Prefix.standard' prefix
-                // Generate the key pair that'll be used for encryption and decryption
-                let encryptionKeyPair: ECKeyPair = Curve25519.generateKeyPair()
+                // Includes the 'SessionId.Prefix.standard' prefix
+                let groupPublicKey: String = groupKeyPair.hexEncodedPublicKey
+                let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+                var members: Set<String> = members
                 
                 // Create the group
                 members.insert(userPublicKey) // Ensure the current user is included in the member list
@@ -49,8 +48,8 @@ extension MessageSender {
                 let latestKeyPairReceivedTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
                 try ClosedGroupKeyPair(
                     threadId: groupPublicKey,
-                    publicKey: encryptionKeyPair.publicKey,
-                    secretKey: encryptionKeyPair.privateKey,
+                    publicKey: Data(encryptionKeyPair.publicKey),
+                    secretKey: Data(encryptionKeyPair.secretKey),
                     receivedTimestamp: latestKeyPairReceivedTimestamp
                 ).insert(db)
                 
@@ -78,8 +77,8 @@ extension MessageSender {
                     db,
                     groupPublicKey: groupPublicKey,
                     name: name,
-                    latestKeyPairPublicKey: encryptionKeyPair.publicKey,
-                    latestKeyPairSecretKey: encryptionKeyPair.privateKey,
+                    latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),
+                    latestKeyPairSecretKey: Data(encryptionKeyPair.secretKey),
                     latestKeyPairReceivedTimestamp: latestKeyPairReceivedTimestamp,
                     disappearingConfig: DisappearingMessagesConfiguration.defaultWith(groupPublicKey),
                     members: members,
@@ -94,10 +93,7 @@ extension MessageSender {
                                 kind: .new(
                                     publicKey: Data(hex: groupPublicKey),
                                     name: name,
-                                    encryptionKeyPair: KeyPair(
-                                        publicKey: encryptionKeyPair.publicKey.bytes,
-                                        secretKey: encryptionKeyPair.privateKey.bytes
-                                    ),
+                                    encryptionKeyPair: encryptionKeyPair,
                                     members: membersAsData,
                                     admins: adminsAsData,
                                     expirationTimer: 0
@@ -108,7 +104,8 @@ extension MessageSender {
                             ),
                             to: .contact(publicKey: memberId),
                             namespace: Message.Destination.contact(publicKey: memberId).defaultNamespace,
-                            interactionId: nil
+                            interactionId: nil,
+                            using: dependencies
                         )
                     }
                 let allActiveLegacyGroupIds: Set<String> = try ClosedGroup
@@ -129,7 +126,7 @@ extension MessageSender {
                     .MergeMany(
                         // Send a closed group update message to all members individually
                         memberSendData
-                            .map { MessageSender.sendImmediate(preparedSendData: $0) }
+                            .map { MessageSender.sendImmediate(data: $0, using: dependencies) }
                             .appending(
                                 // Resubscribe to all legacy groups
                                 PushNotificationAPI.subscribeToLegacyGroups(
@@ -144,7 +141,7 @@ extension MessageSender {
             .handleEvents(
                 receiveOutput: { thread in
                     // Start polling
-                    ClosedGroupPoller.shared.startIfNeeded(for: thread.id)
+                    ClosedGroupPoller.shared.startIfNeeded(for: thread.id, using: dependencies)
                 }
             )
             .eraseToAnyPublisher()
@@ -160,21 +157,25 @@ extension MessageSender {
         targetMembers: Set<String>,
         userPublicKey: String,
         allGroupMembers: [GroupMember],
-        closedGroup: ClosedGroup
+        closedGroup: ClosedGroup,
+        using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         guard allGroupMembers.contains(where: { $0.role == .admin && $0.profileId == userPublicKey }) else {
             return Fail(error: MessageSenderError.invalidClosedGroupUpdate)
                 .eraseToAnyPublisher()
         }
         
-        return Storage.shared
+        return dependencies.storage
             .readPublisher { db -> (ClosedGroupKeyPair, MessageSender.PreparedSendData) in
                 // Generate the new encryption key pair
-                let legacyNewKeyPair: ECKeyPair = Curve25519.generateKeyPair()
+                guard let legacyNewKeyPair: KeyPair = dependencies.crypto.generate(.x25519KeyPair()) else {
+                    throw MessageSenderError.noKeyPair
+                }
+                
                 let newKeyPair: ClosedGroupKeyPair = ClosedGroupKeyPair(
                     threadId: closedGroup.threadId,
-                    publicKey: legacyNewKeyPair.publicKey,
-                    secretKey: legacyNewKeyPair.privateKey,
+                    publicKey: Data(legacyNewKeyPair.publicKey),
+                    secretKey: Data(legacyNewKeyPair.secretKey),
                     receivedTimestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
                 )
                 
@@ -202,7 +203,8 @@ extension MessageSender {
                                         encryptedKeyPair: try MessageSender.encryptWithSessionProtocol(
                                             db,
                                             plaintext: plaintext,
-                                            for: memberPublicKey
+                                            for: memberPublicKey,
+                                            using: dependencies
                                         )
                                     )
                                 }
@@ -213,20 +215,21 @@ extension MessageSender {
                         namespace: try Message.Destination
                             .from(db, threadId: closedGroup.threadId, threadVariant: .legacyGroup)
                             .defaultNamespace,
-                        interactionId: nil
+                        interactionId: nil,
+                        using: dependencies
                     )
                 
                 return (newKeyPair, sendData)
             }
             .flatMap { newKeyPair, sendData -> AnyPublisher<ClosedGroupKeyPair, Error> in
-                MessageSender.sendImmediate(preparedSendData: sendData)
+                MessageSender.sendImmediate(data: sendData, using: dependencies)
                     .map { _ in newKeyPair }
                     .eraseToAnyPublisher()
             }
             .handleEvents(
                 receiveOutput: { newKeyPair in
                     /// Store it **after** having sent out the message to the group
-                    Storage.shared.write { db in
+                    dependencies.storage.write { db in
                         try newKeyPair.insert(db)
                         
                         // Update libSession
@@ -260,11 +263,12 @@ extension MessageSender {
     public static func update(
         groupPublicKey: String,
         with members: Set<String>,
-        name: String
+        name: String,
+        using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
         return Storage.shared
             .writePublisher { db -> (String, ClosedGroup, [GroupMember], Set<String>) in
-                let userPublicKey: String = getUserHexEncodedPublicKey(db)
+                let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
                 
                 // Get the group, check preconditions & prepare
                 guard (try? SessionThread.exists(db, id: groupPublicKey)) == true else {
@@ -301,7 +305,8 @@ extension MessageSender {
                         message: ClosedGroupControlMessage(kind: .nameChange(name: name)),
                         interactionId: interactionId,
                         threadId: groupPublicKey,
-                        threadVariant: .legacyGroup
+                        threadVariant: .legacyGroup,
+                        using: dependencies
                     )
                     
                     // Update libSession
@@ -330,7 +335,8 @@ extension MessageSender {
                             addedMembers: addedMembers,
                             userPublicKey: userPublicKey,
                             allGroupMembers: allGroupMembers,
-                            closedGroup: closedGroup
+                            closedGroup: closedGroup,
+                            using: dependencies
                         )
                     }
                     catch {
@@ -357,7 +363,8 @@ extension MessageSender {
                     removedMembers: removedMembers,
                     userPublicKey: userPublicKey,
                     allGroupMembers: allGroupMembers,
-                    closedGroup: closedGroup
+                    closedGroup: closedGroup,
+                    using: dependencies
                 )
                 .catch { _ in Fail(error: MessageSenderError.invalidClosedGroupUpdate).eraseToAnyPublisher() }
                 .eraseToAnyPublisher()
@@ -373,7 +380,8 @@ extension MessageSender {
         addedMembers: Set<String>,
         userPublicKey: String,
         allGroupMembers: [GroupMember],
-        closedGroup: ClosedGroup
+        closedGroup: ClosedGroup,
+        using dependencies: Dependencies
     ) throws {
         guard let disappearingMessagesConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration.fetchOne(db, id: closedGroup.threadId) else {
             throw StorageError.objectNotFound
@@ -428,7 +436,8 @@ extension MessageSender {
             ),
             interactionId: interactionId,
             threadId: closedGroup.threadId,
-            threadVariant: .legacyGroup
+            threadVariant: .legacyGroup,
+            using: dependencies
         )
         
         try addedMembers.forEach { member in
@@ -455,7 +464,8 @@ extension MessageSender {
                 ),
                 interactionId: nil,
                 threadId: member,
-                threadVariant: .contact
+                threadVariant: .contact,
+                using: dependencies
             )
             
             // Add the users to the group
@@ -478,7 +488,8 @@ extension MessageSender {
         removedMembers: Set<String>,
         userPublicKey: String,
         allGroupMembers: [GroupMember],
-        closedGroup: ClosedGroup
+        closedGroup: ClosedGroup,
+        using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
         guard !removedMembers.contains(userPublicKey) else {
             SNLog("Invalid closed group update.")
@@ -499,7 +510,7 @@ extension MessageSender {
             .map { $0.profileId }
         let members: Set<String> = Set(groupMemberIds).subtracting(removedMembers)
         
-        return Storage.shared
+        return dependencies.storage
             .writePublisher { db in
                 // Update zombie & member list
                 try GroupMember
@@ -544,16 +555,18 @@ extension MessageSender {
                         namespace: try Message.Destination
                             .from(db, threadId: closedGroup.threadId, threadVariant: .legacyGroup)
                             .defaultNamespace,
-                        interactionId: interactionId
+                        interactionId: interactionId,
+                        using: dependencies
                     )
             }
-            .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
+            .flatMap { MessageSender.sendImmediate(data: $0, using: dependencies) }
             .flatMap { _ -> AnyPublisher<Void, Error> in
                 MessageSender.generateAndSendNewEncryptionKeyPair(
                     targetMembers: members,
                     userPublicKey: userPublicKey,
                     allGroupMembers: allGroupMembers,
-                    closedGroup: closedGroup
+                    closedGroup: closedGroup,
+                    using: dependencies
                 )
             }
             .eraseToAnyPublisher()
@@ -570,9 +583,10 @@ extension MessageSender {
     public static func leave(
         _ db: Database,
         groupPublicKey: String,
-        deleteThread: Bool
+        deleteThread: Bool,
+        using dependencies: Dependencies = Dependencies()
     ) throws {
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
         
         // Notify the user
         let interaction: Interaction = try Interaction(
@@ -583,7 +597,7 @@ extension MessageSender {
             timestampMs: SnodeAPI.currentOffsetTimestampMs()
         ).inserted(db)
         
-        JobRunner.upsert(
+        dependencies.jobRunner.upsert(
             db,
             job: Job(
                 variant: .groupLeaving,
@@ -592,14 +606,17 @@ extension MessageSender {
                 details: GroupLeavingJob.Details(
                     deleteThread: deleteThread
                 )
-            )
+            ),
+            canStartJob: true,
+            using: dependencies
         )
     }
     
     public static func sendLatestEncryptionKeyPair(
         _ db: Database,
         to publicKey: String,
-        for groupPublicKey: String
+        for groupPublicKey: String,
+        using dependencies: Dependencies = Dependencies()
     ) {
         guard let thread: SessionThread = try? SessionThread.fetchOne(db, id: groupPublicKey) else {
             return SNLog("Couldn't send key pair for nonexistent closed group.")
@@ -635,7 +652,8 @@ extension MessageSender {
             let ciphertext = try MessageSender.encryptWithSessionProtocol(
                 db,
                 plaintext: plaintext,
-                for: publicKey
+                for: publicKey,
+                using: dependencies
             )
             
             SNLog("Sending latest encryption key pair to: \(publicKey).")
@@ -654,7 +672,8 @@ extension MessageSender {
                 ),
                 interactionId: nil,
                 threadId: thread.id,
-                threadVariant: thread.variant
+                threadVariant: thread.variant,
+                using: dependencies
             )
         }
         catch {}

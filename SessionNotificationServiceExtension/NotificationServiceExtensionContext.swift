@@ -61,7 +61,6 @@ final class NotificationServiceExtensionContext : NSObject, AppContext {
     let frame = CGRect.zero
     let interfaceOrientation = UIInterfaceOrientation.unknown
     let isRTL = false
-    let isRunningTests = false
     let reportedApplicationState = UIApplication.State.background
     let statusBarHeight = CGFloat.zero
 

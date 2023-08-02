@@ -69,7 +69,6 @@ public extension OpenGroupAPI {
             info = HTTP.ResponseInfo(code: 0, headers: [:])
             data = [:]
 #endif
-            
         }
     }
 }

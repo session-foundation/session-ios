@@ -25,11 +25,11 @@ public enum PushNotificationAPI {
     public static func subscribe(
         token: Data,
         isForcedUpdate: Bool,
-        using dependencies: SSKDependencies = SSKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
         let hexEncodedToken: String = token.toHexString()
-        let oldToken: String? = UserDefaults.standard[.deviceToken]
-        let lastUploadTime: Double = UserDefaults.standard[.lastDeviceTokenUpload]
+        let oldToken: String? = dependencies.standardUserDefaults[.deviceToken]
+        let lastUploadTime: Double = dependencies.standardUserDefaults[.lastDeviceTokenUpload]
         let now: TimeInterval = Date().timeIntervalSince1970
         
         guard isForcedUpdate || hexEncodedToken != oldToken || now - lastUploadTime > tokenExpirationInterval else {
@@ -39,7 +39,7 @@ public enum PushNotificationAPI {
                 .eraseToAnyPublisher()
         }
         
-        guard let notificationsEncryptionKey: Data = try? getOrGenerateEncryptionKey() else {
+        guard let notificationsEncryptionKey: Data = try? getOrGenerateEncryptionKey(using: dependencies) else {
             SNLog("Unable to retrieve PN encryption key.")
             return Just(())
                 .setFailureType(to: Error.self)
@@ -47,13 +47,13 @@ public enum PushNotificationAPI {
         }
         
         // TODO: Need to generate requests for each updated group as well
-        return Storage.shared
-            .readPublisher { db -> (SubscribeRequest, String, Set<String>) in
+        return dependencies.storage
+            .readPublisher(using: dependencies) { db -> (SubscribeRequest, String, Set<String>) in
                 guard let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
                     throw SnodeAPIError.noKeyPair
                 }
                 
-                let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
+                let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
                 let request: SubscribeRequest = SubscribeRequest(
                     pubkey: currentUserPublicKey,
                     namespaces: [.default],
@@ -94,19 +94,20 @@ public enum PushNotificationAPI {
                                     request: PushNotificationAPIRequest(
                                         endpoint: .subscribe,
                                         body: request
-                                    )
+                                    ),
+                                    using: dependencies
                                 )
                                 .decoded(as: SubscribeResponse.self, using: dependencies)
-                                .retry(maxRetryCount)
+                                .retry(maxRetryCount, using: dependencies)
                                 .handleEvents(
                                     receiveOutput: { _, response in
                                         guard response.success == true else {
                                             return SNLog("Couldn't subscribe for push notifications due to error (\(response.error ?? -1)): \(response.message ?? "nil").")
                                         }
                                         
-                                        UserDefaults.standard[.deviceToken] = hexEncodedToken
-                                        UserDefaults.standard[.lastDeviceTokenUpload] = now
-                                        UserDefaults.standard[.isUsingFullAPNs] = true
+                                        dependencies.standardUserDefaults[.deviceToken] = hexEncodedToken
+                                        dependencies.standardUserDefaults[.lastDeviceTokenUpload] = now
+                                        dependencies.standardUserDefaults[.isUsingFullAPNs] = true
                                     },
                                     receiveCompletion: { result in
                                         switch result {
@@ -122,7 +123,8 @@ public enum PushNotificationAPI {
                                 forced: true,
                                 token: hexEncodedToken,
                                 currentUserPublicKey: currentUserPublicKey,
-                                legacyGroupIds: legacyGroupIds
+                                legacyGroupIds: legacyGroupIds,
+                                using: dependencies
                             )
                         ]
                     )
@@ -135,16 +137,16 @@ public enum PushNotificationAPI {
     
     public static func unsubscribe(
         token: Data,
-        using dependencies: SSKDependencies = SSKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
         let hexEncodedToken: String = token.toHexString()
         
         // FIXME: Remove this once legacy groups are deprecated
         /// Unsubscribe from all legacy groups (including ones the user is no longer a member of, just in case)
-        Storage.shared
-            .readPublisher { db -> (String, Set<String>) in
+        dependencies.storage
+            .readPublisher(using: dependencies) { db -> (String, Set<String>) in
                 (
-                    getUserHexEncodedPublicKey(db),
+                    getUserHexEncodedPublicKey(db, using: dependencies),
                     try ClosedGroup
                         .select(.threadId)
                         .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%"))
@@ -168,18 +170,18 @@ public enum PushNotificationAPI {
                     .collect()
                     .eraseToAnyPublisher()
             }
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
             .sinkUntilComplete()
         
         // TODO: Need to generate requests for each updated group as well
-        return Storage.shared
-            .readPublisher { db -> UnsubscribeRequest in
+        return dependencies.storage
+            .readPublisher(using: dependencies) { db -> UnsubscribeRequest in
                 guard let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
                     throw SnodeAPIError.noKeyPair
                 }
                 
                 return UnsubscribeRequest(
-                    pubkey: getUserHexEncodedPublicKey(db),
+                    pubkey: getUserHexEncodedPublicKey(db, using: dependencies),
                     serviceInfo: UnsubscribeRequest.ServiceInfo(
                         token: hexEncodedToken
                     ),
@@ -195,17 +197,18 @@ public enum PushNotificationAPI {
                         request: PushNotificationAPIRequest(
                             endpoint: .unsubscribe,
                             body: request
-                        )
+                        ),
+                        using: dependencies
                     )
                     .decoded(as: UnsubscribeResponse.self, using: dependencies)
-                    .retry(maxRetryCount)
+                    .retry(maxRetryCount, using: dependencies)
                     .handleEvents(
                         receiveOutput: { _, response in
                             guard response.success == true else {
                                 return SNLog("Couldn't unsubscribe for push notifications due to error (\(response.error ?? -1)): \(response.message ?? "nil").")
                             }
                             
-                            UserDefaults.standard[.deviceToken] = nil
+                            dependencies.standardUserDefaults[.deviceToken] = nil
                         },
                         receiveCompletion: { result in
                             switch result {
@@ -227,7 +230,7 @@ public enum PushNotificationAPI {
         recipient: String,
         with message: String,
         maxRetryCount: Int? = nil,
-        using dependencies: SSKDependencies = SSKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
         return PushNotificationAPI
             .send(
@@ -237,10 +240,11 @@ public enum PushNotificationAPI {
                         data: message,
                         sendTo: recipient
                     )
-                )
+                ),
+                using: dependencies
             )
             .decoded(as: LegacyPushServerResponse.self, using: dependencies)
-            .retry(maxRetryCount ?? PushNotificationAPI.maxRetryCount)
+            .retry(maxRetryCount ?? PushNotificationAPI.maxRetryCount, using: dependencies)
             .handleEvents(
                 receiveOutput: { _, response in
                     guard response.code != 0 else {
@@ -266,14 +270,14 @@ public enum PushNotificationAPI {
         token: String? = nil,
         currentUserPublicKey: String,
         legacyGroupIds: Set<String>,
-        using dependencies: SSKDependencies = SSKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
-        let isUsingFullAPNs = UserDefaults.standard[.isUsingFullAPNs]
+        let isUsingFullAPNs = dependencies.standardUserDefaults[.isUsingFullAPNs]
         
         // Only continue if PNs are enabled and we have a device token
         guard
             (forced || isUsingFullAPNs),
-            let deviceToken: String = (token ?? UserDefaults.standard[.deviceToken])
+            let deviceToken: String = (token ?? dependencies.standardUserDefaults[.deviceToken])
         else {
             return Just(())
                 .setFailureType(to: Error.self)
@@ -290,10 +294,11 @@ public enum PushNotificationAPI {
                         device: "ios",
                         legacyGroupPublicKeys: legacyGroupIds
                     )
-                )
+                ),
+                using: dependencies
             )
             .decoded(as: LegacyPushServerResponse.self, using: dependencies)
-            .retry(maxRetryCount)
+            .retry(maxRetryCount, using: dependencies)
             .handleEvents(
                 receiveOutput: { _, response in
                     guard response.code != 0 else {
@@ -315,7 +320,7 @@ public enum PushNotificationAPI {
     public static func unsubscribeFromLegacyGroup(
         legacyGroupId: String,
         currentUserPublicKey: String,
-        using dependencies: SSKDependencies = SSKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
         return PushNotificationAPI
             .send(
@@ -325,10 +330,11 @@ public enum PushNotificationAPI {
                         pubKey: currentUserPublicKey,
                         closedGroupPublicKey: legacyGroupId
                     )
-                )
+                ),
+                using: dependencies
             )
             .decoded(as: LegacyPushServerResponse.self, using: dependencies)
-            .retry(maxRetryCount)
+            .retry(maxRetryCount, using: dependencies)
             .handleEvents(
                 receiveOutput: { _, response in
                     guard response.code != 0 else {
@@ -350,7 +356,7 @@ public enum PushNotificationAPI {
     
     public static func processNotification(
         notificationContent: UNNotificationContent,
-        dependencies: SMKDependencies = SMKDependencies()
+        dependencies: Dependencies = Dependencies()
     ) -> (envelope: SNProtoEnvelope?, result: ProcessResult) {
         // Make sure the notification is from the updated push server
         guard notificationContent.userInfo["spns"] != nil else {
@@ -369,18 +375,20 @@ public enum PushNotificationAPI {
         guard
             let base64EncodedEncString: String = notificationContent.userInfo["enc_payload"] as? String,
             let encData: Data = Data(base64Encoded: base64EncodedEncString),
-            let notificationsEncryptionKey: Data = try? getOrGenerateEncryptionKey(),
-            encData.count > dependencies.aeadXChaCha20Poly1305Ietf.NonceBytes
+            let notificationsEncryptionKey: Data = try? getOrGenerateEncryptionKey(using: dependencies),
+            encData.count > dependencies.crypto.size(.aeadXChaCha20NonceBytes)
         else { return (nil, .failure) }
         
-        let nonce: Data = encData[0..<dependencies.aeadXChaCha20Poly1305Ietf.NonceBytes]
-        let payload: Data = encData[dependencies.aeadXChaCha20Poly1305Ietf.NonceBytes...]
+        let nonce: Data = encData[0..<dependencies.crypto.size(.aeadXChaCha20NonceBytes)]
+        let payload: Data = encData[dependencies.crypto.size(.aeadXChaCha20NonceBytes)...]
         
         guard
-            let paddedData: [UInt8] = dependencies.aeadXChaCha20Poly1305Ietf.decrypt(
-                authenticatedCipherText: payload.bytes,
-                secretKey: notificationsEncryptionKey.bytes,
-                nonce: nonce.bytes
+            let paddedData: [UInt8] = try? dependencies.crypto.perform(
+                .decryptAeadXChaCha20(
+                    authenticatedCipherText: payload.bytes,
+                    secretKey: notificationsEncryptionKey.bytes,
+                    nonce: nonce.bytes
+                )
             )
         else { return (nil, .failure) }
         
@@ -408,7 +416,7 @@ public enum PushNotificationAPI {
                         
     // MARK: - Security
     
-    @discardableResult private static func getOrGenerateEncryptionKey() throws -> Data {
+    @discardableResult private static func getOrGenerateEncryptionKey(using dependencies: Dependencies) throws -> Data {
         do {
             var encryptionKey: Data = try SSKDefaultKeychainStorage.shared.data(
                 forService: keychainService,
@@ -461,7 +469,7 @@ public enum PushNotificationAPI {
     
     private static func send<T: Encodable>(
         request: PushNotificationAPIRequest<T>,
-        using dependencies: SSKDependencies = SSKDependencies()
+        using dependencies: Dependencies
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         guard
             let url: URL = URL(string: "\(request.endpoint.server)/\(request.endpoint.rawValue)"),
@@ -487,8 +495,14 @@ public enum PushNotificationAPI {
         urlRequest.allHTTPHeaderFields = [ HTTPHeader.contentType: "application/json" ]
         urlRequest.httpBody = payload
         
-        return dependencies.onionApi
-            .sendOnionRequest(urlRequest, to: request.endpoint.server, with: request.endpoint.serverPublicKey)
+        return dependencies.network
+            .send(
+                .onionRequest(
+                    urlRequest,
+                    to: request.endpoint.server,
+                    with: request.endpoint.serverPublicKey
+                )
+            )
             .eraseToAnyPublisher()
     }
 }

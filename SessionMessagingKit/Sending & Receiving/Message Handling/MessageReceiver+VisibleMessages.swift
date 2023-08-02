@@ -13,7 +13,7 @@ extension MessageReceiver {
         threadVariant: SessionThread.Variant,
         message: VisibleMessage,
         associatedWithProto proto: SNProtoContent,
-        dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> Int64 {
         guard let sender: String = message.sender, let dataMessage = proto.dataMessage else {
             throw MessageReceiverError.invalidMessage
@@ -43,7 +43,8 @@ extension MessageReceiver {
                         fileName: nil
                     )
                 }(),
-                sentTimestamp: messageSentTimestamp
+                sentTimestamp: messageSentTimestamp,
+                using: dependencies
             )
         }
         
@@ -64,7 +65,7 @@ extension MessageReceiver {
         }
         
         // Store the message variant so we can run variant-specific behaviours
-        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
+        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
         let thread: SessionThread = try SessionThread
             .fetchOrCreate(db, id: threadId, variant: threadVariant, shouldBeVisible: nil)
         let maybeOpenGroup: OpenGroup? = {
@@ -90,10 +91,12 @@ extension MessageReceiver {
                     
                     guard
                         let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
-                        let blindedKeyPair: KeyPair = sodium.blindedKeyPair(
-                            serverPublicKey: openGroup.publicKey,
-                            edKeyPair: userEdKeyPair,
-                            genericHash: sodium.genericHash
+                        let blindedKeyPair: KeyPair = try? dependencies.crypto.generate(
+                            .blindedKeyPair(
+                                serverPublicKey: openGroup.publicKey,
+                                edKeyPair: userEdKeyPair,
+                                using: dependencies
+                            )
                         )
                     else { return .standardIncoming }
                     
@@ -167,7 +170,8 @@ extension MessageReceiver {
                     db,
                     threadId: thread.id,
                     body: message.text,
-                    quoteAuthorId: dataMessage.quote?.author
+                    quoteAuthorId: dataMessage.quote?.author,
+                    using: dependencies
                 ),
                 // Note: Ensure we don't ever expire open group messages
                 expiresInSeconds: (disappearingMessagesConfiguration.isEnabled && message.openGroupServerMessageId == nil ?
@@ -298,7 +302,7 @@ extension MessageReceiver {
                 .appending(quote?.attachmentId)
                 .appending(linkPreview?.attachmentId)
                 .forEach { attachmentId in
-                    JobRunner.add(
+                    dependencies.jobRunner.add(
                         db,
                         job: Job(
                             variant: .attachmentDownload,
@@ -308,7 +312,8 @@ extension MessageReceiver {
                                 attachmentId: attachmentId
                             )
                         ),
-                        canStartJob: isMainAppActive
+                        canStartJob: isMainAppActive,
+                        using: dependencies
                     )
                 }
         }

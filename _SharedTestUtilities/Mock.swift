@@ -3,21 +3,11 @@
 import Foundation
 import SessionUtilitiesKit
 
-// MARK: - Mocked
+// MARK: - MockError
 
-protocol Mocked { static var mockValue: Self { get } }
-
-func any<R: Mocked>() -> R { R.mockValue }
-func any<R: FixedWidthInteger>() -> R { unsafeBitCast(0, to: R.self) }
-func any<K: Hashable, V>() -> [K: V] { [:] }
-func any() -> Float { 0 }
-func any() -> Double { 0 }
-func any() -> String { "" }
-func any() -> Data { Data() }
-
-func anyAny() -> Any { 0 }              // Unique name for compilation performance reasons
-func anyArray<R>() -> [R] { [] }        // Unique name for compilation performance reasons
-func anySet<R>() -> Set<R> { Set() }    // Unique name for compilation performance reasons
+public enum MockError: Error {
+    case mockedData
+}
 
 // MARK: - Mock<T>
 
@@ -39,7 +29,12 @@ public class Mock<T> {
     }
     
     @discardableResult internal func accept(funcName: String = #function, checkArgs: [Any?], actionArgs: [Any?]) -> Any? {
-        return functionHandler.accept(funcName, parameterSummary: summary(for: checkArgs), actionArgs: actionArgs)
+        return functionHandler.accept(
+            funcName,
+            parameterCount: checkArgs.count,
+            parameterSummary: summary(for: checkArgs),
+            actionArgs: actionArgs
+        )
     }
     
     // MARK: - Functions
@@ -73,6 +68,8 @@ public class Mock<T> {
                     .sorted()
                 return "[\(sortedValues.joined(separator: ", "))]"
                 
+            case let data as Data: return "Data(base64Encoded: \(data.base64EncodedString()))"
+                
             default: return String(reflecting: argument)    // Default to the `debugDescription` if available
         }
     }
@@ -81,19 +78,21 @@ public class Mock<T> {
 // MARK: - MockFunctionHandler
 
 protocol MockFunctionHandler {
-    func accept(_ functionName: String, parameterSummary: String, actionArgs: [Any?]) -> Any?
+    func accept(_ functionName: String, parameterCount: Int, parameterSummary: String, actionArgs: [Any?]) -> Any?
 }
 
 // MARK: - MockFunction
 
 internal class MockFunction {
     var name: String
+    var parameterCount: Int
     var parameterSummary: String
     var actions: [([Any?]) -> Void]
     var returnValue: Any?
     
-    init(name: String, parameterSummary: String, actions: [([Any?]) -> Void], returnValue: Any?) {
+    init(name: String, parameterCount: Int, parameterSummary: String, actions: [([Any?]) -> Void], returnValue: Any?) {
         self.name = name
+        self.parameterCount = parameterCount
         self.parameterSummary = parameterSummary
         self.actions = actions
         self.returnValue = returnValue
@@ -106,10 +105,11 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
     private let callBlock: (inout T) throws -> R
     private let mockInit: (MockFunctionHandler?) -> Mock<T>
     private var functionName: String?
+    private var parameterCount: Int?
     private var parameterSummary: String?
     private var actions: [([Any?]) -> Void] = []
     private var returnValue: R?
-    internal var returnValueGenerator: ((String, String) -> R?)?
+    internal var returnValueGenerator: ((String, Int, String) -> R?)?
     
     // MARK: - Initialization
     
@@ -131,53 +131,63 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
     
     // MARK: - MockFunctionHandler
     
-    func accept(_ functionName: String, parameterSummary: String, actionArgs: [Any?]) -> Any? {
+    func accept(_ functionName: String, parameterCount: Int, parameterSummary: String, actionArgs: [Any?]) -> Any? {
         self.functionName = functionName
+        self.parameterCount = parameterCount
         self.parameterSummary = parameterSummary
-        return (returnValue ?? returnValueGenerator?(functionName, parameterSummary))
+        return (returnValue ?? returnValueGenerator?(functionName, parameterCount, parameterSummary))
     }
     
     // MARK: - Build
     
     func build() throws -> MockFunction {
         var completionMock = mockInit(self) as! T
-        _ = try callBlock(&completionMock)
+        _ = try? callBlock(&completionMock)
         
-        guard let name: String = functionName, let parameterSummary: String = parameterSummary else {
+        guard let name: String = functionName, let parameterCount: Int = parameterCount, let parameterSummary: String = parameterSummary else {
             preconditionFailure("Attempted to build the MockFunction before it was called")
         }
         
-        return MockFunction(name: name, parameterSummary: parameterSummary, actions: actions, returnValue: returnValue)
+        return MockFunction(name: name, parameterCount: parameterCount, parameterSummary: parameterSummary, actions: actions, returnValue: returnValue)
     }
 }
 
 // MARK: - FunctionConsumer
 
 internal class FunctionConsumer: MockFunctionHandler {
+    struct Key: Equatable, Hashable {
+        let name: String
+        let paramCount: Int
+    }
+    
     var trackCalls: Bool = true
     var functionBuilders: [() throws -> MockFunction?] = []
-    var functionHandlers: [String: [String: MockFunction]] = [:]
-    var calls: Atomic<[String: [String]]> = Atomic([:])
+    var functionHandlers: [Key: [String: MockFunction]] = [:]
+    var calls: Atomic<[Key: [String]]> = Atomic([:])
     
-    func accept(_ functionName: String, parameterSummary: String, actionArgs: [Any?]) -> Any? {
+    func accept(_ functionName: String, parameterCount: Int, parameterSummary: String, actionArgs: [Any?]) -> Any? {
+        let key: Key = Key(name: functionName, paramCount: parameterCount)
+        
         if !functionBuilders.isEmpty {
             functionBuilders
                 .compactMap { try? $0() }
                 .forEach { function in
-                    functionHandlers[function.name] = (functionHandlers[function.name] ?? [:])
+                    let key: Key = Key(name: function.name, paramCount: function.parameterCount)
+                    
+                    functionHandlers[key] = (functionHandlers[key] ?? [:])
                         .setting(function.parameterSummary, function)
                 }
             
             functionBuilders.removeAll()
         }
         
-        guard let expectation: MockFunction = firstFunction(for: functionName, matchingParameterSummaryIfPossible: parameterSummary) else {
+        guard let expectation: MockFunction = firstFunction(for: key, matchingParameterSummaryIfPossible: parameterSummary) else {
             preconditionFailure("No expectations found for \(functionName)")
         }
         
         // Record the call so it can be validated later (assuming we are tracking calls)
         if trackCalls {
-            calls.mutate { $0[functionName] = ($0[functionName] ?? []).appending(parameterSummary) }
+            calls.mutate { $0[key] = ($0[key] ?? []).appending(parameterSummary) }
         }
         
         for action in expectation.actions {
@@ -187,8 +197,8 @@ internal class FunctionConsumer: MockFunctionHandler {
         return expectation.returnValue
     }
     
-    func firstFunction(for name: String, matchingParameterSummaryIfPossible parameterSummary: String) -> MockFunction? {
-        guard let possibleExpectations: [String: MockFunction] = functionHandlers[name] else { return nil }
+    func firstFunction(for key: Key, matchingParameterSummaryIfPossible parameterSummary: String) -> MockFunction? {
+        guard let possibleExpectations: [String: MockFunction] = functionHandlers[key] else { return nil }
         
         guard let expectation: MockFunction = possibleExpectations[parameterSummary] else {
             // A `nil` response might be value but in a lot of places we will need to force-cast
