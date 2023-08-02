@@ -244,7 +244,7 @@ final class NukeDataModal: Modal {
         UserDefaults.removeAll()
         
         // Remove the cached key so it gets re-cached on next access
-        dependencies.mutableGeneralCache.mutate {
+        dependencies.caches.mutate(cache: .general) {
             $0.encodedPublicKey = nil
             $0.recentReactionTimestamps = []
         }

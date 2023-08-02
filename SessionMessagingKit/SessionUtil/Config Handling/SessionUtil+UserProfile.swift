@@ -18,7 +18,8 @@ internal extension SessionUtil {
         _ db: Database,
         in conf: UnsafeMutablePointer<config_object>?,
         mergeNeedsDump: Bool,
-        latestConfigSentTimestampMs: Int64
+        latestConfigSentTimestampMs: Int64,
+        using dependencies: Dependencies = Dependencies()
     ) throws {
         typealias ProfileData = (profileName: String, profilePictureUrl: String?, profilePictureKey: Data?)
         
@@ -51,7 +52,8 @@ internal extension SessionUtil {
                 )
             }(),
             sentTimestamp: (TimeInterval(latestConfigSentTimestampMs) / 1000),
-            calledFromConfigHandling: true
+            calledFromConfigHandling: true,
+            using: dependencies
         )
         
         // Update the 'Note to Self' visibility and priority

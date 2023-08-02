@@ -6,23 +6,31 @@ import CryptoKit
 import GRDB
 import SessionUtilitiesKit
 
-public protocol OnionRequestAPIType {
-    static func sendOnionRequest(_ payload: Data, to snode: Snode, timeout: TimeInterval) -> AnyPublisher<(ResponseInfoType, Data?), Error>
-    static func sendOnionRequest(_ request: URLRequest, to server: String, with x25519PublicKey: String, timeout: TimeInterval) -> AnyPublisher<(ResponseInfoType, Data?), Error>
-}
-
-public extension OnionRequestAPIType {
-    static func sendOnionRequest(_ payload: Data, to snode: Snode) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        return sendOnionRequest(payload, to: snode, timeout: HTTP.defaultTimeout)
+public extension Network.RequestType {
+    static func onionRequest(_ payload: Data, to snode: Snode, timeout: TimeInterval = HTTP.defaultTimeout) -> Network.RequestType<Data?> {
+        return Network.RequestType(
+            id: "onionRequest",
+            url: snode.address,
+            method: "POST",
+            body: payload,
+            args: [payload, snode, timeout]
+        ) { OnionRequestAPI.sendOnionRequest(payload, to: snode, timeout: timeout) }
     }
     
-    static func sendOnionRequest(_ request: URLRequest, to server: String, with x25519PublicKey: String) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        return sendOnionRequest(request, to: server, with: x25519PublicKey, timeout: HTTP.defaultTimeout)
+    static func onionRequest(_ request: URLRequest, to server: String, with x25519PublicKey: String, timeout: TimeInterval = HTTP.defaultTimeout) -> Network.RequestType<Data?> {
+        return Network.RequestType(
+            id: "onionRequest",
+            url: request.url?.absoluteString,
+            method: request.httpMethod,
+            headers: request.allHTTPHeaderFields,
+            body: request.httpBody,
+            args: [request, server, x25519PublicKey, timeout]
+        ) { OnionRequestAPI.sendOnionRequest(request, to: server, with: x25519PublicKey, timeout: timeout) }
     }
 }
 
 /// See the "Onion Requests" section of [The Session Whitepaper](https://arxiv.org/pdf/2002.04609.pdf) for more information.
-public enum OnionRequestAPI: OnionRequestAPIType {
+public enum OnionRequestAPI {
     private static var buildPathsPublisher: Atomic<AnyPublisher<[[Snode]], Error>?> = Atomic(nil)
     private static var pathFailureCount: Atomic<[[Snode]: UInt]> = Atomic([:])
     private static var snodeFailureCount: Atomic<[Snode: UInt]> = Atomic([:])
@@ -66,12 +74,12 @@ public enum OnionRequestAPI: OnionRequestAPIType {
     // MARK: - Private API
     
     /// Tests the given snode. The returned promise errors out if the snode is faulty; the promise is fulfilled otherwise.
-    private static func testSnode(_ snode: Snode) -> AnyPublisher<Void, Error> {
+    private static func testSnode(_ snode: Snode, using dependencies: Dependencies) -> AnyPublisher<Void, Error> {
         let url = "\(snode.address):\(snode.port)/get_stats/v1"
         let timeout: TimeInterval = 3 // Use a shorter timeout for testing
         
         return HTTP.execute(.get, url, timeout: timeout)
-            .decoded(as: SnodeAPI.GetStatsResponse.self)
+            .decoded(as: SnodeAPI.GetStatsResponse.self, using: dependencies)
             .tryMap { response -> Void in
                 guard let version: Version = response.version else { throw OnionRequestAPIError.missingSnodeVersion }
                 guard version >= Version(major: 2, minor: 0, patch: 7) else {
@@ -86,7 +94,10 @@ public enum OnionRequestAPI: OnionRequestAPIType {
     
     /// Finds `targetGuardSnodeCount` guard snodes to use for path building. The returned promise errors out with
     /// `Error.insufficientSnodes` if not enough (reliable) snodes are available.
-    private static func getGuardSnodes(reusing reusableGuardSnodes: [Snode]) -> AnyPublisher<Set<Snode>, Error> {
+    private static func getGuardSnodes(
+        reusing reusableGuardSnodes: [Snode],
+        using dependencies: Dependencies
+    ) -> AnyPublisher<Set<Snode>, Error> {
         guard guardSnodes.wrappedValue.count < targetGuardSnodeCount else {
             return Just(guardSnodes.wrappedValue)
                 .setFailureType(to: Error.self)
@@ -115,7 +126,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
             SNLog("Testing guard snode: \(candidate).")
             
             // Loop until a reliable guard snode is found
-            return testSnode(candidate)
+            return testSnode(candidate, using: dependencies)
                 .map { _ in candidate }
                 .catch { _ in
                     return Just(())
@@ -143,7 +154,10 @@ public enum OnionRequestAPI: OnionRequestAPIType {
     /// Builds and returns `targetPathCount` paths. The returned promise errors out with `Error.insufficientSnodes`
     /// if not enough (reliable) snodes are available.
     @discardableResult
-    private static func buildPaths(reusing reusablePaths: [[Snode]]) -> AnyPublisher<[[Snode]], Error> {
+    private static func buildPaths(
+        reusing reusablePaths: [[Snode]],
+        using dependencies: Dependencies
+    ) -> AnyPublisher<[[Snode]], Error> {
         if let existingBuildPathsPublisher = buildPathsPublisher.wrappedValue {
             return existingBuildPathsPublisher
         }
@@ -164,7 +178,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
             /// Need to include the post-request code and a `shareReplay` within the publisher otherwise it can still be executed
             /// multiple times as a result of multiple subscribers
             let reusableGuardSnodes = reusablePaths.map { $0[0] }
-            let publisher: AnyPublisher<[[Snode]], Error> = getGuardSnodes(reusing: reusableGuardSnodes)
+            let publisher: AnyPublisher<[[Snode]], Error> = getGuardSnodes(reusing: reusableGuardSnodes, using: dependencies)
                 .flatMap { (guardSnodes: Set<Snode>) -> AnyPublisher<[[Snode]], Error> in
                     var unusedSnodes: Set<Snode> = SnodeAPI.snodePool.wrappedValue
                         .subtracting(guardSnodes)
@@ -227,7 +241,10 @@ public enum OnionRequestAPI: OnionRequestAPIType {
     }
     
     /// Returns a `Path` to be used for building an onion request. Builds new paths as needed.
-    internal static func getPath(excluding snode: Snode?) -> AnyPublisher<[Snode], Error> {
+    internal static func getPath(
+        excluding snode: Snode?,
+        using dependencies: Dependencies
+    ) -> AnyPublisher<[Snode], Error> {
         guard pathSize >= 1 else { preconditionFailure("Can't build path of size zero.") }
         
         let paths: [[Snode]] = OnionRequestAPI.paths
@@ -257,7 +274,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
         else if !paths.isEmpty {
             if let snode = snode {
                 if let path = paths.first(where: { !$0.contains(snode) }) {
-                    buildPaths(reusing: paths) // Re-build paths in the background
+                    buildPaths(reusing: paths, using: dependencies) // Re-build paths in the background
                         .subscribe(on: DispatchQueue.global(qos: .background))
                         .sink(receiveCompletion: { _ in cancellable = [] }, receiveValue: { _ in })
                         .store(in: &cancellable)
@@ -267,7 +284,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
                         .eraseToAnyPublisher()
                 }
                 else {
-                    return buildPaths(reusing: paths)
+                    return buildPaths(reusing: paths, using: dependencies)
                         .flatMap { paths in
                             guard let path: [Snode] = paths.filter({ !$0.contains(snode) }).randomElement() else {
                                 return Fail<[Snode], Error>(error: OnionRequestAPIError.insufficientSnodes)
@@ -282,7 +299,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
                 }
             }
             else {
-                buildPaths(reusing: paths) // Re-build paths in the background
+                buildPaths(reusing: paths, using: dependencies) // Re-build paths in the background
                     .subscribe(on: DispatchQueue.global(qos: .background))
                     .sink(receiveCompletion: { _ in cancellable = [] }, receiveValue: { _ in })
                     .store(in: &cancellable)
@@ -298,7 +315,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
             }
         }
         else {
-            return buildPaths(reusing: [])
+            return buildPaths(reusing: [], using: dependencies)
                 .flatMap { paths in
                     if let snode = snode {
                         if let path = paths.filter({ !$0.contains(snode) }).randomElement() {
@@ -330,7 +347,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
 
     private static func drop(_ snode: Snode) throws {
         // We repair the path here because we can do it sync. In the case where we drop a whole
-        // path we leave the re-building up to getPath(excluding:) because re-building the path
+        // path we leave the re-building up to getPath(excluding:using:) because re-building the path
         // in that case is async.
         OnionRequestAPI.snodeFailureCount.mutate { $0[snode] = 0 }
         var oldPaths = paths
@@ -375,7 +392,8 @@ public enum OnionRequestAPI: OnionRequestAPIType {
     /// Builds an onion around `payload` and returns the result.
     private static func buildOnion(
         around payload: Data,
-        targetedAt destination: OnionRequestAPIDestination
+        targetedAt destination: OnionRequestAPIDestination,
+        using dependencies: Dependencies
     ) -> AnyPublisher<OnionBuildingResult, Error> {
         var guardSnode: Snode!
         var targetSnodeSymmetricKey: Data! // Needed by invoke(_:on:with:) to decrypt the response sent back by the destination
@@ -384,7 +402,7 @@ public enum OnionRequestAPI: OnionRequestAPIType {
         
         if case .snode(let snode) = destination { snodeToExclude = snode }
         
-        return getPath(excluding: snodeToExclude)
+        return getPath(excluding: snodeToExclude, using: dependencies)
             .flatMap { path -> AnyPublisher<AES.GCM.EncryptionResult, Error> in
                 guardSnode = path.first!
                 
@@ -490,11 +508,12 @@ public enum OnionRequestAPI: OnionRequestAPIType {
         with payload: Data,
         to destination: OnionRequestAPIDestination,
         version: OnionRequestAPIVersion,
-        timeout: TimeInterval = HTTP.defaultTimeout
+        timeout: TimeInterval = HTTP.defaultTimeout,
+        using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         var guardSnode: Snode?
         
-        return buildOnion(around: payload, targetedAt: destination)
+        return buildOnion(around: payload, targetedAt: destination, using: dependencies)
             .flatMap { intermediate -> AnyPublisher<(ResponseInfoType, Data?), Error> in
                 guardSnode = intermediate.guardSnode
                 let url = "\(guardSnode!.address):\(guardSnode!.port)/onion_req/v2"

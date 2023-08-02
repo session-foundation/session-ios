@@ -61,8 +61,6 @@ NSString *const ReportedApplicationStateDidChangeNotification = @"ReportedApplic
                                                  name:UIApplicationWillTerminateNotification
                                                object:nil];
 
-    // We can't use OWSSingletonAssert() since it uses the app context.
-
     self.appActiveBlocks = [NSMutableArray new];
 
     return self;
@@ -241,11 +239,6 @@ NSString *const ReportedApplicationStateDidChangeNotification = @"ReportedApplic
                                   handler:^(UIAlertAction *_Nonnull action) {
                                       [UIApplication.sharedApplication openSystemSettings];
                                   }];
-}
-
-- (BOOL)isRunningTests
-{
-    return (NSProcessInfo.processInfo.environment[@"XCTestConfigurationFilePath"] != nil);
 }
 
 - (void)setNetworkActivityIndicatorVisible:(BOOL)value

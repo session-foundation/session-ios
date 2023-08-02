@@ -14,28 +14,27 @@ public enum SendReadReceiptsJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool) -> (),
-        failure: @escaping (Job, Error?, Bool) -> (),
-        deferred: @escaping (Job) -> ()
+        success: @escaping (Job, Bool, Dependencies) -> (),
+        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
+        deferred: @escaping (Job, Dependencies) -> (),
+        using dependencies: Dependencies
     ) {
         guard
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
         else {
-            failure(job, JobRunnerError.missingRequiredDetails, true)
-            return
+            return failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
         }
         
         // If there are no timestampMs values then the job can just complete (next time
         // something is marked as read we want to try and run immediately so don't scuedule
         // another run in this case)
         guard !details.timestampMsValues.isEmpty else {
-            success(job, true)
-            return
+            return success(job, true, dependencies)
         }
         
-        Storage.shared
+        dependencies.storage
             .writePublisher { db in
                 try MessageSender.preparedSendData(
                     db,
@@ -48,19 +47,19 @@ public enum SendReadReceiptsJob: JobExecutor {
                     isSyncMessage: false
                 )
             }
-            .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
+            .flatMap { MessageSender.sendImmediate(data: $0, using: dependencies) }
             .subscribe(on: queue)
             .receive(on: queue)
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {
-                        case .failure(let error): failure(job, error, false)
+                        case .failure(let error): failure(job, error, false, dependencies)
                         case .finished:
                             // When we complete the 'SendReadReceiptsJob' we want to immediately schedule
                             // another one for the same thread but with a 'nextRunTimestamp' set to the
                             // 'maxRunFrequency' value to throttle the read receipt requests
                             var shouldFinishCurrentJob: Bool = false
-                            let nextRunTimestamp: TimeInterval = (Date().timeIntervalSince1970 + maxRunFrequency)
+                            let nextRunTimestamp: TimeInterval = (dependencies.dateNow.timeIntervalSince1970 + maxRunFrequency)
                             
                             let updatedJob: Job? = Storage.shared.write { db in
                                 // If another 'sendReadReceipts' job was scheduled then update that one
@@ -87,7 +86,7 @@ public enum SendReadReceiptsJob: JobExecutor {
                                     .saved(db)
                             }
                             
-                            success(updatedJob ?? job, shouldFinishCurrentJob)
+                            success(updatedJob ?? job, shouldFinishCurrentJob, dependencies)
                     }
                 }
             )

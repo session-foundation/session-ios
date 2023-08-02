@@ -13,12 +13,8 @@ public class SwiftSingletons: NSObject {
     }
 
     public func register(_ singleton: AnyObject) {
-        guard !CurrentAppContext().isRunningTests else {
-            return
-        }
-        guard _isDebugAssertConfiguration() else {
-            return
-        }
+        guard !SNUtilitiesKit.isRunningTests else { return }
+        guard _isDebugAssertConfiguration() else { return }
         let singletonClassName = String(describing: type(of: singleton))
         guard !classSet.contains(singletonClassName) else {
             owsFailDebug("Duplicate singleton: \(singletonClassName).")

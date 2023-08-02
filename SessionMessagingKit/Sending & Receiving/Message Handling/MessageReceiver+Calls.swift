@@ -194,7 +194,11 @@ extension MessageReceiver {
     
     // MARK: - Convenience
     
-    public static func handleIncomingCallOfferInBusyState(_ db: Database, message: CallMessage) throws {
+    public static func handleIncomingCallOfferInBusyState(
+        _ db: Database,
+        message: CallMessage,
+        using dependencies: Dependencies = Dependencies()
+    ) throws {
         let messageInfo: CallMessage.MessageInfo = CallMessage.MessageInfo(state: .missed)
         
         guard
@@ -229,7 +233,7 @@ extension MessageReceiver {
         .inserted(db)
         
         MessageSender.sendImmediate(
-            preparedSendData: try MessageSender
+            data: try MessageSender
                 .preparedSendData(
                     db,
                     message: CallMessage(
@@ -242,8 +246,10 @@ extension MessageReceiver {
                     namespace: try Message.Destination
                         .from(db, threadId: thread.id, threadVariant: thread.variant)
                         .defaultNamespace,
-                    interactionId: nil      // Explicitly nil as it's a separate message from above
-                )
+                    interactionId: nil,      // Explicitly nil as it's a separate message from above
+                    using: dependencies
+                ),
+            using: dependencies
         )
         .subscribe(on: DispatchQueue.global(qos: .userInitiated))
         .sinkUntilComplete()

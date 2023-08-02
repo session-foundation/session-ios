@@ -310,12 +310,12 @@ final class VoiceMessageRecordingView: UIView {
         }
     }
 
-    func handleLongPressEnded(at location: CGPoint) {
+    func handleLongPressEnded(at location: CGPoint, using dependencies: Dependencies = Dependencies()) {
         if pulseView.frame.contains(location) {
-            delegate?.endVoiceMessageRecording()
+            delegate?.endVoiceMessageRecording(using: dependencies)
         }
         else if isValidLockViewLocation(location) {
-            let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleCircleViewTap))
+            let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(onCircleViewTap))
             circleView.addGestureRecognizer(tapGestureRecognizer)
             
             UIView.animate(withDuration: 0.25, delay: 0, options: .transitionCrossDissolve, animations: {
@@ -332,8 +332,10 @@ final class VoiceMessageRecordingView: UIView {
         }
     }
 
-    @objc private func handleCircleViewTap() {
-        delegate?.endVoiceMessageRecording()
+    @objc private func onCircleViewTap() { handleCircleViewTap() }
+    
+    private func handleCircleViewTap(using dependencies: Dependencies = Dependencies()) {
+        delegate?.endVoiceMessageRecording(using: dependencies)
     }
 
     @objc private func handleCancelButtonTapped() {
@@ -474,7 +476,7 @@ extension VoiceMessageRecordingView {
 // MARK: - Delegate
 
 protocol VoiceMessageRecordingViewDelegate: AnyObject {
-    func startVoiceMessageRecording()
-    func endVoiceMessageRecording()
+    func startVoiceMessageRecording(using dependencies: Dependencies)
+    func endVoiceMessageRecording(using dependencies: Dependencies)
     func cancelVoiceMessageRecording()
 }

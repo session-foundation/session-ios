@@ -17,17 +17,18 @@ public enum SyncPushTokensJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool) -> (),
-        failure: @escaping (Job, Error?, Bool) -> (),
-        deferred: @escaping (Job) -> ()
+        success: @escaping (Job, Bool, Dependencies) -> (),
+        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
+        deferred: @escaping (Job, Dependencies) -> (),
+        using dependencies: Dependencies = Dependencies()
     ) {
         // Don't run when inactive or not in main app or if the user doesn't exist yet
         guard (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false) else {
-            return deferred(job) // Don't need to do anything if it's not the main app
+            return deferred(job, dependencies) // Don't need to do anything if it's not the main app
         }
         guard Identity.userCompletedRequiredOnboarding() else {
             SNLog("[SyncPushTokensJob] Deferred due to incomplete registration")
-            return deferred(job)
+            return deferred(job, dependencies)
         }
         
         // We need to check a UIApplication setting which needs to run on the main thread so synchronously
@@ -46,7 +47,7 @@ public enum SyncPushTokensJob: JobExecutor {
         // https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/HandlingRemoteNotifications.html#//apple_ref/doc/uid/TP40008194-CH6-SW1
         guard job.behaviour == .runOnce || !isRegisteredForRemoteNotifications else {
             SNLog("[SyncPushTokensJob] Deferred due to Fast Mode disabled")
-            deferred(job) // Don't need to do anything if push notifications are already registered
+            deferred(job, dependencies) // Don't need to do anything if push notifications are already registered
             return
         }
         
@@ -91,7 +92,7 @@ public enum SyncPushTokensJob: JobExecutor {
                         }
                         
                         // We want to complete this job regardless of success or failure
-                        success(job, false)
+                        success(job, false, dependencies)
                     }
                 )
             return
@@ -132,7 +133,7 @@ public enum SyncPushTokensJob: JobExecutor {
             .subscribe(on: queue)
             .sinkUntilComplete(
                 // We want to complete this job regardless of success or failure
-                receiveCompletion: { _ in success(job, false) }
+                receiveCompletion: { _ in success(job, false, dependencies) }
             )
     }
     
@@ -149,9 +150,9 @@ public enum SyncPushTokensJob: JobExecutor {
         SyncPushTokensJob.run(
             job,
             queue: DispatchQueue.global(qos: .default),
-            success: { _, _ in },
-            failure: { _, _, _ in },
-            deferred: { _ in }
+            success: { _, _, _ in },
+            failure: { _, _, _, _ in },
+            deferred: { _, _ in }
         )
     }
 }

@@ -39,10 +39,10 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
     // MARK: - Initialization
     
     init(
-        dependencies: Dependencies = Dependencies(),
         threadId: String,
         threadVariant: SessionThread.Variant,
-        config: DisappearingMessagesConfiguration
+        config: DisappearingMessagesConfiguration,
+        using dependencies: Dependencies = Dependencies()
     ) {
         self.dependencies = dependencies
         self.threadId = threadId
@@ -68,7 +68,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
         currentSelection
             .removeDuplicates()
             .map { [weak self] currentSelection in (self?.storedSelection != currentSelection) }
-            .map { isChanged in
+            .map { [weak self, dependencies] isChanged in
                 guard isChanged else { return [] }
                 
                 return [
@@ -76,8 +76,8 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                         id: .save,
                         systemItem: .save,
                         accessibilityIdentifier: "Save button"
-                    ) { [weak self] in
-                        self?.saveChanges()
+                    ) {
+                        self?.saveChanges(using: dependencies)
                         self?.dismissScreen()
                     }
                 ]
@@ -100,7 +100,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
     private lazy var _observableTableData: ObservableData = ValueObservation
         .trackingConstantRegion { [weak self, config, dependencies, threadId = self.threadId] db -> [SectionModel] in
-            let userPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
+            let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
             let maybeThreadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
                 .conversationSettingsQuery(threadId: threadId, userPublicKey: userPublicKey)
                 .fetchOne(db)
@@ -156,7 +156,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
     
     // MARK: - Functions
     
-    private func saveChanges() {
+    private func saveChanges(using dependencies: Dependencies = Dependencies()) {
         let threadId: String = self.threadId
         let threadVariant: SessionThread.Variant = self.threadVariant
         let currentSelection: TimeInterval = self.currentSelection.value
@@ -195,7 +195,8 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                 ),
                 interactionId: interaction.id,
                 threadId: threadId,
-                threadVariant: threadVariant
+                threadVariant: threadVariant,
+                using: dependencies
             )
             
             // Legacy closed groups

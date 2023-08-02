@@ -15,7 +15,8 @@ public protocol AttachmentApprovalViewControllerDelegate: AnyObject {
         _ attachmentApproval: AttachmentApprovalViewController,
         didApproveAttachments attachments: [SignalAttachment],
         forThreadId threadId: String,
-        messageText: String?
+        messageText: String?,
+        using dependencies: Dependencies
     )
 
     func attachmentApprovalDidCancel(_ attachmentApproval: AttachmentApprovalViewController)
@@ -664,7 +665,7 @@ extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
 
     func attachmentTextToolbarDidEndEditing(_ attachmentTextToolbar: AttachmentTextToolbar) {}
 
-    func attachmentTextToolbarDidTapSend(_ attachmentTextToolbar: AttachmentTextToolbar) {
+    func attachmentTextToolbarDidTapSend(_ attachmentTextToolbar: AttachmentTextToolbar, using dependencies: Dependencies) {
         // Toolbar flickers in and out if there are errors
         // and remains visible momentarily after share extension is dismissed.
         // It's easiest to just hide it at this point since we're done with it.
@@ -672,7 +673,7 @@ extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
         attachmentTextToolbar.isUserInteractionEnabled = false
         attachmentTextToolbar.isHidden = true
 
-        approvalDelegate?.attachmentApproval(self, didApproveAttachments: attachments, forThreadId: threadId, messageText: attachmentTextToolbar.messageText)
+        approvalDelegate?.attachmentApproval(self, didApproveAttachments: attachments, forThreadId: threadId, messageText: attachmentTextToolbar.messageText, using: dependencies)
     }
 
     func attachmentTextToolbarDidChange(_ attachmentTextToolbar: AttachmentTextToolbar) {

@@ -140,10 +140,10 @@ public final class MessageSender {
         namespace: SnodeAPI.Namespace?,
         interactionId: Int64?,
         isSyncMessage: Bool = false,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData {
         // Common logic for all destinations
-        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
+        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
         let messageSendTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs()
         let updatedMessage: Message = message
         
@@ -199,7 +199,7 @@ public final class MessageSender {
         userPublicKey: String,
         messageSendTimestamp: Int64,
         isSyncMessage: Bool = false,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies
     ) throws -> PreparedSendData {
         message.sender = userPublicKey
         message.recipient = {
@@ -276,7 +276,7 @@ public final class MessageSender {
         do {
             switch destination {
                 case .contact(let publicKey):
-                    ciphertext = try encryptWithSessionProtocol(db, plaintext: plaintext, for: publicKey)
+                    ciphertext = try encryptWithSessionProtocol(db, plaintext: plaintext, for: publicKey, using: dependencies)
                     
                 case .closedGroup(let groupPublicKey):
                     guard let encryptionKeyPair: ClosedGroupKeyPair = try? ClosedGroupKeyPair.fetchLatestKeyPair(db, threadId: groupPublicKey) else {
@@ -286,7 +286,8 @@ public final class MessageSender {
                     ciphertext = try encryptWithSessionProtocol(
                         db,
                         plaintext: plaintext,
-                        for: SessionId(.standard, publicKey: encryptionKeyPair.publicKey.bytes).hexString
+                        for: SessionId(.standard, publicKey: encryptionKeyPair.publicKey.bytes).hexString,
+                        using: dependencies
                     )
                     
                 case .openGroup, .openGroupInbox: preconditionFailure()
@@ -365,7 +366,7 @@ public final class MessageSender {
         to destination: Message.Destination,
         interactionId: Int64?,
         messageSendTimestamp: Int64,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies
     ) throws -> PreparedSendData {
         let threadId: String
         
@@ -394,7 +395,7 @@ public final class MessageSender {
             throw MessageSenderError.invalidMessage
         }
         
-        message.sender = {
+        message.sender = try {
             let capabilities: [Capability.Variant] = (try? Capability
                 .select(.variant)
                 .filter(Capability.Columns.openGroupServer == server)
@@ -407,9 +408,11 @@ public final class MessageSender {
             guard capabilities.isEmpty || capabilities.contains(.blind) else {
                 return SessionId(.unblinded, publicKey: userEdKeyPair.publicKey).hexString
             }
-            guard let blindedKeyPair: KeyPair = dependencies.sodium.blindedKeyPair(serverPublicKey: openGroup.publicKey, edKeyPair: userEdKeyPair, genericHash: dependencies.genericHash) else {
-                preconditionFailure()
-            }
+            guard
+                let blindedKeyPair: KeyPair = dependencies.crypto.generate(
+                    .blindedKeyPair(serverPublicKey: openGroup.publicKey, edKeyPair: userEdKeyPair, using: dependencies)
+                )
+            else { throw MessageSenderError.signingFailed }
             
             return SessionId(.blinded15, publicKey: blindedKeyPair.publicKey).hexString
         }()
@@ -492,7 +495,7 @@ public final class MessageSender {
         interactionId: Int64?,
         userPublicKey: String,
         messageSendTimestamp: Int64,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies
     ) throws -> PreparedSendData {
         guard case .openGroupInbox(_, let openGroupPublicKey, let recipientBlindedPublicKey) = destination else {
             throw MessageSenderError.invalidMessage
@@ -582,10 +585,10 @@ public final class MessageSender {
     // MARK: - Sending
     
     public static func sendImmediate(
-        preparedSendData: PreparedSendData,
-        using dependencies: SMKDependencies = SMKDependencies()
+        data: PreparedSendData,
+        using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
-        guard preparedSendData.shouldSend else {
+        guard data.shouldSend else {
             return Just(())
                 .setFailureType(to: Error.self)
                 .eraseToAnyPublisher()
@@ -597,7 +600,7 @@ public final class MessageSender {
         //
         // If you see this error then you need to call
         // `MessageSender.performUploadsIfNeeded(queue:preparedSendData:)` before calling this function
-        switch preparedSendData.message {
+        switch data.message {
             case let visibleMessage as VisibleMessage:
                 let expectedAttachmentUploadCount: Int = (
                     visibleMessage.attachmentIds.count +
@@ -605,17 +608,17 @@ public final class MessageSender {
                     (visibleMessage.quote?.attachmentId != nil ? 1 : 0)
                 )
                 
-                guard expectedAttachmentUploadCount == preparedSendData.totalAttachmentsUploaded else {
+                guard expectedAttachmentUploadCount == data.totalAttachmentsUploaded else {
                     // Make sure to actually handle this as a failure (if we don't then the message
                     // won't go into an error state correctly)
-                    if let message: Message = preparedSendData.message {
+                    if let message: Message = data.message {
                         dependencies.storage.read { db in
                             MessageSender.handleFailedMessageSend(
                                 db,
                                 message: message,
                                 with: .attachmentsNotUploaded,
-                                interactionId: preparedSendData.interactionId,
-                                isSyncMessage: (preparedSendData.isSyncMessage == true),
+                                interactionId: data.interactionId,
+                                isSyncMessage: (data.isSyncMessage == true),
                                 using: dependencies
                             )
                         }
@@ -630,10 +633,10 @@ public final class MessageSender {
             default: break
         }
         
-        switch preparedSendData.destination {
-            case .contact, .closedGroup: return sendToSnodeDestination(data: preparedSendData, using: dependencies)
-            case .openGroup: return sendToOpenGroupDestination(data: preparedSendData, using: dependencies)
-            case .openGroupInbox: return sendToOpenGroupInbox(data: preparedSendData, using: dependencies)
+        switch data.destination {
+            case .contact, .closedGroup: return sendToSnodeDestination(data: data, using: dependencies)
+            case .openGroup: return sendToOpenGroupDestination(data: data, using: dependencies)
+            case .openGroupInbox: return sendToOpenGroupInbox(data: data, using: dependencies)
         }
     }
     
@@ -641,7 +644,7 @@ public final class MessageSender {
     
     private static func sendToSnodeDestination(
         data: PreparedSendData,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         guard
             let message: Message = data.message,
@@ -653,14 +656,11 @@ public final class MessageSender {
                 .eraseToAnyPublisher()
         }
         
-        return SnodeAPI
-            .sendMessage(
-                snodeMessage,
-                in: namespace
-            )
-            .flatMap { response -> AnyPublisher<Void, Error> in
+        return dependencies.network
+            .send(.message(snodeMessage, in: namespace, using: dependencies))
+            .flatMap { info, response -> AnyPublisher<Void, Error> in
                 let updatedMessage: Message = message
-                updatedMessage.serverHash = response.1.hash
+                updatedMessage.serverHash = response.hash
 
                 let job: Job? = Job(
                     variant: .notifyPushServer,
@@ -695,7 +695,7 @@ public final class MessageSender {
 
                         guard shouldNotify else { return () }
 
-                        JobRunner.add(db, job: job)
+                        dependencies.jobRunner.add(db, job: job, canStartJob: true, using: dependencies)
                         return ()
                     }
                     .flatMap { _ -> AnyPublisher<Void, Error> in
@@ -718,15 +718,16 @@ public final class MessageSender {
                                 NotifyPushServerJob.run(
                                     job,
                                     queue: .global(qos: .default),
-                                    success: { _, _ in resolver(Result.success(())) },
-                                    failure: { _, _, _ in
+                                    success: { _, _, _ in resolver(Result.success(())) },
+                                    failure: { _, _, _, _ in
                                         // Always fulfill because the notify PN server job isn't critical.
                                         resolver(Result.success(()))
                                     },
-                                    deferred: { _ in
+                                    deferred: { _, _ in
                                         // Always fulfill because the notify PN server job isn't critical.
                                         resolver(Result.success(()))
-                                    }
+                                    },
+                                    using: dependencies
                                 )
                             }
                         }
@@ -761,7 +762,7 @@ public final class MessageSender {
     
     private static func sendToOpenGroupDestination(
         data: PreparedSendData,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         guard
             let message: Message = data.message,
@@ -829,7 +830,7 @@ public final class MessageSender {
     
     private static func sendToOpenGroupInbox(
         data: PreparedSendData,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         guard
             let message: Message = data.message,
@@ -926,7 +927,7 @@ public final class MessageSender {
         interactionId: Int64?,
         serverTimestampMs: UInt64? = nil,
         isSyncMessage: Bool = false,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies
     ) throws {
         // If the message was a reaction then we want to update the reaction instead of the original
         // interaction (which the 'interactionId' is pointing to
@@ -964,13 +965,15 @@ public final class MessageSender {
                     .updateAll(db, RecipientState.Columns.state.set(to: RecipientState.State.sent))
                 
                 // Start the disappearing messages timer if needed
-                JobRunner.upsert(
+                dependencies.jobRunner.upsert(
                     db,
                     job: DisappearingMessagesJob.updateNextRunIfNeeded(
                         db,
                         interaction: interaction,
                         startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs())
-                    )
+                    ),
+                    canStartJob: true,
+                    using: dependencies
                 )
             }
         }
@@ -995,7 +998,8 @@ public final class MessageSender {
             destination: destination,
             threadId: threadId,
             interactionId: interactionId,
-            isAlreadySyncMessage: isSyncMessage
+            isAlreadySyncMessage: isSyncMessage,
+            using: dependencies
         )
     }
 
@@ -1005,7 +1009,7 @@ public final class MessageSender {
         with error: MessageSenderError,
         interactionId: Int64?,
         isSyncMessage: Bool = false,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies
     ) -> Error {
         // If the message was a reaction then we don't want to do anything to the original
         // interaciton (which the 'interactionId' is pointing to
@@ -1072,11 +1076,12 @@ public final class MessageSender {
         destination: Message.Destination,
         threadId: String?,
         interactionId: Int64?,
-        isAlreadySyncMessage: Bool
+        isAlreadySyncMessage: Bool,
+        using dependencies: Dependencies
     ) {
         // Sync the message if it's not a sync message, wasn't already sent to the current user and
         // it's a message type which should be synced
-        let currentUserPublicKey = getUserHexEncodedPublicKey(db)
+        let currentUserPublicKey = getUserHexEncodedPublicKey(db, using: dependencies)
         
         if
             case .contact(let publicKey) = destination,
@@ -1087,7 +1092,7 @@ public final class MessageSender {
             if let message = message as? VisibleMessage { message.syncTarget = publicKey }
             if let message = message as? ExpirationTimerUpdate { message.syncTarget = publicKey }
             
-            JobRunner.add(
+            dependencies.jobRunner.add(
                 db,
                 job: Job(
                     variant: .messageSend,
@@ -1098,7 +1103,9 @@ public final class MessageSender {
                         message: message,
                         isSyncMessage: true
                     )
-                )
+                ),
+                canStartJob: true,
+                using: dependencies
             )
         }
     }

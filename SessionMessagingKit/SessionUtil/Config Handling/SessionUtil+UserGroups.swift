@@ -29,7 +29,8 @@ internal extension SessionUtil {
         _ db: Database,
         in conf: UnsafeMutablePointer<config_object>?,
         mergeNeedsDump: Bool,
-        latestConfigSentTimestampMs: Int64
+        latestConfigSentTimestampMs: Int64,
+        using dependencies: Dependencies = Dependencies()
     ) throws {
         guard mergeNeedsDump else { return }
         guard conf != nil else { throw SessionUtilError.nilConfigObject }
@@ -236,7 +237,8 @@ internal extension SessionUtil {
                     admins: updatedAdmins.map { $0.profileId },
                     expirationTimer: UInt32(group.disappearingConfig?.durationSeconds ?? 0),
                     formationTimestampMs: UInt64((group.joinedAt.map { $0 * 1000 } ?? latestConfigSentTimestampMs)),
-                    calledFromConfigHandling: true
+                    calledFromConfigHandling: true,
+                    using: dependencies
                 )
             }
             else {
