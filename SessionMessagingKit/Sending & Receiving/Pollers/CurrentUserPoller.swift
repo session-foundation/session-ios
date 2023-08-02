@@ -14,12 +14,7 @@ public final class CurrentUserPoller: Poller {
 
     // MARK: - Settings
     
-    override var namespaces: [SnodeAPI.Namespace] {
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard SessionUtil.userConfigsEnabled else { return [.default] }
-        
-        return CurrentUserPoller.namespaces
-    }
+    override var namespaces: [SnodeAPI.Namespace] { CurrentUserPoller.namespaces }
     
     /// After polling a given snode this many times we always switch to a new one.
     ///

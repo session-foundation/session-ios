@@ -128,7 +128,6 @@
 		7B8C44C528B49DDA00FBE25F /* NewConversationVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8C44C428B49DDA00FBE25F /* NewConversationVC.swift */; };
 		7B8D5FC428332600008324D9 /* VisibleMessage+Reaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8D5FC328332600008324D9 /* VisibleMessage+Reaction.swift */; };
 		7B93D06A27CF173D00811CB6 /* MessageRequestsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B93D06927CF173D00811CB6 /* MessageRequestsViewController.swift */; };
-		7B93D07027CF194000811CB6 /* ConfigurationMessage+Convenience.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B93D06E27CF194000811CB6 /* ConfigurationMessage+Convenience.swift */; };
 		7B93D07127CF194000811CB6 /* MessageRequestResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B93D06F27CF194000811CB6 /* MessageRequestResponse.swift */; };
 		7B93D07727CF1A8A00811CB6 /* MockDataGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B93D07527CF1A8900811CB6 /* MockDataGenerator.swift */; };
 		7B9F71C928470667006DFE7B /* ReactionListSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B9F71C828470667006DFE7B /* ReactionListSheet.swift */; };
@@ -652,7 +651,6 @@
 		FD5C72F9284F0E880029977D /* MessageReceiver+TypingIndicators.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5C72F8284F0E880029977D /* MessageReceiver+TypingIndicators.swift */; };
 		FD5C72FB284F0EA10029977D /* MessageReceiver+DataExtractionNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5C72FA284F0EA10029977D /* MessageReceiver+DataExtractionNotification.swift */; };
 		FD5C72FD284F0EC90029977D /* MessageReceiver+ExpirationTimers.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5C72FC284F0EC90029977D /* MessageReceiver+ExpirationTimers.swift */; };
-		FD5C72FF284F0F120029977D /* MessageReceiver+ConfigurationMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5C72FE284F0F120029977D /* MessageReceiver+ConfigurationMessages.swift */; };
 		FD5C7301284F0F7A0029977D /* MessageReceiver+UnsendRequests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5C7300284F0F7A0029977D /* MessageReceiver+UnsendRequests.swift */; };
 		FD5C7303284F0FA50029977D /* MessageReceiver+Calls.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5C7302284F0FA50029977D /* MessageReceiver+Calls.swift */; };
 		FD5C7305284F0FF30029977D /* MessageReceiver+VisibleMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5C7304284F0FF30029977D /* MessageReceiver+VisibleMessages.swift */; };
@@ -1237,7 +1235,6 @@
 		7B8C44C428B49DDA00FBE25F /* NewConversationVC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewConversationVC.swift; sourceTree = "<group>"; };
 		7B8D5FC328332600008324D9 /* VisibleMessage+Reaction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VisibleMessage+Reaction.swift"; sourceTree = "<group>"; };
 		7B93D06927CF173D00811CB6 /* MessageRequestsViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MessageRequestsViewController.swift; sourceTree = "<group>"; };
-		7B93D06E27CF194000811CB6 /* ConfigurationMessage+Convenience.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "ConfigurationMessage+Convenience.swift"; sourceTree = "<group>"; };
 		7B93D06F27CF194000811CB6 /* MessageRequestResponse.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MessageRequestResponse.swift; sourceTree = "<group>"; };
 		7B93D07527CF1A8900811CB6 /* MockDataGenerator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MockDataGenerator.swift; sourceTree = "<group>"; };
 		7B9F71C828470667006DFE7B /* ReactionListSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReactionListSheet.swift; sourceTree = "<group>"; };
@@ -1771,7 +1768,6 @@
 		FD5C72F8284F0E880029977D /* MessageReceiver+TypingIndicators.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageReceiver+TypingIndicators.swift"; sourceTree = "<group>"; };
 		FD5C72FA284F0EA10029977D /* MessageReceiver+DataExtractionNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageReceiver+DataExtractionNotification.swift"; sourceTree = "<group>"; };
 		FD5C72FC284F0EC90029977D /* MessageReceiver+ExpirationTimers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageReceiver+ExpirationTimers.swift"; sourceTree = "<group>"; };
-		FD5C72FE284F0F120029977D /* MessageReceiver+ConfigurationMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageReceiver+ConfigurationMessages.swift"; sourceTree = "<group>"; };
 		FD5C7300284F0F7A0029977D /* MessageReceiver+UnsendRequests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageReceiver+UnsendRequests.swift"; sourceTree = "<group>"; };
 		FD5C7302284F0FA50029977D /* MessageReceiver+Calls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageReceiver+Calls.swift"; sourceTree = "<group>"; };
 		FD5C7304284F0FF30029977D /* MessageReceiver+VisibleMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageReceiver+VisibleMessages.swift"; sourceTree = "<group>"; };
@@ -2730,7 +2726,6 @@
 				C34A977325A3E34A00852C71 /* ClosedGroupControlMessage.swift */,
 				FD8ECF8A2935DB4B00C0D1BB /* SharedConfigMessage.swift */,
 				C3DA9C0625AE7396008F7C7E /* ConfigurationMessage.swift */,
-				7B93D06E27CF194000811CB6 /* ConfigurationMessage+Convenience.swift */,
 				B8F5F60225EDE16F003BF8D4 /* DataExtractionNotification.swift */,
 				C300A5E62554B07300555489 /* ExpirationTimerUpdate.swift */,
 				7B93D06F27CF194000811CB6 /* MessageRequestResponse.swift */,
@@ -4002,7 +3997,6 @@
 				FD5C72F8284F0E880029977D /* MessageReceiver+TypingIndicators.swift */,
 				FD5C72FA284F0EA10029977D /* MessageReceiver+DataExtractionNotification.swift */,
 				FD5C72FC284F0EC90029977D /* MessageReceiver+ExpirationTimers.swift */,
-				FD5C72FE284F0F120029977D /* MessageReceiver+ConfigurationMessages.swift */,
 				FD5C7300284F0F7A0029977D /* MessageReceiver+UnsendRequests.swift */,
 				FD5C7302284F0FA50029977D /* MessageReceiver+Calls.swift */,
 				FD5C7304284F0FF30029977D /* MessageReceiver+VisibleMessages.swift */,
@@ -5864,7 +5858,6 @@
 				FD23CE222A661D000000B97C /* OpenGroupAPI+Crypto.swift in Sources */,
 				FD245C652850665400B966DD /* ClosedGroupControlMessage.swift in Sources */,
 				FDC4387827B5C35400C60D73 /* SendMessageRequest.swift in Sources */,
-				7B93D07027CF194000811CB6 /* ConfigurationMessage+Convenience.swift in Sources */,
 				FD5C72FD284F0EC90029977D /* MessageReceiver+ExpirationTimers.swift in Sources */,
 				C32C5A88256DBCF9003C73A2 /* MessageReceiver+ClosedGroups.swift in Sources */,
 				B8D0A25925E367AC00C1835E /* Notification+MessageReceiver.swift in Sources */,
@@ -5874,7 +5867,6 @@
 				C32C599E256DB02B003C73A2 /* TypingIndicators.swift in Sources */,
 				FD716E682850318E00C96BF4 /* CallMode.swift in Sources */,
 				FD09799527FE7B8E00936362 /* Interaction.swift in Sources */,
-				FD5C72FF284F0F120029977D /* MessageReceiver+ConfigurationMessages.swift in Sources */,
 				FD37EA0D28AB2A45003AE748 /* _005_FixDeletedMessageReadState.swift in Sources */,
 				7BAA7B6628D2DE4700AE1489 /* _009_OpenGroupPermission.swift in Sources */,
 				FDC4380927B31D4E00C60D73 /* OpenGroupAPIError.swift in Sources */,

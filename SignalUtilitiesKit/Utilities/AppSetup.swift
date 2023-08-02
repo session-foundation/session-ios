@@ -84,12 +84,6 @@ public enum AppSetup {
                     )
                 }
                 
-                // Refresh the migration state for 'SessionUtil' so it's logic can start running
-                // correctly when called (doing this here instead of automatically via the
-                // `SessionUtil.userConfigsEnabled` property to avoid having to use the correct
-                // method when calling within a database read/write closure)
-                Storage.shared.read { db in SessionUtil.refreshingUserConfigsEnabled(db) }
-                
                 migrationsCompletion(result, (needsConfigSync || SessionUtil.needsSync))
                 
                 // The 'if' is only there to prevent the "variable never read" warning from showing
