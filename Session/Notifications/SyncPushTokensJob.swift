@@ -31,26 +31,6 @@ public enum SyncPushTokensJob: JobExecutor {
             return deferred(job, dependencies)
         }
         
-        // We need to check a UIApplication setting which needs to run on the main thread so synchronously
-        // retrieve the value so we can continue
-        let isRegisteredForRemoteNotifications: Bool = {
-            guard !Thread.isMainThread else {
-                return UIApplication.shared.isRegisteredForRemoteNotifications
-            }
-            
-            return DispatchQueue.main.sync {
-                return UIApplication.shared.isRegisteredForRemoteNotifications
-            }
-        }()
-        
-        // Apple's documentation states that we should re-register for notifications on every launch:
-        // https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/HandlingRemoteNotifications.html#//apple_ref/doc/uid/TP40008194-CH6-SW1
-        guard job.behaviour == .runOnce || !isRegisteredForRemoteNotifications else {
-            SNLog("[SyncPushTokensJob] Deferred due to Fast Mode disabled")
-            deferred(job, dependencies) // Don't need to do anything if push notifications are already registered
-            return
-        }
-        
         // Determine if the device has 'Fast Mode' (APNS) enabled
         let isUsingFullAPNs: Bool = UserDefaults.standard[.isUsingFullAPNs]
         
@@ -98,7 +78,10 @@ public enum SyncPushTokensJob: JobExecutor {
             return
         }
         
-        // Perform device registration
+        /// Perform device registration
+        ///
+        /// **Note:** Apple's documentation states that we should re-register for notifications on every launch:
+        /// https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/HandlingRemoteNotifications.html#//apple_ref/doc/uid/TP40008194-CH6-SW1
         Logger.info("Re-registering for remote notifications.")
         PushRegistrationManager.shared.requestPushTokens()
             .flatMap { (pushToken: String, voipToken: String) -> AnyPublisher<Void, Error> in
