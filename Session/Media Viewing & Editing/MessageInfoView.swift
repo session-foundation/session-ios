@@ -13,6 +13,8 @@ struct MessageInfoView: View {
         return [.failed, .failedToSync].contains(messageViewModel.state)
     }
     
+    var dismiss: (() -> Void)?
+    
     var body: some View {
         NavigationView {
             ZStack (alignment: .topLeading) {
@@ -379,6 +381,7 @@ struct MessageInfoView: View {
                                         .frame(width: .infinity, height: 60)
                                         .onTapGesture {
                                             actions[index].work()
+                                            dismiss()
                                         }
                                         
                                         if index < (actions.count - 1) {
