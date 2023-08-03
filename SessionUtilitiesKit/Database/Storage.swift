@@ -232,7 +232,6 @@ open class Storage {
         let migrationCompleted: (Swift.Result<Void, Error>) -> () = { [weak self] result in
             self?.migrationsCompleted.mutate { $0 = true }
             self?.migrationProgressUpdater = nil
-            SUKLegacy.clearLegacyDatabaseInstance()
             
             // Don't log anything in the case of a 'success' or if the database is suspended (the
             // latter will happen if the user happens to return to the background too quickly on
@@ -377,10 +376,6 @@ open class Storage {
     }
     
     public static func resetAllStorage() {
-        // Just in case they haven't been removed for some reason, delete the legacy database & keys
-        SUKLegacy.clearLegacyDatabaseInstance()
-        try? SUKLegacy.deleteLegacyDatabaseFilesAndKey()
-        
         Storage.shared.isValid = false
         Storage.internalHasCreatedValidInstance.mutate { $0 = false }
         Storage.shared.migrationsCompleted.mutate { $0 = false }

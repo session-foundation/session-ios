@@ -276,8 +276,8 @@ public enum MessageReceiver {
                 )
                 
             // SharedConfigMessages should be handled by the 'SharedUtil' instead of this
-            case is ConfigurationMessage: TopBannerController.show(warning: .outdatedUserConfig)
             case is SharedConfigMessage: throw MessageReceiverError.invalidSharedConfigMessageHandling
+            case is LegacyConfigurationMessage: TopBannerController.show(warning: .outdatedUserConfig)
                 
             default: fatalError()
         }
@@ -296,7 +296,7 @@ public enum MessageReceiver {
         switch message {
             case is ReadReceipt: break
             case is TypingIndicator: break
-            case is ConfigurationMessage: break
+            case is LegacyConfigurationMessage: break
             case is UnsendRequest: break
                 
             case let message as ClosedGroupControlMessage:

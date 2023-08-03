@@ -420,18 +420,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             // Offer the 'Restore' option if it was a migration error
             case .databaseError:
                 alert.addAction(UIAlertAction(title: "vc_restore_title".localized(), style: .destructive) { _ in
-                    if SUKLegacy.hasLegacyDatabaseFile {
-                        // Remove the legacy database and any message hashes that have been migrated to the new DB
-                        try? SUKLegacy.deleteLegacyDatabaseFilesAndKey()
-                        
-                        Storage.shared.write { db in
-                            try SnodeReceivedMessageInfo.deleteAll(db)
-                        }
-                    }
-                    else {
-                        // If we don't have a legacy database then reset the current database for a clean migration
-                        Storage.resetForCleanMigration()
-                    }
+                    // Reset the current database for a clean migration
+                    Storage.resetForCleanMigration()
                     
                     // Hide the top banner if there was one
                     TopBannerController.hide()
@@ -904,6 +894,7 @@ private enum StartupError: Error {
     var name: String {
         switch self {
             case .databaseError(StorageError.startupFailed): return "Database startup failed"
+            case .databaseError(StorageError.migrationNoLongerSupported): return "Unsupported version"
             case .failedToRestore: return "Failed to restore"
             case .databaseError: return "Database error"
             case .startupTimeout: return "Startup timeout"
@@ -913,6 +904,8 @@ private enum StartupError: Error {
     var message: String {
         switch self {
             case .databaseError(StorageError.startupFailed): return "DATABASE_STARTUP_FAILED".localized()
+            case .databaseError(StorageError.migrationNoLongerSupported):
+                return "DATABASE_UNSUPPORTED_MIGRATION".localized()
             case .failedToRestore: return "DATABASE_RESTORE_FAILED".localized()
             case .databaseError: return "DATABASE_MIGRATION_FAILED".localized()
             case .startupTimeout: return "APP_STARTUP_TIMEOUT".localized()

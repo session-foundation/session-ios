@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import YapDatabase
 
 enum _004_AddJobPriority: Migration {
     static let target: TargetMigrations.Identifier = .utilitiesKit

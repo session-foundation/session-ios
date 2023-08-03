@@ -419,6 +419,7 @@
 "APP_STARTUP_EXIT" = "Exit";
 "DATABASE_RESTORE_FAILED" = "An error occurred when opening the restored database\n\nYou can export your application logs to share for troubleshooting but to continue to use Session you may need to reinstall";
 "DATABASE_MIGRATION_FAILED" = "Une erreur est survenue pendant l'optimisation de la base de données\n\nVous pouvez exporter votre journal d'application pour le partager et aider à régler le problème ou vous pouvez restaurer votre appareil\n\nAttention : restaurer votre appareil résultera en une perte des données des deux dernières semaines";
+"DATABASE_UNSUPPORTED_MIGRATION" = "You are trying to updated from a version which no longer supports upgrading\n\nIn order to continue to use session you need to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
 "RECOVERY_PHASE_ERROR_GENERIC" = "Quelque chose s'est mal passé. Vérifiez votre phrase de récupération et réessayez s'il vous plaît.";
 "RECOVERY_PHASE_ERROR_LENGTH" = "Il semble que vous n'avez pas saisi tous les mots. Vérifiez votre phrase de récupération et réessayez s'il vous plaît.";
 "RECOVERY_PHASE_ERROR_LAST_WORD" = "Il semble qu'il vous manque le dernier mot de votre phrase de récupération. Vérifiez votre saisie et réessayez s'il vous plaît.";
