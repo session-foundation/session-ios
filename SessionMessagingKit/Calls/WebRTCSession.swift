@@ -124,13 +124,14 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         _ db: Database,
         message: CallMessage,
         interactionId: Int64?,
-        in thread: SessionThread
+        in thread: SessionThread,
+        using dependencies: Dependencies = Dependencies()
     ) throws -> AnyPublisher<Void, Error> {
         SNLog("[Calls] Sending pre-offer message.")
         
         return MessageSender
             .sendImmediate(
-                preparedSendData: try MessageSender
+                data: try MessageSender
                     .preparedSendData(
                         db,
                         message: message,
@@ -138,8 +139,10 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                         namespace: try Message.Destination
                             .from(db, threadId: thread.id, threadVariant: thread.variant)
                             .defaultNamespace,
-                        interactionId: interactionId
-                    )
+                        interactionId: interactionId,
+                        using: dependencies
+                    ),
+                using: dependencies
             )
             .handleEvents(receiveOutput: { _ in SNLog("[Calls] Pre-offer message has been sent.") })
             .eraseToAnyPublisher()
@@ -147,7 +150,8 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     
     public func sendOffer(
         to thread: SessionThread,
-        isRestartingICEConnection: Bool = false
+        isRestartingICEConnection: Bool = false,
+        using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
         SNLog("[Calls] Sending offer message.")
         let uuid: String = self.uuid
@@ -172,7 +176,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                         }
                     }
                     
-                    Storage.shared
+                    dependencies.storage
                         .writePublisher { db in
                             try MessageSender
                                 .preparedSendData(
@@ -188,10 +192,11 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                                     namespace: try Message.Destination
                                         .from(db, threadId: thread.id, threadVariant: thread.variant)
                                         .defaultNamespace,
-                                    interactionId: nil
+                                    interactionId: nil,
+                                    using: dependencies
                                 )
                         }
-                        .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
+                        .flatMap { MessageSender.sendImmediate(data: $0, using: dependencies) }
                         .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                         .sinkUntilComplete(
                             receiveCompletion: { result in
@@ -207,12 +212,15 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         .eraseToAnyPublisher()
     }
     
-    public func sendAnswer(to sessionId: String) -> AnyPublisher<Void, Error> {
+    public func sendAnswer(
+        to sessionId: String,
+        using dependencies: Dependencies = Dependencies()
+    ) -> AnyPublisher<Void, Error> {
         SNLog("[Calls] Sending answer message.")
         let uuid: String = self.uuid
         let mediaConstraints: RTCMediaConstraints = mediaConstraints(false)
         
-        return Storage.shared
+        return dependencies.storage
             .readPublisher { db -> SessionThread in
                 guard let thread: SessionThread = try? SessionThread.fetchOne(db, id: sessionId) else {
                     throw WebRTCSessionError.noThread
@@ -239,7 +247,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                             }
                         }
                         
-                        Storage.shared
+                        dependencies.storage
                             .writePublisher { db in
                                 try MessageSender
                                     .preparedSendData(
@@ -254,10 +262,11 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                                         namespace: try Message.Destination
                                             .from(db, threadId: thread.id, threadVariant: thread.variant)
                                             .defaultNamespace,
-                                        interactionId: nil
+                                        interactionId: nil,
+                                        using: dependencies
                                     )
                             }
-                            .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
+                            .flatMap { MessageSender.sendImmediate(data: $0, using: dependencies) }
                             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                             .sinkUntilComplete(
                                 receiveCompletion: { result in
@@ -283,7 +292,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         }
     }
     
-    private func sendICECandidates() {
+    private func sendICECandidates(using dependencies: Dependencies = Dependencies()) {
         let candidates: [RTCIceCandidate] = self.queuedICECandidates
         let uuid: String = self.uuid
         let contactSessionId: String = self.contactSessionId
@@ -291,7 +300,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         // Empty the queue
         self.queuedICECandidates.removeAll()
         
-        Storage.shared
+        dependencies.storage
             .writePublisher { db in
                 guard let thread: SessionThread = try SessionThread.fetchOne(db, id: contactSessionId) else {
                     throw WebRTCSessionError.noThread
@@ -315,15 +324,20 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                         namespace: try Message.Destination
                             .from(db, threadId: thread.id, threadVariant: thread.variant)
                             .defaultNamespace,
-                        interactionId: nil
+                        interactionId: nil,
+                        using: dependencies
                     )
             }
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
+            .flatMap { MessageSender.sendImmediate(data: $0, using: dependencies) }
             .sinkUntilComplete()
     }
     
-    public func endCall(_ db: Database, with sessionId: String) throws {
+    public func endCall(
+        _ db: Database,
+        with sessionId: String,
+        using dependencies: Dependencies = Dependencies()
+    ) throws {
         guard let thread: SessionThread = try SessionThread.fetchOne(db, id: sessionId) else { return }
         
         SNLog("[Calls] Sending end call message.")
@@ -340,11 +354,12 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                 namespace: try Message.Destination
                     .from(db, threadId: thread.id, threadVariant: thread.variant)
                     .defaultNamespace,
-                interactionId: nil
+                interactionId: nil,
+                using: dependencies
             )
         
         MessageSender
-            .sendImmediate(preparedSendData: preparedSendData)
+            .sendImmediate(data: preparedSendData, using: dependencies)
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .sinkUntilComplete()
     }

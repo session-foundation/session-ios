@@ -54,11 +54,11 @@ public class TypingIndicators {
             self.timestampMs = (timestampMs ?? SnodeAPI.currentOffsetTimestampMs())
         }
         
-        fileprivate func start(_ db: Database) {
+        fileprivate func start(_ db: Database, using dependencies: Dependencies = Dependencies()) {
             // Start the typing indicator
             switch direction {
                 case .outgoing:
-                    scheduleRefreshCallback(db, shouldSend: (refreshTimer == nil))
+                    scheduleRefreshCallback(db, shouldSend: (refreshTimer == nil), using: dependencies)
                     
                 case .incoming:
                     try? ThreadTypingIndicator(
@@ -72,7 +72,7 @@ public class TypingIndicators {
             refreshTimeout()
         }
         
-        fileprivate func stop(_ db: Database) {
+        fileprivate func stop(_ db: Database, using dependencies: Dependencies = Dependencies()) {
             self.refreshTimer?.invalidate()
             self.refreshTimer = nil
             self.stopTimer?.invalidate()
@@ -85,7 +85,8 @@ public class TypingIndicators {
                         message: TypingIndicator(kind: .stopped),
                         interactionId: nil,
                         threadId: threadId,
-                        threadVariant: threadVariant
+                        threadVariant: threadVariant,
+                        using: dependencies
                     )
                     
                 case .incoming:
@@ -111,14 +112,19 @@ public class TypingIndicators {
             }
         }
         
-        private func scheduleRefreshCallback(_ db: Database, shouldSend: Bool = true) {
+        private func scheduleRefreshCallback(
+            _ db: Database,
+            shouldSend: Bool = true,
+            using dependencies: Dependencies
+        ) {
             if shouldSend {
                 try? MessageSender.send(
                     db,
                     message: TypingIndicator(kind: .started),
                     interactionId: nil,
                     threadId: threadId,
-                    threadVariant: threadVariant
+                    threadVariant: threadVariant,
+                    using: dependencies
                 )
             }
             
@@ -127,8 +133,8 @@ public class TypingIndicators {
                 withTimeInterval: 10,
                 repeats: false
             ) { [weak self] _ in
-                Storage.shared.writeAsync { db in
-                    self?.scheduleRefreshCallback(db)
+                dependencies.storage.writeAsync { db in
+                    self?.scheduleRefreshCallback(db, using: dependencies)
                 }
             }
         }

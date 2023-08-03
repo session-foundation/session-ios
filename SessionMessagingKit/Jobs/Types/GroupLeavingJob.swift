@@ -13,12 +13,13 @@ public enum GroupLeavingJob: JobExecutor {
     public static var requiresInteractionId: Bool = true
     
     public static func run(
-        _ job: SessionUtilitiesKit.Job,
+        _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool) -> (),
-        failure: @escaping (Job, Error?, Bool) -> (),
-        deferred: @escaping (Job) -> ())
-    {
+        success: @escaping (Job, Bool, Dependencies) -> (),
+        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
+        deferred: @escaping (Job, Dependencies) -> (),
+        using dependencies: Dependencies = Dependencies()
+    ) {
         guard
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData),
@@ -26,13 +27,12 @@ public enum GroupLeavingJob: JobExecutor {
             let interactionId: Int64 = job.interactionId
         else {
             SNLog("[GroupLeavingJob] Failed due to missing details")
-            failure(job, JobRunnerError.missingRequiredDetails, true)
-            return
+            return failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
         }
         
         let destination: Message.Destination = .closedGroup(groupPublicKey: threadId)
         
-        Storage.shared
+        dependencies.storage
             .writePublisher { db in
                 guard (try? SessionThread.exists(db, id: threadId)) == true else {
                     SNLog("[GroupLeavingJob] Failed due to non-existent group conversation")
@@ -51,10 +51,11 @@ public enum GroupLeavingJob: JobExecutor {
                     to: destination,
                     namespace: destination.defaultNamespace,
                     interactionId: job.interactionId,
-                    isSyncMessage: false
+                    isSyncMessage: false,
+                    using: dependencies
                 )
             }
-            .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
+            .flatMap { MessageSender.sendImmediate(data: $0, using: dependencies) }
             .subscribe(on: queue)
             .receive(on: queue)
             .sinkUntilComplete(
@@ -71,7 +72,7 @@ public enum GroupLeavingJob: JobExecutor {
                     ]
                     
                     // Handle the appropriate response
-                    Storage.shared.writeAsync { db in
+                    dependencies.storage.writeAsync { db in
                         // If it failed due to one of these errors then clear out any associated data (as somehow
                         // the 'SessionThread' exists but not the data required to send the 'MEMBER_LEFT' message
                         // which would leave the user in a state where they can't leave the group)
@@ -127,7 +128,7 @@ public enum GroupLeavingJob: JobExecutor {
                         )
                     }
                     
-                    success(job, false)
+                    success(job, false, dependencies)
                 }
             )
     }

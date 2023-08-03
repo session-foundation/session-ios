@@ -207,7 +207,7 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
     
     // MARK: - Initialization
     
-    fileprivate init(
+    internal init(
         id: Int64?,
         priority: Int64 = 0,
         failureCount: UInt,
@@ -289,7 +289,9 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         
         guard
             let details: T = details,
-            let detailsData: Data = try? JSONEncoder().encode(details)
+            let detailsData: Data = try? JSONEncoder()
+                .with(outputFormatting: .sortedKeys)    // Needed for deterministic comparison
+                .encode(details)
         else { return nil }
         
         self.priority = priority
@@ -395,7 +397,11 @@ public extension Job {
     }
     
     func with<T: Encodable>(details: T) -> Job? {
-        guard let detailsData: Data = try? JSONEncoder().encode(details) else { return nil }
+        guard
+            let detailsData: Data = try? JSONEncoder()
+                .with(outputFormatting: .sortedKeys)    // Needed for deterministic comparison
+                .encode(details)
+        else { return nil }
         
         return Job(
             id: self.id,

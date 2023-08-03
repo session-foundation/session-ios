@@ -23,7 +23,7 @@ class NotificationContentViewModelSpec: QuickSpec {
             // MARK: - Configuration
             
             beforeEach {
-                mockStorage = Storage(
+                mockStorage = SynchronousStorage(
                     customWriter: try! DatabaseQueue(),
                     customMigrationTargets: [
                         SNUtilitiesKit.self,

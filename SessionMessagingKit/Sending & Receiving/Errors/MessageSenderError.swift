@@ -11,6 +11,7 @@ public enum MessageSenderError: LocalizedError, Equatable {
     case encryptionFailed
     case noUsername
     case attachmentsNotUploaded
+    case blindingFailed
     
     // Closed groups
     case noThread
@@ -21,7 +22,10 @@ public enum MessageSenderError: LocalizedError, Equatable {
 
     internal var isRetryable: Bool {
         switch self {
-            case .invalidMessage, .protoConversionFailed, .invalidClosedGroupUpdate, .signingFailed, .encryptionFailed: return false
+            case .invalidMessage, .protoConversionFailed, .invalidClosedGroupUpdate,
+                .signingFailed, .encryptionFailed, .blindingFailed:
+                return false
+                
             default: return true
         }
     }
@@ -36,6 +40,7 @@ public enum MessageSenderError: LocalizedError, Equatable {
             case .encryptionFailed: return "Couldn't encrypt message."
             case .noUsername: return "Missing username."
             case .attachmentsNotUploaded: return "Attachments for this message have not been uploaded."
+            case .blindingFailed: return "Couldn't blind the sender"
             
             // Closed groups
             case .noThread: return "Couldn't find a thread associated with the given group public key."
@@ -58,6 +63,7 @@ public enum MessageSenderError: LocalizedError, Equatable {
             case (.noThread, .noThread): return true
             case (.noKeyPair, .noKeyPair): return true
             case (.invalidClosedGroupUpdate, .invalidClosedGroupUpdate): return true
+            case (.blindingFailed, .blindingFailed): return true
             
             case (.other(let lhsError), .other(let rhsError)):
                 // Not ideal but the best we can do

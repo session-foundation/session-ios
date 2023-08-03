@@ -14,16 +14,17 @@ public enum AttachmentUploadJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool) -> (),
-        failure: @escaping (Job, Error?, Bool) -> (),
-        deferred: @escaping (Job) -> ()
+        success: @escaping (Job, Bool, Dependencies) -> (),
+        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
+        deferred: @escaping (Job, Dependencies) -> (),
+        using dependencies: Dependencies
     ) {
         guard
             let threadId: String = job.threadId,
             let interactionId: Int64 = job.interactionId,
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData),
-            let (attachment, openGroup): (Attachment, OpenGroup?) = Storage.shared.read({ db in
+            let (attachment, openGroup): (Attachment, OpenGroup?) = dependencies.storage.read({ db in
                 guard let attachment: Attachment = try Attachment.fetchOne(db, id: details.attachmentId) else {
                     return nil
                 }
@@ -32,29 +33,26 @@ public enum AttachmentUploadJob: JobExecutor {
             })
         else {
             SNLog("[AttachmentUploadJob] Failed due to missing details")
-            failure(job, JobRunnerError.missingRequiredDetails, true)
-            return
+            return failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
         }
         
         // If the original interaction no longer exists then don't bother uploading the attachment (ie. the
         // message was deleted before it even got sent)
-        guard Storage.shared.read({ db in try Interaction.exists(db, id: interactionId) }) == true else {
+        guard dependencies.storage.read({ db in try Interaction.exists(db, id: interactionId) }) == true else {
             SNLog("[AttachmentUploadJob] Failed due to missing interaction")
-            failure(job, StorageError.objectNotFound, true)
-            return
+            return failure(job, StorageError.objectNotFound, true, dependencies)
         }
         
         // If the attachment is still pending download the hold off on running this job
         guard attachment.state != .pendingDownload && attachment.state != .downloading else {
             SNLog("[AttachmentUploadJob] Deferred as attachment is still being downloaded")
-            deferred(job)
-            return
+            return deferred(job, dependencies)
         }
         
         // If this upload is related to sending a message then trigger the 'handleMessageWillSend' logic
         // as if this is a retry the logic wouldn't run until after the upload has completed resulting in
         // a potentially incorrect delivery status
-        Storage.shared.write { db in
+        dependencies.storage.write { db in
             guard
                 let sendJob: Job = try Job.fetchOne(db, id: details.messageSendJobId),
                 let sendJobDetails: Data = sendJob.details,
@@ -74,7 +72,7 @@ public enum AttachmentUploadJob: JobExecutor {
         // reentrancy issues when the success/failure closures get called before the upload as the JobRunner
         // will attempt to update the state of the job immediately
         attachment
-            .upload(to: (openGroup.map { .openGroup($0) } ?? .fileServer))
+            .upload(to: (openGroup.map { .openGroup($0) } ?? .fileServer), using: dependencies)
             .subscribe(on: queue)
             .receive(on: queue)
             .sinkUntilComplete(
@@ -84,7 +82,7 @@ public enum AttachmentUploadJob: JobExecutor {
                             // If this upload is related to sending a message then trigger the
                             // 'handleFailedMessageSend' logic as we want to ensure the message
                             // has the correct delivery status
-                            Storage.shared.read { db in
+                            dependencies.storage.read { db in
                                 guard
                                     let sendJob: Job = try Job.fetchOne(db, id: details.messageSendJobId),
                                     let sendJobDetails: Data = sendJob.details,
@@ -97,14 +95,15 @@ public enum AttachmentUploadJob: JobExecutor {
                                     message: details.message,
                                     with: .other(error),
                                     interactionId: interactionId,
-                                    isSyncMessage: details.isSyncMessage
+                                    isSyncMessage: details.isSyncMessage,
+                                    using: dependencies
                                 )
                             }
                             
                             SNLog("[AttachmentUploadJob] Failed due to error: \(error)")
-                            failure(job, error, false)
+                            failure(job, error, false, dependencies)
                         
-                        case .finished: success(job, false)
+                        case .finished: success(job, false, dependencies)
                     }
                 }
             )

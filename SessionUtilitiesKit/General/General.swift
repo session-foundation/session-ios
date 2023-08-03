@@ -6,10 +6,18 @@ import GRDB
 // MARK: - General.Cache
 
 public enum General {
-    public class Cache: MutableGeneralCacheType {
+    public class Cache: GeneralCacheType {
         public var encodedPublicKey: String? = nil
         public var recentReactionTimestamps: [Int64] = []
     }
+}
+
+public extension Cache {
+    static let general: CacheInfo.Config<GeneralCacheType, ImmutableGeneralCacheType> = CacheInfo.create(
+        createInstance: { General.Cache() },
+        mutableInstance: { $0 },
+        immutableInstance: { $0 }
+    )
 }
 
 // MARK: - GeneralError
@@ -22,13 +30,13 @@ public enum GeneralError: Error {
 
 // MARK: - Convenience
 
-public func getUserHexEncodedPublicKey(_ db: Database? = nil, dependencies: Dependencies = Dependencies()) -> String {
-    if let cachedKey: String = dependencies.generalCache.encodedPublicKey { return cachedKey }
+public func getUserHexEncodedPublicKey(_ db: Database? = nil, using dependencies: Dependencies = Dependencies()) -> String {
+    if let cachedKey: String = dependencies.caches[.general].encodedPublicKey { return cachedKey }
     
     if let publicKey: Data = Identity.fetchUserPublicKey(db) { // Can be nil under some circumstances
         let sessionId: SessionId = SessionId(.standard, publicKey: publicKey.bytes)
         
-        dependencies.mutableGeneralCache.mutate { $0.encodedPublicKey = sessionId.hexString }
+        dependencies.caches.mutate(cache: .general) { $0.encodedPublicKey = sessionId.hexString }
         return sessionId.hexString
     }
     
@@ -37,14 +45,14 @@ public func getUserHexEncodedPublicKey(_ db: Database? = nil, dependencies: Depe
 
 // MARK: - GeneralCacheType
 
-public protocol MutableGeneralCacheType: GeneralCacheType {
-    var encodedPublicKey: String? { get set }
-    var recentReactionTimestamps: [Int64] { get set }
-}
-
-/// This is a read-only version of the `OGMMutableCacheType` designed to avoid unintentionally mutating the instance in a
+/// This is a read-only version of the `General.Cache` designed to avoid unintentionally mutating the instance in a
 /// non-thread-safe way
-public protocol GeneralCacheType {
+public protocol ImmutableGeneralCacheType: ImmutableCacheType {
     var encodedPublicKey: String? { get }
     var recentReactionTimestamps: [Int64] { get }
+}
+
+public protocol GeneralCacheType: ImmutableGeneralCacheType, MutableCacheType {
+    var encodedPublicKey: String? { get set }
+    var recentReactionTimestamps: [Int64] { get set }
 }

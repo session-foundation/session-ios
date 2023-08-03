@@ -12,9 +12,10 @@ public enum ConfigMessageReceiveJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool) -> (),
-        failure: @escaping (Job, Error?, Bool) -> (),
-        deferred: @escaping (Job) -> ()
+        success: @escaping (Job, Bool, Dependencies) -> (),
+        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
+        deferred: @escaping (Job, Dependencies) -> (),
+        using dependencies: Dependencies = Dependencies()
     ) {
         /// When the `configMessageReceive` job fails we want to unblock any `messageReceive` jobs it was blocking
         /// to ensure the user isn't losing any messages - this generally _shouldn't_ happen but if it does then having a temporary
@@ -24,7 +25,7 @@ public enum ConfigMessageReceiveJob: JobExecutor {
         let removeDependencyOnMessageReceiveJobs: () -> () = {
             guard let jobId: Int64 = job.id else { return }
             
-            Storage.shared.write { db in
+            dependencies.storage.write { db in
                 try JobDependencies
                     .filter(JobDependencies.Columns.dependantId == jobId)
                     .joining(
@@ -40,23 +41,21 @@ public enum ConfigMessageReceiveJob: JobExecutor {
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
         else {
             removeDependencyOnMessageReceiveJobs()
-            failure(job, JobRunnerError.missingRequiredDetails, true)
-            return
+            return failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
         }
 
         // Ensure no standard messages are sent through this job
         guard !details.messages.contains(where: { $0.variant != .sharedConfigMessage }) else {
             SNLog("[ConfigMessageReceiveJob] Standard messages incorrectly sent to the 'configMessageReceive' job")
             removeDependencyOnMessageReceiveJobs()
-            failure(job, MessageReceiverError.invalidMessage, true)
-            return
+            return failure(job, MessageReceiverError.invalidMessage, true, dependencies)
         }
         
         var lastError: Error?
         let sharedConfigMessages: [SharedConfigMessage] = details.messages
             .compactMap { $0.message as? SharedConfigMessage }
         
-        Storage.shared.write { db in
+        dependencies.storage.write { db in
             // Send any SharedConfigMessages to the SessionUtil to handle it
             do {
                 try SessionUtil.handleConfigMessages(
@@ -72,9 +71,9 @@ public enum ConfigMessageReceiveJob: JobExecutor {
         switch lastError {
             case .some(let error):
                 removeDependencyOnMessageReceiveJobs()
-                failure(job, error, true)
+                failure(job, error, true, dependencies)
 
-            case .none: success(job, false)
+            case .none: success(job, false, dependencies)
         }
     }
 }

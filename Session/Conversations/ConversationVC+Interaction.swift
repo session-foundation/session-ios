@@ -150,8 +150,14 @@ extension ConversationVC:
         dismiss(animated: true, completion: nil)
     }
 
-    func sendMediaNav(_ sendMediaNavigationController: SendMediaNavigationController, didApproveAttachments attachments: [SignalAttachment], forThreadId threadId: String, messageText: String?) {
-        sendMessage(text: (messageText ?? ""), attachments: attachments)
+    func sendMediaNav(
+        _ sendMediaNavigationController: SendMediaNavigationController,
+        didApproveAttachments attachments: [SignalAttachment],
+        forThreadId threadId: String,
+        messageText: String?,
+        using dependencies: Dependencies
+    ) {
+        sendMessage(text: (messageText ?? ""), attachments: attachments, using: dependencies)
         resetMentions()
         
         dismiss(animated: true) { [weak self] in
@@ -174,8 +180,8 @@ extension ConversationVC:
 
     // MARK: - AttachmentApprovalViewControllerDelegate
     
-    func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didApproveAttachments attachments: [SignalAttachment], forThreadId threadId: String, messageText: String?) {
-        sendMessage(text: (messageText ?? ""), attachments: attachments)
+    func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didApproveAttachments attachments: [SignalAttachment], forThreadId threadId: String, messageText: String?, using dependencies: Dependencies) {
+        sendMessage(text: (messageText ?? ""), attachments: attachments, using: dependencies)
         resetMentions()
         
         dismiss(animated: true) { [weak self] in
@@ -410,7 +416,8 @@ extension ConversationVC:
         attachments: [SignalAttachment] = [],
         linkPreviewDraft: LinkPreviewDraft? = nil,
         quoteModel: QuotedReplyModel? = nil,
-        hasPermissionToSendSeed: Bool = false
+        hasPermissionToSendSeed: Bool = false,
+        using dependencies: Dependencies = Dependencies()
     ) {
         guard !showBlockedModalIfNeeded() else { return }
         
@@ -481,20 +488,23 @@ extension ConversationVC:
             quoteModel: quoteModel
         )
         
-        sendMessage(optimisticData: optimisticData)
+        sendMessage(optimisticData: optimisticData, using: dependencies)
     }
     
-    private func sendMessage(optimisticData: ConversationViewModel.OptimisticMessageData) {
+    private func sendMessage(
+        optimisticData: ConversationViewModel.OptimisticMessageData,
+        using dependencies: Dependencies
+    ) {
         let threadId: String = self.viewModel.threadData.threadId
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         
-        DispatchQueue.global(qos:.userInitiated).async {
+        DispatchQueue.global(qos:.userInitiated).async(using: dependencies) {
             // Generate the quote thumbnail if needed (want this to happen outside of the DBWrite thread as
             // this can take up to 0.5s
             let quoteThumbnailAttachment: Attachment? = optimisticData.quoteModel?.attachment?.cloneAsQuoteThumbnail()
             
             // Actually send the message
-            Storage.shared
+            dependencies.storage
                 .writePublisher { [weak self] db in
                     // Update the thread to be visible (if it isn't already)
                     if self?.viewModel.threadData.threadShouldBeVisible == false {
@@ -542,7 +552,8 @@ extension ConversationVC:
                         db,
                         interaction: insertedInteraction,
                         threadId: threadId,
-                        threadVariant: threadVariant
+                        threadVariant: threadVariant,
+                        using: dependencies
                     )
                 }
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
@@ -800,10 +811,14 @@ extension ConversationVC:
         self.contextMenuWindow?.makeKeyAndVisible()
     }
 
-    func handleItemTapped(_ cellViewModel: MessageViewModel, gestureRecognizer: UITapGestureRecognizer) {
+    func handleItemTapped(
+        _ cellViewModel: MessageViewModel,
+        gestureRecognizer: UITapGestureRecognizer,
+        using dependencies: Dependencies = Dependencies()
+    ) {
         guard cellViewModel.variant != .standardOutgoing || (cellViewModel.state != .failed && cellViewModel.state != .failedToSync) else {
             // Show the failed message sheet
-            showFailedMessageSheet(for: cellViewModel)
+            showFailedMessageSheet(for: cellViewModel, using: dependencies)
             return
         }
         
@@ -877,8 +892,8 @@ extension ConversationVC:
                         let threadId: String = self.viewModel.threadData.threadId
                         
                         // Retry downloading the failed attachment
-                        Storage.shared.writeAsync { db in
-                            JobRunner.add(
+                        dependencies.storage.writeAsync { db in
+                            dependencies.jobRunner.add(
                                 db,
                                 job: Job(
                                     variant: .attachmentDownload,
@@ -887,7 +902,9 @@ extension ConversationVC:
                                     details: AttachmentDownloadJob.Details(
                                         attachmentId: mediaView.attachment.id
                                     )
-                                )
+                                ),
+                                canStartJob: true,
+                                using: dependencies
                             )
                         }
                         break
@@ -1026,8 +1043,8 @@ extension ConversationVC:
         self.present(actionSheet, animated: true)
     }
     
-    func handleReplyButtonTapped(for cellViewModel: MessageViewModel) {
-        reply(cellViewModel)
+    func handleReplyButtonTapped(for cellViewModel: MessageViewModel, using dependencies: Dependencies) {
+        reply(cellViewModel, using: dependencies)
     }
     
     func startThread(with sessionId: String, openGroupServer: String?, openGroupPublicKey: String?) {
@@ -1136,15 +1153,15 @@ extension ConversationVC:
         UIView.setAnimationsEnabled(true)
     }
     
-    func react(_ cellViewModel: MessageViewModel, with emoji: EmojiWithSkinTones) {
-        react(cellViewModel, with: emoji.rawValue, remove: false)
+    func react(_ cellViewModel: MessageViewModel, with emoji: EmojiWithSkinTones, using dependencies: Dependencies) {
+        react(cellViewModel, with: emoji.rawValue, remove: false, using: dependencies)
     }
     
-    func removeReact(_ cellViewModel: MessageViewModel, for emoji: EmojiWithSkinTones) {
-        react(cellViewModel, with: emoji.rawValue, remove: true)
+    func removeReact(_ cellViewModel: MessageViewModel, for emoji: EmojiWithSkinTones, using dependencies: Dependencies) {
+        react(cellViewModel, with: emoji.rawValue, remove: true, using: dependencies)
     }
     
-    func removeAllReactions(_ cellViewModel: MessageViewModel, for emoji: String) {
+    func removeAllReactions(_ cellViewModel: MessageViewModel, for emoji: String, using dependencies: Dependencies) {
         guard cellViewModel.threadVariant == .community else { return }
         
         Storage.shared
@@ -1221,7 +1238,7 @@ extension ConversationVC:
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         let openGroupRoom: String? = self.viewModel.threadData.openGroupRoomToken
         let sentTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs()
-        let recentReactionTimestamps: [Int64] = dependencies.generalCache.recentReactionTimestamps
+        let recentReactionTimestamps: [Int64] = dependencies.caches[.general].recentReactionTimestamps
         
         guard
             recentReactionTimestamps.count < 20 ||
@@ -1239,7 +1256,7 @@ extension ConversationVC:
             return
         }
         
-        dependencies.mutableGeneralCache.mutate {
+        dependencies.caches.mutate(cache: .general) {
             $0.recentReactionTimestamps = Array($0.recentReactionTimestamps
                 .suffix(19))
                 .appending(sentTimestamp)
@@ -1274,9 +1291,9 @@ extension ConversationVC:
                 ))
             }
         }
-        .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+        .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
         .flatMap { pendingChange -> AnyPublisher<(MessageSender.PreparedSendData?, OpenGroupInfo?), Error> in
-            Storage.shared.writePublisher { [weak self] db -> (MessageSender.PreparedSendData?, OpenGroupInfo?) in
+            dependencies.storage.writePublisher { [weak self] db -> (MessageSender.PreparedSendData?, OpenGroupInfo?) in
                 // Update the thread to be visible (if it isn't already)
                 if self?.viewModel.threadData.threadShouldBeVisible == false {
                     _ = try SessionThread
@@ -1385,7 +1402,8 @@ extension ConversationVC:
                             namespace: try Message.Destination
                                 .from(db, threadId: cellViewModel.threadId, threadVariant: cellViewModel.threadVariant)
                                 .defaultNamespace,
-                            interactionId: cellViewModel.id
+                            interactionId: cellViewModel.id,
+                            using: dependencies
                         )
                         
                         return (sendData, nil)
@@ -1395,7 +1413,7 @@ extension ConversationVC:
         .tryFlatMap { messageSendData, openGroupInfo -> AnyPublisher<Void, Error> in
             switch (messageSendData, openGroupInfo) {
                 case (.some(let sendData), _):
-                    return MessageSender.sendImmediate(preparedSendData: sendData)
+                    return MessageSender.sendImmediate(data: sendData, using: dependencies)
                     
                 case (_, .some(let info)):
                     return OpenGroupAPI.send(data: info.sendData)
@@ -1446,14 +1464,14 @@ extension ConversationVC:
         }
     }
     
-    func showFullEmojiKeyboard(_ cellViewModel: MessageViewModel) {
+    func showFullEmojiKeyboard(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) {
         hideInputAccessoryView()
         
         let emojiPicker = EmojiPickerSheet(
             completionHandler: { [weak self] emoji in
                 guard let emoji: EmojiWithSkinTones = emoji else { return }
                 
-                self?.react(cellViewModel, with: emoji)
+                self?.react(cellViewModel, with: emoji, using: dependencies)
             },
             dismissHandler: { [weak self] in
                 self?.showInputAccessoryView()
@@ -1469,7 +1487,7 @@ extension ConversationVC:
     
     // MARK: --action handling
     
-    func showFailedMessageSheet(for cellViewModel: MessageViewModel) {
+    private func showFailedMessageSheet(for cellViewModel: MessageViewModel, using dependencies: Dependencies) {
         let sheet = UIAlertController(
             title: (cellViewModel.state == .failedToSync ?
                 "MESSAGE_DELIVERY_FAILED_SYNC_TITLE".localized() :
@@ -1496,7 +1514,7 @@ extension ConversationVC:
                 "context_menu_resend".localized()
             ),
             style: .default,
-            handler: { [weak self] _ in self?.retry(cellViewModel) }
+            handler: { [weak self] _ in self?.retry(cellViewModel, using: dependencies) }
         ))
         
         // HACK: Extracting this info from the error string is pretty dodgy
@@ -1609,7 +1627,7 @@ extension ConversationVC:
     
     // MARK: - ContextMenuActionDelegate
     
-    func info(_ cellViewModel: MessageViewModel) {
+    func info(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) {
         let actions: [ContextMenuVC.Action] = ContextMenuVC.actions(
             for: cellViewModel,
             recentEmojis: [],
@@ -1623,7 +1641,8 @@ extension ConversationVC:
             ),
             currentThreadIsMessageRequest: (self.viewModel.threadData.threadIsMessageRequest == true),
             forMessageInfoScreen: true,
-            delegate: self
+            delegate: self,
+            using: dependencies
         ) ?? []
         
         let messageInfoView = MessageInfoView(actions: actions, messageViewModel: cellViewModel)
@@ -1632,8 +1651,7 @@ extension ConversationVC:
         navigationController?.pushViewController(hostingViewController, animated: true)
     }
 
-    func retry(_ cellViewModel: MessageViewModel) {
-        // If the failed message is an optimistic update then we need to do things differently
+    func retry(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) {
         guard cellViewModel.id != MessageViewModel.optimisticUpdateId else {
             guard
                 let optimisticMessageId: UUID = cellViewModel.optimisticMessageId,
@@ -1654,11 +1672,11 @@ extension ConversationVC:
             }
             
             // Try to send the optimistic message again
-            self.sendMessage(optimisticData: optimisticMessageData)
+            sendMessage(optimisticData: optimisticMessageData, using: dependencies)
             return
         }
         
-        Storage.shared.writeAsync { [weak self] db in
+        dependencies.storage.writeAsync { [weak self] db in
             guard
                 let threadId: String = self?.viewModel.threadData.threadId,
                 let threadVariant: SessionThread.Variant = self?.viewModel.threadData.threadVariant,
@@ -1699,12 +1717,13 @@ extension ConversationVC:
                 interaction: interaction,
                 threadId: threadId,
                 threadVariant: threadVariant,
-                isSyncMessage: (cellViewModel.state == .failedToSync)
+                isSyncMessage: (cellViewModel.state == .failedToSync),
+                using: dependencies
             )
         }
     }
 
-    func reply(_ cellViewModel: MessageViewModel) {
+    func reply(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) {
         let maybeQuoteDraft: QuotedReplyModel? = QuotedReplyModel.quotedReplyForSending(
             threadId: self.viewModel.threadData.threadId,
             authorId: cellViewModel.authorId,
@@ -1727,7 +1746,7 @@ extension ConversationVC:
         snInputView.becomeFirstResponder()
     }
 
-    func copy(_ cellViewModel: MessageViewModel) {
+    func copy(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) {
         switch cellViewModel.cellType {
             case .typingIndicator, .dateHeader, .unreadMarker: break
             
@@ -1765,7 +1784,7 @@ extension ConversationVC:
         UIPasteboard.general.string = cellViewModel.authorId
     }
 
-    func delete(_ cellViewModel: MessageViewModel) {
+    func delete(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) {
         switch cellViewModel.variant {
             case .standardIncomingDeleted, .infoCall,
                 .infoScreenshotNotification, .infoMediaSavedNotification,
@@ -1961,7 +1980,8 @@ extension ConversationVC:
                                 message: unsendRequest,
                                 threadId: cellViewModel.threadId,
                                 interactionId: nil,
-                                to: .contact(publicKey: userPublicKey)
+                                to: .contact(publicKey: userPublicKey),
+                                using: dependencies
                             )
                     }
                     return
@@ -1984,7 +2004,8 @@ extension ConversationVC:
                                 message: unsendRequest,
                                 threadId: cellViewModel.threadId,
                                 interactionId: nil,
-                                to: .contact(publicKey: userPublicKey)
+                                to: .contact(publicKey: userPublicKey),
+                                using: dependencies
                             )
                     }
                     self?.showInputAccessoryView()
@@ -2012,7 +2033,8 @@ extension ConversationVC:
                                     message: unsendRequest,
                                     interactionId: nil,
                                     threadId: cellViewModel.threadId,
-                                    threadVariant: cellViewModel.threadVariant
+                                    threadVariant: cellViewModel.threadVariant,
+                                    using: dependencies
                                 )
                         }
                         
@@ -2046,7 +2068,7 @@ extension ConversationVC:
         }
     }
 
-    func save(_ cellViewModel: MessageViewModel) {
+    func save(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) {
         guard cellViewModel.cellType == .mediaMessage else { return }
         
         let mediaAttachments: [(Attachment, String)] = (cellViewModel.attachments ?? [])
@@ -2088,24 +2110,10 @@ extension ConversationVC:
             return
         }
         
-        let threadId: String = self.viewModel.threadData.threadId
-        let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
-        
-        Storage.shared.writeAsync { db in
-            try MessageSender.send(
-                db,
-                message: DataExtractionNotification(
-                    kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs)),
-                    sentTimestamp: UInt64(SnodeAPI.currentOffsetTimestampMs())
-                ),
-                interactionId: nil,
-                threadId: threadId,
-                threadVariant: threadVariant
-            )
-        }
+        sendDataExtraction(kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs)))
     }
 
-    func ban(_ cellViewModel: MessageViewModel) {
+    func ban(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) {
         guard cellViewModel.threadVariant == .community else { return }
         
         let threadId: String = self.viewModel.threadData.threadId
@@ -2161,7 +2169,7 @@ extension ConversationVC:
         self.present(modal, animated: true)
     }
 
-    func banAndDeleteAllMessages(_ cellViewModel: MessageViewModel) {
+    func banAndDeleteAllMessages(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) {
         guard cellViewModel.threadVariant == .community else { return }
         
         let threadId: String = self.viewModel.threadData.threadId
@@ -2219,7 +2227,7 @@ extension ConversationVC:
 
     // MARK: - VoiceMessageRecordingViewDelegate
 
-    func startVoiceMessageRecording() {
+    func startVoiceMessageRecording(using dependencies: Dependencies) {
         // Request permission if needed
         Permissions.requestMicrophonePermissionIfNeeded() { [weak self] in
             DispatchQueue.main.async {
@@ -2268,7 +2276,7 @@ extension ConversationVC:
         // Limit voice messages to a minute
         audioTimer = Timer.scheduledTimer(withTimeInterval: 180, repeats: false, block: { [weak self] _ in
             self?.snInputView.hideVoiceMessageUI()
-            self?.endVoiceMessageRecording()
+            self?.endVoiceMessageRecording(using: dependencies)
         })
         
         // Prepare audio recorder
@@ -2284,7 +2292,7 @@ extension ConversationVC:
         }
     }
 
-    func endVoiceMessageRecording() {
+    func endVoiceMessageRecording(using dependencies: Dependencies) {
         UIApplication.shared.isIdleTimerDisabled = true
         
         // Hide the UI
@@ -2336,7 +2344,7 @@ extension ConversationVC:
         }
         
         // Send attachment
-        sendMessage(text: "", attachments: [attachment])
+        sendMessage(text: "", attachments: [attachment], using: dependencies)
     }
 
     func cancelVoiceMessageRecording() {
@@ -2353,23 +2361,29 @@ extension ConversationVC:
     
     // MARK: - Data Extraction Notifications
     
-    @objc func sendScreenshotNotification() {
+    @objc func sendScreenshotNotification() { sendDataExtraction(kind: .screenshot) }
+    
+    func sendDataExtraction(
+        kind: DataExtractionNotification.Kind,
+        using dependencies: Dependencies = Dependencies()
+    ) {
         // Only send screenshot notifications to one-to-one conversations
         guard self.viewModel.threadData.threadVariant == .contact else { return }
         
         let threadId: String = self.viewModel.threadData.threadId
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         
-        Storage.shared.writeAsync { db in
+        dependencies.storage.writeAsync { db in
             try MessageSender.send(
                 db,
                 message: DataExtractionNotification(
-                    kind: .screenshot,
+                    kind: kind,
                     sentTimestamp: UInt64(SnodeAPI.currentOffsetTimestampMs())
                 ),
                 interactionId: nil,
                 threadId: threadId,
-                threadVariant: threadVariant
+                threadVariant: threadVariant,
+                using: dependencies
             )
         }
     }
@@ -2405,7 +2419,8 @@ extension ConversationVC {
         for threadId: String,
         threadVariant: SessionThread.Variant,
         isNewThread: Bool,
-        timestampMs: Int64
+        timestampMs: Int64,
+        using dependencies: Dependencies = Dependencies()
     ) {
         guard threadVariant == .contact else { return }
         
@@ -2446,7 +2461,8 @@ extension ConversationVC {
                         ),
                         interactionId: nil,
                         threadId: threadId,
-                        threadVariant: threadVariant
+                        threadVariant: threadVariant,
+                        using: dependencies
                     )
                 }
                 
