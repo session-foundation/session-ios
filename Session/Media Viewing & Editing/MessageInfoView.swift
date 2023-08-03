@@ -473,9 +473,9 @@ struct MessageInfoView_Previews: PreviewProvider {
     
     static var actions: [ContextMenuVC.Action] {
         return [
-            .reply(messageViewModel, nil),
-            .retry(messageViewModel, nil),
-            .delete(messageViewModel, nil)
+            .reply(messageViewModel, nil, using: Dependencies()),
+            .retry(messageViewModel, nil, using: Dependencies()),
+            .delete(messageViewModel, nil, using: Dependencies())
         ]
     }
     
