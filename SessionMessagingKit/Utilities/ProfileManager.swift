@@ -286,9 +286,10 @@ public struct ProfileManager {
         profileName: String,
         avatarUpdate: AvatarUpdate = .none,
         success: ((Database) throws -> ())? = nil,
-        failure: ((ProfileManagerError) -> ())? = nil
+        failure: ((ProfileManagerError) -> ())? = nil,
+        using dependencies: Dependencies = Dependencies()
     ) {
-        let userPublicKey: String = getUserHexEncodedPublicKey()
+        let userPublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
         let isRemovingAvatar: Bool = {
             switch avatarUpdate {
                 case .remove: return true
@@ -298,7 +299,7 @@ public struct ProfileManager {
         
         switch avatarUpdate {
             case .none, .remove, .updateTo:
-                Storage.shared.writeAsync { db in
+                dependencies.storage.writeAsync { db in
                     if isRemovingAvatar {
                         let existingProfileUrl: String? = try Profile
                             .filter(id: userPublicKey)
@@ -327,7 +328,8 @@ public struct ProfileManager {
                         publicKey: userPublicKey,
                         name: profileName,
                         avatarUpdate: avatarUpdate,
-                        sentTimestamp: Date().timeIntervalSince1970
+                        sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
+                        using: dependencies
                     )
                     
                     SNLog("Successfully updated service with profile.")
@@ -345,7 +347,8 @@ public struct ProfileManager {
                                 publicKey: userPublicKey,
                                 name: profileName,
                                 avatarUpdate: .updateTo(url: downloadUrl, key: newProfileKey, fileName: fileName),
-                                sentTimestamp: Date().timeIntervalSince1970
+                                sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
+                                using: dependencies
                             )
                                 
                             SNLog("Successfully updated service with profile.")
@@ -498,9 +501,9 @@ public struct ProfileManager {
         avatarUpdate: AvatarUpdate,
         sentTimestamp: TimeInterval,
         calledFromConfigHandling: Bool = false,
-        dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws {
-        let isCurrentUser = (publicKey == getUserHexEncodedPublicKey(db, dependencies: dependencies))
+        let isCurrentUser = (publicKey == getUserHexEncodedPublicKey(db, using: dependencies))
         let profile: Profile = Profile.fetchOrCreate(db, id: publicKey)
         var profileChanges: [ConfigColumnAssignment] = []
         
@@ -604,7 +607,7 @@ public struct ProfileManager {
             let targetProfile: Profile = Profile.fetchOrCreate(db, id: publicKey)
             
             // FIXME: Refactor avatar downloading to be a proper Job so we can avoid this
-            JobRunner.afterBlockingQueue {
+            dependencies.jobRunner.afterBlockingQueue {
                 ProfileManager.downloadAvatar(for: targetProfile)
             }
         }

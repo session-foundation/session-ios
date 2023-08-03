@@ -24,7 +24,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
             // MARK: - Configuration
             
             beforeEach {
-                mockStorage = Storage(
+                mockStorage = SynchronousStorage(
                     customWriter: try! DatabaseQueue(),
                     customMigrationTargets: [
                         SNUtilitiesKit.self,
@@ -35,7 +35,8 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 )
                 dependencies = Dependencies(
                     storage: mockStorage,
-                    scheduler: .immediate
+                    scheduler: .immediate,
+                    forceSynchronous: true
                 )
                 mockStorage.write { db in
                     try SessionThread(
@@ -44,12 +45,12 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     ).insert(db)
                 }
                 viewModel = ThreadDisappearingMessagesSettingsViewModel(
-                    dependencies: dependencies,
                     threadId: "TestId",
                     threadVariant: .contact,
                     currentUserIsClosedGroupMember: nil,
                     currentUserIsClosedGroupAdmin: nil,
-                    config: DisappearingMessagesConfiguration.defaultWith("TestId")
+                    config: DisappearingMessagesConfiguration.defaultWith("TestId"),
+                    using: dependencies
                 )
                 cancellables.append(
                     viewModel.observableTableData
@@ -79,21 +80,19 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
             it("has the correct number of items") {
                 // The default disappearing messages configure is Off
                 // Should only show one section of Disappearing Messages Type
-                expect(viewModel.tableData.count)
-                    .to(equal(1))
+                expect(viewModel.tableData.count).to(equal(1))
+                
                 if Features.useNewDisappearingMessagesConfig {
                     // Off
                     // Disappear After Read
                     // Disappear After Send
-                    expect(viewModel.tableData.first?.elements.count)
-                        .to(equal(3))
+                    expect(viewModel.tableData.first?.elements.count).to(equal(3))
                 } else {
                     // Off
                     // Legacy
                     // Disappear After Read
                     // Disappear After Send
-                    expect(viewModel.tableData.first?.elements.count)
-                        .to(equal(4))
+                    expect(viewModel.tableData.first?.elements.count).to(equal(4))
                 }
             }
             
@@ -155,12 +154,12 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     _ = try config.saved(db)
                 }
                 viewModel = ThreadDisappearingMessagesSettingsViewModel(
-                    dependencies: dependencies,
                     threadId: "TestId",
                     threadVariant: .contact,
                     currentUserIsClosedGroupMember: nil,
                     currentUserIsClosedGroupAdmin: nil,
-                    config: config
+                    config: config,
+                    using: dependencies
                 )
                 cancellables.append(
                     viewModel.observableTableData
@@ -266,16 +265,16 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     _ = try config.saved(db)
                 }
                 viewModel = ThreadDisappearingMessagesSettingsViewModel(
-                    dependencies: dependencies,
                     threadId: "TestId",
                     threadVariant: .contact,
                     currentUserIsClosedGroupMember: nil,
                     currentUserIsClosedGroupAdmin: nil,
-                    config: config
+                    config: config,
+                    using: dependencies
                 )
                 cancellables.append(
                     viewModel.observableTableData
-                        .receive(on: DispatchQueue.main)
+                        .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
                             receiveValue: { viewModel.updateTableData($0.0) }
@@ -333,7 +332,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 
                 cancellables.append(
                     viewModel.footerButtonInfo
-                        .receive(on: DispatchQueue.main)
+                        .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
                             receiveValue: { info in footerButtonInfo = info }
@@ -393,11 +392,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                         
                         footerButtonInfo?.onTap()
                         
-                        expect(didDismissScreen)
-                            .toEventually(
-                                beTrue(),
-                                timeout: .milliseconds(100)
-                            )
+                        expect(didDismissScreen).to(beTrue())
                     }
                     
                     it("saves the updated config") {
@@ -407,21 +402,10 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                             try DisappearingMessagesConfiguration.fetchOne(db, id: "TestId")
                         }
                         
-                        expect(updatedConfig?.isEnabled)
-                            .toEventually(
-                                beTrue(),
-                                timeout: .milliseconds(100)
-                            )
+                        expect(updatedConfig?.isEnabled).to(beTrue())
                         expect(updatedConfig?.durationSeconds)
-                            .toEventually(
-                                equal(DisappearingMessagesConfiguration.DefaultDuration.disappearAfterSend.seconds),
-                                timeout: .milliseconds(100)
-                            )
-                        expect(updatedConfig?.type)
-                            .toEventually(
-                                equal(.disappearAfterSend),
-                                timeout: .milliseconds(100)
-                            )
+                            .to(equal(DisappearingMessagesConfiguration.DefaultDuration.disappearAfterSend.seconds))
+                        expect(updatedConfig?.type).to(equal(.disappearAfterSend))
                     }
                 }
             }

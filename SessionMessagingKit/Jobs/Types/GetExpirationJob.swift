@@ -13,103 +13,106 @@ public enum GetExpirationJob: JobExecutor {
     private static let minRunFrequency: TimeInterval = 5
     
     public static func run(
-        _ job: SessionUtilitiesKit.Job,
+        _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (SessionUtilitiesKit.Job, Bool) -> (),
-        failure: @escaping (SessionUtilitiesKit.Job, Error?, Bool) -> (),
-        deferred: @escaping (SessionUtilitiesKit.Job) -> ()
+        success: @escaping (Job, Bool, Dependencies) -> (),
+        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
+        deferred: @escaping (Job, Dependencies) -> (),
+        using dependencies: Dependencies
     ) {
         guard
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
         else {
             SNLog("[GetExpirationJob] Failing due to missing details")
-            failure(job, JobRunnerError.missingRequiredDetails, true)
+            failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
             return
         }
         
-        var expirationInfo: [String: TimeInterval] = Storage.shared.read { db -> [String: TimeInterval] in
-            details
-                .expirationInfo
-                .filter {
-                    Interaction.filter(Interaction.Columns.serverHash == $0.key).isNotEmpty(db)
-                }
-        }
-        .defaulting(to: details.expirationInfo)
+        let expirationInfo: [String: TimeInterval] = dependencies.storage
+            .read(using: dependencies) { db -> [String: TimeInterval] in
+                details
+                    .expirationInfo
+                    .filter { Interaction.filter(Interaction.Columns.serverHash == $0.key).isNotEmpty(db) }
+            }
+            .defaulting(to: details.expirationInfo)
         
         guard expirationInfo.count > 0 else {
-            success(job, false)
+            success(job, false, dependencies)
             return
         }
         
-        let userPublicKey: String = getUserHexEncodedPublicKey()
-        SnodeAPI.getSwarm(for: userPublicKey)
+        let userPublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
+        SnodeAPI
+            .getSwarm(for: userPublicKey, using: dependencies)
             .tryFlatMap { swarm -> AnyPublisher<(ResponseInfoType, GetExpiriesResponse), Error> in
                 guard let snode = swarm.randomElement() else { throw SnodeAPIError.generic }
+                
                 return SnodeAPI.getExpiries(
                     from: snode,
                     associatedWith: userPublicKey,
-                    of: expirationInfo.map { $0.key }
+                    of: expirationInfo.map { $0.key },
+                    using: dependencies
                 )
             }
-            .subscribe(on: queue)
-            .receive(on: queue)
-            .map { (_, response) -> GetExpiriesResponse in
-                return response
-            }
+            .subscribe(on: queue, using: dependencies)
+            .receive(on: queue, using: dependencies)
+            .map { _, response -> GetExpiriesResponse in response }
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {
-                        case .finished:
-                            break
-                        case .failure(let error):
-                            failure(job, error, true)
+                        case .finished: break
+                        case .failure(let error): failure(job, error, true, dependencies)
                     }
                 },
                 receiveValue: { response in
-                    Storage.shared.write { db in
-                        try response.expiries.forEach { hash, expireAtMs in
-                            guard let expiresInSeconds: TimeInterval = expirationInfo[hash] else { return }
-                            let expiresStartedAtMs: TimeInterval = TimeInterval(expireAtMs - UInt64(expiresInSeconds * 1000))
+                    let serverSpecifiedExpirationStartTimesMs: [String: TimeInterval] = response.expiries
+                        .reduce(into: [:]) { result, next in
+                            guard let expiresInSeconds: TimeInterval = expirationInfo[next.key] else { return }
                             
-                            _ = try Interaction
+                            result[next.key] = TimeInterval(next.value - UInt64(expiresInSeconds * 1000))
+                        }
+                    let hashesToUseDefault: Set<String> = Set(expirationInfo.keys)
+                        .subtracting(serverSpecifiedExpirationStartTimesMs.keys)
+                    
+                    dependencies.storage.write(using: dependencies) { db in
+                        try serverSpecifiedExpirationStartTimesMs.forEach { hash, expiresStartedAtMs in
+                            try Interaction
                                 .filter(Interaction.Columns.serverHash == hash)
                                 .updateAll(
                                     db,
                                     Interaction.Columns.expiresStartedAtMs.set(to: expiresStartedAtMs)
                                 )
-                            
-                            guard let index = expirationInfo.index(forKey: hash) else { return }
-                            expirationInfo.remove(at: index)
                         }
                         
-                        try expirationInfo.forEach { key, _ in
-                            _ = try Interaction
-                                .filter(Interaction.Columns.serverHash == key)
-                                .filter(Interaction.Columns.expiresStartedAtMs == nil)
-                                .updateAll(
-                                    db,
-                                    Interaction.Columns.expiresStartedAtMs.set(to: details.startedAtTimestampMs)
-                                )
-                        }
+                        try Interaction
+                            .filter(hashesToUseDefault.contains(Interaction.Columns.serverHash))
+                            .filter(Interaction.Columns.expiresStartedAtMs == nil)
+                            .updateAll(
+                                db,
+                                Interaction.Columns.expiresStartedAtMs.set(to: details.startedAtTimestampMs)
+                            )
                         
-                        JobRunner.upsert(
-                            db,
-                            job: DisappearingMessagesJob.updateNextRunIfNeeded(db)
-                        )
+                        dependencies.jobRunner
+                            .upsert(
+                                db,
+                                job: DisappearingMessagesJob.updateNextRunIfNeeded(db),
+                                canStartJob: true,
+                                using: dependencies
+                            )
                     }
                     
-                    if !expirationInfo.isEmpty {
-                        let updatedJob: Job? = Storage.shared.write { db in
+                    guard hashesToUseDefault.isEmpty else {
+                        let updatedJob: Job? = dependencies.storage.write(using: dependencies) { db in
                             try job
-                                .with(nextRunTimestamp: Date().timeIntervalSince1970 + minRunFrequency)
+                                .with(nextRunTimestamp: dependencies.dateNow.timeIntervalSince1970 + minRunFrequency)
                                 .saved(db)
                         }
                         
-                        deferred(updatedJob ?? job)
-                    } else {
-                        success(job, false)
+                        return deferred(updatedJob ?? job, dependencies)
                     }
+                        
+                    success(job, false, dependencies)
                 }
             )
     }

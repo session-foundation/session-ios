@@ -15,17 +15,17 @@ public enum MessageSendJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool) -> (),
-        failure: @escaping (Job, Error?, Bool) -> (),
-        deferred: @escaping (Job) -> ()
+        success: @escaping (Job, Bool, Dependencies) -> (),
+        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
+        deferred: @escaping (Job, Dependencies) -> (),
+        using dependencies: Dependencies
     ) {
         guard
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
         else {
             SNLog("[MessageSendJob] Failing due to missing details")
-            failure(job, JobRunnerError.missingRequiredDetails, true)
-            return
+            return failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
         }
         
         // We need to include 'fileIds' when sending messages with attachments to Open Groups
@@ -46,14 +46,13 @@ public enum MessageSendJob: JobExecutor {
                 let interactionId: Int64 = job.interactionId
             else {
                 SNLog("[MessageSendJob] Failing due to missing details")
-                failure(job, JobRunnerError.missingRequiredDetails, true)
-                return
+                return failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
             }
             
             // Retrieve the current attachment state
             typealias AttachmentState = (error: Error?, pendingUploadAttachmentIds: [String], preparedFileIds: [String])
 
-            let attachmentState: AttachmentState = Storage.shared
+            let attachmentState: AttachmentState = dependencies.storage
                 .read { db in
                     // If the original interaction no longer exists then don't bother sending the message (ie. the
                     // message was deleted before it even got sent)
@@ -91,6 +90,10 @@ public enum MessageSendJob: JobExecutor {
                             switch attachment.state {
                                 case .uploading, .pendingDownload, .downloading, .failedUpload, .downloaded:
                                     return true
+                                    
+                                // If we've somehow got an attachment that is in an 'uploaded' state but doesn't
+                                // have a 'downloadUrl' then it's invalid and needs to be re-uploaded
+                                case .uploaded: return (attachment.downloadUrl == nil)
 
                                 default: return false
                             }
@@ -104,26 +107,26 @@ public enum MessageSendJob: JobExecutor {
             /// If we got an error when trying to retrieve the attachment state then this job is actually invalid so it
             /// should permanently fail
             guard attachmentState.error == nil else {
-                return failure(job, (attachmentState.error ?? MessageSenderError.invalidMessage), true)
+                return failure(job, (attachmentState.error ?? MessageSenderError.invalidMessage), true, dependencies)
             }
 
             /// If we have any pending (or failed) attachment uploads then we should create jobs for them and insert them into the
             /// queue before the current job and defer it (this will mean the current job will re-run after these inserted jobs complete)
             guard attachmentState.pendingUploadAttachmentIds.isEmpty else {
-                Storage.shared.write { db in
+                dependencies.storage.write { db in
                     try attachmentState.pendingUploadAttachmentIds
                         .filter { attachmentId in
                             // Don't add a new job if there is one already in the queue
-                            !JobRunner.hasPendingOrRunningJob(
-                                with: .attachmentUpload,
-                                details: AttachmentUploadJob.Details(
+                            !dependencies.jobRunner.hasJob(
+                                of: .attachmentUpload,
+                                with: AttachmentUploadJob.Details(
                                     messageSendJobId: jobId,
                                     attachmentId: attachmentId
                                 )
                             )
                         }
                         .compactMap { attachmentId -> (jobId: Int64, job: Job)? in
-                            JobRunner
+                            dependencies.jobRunner
                                 .insert(
                                     db,
                                     job: Job(
@@ -150,7 +153,7 @@ public enum MessageSendJob: JobExecutor {
                 }
 
                 SNLog("[MessageSendJob] Deferring due to pending attachment uploads")
-                return deferred(job)
+                return deferred(job, dependencies)
             }
 
             // Store the fileIds so they can be sent with the open group message content
@@ -164,7 +167,7 @@ public enum MessageSendJob: JobExecutor {
         ///
         /// **Note:** No need to upload attachments as part of this process as the above logic splits that out into it's own job
         /// so we shouldn't get here until attachments have already been uploaded
-        Storage.shared
+        dependencies.storage
             .writePublisher { db in
                 try MessageSender.preparedSendData(
                     db,
@@ -172,30 +175,31 @@ public enum MessageSendJob: JobExecutor {
                     to: details.destination,
                     namespace: details.destination.defaultNamespace,
                     interactionId: job.interactionId,
-                    isSyncMessage: details.isSyncMessage
+                    isSyncMessage: details.isSyncMessage,
+                    using: dependencies
                 )
             }
             .map { sendData in sendData.with(fileIds: messageFileIds) }
-            .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
-            .subscribe(on: queue)
-            .receive(on: queue)
+            .flatMap { MessageSender.sendImmediate(data: $0, using: dependencies) }
+            .subscribe(on: queue, using: dependencies)
+            .receive(on: queue, using: dependencies)
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {
-                        case .finished: success(job, false)
+                        case .finished: success(job, false, dependencies)
                         case .failure(let error):
                             SNLog("[MessageSendJob] Couldn't send message due to error: \(error).")
                             
                             switch error {
                                 case let senderError as MessageSenderError where !senderError.isRetryable:
-                                    failure(job, error, true)
+                                    failure(job, error, true, dependencies)
                                     
                                 case OnionRequestAPIError.httpRequestFailedAtDestination(let statusCode, _, _) where statusCode == 429: // Rate limited
-                                    failure(job, error, true)
+                                    failure(job, error, true, dependencies)
                                     
                                 case SnodeAPIError.clockOutOfSync:
                                     SNLog("[MessageSendJob] \(originalSentTimestamp != nil ? "Permanently Failing" : "Failing") to send \(type(of: details.message)) due to clock out of sync issue.")
-                                    failure(job, error, (originalSentTimestamp != nil))
+                                    failure(job, error, (originalSentTimestamp != nil), dependencies)
                                     
                                 default:
                                     SNLog("[MessageSendJob] Failed to send \(type(of: details.message)).")
@@ -203,15 +207,14 @@ public enum MessageSendJob: JobExecutor {
                                     if details.message is VisibleMessage {
                                         guard
                                             let interactionId: Int64 = job.interactionId,
-                                            Storage.shared.read({ db in try Interaction.exists(db, id: interactionId) }) == true
+                                            dependencies.storage.read({ db in try Interaction.exists(db, id: interactionId) }) == true
                                         else {
                                             // The message has been deleted so permanently fail the job
-                                            failure(job, error, true)
-                                            return
+                                            return failure(job, error, true, dependencies)
                                         }
                                     }
                                     
-                                    failure(job, error, false)
+                                    failure(job, error, false, dependencies)
                             }
                     }
                 }

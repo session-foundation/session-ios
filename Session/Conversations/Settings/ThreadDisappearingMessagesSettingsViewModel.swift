@@ -64,17 +64,17 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
     // MARK: - Initialization
     
     init(
-        dependencies: Dependencies = Dependencies(),
         threadId: String,
         threadVariant: SessionThread.Variant,
         currentUserIsClosedGroupMember: Bool?,
         currentUserIsClosedGroupAdmin: Bool?,
-        config: DisappearingMessagesConfiguration
+        config: DisappearingMessagesConfiguration,
+        using dependencies: Dependencies = Dependencies()
     ) {
         self.dependencies = dependencies
         self.threadId = threadId
         self.threadVariant = threadVariant
-        self.isNoteToSelf = (threadId == getUserHexEncodedPublicKey())
+        self.isNoteToSelf = (threadId == getUserHexEncodedPublicKey(using: dependencies))
         self.currentUserIsClosedGroupMember = currentUserIsClosedGroupMember
         self.currentUserIsClosedGroupAdmin = currentUserIsClosedGroupAdmin
         self.config = config
@@ -100,8 +100,9 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
     override var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> {
         self.shouldShowConfirmButton
             .removeDuplicates()
-            .map { [weak self] shouldShowConfirmButton in
+            .map { [weak self, dependencies] shouldShowConfirmButton in
                 guard shouldShowConfirmButton else { return nil }
+                
                 return SessionButton.Info(
                     style: .bordered,
                     title: "DISAPPERING_MESSAGES_SAVE_TITLE".localized(),
@@ -112,7 +113,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                     ),
                     minWidth: 110,
                     onTap: {
-                        self?.saveChanges()
+                        self?.saveChanges(using: dependencies)
                         self?.dismissScreen()
                     }
                 )
@@ -123,7 +124,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
     public override var observableTableData: ObservableData { _observableTableData }
     
     private lazy var _observableTableData: ObservableData = self.currentSelection
-        .map { [weak self, threadVariant, isNoteToSelf, config, currentUserIsClosedGroupMember, currentUserIsClosedGroupAdmin] currentSelection in
+        .map { [weak self, threadVariant, isNoteToSelf, config, currentUserIsClosedGroupMember, currentUserIsClosedGroupAdmin, dependencies] currentSelection in
             switch (threadVariant, isNoteToSelf) {
                 case (.contact, false):
                     return [
@@ -475,14 +476,14 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
     
     // MARK: - Functions
     
-    private func saveChanges() {
+    private func saveChanges(using dependencies: Dependencies) {
         let threadId: String = self.threadId
         let threadVariant: SessionThread.Variant = self.threadVariant
         let updatedConfig: DisappearingMessagesConfiguration = self.currentSelection.value
 
         guard self.config != updatedConfig else { return }
 
-        dependencies.storage.writeAsync { db in
+        dependencies.storage.writeAsync(using: dependencies) { db in
             _ = try updatedConfig.saved(db)
             
             _ = try Interaction
@@ -516,12 +517,13 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                 ),
                 interactionId: interaction.id,
                 threadId: threadId,
-                threadVariant: threadVariant
+                threadVariant: threadVariant,
+                using: dependencies
             )
         }
         
         // Contacts & legacy closed groups need to update the SessionUtil
-        dependencies.storage.writeAsync { db in
+        dependencies.storage.writeAsync(using: dependencies) { db in
             switch threadVariant {
                 case .contact:
                     try SessionUtil

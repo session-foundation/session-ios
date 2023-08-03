@@ -169,7 +169,7 @@ final class NukeDataModal: Modal {
                 Publishers
                     .MergeMany(
                         Storage.shared
-                            .read { db -> [(String, OpenGroupAPI.PreparedSendData<DeleteInboxResponse>)] in
+                            .read { db -> [(String, OpenGroupAPI.PreparedSendData<OpenGroupAPI.DeleteInboxResponse>)] in
                                 return try OpenGroup
                                     .filter(OpenGroup.Columns.isActive == true)
                                     .select(.server)
@@ -273,7 +273,7 @@ final class NukeDataModal: Modal {
         UserDefaults.removeAll()
         
         // Remove the cached key so it gets re-cached on next access
-        dependencies.mutableGeneralCache.mutate {
+        dependencies.caches.mutate(cache: .general) {
             $0.encodedPublicKey = nil
             $0.recentReactionTimestamps = []
         }

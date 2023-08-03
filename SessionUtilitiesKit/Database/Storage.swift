@@ -46,6 +46,7 @@ open class Storage {
     public static let defaultPublisherScheduler: ValueObservationScheduler = .async(onQueue: .main)
     
     fileprivate var dbWriter: DatabaseWriter?
+    internal var testDbWriter: DatabaseWriter? { dbWriter }
     private var migrator: DatabaseMigrator?
     private var migrationProgressUpdater: Atomic<((String, CGFloat) -> ())>?
     
@@ -287,11 +288,8 @@ open class Storage {
         for migration: Migration.Type,
         in target: TargetMigrations.Identifier
     ) {
-        // In test builds ignore any migration progress updates (we run in a custom database writer anyway),
-        // this code should be the same as 'CurrentAppContext().isRunningTests' but since the tests can run
-        // without being attached to a host application the `CurrentAppContext` might not have been set and
-        // would crash as it gets force-unwrapped - better to just do the check explicitly instead
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        // In test builds ignore any migration progress updates (we run in a custom database writer anyway)
+        guard !SNUtilitiesKit.isRunningTests else { return }
         
         Storage.shared.migrationProgressUpdater?.wrappedValue(target.key(with: migration), progress)
     }
@@ -317,7 +315,7 @@ open class Storage {
                     // For these cases it means either the keySpec or the keychain has become corrupt so in order to
                     // get back to a "known good state" and behave like a new install we need to reset the storage
                     // and regenerate the key
-                    if !CurrentAppContext().isRunningTests {
+                    if !SNUtilitiesKit.isRunningTests {
                         // Try to reset app by deleting database.
                         resetAllStorage()
                     }
@@ -463,10 +461,11 @@ open class Storage {
     
     // MARK: - Functions
     
-    @discardableResult public final func write<T>(
+    @discardableResult public func write<T>(
         fileName: String = #file,
         functionName: String = #function,
         lineNumber: Int = #line,
+        using dependencies: Dependencies = Dependencies(),
         updates: @escaping (Database) throws -> T?
     ) -> T? {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return nil }
@@ -481,12 +480,14 @@ open class Storage {
         fileName: String = #file,
         functionName: String = #function,
         lineNumber: Int = #line,
+        using dependencies: Dependencies = Dependencies(),
         updates: @escaping (Database) throws -> T
     ) {
         writeAsync(
             fileName: fileName,
             functionName: functionName,
             lineNumber: lineNumber,
+            using: dependencies,
             updates: updates,
             completion: { _, _ in }
         )
@@ -496,6 +497,7 @@ open class Storage {
         fileName: String = #file,
         functionName: String = #function,
         lineNumber: Int = #line,
+        using dependencies: Dependencies = Dependencies(),
         updates: @escaping (Database) throws -> T,
         completion: @escaping (Database, Swift.Result<T, Error>) throws -> Void
     ) {
@@ -520,6 +522,7 @@ open class Storage {
         fileName: String = #file,
         functionName: String = #function,
         lineNumber: Int = #line,
+        using dependencies: Dependencies = Dependencies(),
         updates: @escaping (Database) throws -> T
     ) -> AnyPublisher<T, Error> {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
@@ -548,6 +551,7 @@ open class Storage {
     }
     
     open func readPublisher<T>(
+        using dependencies: Dependencies = Dependencies(),
         value: @escaping (Database) throws -> T
     ) -> AnyPublisher<T, Error> {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
@@ -573,7 +577,10 @@ open class Storage {
         }.eraseToAnyPublisher()
     }
     
-    @discardableResult public final func read<T>(_ value: (Database) throws -> T?) -> T? {
+    @discardableResult public func read<T>(
+        using dependencies: Dependencies = Dependencies(),
+        _ value: (Database) throws -> T?
+    ) -> T? {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return nil }
         
         do { return try dbWriter.read(value) }

@@ -35,7 +35,7 @@ extension OpenGroupAPI {
             self.server = server
         }
         
-        public func startIfNeeded(using dependencies: OpenGroupManager.OGMDependencies = OpenGroupManager.OGMDependencies()) {
+        public func startIfNeeded(using dependencies: Dependencies) {
             guard !hasStarted else { return }
             
             hasStarted = true
@@ -49,20 +49,15 @@ extension OpenGroupAPI {
 
         // MARK: - Polling
         
-        private func pollRecursively(
-            using dependencies: OpenGroupManager.OGMDependencies = OpenGroupManager.OGMDependencies(
-                subscribeQueue: Threading.pollerQueue,
-                receiveQueue: OpenGroupAPI.workQueue
-            )
-        ) {
+        private func pollRecursively(using dependencies: Dependencies) {
             guard hasStarted else { return }
             
             let server: String = self.server
-            let lastPollStart: TimeInterval = Date().timeIntervalSince1970
+            let lastPollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
             
             poll(using: dependencies)
-                .subscribe(on: dependencies.subscribeQueue)
-                .receive(on: dependencies.receiveQueue)
+                .subscribe(on: Threading.pollerQueue, using: dependencies)
+                .receive(on: OpenGroupAPI.workQueue, using: dependencies)
                 .sinkUntilComplete(
                     receiveCompletion: { [weak self] _ in
                         let minPollFailureCount: Int64 = dependencies.storage
@@ -76,7 +71,7 @@ extension OpenGroupAPI {
                             .defaulting(to: 0)
                         
                         // Calculate the remaining poll delay
-                        let currentTime: TimeInterval = Date().timeIntervalSince1970
+                        let currentTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
                         let nextPollInterval: TimeInterval = Poller.getInterval(
                             for: TimeInterval(minPollFailureCount),
                             minInterval: Poller.minPollInterval,
@@ -86,12 +81,12 @@ extension OpenGroupAPI {
                         
                         // Schedule the next poll
                         guard remainingInterval > 0 else {
-                            return dependencies.subscribeQueue.async {
+                            return Threading.pollerQueue.async(using: dependencies) {
                                 self?.pollRecursively(using: dependencies)
                             }
                         }
                         
-                        dependencies.subscribeQueue.asyncAfter(deadline: .now() + .milliseconds(Int(remainingInterval * 1000)), qos: .default) {
+                        Threading.pollerQueue.asyncAfter(deadline: .now() + .milliseconds(Int(remainingInterval * 1000)), qos: .default, using: dependencies) {
                             self?.pollRecursively(using: dependencies)
                         }
                     }
@@ -99,7 +94,7 @@ extension OpenGroupAPI {
         }
         
         public func poll(
-            using dependencies: OpenGroupManager.OGMDependencies = OpenGroupManager.OGMDependencies()
+            using dependencies: Dependencies = Dependencies()
         ) -> AnyPublisher<Void, Error> {
             return poll(
                 calledFromBackgroundPoller: false,
@@ -112,7 +107,7 @@ extension OpenGroupAPI {
             calledFromBackgroundPoller: Bool,
             isBackgroundPollerValid: @escaping (() -> Bool) = { true },
             isPostCapabilitiesRetry: Bool,
-            using dependencies: OpenGroupManager.OGMDependencies = OpenGroupManager.OGMDependencies()
+            using dependencies: Dependencies = Dependencies()
         ) -> AnyPublisher<Void, Error> {
             guard !self.isPolling else {
                 return Just(())
@@ -122,10 +117,12 @@ extension OpenGroupAPI {
             
             self.isPolling = true
             let server: String = self.server
-            let hasPerformedInitialPoll: Bool = (dependencies.cache.hasPerformedInitialPoll[server] == true)
+            let hasPerformedInitialPoll: Bool = (dependencies.caches[.openGroupManager].hasPerformedInitialPoll[server] == true)
             let timeSinceLastPoll: TimeInterval = (
-                dependencies.cache.timeSinceLastPoll[server] ??
-                dependencies.mutableCache.mutate { $0.getTimeSinceLastOpen(using: dependencies) }
+                dependencies.caches[.openGroupManager].timeSinceLastPoll[server] ??
+                dependencies.caches.mutate(cache: .openGroupManager) { cache in
+                    cache.getTimeSinceLastOpen(using: dependencies)
+                }
             )
             
             return dependencies.storage
@@ -170,10 +167,11 @@ extension OpenGroupAPI {
                             using: dependencies
                         )
 
-                        dependencies.mutableCache.mutate { cache in
+            
+                        dependencies.caches.mutate(cache: .openGroupManager) { cache in
                             cache.hasPerformedInitialPoll[server] = true
-                            cache.timeSinceLastPoll[server] = Date().timeIntervalSince1970
-                            UserDefaults.standard[.lastOpen] = Date()
+                            cache.timeSinceLastPoll[server] = dependencies.dateNow.timeIntervalSince1970
+                            dependencies.standardUserDefaults[.lastOpen] = dependencies.dateNow
                         }
 
                         SNLog("Open group polling finished for \(server).")
@@ -303,7 +301,7 @@ extension OpenGroupAPI {
             isBackgroundPollerValid: @escaping (() -> Bool) = { true },
             isPostCapabilitiesRetry: Bool,
             error: Error,
-            using dependencies: OpenGroupManager.OGMDependencies = OpenGroupManager.OGMDependencies()
+            using dependencies: Dependencies = Dependencies()
         ) -> AnyPublisher<Bool, Error> {
             /// We want to custom handle a '400' error code due to not having blinded auth as it likely means that we join the
             /// OpenGroup before blinding was enabled and need to update it's capabilities
@@ -376,7 +374,7 @@ extension OpenGroupAPI {
             info: ResponseInfoType,
             response: BatchResponse,
             failureCount: Int64,
-            using dependencies: OpenGroupManager.OGMDependencies = OpenGroupManager.OGMDependencies()
+            using dependencies: Dependencies
         ) {
             let server: String = self.server
             let validResponses: [OpenGroupAPI.Endpoint: Decodable] = response.data
@@ -550,7 +548,7 @@ extension OpenGroupAPI {
                                 publicKey: nil,
                                 for: roomToken,
                                 on: server,
-                                dependencies: dependencies
+                                using: dependencies
                             )
                             
                         case .roomMessagesRecent(let roomToken), .roomMessagesBefore(let roomToken, _), .roomMessagesSince(let roomToken, _):
@@ -564,7 +562,7 @@ extension OpenGroupAPI {
                                 messages: responseBody.compactMap { $0.value },
                                 for: roomToken,
                                 on: server,
-                                dependencies: dependencies
+                                using: dependencies
                             )
                             
                         case .inbox, .inboxSince, .outbox, .outboxSince:
@@ -587,7 +585,7 @@ extension OpenGroupAPI {
                                 messages: messages,
                                 fromOutbox: fromOutbox,
                                 on: server,
-                                dependencies: dependencies
+                                using: dependencies
                             )
                             
                         default: break // No custom handling needed

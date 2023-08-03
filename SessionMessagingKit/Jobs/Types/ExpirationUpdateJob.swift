@@ -12,31 +12,33 @@ public enum ExpirationUpdateJob: JobExecutor {
     public static var requiresInteractionId: Bool = false
     
     public static func run(
-        _ job: SessionUtilitiesKit.Job,
+        _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (SessionUtilitiesKit.Job, Bool) -> (),
-        failure: @escaping (SessionUtilitiesKit.Job, Error?, Bool) -> (),
-        deferred: @escaping (SessionUtilitiesKit.Job) -> ()
+        success: @escaping (Job, Bool, Dependencies) -> (),
+        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
+        deferred: @escaping (Job, Dependencies) -> (),
+        using dependencies: Dependencies
     ) {
         guard
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
         else {
             SNLog("[ExpirationUpdateJob] Failing due to missing details")
-            failure(job, JobRunnerError.missingRequiredDetails, true)
+            failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
             return
         }
         
-        let userPublicKey: String = getUserHexEncodedPublicKey()
+        let userPublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
         SnodeAPI
             .updateExpiry(
                 publicKey: userPublicKey,
                 serverHashes: details.serverHashes,
                 updatedExpiryMs: details.expirationTimestampMs,
-                shortenOnly: true
+                shortenOnly: true,
+                using: dependencies
             )
-            .subscribe(on: queue)
-            .receive(on: queue)
+            .subscribe(on: queue, using: dependencies)
+            .receive(on: queue, using: dependencies)
             .map { response -> [UInt64: [String]] in
                 guard
                     let results: [UpdateExpiryResponseResult] = response
@@ -46,24 +48,21 @@ public enum ExpirationUpdateJob: JobExecutor {
                         .reduce([:], { result, next in result.updated(with: next.unchanged) })
                         .groupedByValue()
                         .nullIfEmpty()
-                else {
-                    return [:]
-                }
+                else { return [:] }
                 
                 return unchangedMessages
             }
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {
-                        case .finished:
-                            success(job, false)
-                        case .failure(let error):
-                            failure(job, error, true)
+                        case .finished: success(job, false, dependencies)
+                        case .failure(let error): failure(job, error, true, dependencies)
                     }
                 },
                 receiveValue: { unchangedMessages in
                     guard !unchangedMessages.isEmpty else { return }
-                    Storage.shared.writeAsync { db in
+                    
+                    dependencies.storage.writeAsync(using: dependencies) { db in
                         try unchangedMessages.forEach { updatedExpiry, hashes in
                             try hashes.forEach { hash in
                                 guard
@@ -72,9 +71,7 @@ public enum ExpirationUpdateJob: JobExecutor {
                                         .select(Interaction.Columns.expiresInSeconds)
                                         .asRequest(of: TimeInterval.self)
                                         .fetchOne(db)
-                                else {
-                                    return
-                                }
+                                else { return }
                                 
                                 let expiresStartedAtMs: TimeInterval = TimeInterval(updatedExpiry - UInt64(expiresInSeconds * 1000))
                                 

@@ -243,7 +243,8 @@ public extension Message {
     
     static func processRawReceivedMessage(
         _ db: Database,
-        rawMessage: SnodeReceivedMessage
+        rawMessage: SnodeReceivedMessage,
+        using dependencies: Dependencies = Dependencies()
     ) throws -> ProcessedMessage? {
         guard let envelope = SNProtoEnvelope.from(rawMessage) else {
             throw MessageReceiverError.invalidMessage
@@ -255,7 +256,8 @@ public extension Message {
                 envelope: envelope,
                 serverExpirationTimestamp: (TimeInterval(rawMessage.info.expirationDateMs) / 1000),
                 serverHash: rawMessage.info.hash,
-                handleClosedGroupKeyUpdateMessages: true
+                handleClosedGroupKeyUpdateMessages: true,
+                using: dependencies
             )
             
             // Ensure we actually want to de-dupe messages for this namespace, otherwise just
@@ -302,7 +304,8 @@ public extension Message {
     static func processRawReceivedMessage(
         _ db: Database,
         serializedData: Data,
-        serverHash: String?
+        serverHash: String?,
+        using dependencies: Dependencies = Dependencies()
     ) throws -> ProcessedMessage? {
         guard let envelope = try? SNProtoEnvelope.parseData(serializedData) else {
             throw MessageReceiverError.invalidMessage
@@ -316,7 +319,8 @@ public extension Message {
                 ControlMessageProcessRecord.defaultExpirationSeconds
             ),
             serverHash: serverHash,
-            handleClosedGroupKeyUpdateMessages: true
+            handleClosedGroupKeyUpdateMessages: true,
+            using: dependencies
         )
     }
     
@@ -325,7 +329,8 @@ public extension Message {
     /// closed group key update messages (the `NotificationServiceExtension` does this itself)
     static func processRawReceivedMessageAsNotification(
         _ db: Database,
-        envelope: SNProtoEnvelope
+        envelope: SNProtoEnvelope,
+        using dependencies: Dependencies = Dependencies()
     ) throws -> ProcessedMessage? {
         let processedMessage: ProcessedMessage? = try processRawReceivedMessage(
             db,
@@ -335,7 +340,8 @@ public extension Message {
                 ControlMessageProcessRecord.defaultExpirationSeconds
             ),
             serverHash: nil,
-            handleClosedGroupKeyUpdateMessages: false
+            handleClosedGroupKeyUpdateMessages: false,
+            using: dependencies
         )
         
         return processedMessage
@@ -347,7 +353,7 @@ public extension Message {
         openGroupServerPublicKey: String,
         message: OpenGroupAPI.Message,
         data: Data,
-        dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> ProcessedMessage? {
         // Need a sender in order to process the message
         guard let sender: String = message.sender, let timestamp = message.posted else { return nil }
@@ -370,7 +376,7 @@ public extension Message {
             openGroupMessageServerId: message.id,
             openGroupServerPublicKey: openGroupServerPublicKey,
             handleClosedGroupKeyUpdateMessages: false,
-            dependencies: dependencies
+            using: dependencies
         )
     }
     
@@ -381,7 +387,7 @@ public extension Message {
         data: Data,
         isOutgoing: Bool? = nil,
         otherBlindedPublicKey: String? = nil,
-        dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> ProcessedMessage? {
         // Note: The `posted` value is in seconds but all messages in the database use milliseconds for timestamps
         let envelopeBuilder = SNProtoEnvelope.builder(type: .sessionMessage, timestamp: UInt64(floor(message.posted * 1000)))
@@ -403,7 +409,7 @@ public extension Message {
             isOutgoing: isOutgoing,
             otherBlindedPublicKey: otherBlindedPublicKey,
             handleClosedGroupKeyUpdateMessages: false,
-            dependencies: dependencies
+            using: dependencies
         )
     }
     
@@ -412,24 +418,26 @@ public extension Message {
         openGroupId: String,
         message: OpenGroupAPI.Message,
         associatedPendingChanges: [OpenGroupAPI.PendingChange],
-        dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) -> [Reaction] {
         var results: [Reaction] = []
         guard let reactions = message.reactions else { return results }
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
         let blinded15UserPublicKey: String? = SessionThread
             .getUserHexEncodedBlindedKey(
                 db,
                 threadId: openGroupId,
                 threadVariant: .community,
-                blindingPrefix: .blinded15
+                blindingPrefix: .blinded15,
+                using: dependencies
             )
         let blinded25UserPublicKey: String? = SessionThread
             .getUserHexEncodedBlindedKey(
                 db,
                 threadId: openGroupId,
                 threadVariant: .community,
-                blindingPrefix: .blinded25
+                blindingPrefix: .blinded25,
+                using: dependencies
             )
         
         for (encodedEmoji, rawReaction) in reactions {
@@ -549,7 +557,7 @@ public extension Message {
         isOutgoing: Bool? = nil,
         otherBlindedPublicKey: String? = nil,
         handleClosedGroupKeyUpdateMessages: Bool,
-        dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies
     ) throws -> ProcessedMessage? {
         let (message, proto, threadId, threadVariant) = try MessageReceiver.parse(
             db,
@@ -560,7 +568,7 @@ public extension Message {
             openGroupServerPublicKey: openGroupServerPublicKey,
             isOutgoing: isOutgoing,
             otherBlindedPublicKey: otherBlindedPublicKey,
-            dependencies: dependencies
+            using: dependencies
         )
         message.serverHash = serverHash
         
@@ -581,7 +589,8 @@ public extension Message {
                                 db,
                                 threadId: threadId,
                                 threadVariant: threadVariant,
-                                message: closedGroupControlMessage
+                                message: closedGroupControlMessage,
+                                using: dependencies
                             )
                             return nil
                             

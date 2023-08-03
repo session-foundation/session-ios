@@ -16,6 +16,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
     
     override func spec() {
         var mockStorage: Storage!
+        var mockCaches: MockCaches!
         var mockGeneralCache: MockGeneralCache!
         var disposables: [AnyCancellable] = []
         var dependencies: Dependencies!
@@ -35,12 +36,14 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         SNUIKit.self
                     ]
                 )
+                mockCaches = MockCaches()
                 mockGeneralCache = MockGeneralCache()
                 dependencies = Dependencies(
-                    generalCache: mockGeneralCache,
                     storage: mockStorage,
+                    caches: mockCaches,
                     scheduler: .immediate
                 )
+                mockCaches[.general] = mockGeneralCache
                 mockGeneralCache.when { $0.encodedPublicKey }.thenReturn("05\(TestConstants.publicKey)")
                 mockStorage.write { db in
                     try SessionThread(
@@ -68,12 +71,12 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     ).insert(db)
                 }
                 viewModel = ThreadSettingsViewModel(
-                    dependencies: dependencies,
                     threadId: "TestId",
                     threadVariant: .contact,
                     didTriggerSearch: {
                         didTriggerSearchCallbackTriggered = true
-                    }
+                    },
+                    using: dependencies
                 )
                 disposables.append(
                     viewModel.observableTableData
@@ -166,12 +169,12 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     }
                     
                     viewModel = ThreadSettingsViewModel(
-                        dependencies: dependencies,
                         threadId: "05\(TestConstants.publicKey)",
                         threadVariant: .contact,
                         didTriggerSearch: {
                             didTriggerSearchCallbackTriggered = true
-                        }
+                        },
+                        using: dependencies
                     )
                     disposables.append(
                         viewModel.observableTableData
@@ -440,12 +443,12 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     }
                     
                     viewModel = ThreadSettingsViewModel(
-                        dependencies: dependencies,
                         threadId: "TestId",
                         threadVariant: .legacyGroup,
                         didTriggerSearch: {
                             didTriggerSearchCallbackTriggered = true
-                        }
+                        },
+                        using: dependencies
                     )
                     disposables.append(
                         viewModel.observableTableData
@@ -482,12 +485,12 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     }
                     
                     viewModel = ThreadSettingsViewModel(
-                        dependencies: dependencies,
                         threadId: "TestId",
                         threadVariant: .community,
                         didTriggerSearch: {
                             didTriggerSearchCallbackTriggered = true
-                        }
+                        },
+                        using: dependencies
                     )
                     disposables.append(
                         viewModel.observableTableData

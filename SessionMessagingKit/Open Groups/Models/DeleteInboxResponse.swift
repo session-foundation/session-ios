@@ -2,6 +2,8 @@
 
 import Foundation
 
-public struct DeleteInboxResponse: Codable {
-    let deleted: UInt64
+extension OpenGroupAPI {
+    public struct DeleteInboxResponse: Codable {
+        let deleted: UInt64
+    }
 }

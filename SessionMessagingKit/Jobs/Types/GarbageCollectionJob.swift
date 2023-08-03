@@ -21,9 +21,10 @@ public enum GarbageCollectionJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool) -> (),
-        failure: @escaping (Job, Error?, Bool) -> (),
-        deferred: @escaping (Job) -> ()
+        success: @escaping (Job, Bool, Dependencies) -> (),
+        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
+        deferred: @escaping (Job, Dependencies) -> (),
+        using dependencies: Dependencies
     ) {
         /// Determine what types of data we want to collect (if we didn't provide any then assume we want to collect everything)
         ///
@@ -33,18 +34,18 @@ public enum GarbageCollectionJob: JobExecutor {
             .map { try? JSONDecoder().decode(Details.self, from: $0) }?
             .typesToCollect)
             .defaulting(to: Types.allCases)
-        let timestampNow: TimeInterval = Date().timeIntervalSince1970
+        let timestampNow: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         
         /// Only do a full collection if the job isn't the recurring one or it's been 23 hours since it last ran (23 hours so a user who opens the
         /// app at about the same time every day will trigger the garbage collection) - since this runs when the app becomes active we
         /// want to prevent it running to frequently (the app becomes active if a system alert, the notification center or the control panel
         /// are shown)
-        let lastGarbageCollection: Date = UserDefaults.standard[.lastGarbageCollection]
+        let lastGarbageCollection: Date = dependencies.standardUserDefaults[.lastGarbageCollection]
             .defaulting(to: Date.distantPast)
         let finalTypesToCollect: Set<Types> = {
             guard
                 job.behaviour != .recurringOnActive ||
-                Date().timeIntervalSince(lastGarbageCollection) > (23 * 60 * 60)
+                dependencies.dateNow.timeIntervalSince(lastGarbageCollection) > (23 * 60 * 60)
             else {
                 // Note: This should only contain the `Types` which are unlikely to ever cause
                 // a startup delay (ie. avoid mass deletions and file management)
@@ -57,7 +58,7 @@ public enum GarbageCollectionJob: JobExecutor {
             return typesToCollect.asSet()
         }()
         
-        Storage.shared.writeAsync(
+        dependencies.storage.writeAsync(
             updates: { db in
                 /// Remove any typing indicators
                 if finalTypesToCollect.contains(.threadTypingIndicators) {
@@ -378,7 +379,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     
                     // If we couldn't get the file lists then fail (invalid state and don't want to delete all attachment/profile files)
                     guard let fileInfo: FileInfo = maybeFileInfo else {
-                        failure(job, StorageError.generic, false)
+                        failure(job, StorageError.generic, false, dependencies)
                         return
                     }
                         
@@ -453,17 +454,17 @@ public enum GarbageCollectionJob: JobExecutor {
                     
                     // Report a single file deletion as a job failure (even if other content was successfully removed)
                     guard deletionErrors.isEmpty else {
-                        failure(job, (deletionErrors.first ?? StorageError.generic), false)
+                        failure(job, (deletionErrors.first ?? StorageError.generic), false, dependencies)
                         return
                     }
                     
                     // If we did a full collection then update the 'lastGarbageCollection' date to
                     // prevent a full collection from running again in the next 23 hours
-                    if job.behaviour == .recurringOnActive && Date().timeIntervalSince(lastGarbageCollection) > (23 * 60 * 60) {
-                        UserDefaults.standard[.lastGarbageCollection] = Date()
+                    if job.behaviour == .recurringOnActive && dependencies.dateNow.timeIntervalSince(lastGarbageCollection) > (23 * 60 * 60) {
+                        dependencies.standardUserDefaults[.lastGarbageCollection] = dependencies.dateNow
                     }
                     
-                    success(job, false)
+                    success(job, false, dependencies)
                 }
             }
         )

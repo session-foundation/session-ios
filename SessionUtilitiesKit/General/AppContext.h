@@ -42,8 +42,6 @@ NSString *NSStringForUIApplicationState(UIApplicationState value);
 // Whether the user is using a right-to-left language like Arabic.
 @property (nonatomic, readonly) BOOL isRTL;
 
-@property (nonatomic, readonly) BOOL isRunningTests;
-
 @property (atomic, nullable) UIWindow *mainWindow;
 
 // Unlike UIApplication.applicationState, this is thread-safe.

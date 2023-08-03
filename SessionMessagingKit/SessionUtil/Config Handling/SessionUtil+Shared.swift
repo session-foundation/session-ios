@@ -352,7 +352,7 @@ public extension SessionUtil {
         // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
         guard SessionUtil.userConfigsEnabled(db) else { return true }
         
-        let userPublicKey: String = getUserHexEncodedPublicKey()
+        let userPublicKey: String = getUserHexEncodedPublicKey(db)
         let configVariant: ConfigDump.Variant = {
             switch threadVariant {
                 case .contact: return (threadId == userPublicKey ? .userProfile : .contacts)

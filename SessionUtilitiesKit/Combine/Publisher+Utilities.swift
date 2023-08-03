@@ -43,6 +43,28 @@ public extension Publisher {
             }
             .eraseToAnyPublisher()
     }
+    
+    func subscribe<S>(
+        on scheduler: S,
+        options: S.SchedulerOptions? = nil,
+        using dependencies: Dependencies = Dependencies()
+    ) -> AnyPublisher<Output, Failure> where S: Scheduler {
+        guard !dependencies.forceSynchronous else { return self.eraseToAnyPublisher() }
+        
+        return self.subscribe(on: scheduler, options: options)
+            .eraseToAnyPublisher()
+    }
+    
+    func receive<S>(
+        on scheduler: S,
+        options: S.SchedulerOptions? = nil,
+        using dependencies: Dependencies = Dependencies()
+    ) -> AnyPublisher<Output, Failure> where S: Scheduler {
+        guard !dependencies.forceSynchronous else { return self.eraseToAnyPublisher() }
+        
+        return self.receive(on: scheduler, options: options)
+            .eraseToAnyPublisher()
+    }
 }
 
 // MARK: - Convenience

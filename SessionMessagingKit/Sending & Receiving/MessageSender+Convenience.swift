@@ -14,7 +14,8 @@ extension MessageSender {
         interaction: Interaction,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        isSyncMessage: Bool = false
+        isSyncMessage: Bool = false,
+        using dependencies: Dependencies
     ) throws {
         // Only 'VisibleMessage' types can be sent via this method
         guard interaction.variant == .standardOutgoing else { throw MessageSenderError.invalidMessage }
@@ -26,7 +27,8 @@ extension MessageSender {
             threadId: threadId,
             interactionId: interactionId,
             to: try Message.Destination.from(db, threadId: threadId, threadVariant: threadVariant),
-            isSyncMessage: isSyncMessage
+            isSyncMessage: isSyncMessage,
+            using: dependencies
         )
     }
     
@@ -36,7 +38,8 @@ extension MessageSender {
         interactionId: Int64?,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        isSyncMessage: Bool = false
+        isSyncMessage: Bool = false,
+        using dependencies: Dependencies
     ) throws {
         send(
             db,
@@ -44,7 +47,8 @@ extension MessageSender {
             threadId: threadId,
             interactionId: interactionId,
             to: try Message.Destination.from(db, threadId: threadId, threadVariant: threadVariant),
-            isSyncMessage: isSyncMessage
+            isSyncMessage: isSyncMessage,
+            using: dependencies
         )
     }
     
@@ -54,7 +58,8 @@ extension MessageSender {
         threadId: String?,
         interactionId: Int64?,
         to destination: Message.Destination,
-        isSyncMessage: Bool = false
+        isSyncMessage: Bool = false,
+        using dependencies: Dependencies
     ) {
         // If it's a sync message then we need to make some slight tweaks before sending so use the proper
         // sync message sending process instead of the standard process
@@ -65,12 +70,13 @@ extension MessageSender {
                 destination: destination,
                 threadId: threadId,
                 interactionId: interactionId,
-                isAlreadySyncMessage: false
+                isAlreadySyncMessage: false,
+                using: dependencies
             )
             return
         }
         
-        JobRunner.add(
+        dependencies.jobRunner.add(
             db,
             job: Job(
                 variant: .messageSend,
@@ -81,7 +87,9 @@ extension MessageSender {
                     message: message,
                     isSyncMessage: isSyncMessage
                 )
-            )
+            ),
+            canStartJob: true,
+            using: dependencies
         )
     }
 
@@ -91,7 +99,8 @@ extension MessageSender {
         _ db: Database,
         interaction: Interaction,
         threadId: String,
-        threadVariant: SessionThread.Variant
+        threadVariant: SessionThread.Variant,
+        using dependencies: Dependencies
     ) throws -> PreparedSendData {
         // Only 'VisibleMessage' types can be sent via this method
         guard interaction.variant == .standardOutgoing else { throw MessageSenderError.invalidMessage }
@@ -104,11 +113,15 @@ extension MessageSender {
             namespace: try Message.Destination
                 .from(db, threadId: threadId, threadVariant: threadVariant)
                 .defaultNamespace,
-            interactionId: interactionId
+            interactionId: interactionId,
+            using: dependencies
         )
     }
     
-    public static func performUploadsIfNeeded(preparedSendData: PreparedSendData) -> AnyPublisher<PreparedSendData, Error> {
+    public static func performUploadsIfNeeded(
+        preparedSendData: PreparedSendData,
+        using dependencies: Dependencies
+    ) -> AnyPublisher<PreparedSendData, Error> {
         // We need an interactionId in order for a message to have uploads
         guard let interactionId: Int64 = preparedSendData.interactionId else {
             return Just(preparedSendData)
@@ -127,7 +140,7 @@ extension MessageSender {
             }
         }()
         
-        return Storage.shared
+        return dependencies.storage
             .readPublisher { db -> (attachments: [Attachment], openGroup: OpenGroup?) in
                 let attachmentStateInfo: [Attachment.StateInfo] = (try? Attachment
                     .stateInfo(interactionId: interactionId, state: .uploading)
@@ -162,7 +175,8 @@ extension MessageSender {
                                         to: (
                                             openGroup.map { Attachment.Destination.openGroup($0) } ??
                                             .fileServer
-                                        )
+                                        ),
+                                        using: dependencies
                                     )
                             }
                     )

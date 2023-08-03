@@ -26,7 +26,10 @@ enum Onboarding {
         return existingPublisher
     }
     
-    private static func createProfileNameRetrievalPublisher(_ requestId: UUID) -> AnyPublisher<String?, Error> {
+    private static func createProfileNameRetrievalPublisher(
+        _ requestId: UUID,
+        using dependencies: Dependencies = Dependencies()
+    ) -> AnyPublisher<String?, Error> {
         // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
         guard SessionUtil.userConfigsEnabled else {
             return Just(nil)
@@ -34,7 +37,7 @@ enum Onboarding {
                 .eraseToAnyPublisher()
         }
         
-        let userPublicKey: String = getUserHexEncodedPublicKey()
+        let userPublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
         
         return SnodeAPI.getSwarm(for: userPublicKey)
             .tryFlatMapWithRandomSnode { snode -> AnyPublisher<Void, Error> in
@@ -99,7 +102,8 @@ enum Onboarding {
                                             )
                                         }(),
                                         sentTimestamp: TimeInterval((message.sentTimestamp ?? 0) / 1000),
-                                        calledFromConfigHandling: false
+                                        calledFromConfigHandling: false,
+                                        using: dependencies
                                     )
                                 }
                                 return ()

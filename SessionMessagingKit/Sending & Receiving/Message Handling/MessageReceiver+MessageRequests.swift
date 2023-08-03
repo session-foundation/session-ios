@@ -10,9 +10,9 @@ extension MessageReceiver {
     internal static func handleMessageRequestResponse(
         _ db: Database,
         message: MessageRequestResponse,
-        dependencies: SMKDependencies
+        using dependencies: Dependencies
     ) throws {
-        let userPublicKey = getUserHexEncodedPublicKey(db, dependencies: dependencies)
+        let userPublicKey = getUserHexEncodedPublicKey(db, using: dependencies)
         var blindedContactIds: [String] = []
         
         // Ignore messages which were sent from the current user
@@ -42,7 +42,8 @@ extension MessageReceiver {
                         fileName: nil
                     )
                 }(),
-                sentTimestamp: messageSentTimestamp
+                sentTimestamp: messageSentTimestamp,
+                using: dependencies
             )
         }
         
@@ -73,11 +74,13 @@ extension MessageReceiver {
             // If the sessionId matches the blindedId then this thread needs to be converted to an
             // un-blinded thread
             guard
-                dependencies.sodium.sessionId(
-                    senderId,
-                    matchesBlindedId: blindedIdLookup.blindedId,
-                    serverPublicKey: blindedIdLookup.openGroupPublicKey,
-                    genericHash: dependencies.genericHash
+                dependencies.crypto.verify(
+                    .sessionId(
+                        senderId,
+                        matchesBlindedId: blindedIdLookup.blindedId,
+                        serverPublicKey: blindedIdLookup.openGroupPublicKey,
+                        using: dependencies
+                    )
                 )
             else { return }
             

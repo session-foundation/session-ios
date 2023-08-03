@@ -4,6 +4,10 @@ import Combine
 import GRDB
 import Quick
 import Nimble
+import SessionSnodeKit
+import SessionUtilitiesKit
+import SessionMessagingKit
+import SessionUIKit
 
 @testable import Session
 
@@ -16,35 +20,36 @@ class MessageReceiverDisappearingMessagesSpec: QuickSpec {
         var mockMessage: VisibleMessage!
         
         describe("a MessageReceiver") {
+            
+            // MARK: - Configuration
+            
             beforeEach {
-                mockStorage = Storage(
+                mockStorage = SynchronousStorage(
                     customWriter: try! DatabaseQueue(),
-                    customMigrations: [
-                        SNUtilitiesKit.migrations(),
-                        SNSnodeKit.migrations(),
-                        SNMessagingKit.migrations(),
-                        SNUIKit.migrations()
+                    customMigrationTargets: [
+                        SNUtilitiesKit.self,
+                        SNSnodeKit.self,
+                        SNMessagingKit.self,
+                        SNUIKit.self
                     ]
                 )
-                
-                let timestampMs: UInt64 = UInt64(Date().timeIntervalSince1970) - 10 * 60 * 1000 // 10 minutes ago
                 
                 let proto = SNProtoContent.builder()
                 let dataMessage = SNProtoDataMessage.builder()
                 proto.setExpirationType(.deleteAfterSend)
                 proto.setExpirationTimer(UInt32(DisappearingMessagesConfiguration.DefaultDuration.disappearAfterSend.seconds))
-                proto.setLastDisappearingMessageChangeTimestamp(timestampMs)
+                proto.setLastDisappearingMessageChangeTimestamp((1234567890 - (60 * 10)) * 1000)
                 dataMessage.setBody("Test")
                 proto.setDataMessage(try! dataMessage.build())
                 mockProto = try? proto.build()
                 
                 mockMessage = VisibleMessage(
                     sender: "TestId",
-                    sentTimestamp: timestampMs,
-                    recipient: getUserHexEncodedPublicKey(),
+                    sentTimestamp: ((1234567890 - (60 * 10)) * 1000),
+                    recipient: "05\(TestConstants.publicKey)",
                     text: "Test"
                 )
-                mockMessage.receivedTimestamp = UInt64(Date().timeIntervalSince1970)
+                mockMessage.receivedTimestamp = (1234567890 * 1000)
                 
                 mockStorage.write { db in
                     try SessionThread.fetchOrCreate(
@@ -61,98 +66,65 @@ class MessageReceiverDisappearingMessagesSpec: QuickSpec {
                 mockProto = nil
             }
             
-            // MARK: - Basic Tests
-            
-            context("Receive a newer disappearing message config update") {
-                it("Update local config properly") {
+            // MARK: - when receiving a newer disappearing message config update
+            context("when receiving a newer disappearing message config update") {
+                // MARK: -- updates the local config properly
+                it("updates the local config properly") {
                     mockStorage.write { db in
-                        do {
-                            try MessageReceiver.handle(
-                                db,
-                                threadId: "TestId",
-                                threadVariant: .contact,
-                                message: mockMessage,
-                                serverExpirationTimestamp: nil,
-                                associatedWithProto: mockProto
-                            )
-                        } catch {
-                            print(error)
-                        }
-                        
+                        try MessageReceiver.handle(
+                            db,
+                            threadId: "TestId",
+                            threadVariant: .contact,
+                            message: mockMessage,
+                            serverExpirationTimestamp: nil,
+                            associatedWithProto: mockProto
+                        )
                     }
                     
                     let updatedConfig: DisappearingMessagesConfiguration? = mockStorage.read { db in
                         try DisappearingMessagesConfiguration.fetchOne(db, id: "TestId")
                     }
                     
-                    expect(updatedConfig?.isEnabled)
-                        .toEventually(
-                            beTrue(),
-                            timeout: .milliseconds(100)
-                        )
+                    expect(updatedConfig?.isEnabled).to(beTrue())
                     expect(updatedConfig?.durationSeconds)
-                        .toEventually(
-                            equal(DisappearingMessagesConfiguration.DefaultDuration.disappearAfterSend.seconds),
-                            timeout: .milliseconds(100)
-                        )
-                    expect(updatedConfig?.type)
-                        .toEventually(
-                            equal(.disappearAfterSend),
-                            timeout: .milliseconds(100)
-                        )
+                        .to(equal(DisappearingMessagesConfiguration.DefaultDuration.disappearAfterSend.seconds))
+                    expect(updatedConfig?.type).to(equal(.disappearAfterSend))
                 }
             }
             
-            context("Receive a outdated disappearing message config update") {
-                it("Do NOT update local config") {
+            // MARK: - when receiving an outdated disappearing message config update
+            context("when receiving an outdated disappearing message config update") {
+                // MARK: -- does NOT update local config
+                it("does NOT update local config") {
                     let config: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration
                         .defaultWith("TestId")
                         .with(
                             isEnabled: false,
                             durationSeconds: 0,
                             type: .unknown,
-                            lastChangeTimestampMs: Int64(Date().timeIntervalSince1970)
+                            lastChangeTimestampMs: (1234567890 * 1000)
                         )
                     
                     mockStorage.write { db in
                         try config.save(db)
-                    }
-                    
-                    mockStorage.write { db in
-                        do {
-                            try MessageReceiver.handle(
-                                db,
-                                threadId: "TestId",
-                                threadVariant: .contact,
-                                message: mockMessage,
-                                serverExpirationTimestamp: nil,
-                                associatedWithProto: mockProto
-                            )
-                        } catch {
-                            print(error)
-                        }
                         
+                        try MessageReceiver.handle(
+                            db,
+                            threadId: "TestId",
+                            threadVariant: .contact,
+                            message: mockMessage,
+                            serverExpirationTimestamp: nil,
+                            associatedWithProto: mockProto
+                        )
                     }
                     
                     let updatedConfig: DisappearingMessagesConfiguration? = mockStorage.read { db in
                         try DisappearingMessagesConfiguration.fetchOne(db, id: "TestId")
                     }
                     
-                    expect(updatedConfig?.isEnabled)
-                        .toEventually(
-                            beFalse(),
-                            timeout: .milliseconds(100)
-                        )
-                    expect(updatedConfig?.durationSeconds)
-                        .toEventually(
-                            equal(0),
-                            timeout: .milliseconds(100)
-                        )
-                    expect(updatedConfig?.type)
-                        .toEventually(
-                            equal(.unknown),
-                            timeout: .milliseconds(100)
-                        )
+                    expect(updatedConfig?.isEnabled).to(beFalse())
+                    expect(updatedConfig?.durationSeconds).to(equal(0))
+                    expect(updatedConfig?.type).to(equal(.unknown))
                 }
             }
         }

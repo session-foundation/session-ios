@@ -18,9 +18,9 @@ public enum MessageReceiver {
         openGroupServerPublicKey: String?,
         isOutgoing: Bool? = nil,
         otherBlindedPublicKey: String? = nil,
-        dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> (Message, SNProtoContent, String, SessionThread.Variant) {
-        let userPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
+        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
         let isOpenGroupMessage: Bool = (openGroupId != nil)
         
         // Decrypt the contents
@@ -183,7 +183,7 @@ public enum MessageReceiver {
         message: Message,
         serverExpirationTimestamp: TimeInterval?,
         associatedWithProto proto: SNProtoContent,
-        dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws {
         // Check if the message requires an existing conversation (if it does and the conversation isn't in
         // the config then the message will be dropped)
@@ -198,7 +198,7 @@ public enum MessageReceiver {
             message: message,
             threadId: threadId,
             threadVariant: threadVariant,
-            dependencies: dependencies
+            using: dependencies
         )
         
         // Update any disappearing messages configuration if needed.
@@ -234,7 +234,8 @@ public enum MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    using: dependencies
                 )
                 
             case let message as DataExtractionNotification:
@@ -254,7 +255,11 @@ public enum MessageReceiver {
                 )
                 
             case let message as ConfigurationMessage:
-                try MessageReceiver.handleLegacyConfigurationMessage(db, message: message)
+                try MessageReceiver.handleLegacyConfigurationMessage(
+                    db,
+                    message: message,
+                    using: dependencies
+                )
                 
             case let message as UnsendRequest:
                 try MessageReceiver.handleUnsendRequest(
@@ -276,7 +281,7 @@ public enum MessageReceiver {
                 try MessageReceiver.handleMessageRequestResponse(
                     db,
                     message: message,
-                    dependencies: dependencies
+                    using: dependencies
                 )
                 
             case let message as VisibleMessage:
@@ -379,7 +384,7 @@ public enum MessageReceiver {
         message: Message,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws {
         switch message {
             case is ReadReceipt: return // No visible artifact created so better to keep for more reliable read states
@@ -388,7 +393,7 @@ public enum MessageReceiver {
         }
         
         // Determine the state of the conversation and the validity of the message
-        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
+        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
         let conversationVisibleInConfig: Bool = SessionUtil.conversationInConfig(
             db,
             threadId: threadId,

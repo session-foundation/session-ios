@@ -588,32 +588,37 @@ public extension SessionUtil {
         disappearingMessagesConfig: DisappearingMessagesConfiguration
     ) throws {
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
-        if sessionId == userPublicKey {
-            try SessionUtil.performAndPushChange(
-                db,
-                for: .userProfile,
-                publicKey: userPublicKey
-            ) { conf in
-                try SessionUtil.updateNoteToSelf(
-                    disappearingMessagesConfig: disappearingMessagesConfig,
-                    in: conf
-                )
-            }
-        } else {
-            try SessionUtil.performAndPushChange(
-                db,
-                for: .contacts,
-                publicKey: userPublicKey
-            ) { conf in
-                try SessionUtil
-                    .upsert(
-                        contactData: [SyncedContactInfo(
-                            id: sessionId,
-                            disappearingMessagesConfig: disappearingMessagesConfig
-                        )],
+        
+        switch sessionId {
+            case userPublicKey:
+                try SessionUtil.performAndPushChange(
+                    db,
+                    for: .userProfile,
+                    publicKey: userPublicKey
+                ) { conf in
+                    try SessionUtil.updateNoteToSelf(
+                        disappearingMessagesConfig: disappearingMessagesConfig,
                         in: conf
                     )
-            }
+                }
+                
+            default:
+                try SessionUtil.performAndPushChange(
+                    db,
+                    for: .contacts,
+                    publicKey: userPublicKey
+                ) { conf in
+                    try SessionUtil
+                        .upsert(
+                            contactData: [
+                                SyncedContactInfo(
+                                    id: sessionId,
+                                    disappearingMessagesConfig: disappearingMessagesConfig
+                                )
+                            ],
+                            in: conf
+                        )
+                }
         }
     }
 }
