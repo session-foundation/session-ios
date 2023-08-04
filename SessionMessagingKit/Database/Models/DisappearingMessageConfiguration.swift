@@ -6,7 +6,7 @@ import SessionUtil
 import SessionUtilitiesKit
 import SessionSnodeKit
 
-public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {    
+public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "disappearingMessagesConfiguration" }
     internal static let threadForeignKey = ForeignKey([Columns.threadId], to: [SessionThread.Columns.id])
     private static let thread = belongsTo(SessionThread.self, using: threadForeignKey)
@@ -276,7 +276,6 @@ extension DisappearingMessagesConfiguration {
                         TimeInterval(10),
                         at: 0
                     )
-                #else
                 #endif
                 return result
             default:

@@ -66,7 +66,7 @@ public struct Contact: Codable, Identifiable, Equatable, FetchableRecord, Persis
         self.id = id
         self.isTrusted = (
             isTrusted ||
-            id == getUserHexEncodedPublicKey(using: dependencies)  // Always trust ourselves
+            id == getUserHexEncodedPublicKey(db, using: dependencies)  // Always trust ourselves
         )
         self.isApproved = isApproved
         self.isBlocked = isBlocked

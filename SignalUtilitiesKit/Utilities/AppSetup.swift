@@ -73,23 +73,29 @@ public enum AppSetup {
                 SNUIKit.self
             ],
             onProgressUpdate: migrationProgressChanged,
-            onComplete: { result, needsConfigSync in
-                // After the migrations have run but before the migration completion we load the
-                // SessionUtil state and update the 'needsConfigSync' flag based on whether the
-                // configs also need to be sync'ed
-                if Identity.userExists() {
-                    SessionUtil.loadState(
-                        userPublicKey: getUserHexEncodedPublicKey(),
-                        ed25519SecretKey: Identity.fetchUserEd25519KeyPair()?.secretKey
-                    )
+            onMigrationRequirement: { db, requirement in
+                switch requirement {
+                    case .sessionUtilStateLoaded:
+                        guard Identity.userExists(db) else { return }
+                        
+                        // After the migrations have run but before the migration completion we load the
+                        // SessionUtil state
+                        SessionUtil.loadState(
+                            db,
+                            userPublicKey: getUserHexEncodedPublicKey(db),
+                            ed25519SecretKey: Identity.fetchUserEd25519KeyPair(db)?.secretKey
+                        )
                 }
-                
+            },
+            onComplete: { result, needsConfigSync in
                 // Refresh the migration state for 'SessionUtil' so it's logic can start running
                 // correctly when called (doing this here instead of automatically via the
                 // `SessionUtil.userConfigsEnabled` property to avoid having to use the correct
                 // method when calling within a database read/write closure)
                 Storage.shared.read { db in SessionUtil.refreshingUserConfigsEnabled(db) }
                 
+                // The 'needsConfigSync' flag should be based on whether either a migration or the
+                // configs need to be sync'ed
                 migrationsCompletion(result, (needsConfigSync || SessionUtil.needsSync))
                 
                 // The 'if' is only there to prevent the "variable never read" warning from showing

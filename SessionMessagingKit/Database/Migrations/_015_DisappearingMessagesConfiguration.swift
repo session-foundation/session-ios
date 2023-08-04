@@ -9,6 +9,7 @@ enum _015_DisappearingMessagesConfiguration: Migration {
     static let identifier: String = "DisappearingMessagesWithTypes"
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
+    static var requirements: [MigrationRequirement] = [.sessionUtilStateLoaded]
     
     static func migrate(_ db: GRDB.Database) throws {
         try db.alter(table: DisappearingMessagesConfiguration.self) { t in
@@ -25,12 +26,18 @@ enum _015_DisappearingMessagesConfiguration: Migration {
         /// 
         /// This is due to new disappearing messages will need some info messages to be able to be unread,
         /// but we only want to count the unread message number by incoming visible messages and call messages.
-        try db.create(
-            index: "interaction_on_wasRead_and_variant",
-            on: Interaction.databaseTableName,
-            columns: [Interaction.Columns.wasRead, Interaction.Columns.variant].map { $0.name }
+        try db.createIndex(
+            on: Interaction.self,
+            columns: [.wasRead, .variant]
         )
         
+        // If there isn't already a user account then we can just finish here (there will be no
+        // threads/configs to update and the configs won't be setup which would cause this to crash
+        guard Identity.userExists(db) else {
+            return Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
+        }
+        
+        // Convenience function to set the disappearing messages type per conversation
         func updateDisappearingMessageType(_ db: GRDB.Database, id: String, type: DisappearingMessagesConfiguration.DisappearingMessageType) throws {
             _ = try DisappearingMessagesConfiguration
                 .filter(DisappearingMessagesConfiguration.Columns.threadId == id)
@@ -40,6 +47,7 @@ enum _015_DisappearingMessagesConfiguration: Migration {
                 )
         }
         
+        // Process any existing disappearing message settings
         var contactUpdate: [DisappearingMessagesConfiguration] = []
         var legacyGroupUpdate: [DisappearingMessagesConfiguration] = []
         
@@ -47,25 +55,26 @@ enum _015_DisappearingMessagesConfiguration: Migration {
             .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
             .fetchAll(db)
             .forEach { config in
-                if let thread = try? SessionThread.fetchOne(db, id: config.threadId) {
-                    guard !thread.isNoteToSelf(db) else {
+                guard let thread: SessionThread = try? SessionThread.fetchOne(db, id: config.threadId) else { return }
+                guard !thread.isNoteToSelf(db) else {
+                    try updateDisappearingMessageType(db, id: config.threadId, type: .disappearAfterSend)
+                    return
+                }
+                
+                switch thread.variant {
+                    case .contact:
+                        try updateDisappearingMessageType(db, id: config.threadId, type: .disappearAfterRead)
+                        contactUpdate.append(config.with(type: .disappearAfterRead))
+                        
+                    case .legacyGroup, .group:
                         try updateDisappearingMessageType(db, id: config.threadId, type: .disappearAfterSend)
-                        return
-                    }
-                    
-                    switch thread.variant {
-                        case .contact:
-                            try updateDisappearingMessageType(db, id: config.threadId, type: .disappearAfterRead)
-                            contactUpdate.append(config.with(type: .disappearAfterRead))
-                        case .legacyGroup, .group:
-                            try updateDisappearingMessageType(db, id: config.threadId, type: .disappearAfterSend)
-                            legacyGroupUpdate.append(config.with(type: .disappearAfterSend))
-                        case .community:
-                            return
-                    }
+                        legacyGroupUpdate.append(config.with(type: .disappearAfterSend))
+                        
+                    case .community: return
                 }
             }
         
+        // Update the configs so the settings are synced
         _ = try SessionUtil.updatingDisappearingConfigs(db, contactUpdate)
         _ = try SessionUtil.batchUpdate(db, disappearingConfigs: legacyGroupUpdate)
         
