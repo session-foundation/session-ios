@@ -367,22 +367,27 @@ struct MessageInfoView: View {
                                         id: \.self
                                     ) { index in
                                         let tintColor: ThemeValue = actions[index].isDestructive ? .danger : .textPrimary
-                                        HStack(spacing: 24) {
-                                            Image(uiImage: actions[index].icon!.withRenderingMode(.alwaysTemplate))
-                                                .resizable()
-                                                .scaledToFit()
-                                                .foregroundColor(themeColor: tintColor)
-                                                .frame(width: 26, height: 26)
-                                            Text(actions[index].title)
-                                                .bold()
-                                                .font(.system(size: 18))
-                                                .foregroundColor(themeColor: tintColor)
-                                        }
+                                        Button(
+                                            action: {
+                                                actions[index].work()
+                                                dismiss?()
+                                            },
+                                            label: {
+                                                HStack(spacing: 24) {
+                                                    Image(uiImage: actions[index].icon!.withRenderingMode(.alwaysTemplate))
+                                                        .resizable()
+                                                        .scaledToFit()
+                                                        .foregroundColor(themeColor: tintColor)
+                                                        .frame(width: 26, height: 26)
+                                                    Text(actions[index].title)
+                                                        .bold()
+                                                        .font(.system(size: 18))
+                                                        .foregroundColor(themeColor: tintColor)
+                                                }
+                                                .frame(width: .infinity)
+                                            }
+                                        )
                                         .frame(width: .infinity, height: 60)
-                                        .onTapGesture {
-                                            actions[index].work()
-                                            dismiss?()
-                                        }
                                         
                                         if index < (actions.count - 1) {
                                             Divider()
@@ -444,7 +449,7 @@ struct InfoBlock<Content>: View where Content: View {
     }
 }
 
-final class MessageInfoViewController: UIHostingController<MessageInfoView> {
+final class MessageInfoViewController: SessionHostingViewController<MessageInfoView> {
     init(actions: [ContextMenuVC.Action], messageViewModel: MessageViewModel) {
         let messageInfoView = MessageInfoView(
             actions: actions,
@@ -457,6 +462,13 @@ final class MessageInfoViewController: UIHostingController<MessageInfoView> {
     
     @MainActor required dynamic init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        
+        let customTitleFontSize = Values.largeFontSize
+        setNavBarTitle("message_info_title".localized(), customFontSize: customTitleFontSize)
     }
     
     func dismiss() {

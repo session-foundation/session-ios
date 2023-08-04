@@ -1649,7 +1649,6 @@ extension ConversationVC:
             actions: actions,
             messageViewModel: cellViewModel
         )
-        messageInfoViewController.title = "message_info_title".localized()
         navigationController?.pushViewController(messageInfoViewController, animated: true)
     }
 
