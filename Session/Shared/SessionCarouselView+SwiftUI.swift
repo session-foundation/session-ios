@@ -135,13 +135,16 @@ struct PageView<Content>: View where Content: View {
                             let predictedEndOffset = -CGFloat(self.index) * geometry.size.width + value.predictedEndTranslation.width
                             let predictedIndex = Int(round(predictedEndOffset / -geometry.size.width))
                             self.index = self.clampedIndex(from: predictedIndex)
-                            withAnimation(.easeOut) {
+                            withAnimation(.easeOut(duration: 0.2)) {
                                 self.dragging = false
                             }
-                            switch self.index {
-                                case 0: self.index = self.maxIndex - 1
-                                case self.maxIndex: self.index = 1
-                                default: break
+                            // FIXME: This is a workaround for withAnimation() not having completion callback
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                switch self.index {
+                                    case 0: self.index = self.maxIndex - 1
+                                    case self.maxIndex: self.index = 1
+                                    default: break
+                                }
                             }
                         }
                 )
