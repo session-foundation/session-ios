@@ -1645,10 +1645,12 @@ extension ConversationVC:
             using: dependencies
         ) ?? []
         
-        let messageInfoView = MessageInfoView(actions: actions, messageViewModel: cellViewModel)
-        let hostingViewController =  UIHostingController(rootView: messageInfoView)
-        hostingViewController.title = "message_info_title".localized()
-        navigationController?.pushViewController(hostingViewController, animated: true)
+        let messageInfoViewController = MessageInfoViewController(
+            actions: actions,
+            messageViewModel: cellViewModel
+        )
+        messageInfoViewController.title = "message_info_title".localized()
+        navigationController?.pushViewController(messageInfoViewController, animated: true)
     }
 
     func retry(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) {

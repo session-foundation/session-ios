@@ -381,7 +381,7 @@ struct MessageInfoView: View {
                                         .frame(width: .infinity, height: 60)
                                         .onTapGesture {
                                             actions[index].work()
-                                            dismiss()
+                                            dismiss?()
                                         }
                                         
                                         if index < (actions.count - 1) {
@@ -441,6 +441,26 @@ struct InfoBlock<Content>: View where Content: View {
             minWidth: 100,
             alignment: .leading
         )
+    }
+}
+
+final class MessageInfoViewController: UIHostingController<MessageInfoView> {
+    init(actions: [ContextMenuVC.Action], messageViewModel: MessageViewModel) {
+        let messageInfoView = MessageInfoView(
+            actions: actions,
+            messageViewModel: messageViewModel
+        )
+        
+        super.init(rootView: messageInfoView)
+        rootView.dismiss = dismiss
+    }
+    
+    @MainActor required dynamic init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    func dismiss() {
+        self.navigationController?.popViewController(animated: true)
     }
 }
 
