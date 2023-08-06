@@ -384,10 +384,10 @@ struct MessageInfoView: View {
                                                         .font(.system(size: 18))
                                                         .foregroundColor(themeColor: tintColor)
                                                 }
-                                                .frame(width: .infinity)
+                                                .frame(maxWidth: .infinity, alignment: .topLeading)
                                             }
                                         )
-                                        .frame(width: .infinity, height: 60)
+                                        .frame(height: 60)
                                         
                                         if index < (actions.count - 1) {
                                             Divider()
