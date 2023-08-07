@@ -550,3 +550,34 @@ public final class ProfilePictureView: UIView {
         additionalProfileIconBackgroundView.layer.cornerRadius = (size.iconSize / 2)
     }
 }
+
+import SwiftUI
+
+struct ProfilePictureSwiftUI: UIViewRepresentable {
+    typealias UIViewType = ProfilePictureView
+
+    var size: ProfilePictureView.Size
+    var info: ProfilePictureView.Info
+    var additionalInfo: ProfilePictureView.Info?
+    
+    public init(
+        size: ProfilePictureView.Size,
+        info: ProfilePictureView.Info,
+        additionalInfo: ProfilePictureView.Info? = nil
+    ) {
+        self.size = size
+        self.info = info
+        self.additionalInfo = additionalInfo
+    }
+    
+    func makeUIView(context: Context) -> ProfilePictureView {
+        ProfilePictureView(size: size)
+    }
+    
+    func updateUIView(_ profilePictureView: ProfilePictureView, context: Context) {
+        profilePictureView.update(
+            info,
+            additionalInfo: additionalInfo
+        )
+    }
+}

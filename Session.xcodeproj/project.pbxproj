@@ -159,7 +159,6 @@
 		7BCD116C27016062006330F1 /* WebRTCSession+DataChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BCD116B27016062006330F1 /* WebRTCSession+DataChannel.swift */; };
 		7BD477A827EC39F5004E2822 /* Atomic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BD477A727EC39F5004E2822 /* Atomic.swift */; };
 		7BD687D12A5D0D1200D8E455 /* MessageInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BD687D02A5D0D1200D8E455 /* MessageInfoView.swift */; };
-		7BD687D42A5E852600D8E455 /* ProfilePictureView+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BD687D32A5E852600D8E455 /* ProfilePictureView+SwiftUI.swift */; };
 		7BD976972A776C76001B466F /* SessionCarouselView+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BE2701D2A64C11500CEB71A /* SessionCarouselView+SwiftUI.swift */; };
 		7BDCFC08242186E700641C39 /* NotificationServiceExtensionContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BDCFC07242186E700641C39 /* NotificationServiceExtensionContext.swift */; };
 		7BDCFC0B2421EB7600641C39 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = B6F509951AA53F760068F56A /* Localizable.strings */; };
@@ -1276,7 +1275,6 @@
 		7BD477A727EC39F5004E2822 /* Atomic.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Atomic.swift; sourceTree = "<group>"; };
 		7BD687D02A5D0D1200D8E455 /* MessageInfoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageInfoView.swift; sourceTree = "<group>"; };
 		7BD687D22A5D283200D8E455 /* build_libSession_util.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = build_libSession_util.sh; sourceTree = "<group>"; };
-		7BD687D32A5E852600D8E455 /* ProfilePictureView+SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ProfilePictureView+SwiftUI.swift"; sourceTree = "<group>"; };
 		7BDCFC0424206E7300641C39 /* SessionNotificationServiceExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SessionNotificationServiceExtension.entitlements; sourceTree = "<group>"; };
 		7BDCFC07242186E700641C39 /* NotificationServiceExtensionContext.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NotificationServiceExtensionContext.swift; sourceTree = "<group>"; };
 		7BE2701D2A64C11500CEB71A /* SessionCarouselView+SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionCarouselView+SwiftUI.swift"; sourceTree = "<group>"; };
@@ -2945,7 +2943,6 @@
 				FD52090628B49738006098F6 /* ConfirmationModal.swift */,
 				C38EF2A3255B6D93007E1867 /* PlaceholderIcon.swift */,
 				C38EF2A4255B6D93007E1867 /* ProfilePictureView.swift */,
-				7BD687D32A5E852600D8E455 /* ProfilePictureView+SwiftUI.swift */,
 				FD71165A28E6DDBC00B47552 /* StyledNavigationController.swift */,
 				FD0B77AF29B69A65009169BA /* TopBannerController.swift */,
 			);
@@ -5490,7 +5487,6 @@
 				FD71162C28E1451400B47552 /* Position.swift in Sources */,
 				FD52090328B4680F006098F6 /* RadioButton.swift in Sources */,
 				C331FFE82558FB0000070591 /* TextView.swift in Sources */,
-				7BD687D42A5E852600D8E455 /* ProfilePictureView+SwiftUI.swift in Sources */,
 				FD71162028D97ABC00B47552 /* UIImage+Tinting.swift in Sources */,
 				FD71162A28DA83DF00B47552 /* GradientView.swift in Sources */,
 				FD37E9D728A20B5D003AE748 /* UIColor+Utilities.swift in Sources */,
