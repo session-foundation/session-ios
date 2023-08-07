@@ -140,6 +140,7 @@
 		7B9F71D42852EEE2006DFE7B /* Emoji+Name.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B9F71CF2852EEE2006DFE7B /* Emoji+Name.swift */; };
 		7B9F71D72853100A006DFE7B /* Emoji+Available.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B9F71D528531009006DFE7B /* Emoji+Available.swift */; };
 		7B9F71D82853100A006DFE7B /* EmojiWithSkinTones.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B9F71D628531009006DFE7B /* EmojiWithSkinTones.swift */; };
+		7BA1E0E82A8087DB00123D0D /* SwiftUI+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BA1E0E72A8087DB00123D0D /* SwiftUI+Utilities.swift */; };
 		7BA68909272A27BE00EFC32F /* SessionCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BA68908272A27BE00EFC32F /* SessionCall.swift */; };
 		7BA6890D27325CCC00EFC32F /* SessionCallManager+CXCallController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BA6890C27325CCC00EFC32F /* SessionCallManager+CXCallController.swift */; };
 		7BA6890F27325CE300EFC32F /* SessionCallManager+CXProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BA6890E27325CE300EFC32F /* SessionCallManager+CXProvider.swift */; };
@@ -1253,6 +1254,7 @@
 		7B9F71CF2852EEE2006DFE7B /* Emoji+Name.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Emoji+Name.swift"; sourceTree = "<group>"; };
 		7B9F71D528531009006DFE7B /* Emoji+Available.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Emoji+Available.swift"; sourceTree = "<group>"; };
 		7B9F71D628531009006DFE7B /* EmojiWithSkinTones.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EmojiWithSkinTones.swift; sourceTree = "<group>"; };
+		7BA1E0E72A8087DB00123D0D /* SwiftUI+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SwiftUI+Utilities.swift"; sourceTree = "<group>"; };
 		7BA68908272A27BE00EFC32F /* SessionCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionCall.swift; sourceTree = "<group>"; };
 		7BA6890C27325CCC00EFC32F /* SessionCallManager+CXCallController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionCallManager+CXCallController.swift"; sourceTree = "<group>"; };
 		7BA6890E27325CE300EFC32F /* SessionCallManager+CXProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionCallManager+CXProvider.swift"; sourceTree = "<group>"; };
@@ -2922,6 +2924,7 @@
 				C33100272559000A00070591 /* UIView+Utilities.swift */,
 				FD71161F28D97ABC00B47552 /* UIImage+Tinting.swift */,
 				FDBB25E62988BBBD00F1508E /* UIContextualAction+Theming.swift */,
+				7BA1E0E72A8087DB00123D0D /* SwiftUI+Utilities.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -5474,6 +5477,7 @@
 				C331FFE32558FB0000070591 /* TabBar.swift in Sources */,
 				FD37E9D528A1FCE8003AE748 /* Theme+OceanLight.swift in Sources */,
 				FDF848F129406A30007DCAE5 /* Format.swift in Sources */,
+				7BA1E0E82A8087DB00123D0D /* SwiftUI+Utilities.swift in Sources */,
 				FD37E9C828A1D73F003AE748 /* Theme+Colors.swift in Sources */,
 				FD37EA0128A60473003AE748 /* UIKit+Theme.swift in Sources */,
 				FD37E9CF28A1EB1B003AE748 /* Theme.swift in Sources */,

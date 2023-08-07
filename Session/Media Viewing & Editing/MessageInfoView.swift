@@ -5,8 +5,11 @@ import SessionUIKit
 import SessionSnodeKit
 
 struct MessageInfoView: View {
+    @Environment(\.viewController) private var viewControllerHolder: UIViewController?
+    
     @State var index = 1
     @State var showingAttachmentFullScreen = false
+    
     var actions: [ContextMenuVC.Action]
     var messageViewModel: MessageViewModel
     var isMessageFailed: Bool {
@@ -140,7 +143,16 @@ struct MessageInfoView: View {
                                 }
                                 
                                 Button {
-                                    self.showingAttachmentFullScreen.toggle()
+//                                    self.showingAttachmentFullScreen.toggle()
+                                    self.viewControllerHolder?.present(style: .fullScreen) {
+                                        MediaGalleryViewModel.createDetailViewSwiftUI(
+                                            for: messageViewModel.threadId,
+                                            threadVariant: messageViewModel.threadVariant,
+                                            interactionId: messageViewModel.id,
+                                            selectedAttachmentId: attachment.id,
+                                            options: [ .sliderEnabled ]
+                                        )
+                                    }
                                 } label: {
                                     ZStack {
                                         Circle()
@@ -151,15 +163,24 @@ struct MessageInfoView: View {
                                     }
                                     .frame(width: 26, height: 26)
                                 }
-                                .sheet(isPresented: $showingAttachmentFullScreen) {
-                                    MediaGalleryViewModel.createDetailViewSwiftUI(
-                                        for: messageViewModel.threadId,
-                                        threadVariant: messageViewModel.threadVariant,
-                                        interactionId: messageViewModel.id,
-                                        selectedAttachmentId: attachment.id,
-                                        options: [ .sliderEnabled ]
-                                    )
-                                }
+//                                .fullScreenCoverCompat(isPresented: $showingAttachmentFullScreen) {
+//                                    MediaGalleryViewModel.createDetailViewSwiftUI(
+//                                        for: messageViewModel.threadId,
+//                                        threadVariant: messageViewModel.threadVariant,
+//                                        interactionId: messageViewModel.id,
+//                                        selectedAttachmentId: attachment.id,
+//                                        options: [ .sliderEnabled ]
+//                                    )
+//                                }
+//                                .sheet(isPresented: $showingAttachmentFullScreen) {
+//                                    MediaGalleryViewModel.createDetailViewSwiftUI(
+//                                        for: messageViewModel.threadId,
+//                                        threadVariant: messageViewModel.threadVariant,
+//                                        interactionId: messageViewModel.id,
+//                                        selectedAttachmentId: attachment.id,
+//                                        options: [ .sliderEnabled ]
+//                                    )
+//                                }
                                 .padding(
                                     EdgeInsets(
                                         top: 0,
