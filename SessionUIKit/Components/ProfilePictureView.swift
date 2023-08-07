@@ -553,8 +553,8 @@ public final class ProfilePictureView: UIView {
 
 import SwiftUI
 
-struct ProfilePictureSwiftUI: UIViewRepresentable {
-    typealias UIViewType = ProfilePictureView
+public struct ProfilePictureSwiftUI: UIViewRepresentable {
+    public typealias UIViewType = ProfilePictureView
 
     var size: ProfilePictureView.Size
     var info: ProfilePictureView.Info
@@ -570,11 +570,11 @@ struct ProfilePictureSwiftUI: UIViewRepresentable {
         self.additionalInfo = additionalInfo
     }
     
-    func makeUIView(context: Context) -> ProfilePictureView {
+    public func makeUIView(context: Context) -> ProfilePictureView {
         ProfilePictureView(size: size)
     }
     
-    func updateUIView(_ profilePictureView: ProfilePictureView, context: Context) {
+    public func updateUIView(_ profilePictureView: ProfilePictureView, context: Context) {
         profilePictureView.update(
             info,
             additionalInfo: additionalInfo

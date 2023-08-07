@@ -300,16 +300,28 @@ struct MessageInfoView: View {
                                     HStack(
                                         spacing: 10
                                     ) {
-                                        Circle()
+                                        let (info, additionalInfo) = ProfilePictureView.getProfilePictureInfo(
+                                            size: .message,
+                                            publicKey: messageViewModel.authorId,
+                                            threadVariant: .contact,    // Always show the display picture in 'contact' mode
+                                            customImageData: nil,
+                                            profile: messageViewModel.profile,
+                                            profileIcon: (messageViewModel.isSenderOpenGroupModerator ? .crown : .none)
+                                        )
+                                        
+                                        if let info: ProfilePictureView.Info = info {
+                                            ProfilePictureSwiftUI(
+                                                size: .list,
+                                                info: info,
+                                                additionalInfo: additionalInfo
+                                            )
                                             .frame(
                                                 width: 46,
                                                 height: 46,
                                                 alignment: .topLeading
                                             )
-                                            .foregroundColor(themeColor: .primary)
-        //                                ProfilePictureSwiftUI(size: .message)
-                                            
-                                            
+                                        }
+                                        
                                         VStack(
                                             alignment: .leading,
                                             spacing: 4
