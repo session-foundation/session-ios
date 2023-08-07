@@ -31,12 +31,12 @@ public class OWSVideoPlayer {
     @objc
     public func pause() {
         avPlayer.pause()
-        Environment.shared?.audioSession.endAudioActivity(self.audioActivity)
+        SessionEnvironment.shared?.audioSession.endAudioActivity(self.audioActivity)
     }
 
     @objc
     public func play() {
-        let success = (Environment.shared?.audioSession.startAudioActivity(self.audioActivity) == true)
+        let success = (SessionEnvironment.shared?.audioSession.startAudioActivity(self.audioActivity) == true)
         assert(success)
 
         guard let item = avPlayer.currentItem else {
@@ -56,7 +56,7 @@ public class OWSVideoPlayer {
     public func stop() {
         avPlayer.pause()
         avPlayer.seek(to: CMTime.zero, toleranceBefore: .zero, toleranceAfter: .zero)
-        Environment.shared?.audioSession.endAudioActivity(self.audioActivity)
+        SessionEnvironment.shared?.audioSession.endAudioActivity(self.audioActivity)
     }
 
     @objc(seekToTime:)
@@ -69,6 +69,6 @@ public class OWSVideoPlayer {
     @objc
     private func playerItemDidPlayToCompletion(_ notification: Notification) {
         self.delegate?.videoPlayerDidPlayToCompletion(self)
-        Environment.shared?.audioSession.endAudioActivity(self.audioActivity)
+        SessionEnvironment.shared?.audioSession.endAudioActivity(self.audioActivity)
     }
 }

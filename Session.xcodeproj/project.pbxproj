@@ -814,7 +814,7 @@
 		FDC438C927BB706500C60D73 /* SendDirectMessageRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC438C827BB706500C60D73 /* SendDirectMessageRequest.swift */; };
 		FDC438CB27BB7DB100C60D73 /* UpdateMessageRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC438CA27BB7DB100C60D73 /* UpdateMessageRequest.swift */; };
 		FDC438CD27BC641200C60D73 /* Set+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC438CC27BC641200C60D73 /* Set+Utilities.swift */; };
-		FDC6D6F32860607300B04575 /* Environment.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B7542807C4BB004C14C5 /* Environment.swift */; };
+		FDC6D6F32860607300B04575 /* SessionEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B7542807C4BB004C14C5 /* SessionEnvironment.swift */; };
 		FDC6D7602862B3F600B04575 /* Dependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC6D75F2862B3F600B04575 /* Dependencies.swift */; };
 		FDCDB8DE2810F73B00352A0C /* Differentiable+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCDB8DD2810F73B00352A0C /* Differentiable+Utilities.swift */; };
 		FDCDB8E02811007F00352A0C /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCDB8DF2811007F00352A0C /* HomeViewModel.swift */; };
@@ -1963,7 +1963,7 @@
 		FDF0B74A28061F7A004C14C5 /* InteractionAttachment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractionAttachment.swift; sourceTree = "<group>"; };
 		FDF0B74E28079E5E004C14C5 /* SendReadReceiptsJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendReadReceiptsJob.swift; sourceTree = "<group>"; };
 		FDF0B7502807BA56004C14C5 /* NotificationsProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsProtocol.swift; sourceTree = "<group>"; };
-		FDF0B7542807C4BB004C14C5 /* Environment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Environment.swift; sourceTree = "<group>"; };
+		FDF0B7542807C4BB004C14C5 /* SessionEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionEnvironment.swift; sourceTree = "<group>"; };
 		FDF0B7572807F368004C14C5 /* MessageReceiverError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageReceiverError.swift; sourceTree = "<group>"; };
 		FDF0B7592807F3A3004C14C5 /* MessageSenderError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageSenderError.swift; sourceTree = "<group>"; };
 		FDF0B75B2807F41D004C14C5 /* MessageSender+Convenience.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "MessageSender+Convenience.swift"; sourceTree = "<group>"; };
@@ -3236,7 +3236,7 @@
 				FD23CE232A675C440000B97C /* Crypto+SessionMessagingKit.swift */,
 				FD859EF127BF6BA200510D0C /* Data+Utilities.swift */,
 				C38EF309255B6DBE007E1867 /* DeviceSleepManager.swift */,
-				FDF0B7542807C4BB004C14C5 /* Environment.swift */,
+				FDF0B7542807C4BB004C14C5 /* SessionEnvironment.swift */,
 				C3BBE0C62554F1570050F1E3 /* FixedWidthInteger+BigEndian.swift */,
 				C3A71D0A2558989C0043A11F /* MessageWrapper.swift */,
 				C38EF2F5255B6DBC007E1867 /* OWSAudioPlayer.h */,
@@ -5847,7 +5847,7 @@
 				FD17D79927F40AB800122BE0 /* _003_YDBToGRDBMigration.swift in Sources */,
 				FDF0B7512807BA56004C14C5 /* NotificationsProtocol.swift in Sources */,
 				B8DE1FB426C22F2F0079C9CE /* WebRTCSession.swift in Sources */,
-				FDC6D6F32860607300B04575 /* Environment.swift in Sources */,
+				FDC6D6F32860607300B04575 /* SessionEnvironment.swift in Sources */,
 				C3A3A171256E1D25004D228D /* SSKReachabilityManager.swift in Sources */,
 				FD245C59285065FC00B966DD /* ControlMessage.swift in Sources */,
 				B8DE1FB626C22FCB0079C9CE /* CallMessage.swift in Sources */,

@@ -2249,7 +2249,7 @@ extension ConversationVC:
         let url: URL = URL(fileURLWithPath: directory).appendingPathComponent(fileName)
         
         // Set up audio session
-        let isConfigured = (Environment.shared?.audioSession.startAudioActivity(recordVoiceMessageActivity) == true)
+        let isConfigured = (SessionEnvironment.shared?.audioSession.startAudioActivity(recordVoiceMessageActivity) == true)
         guard isConfigured else {
             return cancelVoiceMessageRecording()
         }
@@ -2357,7 +2357,7 @@ extension ConversationVC:
 
     func stopVoiceMessageRecording() {
         audioRecorder?.stop()
-        Environment.shared?.audioSession.endAudioActivity(recordVoiceMessageActivity)
+        SessionEnvironment.shared?.audioSession.endAudioActivity(recordVoiceMessageActivity)
     }
     
     // MARK: - Data Extraction Notifications

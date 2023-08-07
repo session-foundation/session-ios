@@ -154,7 +154,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 
                                     // Notify the user if the call message wasn't already read
                                     if !interaction.wasRead {
-                                        Environment.shared?.notificationsManager.wrappedValue?
+                                        SessionEnvironment.shared?.notificationsManager.wrappedValue?
                                             .notifyUser(
                                                 db,
                                                 forIncomingCall: interaction,
@@ -230,7 +230,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 
         AppSetup.setupEnvironment(
             appSpecificBlock: {
-                Environment.shared?.notificationsManager.mutate {
+                SessionEnvironment.shared?.notificationsManager.mutate {
                     $0 = NSENotificationPresenter()
                 }
             },

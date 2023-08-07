@@ -87,7 +87,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             }
         )
         
-        if Environment.shared?.callManager.wrappedValue?.currentCall == nil {
+        if SessionEnvironment.shared?.callManager.wrappedValue?.currentCall == nil {
             UserDefaults.sharedLokiProject?.set(false, forKey: "isCallOngoing")
         }
         
@@ -382,8 +382,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
         
         // May as well run these on the background thread
-        Environment.shared?.audioSession.setup()
-        Environment.shared?.reachabilityManager.setup()
+        SessionEnvironment.shared?.audioSession.setup()
+        SessionEnvironment.shared?.reachabilityManager.setup()
     }
     
     private func showFailedStartupAlert(
