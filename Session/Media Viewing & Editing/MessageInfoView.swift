@@ -309,15 +309,17 @@ struct MessageInfoView: View {
                                             profileIcon: (messageViewModel.isSenderOpenGroupModerator ? .crown : .none)
                                         )
                                         
+                                        let size: ProfilePictureView.Size = .list
+                                        
                                         if let info: ProfilePictureView.Info = info {
                                             ProfilePictureSwiftUI(
-                                                size: .list,
+                                                size: size,
                                                 info: info,
                                                 additionalInfo: additionalInfo
                                             )
                                             .frame(
-                                                width: 46,
-                                                height: 46,
+                                                width: size.viewSize,
+                                                height: size.viewSize,
                                                 alignment: .topLeading
                                             )
                                         }
