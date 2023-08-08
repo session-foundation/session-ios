@@ -178,5 +178,7 @@ internal extension Color {
 }
 
 public extension Color {
-    static let primary: Color = ThemeManager.primaryColor.colorSwiftUI
+    static var primary: Color {
+        return Color(UIColor.primary)
+    }
 }
