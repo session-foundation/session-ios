@@ -203,9 +203,8 @@ public enum PushRegistrationError: Error {
     }
     
     public func createVoipRegistryIfNecessary() {
-        AssertIsOnMainThread()
-
         guard voipRegistry == nil else { return }
+        
         let voipRegistry = PKPushRegistry(queue: nil)
         self.voipRegistry = voipRegistry
         voipRegistry.desiredPushTypes = [.voIP]
@@ -213,8 +212,6 @@ public enum PushRegistrationError: Error {
     }
     
     private func registerForVoipPushToken() -> AnyPublisher<String?, Error> {
-        AssertIsOnMainThread()
-        
         // Use the existing publisher if it exists
         if let voipTokenPublisher: AnyPublisher<Data?, Error> = self.voipTokenPublisher {
             return voipTokenPublisher
