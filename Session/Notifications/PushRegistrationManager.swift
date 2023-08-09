@@ -81,7 +81,9 @@ public enum PushRegistrationError: Error {
             return
         }
 
-        vanillaTokenResolver(Result.success(tokenData))
+        DispatchQueue.global(qos: .default).async {
+            vanillaTokenResolver(Result.success(tokenData))
+        }
     }
 
     // Vanilla push token is obtained from the system via AppDelegate    
@@ -92,7 +94,9 @@ public enum PushRegistrationError: Error {
             return
         }
 
-        vanillaTokenResolver(Result.failure(error))
+        DispatchQueue.global(qos: .default).async {
+            vanillaTokenResolver(Result.failure(error))
+        }
     }
 
     // MARK: helpers
