@@ -182,7 +182,7 @@ extension MessageReceiver {
             lastChangeTimestampMs: protoLastChangeTimestampMs
         )
         
-        let updateControlMewssage: () throws -> () = {
+        let updateControlMessage: () throws -> () = {
             guard message is ExpirationTimerUpdate else { return }
             
             _ = try Interaction
@@ -215,7 +215,7 @@ extension MessageReceiver {
         
         guard protoLastChangeTimestampMs >= localLastChangeTimestampMs else {
             if (protoLastChangeTimestampMs + Int64(localConfig.durationSeconds * 1000)) > localLastChangeTimestampMs {
-                try updateControlMewssage()
+                try updateControlMessage()
             }
             return
         }
@@ -245,6 +245,6 @@ extension MessageReceiver {
             }
         }
         
-        try updateControlMewssage()
+        try updateControlMessage()
     }
 }

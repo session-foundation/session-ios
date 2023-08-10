@@ -66,7 +66,7 @@
 				<key>NSIncludesSubdomains</key>
 				<true/>
 				<key>NSExceptionRequiresForwardSecrecy</key>
-				<true/>
+				<false/>
 			</dict>
 			<key>seed2.getsession.org</key>
 			<dict>
