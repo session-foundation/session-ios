@@ -7,6 +7,7 @@ import DifferenceKit
 import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
+import SessionSnodeKit
 
 final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableViewDelegate, AttachmentApprovalViewControllerDelegate {
     private let viewModel: ThreadPickerViewModel = ThreadPickerViewModel()

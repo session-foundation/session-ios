@@ -6,6 +6,7 @@ import Reachability
 import SignalUtilitiesKit
 import SessionUIKit
 import SignalCoreKit
+import SessionUtilitiesKit
 
 class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollectionViewDataSource, UICollectionViewDelegate, GifPickerLayoutDelegate {
 

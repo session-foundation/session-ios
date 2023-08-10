@@ -9,6 +9,7 @@ import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.NavButton, ThreadSettingsViewModel.Section, ThreadSettingsViewModel.Setting> {
     // MARK: - Config

@@ -3,6 +3,7 @@
 import UIKit
 import SessionUIKit
 import SignalCoreKit
+import SessionUtilitiesKit
 
 public protocol ImageEditorCropViewControllerDelegate: AnyObject {
     func cropDidComplete(transform: ImageEditorTransform)
@@ -200,7 +201,7 @@ class ImageEditorCropViewController: OWSViewController {
             case .topRight, .bottomRight:
                 cropCornerView.autoPinEdge(toSuperviewEdge: .right)
             default:
-                owsFailDebug("Invalid crop region: \(cropRegion)")
+                owsFailDebug("Invalid crop region: \(String(describing: cropRegion))")
             }
             switch cropCornerView.cropRegion {
             case .topLeft, .topRight:
@@ -208,7 +209,7 @@ class ImageEditorCropViewController: OWSViewController {
             case .bottomLeft, .bottomRight:
                 cropCornerView.autoPinEdge(toSuperviewEdge: .bottom)
             default:
-                owsFailDebug("Invalid crop region: \(cropRegion)")
+                owsFailDebug("Invalid crop region: \(String(describing: cropRegion))")
             }
         }
 

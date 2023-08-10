@@ -2,6 +2,7 @@
 
 import UIKit
 import SignalCoreKit
+import SessionUtilitiesKit
 
 public struct ImageEditorPinchState {
     public let centroid: CGPoint

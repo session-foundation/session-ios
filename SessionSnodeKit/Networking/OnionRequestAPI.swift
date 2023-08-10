@@ -275,7 +275,7 @@ public enum OnionRequestAPI {
             if let snode = snode {
                 if let path = paths.first(where: { !$0.contains(snode) }) {
                     buildPaths(reusing: paths, using: dependencies) // Re-build paths in the background
-                        .subscribe(on: DispatchQueue.global(qos: .background))
+                        .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
                         .sink(receiveCompletion: { _ in cancellable = [] }, receiveValue: { _ in })
                         .store(in: &cancellable)
                     

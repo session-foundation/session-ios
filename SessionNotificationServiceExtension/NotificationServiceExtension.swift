@@ -9,6 +9,7 @@ import BackgroundTasks
 import SessionMessagingKit
 import SignalUtilitiesKit
 import SignalCoreKit
+import SessionUtilitiesKit
 
 public final class NotificationServiceExtension: UNNotificationServiceExtension {
     private var didPerformSetup = false
@@ -25,8 +26,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         self.contentHandler = contentHandler
         self.request = request
         
-        Storage.resumeDatabaseAccess()
-        
         guard let notificationContent = request.content.mutableCopy() as? UNMutableNotificationContent else {
             return self.completeSilenty()
         }
@@ -36,10 +35,16 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             return self.completeSilenty()
         }
         
+        /// Create the context if we don't have it (needed before _any_ interaction with the database)
+        if !HasAppContext() {
+            SetCurrentAppContext(NotificationServiceExtensionContext())
+        }
+        
         let isCallOngoing: Bool = (UserDefaults.sharedLokiProject?[.isCallOngoing])
             .defaulting(to: false)
 
         // Perform main setup
+        Storage.resumeDatabaseAccess()
         DispatchQueue.main.sync { self.setUpIfNecessary() { } }
 
         // Handle the push notification
@@ -224,19 +229,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 
         didPerformSetup = true
 
-        // This should be the first thing we do.
-        SetCurrentAppContext(NotificationServiceExtensionContext())
-
         _ = AppVersion.sharedInstance()
 
         Cryptography.seedRandom()
-
-        // We should never receive a non-voip notification on an app that doesn't support
-        // app extensions since we have to inform the service we wanted these, so in theory
-        // this path should never occur. However, the service does have our push token
-        // so it is possible that could change in the future. If it does, do nothing
-        // and don't disturb the user. Messages will be processed when they open the app.
-        guard Storage.shared[.isReadyForAppExtensions] else { return completeSilenty() }
 
         AppSetup.setupEnvironment(
             appSpecificBlock: {
@@ -247,8 +242,22 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             migrationsCompletion: { [weak self] result, needsConfigSync in
                 switch result {
                     // Only 'NSLog' works in the extension - viewable via Console.app
-                    case .failure: NSLog("[NotificationServiceExtension] Failed to complete migrations")
+                    case .failure(let error):
+                        NSLog("[NotificationServiceExtension] Failed to complete migrations")
+                        self?.completeSilenty()
+                        
                     case .success:
+                        // We should never receive a non-voip notification on an app that doesn't support
+                        // app extensions since we have to inform the service we wanted these, so in theory
+                        // this path should never occur. However, the service does have our push token
+                        // so it is possible that could change in the future. If it does, do nothing
+                        // and don't disturb the user. Messages will be processed when they open the app.
+                        guard Storage.shared[.isReadyForAppExtensions] else {
+                            NSLog("[NotificationServiceExtension] Not ready for extensions")
+                            self?.completeSilenty()
+                            return
+                        }
+                        
                         DispatchQueue.main.async {
                             self?.versionMigrationsDidComplete(needsConfigSync: needsConfigSync)
                         }

@@ -4,6 +4,7 @@ import UIKit
 import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
+import SessionUtilitiesKit
 
 public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticCell {
     public static let mutePrefix: String = "\u{e067}  "

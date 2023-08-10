@@ -5,6 +5,7 @@ import MediaPlayer
 import SessionUIKit
 import SignalUtilitiesKit
 import SignalCoreKit
+import SessionUtilitiesKit
 
 // This kind of view is tricky.  I've tried to organize things in the 
 // simplest possible way.
@@ -359,54 +360,54 @@ import SignalCoreKit
 
     @objc func handlePinch(sender: UIPinchGestureRecognizer) {
         switch sender.state {
-        case .possible:
-            break
-        case .began:
-            srcTranslationAtPinchStart = srcTranslation
-            imageScaleAtPinchStart = imageScale
+            case .possible: break
+            case .began:
+                srcTranslationAtPinchStart = srcTranslation
+                imageScaleAtPinchStart = imageScale
 
-            lastPinchLocation =
-                sender.location(in: sender.view)
-            lastPinchScale = sender.scale
-            break
-        case .changed, .ended:
-            if sender.numberOfTouches > 1 {
-                let location =
+                lastPinchLocation =
                     sender.location(in: sender.view)
-                let scaleDiff = sender.scale / lastPinchScale
-
-                // Update scaling.
-                let srcCropSizeBeforeScalePoints = CGSize(width: srcDefaultCropSizePoints.width / imageScale,
-                                                          height: srcDefaultCropSizePoints.height / imageScale)
-                imageScale = max(kMinImageScale, min(kMaxImageScale, imageScale * scaleDiff))
-                let srcCropSizeAfterScalePoints = CGSize(width: srcDefaultCropSizePoints.width / imageScale,
-                                                         height: srcDefaultCropSizePoints.height / imageScale)
-                // Since the translation state reflects the "upper left" corner of the crop region, we need to
-                // adjust the translation when scaling to preserve the "center" of the crop region.
-                srcTranslation.x += (srcCropSizeBeforeScalePoints.width - srcCropSizeAfterScalePoints.width) * 0.5
-                srcTranslation.y += (srcCropSizeBeforeScalePoints.height - srcCropSizeAfterScalePoints.height) * 0.5
-
-                // Update translation.
-                let viewSizePoints = imageView.frame.size
-                let srcCropSizePoints = CGSize(width: srcDefaultCropSizePoints.width / imageScale,
-                                               height: srcDefaultCropSizePoints.height / imageScale)
-
-                let viewToSrcRatio = srcCropSizePoints.width / viewSizePoints.width
-
-                let gestureTranslation = CGPoint(x: location.x - lastPinchLocation.x,
-                                                 y: location.y - lastPinchLocation.y)
-
-                srcTranslation = CGPoint(x: srcTranslation.x + gestureTranslation.x * -viewToSrcRatio,
-                                         y: srcTranslation.y + gestureTranslation.y * -viewToSrcRatio)
-
-                lastPinchLocation = location
                 lastPinchScale = sender.scale
-            }
-            break
-        case .cancelled, .failed:
-            srcTranslation = srcTranslationAtPinchStart
-            imageScale = imageScaleAtPinchStart
-            break
+            
+            case .changed, .ended:
+                if sender.numberOfTouches > 1 {
+                    let location =
+                        sender.location(in: sender.view)
+                    let scaleDiff = sender.scale / lastPinchScale
+
+                    // Update scaling.
+                    let srcCropSizeBeforeScalePoints = CGSize(width: srcDefaultCropSizePoints.width / imageScale,
+                                                              height: srcDefaultCropSizePoints.height / imageScale)
+                    imageScale = max(kMinImageScale, min(kMaxImageScale, imageScale * scaleDiff))
+                    let srcCropSizeAfterScalePoints = CGSize(width: srcDefaultCropSizePoints.width / imageScale,
+                                                             height: srcDefaultCropSizePoints.height / imageScale)
+                    // Since the translation state reflects the "upper left" corner of the crop region, we need to
+                    // adjust the translation when scaling to preserve the "center" of the crop region.
+                    srcTranslation.x += (srcCropSizeBeforeScalePoints.width - srcCropSizeAfterScalePoints.width) * 0.5
+                    srcTranslation.y += (srcCropSizeBeforeScalePoints.height - srcCropSizeAfterScalePoints.height) * 0.5
+
+                    // Update translation.
+                    let viewSizePoints = imageView.frame.size
+                    let srcCropSizePoints = CGSize(width: srcDefaultCropSizePoints.width / imageScale,
+                                                   height: srcDefaultCropSizePoints.height / imageScale)
+
+                    let viewToSrcRatio = srcCropSizePoints.width / viewSizePoints.width
+
+                    let gestureTranslation = CGPoint(x: location.x - lastPinchLocation.x,
+                                                     y: location.y - lastPinchLocation.y)
+
+                    srcTranslation = CGPoint(x: srcTranslation.x + gestureTranslation.x * -viewToSrcRatio,
+                                             y: srcTranslation.y + gestureTranslation.y * -viewToSrcRatio)
+
+                    lastPinchLocation = location
+                    lastPinchScale = sender.scale
+                }
+                
+            case .cancelled, .failed:
+                srcTranslation = srcTranslationAtPinchStart
+                imageScale = imageScaleAtPinchStart
+            
+            @unknown default: break
         }
 
         updateImageLayout()
@@ -416,29 +417,28 @@ import SignalCoreKit
 
     @objc func handlePan(sender: UIPanGestureRecognizer) {
         switch sender.state {
-        case .possible:
-            break
-        case .began:
-            srcTranslationAtPanStart = srcTranslation
-            break
-        case .changed, .ended:
-            let viewSizePoints = imageView.frame.size
-            let srcCropSizePoints = CGSize(width: srcDefaultCropSizePoints.width / imageScale,
-                                           height: srcDefaultCropSizePoints.height / imageScale)
+            case .possible: break
+            case .began:
+                srcTranslationAtPanStart = srcTranslation
+            
+            case .changed, .ended:
+                let viewSizePoints = imageView.frame.size
+                let srcCropSizePoints = CGSize(width: srcDefaultCropSizePoints.width / imageScale,
+                                               height: srcDefaultCropSizePoints.height / imageScale)
 
-            let viewToSrcRatio = srcCropSizePoints.width / viewSizePoints.width
+                let viewToSrcRatio = srcCropSizePoints.width / viewSizePoints.width
 
-            let gestureTranslation =
-                sender.translation(in: sender.view)
+                let gestureTranslation =
+                    sender.translation(in: sender.view)
 
-            // Update translation.
-            srcTranslation = CGPoint(x: srcTranslationAtPanStart.x + gestureTranslation.x * -viewToSrcRatio,
-                                     y: srcTranslationAtPanStart.y + gestureTranslation.y * -viewToSrcRatio)
-            break
-        case .cancelled, .failed:
-            srcTranslation
-                = srcTranslationAtPanStart
-            break
+                // Update translation.
+                srcTranslation = CGPoint(x: srcTranslationAtPanStart.x + gestureTranslation.x * -viewToSrcRatio,
+                                         y: srcTranslationAtPanStart.y + gestureTranslation.y * -viewToSrcRatio)
+            
+            case .cancelled, .failed:
+                srcTranslation = srcTranslationAtPanStart
+            
+            @unknown default: break
         }
 
         updateImageLayout()

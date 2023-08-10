@@ -5,6 +5,7 @@ import SessionUIKit
 import SessionSnodeKit
 import SessionMessagingKit
 import SignalUtilitiesKit
+import SessionUtilitiesKit
 
 final class NukeDataModal: Modal {
     // MARK: - Initialization

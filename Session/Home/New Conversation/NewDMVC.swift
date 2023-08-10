@@ -7,6 +7,7 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
+import SessionSnodeKit
 
 final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControllerDelegate, QRScannerDelegate {
     private var shouldShowBackButton: Bool = true

@@ -5,6 +5,7 @@ import GRDB
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SessionUIKit
+import SessionSnodeKit
 
 public enum AppSetup {
     private static let hasRun: Atomic<Bool> = Atomic(false)

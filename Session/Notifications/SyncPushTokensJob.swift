@@ -39,29 +39,29 @@ public enum SyncPushTokensJob: JobExecutor {
         guard isUsingFullAPNs else {
             Just(dependencies.storage[.lastRecordedPushToken])
                 .setFailureType(to: Error.self)
-                .flatMap { lastRecordedPushToken -> AnyPublisher<String, Error> in
-                    if let existingToken: String = lastRecordedPushToken {
-                        SNLog("[SyncPushTokensJob] Unregister using last recorded push token: \(redact(existingToken))")
-                        return Just(existingToken)
-                            .setFailureType(to: Error.self)
-                            .eraseToAnyPublisher()
-                    }
-                    
-                    SNLog("[SyncPushTokensJob] Unregister using live token provided from device")
-                    return PushRegistrationManager.shared.requestPushTokens()
-                        .map { token, _ in token }
-                        .eraseToAnyPublisher()
-                }
-                .flatMap { pushToken in PushNotificationAPI.unsubscribe(token: Data(hex: pushToken)) }
-                .map {
+                .flatMap { lastRecordedPushToken -> AnyPublisher<Void, Error> in
                     // Tell the device to unregister for remote notifications (essentially try to invalidate
-                    // the token if needed
+                    // the token if needed - we do this first to avoid wrid race conditions which could be
+                    // triggered by the user immediately re-registering)
                     DispatchQueue.main.sync { UIApplication.shared.unregisterForRemoteNotifications() }
                     
+                    // Clear the old token
                     dependencies.storage.write(using: dependencies) { db in
                         db[.lastRecordedPushToken] = nil
                     }
-                    return ()
+                    
+                    // Unregister from our server
+                    if let existingToken: String = lastRecordedPushToken {
+                        SNLog("[SyncPushTokensJob] Unregister using last recorded push token: \(redact(existingToken))")
+                        return PushNotificationAPI.unsubscribe(token: Data(hex: existingToken))
+                            .map { _ in () }
+                            .eraseToAnyPublisher()
+                    }
+                    
+                    SNLog("[SyncPushTokensJob] No previous token stored just triggering device unregister")
+                    return Just(())
+                        .setFailureType(to: Error.self)
+                        .eraseToAnyPublisher()
                 }
                 .subscribe(on: queue, using: dependencies)
                 .sinkUntilComplete(
@@ -151,5 +151,9 @@ extension SyncPushTokensJob {
 // MARK: - Convenience
 
 private func redact(_ string: String) -> String {
-    return OWSIsDebugBuild() ? string : "[ READACTED \(string.prefix(2))...\(string.suffix(2)) ]"
+#if DEBUG
+    return string
+#else
+    return "[ READACTED \(string.prefix(2))...\(string.suffix(2)) ]"
+#endif
 }

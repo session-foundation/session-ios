@@ -62,8 +62,10 @@ public enum SNUserDefaults {
 }
 
 public extension UserDefaults {
+    public static let applicationGroup: String = "group.com.loki-project.loki-messenger"
+    
     @objc static var sharedLokiProject: UserDefaults? {
-        UserDefaults(suiteName: "group.com.loki-project.loki-messenger")
+        UserDefaults(suiteName: UserDefaults.applicationGroup)
     }
 }
 

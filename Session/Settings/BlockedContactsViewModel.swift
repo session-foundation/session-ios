@@ -6,6 +6,7 @@ import GRDB
 import DifferenceKit
 import SessionUIKit
 import SignalUtilitiesKit
+import SessionUtilitiesKit
 
 class BlockedContactsViewModel: SessionTableViewModel<NoNav, BlockedContactsViewModel.Section, Profile> {
     // MARK: - Section

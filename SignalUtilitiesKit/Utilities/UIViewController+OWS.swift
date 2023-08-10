@@ -2,6 +2,7 @@
 
 import UIKit
 import SessionUIKit
+import SessionUtilitiesKit
 
 public extension UIViewController {
     func findFrontmostViewController(ignoringAlerts: Bool) -> UIViewController {
