@@ -227,6 +227,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         // to process new messages.
         guard !didPerformSetup else { return }
 
+        NSLog("[NotificationServiceExtension] Performing setup")
         didPerformSetup = true
 
         _ = AppVersion.sharedInstance()
@@ -243,7 +244,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 switch result {
                     // Only 'NSLog' works in the extension - viewable via Console.app
                     case .failure(let error):
-                        NSLog("[NotificationServiceExtension] Failed to complete migrations")
+                        NSLog("[NotificationServiceExtension] Failed to complete migrations: \(error)")
                         self?.completeSilenty()
                         
                     case .success:
@@ -288,7 +289,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         guard !AppReadiness.isAppReady() else { return }
 
         // App isn't ready until storage is ready AND all version migrations are complete.
-        guard Storage.shared.isValid && migrationsCompleted else { return }
+        guard Storage.shared.isValid && migrationsCompleted else {
+            NSLog("[NotificationServiceExtension] Storage invalid")
+            self.completeSilenty()
+            return
+        }
 
         SignalUtilitiesKit.Configuration.performMainSetup()
 
@@ -305,8 +310,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     }
     
     private func completeSilenty() {
-        SNLog("Complete silenty")
-        
+        NSLog("[NotificationServiceExtension] Complete silently")
         Storage.suspendDatabaseAccess()
         
         self.contentHandler!(.init())

@@ -375,14 +375,14 @@ open class Storage {
     /// database and other files into the App folder
     public static func suspendDatabaseAccess(using dependencies: Dependencies = Dependencies()) {
         NotificationCenter.default.post(name: Database.suspendNotification, object: self)
-        dependencies.storage.isSuspendedUnsafe = true
+        if Storage.hasCreatedValidInstance { dependencies.storage.isSuspendedUnsafe = true }
     }
     
     /// This method reverses the database suspension used to prevent the `0xdead10cc` exception (see `suspendDatabaseAccess()`
     /// above for more information
     public static func resumeDatabaseAccess(using dependencies: Dependencies = Dependencies()) {
         NotificationCenter.default.post(name: Database.resumeNotification, object: self)
-        dependencies.storage.isSuspendedUnsafe = false
+        if Storage.hasCreatedValidInstance { dependencies.storage.isSuspendedUnsafe = false }
     }
     
     public static func resetAllStorage() {
