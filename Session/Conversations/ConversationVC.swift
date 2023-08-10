@@ -123,6 +123,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     var scrollButtonMessageRequestsBottomConstraint: NSLayoutConstraint?
     var messageRequestsViewBotomConstraint: NSLayoutConstraint?
     var messageRequestDescriptionLabelBottomConstraint: NSLayoutConstraint?
+    var emptyStateLabelTopConstraint: NSLayoutConstraint?
     
     lazy var titleView: ConversationTitleView = {
         let result: ConversationTitleView = ConversationTitleView()
@@ -193,6 +194,15 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         return result
     }()
     
+    lazy var stateStackView: UIStackView = {
+        let result: UIStackView = UIStackView(arrangedSubviews: [ outdatedClientBanner, emptyStateLabelContainer ])
+        result.axis = .vertical
+        result.spacing = Values.smallSpacing
+        result.alignment = .fill
+        
+        return result
+    }()
+    
     lazy var outdatedClientBanner: InfoBanner = {
         let info: InfoBanner.Info = InfoBanner.Info(
             message: String(format: "DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER".localized(), self.viewModel.threadData.displayName),
@@ -223,6 +233,15 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         result.isAccessibilityElement = true
         let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(unblock))
         result.addGestureRecognizer(tapGestureRecognizer)
+        
+        return result
+    }()
+    
+    private lazy var emptyStateLabelContainer: UIView = {
+        let result: UIView = UIView()
+        result.addSubview(emptyStateLabel)
+        emptyStateLabel.pin(.leading, to: .leading, of: result, withInset: Values.largeSpacing)
+        emptyStateLabel.pin(.trailing, to: .trailing, of: result, withInset: -Values.largeSpacing)
         
         return result
     }()
@@ -439,13 +458,14 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
 
         // Message requests view & scroll to bottom
         view.addSubview(scrollButton)
-        view.addSubview(emptyStateLabel)
+        view.addSubview(stateStackView)
         view.addSubview(messageRequestBackgroundView)
         view.addSubview(messageRequestStackView)
         
-        emptyStateLabel.pin(.top, to: .top, of: view, withInset: Values.largeSpacing)
-        emptyStateLabel.pin(.leading, to: .leading, of: view, withInset: Values.veryLargeSpacing)
-        emptyStateLabel.pin(.trailing, to: .trailing, of: view, withInset: -Values.veryLargeSpacing)
+        stateStackView.pin(.top, to: .top, of: view, withInset: 0)
+        stateStackView.pin(.leading, to: .leading, of: view, withInset: 0)
+        stateStackView.pin(.trailing, to: .trailing, of: view, withInset: 0)
+        self.emptyStateLabelTopConstraint = emptyStateLabel.pin(.top, to: .top, of: emptyStateLabelContainer, withInset: Values.largeSpacing)
         
         messageRequestStackView.addArrangedSubview(messageRequestBlockButton)
         messageRequestStackView.addArrangedSubview(messageRequestDescriptionContainerView)
@@ -1474,7 +1494,11 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     
     func addOrRemoveOutdatedClientBanner(contactIsUsingOutdatedClient: Bool) {
         // Do not show the banner until the new disappearing messages is enabled
-        guard Features.useNewDisappearingMessagesConfig else { return }
+        guard Features.useNewDisappearingMessagesConfig else {
+            self.outdatedClientBanner.isHidden = true
+            self.emptyStateLabelTopConstraint?.constant = Values.largeSpacing
+            return
+        }
         
         guard contactIsUsingOutdatedClient else {
             UIView.animate(
@@ -1483,15 +1507,16 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                     self?.outdatedClientBanner.alpha = 0
                 },
                 completion: { [weak self] _ in
+                    self?.outdatedClientBanner.isHidden = true
                     self?.outdatedClientBanner.alpha = 1
-                    self?.outdatedClientBanner.removeFromSuperview()
+                    self?.emptyStateLabelTopConstraint?.constant = Values.largeSpacing
                 }
             )
             return
         }
 
-        self.view.addSubview(self.outdatedClientBanner)
-        self.outdatedClientBanner.pin([ UIView.HorizontalEdge.left, UIView.VerticalEdge.top, UIView.HorizontalEdge.right ], to: self.view)
+        self.outdatedClientBanner.isHidden = false
+        self.emptyStateLabelTopConstraint?.constant = 0
     }
 
     func addOrRemoveBlockedBanner(threadIsBlocked: Bool) {
