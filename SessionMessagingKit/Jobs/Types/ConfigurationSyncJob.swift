@@ -52,28 +52,6 @@ public enum ConfigurationSyncJob: JobExecutor {
             return deferred(updatedJob ?? job, dependencies)
         }
         
-        // TODO: This logic needs to be fixed up (the current behaviour will not behave as expected)
-//        // We want to update lastReadTimestamp after the disappearing messages are updated to the network, so on
-//        // linked devices the expiration time can be the same and avoid race condition
-//        guard
-//            dependencies.jobRunner
-//                .jobInfoFor(variant: .expirationUpdate)
-//                .filter({ _, info in
-//                    info.threadId == job.threadId   // Exclude expiration update jobs for different threads
-//                })
-//                .isEmpty
-//        else {
-//            // Defer the job to run 'maxRunFrequency'
-//            let updatedJob: Job? = dependencies.storage.write(using: dependencies) { db in
-//                try job
-//                    .with(nextRunTimestamp: Date().timeIntervalSince1970 + waitTimeForExpirationUpdate)
-//                    .saved(db)
-//            }
-//
-//            SNLog("[ConfigurationSyncJob] For \(job.threadId ?? "UnknownId") deferred due to expiration update jobs running.")
-//            return deferred(updatedJob ?? job, dependencies)
-//        }
-        
         // If we don't have a userKeyPair yet then there is no need to sync the configuration
         // as the user doesn't exist yet (this will get triggered on the first launch of a
         // fresh install due to the migrations getting run)
