@@ -60,14 +60,16 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         id: "05\(TestConstants.publicKey)",
                         name: "TestMe",
                         lastNameUpdate: 0,
-                        lastProfilePictureUpdate: 0
+                        lastProfilePictureUpdate: 0,
+                        lastBlocksCommunityMessageRequests: 0
                     ).insert(db)
                     
                     try Profile(
                         id: "TestId",
                         name: "TestUser",
                         lastNameUpdate: 0,
-                        lastProfilePictureUpdate: 0
+                        lastProfilePictureUpdate: 0,
+                        lastBlocksCommunityMessageRequests: 0
                     ).insert(db)
                 }
                 viewModel = ThreadSettingsViewModel(
