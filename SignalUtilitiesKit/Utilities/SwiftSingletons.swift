@@ -2,6 +2,7 @@
 
 import Foundation
 import SignalCoreKit
+import SessionUtilitiesKit
 
 public class SwiftSingletons: NSObject {
     public static let shared = SwiftSingletons()

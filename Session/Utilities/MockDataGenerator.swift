@@ -4,6 +4,7 @@ import Foundation
 import GRDB
 import Curve25519Kit
 import SessionMessagingKit
+import SessionUtilitiesKit
 
 enum MockDataGenerator {
     // MARK: - Generation

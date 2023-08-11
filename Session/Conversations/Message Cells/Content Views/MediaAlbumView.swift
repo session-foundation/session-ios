@@ -3,6 +3,7 @@
 import UIKit
 import SessionMessagingKit
 import SignalCoreKit
+import SessionUtilitiesKit
 
 public class MediaAlbumView: UIStackView {
     private let items: [Attachment]

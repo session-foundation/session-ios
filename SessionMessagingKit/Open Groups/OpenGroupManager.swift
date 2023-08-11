@@ -976,6 +976,8 @@ public final class OpenGroupManager {
                             .filter(possibleKeys.contains(GroupMember.Columns.profileId))
                             .filter(targetRoles.contains(GroupMember.Columns.role))
                             .isNotEmpty(db)
+                        
+                    case .group: return false
                 }
             }
             .defaulting(to: false)

@@ -510,8 +510,7 @@ public struct ProfileManager {
         
         // Name
         if let name: String = name, !name.isEmpty, name != profile.name {
-            // FIXME: Remove the `userConfigsEnabled` check once `useSharedUtilForUserConfig` is permanent
-            if sentTimestamp > profile.lastNameUpdate || (isCurrentUser && (calledFromConfigHandling || !SessionUtil.userConfigsEnabled(db))) {
+            if sentTimestamp > profile.lastNameUpdate || (isCurrentUser && calledFromConfigHandling) {
                 profileChanges.append(Profile.Columns.name.set(to: name))
                 profileChanges.append(Profile.Columns.lastNameUpdate.set(to: sentTimestamp))
             }
@@ -527,8 +526,7 @@ public struct ProfileManager {
         var avatarNeedsDownload: Bool = false
         var targetAvatarUrl: String? = nil
         
-        // FIXME: Remove the `userConfigsEnabled` check once `useSharedUtilForUserConfig` is permanent
-        if sentTimestamp > profile.lastProfilePictureUpdate || (isCurrentUser && (calledFromConfigHandling || !SessionUtil.userConfigsEnabled(db))) {
+        if sentTimestamp > profile.lastProfilePictureUpdate || (isCurrentUser && calledFromConfigHandling) {
             switch avatarUpdate {
                 case .none: break
                 case .uploadImageData: preconditionFailure("Invalid options for this function")
@@ -577,25 +575,6 @@ public struct ProfileManager {
                         db,
                         profileChanges
                     )
-            }
-            // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-            else if !SessionUtil.userConfigsEnabled(db) {
-                // If we have a contact record for the profile (ie. it's a synced profile) then
-                // should should send an updated config message, otherwise we should just update
-                // the local state (the shared util has this logic build in to it's handling)
-                if (try? Contact.exists(db, id: publicKey)) == true {
-                    try Profile
-                        .filter(id: publicKey)
-                        .updateAllAndConfig(db, profileChanges)
-                }
-                else {
-                    try Profile
-                        .filter(id: publicKey)
-                        .updateAll(
-                            db,
-                            profileChanges
-                        )
-                }
             }
             else {
                 try Profile

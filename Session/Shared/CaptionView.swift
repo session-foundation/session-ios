@@ -2,6 +2,7 @@
 
 import UIKit
 import SessionUIKit
+import SessionUtilitiesKit
 
 public protocol CaptionContainerViewDelegate: AnyObject {
     func captionContainerViewDidUpdateText(_ captionContainerView: CaptionContainerView)

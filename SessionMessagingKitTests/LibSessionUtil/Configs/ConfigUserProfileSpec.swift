@@ -285,7 +285,7 @@ class ConfigUserProfileSpec {
                 )
                 user_profile_set_pic(conf2, p2)
                 
-                user_profile_set_nts_expiry(conf2, 86200)
+                user_profile_set_nts_expiry(conf2, 86400)
                 expect(user_profile_get_nts_expiry(conf2)).to(equal(86400))
                 
                 expect(user_profile_get_blinded_msgreqs(conf2)).to(equal(-1))

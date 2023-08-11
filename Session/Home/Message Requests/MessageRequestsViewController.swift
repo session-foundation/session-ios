@@ -6,6 +6,7 @@ import DifferenceKit
 import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
+import SessionUtilitiesKit
 
 class MessageRequestsViewController: BaseVC, SessionUtilRespondingViewController, UITableViewDelegate, UITableViewDataSource {
     private static let loadingHeaderHeight: CGFloat = 40

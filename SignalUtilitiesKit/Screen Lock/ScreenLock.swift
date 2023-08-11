@@ -7,6 +7,10 @@ import SessionMessagingKit
 import SignalCoreKit
 
 public class ScreenLock {
+    public enum ScreenLockError: Error {
+        case general(description: String)
+    }
+    
     public enum Outcome {
         case success
         case cancel
@@ -54,11 +58,11 @@ public class ScreenLock {
             switch outcome {
                 case .failure(let error):
                     Logger.error("local authentication failed with error: \(error)")
-                    failure(self.authenticationError(errorDescription: error))
+                    failure(ScreenLockError.general(description: error))
                 
                 case .unexpectedFailure(let error):
                     Logger.error("local authentication failed with unexpected error: \(error)")
-                    unexpectedFailure(self.authenticationError(errorDescription: error))
+                    unexpectedFailure(ScreenLockError.general(description: error))
                 
                 case .success:
                     Logger.verbose("local authentication succeeded.")
@@ -203,11 +207,7 @@ public class ScreenLock {
             }
         }
         
-        return .failure(error:defaultErrorDescription)
-    }
-
-    private func authenticationError(errorDescription: String) -> Error {
-        return OWSErrorWithCodeDescription(.localAuthenticationError, errorDescription)
+        return .failure(error: defaultErrorDescription)
     }
 
     // MARK: - Context

@@ -144,10 +144,9 @@ public extension ClosedGroup {
             ClosedGroupPoller.shared.stopPolling(for: threadId)
             
             PushNotificationAPI
-                .performOperation(
-                    .unsubscribe,
-                    for: threadId,
-                    publicKey: userPublicKey
+                .unsubscribeFromLegacyGroup(
+                    legacyGroupId: threadId,
+                    currentUserPublicKey: userPublicKey
                 )
                 .sinkUntilComplete()
         }

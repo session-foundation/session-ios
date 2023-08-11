@@ -157,7 +157,7 @@ final class ShareAppExtensionContext: NSObject, AppContext {
     
     func appSharedDataDirectoryPath() -> String {
         let targetPath: String? = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: SignalApplicationGroup)?
+            .containerURL(forSecurityApplicationGroupIdentifier: UserDefaults.applicationGroup)?
             .path
         owsAssertDebug(targetPath != nil)
         
@@ -165,10 +165,9 @@ final class ShareAppExtensionContext: NSObject, AppContext {
     }
     
     func appUserDefaults() -> UserDefaults {
-        let targetUserDefaults: UserDefaults? = UserDefaults(suiteName: SignalApplicationGroup)
-        owsAssertDebug(targetUserDefaults != nil)
+        owsAssertDebug(UserDefaults.sharedLokiProject != nil)
         
-        return (targetUserDefaults ?? UserDefaults.standard)
+        return (UserDefaults.sharedLokiProject ?? UserDefaults.standard)
     }
     
     func setStatusBarHidden(_ isHidden: Bool, animated isAnimated: Bool) {

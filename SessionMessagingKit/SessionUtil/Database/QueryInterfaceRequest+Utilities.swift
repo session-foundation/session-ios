@@ -91,11 +91,7 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
         let updatedData: [RowDecoder] = try self.updateAndFetchAll(db, assignments.map { $0.assignment })
         
         // Then check if any of the changes could affect the config
-        guard
-            // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-            SessionUtil.userConfigsEnabled(db, ignoreRequirementsForRunningMigrations: true),
-            SessionUtil.assignmentsRequireConfigUpdate(assignments)
-        else { return updatedData }
+        guard SessionUtil.assignmentsRequireConfigUpdate(assignments) else { return updatedData }
         
         defer {
             // If we changed a column that requires a config update then we may as well automatically

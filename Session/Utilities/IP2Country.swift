@@ -1,6 +1,7 @@
 import Foundation
 import GRDB
 import SessionSnodeKit
+import SessionUtilitiesKit
 
 final class IP2Country {
     static var isInitialized = false
@@ -12,16 +13,16 @@ final class IP2Country {
     /// the **lower** bound of an IP range and the "registered_country_geoname_id" column contains the ID of the country corresponding
     /// to that range. We look up an IP by finding the first index in the network column where the value is greater than the IP we're looking
     /// up (converted to an integer). The IP we're looking up must then be in the range **before** that range.
-    private lazy var ipv4Table: [String:[Int]] = {
+    private lazy var ipv4Table: [String: [Int]] = {
         let url = Bundle.main.url(forResource: "GeoLite2-Country-Blocks-IPv4", withExtension: nil)!
         let data = try! Data(contentsOf: url)
-        return try! NSKeyedUnarchiver.unarchiveTopLevelObjectWithData(data) as! [String:[Int]]
+        return try! NSKeyedUnarchiver.unarchiveTopLevelObjectWithData(data) as! [String: [Int]]
     }()
     
-    private lazy var countryNamesTable: [String:[String]] = {
+    private lazy var countryNamesTable: [String: [String]] = {
         let url = Bundle.main.url(forResource: "GeoLite2-Country-Locations-English", withExtension: nil)!
         let data = try! Data(contentsOf: url)
-        return try! NSKeyedUnarchiver.unarchiveTopLevelObjectWithData(data) as! [String:[String]]
+        return try! NSKeyedUnarchiver.unarchiveTopLevelObjectWithData(data) as! [String: [String]]
     }()
 
     // MARK: Lifecycle

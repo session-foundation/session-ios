@@ -6,6 +6,7 @@ import Photos
 import SignalUtilitiesKit
 import SignalCoreKit
 import SessionUIKit
+import SessionUtilitiesKit
 
 class SendMediaNavigationController: UINavigationController {
     public override var preferredStatusBarStyle: UIStatusBarStyle {
@@ -539,8 +540,8 @@ private struct MediaLibrarySelection: Hashable, Equatable {
     let asset: PHAsset
     let signalAttachmentPublisher: AnyPublisher<SignalAttachment, Error>
 
-    var hashValue: Int {
-        return asset.hashValue
+    func hash(into hasher: inout Hasher) {
+        asset.hash(into: &hasher)
     }
 
     var publisher: AnyPublisher<MediaLibraryAttachment, Error> {
@@ -559,8 +560,8 @@ private struct MediaLibraryAttachment: Hashable, Equatable {
     let asset: PHAsset
     let signalAttachment: SignalAttachment
 
-    public var hashValue: Int {
-        return asset.hashValue
+    func hash(into hasher: inout Hasher) {
+        asset.hash(into: &hasher)
     }
 
     public static func == (lhs: MediaLibraryAttachment, rhs: MediaLibraryAttachment) -> Bool {

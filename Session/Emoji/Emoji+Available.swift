@@ -1,5 +1,6 @@
 import Foundation
 import SignalCoreKit
+import SessionUtilitiesKit
 
 extension Emoji {
     private static let availableCache: Atomic<[Emoji:Bool]> = Atomic([:])

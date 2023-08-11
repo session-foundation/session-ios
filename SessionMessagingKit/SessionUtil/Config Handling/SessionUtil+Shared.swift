@@ -50,9 +50,6 @@ internal extension SessionUtil {
         publicKey: String,
         change: (UnsafeMutablePointer<config_object>?) throws -> ()
     ) throws {
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard SessionUtil.userConfigsEnabled(db, ignoreRequirementsForRunningMigrations: true) else { return }
-        
         // Since we are doing direct memory manipulation we are using an `Atomic`
         // type which has blocking access in it's `mutate` closure
         let needsPush: Bool
@@ -331,9 +328,6 @@ internal extension SessionUtil {
         targetConfig: ConfigDump.Variant,
         changeTimestampMs: Int64
     ) -> Bool {
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard SessionUtil.userConfigsEnabled(db) else { return true }
-        
         let targetPublicKey: String = {
             switch targetConfig {
                 default: return getUserHexEncodedPublicKey(db)
@@ -373,10 +367,7 @@ public extension SessionUtil {
         threadVariant: SessionThread.Variant,
         visibleOnly: Bool
     ) -> Bool {
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard SessionUtil.userConfigsEnabled(db) else { return true }
-        
-        let userPublicKey: String = getUserHexEncodedPublicKey()
+        let userPublicKey: String = getUserHexEncodedPublicKey(db)
         let configVariant: ConfigDump.Variant = {
             switch threadVariant {
                 case .contact: return (threadId == userPublicKey ? .userProfile : .contacts)

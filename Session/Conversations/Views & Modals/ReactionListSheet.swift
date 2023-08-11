@@ -5,6 +5,7 @@ import DifferenceKit
 import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
+import SessionUtilitiesKit
 
 final class ReactionListSheet: BaseVC {
     public struct ReactionSummary: Hashable, Differentiable {

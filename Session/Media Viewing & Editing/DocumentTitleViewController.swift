@@ -7,6 +7,7 @@ import DifferenceKit
 import SessionUIKit
 import SignalUtilitiesKit
 import SignalCoreKit
+import SessionUtilitiesKit
 
 public class DocumentTileViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
     

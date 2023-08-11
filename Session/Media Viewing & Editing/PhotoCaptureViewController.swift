@@ -6,6 +6,7 @@ import AVFoundation
 import SessionUIKit
 import SignalUtilitiesKit
 import SignalCoreKit
+import SessionUtilitiesKit
 
 protocol PhotoCaptureViewControllerDelegate: AnyObject {
     func photoCaptureViewController(_ photoCaptureViewController: PhotoCaptureViewController, didFinishProcessingAttachment attachment: SignalAttachment)

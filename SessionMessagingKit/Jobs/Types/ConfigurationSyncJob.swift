@@ -20,10 +20,7 @@ public enum ConfigurationSyncJob: JobExecutor {
         deferred: @escaping (Job, Dependencies) -> (),
         using dependencies: Dependencies
     ) {
-        guard
-            SessionUtil.userConfigsEnabled,
-            Identity.userCompletedRequiredOnboarding()
-        else { return success(job, true, dependencies) }
+        guard Identity.userCompletedRequiredOnboarding() else { return success(job, true, dependencies) }
         
         // It's possible for multiple ConfigSyncJob's with the same target (user/group) to try to run at the
         // same time since as soon as one is started we will enqueue a second one, rather than adding dependencies
@@ -200,35 +197,6 @@ public extension ConfigurationSyncJob {
         publicKey: String,
         dependencies: Dependencies = Dependencies()
     ) {
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard SessionUtil.userConfigsEnabled(db) else {
-            // If we don't have a userKeyPair (or name) yet then there is no need to sync the
-            // configuration as the user doesn't fully exist yet (this will get triggered on
-            // the first launch of a fresh install due to the migrations getting run and a few
-            // times during onboarding)
-            guard
-                Identity.userCompletedRequiredOnboarding(db),
-                let legacyConfigMessage: Message = try? ConfigurationMessage.getCurrent(db)
-            else { return }
-            
-            let publicKey: String = getUserHexEncodedPublicKey(db)
-            
-            dependencies.jobRunner.add(
-                db,
-                job: Job(
-                    variant: .messageSend,
-                    threadId: publicKey,
-                    details: MessageSendJob.Details(
-                        destination: Message.Destination.contact(publicKey: publicKey),
-                        message: legacyConfigMessage
-                    )
-                ),
-                canStartJob: true,
-                using: dependencies
-            )
-            return
-        }
-        
         // Upsert a config sync job if needed
         dependencies.jobRunner.upsert(
             db,
@@ -268,30 +236,6 @@ public extension ConfigurationSyncJob {
     }
     
     static func run(using dependencies: Dependencies = Dependencies()) -> AnyPublisher<Void, Error> {
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard SessionUtil.userConfigsEnabled else {
-            return Storage.shared
-                .writePublisher { db -> MessageSender.PreparedSendData in
-                    // If we don't have a userKeyPair yet then there is no need to sync the configuration
-                    // as the user doesn't exist yet (this will get triggered on the first launch of a
-                    // fresh install due to the migrations getting run)
-                    guard Identity.userCompletedRequiredOnboarding(db) else { throw StorageError.generic }
-                    
-                    let publicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
-                    
-                    return try MessageSender.preparedSendData(
-                        db,
-                        message: try ConfigurationMessage.getCurrent(db),
-                        to: Message.Destination.contact(publicKey: publicKey),
-                        namespace: .default,
-                        interactionId: nil,
-                        using: dependencies
-                    )
-                }
-                .flatMap { MessageSender.sendImmediate(data: $0, using: dependencies) }
-                .eraseToAnyPublisher()
-        }
-        
         // Trigger the job emitting the result when completed
         return Deferred {
             Future { resolver in

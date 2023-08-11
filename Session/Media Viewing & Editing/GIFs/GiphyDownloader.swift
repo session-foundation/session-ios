@@ -2,6 +2,7 @@
 
 import Foundation
 import SignalUtilitiesKit
+import SessionUtilitiesKit
 
 public class GiphyDownloader: ProxiedContentDownloader {
 
