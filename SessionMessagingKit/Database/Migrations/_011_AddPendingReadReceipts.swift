@@ -10,7 +10,7 @@ enum _011_AddPendingReadReceipts: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "AddPendingReadReceipts"
     static let needsConfigSync: Bool = false
-    static let minExpectedRunDuration: TimeInterval = 0.1
+    static let minExpectedRunDuration: TimeInterval = 0.01
     
     static func migrate(_ db: Database) throws {
         try db.create(table: PendingReadReceipt.self) { t in

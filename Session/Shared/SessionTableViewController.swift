@@ -262,7 +262,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
             reloadSectionsAnimation: .none,
             deleteRowsAnimation: .fade,
             insertRowsAnimation: .fade,
-            reloadRowsAnimation: .fade,
+            reloadRowsAnimation: .none,
             interrupt: { $0.changeCount > 100 }    // Prevent too many changes from causing performance issues
         ) { [weak self] updatedData in
             self?.viewModel.updateTableData(updatedData)
@@ -339,6 +339,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
             .store(in: &disposables)
         
         viewModel.leftNavItems
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] maybeItems in
                 self?.navigationItem.setLeftBarButtonItems(
                     maybeItems.map { items in
@@ -360,6 +361,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
             .store(in: &disposables)
 
         viewModel.rightNavItems
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] maybeItems in
                 self?.navigationItem.setRightBarButtonItems(
                     maybeItems.map { items in
@@ -381,18 +383,21 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
             .store(in: &disposables)
         
         viewModel.emptyStateTextPublisher
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] text in
                 self?.emptyStateLabel.text = text
             }
             .store(in: &disposables)
         
         viewModel.footerView
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] footerView in
                 self?.tableView.tableFooterView = footerView
             }
             .store(in: &disposables)
         
         viewModel.footerButtonInfo
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] buttonInfo in
                 if let buttonInfo: SessionButton.Info = buttonInfo {
                     self?.footerButton.setTitle(buttonInfo.title, for: .normal)
@@ -627,7 +632,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
     ) {
         // Try update the existing cell to have a nice animation instead of reloading the cell
         if let existingCell: SessionCell = tableView.cellForRow(at: indexPath) as? SessionCell {
-            existingCell.update(with: info)
+            existingCell.update(with: info, isManualReload: true)
         }
         else {
             tableView.reloadRows(at: [indexPath], with: .none)

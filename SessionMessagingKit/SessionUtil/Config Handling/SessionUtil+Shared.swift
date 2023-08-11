@@ -210,6 +210,46 @@ internal extension SessionUtil {
         return updated
     }
     
+    static func hasSetting(_ db: Database, forKey key: String) throws -> Bool {
+        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        
+        // Currently the only synced setting is 'checkForCommunityMessageRequests'
+        switch key {
+            case Setting.BoolKey.checkForCommunityMessageRequests.rawValue:
+                return try SessionUtil
+                    .config(for: .userProfile, publicKey: userPublicKey)
+                    .wrappedValue
+                    .map { conf -> Bool in (try SessionUtil.rawBlindedMessageRequestValue(in: conf) >= 0) }
+                    .defaulting(to: false)
+                
+            default: return false
+        }
+    }
+    
+    static func updatingSetting(_ db: Database, _ updated: Setting?) throws {
+        // Don't current support any nullable settings
+        guard let updatedSetting: Setting = updated else { return }
+        
+        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        
+        // Currently the only synced setting is 'checkForCommunityMessageRequests'
+        switch updatedSetting.id {
+            case Setting.BoolKey.checkForCommunityMessageRequests.rawValue:
+                try SessionUtil.performAndPushChange(
+                    db,
+                    for: .userProfile,
+                    publicKey: userPublicKey
+                ) { conf in
+                    try SessionUtil.updateSettings(
+                        checkForCommunityMessageRequests: updatedSetting.unsafeValue(as: Bool.self),
+                        in: conf
+                    )
+                }
+                
+            default: break
+        }
+    }
+    
     static func kickFromConversationUIIfNeeded(removedThreadIds: [String]) {
         guard !removedThreadIds.isEmpty else { return }
         

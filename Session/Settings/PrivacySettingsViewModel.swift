@@ -28,6 +28,7 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
     
     public enum Section: SessionTableSection {
         case screenSecurity
+        case messageRequests
         case readReceipts
         case typingIndicators
         case linkPreviews
@@ -36,6 +37,7 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
         var title: String? {
             switch self {
                 case .screenSecurity: return "PRIVACY_SECTION_SCREEN_SECURITY".localized()
+                case .messageRequests: return "PRIVACY_SECTION_MESSAGE_REQUESTS".localized()
                 case .readReceipts: return "PRIVACY_SECTION_READ_RECEIPTS".localized()
                 case .typingIndicators: return "PRIVACY_SECTION_TYPING_INDICATORS".localized()
                 case .linkPreviews: return "PRIVACY_SECTION_LINK_PREVIEWS".localized()
@@ -48,6 +50,7 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
     
     public enum Item: Differentiable {
         case screenLock
+        case communityMessageRequests
         case screenshotNotifications
         case readReceipts
         case typingIndicators
@@ -75,6 +78,15 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
     
     // MARK: - Content
     
+    private struct State: Equatable {
+        let isScreenLockEnabled: Bool
+        let checkForCommunityMessageRequests: Bool
+        let areReadReceiptsEnabled: Bool
+        let typingIndicatorsEnabled: Bool
+        let areLinkPreviewsEnabled: Bool
+        let areCallsEnabled: Bool
+    }
+    
     override var title: String { "PRIVACY_TITLE".localized() }
     
     public override var observableTableData: ObservableData { _observableTableData }
@@ -87,7 +99,21 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
     /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
     private lazy var _observableTableData: ObservableData = ValueObservation
-        .trackingConstantRegion { db -> [SectionModel] in
+        .trackingConstantRegion { [weak self] db -> State in
+            State(
+                isScreenLockEnabled: db[.isScreenLockEnabled],
+                checkForCommunityMessageRequests: db[.checkForCommunityMessageRequests],
+                areReadReceiptsEnabled: db[.areReadReceiptsEnabled],
+                typingIndicatorsEnabled: db[.typingIndicatorsEnabled],
+                areLinkPreviewsEnabled: db[.areLinkPreviewsEnabled],
+                areCallsEnabled: db[.areCallsEnabled]
+            )
+        }
+        .removeDuplicates()
+        .handleEvents(didFail: { SNLog("[PrivacySettingsViewModel] Observation failed with error: \($0)") })
+        .publisher(in: Storage.shared)
+        .withPrevious()
+        .map { (previous: State?, current: State) -> [SectionModel] in
             return [
                 SectionModel(
                     model: .screenSecurity,
@@ -96,7 +122,13 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                             id: .screenLock,
                             title: "PRIVACY_SCREEN_SECURITY_LOCK_SESSION_TITLE".localized(),
                             subtitle: "PRIVACY_SCREEN_SECURITY_LOCK_SESSION_DESCRIPTION".localized(),
-                            rightAccessory: .toggle(.settingBool(key: .isScreenLockEnabled)),
+                            rightAccessory: .toggle(
+                                .boolValue(
+                                    key: .isScreenLockEnabled,
+                                    value: current.isScreenLockEnabled,
+                                    oldValue: (previous ?? current).isScreenLockEnabled
+                                )
+                            ),
                             onTap: { [weak self] in
                                 // Make sure the device has a passcode set before allowing screen lock to
                                 // be enabled (Note: This will always return true on a simulator)
@@ -115,7 +147,32 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                                 }
                                 
                                 Storage.shared.write { db in
-                                    db[.isScreenLockEnabled] = !db[.isScreenLockEnabled]
+                                    try db.setAndUpdateConfig(.isScreenLockEnabled, to: !db[.isScreenLockEnabled])
+                                }
+                            }
+                        )
+                    ]
+                ),
+                SectionModel(
+                    model: .messageRequests,
+                    elements: [
+                        SessionCell.Info(
+                            id: .communityMessageRequests,
+                            title: "PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE".localized(),
+                            subtitle: "PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION".localized(),
+                            rightAccessory: .toggle(
+                                .boolValue(
+                                    key: .checkForCommunityMessageRequests,
+                                    value: current.checkForCommunityMessageRequests,
+                                    oldValue: (previous ?? current).checkForCommunityMessageRequests
+                                )
+                            ),
+                            onTap: { [weak self] in
+                                Storage.shared.write { db in
+                                    try db.setAndUpdateConfig(
+                                        .checkForCommunityMessageRequests,
+                                        to: !db[.checkForCommunityMessageRequests]
+                                    )
                                 }
                             }
                         )
@@ -128,10 +185,16 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                             id: .readReceipts,
                             title: "PRIVACY_READ_RECEIPTS_TITLE".localized(),
                             subtitle: "PRIVACY_READ_RECEIPTS_DESCRIPTION".localized(),
-                            rightAccessory: .toggle(.settingBool(key: .areReadReceiptsEnabled)),
+                            rightAccessory: .toggle(
+                                .boolValue(
+                                    key: .areReadReceiptsEnabled,
+                                    value: current.areReadReceiptsEnabled,
+                                    oldValue: (previous ?? current).areReadReceiptsEnabled
+                                )
+                            ),
                             onTap: {
                                 Storage.shared.write { db in
-                                    db[.areReadReceiptsEnabled] = !db[.areReadReceiptsEnabled]
+                                    try db.setAndUpdateConfig(.areReadReceiptsEnabled, to: !db[.areReadReceiptsEnabled])
                                 }
                             }
                         )
@@ -176,10 +239,16 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                                     return result
                                 }
                             ),
-                            rightAccessory: .toggle(.settingBool(key: .typingIndicatorsEnabled)),
+                            rightAccessory: .toggle(
+                                .boolValue(
+                                    key: .typingIndicatorsEnabled,
+                                    value: current.typingIndicatorsEnabled,
+                                    oldValue: (previous ?? current).typingIndicatorsEnabled
+                                )
+                            ),
                             onTap: {
                                 Storage.shared.write { db in
-                                    db[.typingIndicatorsEnabled] = !db[.typingIndicatorsEnabled]
+                                    try db.setAndUpdateConfig(.typingIndicatorsEnabled, to: !db[.typingIndicatorsEnabled])
                                 }
                             }
                         )
@@ -192,10 +261,16 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                             id: .linkPreviews,
                             title: "PRIVACY_LINK_PREVIEWS_TITLE".localized(),
                             subtitle: "PRIVACY_LINK_PREVIEWS_DESCRIPTION".localized(),
-                            rightAccessory: .toggle(.settingBool(key: .areLinkPreviewsEnabled)),
+                            rightAccessory: .toggle(
+                                .boolValue(
+                                    key: .areLinkPreviewsEnabled,
+                                    value: current.areLinkPreviewsEnabled,
+                                    oldValue: (previous ?? current).areLinkPreviewsEnabled
+                                )
+                            ),
                             onTap: {
                                 Storage.shared.write { db in
-                                    db[.areLinkPreviewsEnabled] = !db[.areLinkPreviewsEnabled]
+                                    try db.setAndUpdateConfig(.areLinkPreviewsEnabled, to: !db[.areLinkPreviewsEnabled])
                                 }
                             }
                         )
@@ -208,7 +283,13 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                             id: .calls,
                             title: "PRIVACY_CALLS_TITLE".localized(),
                             subtitle: "PRIVACY_CALLS_DESCRIPTION".localized(),
-                            rightAccessory: .toggle(.settingBool(key: .areCallsEnabled)),
+                            rightAccessory: .toggle(
+                                .boolValue(
+                                    key: .areCallsEnabled,
+                                    value: current.areCallsEnabled,
+                                    oldValue: (previous ?? current).areCallsEnabled
+                                )
+                            ),
                             accessibility: Accessibility(
                                 label: "Allow voice and video calls"
                             ),
@@ -223,7 +304,7 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                             ),
                             onTap: {
                                 Storage.shared.write { db in
-                                    db[.areCallsEnabled] = !db[.areCallsEnabled]
+                                    try db.setAndUpdateConfig(.areCallsEnabled, to: !db[.areCallsEnabled])
                                 }
                             }
                         )
@@ -231,8 +312,5 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                 )
             ]
         }
-        .removeDuplicates()
-        .handleEvents(didFail: { SNLog("[PrivacySettingsViewModel] Observation failed with error: \($0)") })
-        .publisher(in: Storage.shared)
         .mapToSessionTableViewData(for: self)
 }

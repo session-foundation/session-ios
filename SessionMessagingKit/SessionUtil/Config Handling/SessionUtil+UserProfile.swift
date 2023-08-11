@@ -12,6 +12,10 @@ internal extension SessionUtil {
         Profile.Columns.profileEncryptionKey
     ]
     
+    static let syncedSettings: [String] = [
+        Setting.BoolKey.checkForCommunityMessageRequests.rawValue
+    ]
+    
     // MARK: - Incoming Changes
     
     static func handleUserProfileUpdate(
@@ -115,6 +119,17 @@ internal extension SessionUtil {
             }
         }
         
+        // Update settings if needed
+        let updatedAllowBlindedMessageRequests: Int32 = user_profile_get_blinded_msgreqs(conf)
+        let updatedAllowBlindedMessageRequestsBoolValue: Bool = (updatedAllowBlindedMessageRequests >= 1)
+        
+        if
+            updatedAllowBlindedMessageRequests >= 0 &&
+            updatedAllowBlindedMessageRequestsBoolValue != db[.checkForCommunityMessageRequests]
+        {
+            db[.checkForCommunityMessageRequests] = updatedAllowBlindedMessageRequestsBoolValue
+        }
+        
         // Create a contact for the current user if needed (also force-approve the current user
         // in case the account got into a weird state or restored directly from a migration)
         let userContact: Contact = Contact.fetchOrCreate(db, id: userPublicKey)
@@ -158,5 +173,26 @@ internal extension SessionUtil {
         guard conf != nil else { throw SessionUtilError.nilConfigObject }
         
         user_profile_set_nts_priority(conf, priority)
+    }
+    
+    static func updateSettings(
+        checkForCommunityMessageRequests: Bool? = nil,
+        in conf: UnsafeMutablePointer<config_object>?
+    ) throws {
+        guard conf != nil else { throw SessionUtilError.nilConfigObject }
+        
+        if let blindedMessageRequests: Bool = checkForCommunityMessageRequests {
+            user_profile_set_blinded_msgreqs(conf, (blindedMessageRequests ? 1 : 0))
+        }
+    }
+}
+
+// MARK: - Direct Values
+
+extension SessionUtil {
+    static func rawBlindedMessageRequestValue(in conf: UnsafeMutablePointer<config_object>?) throws -> Int32 {
+        guard conf != nil else { throw SessionUtilError.nilConfigObject }
+    
+        return user_profile_get_blinded_msgreqs(conf)
     }
 }

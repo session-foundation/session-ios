@@ -218,6 +218,13 @@ extension WebSocketProtos_WebSocketMessage.TypeEnum: CaseIterable {
 
 #endif  // swift(>=4.2)
 
+#if swift(>=5.5) && canImport(_Concurrency)
+extension WebSocketProtos_WebSocketRequestMessage: @unchecked Sendable {}
+extension WebSocketProtos_WebSocketResponseMessage: @unchecked Sendable {}
+extension WebSocketProtos_WebSocketMessage: @unchecked Sendable {}
+extension WebSocketProtos_WebSocketMessage.TypeEnum: @unchecked Sendable {}
+#endif  // swift(>=5.5) && canImport(_Concurrency)
+
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 fileprivate let _protobuf_package = "WebSocketProtos"

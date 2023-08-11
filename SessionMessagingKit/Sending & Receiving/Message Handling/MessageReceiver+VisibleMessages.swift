@@ -31,6 +31,7 @@ extension MessageReceiver {
                 db,
                 publicKey: sender,
                 name: profile.displayName,
+                blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
                 avatarUpdate: {
                     guard
                         let profilePictureUrl: String = profile.profilePictureUrl,

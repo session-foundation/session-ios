@@ -226,11 +226,11 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     }
     
     func shareViewWasCompleted() {
-        extensionContext!.completeRequest(returningItems: [], completionHandler: nil)
+        extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
     }
     
     func shareViewWasCancelled() {
-        extensionContext!.completeRequest(returningItems: [], completionHandler: nil)
+        extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
     }
     
     func shareViewFailed(error: Error) {

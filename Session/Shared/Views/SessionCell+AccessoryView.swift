@@ -277,7 +277,8 @@ extension SessionCell {
         public func update(
             with accessory: Accessory?,
             tintColor: ThemeValue,
-            isEnabled: Bool
+            isEnabled: Bool,
+            isManualReload: Bool
         ) {
             guard let accessory: Accessory = accessory else { return }
             
@@ -356,10 +357,15 @@ extension SessionCell {
                     fixedWidthConstraint.isActive = true
                     toggleSwitchConstraints.forEach { $0.isActive = true }
                     
-                    let newValue: Bool = dataSource.currentBoolValue
-                    
-                    if newValue != toggleSwitch.isOn {
-                        toggleSwitch.setOn(newValue, animated: true)
+                    if !isManualReload {
+                        toggleSwitch.setOn(dataSource.oldBoolValue, animated: false)
+                        
+                        // Dispatch so the cell reload doesn't conflict with the setting change animation
+                        if dataSource.oldBoolValue != dataSource.currentBoolValue {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(10)) { [weak toggleSwitch] in
+                                toggleSwitch?.setOn(dataSource.currentBoolValue, animated: true)
+                            }
+                        }
                     }
                     
                 case .dropDown(let dataSource, let accessibility):

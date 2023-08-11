@@ -27,6 +27,9 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
         case profilePictureFileName
         case profileEncryptionKey
         case lastProfilePictureUpdate
+        
+        case blocksCommunityMessageRequests
+        case lastBlocksCommunityMessageRequests
     }
 
     /// The id for the user that owns the profile (Note: This could be a sessionId, a blindedId or some future variant)
@@ -53,6 +56,12 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
     /// The timestamp (in seconds since epoch) that the profile picture was last updated
     public let lastProfilePictureUpdate: TimeInterval
     
+    /// A flag indicating whether this profile has reported that it blocks community message requests
+    public let blocksCommunityMessageRequests: Bool?
+    
+    /// The timestamp (in seconds since epoch) that the `blocksCommunityMessageRequests` setting was last updated
+    public let lastBlocksCommunityMessageRequests: TimeInterval
+    
     // MARK: - Initialization
     
     public init(
@@ -63,7 +72,9 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
         profilePictureUrl: String? = nil,
         profilePictureFileName: String? = nil,
         profileEncryptionKey: Data? = nil,
-        lastProfilePictureUpdate: TimeInterval
+        lastProfilePictureUpdate: TimeInterval,
+        blocksCommunityMessageRequests: Bool? = nil,
+        lastBlocksCommunityMessageRequests: TimeInterval
     ) {
         self.id = id
         self.name = name
@@ -73,6 +84,8 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
         self.profilePictureFileName = profilePictureFileName
         self.profileEncryptionKey = profileEncryptionKey
         self.lastProfilePictureUpdate = lastProfilePictureUpdate
+        self.blocksCommunityMessageRequests = blocksCommunityMessageRequests
+        self.lastBlocksCommunityMessageRequests = lastBlocksCommunityMessageRequests
     }
     
     // MARK: - Description
@@ -114,7 +127,9 @@ public extension Profile {
             profilePictureUrl: profilePictureUrl,
             profilePictureFileName: try? container.decode(String.self, forKey: .profilePictureFileName),
             profileEncryptionKey: profileKey,
-            lastProfilePictureUpdate: try container.decode(TimeInterval.self, forKey: .lastProfilePictureUpdate)
+            lastProfilePictureUpdate: try container.decode(TimeInterval.self, forKey: .lastProfilePictureUpdate),
+            blocksCommunityMessageRequests: try? container.decode(Bool.self, forKey: .blocksCommunityMessageRequests),
+            lastBlocksCommunityMessageRequests: try container.decode(TimeInterval.self, forKey: .lastBlocksCommunityMessageRequests)
         )
     }
     
@@ -129,6 +144,8 @@ public extension Profile {
         try container.encodeIfPresent(profilePictureFileName, forKey: .profilePictureFileName)
         try container.encodeIfPresent(profileEncryptionKey, forKey: .profileEncryptionKey)
         try container.encode(lastProfilePictureUpdate, forKey: .lastProfilePictureUpdate)
+        try container.encodeIfPresent(blocksCommunityMessageRequests, forKey: .blocksCommunityMessageRequests)
+        try container.encode(lastBlocksCommunityMessageRequests, forKey: .lastBlocksCommunityMessageRequests)
     }
 }
 
@@ -156,7 +173,9 @@ public extension Profile {
             profilePictureUrl: profilePictureUrl,
             profilePictureFileName: nil,
             profileEncryptionKey: profileKey,
-            lastProfilePictureUpdate: sentTimestamp
+            lastProfilePictureUpdate: sentTimestamp,
+            blocksCommunityMessageRequests: (proto.hasBlocksCommunityMessageRequests ? proto.blocksCommunityMessageRequests : nil),
+            lastBlocksCommunityMessageRequests: (proto.hasBlocksCommunityMessageRequests ? sentTimestamp : 0)
         )
     }
 
@@ -242,7 +261,9 @@ public extension Profile {
             profilePictureUrl: nil,
             profilePictureFileName: nil,
             profileEncryptionKey: nil,
-            lastProfilePictureUpdate: 0
+            lastProfilePictureUpdate: 0,
+            blocksCommunityMessageRequests: nil,
+            lastBlocksCommunityMessageRequests: 0
         )
     }
     
