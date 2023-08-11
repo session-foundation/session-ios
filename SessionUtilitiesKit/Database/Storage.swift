@@ -47,8 +47,10 @@ open class Storage {
     
     fileprivate var dbWriter: DatabaseWriter?
     internal var testDbWriter: DatabaseWriter? { dbWriter }
+    private var unprocessedMigrationRequirements: Atomic<[MigrationRequirement]> = Atomic(MigrationRequirement.allCases)
     private var migrator: DatabaseMigrator?
     private var migrationProgressUpdater: Atomic<((String, CGFloat) -> ())>?
+    private var migrationRequirementProcesser: Atomic<(Database?, MigrationRequirement) -> ()>?
     
     // MARK: - Initialization
     
@@ -77,6 +79,7 @@ open class Storage {
                 migrationTargets: (customMigrationTargets ?? []),
                 async: false,
                 onProgressUpdate: nil,
+                onMigrationRequirement: { _, _ in },
                 onComplete: { _, _ in }
             )
             return
@@ -148,6 +151,7 @@ open class Storage {
         migrationTargets: [MigratableTarget.Type],
         async: Bool = true,
         onProgressUpdate: ((CGFloat, TimeInterval) -> ())?,
+        onMigrationRequirement: @escaping (Database?, MigrationRequirement) -> (),
         onComplete: @escaping (Swift.Result<Void, Error>, Bool) -> ()
     ) {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
@@ -232,12 +236,23 @@ open class Storage {
                 onProgressUpdate?(totalProgress, totalMinExpectedDuration)
             }
         })
+        self.migrationRequirementProcesser = Atomic(onMigrationRequirement)
         
         // Store the logic to run when the migration completes
         let migrationCompleted: (Swift.Result<Void, Error>) -> () = { [weak self] result in
+            // Process any unprocessed requirements which need to be processed before completion
+            // then clear out the state
+            self?.unprocessedMigrationRequirements.wrappedValue
+                .filter { $0.shouldProcessAtCompletionIfNotRequired }
+                .forEach { self?.migrationRequirementProcesser?.wrappedValue(nil, $0) }
             self?.migrationsCompleted.mutate { $0 = true }
             self?.migrationProgressUpdater = nil
+            self?.migrationRequirementProcesser = nil
             SUKLegacy.clearLegacyDatabaseInstance()
+            
+            // Reset in case there is a requirement on a migration which runs when returning from
+            // the background
+            self?.unprocessedMigrationRequirements.mutate { $0 = MigrationRequirement.allCases }
             
             // Don't log anything in the case of a 'success' or if the database is suspended (the
             // latter will happen if the user happens to return to the background too quickly on
@@ -285,6 +300,22 @@ open class Storage {
             DispatchQueue.global(qos: .userInitiated).async {
                 migrationCompleted(finalResult)
             }
+        }
+    }
+    
+    public func willStartMigration(_ db: Database, _ migration: Migration.Type) {
+        let unprocessedRequirements: Set<MigrationRequirement> = migration.requirements.asSet()
+            .intersection(unprocessedMigrationRequirements.wrappedValue.asSet())
+
+        // No need to do anything if there are no unprocessed requirements
+        guard !unprocessedRequirements.isEmpty else { return }
+
+        // Process all of the requirements for this migration
+        unprocessedRequirements.forEach { migrationRequirementProcesser?.wrappedValue(db, $0) }
+
+        // Remove any processed requirements from the list (don't want to process them multiple times)
+        unprocessedMigrationRequirements.mutate {
+            $0 = Array($0.asSet().subtracting(migration.requirements.asSet()))
         }
     }
     

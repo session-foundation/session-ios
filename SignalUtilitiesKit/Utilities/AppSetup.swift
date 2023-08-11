@@ -82,6 +82,20 @@ public enum AppSetup {
                 SNUIKit.self
             ],
             onProgressUpdate: migrationProgressChanged,
+            onMigrationRequirement: { db, requirement in
+                switch requirement {
+                    case .sessionUtilStateLoaded:
+                        guard Identity.userExists(db) else { return }
+
+                        // After the migrations have run but before the migration completion we load the
+                        // SessionUtil state
+                        SessionUtil.loadState(
+                            db,
+                            userPublicKey: getUserHexEncodedPublicKey(db),
+                            ed25519SecretKey: Identity.fetchUserEd25519KeyPair(db)?.secretKey
+                        )
+                }
+            },
             onComplete: { result, needsConfigSync in
                 // After the migrations have run but before the migration completion we load the
                 // SessionUtil state and update the 'needsConfigSync' flag based on whether the
@@ -93,6 +107,8 @@ public enum AppSetup {
                     )
                 }
                 
+                // The 'needsConfigSync' flag should be based on whether either a migration or the
+                // configs need to be sync'ed
                 migrationsCompletion(result, (needsConfigSync || SessionUtil.needsSync))
                 
                 // The 'if' is only there to prevent the "variable never read" warning from showing

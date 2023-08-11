@@ -186,3 +186,13 @@ internal extension SessionUtil {
         }
     }
 }
+
+// MARK: - Direct Values
+
+extension SessionUtil {
+    static func rawBlindedMessageRequestValue(in conf: UnsafeMutablePointer<config_object>?) throws -> Int32 {
+        guard conf != nil else { throw SessionUtilError.nilConfigObject }
+    
+        return user_profile_get_blinded_msgreqs(conf)
+    }
+}
