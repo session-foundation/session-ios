@@ -1852,14 +1852,6 @@ enum _003_YDBToGRDBMigration: Migration {
             forClassName: "SNConfigurationMessage"
         )
         NSKeyedUnarchiver.setClass(
-            SMKLegacy._CMClosedGroup.self,
-            forClassName: "SNClosedGroup"
-        )
-        NSKeyedUnarchiver.setClass(
-            SMKLegacy._CMContact.self,
-            forClassName: "SNConfigurationMessage.SNConfigurationMessageContact"
-        )
-        NSKeyedUnarchiver.setClass(
             SMKLegacy._UnsendRequest.self,
             forClassName: "SNUnsendRequest"
         )

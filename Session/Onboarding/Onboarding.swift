@@ -30,13 +30,6 @@ enum Onboarding {
         _ requestId: UUID,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<String?, Error> {
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard SessionUtil.userConfigsEnabled else {
-            return Just(nil)
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
-        }
-        
         let userPublicKey: String = getUserHexEncodedPublicKey()
         
         return SnodeAPI.getSwarm(for: userPublicKey)

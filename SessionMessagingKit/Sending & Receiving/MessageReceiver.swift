@@ -3,6 +3,7 @@
 import Foundation
 import GRDB
 import Sodium
+import SessionUIKit
 import SessionUtilitiesKit
 import SessionSnodeKit
 
@@ -242,13 +243,6 @@ public enum MessageReceiver {
                     message: message
                 )
                 
-            case let message as ConfigurationMessage:
-                try MessageReceiver.handleLegacyConfigurationMessage(
-                    db,
-                    message: message,
-                    using: dependencies
-                )
-                
             case let message as UnsendRequest:
                 try MessageReceiver.handleUnsendRequest(
                     db,
@@ -282,6 +276,7 @@ public enum MessageReceiver {
                 )
                 
             // SharedConfigMessages should be handled by the 'SharedUtil' instead of this
+            case is ConfigurationMessage: TopBannerController.show(warning: .outdatedUserConfig)
             case is SharedConfigMessage: throw MessageReceiverError.invalidSharedConfigMessageHandling
                 
             default: fatalError()

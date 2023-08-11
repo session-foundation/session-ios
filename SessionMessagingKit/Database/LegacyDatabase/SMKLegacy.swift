@@ -649,23 +649,18 @@ public enum SMKLegacy {
     
     @objc(SNConfigurationMessage)
     internal final class _ConfigurationMessage: _ControlMessage {
-        internal var closedGroups: Set<_CMClosedGroup> = []
-        internal var openGroups: Set<String> = []
         internal var displayName: String?
         internal var profilePictureURL: String?
         internal var profileKey: Data?
-        internal var contacts: Set<_CMContact> = []
         
         // MARK: NSCoding
         
         public required init?(coder: NSCoder) {
             super.init(coder: coder)
-            if let closedGroups = coder.decodeObject(forKey: "closedGroups") as! Set<_CMClosedGroup>? { self.closedGroups = closedGroups }
-            if let openGroups = coder.decodeObject(forKey: "openGroups") as! Set<String>? { self.openGroups = openGroups }
+            
             if let displayName = coder.decodeObject(forKey: "displayName") as! String? { self.displayName = displayName }
             if let profilePictureURL = coder.decodeObject(forKey: "profilePictureURL") as! String? { self.profilePictureURL = profilePictureURL }
             if let profileKey = coder.decodeObject(forKey: "profileKey") as! Data? { self.profileKey = profileKey }
-            if let contacts = coder.decodeObject(forKey: "contacts") as! Set<_CMContact>? { self.contacts = contacts }
         }
 
         public override func encode(with coder: NSCoder) {
@@ -679,122 +674,8 @@ public enum SMKLegacy {
                 ConfigurationMessage(
                     displayName: displayName,
                     profilePictureUrl: profilePictureURL,
-                    profileKey: profileKey,
-                    closedGroups: closedGroups
-                        .map { $0.toNonLegacy() }
-                        .asSet(),
-                    openGroups: openGroups,
-                    contacts: contacts
-                        .map { $0.toNonLegacy() }
-                        .asSet()
+                    profileKey: profileKey
                 )
-            )
-        }
-    }
-    
-    // MARK: - Config Message Closed Group
-
-    @objc(CMClosedGroup)
-    internal final class _CMClosedGroup: NSObject, NSCoding {
-        internal let publicKey: String
-        internal let name: String
-        internal let encryptionKeyPair: SUKLegacy.KeyPair
-        internal let members: Set<String>
-        internal let admins: Set<String>
-        internal let expirationTimer: UInt32
-        
-        // MARK: NSCoding
-
-        public required init?(coder: NSCoder) {
-            guard
-                let publicKey = coder.decodeObject(forKey: "publicKey") as! String?,
-                let name = coder.decodeObject(forKey: "name") as! String?,
-                let encryptionKeyPair = coder.decodeObject(forKey: "encryptionKeyPair") as! SUKLegacy.KeyPair?,
-                let members = coder.decodeObject(forKey: "members") as! Set<String>?,
-                let admins = coder.decodeObject(forKey: "admins") as! Set<String>?
-            else { return nil }
-            
-            self.publicKey = publicKey
-            self.name = name
-            self.encryptionKeyPair = encryptionKeyPair
-            self.members = members
-            self.admins = admins
-            self.expirationTimer = (coder.decodeObject(forKey: "expirationTimer") as? UInt32 ?? 0)
-        }
-
-        public func encode(with coder: NSCoder) {
-            fatalError("encode(with:) should never be called for legacy types")
-        }
-        
-        // MARK: Non-Legacy Conversion
-        
-        internal func toNonLegacy() -> ConfigurationMessage.CMClosedGroup {
-            return ConfigurationMessage.CMClosedGroup(
-                publicKey: publicKey,
-                name: name,
-                encryptionKeyPublicKey: encryptionKeyPair.publicKey,
-                encryptionKeySecretKey: encryptionKeyPair.privateKey,
-                members: members,
-                admins: admins,
-                expirationTimer: expirationTimer
-            )
-        }
-    }
-    
-    // MARK: - Config Message Contact
-
-    @objc(SNConfigurationMessageContact)
-    internal final class _CMContact: NSObject, NSCoding {
-        internal var publicKey: String?
-        internal var displayName: String?
-        internal var profilePictureURL: String?
-        internal var profileKey: Data?
-        
-        internal var hasIsApproved: Bool
-        internal var isApproved: Bool
-        internal var hasIsBlocked: Bool
-        internal var isBlocked: Bool
-        internal var hasDidApproveMe: Bool
-        internal var didApproveMe: Bool
-        
-        // MARK: NSCoding
-
-        public required init?(coder: NSCoder) {
-            guard
-                let publicKey = coder.decodeObject(forKey: "publicKey") as! String?,
-                let displayName = coder.decodeObject(forKey: "displayName") as! String?
-            else { return nil }
-            
-            self.publicKey = publicKey
-            self.displayName = displayName
-            self.profilePictureURL = coder.decodeObject(forKey: "profilePictureURL") as! String?
-            self.profileKey = coder.decodeObject(forKey: "profileKey") as! Data?
-            self.hasIsApproved = (coder.decodeObject(forKey: "hasIsApproved") as? Bool ?? false)
-            self.isApproved = (coder.decodeObject(forKey: "isApproved") as? Bool ?? false)
-            self.hasIsBlocked = (coder.decodeObject(forKey: "hasIsBlocked") as? Bool ?? false)
-            self.isBlocked = (coder.decodeObject(forKey: "isBlocked") as? Bool ?? false)
-            self.hasDidApproveMe = (coder.decodeObject(forKey: "hasDidApproveMe") as? Bool ?? false)
-            self.didApproveMe = (coder.decodeObject(forKey: "didApproveMe") as? Bool ?? false)
-        }
-
-        public func encode(with coder: NSCoder) {
-            fatalError("encode(with:) should never be called for legacy types")
-        }
-        
-        // MARK: Non-Legacy Conversion
-        
-        internal func toNonLegacy() -> ConfigurationMessage.CMContact {
-            return ConfigurationMessage.CMContact(
-                publicKey: publicKey,
-                displayName: displayName,
-                profilePictureUrl: profilePictureURL,
-                profileKey: profileKey,
-                hasIsApproved: hasIsApproved,
-                isApproved: isApproved,
-                hasIsBlocked: hasIsBlocked,
-                isBlocked: isBlocked,
-                hasDidApproveMe: hasDidApproveMe,
-                didApproveMe: didApproveMe
             )
         }
     }
