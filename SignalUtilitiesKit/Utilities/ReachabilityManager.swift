@@ -3,6 +3,7 @@
 import Foundation
 import Reachability
 import SignalCoreKit
+import SessionMessagingKit
 
 /// **Warning:** The simulator doesn't detect reachability correctly so if you are seeing odd/incorrect reachability states double
 /// check on an actual device before trying to replace this implementation

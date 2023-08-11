@@ -5,6 +5,7 @@ import GRDB
 import UserNotifications
 import SignalUtilitiesKit
 import SessionMessagingKit
+import SessionUtilitiesKit
 
 public class NSENotificationPresenter: NSObject, NotificationsProtocol {
     private var notifications: [String: UNNotificationRequest] = [:]

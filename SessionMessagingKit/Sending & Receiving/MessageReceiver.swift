@@ -65,6 +65,11 @@ public enum MessageReceiver {
                                 userEd25519KeyPair: userEd25519KeyPair,
                                 using: dependencies
                             )
+                            
+                        case .group:
+                            // TODO: Need to decide how we will handle updated group messages
+                            SNLog("Ignoring message with invalid sender.")
+                            throw HTTPError.parsingFailed
                     }
                     
                 case .closedGroupMessage:

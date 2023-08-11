@@ -3,6 +3,7 @@
 import UIKit
 import SessionUIKit
 import SignalUtilitiesKit
+import SessionUtilitiesKit
 
 final class AppearanceViewController: BaseVC {
     // MARK: - Components

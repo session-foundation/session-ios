@@ -7,6 +7,7 @@ import DifferenceKit
 import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
+import SessionSnodeKit
 
 final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableViewDelegate, AttachmentApprovalViewControllerDelegate {
     private let viewModel: ThreadPickerViewModel = ThreadPickerViewModel()
@@ -33,6 +34,18 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         
         return titleLabel
     }()
+    
+    private lazy var databaseErrorLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.font = .systemFont(ofSize: Values.mediumFontSize)
+        result.text = "database_inaccessible_error".localized()
+        result.textAlignment = .center
+        result.themeTextColor = .textPrimary
+        result.numberOfLines = 0
+        result.isHidden = true
+        
+        return result
+    }()
 
     private lazy var tableView: UITableView = {
         let tableView: UITableView = UITableView()
@@ -55,6 +68,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         
         view.themeBackgroundColor = .backgroundPrimary
         view.addSubview(tableView)
+        view.addSubview(databaseErrorLabel)
         
         setupLayout()
         
@@ -99,6 +113,10 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     
     private func setupLayout() {
         tableView.pin(to: view)
+        
+        databaseErrorLabel.pin(.top, to: .top, of: view, withInset: Values.massiveSpacing)
+        databaseErrorLabel.pin(.leading, to: .leading, of: view, withInset: Values.veryLargeSpacing)
+        databaseErrorLabel.pin(.trailing, to: .trailing, of: view, withInset: -Values.veryLargeSpacing)
     }
     
     // MARK: - Updating
@@ -109,7 +127,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         // Start observing for data changes
         dataChangeObservable = Storage.shared.start(
             viewModel.observableViewData,
-            onError:  { _ in },
+            onError:  { [weak self] _ in self?.databaseErrorLabel.isHidden = Storage.shared.isValid },
             onChange: { [weak self] viewData in
                 // The defaul scheduler emits changes on the main thread
                 self?.handleUpdates(viewData)

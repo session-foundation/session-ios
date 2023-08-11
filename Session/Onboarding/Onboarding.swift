@@ -251,9 +251,9 @@ enum Onboarding {
             // Notify the app that registration is complete
             Identity.didRegister()
             
-            // Now that we have registered get the Snode pool and sync push tokens
+            // Now that we have registered get the Snode pool (just in case) - other non-blocking
+            // launch jobs will automatically be run because the app activation was triggered
             GetSnodePoolJob.run()
-            SyncPushTokensJob.run(uploadOnlyIfStale: false)
         }
     }
 }

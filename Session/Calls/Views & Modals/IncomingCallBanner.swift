@@ -4,6 +4,7 @@ import UIKit
 import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
+import SessionUtilitiesKit
 
 final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
     private static let swipeToOperateThreshold: CGFloat = 60

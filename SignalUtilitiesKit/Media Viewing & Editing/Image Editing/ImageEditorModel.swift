@@ -2,6 +2,7 @@
 
 import UIKit
 import SignalCoreKit
+import SessionUtilitiesKit
 
 // Used to represent undo/redo operations.
 //

@@ -3,6 +3,7 @@
 import Foundation
 import SessionUIKit
 import SignalCoreKit
+import SessionUtilitiesKit
 
 public extension UIEdgeInsets {
     init(top: CGFloat, leading: CGFloat, bottom: CGFloat, trailing: CGFloat) {

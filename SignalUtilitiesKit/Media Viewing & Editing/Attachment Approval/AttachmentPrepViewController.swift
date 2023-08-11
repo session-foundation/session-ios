@@ -5,6 +5,8 @@ import UIKit
 import AVFoundation
 import SessionUIKit
 import SignalCoreKit
+import SessionMessagingKit
+import SessionUtilitiesKit
 
 protocol AttachmentPrepViewControllerDelegate: AnyObject {
     func prepViewControllerUpdateNavigationBar()
