@@ -394,19 +394,30 @@ extension SessionCell.Accessory {
 
 extension SessionCell.Accessory {
     public enum DataSource: Hashable, Equatable {
-        case boolValue(Bool)
+        case boolValue(key: String, value: Bool, oldValue: Bool)
         case dynamicString(() -> String?)
-        case userDefaults(UserDefaults, key: String)
-        case settingBool(key: Setting.BoolKey)
+        
+        static func boolValue(_ value: Bool, oldValue: Bool) -> DataSource {
+            return .boolValue(key: "", value: value, oldValue: oldValue)
+        }
+        
+        static func boolValue(key: Setting.BoolKey, value: Bool, oldValue: Bool) -> DataSource {
+            return .boolValue(key: key.rawValue, value: value, oldValue: oldValue)
+        }
         
         // MARK: - Convenience
         
         public var currentBoolValue: Bool {
             switch self {
-                case .boolValue(let value): return value
+                case .boolValue(_, let value, _): return value
                 case .dynamicString: return false
-                case .userDefaults(let defaults, let key): return defaults.bool(forKey: key)
-                case .settingBool(let key): return Storage.shared[key]
+            }
+        }
+        
+        public var oldBoolValue: Bool {
+            switch self {
+                case .boolValue(_, _, let oldValue): return oldValue
+                default: return false
             }
         }
         
@@ -421,26 +432,26 @@ extension SessionCell.Accessory {
         
         public func hash(into hasher: inout Hasher) {
             switch self {
-                case .boolValue(let value): value.hash(into: &hasher)
+                case .boolValue(let key, let value, let oldValue):
+                    key.hash(into: &hasher)
+                    value.hash(into: &hasher)
+                    oldValue.hash(into: &hasher)
+                    
                 case .dynamicString(let generator): generator().hash(into: &hasher)
-                case .userDefaults(_, let key): key.hash(into: &hasher)
-                case .settingBool(let key): key.hash(into: &hasher)
             }
         }
         
         public static func == (lhs: DataSource, rhs: DataSource) -> Bool {
             switch (lhs, rhs) {
-                case (.boolValue(let lhsValue), .boolValue(let rhsValue)):
-                    return (lhsValue == rhsValue)
+                case (.boolValue(let lhsKey, let lhsValue, let lhsOldValue), .boolValue(let rhsKey, let rhsValue, let rhsOldValue)):
+                    return (
+                        lhsKey == rhsKey &&
+                        lhsValue == rhsValue &&
+                        lhsOldValue == rhsOldValue
+                    )
                     
                 case (.dynamicString(let lhsGenerator), .dynamicString(let rhsGenerator)):
                     return (lhsGenerator() == rhsGenerator())
-                    
-                case (.userDefaults(_, let lhsKey), .userDefaults(_, let rhsKey)):
-                    return (lhsKey == rhsKey)
-                
-                case (.settingBool(let lhsKey), .settingBool(let rhsKey)):
-                    return (lhsKey == rhsKey)
                     
                 default: return false
             }

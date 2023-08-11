@@ -498,6 +498,7 @@ public struct ProfileManager {
         _ db: Database,
         publicKey: String,
         name: String?,
+        blocksCommunityMessageRequests: Bool? = nil,
         avatarUpdate: AvatarUpdate,
         sentTimestamp: TimeInterval,
         calledFromConfigHandling: Bool = false,
@@ -514,6 +515,12 @@ public struct ProfileManager {
                 profileChanges.append(Profile.Columns.name.set(to: name))
                 profileChanges.append(Profile.Columns.lastNameUpdate.set(to: sentTimestamp))
             }
+        }
+        
+        // Blocks community message requets flag
+        if let blocksCommunityMessageRequests: Bool = blocksCommunityMessageRequests, sentTimestamp > profile.lastBlocksCommunityMessageRequests {
+            profileChanges.append(Profile.Columns.blocksCommunityMessageRequests.set(to: blocksCommunityMessageRequests))
+            profileChanges.append(Profile.Columns.lastBlocksCommunityMessageRequests.set(to: sentTimestamp))
         }
         
         // Profile picture & profile key

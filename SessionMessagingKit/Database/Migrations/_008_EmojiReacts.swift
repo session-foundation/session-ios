@@ -9,7 +9,7 @@ enum _008_EmojiReacts: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "EmojiReacts"
     static let needsConfigSync: Bool = false
-    static let minExpectedRunDuration: TimeInterval = 0.1
+    static let minExpectedRunDuration: TimeInterval = 0.01
     
     static func migrate(_ db: Database) throws {
         try db.create(table: Reaction.self) { t in

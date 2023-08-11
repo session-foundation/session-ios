@@ -208,17 +208,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     }()
     
     private lazy var emptyStateLabel: UILabel = {
-        let text: String = String(
-            format: {
-                switch (viewModel.threadData.threadIsNoteToSelf, viewModel.threadData.canWrite) {
-                    case (true, _): return "CONVERSATION_EMPTY_STATE_NOTE_TO_SELF".localized()
-                    case (_, false): return "CONVERSATION_EMPTY_STATE_READ_ONLY".localized()
-                    default: return "CONVERSATION_EMPTY_STATE".localized()
-                }
-            }(),
-            viewModel.threadData.displayName
-        )
-        
+        let text: String = emptyStateText(for: viewModel.threadData)
         let result: UILabel = UILabel()
         result.accessibilityLabel = "Empty state label"
         result.translatesAutoresizingMaskIntoConstraints = false
@@ -698,6 +688,24 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         self.viewModel.onInteractionChange = nil
     }
     
+    private func emptyStateText(for threadData: SessionThreadViewModel) -> String {
+        return String(
+            format: {
+                switch (threadData.threadIsNoteToSelf, threadData.canWrite) {
+                    case (true, _): return "CONVERSATION_EMPTY_STATE_NOTE_TO_SELF".localized()
+                    case (_, false):
+                        return (threadData.profile?.blocksCommunityMessageRequests == true ?
+                            "COMMUNITY_MESSAGE_REQUEST_DISABLED_EMPTY_STATE".localized() :
+                            "CONVERSATION_EMPTY_STATE_READ_ONLY".localized()
+                        )
+                       
+                    default: return "CONVERSATION_EMPTY_STATE".localized()
+                }
+            }(),
+            threadData.displayName
+        )
+    }
+    
     private func handleThreadUpdates(_ updatedThreadData: SessionThreadViewModel, initialLoad: Bool = false) {
         // Ensure the first load or a load when returning from a child screen runs without animations (if
         // we don't do this the cells will animate in from a frame of CGRect.zero or have a buggy transition)
@@ -738,17 +746,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
             )
             
             // Update the empty state
-            let text: String = String(
-                format: {
-                    switch (updatedThreadData.threadIsNoteToSelf, updatedThreadData.canWrite) {
-                        case (true, _): return "CONVERSATION_EMPTY_STATE_NOTE_TO_SELF".localized()
-                        case (_, false): return "CONVERSATION_EMPTY_STATE_READ_ONLY".localized()
-                        default: return "CONVERSATION_EMPTY_STATE".localized()
-                    }
-                }(),
-                updatedThreadData.displayName
-            )
-            
+            let text: String = emptyStateText(for: updatedThreadData)
             emptyStateLabel.attributedText = NSAttributedString(string: text)
                 .adding(
                     attributes: [.font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize)],
@@ -791,8 +789,10 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                     updatedThreadData.threadRequiresApproval == true
                 )
                 self?.messageRequestStackView.isHidden = (
-                    updatedThreadData.threadIsMessageRequest == false &&
-                    updatedThreadData.threadRequiresApproval == false
+                    !updatedThreadData.canWrite || (
+                        updatedThreadData.threadIsMessageRequest == false &&
+                        updatedThreadData.threadRequiresApproval == false
+                    )
                 )
                 self?.messageRequestBackgroundView.isHidden = (self?.messageRequestStackView.isHidden == true)
                 self?.messageRequestDescriptionLabelBottomConstraint?.constant = (updatedThreadData.threadRequiresApproval == true ? -4 : -20)

@@ -104,7 +104,11 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     
     public var canWrite: Bool {
         switch threadVariant {
-            case .contact: return true
+            case .contact:
+                guard threadIsMessageRequest == true else { return true }
+                
+                return (profile?.blocksCommunityMessageRequests != true)
+                
             case .legacyGroup, .group:
                 return (
                     currentUserIsClosedGroupMember == true &&

@@ -7,7 +7,7 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSettingsViewModel.Section, NotificationSettingsViewModel.Setting> {
+class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSettingsViewModel.Section, NotificationSettingsViewModel.Item> {
     // MARK: - Config
     
     public enum Section: SessionTableSection {
@@ -31,7 +31,7 @@ class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSe
         }
     }
     
-    public enum Setting: Differentiable {
+    public enum Item: Differentiable {
         case strategyUseFastMode
         case strategyDeviceSettings
         case styleSound
@@ -40,6 +40,13 @@ class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSe
     }
     
     // MARK: - Content
+    
+    private struct State: Equatable {
+        let isUsingFullAPNs: Bool
+        let notificationSound: Preferences.Sound
+        let playNotificationSoundInForeground: Bool
+        let previewType: Preferences.NotificationPreviewType
+    }
     
     override var title: String { "NOTIFICATIONS_TITLE".localized() }
     
@@ -53,12 +60,30 @@ class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSe
     /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
     private lazy var _observableTableData: ObservableData = ValueObservation
-        .trackingConstantRegion { db -> [SectionModel] in
-            let notificationSound: Preferences.Sound = db[.defaultNotificationSound]
-                .defaulting(to: Preferences.Sound.defaultNotificationSound)
-            let previewType: Preferences.NotificationPreviewType = db[.preferencesNotificationPreviewType]
-                .defaulting(to: Preferences.NotificationPreviewType.defaultPreviewType)
-            
+        .trackingConstantRegion { db -> State in
+            State(
+                isUsingFullAPNs: false, // Set later the the data flow
+                notificationSound: db[.defaultNotificationSound]
+                    .defaulting(to: Preferences.Sound.defaultNotificationSound),
+                playNotificationSoundInForeground: db[.playNotificationSoundInForeground],
+                previewType: db[.preferencesNotificationPreviewType]
+                    .defaulting(to: Preferences.NotificationPreviewType.defaultPreviewType)
+            )
+        }
+        .removeDuplicates()
+        .handleEvents(didFail: { SNLog("[NotificationSettingsViewModel] Observation failed with error: \($0)") })
+        .publisher(in: Storage.shared)
+        .manualRefreshFrom(forcedRefresh)
+        .map { dbState -> State in
+            State(
+                isUsingFullAPNs: UserDefaults.standard[.isUsingFullAPNs],
+                notificationSound: dbState.notificationSound,
+                playNotificationSoundInForeground: dbState.playNotificationSoundInForeground,
+                previewType: dbState.previewType
+            )
+        }
+        .withPrevious()
+        .map { (previous: State?, current: State) -> [SectionModel] in
             return [
                 SectionModel(
                     model: .strategy,
@@ -68,20 +93,24 @@ class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSe
                             title: "NOTIFICATIONS_STRATEGY_FAST_MODE_TITLE".localized(),
                             subtitle: "NOTIFICATIONS_STRATEGY_FAST_MODE_DESCRIPTION".localized(),
                             rightAccessory: .toggle(
-                                .userDefaults(UserDefaults.standard, key: "isUsingFullAPNs")
+                                .boolValue(
+                                    current.isUsingFullAPNs,
+                                    oldValue: (previous ?? current).isUsingFullAPNs
+                                )
                             ),
                             styling: SessionCell.StyleInfo(
                                 allowedSeparators: [.top],
                                 customPadding: SessionCell.Padding(bottom: Values.verySmallSpacing)
                             ),
-                            onTap: {
+                            onTap: { [weak self] in
                                 UserDefaults.standard.set(
                                     !UserDefaults.standard.bool(forKey: "isUsingFullAPNs"),
                                     forKey: "isUsingFullAPNs"
                                 )
-                                
+
                                 // Force sync the push tokens on change
                                 SyncPushTokensJob.run(uploadOnlyIfStale: false)
+                                self?.forceRefresh()
                             }
                         ),
                         SessionCell.Info(
@@ -106,7 +135,7 @@ class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSe
                             id: .styleSound,
                             title: "NOTIFICATIONS_STYLE_SOUND_TITLE".localized(),
                             rightAccessory: .dropDown(
-                                .dynamicString { notificationSound.displayName }
+                                .dynamicString { current.notificationSound.displayName }
                             ),
                             onTap: { [weak self] in
                                 self?.transitionToScreen(
@@ -117,7 +146,13 @@ class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSe
                         SessionCell.Info(
                             id: .styleSoundWhenAppIsOpen,
                             title: "NOTIFICATIONS_STYLE_SOUND_WHEN_OPEN_TITLE".localized(),
-                            rightAccessory: .toggle(.settingBool(key: .playNotificationSoundInForeground)),
+                            rightAccessory: .toggle(
+                                .boolValue(
+                                    key: .playNotificationSoundInForeground,
+                                    value: current.playNotificationSoundInForeground,
+                                    oldValue: (previous ?? current).playNotificationSoundInForeground
+                                )
+                            ),
                             onTap: {
                                 Storage.shared.write { db in
                                     db[.playNotificationSoundInForeground] = !db[.playNotificationSoundInForeground]
@@ -134,7 +169,7 @@ class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSe
                             title: "NOTIFICATIONS_STYLE_CONTENT_TITLE".localized(),
                             subtitle: "NOTIFICATIONS_STYLE_CONTENT_DESCRIPTION".localized(),
                             rightAccessory: .dropDown(
-                                .dynamicString { previewType.name }
+                                .dynamicString { current.previewType.name }
                             ),
                             onTap: { [weak self] in
                                 self?.transitionToScreen(
@@ -146,8 +181,5 @@ class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSe
                 )
             ]
         }
-        .removeDuplicates()
-        .handleEvents(didFail: { SNLog("[NotificationSettingsViewModel] Observation failed with error: \($0)") })
-        .publisher(in: Storage.shared)
         .mapToSessionTableViewData(for: self)
 }

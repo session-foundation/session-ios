@@ -109,10 +109,12 @@ public enum OpenGroupAPI {
                 // The 'inbox' and 'outbox' only work with blinded keys so don't bother polling them if not blinded
                 !capabilities.contains(.blind) ? [] :
                 [
-                    // Inbox
-                    (lastInboxMessageId == 0 ?
-                        try preparedInbox(db, on: server, using: dependencies) :
-                        try preparedInboxSince(db, id: lastInboxMessageId, on: server, using: dependencies)
+                    // Inbox (only check the inbox if the user want's community message requests)
+                    (!db[.checkForCommunityMessageRequests] ? nil :
+                        (lastInboxMessageId == 0 ?
+                            try preparedInbox(db, on: server, using: dependencies) :
+                            try preparedInboxSince(db, id: lastInboxMessageId, on: server, using: dependencies)
+                        )
                     ),
                     
                     // Outbox
@@ -120,7 +122,7 @@ public enum OpenGroupAPI {
                         try preparedOutbox(db, on: server, using: dependencies) :
                         try preparedOutboxSince(db, id: lastOutboxMessageId, on: server, using: dependencies)
                     ),
-                ]
+                ].compactMap { $0 }
             )
         )
         

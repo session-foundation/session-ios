@@ -37,7 +37,8 @@ public enum SNMessagingKit: MigratableTarget { // Just to make the external API 
                     (Features.useSharedUtilForUserConfig(db) ?
                         _014_GenerateInitialUserConfigDumps.self :
                         (nil as Migration.Type?)
-                    )
+                    ),
+                    _015_BlockCommunityMessageRequests.self
                 ].compactMap { $0 }
             ]
         )
