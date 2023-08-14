@@ -4,6 +4,7 @@ import Foundation
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 import SignalCoreKit
+import SessionMessagingKit
 
 public class AppEnvironment {
 

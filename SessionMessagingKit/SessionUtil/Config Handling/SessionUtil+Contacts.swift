@@ -573,7 +573,8 @@ private extension SessionUtil {
                         count: ProfileManager.avatarAES256KeyByteLength
                     )
                 ),
-                lastProfilePictureUpdate: (TimeInterval(latestConfigSentTimestampMs) / 1000)
+                lastProfilePictureUpdate: (TimeInterval(latestConfigSentTimestampMs) / 1000),
+                lastBlocksCommunityMessageRequests: 0
             )
             
             result[contactId] = ContactData(

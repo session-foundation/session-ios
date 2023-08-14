@@ -8,7 +8,7 @@ enum _009_OpenGroupPermission: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "OpenGroupPermission"
     static let needsConfigSync: Bool = false
-    static let minExpectedRunDuration: TimeInterval = 0.1
+    static let minExpectedRunDuration: TimeInterval = 0.01
     
     static func migrate(_ db: GRDB.Database) throws {
         try db.alter(table: OpenGroup.self) { t in

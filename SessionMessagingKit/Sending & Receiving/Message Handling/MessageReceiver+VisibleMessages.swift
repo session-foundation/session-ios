@@ -31,6 +31,7 @@ extension MessageReceiver {
                 db,
                 publicKey: sender,
                 name: profile.displayName,
+                blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
                 avatarUpdate: {
                     guard
                         let profilePictureUrl: String = profile.profilePictureUrl,
@@ -73,7 +74,7 @@ extension MessageReceiver {
             
             return try? OpenGroup.fetchOne(db, id: threadId)
         }()
-        let variant: Interaction.Variant = {
+        let variant: Interaction.Variant = try {
             guard
                 let senderSessionId: SessionId = SessionId(from: sender),
                 let openGroup: OpenGroup = maybeOpenGroup
@@ -115,6 +116,10 @@ extension MessageReceiver {
                         .standardOutgoing :
                         .standardIncoming
                     )
+                    
+                case .group:
+                    SNLog("Ignoring message with invalid sender.")
+                    throw HTTPError.parsingFailed
             }
         }()
         

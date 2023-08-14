@@ -2497,6 +2497,9 @@ extension SNProtoDataMessageClosedGroupControlMessage.SNProtoDataMessageClosedGr
         if let _value = syncTarget {
             builder.setSyncTarget(_value)
         }
+        if hasBlocksCommunityMessageRequests {
+            builder.setBlocksCommunityMessageRequests(blocksCommunityMessageRequests)
+        }
         return builder
     }
 
@@ -2568,6 +2571,10 @@ extension SNProtoDataMessageClosedGroupControlMessage.SNProtoDataMessageClosedGr
 
         @objc public func setSyncTarget(_ valueParam: String) {
             proto.syncTarget = valueParam
+        }
+
+        @objc public func setBlocksCommunityMessageRequests(_ valueParam: Bool) {
+            proto.blocksCommunityMessageRequests = valueParam
         }
 
         @objc public func build() throws -> SNProtoDataMessage {
@@ -2644,6 +2651,13 @@ extension SNProtoDataMessageClosedGroupControlMessage.SNProtoDataMessageClosedGr
     }
     @objc public var hasSyncTarget: Bool {
         return proto.hasSyncTarget
+    }
+
+    @objc public var blocksCommunityMessageRequests: Bool {
+        return proto.blocksCommunityMessageRequests
+    }
+    @objc public var hasBlocksCommunityMessageRequests: Bool {
+        return proto.hasBlocksCommunityMessageRequests
     }
 
     private init(proto: SessionProtos_DataMessage,

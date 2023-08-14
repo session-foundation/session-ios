@@ -31,14 +31,9 @@ public enum SNMessagingKit: MigratableTarget { // Just to make the external API 
                     _011_AddPendingReadReceipts.self,
                     _012_AddFTSIfNeeded.self,
                     _013_SessionUtilChanges.self,
-                    // Wait until the feature is turned on before doing the migration that generates
-                    // the config dump data
-                    // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-                    (Features.useSharedUtilForUserConfig(db) ?
-                        _014_GenerateInitialUserConfigDumps.self :
-                        (nil as Migration.Type?)
-                    )
-                ].compactMap { $0 }
+                    _014_GenerateInitialUserConfigDumps.self,
+                    _015_BlockCommunityMessageRequests.self
+                ]
             ]
         )
     }

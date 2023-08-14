@@ -436,7 +436,8 @@ public final class MessageSender {
         
         // Attach the user's profile
         message.profile = VisibleMessage.VMProfile(
-            profile: Profile.fetchOrCreateCurrentUser()
+            profile: Profile.fetchOrCreateCurrentUser(db),
+            blocksCommunityMessageRequests: !db[.checkForCommunityMessageRequests]
         )
 
         if (message.profile?.displayName ?? "").isEmpty {

@@ -10,6 +10,7 @@ import SignalCoreKit
 
 final class ShareNavController: UINavigationController, ShareViewDelegate {
     public static var attachmentPrepPublisher: AnyPublisher<[SignalAttachment], Error>?
+    private let versionMigrationsComplete: Atomic<Bool> = Atomic(false)
     
     // MARK: - Error
     
@@ -24,6 +25,8 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     
     override func loadView() {
         super.loadView()
+        
+        view.themeBackgroundColor = .backgroundPrimary
 
         // This should be the first thing we do (Note: If you leave the share context and return to it
         // the context will already exist, trying to override it results in the share context crashing
@@ -78,6 +81,12 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
             name: .OWSApplicationDidEnterBackground,
             object: nil
         )
+        
+        /// **Note:** If the user opens, dismisses and re-opens the share extension it'll actually use the same instance which
+        /// results in the `AppSetup` not actually running (and the UI not actually being loaded correctly) - in order to avoid this
+        /// we call `checkIsAppReady` explicitly here assuming that either the `AppSetup` _hasn't_ complete or won't ever
+        /// get run
+        checkIsAppReady(migrationsCompleted: versionMigrationsComplete.wrappedValue)
     }
     
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -100,6 +109,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
             }
         }
 
+        versionMigrationsComplete.mutate { $0 = true }
         checkIsAppReady(migrationsCompleted: true)
     }
 
@@ -108,9 +118,14 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
 
         // App isn't ready until storage is ready AND all version migrations are complete.
         guard migrationsCompleted else { return }
-        guard Storage.shared.isValid else { return }
+        guard Storage.shared.isValid else {
+            // If the database is invalid then the UI will handle it
+            showLockScreenOrMainContent()
+            return
+        }
         guard !AppReadiness.isAppReady() else {
             // Only mark the app as ready once.
+            showLockScreenOrMainContent()
             return
         }
 
@@ -211,11 +226,11 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     }
     
     func shareViewWasCompleted() {
-        extensionContext!.completeRequest(returningItems: [], completionHandler: nil)
+        extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
     }
     
     func shareViewWasCancelled() {
-        extensionContext!.completeRequest(returningItems: [], completionHandler: nil)
+        extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
     }
     
     func shareViewFailed(error: Error) {

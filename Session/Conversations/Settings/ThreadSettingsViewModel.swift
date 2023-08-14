@@ -9,6 +9,7 @@ import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.NavButton, ThreadSettingsViewModel.Section, ThreadSettingsViewModel.Setting> {
     // MARK: - Config
@@ -178,6 +179,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
     
     // MARK: - Content
     
+    private var originalState: SessionThreadViewModel?
     override var title: String {
         switch threadVariant {
             case .contact: return "vc_settings_title".localized()
@@ -235,6 +237,8 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                 threadViewModel.currentUserIsClosedGroupAdmin == true
             )
             let editIcon: UIImage? = UIImage(named: "icon_edit")
+            let originalState: SessionThreadViewModel = (self?.originalState ?? threadViewModel)
+            self?.originalState = threadViewModel
             
             return [
                 SectionModel(
@@ -577,7 +581,10 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 title: "vc_conversation_settings_notify_for_mentions_only_title".localized(),
                                 subtitle: "vc_conversation_settings_notify_for_mentions_only_explanation".localized(),
                                 rightAccessory: .toggle(
-                                    .boolValue(threadViewModel.threadOnlyNotifyForMentions == true)
+                                    .boolValue(
+                                        threadViewModel.threadOnlyNotifyForMentions == true,
+                                        oldValue: (originalState.threadOnlyNotifyForMentions == true)
+                                    )
                                 ),
                                 isEnabled: (
                                     (
@@ -615,7 +622,10 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 ),
                                 title: "CONVERSATION_SETTINGS_MUTE_LABEL".localized(),
                                 rightAccessory: .toggle(
-                                    .boolValue(threadViewModel.threadMutedUntilTimestamp != nil)
+                                    .boolValue(
+                                        threadViewModel.threadMutedUntilTimestamp != nil,
+                                        oldValue: (originalState.threadMutedUntilTimestamp != nil)
+                                    )
                                 ),
                                 isEnabled: (
                                     (
@@ -661,7 +671,10 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 ),
                                 title: "CONVERSATION_SETTINGS_BLOCK_THIS_USER".localized(),
                                 rightAccessory: .toggle(
-                                    .boolValue(threadViewModel.threadIsBlocked == true)
+                                    .boolValue(
+                                        threadViewModel.threadIsBlocked == true,
+                                        oldValue: (originalState.threadIsBlocked == true)
+                                    )
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "\(ThreadSettingsViewModel.self).block",

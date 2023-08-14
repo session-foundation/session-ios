@@ -5,6 +5,7 @@ import Combine
 import SessionSnodeKit
 import SessionUtilitiesKit
 
+// FIXME: Remove this once legacy notifications and legacy groups are deprecated
 public enum NotifyPushServerJob: JobExecutor {
     public static var maxFailureCount: Int = 20
     public static var requiresThreadId: Bool = false
@@ -27,7 +28,7 @@ public enum NotifyPushServerJob: JobExecutor {
         }
         
         PushNotificationAPI
-            .notify(
+            .legacyNotify(
                 recipient: details.message.recipient,
                 with: details.message.data,
                 maxRetryCount: 4

@@ -2,6 +2,7 @@
 
 import UIKit
 import SessionMessagingKit
+import SessionUtilitiesKit
 
 extension ContextMenuVC {
     struct Action {

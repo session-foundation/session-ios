@@ -4,6 +4,7 @@ import Foundation
 import SessionUIKit
 import SessionSnodeKit
 import SessionMessagingKit
+import SessionUtilitiesKit
 
 public enum Configuration {
     public static func performMainSetup() {

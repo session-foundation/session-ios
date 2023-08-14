@@ -97,7 +97,7 @@ extension OpenGroupAPI.Message {
                         throw HTTPError.parsingFailed
                     }
                     
-                case .none:
+                case .none, .group:
                     SNLog("Ignoring message with invalid sender.")
                     throw HTTPError.parsingFailed
             }

@@ -3,6 +3,7 @@
 import Foundation
 import GRDB
 import Sodium
+import SessionUIKit
 import SessionUtilitiesKit
 import SessionSnodeKit
 
@@ -64,6 +65,11 @@ public enum MessageReceiver {
                                 userEd25519KeyPair: userEd25519KeyPair,
                                 using: dependencies
                             )
+                            
+                        case .group:
+                            // TODO: Need to decide how we will handle updated group messages
+                            SNLog("Ignoring message with invalid sender.")
+                            throw HTTPError.parsingFailed
                     }
                     
                 case .closedGroupMessage:
@@ -242,13 +248,6 @@ public enum MessageReceiver {
                     message: message
                 )
                 
-            case let message as ConfigurationMessage:
-                try MessageReceiver.handleLegacyConfigurationMessage(
-                    db,
-                    message: message,
-                    using: dependencies
-                )
-                
             case let message as UnsendRequest:
                 try MessageReceiver.handleUnsendRequest(
                     db,
@@ -282,6 +281,7 @@ public enum MessageReceiver {
                 )
                 
             // SharedConfigMessages should be handled by the 'SharedUtil' instead of this
+            case is ConfigurationMessage: TopBannerController.show(warning: .outdatedUserConfig)
             case is SharedConfigMessage: throw MessageReceiverError.invalidSharedConfigMessageHandling
                 
             default: fatalError()

@@ -6,6 +6,7 @@ import SessionUIKit
 import SessionMessagingKit
 import SignalCoreKit
 import SignalUtilitiesKit
+import SessionUtilitiesKit
 
 public class MediaView: UIView {
     static let contentMode: UIView.ContentMode = .scaleAspectFill

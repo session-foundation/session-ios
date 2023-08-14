@@ -110,6 +110,14 @@ public extension Crypto.Action {
     }
 }
 
+// MARK: - AeadXChaCha20Poly1305Ietf
+
+public extension Crypto.Size {
+    static let aeadXChaCha20NonceBytes: Crypto.Size = Crypto.Size(id: "aeadXChaCha20NonceBytes") {
+        Sodium().aead.xchacha20poly1305ietf.NonceBytes
+    }
+}
+
 // MARK: - Ed25519
 
 public extension Crypto.Action {
