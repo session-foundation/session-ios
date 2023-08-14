@@ -107,22 +107,25 @@ class MessageReceiverDisappearingMessagesSpec: QuickSpec {
                 // MARK: -- updates the local config properly
                 it("updates the local config properly") {
                     mockStorage.write { db in
-                        try MessageReceiver.updateDisappearingMessagesConfigurationIfNeeded(
-                            db,
-                            threadId: "TestId",
-                            threadVariant: .contact,
-                            message: mockMessage,
-                            proto: mockProto
-                        )
+                        do {
+                            try MessageReceiver.updateDisappearingMessagesConfigurationIfNeeded(
+                                db,
+                                threadId: "TestId",
+                                threadVariant: .contact,
+                                message: mockMessage,
+                                proto: mockProto
+                            )
+                        }
+                        catch {
+                            print(error)
+                        }
                     }
                     
                     let updatedConfig: DisappearingMessagesConfiguration? = mockStorage.read { db in
                         try DisappearingMessagesConfiguration.fetchOne(db, id: "TestId")
                     }
                     
-                    expect(updatedConfig?.isEnabled).to(beFalse())
-                    
-//                    expect(updatedConfig?.isEnabled).to(beTrue())
+                    expect(updatedConfig?.isEnabled).to(beTrue())
 //                    expect(updatedConfig?.durationSeconds)
 //                        .to(equal(DisappearingMessagesConfiguration.DefaultDuration.disappearAfterRead.seconds))
 //                    expect(updatedConfig?.type).to(equal(.disappearAfterRead))
