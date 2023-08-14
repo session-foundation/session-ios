@@ -36,8 +36,8 @@ class MessageReceiverDisappearingMessagesSpec: QuickSpec {
                 
                 let proto = SNProtoContent.builder()
                 let dataMessage = SNProtoDataMessage.builder()
-                proto.setExpirationType(.deleteAfterSend)
-                proto.setExpirationTimer(UInt32(DisappearingMessagesConfiguration.DefaultDuration.disappearAfterSend.seconds))
+                proto.setExpirationType(.deleteAfterRead)
+                proto.setExpirationTimer(UInt32(DisappearingMessagesConfiguration.DefaultDuration.disappearAfterRead.seconds))
                 proto.setLastDisappearingMessageChangeTimestamp((1234567890 - (60 * 10)) * 1000)
                 dataMessage.setBody("Test")
                 proto.setDataMessage(try! dataMessage.build())
@@ -65,32 +65,6 @@ class MessageReceiverDisappearingMessagesSpec: QuickSpec {
                 mockStorage = nil
                 mockProto = nil
             }
-            
-//            // MARK: - when receiving a newer disappearing message config update
-//            context("when receiving a newer disappearing message config update") {
-//                // MARK: -- updates the local config properly
-//                it("updates the local config properly") {
-//                    mockStorage.write { db in
-//                        try MessageReceiver.handle(
-//                            db,
-//                            threadId: "TestId",
-//                            threadVariant: .contact,
-//                            message: mockMessage,
-//                            serverExpirationTimestamp: nil,
-//                            associatedWithProto: mockProto
-//                        )
-//                    }
-//                    
-//                    let updatedConfig: DisappearingMessagesConfiguration? = mockStorage.read { db in
-//                        try DisappearingMessagesConfiguration.fetchOne(db, id: "TestId")
-//                    }
-//                    
-//                    expect(updatedConfig?.isEnabled).to(beTrue())
-//                    expect(updatedConfig?.durationSeconds)
-//                        .to(equal(DisappearingMessagesConfiguration.DefaultDuration.disappearAfterSend.seconds))
-//                    expect(updatedConfig?.type).to(equal(.disappearAfterSend))
-//                }
-//            }
             
             // MARK: - when receiving an outdated disappearing message config update
             context("when receiving an outdated disappearing message config update") {
@@ -125,6 +99,32 @@ class MessageReceiverDisappearingMessagesSpec: QuickSpec {
                     expect(updatedConfig?.isEnabled).to(beFalse())
                     expect(updatedConfig?.durationSeconds).to(equal(0))
                     expect(updatedConfig?.type).to(equal(.unknown))
+                }
+            }
+            
+            // MARK: - when receiving a newer disappearing message config update
+            context("when receiving a newer disappearing message config update") {
+                // MARK: -- updates the local config properly
+                it("updates the local config properly") {
+                    mockStorage.write { db in
+                        try MessageReceiver.handle(
+                            db,
+                            threadId: "TestId",
+                            threadVariant: .contact,
+                            message: mockMessage,
+                            serverExpirationTimestamp: nil,
+                            associatedWithProto: mockProto
+                        )
+                    }
+                    
+                    let updatedConfig: DisappearingMessagesConfiguration? = mockStorage.read { db in
+                        try DisappearingMessagesConfiguration.fetchOne(db, id: "TestId")
+                    }
+                    
+                    expect(updatedConfig?.isEnabled).to(beTrue())
+                    expect(updatedConfig?.durationSeconds)
+                        .to(equal(DisappearingMessagesConfiguration.DefaultDuration.disappearAfterRead.seconds))
+                    expect(updatedConfig?.type).to(equal(.disappearAfterRead))
                 }
             }
         }
