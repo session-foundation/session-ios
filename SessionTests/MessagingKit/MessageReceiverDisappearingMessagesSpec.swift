@@ -107,13 +107,12 @@ class MessageReceiverDisappearingMessagesSpec: QuickSpec {
                 // MARK: -- updates the local config properly
                 it("updates the local config properly") {
                     mockStorage.write { db in
-                        try MessageReceiver.handle(
+                        try MessageReceiver.updateDisappearingMessagesConfigurationIfNeeded(
                             db,
                             threadId: "TestId",
                             threadVariant: .contact,
                             message: mockMessage,
-                            serverExpirationTimestamp: nil,
-                            associatedWithProto: mockProto
+                            proto: mockProto
                         )
                     }
                     

@@ -139,7 +139,7 @@ extension MessageReceiver {
         ).inserted(db)
     }
     
-    internal static func updateDisappearingMessagesConfigurationIfNeeded(
+    public static func updateDisappearingMessagesConfigurationIfNeeded(
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
