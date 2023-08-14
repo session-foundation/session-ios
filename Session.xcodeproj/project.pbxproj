@@ -3646,8 +3646,8 @@
 				FD368A6729DE8F9B000DBF1E /* _012_AddFTSIfNeeded.swift */,
 				FD8ECF7C2934293A00C0D1BB /* _013_SessionUtilChanges.swift */,
 				FD778B6329B189FF001BAC6B /* _014_GenerateInitialUserConfigDumps.swift */,
-				7B5233C5290636D700F8F375 /* _016_DisappearingMessagesConfiguration.swift */,
 				FD1D732D2A86114600E3F410 /* _015_BlockCommunityMessageRequests.swift */,
+				7B5233C5290636D700F8F375 /* _016_DisappearingMessagesConfiguration.swift */,
 			);
 			path = Migrations;
 			sourceTree = "<group>";
