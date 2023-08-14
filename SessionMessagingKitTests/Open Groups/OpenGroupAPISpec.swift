@@ -243,10 +243,12 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- when blinded
-                context("when blinded") {
+                // MARK: -- when blinded and checking for message requests
+                context("when blinded and checking for message requests") {
                     beforeEach {
                         mockStorage.write { db in
+                            db[.checkForCommunityMessageRequests] = true
+                            
                             _ = try Capability.deleteAll(db)
                             try Capability(openGroupServer: "testserver", variant: .sogs, isMissing: false).insert(db)
                             try Capability(openGroupServer: "testserver", variant: .blind, isMissing: false).insert(db)
@@ -337,6 +339,69 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         
                         expect(preparedRequest?.batchEndpoints).to(contain(.outboxSince(id: 125)))
+                    }
+                }
+                
+                // MARK: -- when blinded and not checking for message requests
+                context("when blinded and not checking for message requests") {
+                    beforeEach {
+                        mockStorage.write { db in
+                            db[.checkForCommunityMessageRequests] = false
+                            
+                            _ = try Capability.deleteAll(db)
+                            try Capability(openGroupServer: "testserver", variant: .sogs, isMissing: false).insert(db)
+                            try Capability(openGroupServer: "testserver", variant: .blind, isMissing: false).insert(db)
+                        }
+                    }
+                    
+                    // MARK: ---- includes the inbox and outbox endpoints
+                    it("does not include the inbox endpoint") {
+                        let preparedRequest: OpenGroupAPI.PreparedSendData<OpenGroupAPI.BatchResponse>? = mockStorage.read { db in
+                            try OpenGroupAPI.preparedPoll(
+                                db,
+                                server: "testserver",
+                                hasPerformedInitialPoll: false,
+                                timeSinceLastPoll: 0,
+                                using: dependencies
+                            )
+                        }
+                        
+                        expect(preparedRequest?.batchEndpoints).toNot(contain(.inbox))
+                    }
+                    
+                    // MARK: ---- does not retrieve recent inbox messages if there was no last message
+                    it("does not retrieve recent inbox messages if there was no last message") {
+                        let preparedRequest: OpenGroupAPI.PreparedSendData<OpenGroupAPI.BatchResponse>? = mockStorage.read { db in
+                            try OpenGroupAPI.preparedPoll(
+                                db,
+                                server: "testserver",
+                                hasPerformedInitialPoll: true,
+                                timeSinceLastPoll: 0,
+                                using: dependencies
+                            )
+                        }
+                        
+                        expect(preparedRequest?.batchEndpoints).toNot(contain(.inbox))
+                    }
+                    
+                    // MARK: ---- does not retrieve inbox messages since the last message if there was one
+                    it("does not retrieve inbox messages since the last message if there was one") {
+                        mockStorage.write { db in
+                            try OpenGroup
+                                .updateAll(db, OpenGroup.Columns.inboxLatestMessageId.set(to: 124))
+                        }
+                        
+                        let preparedRequest: OpenGroupAPI.PreparedSendData<OpenGroupAPI.BatchResponse>? = mockStorage.read { db in
+                            try OpenGroupAPI.preparedPoll(
+                                db,
+                                server: "testserver",
+                                hasPerformedInitialPoll: true,
+                                timeSinceLastPoll: 0,
+                                using: dependencies
+                            )
+                        }
+                        
+                        expect(preparedRequest?.batchEndpoints).toNot(contain(.inboxSince(id: 124)))
                     }
                 }
             }

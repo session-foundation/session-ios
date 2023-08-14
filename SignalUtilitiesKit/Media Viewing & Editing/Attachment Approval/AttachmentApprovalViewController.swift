@@ -9,6 +9,7 @@ import CoreServices
 import SessionUIKit
 import SessionMessagingKit
 import SignalCoreKit
+import SessionUtilitiesKit
 
 public protocol AttachmentApprovalViewControllerDelegate: AnyObject {
     func attachmentApproval(

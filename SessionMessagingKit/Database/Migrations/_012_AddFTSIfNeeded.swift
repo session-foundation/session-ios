@@ -9,7 +9,7 @@ enum _012_AddFTSIfNeeded: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "AddFTSIfNeeded"
     static let needsConfigSync: Bool = false
-    static let minExpectedRunDuration: TimeInterval = 0.1
+    static let minExpectedRunDuration: TimeInterval = 0.01
     
     static func migrate(_ db: Database) throws {
         // Fix an issue that the fullTextSearchTable was dropped unintentionally and global search won't work.

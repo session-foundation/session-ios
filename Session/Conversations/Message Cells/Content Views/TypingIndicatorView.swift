@@ -3,6 +3,7 @@
 import UIKit
 import SessionUIKit
 import SignalCoreKit
+import SessionUtilitiesKit
 
 @objc class TypingIndicatorView: UIStackView {
     // This represents the spacing between the dots

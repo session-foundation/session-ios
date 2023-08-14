@@ -37,7 +37,6 @@ public enum SNUserDefaults {
     }
 
     public enum Date: Swift.String {
-        case lastConfigurationSync
         case lastProfilePictureUpload
         case lastOpenGroupImageUpdate
         case lastOpen
@@ -62,8 +61,10 @@ public enum SNUserDefaults {
 }
 
 public extension UserDefaults {
+    public static let applicationGroup: String = "group.com.loki-project.loki-messenger"
+    
     @objc static var sharedLokiProject: UserDefaults? {
-        UserDefaults(suiteName: "group.com.loki-project.loki-messenger")
+        UserDefaults(suiteName: UserDefaults.applicationGroup)
     }
 }
 

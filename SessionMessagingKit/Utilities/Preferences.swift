@@ -65,6 +65,9 @@ public extension Setting.BoolKey {
     /// Controls whether concurrent audio messages should automatically be played after the one the user starts
     /// playing finishes
     static let shouldAutoPlayConsecutiveAudioMessages: Setting.BoolKey = "shouldAutoPlayConsecutiveAudioMessages"
+    
+    /// Controls whether the device will poll for community message requests (SOGS `/inbox` endpoint)
+    static let checkForCommunityMessageRequests: Setting.BoolKey = "checkForCommunityMessageRequests"
 }
 
 public extension Setting.StringKey {

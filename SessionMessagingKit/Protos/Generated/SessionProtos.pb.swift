@@ -664,7 +664,7 @@ struct SessionProtos_DataMessage {
     set {_uniqueStorage()._attachments = newValue}
   }
 
-  /// optional GroupContext           group                     = 3;  // No longer used
+  /// optional GroupContext           group                          = 3;  // No longer used
   var flags: UInt32 {
     get {return _storage._flags ?? 0}
     set {_uniqueStorage()._flags = newValue}
@@ -759,6 +759,15 @@ struct SessionProtos_DataMessage {
   var hasSyncTarget: Bool {return _storage._syncTarget != nil}
   /// Clears the value of `syncTarget`. Subsequent reads from it will return its default value.
   mutating func clearSyncTarget() {_uniqueStorage()._syncTarget = nil}
+
+  var blocksCommunityMessageRequests: Bool {
+    get {return _storage._blocksCommunityMessageRequests ?? false}
+    set {_uniqueStorage()._blocksCommunityMessageRequests = newValue}
+  }
+  /// Returns true if `blocksCommunityMessageRequests` has been explicitly set.
+  var hasBlocksCommunityMessageRequests: Bool {return _storage._blocksCommunityMessageRequests != nil}
+  /// Clears the value of `blocksCommunityMessageRequests`. Subsequent reads from it will return its default value.
+  mutating func clearBlocksCommunityMessageRequests() {_uniqueStorage()._blocksCommunityMessageRequests = nil}
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -2348,6 +2357,7 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
     102: .same(proto: "openGroupInvitation"),
     104: .same(proto: "closedGroupControlMessage"),
     105: .same(proto: "syncTarget"),
+    106: .same(proto: "blocksCommunityMessageRequests"),
   ]
 
   fileprivate class _StorageClass {
@@ -2364,6 +2374,7 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
     var _openGroupInvitation: SessionProtos_DataMessage.OpenGroupInvitation? = nil
     var _closedGroupControlMessage: SessionProtos_DataMessage.ClosedGroupControlMessage? = nil
     var _syncTarget: String? = nil
+    var _blocksCommunityMessageRequests: Bool? = nil
 
     static let defaultInstance = _StorageClass()
 
@@ -2383,6 +2394,7 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
       _openGroupInvitation = source._openGroupInvitation
       _closedGroupControlMessage = source._closedGroupControlMessage
       _syncTarget = source._syncTarget
+      _blocksCommunityMessageRequests = source._blocksCommunityMessageRequests
     }
   }
 
@@ -2426,6 +2438,7 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
         case 102: try { try decoder.decodeSingularMessageField(value: &_storage._openGroupInvitation) }()
         case 104: try { try decoder.decodeSingularMessageField(value: &_storage._closedGroupControlMessage) }()
         case 105: try { try decoder.decodeSingularStringField(value: &_storage._syncTarget) }()
+        case 106: try { try decoder.decodeSingularBoolField(value: &_storage._blocksCommunityMessageRequests) }()
         default: break
         }
       }
@@ -2473,6 +2486,9 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
       if let v = _storage._syncTarget {
         try visitor.visitSingularStringField(value: v, fieldNumber: 105)
       }
+      if let v = _storage._blocksCommunityMessageRequests {
+        try visitor.visitSingularBoolField(value: v, fieldNumber: 106)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -2495,6 +2511,7 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
         if _storage._openGroupInvitation != rhs_storage._openGroupInvitation {return false}
         if _storage._closedGroupControlMessage != rhs_storage._closedGroupControlMessage {return false}
         if _storage._syncTarget != rhs_storage._syncTarget {return false}
+        if _storage._blocksCommunityMessageRequests != rhs_storage._blocksCommunityMessageRequests {return false}
         return true
       }
       if !storagesAreEqual {return false}

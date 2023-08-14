@@ -33,6 +33,11 @@ class ConversationSettingsViewModel: SessionTableViewModel<NoNav, ConversationSe
     
     // MARK: - Content
     
+    private struct State: Equatable {
+        let trimOpenGroupMessagesOlderThanSixMonths: Bool
+        let shouldAutoPlayConsecutiveAudioMessages: Bool
+    }
+    
     override var title: String { "CONVERSATION_SETTINGS_TITLE".localized() }
     
     public override var observableTableData: ObservableData { _observableTableData }
@@ -45,7 +50,17 @@ class ConversationSettingsViewModel: SessionTableViewModel<NoNav, ConversationSe
     /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
     private lazy var _observableTableData: ObservableData = ValueObservation
-        .trackingConstantRegion { db -> [SectionModel] in
+        .trackingConstantRegion { [weak self] db -> State in
+            State(
+                trimOpenGroupMessagesOlderThanSixMonths: db[.trimOpenGroupMessagesOlderThanSixMonths],
+                shouldAutoPlayConsecutiveAudioMessages: db[.shouldAutoPlayConsecutiveAudioMessages]
+            )
+        }
+        .removeDuplicates()
+        .handleEvents(didFail: { SNLog("[ConversationSettingsViewModel] Observation failed with error: \($0)") })
+        .publisher(in: Storage.shared)
+        .withPrevious()
+        .map { (previous: State?, current: State) -> [SectionModel] in
             return [
                 SectionModel(
                     model: .messageTrimming,
@@ -55,7 +70,11 @@ class ConversationSettingsViewModel: SessionTableViewModel<NoNav, ConversationSe
                             title: "CONVERSATION_SETTINGS_MESSAGE_TRIMMING_TITLE".localized(),
                             subtitle: "CONVERSATION_SETTINGS_MESSAGE_TRIMMING_DESCRIPTION".localized(),
                             rightAccessory: .toggle(
-                                .settingBool(key: .trimOpenGroupMessagesOlderThanSixMonths)
+                                .boolValue(
+                                    key: .trimOpenGroupMessagesOlderThanSixMonths,
+                                    value: current.trimOpenGroupMessagesOlderThanSixMonths,
+                                    oldValue: (previous ?? current).trimOpenGroupMessagesOlderThanSixMonths
+                                )
                             ),
                             onTap: {
                                 Storage.shared.write { db in
@@ -73,7 +92,11 @@ class ConversationSettingsViewModel: SessionTableViewModel<NoNav, ConversationSe
                             title: "CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_TITLE".localized(),
                             subtitle: "CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_DESCRIPTION".localized(),
                             rightAccessory: .toggle(
-                                .settingBool(key: .shouldAutoPlayConsecutiveAudioMessages)
+                                .boolValue(
+                                    key: .shouldAutoPlayConsecutiveAudioMessages,
+                                    value: current.shouldAutoPlayConsecutiveAudioMessages,
+                                    oldValue: (previous ?? current).shouldAutoPlayConsecutiveAudioMessages
+                                )
                             ),
                             onTap: {
                                 Storage.shared.write { db in
@@ -103,8 +126,5 @@ class ConversationSettingsViewModel: SessionTableViewModel<NoNav, ConversationSe
                 )
             ]
         }
-        .removeDuplicates()
-        .handleEvents(didFail: { SNLog("[ConversationSettingsViewModel] Observation failed with error: \($0)") })
-        .publisher(in: Storage.shared)
         .mapToSessionTableViewData(for: self)
 }

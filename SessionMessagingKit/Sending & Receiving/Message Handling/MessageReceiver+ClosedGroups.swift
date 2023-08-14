@@ -231,8 +231,24 @@ extension MessageReceiver {
         // Start polling
         ClosedGroupPoller.shared.startIfNeeded(for: groupPublicKey, using: dependencies)
         
-        // Notify the PN server
-        let _ = PushNotificationAPI.performOperation(.subscribe, for: groupPublicKey, publicKey: getUserHexEncodedPublicKey(db))
+        // Resubscribe for group push notifications
+        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
+        
+        PushNotificationAPI
+            .subscribeToLegacyGroups(
+                currentUserPublicKey: currentUserPublicKey,
+                legacyGroupIds: try ClosedGroup
+                    .select(.threadId)
+                    .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%"))
+                    .joining(
+                        required: ClosedGroup.members
+                            .filter(GroupMember.Columns.profileId == currentUserPublicKey)
+                    )
+                    .asRequest(of: String.self)
+                    .fetchSet(db)
+                    .inserting(groupPublicKey)  // Insert the new key just to be sure
+            )
+            .sinkUntilComplete()
     }
 
     /// Extracts and adds the new encryption key pair to our list of key pairs if there is one for our public key, AND the message was

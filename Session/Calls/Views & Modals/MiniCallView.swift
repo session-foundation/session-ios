@@ -3,6 +3,7 @@
 import UIKit
 import WebRTC
 import SessionUIKit
+import SessionUtilitiesKit
 
 final class MiniCallView: UIView, RTCVideoViewDelegate {
     var callVC: CallVC

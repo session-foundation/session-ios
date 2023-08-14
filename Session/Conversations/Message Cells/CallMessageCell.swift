@@ -3,6 +3,7 @@
 import UIKit
 import SessionUIKit
 import SessionMessagingKit
+import SessionUtilitiesKit
 
 final class CallMessageCell: MessageCell {
     private static let iconSize: CGFloat = 16

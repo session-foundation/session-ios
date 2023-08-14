@@ -197,6 +197,7 @@ public final class JobRunner: JobRunnerType {
         self.blockingQueue = Atomic(
             JobQueue(
                 type: .blocking,
+                executionType: .serial,
                 qos: .default,
                 isTestingJobRunner: isTestingJobRunner,
                 jobVariants: []
@@ -242,6 +243,7 @@ public final class JobRunner: JobRunnerType {
             
             JobQueue(
                 type: .attachmentDownload,
+                executionType: .serial,
                 qos: .utility,
                 isTestingJobRunner: isTestingJobRunner,
                 jobVariants: [
@@ -266,6 +268,7 @@ public final class JobRunner: JobRunnerType {
             
             JobQueue(
                 type: .general(number: 0),
+                executionType: .serial,
                 qos: .utility,
                 isTestingJobRunner: isTestingJobRunner,
                 jobVariants: Array(jobVariants)
@@ -843,7 +846,7 @@ public final class JobQueue: Hashable {
     
     fileprivate init(
         type: QueueType,
-        executionType: ExecutionType = .serial,
+        executionType: ExecutionType,
         qos: DispatchQoS,
         isTestingJobRunner: Bool,
         jobVariants: [Job.Variant]

@@ -7,6 +7,7 @@ import DifferenceKit
 import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
+import SessionUtilitiesKit
 
 final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate {
     private struct GroupMemberDisplayInfo: FetchableRecord, Equatable, Hashable, Decodable, Differentiable {

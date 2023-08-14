@@ -3,6 +3,7 @@
 import UIKit
 import SessionMessagingKit
 import SessionUIKit
+import SessionUtilitiesKit
 
 protocol SwipeActionOptimisticCell {
     func optimisticUpdate(isMuted: Bool?, isBlocked: Bool?, isPinned: Bool?, hasUnread: Bool?)

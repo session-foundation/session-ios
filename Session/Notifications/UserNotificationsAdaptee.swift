@@ -6,6 +6,7 @@ import UserNotifications
 import SessionMessagingKit
 import SignalCoreKit
 import SignalUtilitiesKit
+import SessionUtilitiesKit
 
 class UserNotificationConfig {
 

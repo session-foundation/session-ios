@@ -27,6 +27,9 @@ class SessionTableViewModel<NavItemId: Equatable, Section: SessionTableSection, 
     open var leftNavItems: AnyPublisher<[NavItem]?, Never> { Just(nil).eraseToAnyPublisher() }
     open var rightNavItems: AnyPublisher<[NavItem]?, Never> { Just(nil).eraseToAnyPublisher() }
     
+    private let _forcedRefresh: PassthroughSubject<Void, Never> = PassthroughSubject()
+    lazy var forcedRefresh: AnyPublisher<Void, Never> = _forcedRefresh
+        .shareReplay(0)
     private let _showToast: PassthroughSubject<(String, ThemeValue), Never> = PassthroughSubject()
     lazy var showToast: AnyPublisher<(String, ThemeValue), Never> = _showToast
         .shareReplay(0)
@@ -62,6 +65,10 @@ class SessionTableViewModel<NavItemId: Equatable, Section: SessionTableSection, 
     func loadPageAfter() { preconditionFailure("abstract class - override in subclass") }
     
     // MARK: - Functions
+    
+    func forceRefresh() {
+        _forcedRefresh.send(())
+    }
     
     func setIsEditing(_ isEditing: Bool) {
         _isEditing.send(isEditing)
@@ -102,7 +109,7 @@ extension Array {
     }
 }
 
-extension AnyPublisher {
+extension Publisher {
     func mapToSessionTableViewData<Nav, Section, Item>(
         for viewModel: SessionTableViewModel<Nav, Section, Item>
     ) -> AnyPublisher<(Output, StagedChangeset<Output>), Failure> where Output == [ArraySection<Section, SessionCell.Info<Item>>] {

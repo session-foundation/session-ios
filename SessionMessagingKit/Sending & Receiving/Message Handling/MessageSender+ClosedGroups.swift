@@ -16,7 +16,7 @@ extension MessageSender {
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<SessionThread, Error> {
         dependencies.storage
-            .writePublisher { db -> (String, SessionThread, [MessageSender.PreparedSendData]) in
+            .writePublisher { db -> (String, SessionThread, [MessageSender.PreparedSendData], Set<String>) in
                 // Generate the group's two keys
                 guard
                     let groupKeyPair: KeyPair = dependencies.crypto.generate(.x25519KeyPair()),
@@ -108,21 +108,30 @@ extension MessageSender {
                             using: dependencies
                         )
                     }
+                let allActiveLegacyGroupIds: Set<String> = try ClosedGroup
+                    .select(.threadId)
+                    .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%"))
+                    .joining(
+                        required: ClosedGroup.members
+                            .filter(GroupMember.Columns.profileId == userPublicKey)
+                    )
+                    .asRequest(of: String.self)
+                    .fetchSet(db)
+                    .inserting(groupPublicKey)  // Insert the new key just to be sure
                 
-                return (userPublicKey, thread, memberSendData)
+                return (userPublicKey, thread, memberSendData, allActiveLegacyGroupIds)
             }
-            .flatMap { userPublicKey, thread, memberSendData in
+            .flatMap { userPublicKey, thread, memberSendData, allActiveLegacyGroupIds in
                 Publishers
                     .MergeMany(
                         // Send a closed group update message to all members individually
                         memberSendData
                             .map { MessageSender.sendImmediate(data: $0, using: dependencies) }
                             .appending(
-                                // Notify the PN server
-                                PushNotificationAPI.performOperation(
-                                    .subscribe,
-                                    for: thread.id,
-                                    publicKey: userPublicKey
+                                // Resubscribe to all legacy groups
+                                PushNotificationAPI.subscribeToLegacyGroups(
+                                    currentUserPublicKey: userPublicKey,
+                                    legacyGroupIds: allActiveLegacyGroupIds
                                 )
                             )
                     )

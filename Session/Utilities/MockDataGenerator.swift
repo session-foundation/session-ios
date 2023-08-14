@@ -4,6 +4,7 @@ import Foundation
 import GRDB
 import Curve25519Kit
 import SessionMessagingKit
+import SessionUtilitiesKit
 
 enum MockDataGenerator {
     // MARK: - Generation
@@ -99,7 +100,8 @@ enum MockDataGenerator {
                         .compactMap { _ in stringContent.randomElement(using: &dmThreadRandomGenerator) }
                         .joined(),
                     lastNameUpdate: Date().timeIntervalSince1970,
-                    lastProfilePictureUpdate: Date().timeIntervalSince1970
+                    lastProfilePictureUpdate: Date().timeIntervalSince1970,
+                    lastBlocksCommunityMessageRequests: 0
                 )
                 .saved(db)
                 
@@ -180,7 +182,8 @@ enum MockDataGenerator {
                             .compactMap { _ in stringContent.randomElement(using: &cgThreadRandomGenerator) }
                             .joined(),
                         lastNameUpdate: Date().timeIntervalSince1970,
-                        lastProfilePictureUpdate: Date().timeIntervalSince1970
+                        lastProfilePictureUpdate: Date().timeIntervalSince1970,
+                        lastBlocksCommunityMessageRequests: 0
                     )
                     .saved(db)
                     
@@ -310,7 +313,8 @@ enum MockDataGenerator {
                             .compactMap { _ in stringContent.randomElement(using: &ogThreadRandomGenerator) }
                             .joined(),
                         lastNameUpdate: Date().timeIntervalSince1970,
-                        lastProfilePictureUpdate: Date().timeIntervalSince1970
+                        lastProfilePictureUpdate: Date().timeIntervalSince1970,
+                        lastBlocksCommunityMessageRequests: 0
                     )
                     .saved(db)
 

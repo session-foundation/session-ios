@@ -422,7 +422,8 @@ enum _003_YDBToGRDBMigration: Migration {
                     profilePictureUrl: legacyContact.profilePictureURL,
                     profilePictureFileName: legacyContact.profilePictureFileName,
                     profileEncryptionKey: legacyContact.profileEncryptionKey?.keyData,
-                    lastProfilePictureUpdate: 0
+                    lastProfilePictureUpdate: 0,
+                    lastBlocksCommunityMessageRequests: 0
                 ).migrationSafeInsert(db)
                 
                 /// **Note:** The blow "shouldForce" flags are here to allow us to avoid having to run legacy migrations they
@@ -646,7 +647,8 @@ enum _003_YDBToGRDBMigration: Migration {
                             id: profileId,
                             name: profileId,
                             lastNameUpdate: 0,
-                            lastProfilePictureUpdate: 0
+                            lastProfilePictureUpdate: 0,
+                            lastBlocksCommunityMessageRequests: 0
                         ).migrationSafeSave(db)
                     }
                     
@@ -1062,7 +1064,8 @@ enum _003_YDBToGRDBMigration: Migration {
                                     id: quotedMessage.authorId,
                                     name: quotedMessage.authorId,
                                     lastNameUpdate: 0,
-                                    lastProfilePictureUpdate: 0
+                                    lastProfilePictureUpdate: 0,
+                                    lastBlocksCommunityMessageRequests: 0
                                 ).migrationSafeSave(db)
                             }
                             
@@ -1853,14 +1856,6 @@ enum _003_YDBToGRDBMigration: Migration {
         NSKeyedUnarchiver.setClass(
             SMKLegacy._ConfigurationMessage.self,
             forClassName: "SNConfigurationMessage"
-        )
-        NSKeyedUnarchiver.setClass(
-            SMKLegacy._CMClosedGroup.self,
-            forClassName: "SNClosedGroup"
-        )
-        NSKeyedUnarchiver.setClass(
-            SMKLegacy._CMContact.self,
-            forClassName: "SNConfigurationMessage.SNConfigurationMessageContact"
         )
         NSKeyedUnarchiver.setClass(
             SMKLegacy._UnsendRequest.self,

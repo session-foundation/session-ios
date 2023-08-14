@@ -7,6 +7,7 @@ import SessionUIKit
 import SessionSnodeKit
 import SessionMessagingKit
 import SignalUtilitiesKit
+import SessionUtilitiesKit
 
 final class NukeDataModal: Modal {
     // MARK: - Initialization
@@ -255,8 +256,9 @@ final class NukeDataModal: Modal {
         let maybeDeviceToken: String? = UserDefaults.standard[.deviceToken]
         
         if isUsingFullAPNs, let deviceToken: String = maybeDeviceToken {
-            let data: Data = Data(hex: deviceToken)
-            PushNotificationAPI.unregister(data).sinkUntilComplete()
+            PushNotificationAPI
+                .unsubscribe(token: Data(hex: deviceToken))
+                .sinkUntilComplete()
         }
         
         /// Stop and cancel all current jobs (don't want to inadvertantly have a job store data after it's table has already been cleared)
