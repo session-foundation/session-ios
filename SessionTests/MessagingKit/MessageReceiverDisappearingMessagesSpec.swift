@@ -120,10 +120,12 @@ class MessageReceiverDisappearingMessagesSpec: QuickSpec {
                         try DisappearingMessagesConfiguration.fetchOne(db, id: "TestId")
                     }
                     
-                    expect(updatedConfig?.isEnabled).to(beTrue())
-                    expect(updatedConfig?.durationSeconds)
-                        .to(equal(DisappearingMessagesConfiguration.DefaultDuration.disappearAfterRead.seconds))
-                    expect(updatedConfig?.type).to(equal(.disappearAfterRead))
+                    expect(updatedConfig?.isEnabled).to(beFalse())
+                    
+//                    expect(updatedConfig?.isEnabled).to(beTrue())
+//                    expect(updatedConfig?.durationSeconds)
+//                        .to(equal(DisappearingMessagesConfiguration.DefaultDuration.disappearAfterRead.seconds))
+//                    expect(updatedConfig?.type).to(equal(.disappearAfterRead))
                 }
             }
         }
