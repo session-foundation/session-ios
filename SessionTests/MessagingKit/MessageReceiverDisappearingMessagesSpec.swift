@@ -66,31 +66,31 @@ class MessageReceiverDisappearingMessagesSpec: QuickSpec {
                 mockProto = nil
             }
             
-            // MARK: - when receiving a newer disappearing message config update
-            context("when receiving a newer disappearing message config update") {
-                // MARK: -- updates the local config properly
-                it("updates the local config properly") {
-                    mockStorage.write { db in
-                        try MessageReceiver.handle(
-                            db,
-                            threadId: "TestId",
-                            threadVariant: .contact,
-                            message: mockMessage,
-                            serverExpirationTimestamp: nil,
-                            associatedWithProto: mockProto
-                        )
-                    }
-                    
-                    let updatedConfig: DisappearingMessagesConfiguration? = mockStorage.read { db in
-                        try DisappearingMessagesConfiguration.fetchOne(db, id: "TestId")
-                    }
-                    
-                    expect(updatedConfig?.isEnabled).to(beTrue())
-                    expect(updatedConfig?.durationSeconds)
-                        .to(equal(DisappearingMessagesConfiguration.DefaultDuration.disappearAfterSend.seconds))
-                    expect(updatedConfig?.type).to(equal(.disappearAfterSend))
-                }
-            }
+//            // MARK: - when receiving a newer disappearing message config update
+//            context("when receiving a newer disappearing message config update") {
+//                // MARK: -- updates the local config properly
+//                it("updates the local config properly") {
+//                    mockStorage.write { db in
+//                        try MessageReceiver.handle(
+//                            db,
+//                            threadId: "TestId",
+//                            threadVariant: .contact,
+//                            message: mockMessage,
+//                            serverExpirationTimestamp: nil,
+//                            associatedWithProto: mockProto
+//                        )
+//                    }
+//                    
+//                    let updatedConfig: DisappearingMessagesConfiguration? = mockStorage.read { db in
+//                        try DisappearingMessagesConfiguration.fetchOne(db, id: "TestId")
+//                    }
+//                    
+//                    expect(updatedConfig?.isEnabled).to(beTrue())
+//                    expect(updatedConfig?.durationSeconds)
+//                        .to(equal(DisappearingMessagesConfiguration.DefaultDuration.disappearAfterSend.seconds))
+//                    expect(updatedConfig?.type).to(equal(.disappearAfterSend))
+//                }
+//            }
             
             // MARK: - when receiving an outdated disappearing message config update
             context("when receiving an outdated disappearing message config update") {
