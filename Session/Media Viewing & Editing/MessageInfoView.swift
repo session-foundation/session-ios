@@ -3,6 +3,7 @@
 import SwiftUI
 import SessionUIKit
 import SessionSnodeKit
+import SessionUtilitiesKit
 
 struct MessageInfoView: View {
     @Environment(\.viewController) private var viewControllerHolder: UIViewController?
@@ -143,7 +144,6 @@ struct MessageInfoView: View {
                                 }
                                 
                                 Button {
-//                                    self.showingAttachmentFullScreen.toggle()
                                     self.viewControllerHolder?.present(style: .fullScreen) {
                                         MediaGalleryViewModel.createDetailViewSwiftUI(
                                             for: messageViewModel.threadId,
@@ -163,24 +163,6 @@ struct MessageInfoView: View {
                                     }
                                     .frame(width: 26, height: 26)
                                 }
-//                                .fullScreenCoverCompat(isPresented: $showingAttachmentFullScreen) {
-//                                    MediaGalleryViewModel.createDetailViewSwiftUI(
-//                                        for: messageViewModel.threadId,
-//                                        threadVariant: messageViewModel.threadVariant,
-//                                        interactionId: messageViewModel.id,
-//                                        selectedAttachmentId: attachment.id,
-//                                        options: [ .sliderEnabled ]
-//                                    )
-//                                }
-//                                .sheet(isPresented: $showingAttachmentFullScreen) {
-//                                    MediaGalleryViewModel.createDetailViewSwiftUI(
-//                                        for: messageViewModel.threadId,
-//                                        threadVariant: messageViewModel.threadVariant,
-//                                        interactionId: messageViewModel.id,
-//                                        selectedAttachmentId: attachment.id,
-//                                        options: [ .sliderEnabled ]
-//                                    )
-//                                }
                                 .padding(
                                     EdgeInsets(
                                         top: 0,
