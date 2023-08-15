@@ -4,6 +4,7 @@ import SwiftUI
 import SessionUIKit
 import SessionSnodeKit
 import SessionUtilitiesKit
+import SessionMessagingKit
 
 struct MessageInfoView: View {
     @Environment(\.viewController) private var viewControllerHolder: UIViewController?
