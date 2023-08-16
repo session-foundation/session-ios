@@ -603,7 +603,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         switch Onboarding.State.current {
             case .newUser:
                 DispatchQueue.main.async {
-                    let viewController: LandingVC = LandingVC()
+                    let viewController = SessionHostingViewController(rootView: LandingView())
+                    viewController.setUpNavBarSessionIcon()
                     populateHomeScreenTimer.invalidate()
                     rootViewControllerSetupComplete(viewController)
                 }

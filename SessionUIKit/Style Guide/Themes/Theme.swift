@@ -177,6 +177,8 @@ public indirect enum ThemeValue: Hashable {
     case sessionButton_destructiveBackground
     case sessionButton_destructiveHighlight
     case sessionButton_destructiveBorder
+    case sessionButton_primaryFilledText
+    case sessionButton_primaryFilledBackground
     
     // SolidButton
     case solidButton_background

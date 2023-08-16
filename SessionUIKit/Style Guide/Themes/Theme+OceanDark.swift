@@ -65,6 +65,8 @@ internal enum Theme_OceanDark: ThemeColors {
         .sessionButton_destructiveBackground: .clear,
         .sessionButton_destructiveHighlight: .dangerDark.withAlphaComponent(0.3),
         .sessionButton_destructiveBorder: .dangerDark,
+        .sessionButton_primaryFilledText: .oceanDark0,
+        .sessionButton_primaryFilledBackground: .primary,
         
         // SolidButton
         .solidButton_background: .oceanDark2,
@@ -183,6 +185,8 @@ internal enum Theme_OceanDark: ThemeColors {
         .sessionButton_destructiveBackground: .clear,
         .sessionButton_destructiveHighlight: .dangerDark.opacity(0.3),
         .sessionButton_destructiveBorder: .dangerDark,
+        .sessionButton_primaryFilledText: .oceanDark0,
+        .sessionButton_primaryFilledBackground: .primary,
         
         // SolidButton
         .solidButton_background: .oceanDark2,

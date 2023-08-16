@@ -17,43 +17,45 @@ struct LandingView: View {
                     alignment: .center,
                     spacing: 16
                 ) {
-                    Spacer()
+                    Spacer(minLength: Values.massiveSpacing)
                     
                     Text("onboarding_landing_title".localized())
                         .bold()
-                        .font(.system(size: 26))
+                        .font(.system(size: Values.veryLargeFontSize))
                         .foregroundColor(themeColor: .textPrimary)
+                        .padding(.vertical, Values.mediumSpacing)
                     
                     FakeChat()
                     
-                    Spacer()
+                    Spacer(minLength: Values.massiveSpacing)
                     
                     Button {
                         
                     } label: {
                         Text("onboarding_landing_register_button_title".localized())
                             .bold()
-                            .font(.system(size: 14))
-                            .foregroundColor(themeColor: .sessionButton_filledText)
+                            .font(.system(size: Values.smallFontSize))
+                            .foregroundColor(themeColor: .sessionButton_primaryFilledText)
                             .frame(
-                                width: 262,
-                                height: 40,
+                                maxWidth: .infinity,
+                                maxHeight: Values.largeButtonHeight,
                                 alignment: .center
                             )
-                            .backgroundColor(themeColor: .sessionButton_filledBackground)
-                            .cornerRadius(20)
+                            .backgroundColor(themeColor: .sessionButton_primaryFilledBackground)
+                            .cornerRadius(Values.largeButtonHeight / 2)
                     }
+                    .padding(.horizontal, Values.massiveSpacing)
                     
                     Button {
                         
                     } label: {
                         Text("onboarding_landing_restore_button_title".localized())
                             .bold()
-                            .font(.system(size: 14))
+                            .font(.system(size: Values.smallFontSize))
                             .foregroundColor(themeColor: .sessionButton_text)
                             .frame(
-                                width: 262,
-                                height: 40,
+                                maxWidth: .infinity,
+                                maxHeight: Values.largeButtonHeight,
                                 alignment: .center
                             )
                             .overlay(
@@ -61,6 +63,7 @@ struct LandingView: View {
                                     .stroke(themeColor: .sessionButton_border)
                             )
                     }
+                    .padding(.horizontal, Values.massiveSpacing)
                     
                     Button {
                         
@@ -78,9 +81,10 @@ struct LandingView: View {
                         }()
                         AttributedText(attributedText)
                             .foregroundColor(themeColor: .textPrimary)
-                            .frame(width: 262)
                     }
+                    .padding(.horizontal, Values.massiveSpacing)
                 }
+                .padding(.vertical, Values.mediumSpacing)
             }
         }
     }
