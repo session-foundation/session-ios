@@ -661,3 +661,6 @@
 "onboarding_landing_title" = "Privacy in your pocket.";
 "onboarding_landing_register_button_title" = "Create account";
 "onboarding_landing_restore_button_title" = "I have an account";
+"onboarding_T&C" = "By using this service, you agree to our %@ and %@";
+"terms_of_service" = "Terms of Service";
+"privacy_policy" = "Privacy Policy";

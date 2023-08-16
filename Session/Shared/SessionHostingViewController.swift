@@ -56,4 +56,27 @@ public class SessionHostingViewController<Content>: UIHostingController<Content>
         
         navigationItem.titleView = container
     }
+    
+    internal func setUpNavBarSessionHeading() {
+        let headingImageView = UIImageView(
+            image: UIImage(named: "SessionHeading")?
+                .withRenderingMode(.alwaysTemplate)
+        )
+        headingImageView.themeTintColor = .textPrimary
+        headingImageView.contentMode = .scaleAspectFit
+        headingImageView.set(.width, to: 150)
+        headingImageView.set(.height, to: Values.mediumFontSize)
+        
+        navigationItem.titleView = headingImageView
+    }
+
+    internal func setUpNavBarSessionIcon() {
+        let logoImageView = UIImageView()
+        logoImageView.image = #imageLiteral(resourceName: "SessionGreen32")
+        logoImageView.contentMode = .scaleAspectFit
+        logoImageView.set(.width, to: 32)
+        logoImageView.set(.height, to: 32)
+        
+        navigationItem.titleView = logoImageView
+    }
 }

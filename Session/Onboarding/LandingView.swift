@@ -40,7 +40,7 @@ struct LandingView: View {
                                 height: 40,
                                 alignment: .center
                             )
-                            .background(ThemeManager.currentTheme.colorSwiftUI(for: .sessionButton_filledBackground))
+                            .backgroundColor(themeColor: .sessionButton_filledBackground)
                             .cornerRadius(20)
                     }
                     
@@ -58,14 +58,27 @@ struct LandingView: View {
                             )
                             .overlay(
                                 Capsule()
-                                    .stroke(ThemeManager.currentTheme.colorSwiftUI(for: .sessionButton_border)!)
+                                    .stroke(themeColor: .sessionButton_border)
                             )
                     }
                     
                     Button {
                         
                     } label: {
-                        Text("")
+                        let attributedText: NSAttributedString = {
+                            let text = String(format: "onboarding_T&C".localized(), "terms_of_service".localized(), "privacy_policy".localized())
+                            let result = NSMutableAttributedString(
+                                string: text,
+                                attributes: [ .font : UIFont.systemFont(ofSize: Values.verySmallFontSize)]
+                            )
+                            result.addAttribute(.font, value: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize), range: (text as NSString).range(of: "terms_of_service".localized()))
+                            result.addAttribute(.font, value: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize), range: (text as NSString).range(of: "privacy_policy".localized()))
+                            
+                            return result
+                        }()
+                        AttributedText(attributedText)
+                            .foregroundColor(themeColor: .textPrimary)
+                            .frame(width: 262)
                     }
                 }
             }
