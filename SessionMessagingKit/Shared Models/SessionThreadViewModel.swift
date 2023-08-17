@@ -1846,7 +1846,7 @@ public extension SessionThreadViewModel {
         /// the `contactProfile` entry below otherwise the query will fail to parse and might throw
         ///
         /// Explicitly set default values for the fields ignored for search results
-        let numColumnsBeforeProfiles: Int = 7
+        let numColumnsBeforeProfiles: Int = 8
         
         let request: SQLRequest<ViewModel> = """
             SELECT
@@ -1856,6 +1856,11 @@ public extension SessionThreadViewModel {
                 \(thread[.creationDateTimestamp]) AS \(ViewModel.Columns.threadCreationDateTimestamp),
                 
                 (\(SQL("\(thread[.id]) = \(userPublicKey)"))) AS \(ViewModel.Columns.threadIsNoteToSelf),
+                (
+                    \(SQL("\(thread[.variant]) = \(SessionThread.Variant.contact)")) AND
+                    \(SQL("\(thread[.id]) != \(userPublicKey)")) AND
+                    IFNULL(\(contact[.isApproved]), false) = false
+                ) AS \(ViewModel.Columns.threadIsMessageRequest),
                 
                 IFNULL(\(thread[.pinnedPriority]), 0) AS \(ViewModel.Columns.threadPinnedPriority),
                 \(contact[.isBlocked]) AS \(ViewModel.Columns.threadIsBlocked),
@@ -1865,8 +1870,23 @@ public extension SessionThreadViewModel {
                 \(closedGroupProfileBack.allColumns),
                 \(closedGroupProfileBackFallback.allColumns),
                 \(closedGroup[.name]) AS \(ViewModel.Columns.closedGroupName),
+        
+                EXISTS (
+                    SELECT 1
+                    FROM \(GroupMember.self)
+                    WHERE (
+                        \(groupMember[.groupId]) = \(closedGroup[.threadId]) AND
+                        \(SQL("\(groupMember[.role]) != \(GroupMember.Role.zombie)")) AND
+                        \(SQL("\(groupMember[.profileId]) = \(userPublicKey)"))
+                    )
+                ) AS \(ViewModel.Columns.currentUserIsClosedGroupMember),
+        
                 \(openGroup[.name]) AS \(ViewModel.Columns.openGroupName),
                 \(openGroup[.imageData]) AS \(ViewModel.Columns.openGroupProfilePictureData),
+                \(openGroup[.permissions]) AS \(ViewModel.Columns.openGroupPermissions),
+        
+                \(interaction[.id]) AS \(ViewModel.Columns.interactionId),
+                \(interaction[.variant]) AS \(ViewModel.Columns.interactionVariant),
         
                 \(SQL("\(userPublicKey)")) AS \(ViewModel.Columns.currentUserPublicKey)
             
