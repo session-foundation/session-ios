@@ -664,3 +664,5 @@
 "onboarding_T&C" = "By using this service, you agree to our %@ and %@";
 "terms_of_service" = "Terms of Service";
 "privacy_policy" = "Privacy Policy";
+"onboarding_display_name_explanation" = "It can be your real name, an alias, or anything else you like — and you can change it any time.";
+"onboarding_display_name_hint" = "Enter your display name";

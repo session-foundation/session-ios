@@ -611,7 +611,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 
             case .missingName:
                 DispatchQueue.main.async {
-                    let viewController: DisplayNameVC = DisplayNameVC(flow: .register)
+                    let viewController = SessionHostingViewController(rootView: DisplayNameView(flow: .register))
+                    viewController.setUpNavBarSessionIcon()
                     populateHomeScreenTimer.invalidate()
                     rootViewControllerSetupComplete(viewController)
                 }
