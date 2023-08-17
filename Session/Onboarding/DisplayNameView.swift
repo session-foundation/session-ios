@@ -118,6 +118,9 @@ struct DisplayNameView: View {
         }
         
         // Need to get the PN mode if registering
+        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: PNModeView(flow: flow))
+        viewController.setUpNavBarSessionIcon()
+        self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
     }
 }
 
