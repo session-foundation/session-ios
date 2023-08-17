@@ -3,7 +3,11 @@
 import SwiftUI
 import SessionUIKit
 
-public class SessionHostingViewController<Content>: UIHostingController<Content> where Content : View {
+public class HostWrapper: ObservableObject {
+    public weak var controller: UIViewController?
+}
+
+public class SessionHostingViewController<Content>: UIHostingController<ModifiedContent<Content,SwiftUI._EnvironmentKeyWritingModifier<HostWrapper?>>> where Content : View {
     public override var preferredStatusBarStyle: UIStatusBarStyle {
         return ThemeManager.currentTheme.statusBarStyle
     }
@@ -27,6 +31,17 @@ public class SessionHostingViewController<Content>: UIHostingController<Content>
         
         return result
     }()
+    
+    public init(rootView:Content) {
+        let container = HostWrapper()
+        let modified = rootView.environmentObject(container) as! ModifiedContent<Content, _EnvironmentKeyWritingModifier<HostWrapper?>>
+        super.init(rootView: modified)
+        container.controller = self
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     public override func viewDidLoad() {
         super.viewDidLoad()

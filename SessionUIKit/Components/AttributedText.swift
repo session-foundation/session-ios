@@ -33,7 +33,6 @@ public struct AttributedText: View {
     }
     
     public var body: some View {
-        let _ = print(descriptions)
         descriptions.map { description in
             var text: Text = Text(description.content)
             if let font: Font = description.font { text = text.font(font) }

@@ -1,12 +1,15 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import SwiftUI
+import UIKit
 import SessionUIKit
 
 struct LandingView: View {
+    @EnvironmentObject var host: HostWrapper
+    
     var body: some View {
         NavigationView {
-            ZStack (alignment: .topLeading) {
+            ZStack(alignment: .center) {
                 if #available(iOS 14.0, *) {
                     ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
                 } else {
@@ -15,9 +18,9 @@ struct LandingView: View {
                 
                 VStack(
                     alignment: .center,
-                    spacing: 16
+                    spacing: Values.mediumSpacing
                 ) {
-                    Spacer(minLength: Values.massiveSpacing)
+                    Spacer()
                     
                     Text("onboarding_landing_title".localized())
                         .bold()
@@ -27,10 +30,19 @@ struct LandingView: View {
                     
                     FakeChat()
                     
-                    Spacer(minLength: Values.massiveSpacing)
+                    Spacer()
+                }
+                .padding(.vertical, Values.mediumSpacing)
+                .padding(.bottom, Values.massiveSpacing + 3 * Values.largeButtonHeight)
+                
+                VStack(
+                    alignment: .center,
+                    spacing: Values.mediumSpacing)
+                {
+                    Spacer()
                     
                     Button {
-                        
+                        register()
                     } label: {
                         Text("onboarding_landing_register_button_title".localized())
                             .bold()
@@ -47,7 +59,7 @@ struct LandingView: View {
                     .padding(.horizontal, Values.massiveSpacing)
                     
                     Button {
-                        
+                        restore()
                     } label: {
                         Text("onboarding_landing_restore_button_title".localized())
                             .bold()
@@ -84,9 +96,18 @@ struct LandingView: View {
                     }
                     .padding(.horizontal, Values.massiveSpacing)
                 }
-                .padding(.vertical, Values.mediumSpacing)
             }
         }
+    }
+    
+    private func register() {
+        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: DisplayNameView(flow: .register))
+        viewController.setUpNavBarSessionIcon()
+        self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
+    }
+    
+    private func restore() {
+        
     }
 }
 
@@ -118,28 +139,23 @@ struct FakeChat: View {
     ]
     
     var body: some View {
-        ScrollView(
-            .vertical,
-            showsIndicators: false
+        VStack(
+            alignment: .leading,
+            spacing: 18
         ) {
-            VStack(
-                alignment: .leading,
-                spacing: 18
-            ) {
-                ForEach(
-                    0...(chatBubbles.count - 1),
-                    id: \.self
-                ) { index in
-                    let chatBubble: ChatBubble = chatBubbles[index]
-                    chatBubble
-                        .frame(
-                            maxWidth: .infinity,
-                            alignment: chatBubble.outgoing ? .trailing : .leading
-                        )
-                }
+            ForEach(
+                0...(chatBubbles.count - 1),
+                id: \.self
+            ) { index in
+                let chatBubble: ChatBubble = chatBubbles[index]
+                chatBubble
+                    .frame(
+                        maxWidth: .infinity,
+                        alignment: chatBubble.outgoing ? .trailing : .leading
+                    )
             }
-            .padding(.horizontal, 36)
         }
+        .padding(.horizontal, 36)
     }
 }
 

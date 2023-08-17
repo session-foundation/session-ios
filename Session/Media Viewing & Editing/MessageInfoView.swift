@@ -475,7 +475,7 @@ final class MessageInfoViewController: SessionHostingViewController<MessageInfoV
         )
         
         super.init(rootView: messageInfoView)
-        rootView.dismiss = dismiss
+        rootView.content.dismiss = dismiss
     }
     
     @MainActor required dynamic init?(coder aDecoder: NSCoder) {
