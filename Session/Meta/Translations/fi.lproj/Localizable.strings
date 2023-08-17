@@ -668,3 +668,4 @@
 "onboarding_display_name_hint" = "Enter your display name";
 "onboarding_recovery_password_title" = "Save your recovery password";
 "onboarding_recovery_password_explanation" = "Use your password to load your account on new devices. Make sure it is stored in a safe place — and don't share it with anyone.";
+"tap_to_copy" = "Tap to copy";

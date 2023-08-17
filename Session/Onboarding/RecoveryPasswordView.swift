@@ -60,6 +60,14 @@ struct RecoveryPasswordView: View {
                             .stroke(themeColor: .borderSeparator)
                         )
                     
+                    Button {
+                        
+                    } label: {
+                        Text("tap_to_copy".localized())
+                            .font(.system(size: Values.verySmallFontSize))
+                            .foregroundColor(themeColor: .textSecondary)
+                    }
+                    
                     Spacer()
                 }
                 .padding(.horizontal, Values.veryLargeSpacing)
