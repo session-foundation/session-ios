@@ -67,6 +67,7 @@ struct RecoveryPasswordView: View {
                             .font(.system(size: Values.verySmallFontSize))
                             .foregroundColor(themeColor: .textSecondary)
                     }
+                    .frame(maxWidth: .infinity)
                     
                     Spacer()
                 }
