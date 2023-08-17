@@ -696,6 +696,17 @@ public extension Interaction {
 // MARK: - Search Queries
 
 public extension Interaction {
+    struct FullTextSearch: Decodable, ColumnExpressible {
+        public typealias Columns = CodingKeys
+        public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
+            case threadId
+            case body
+        }
+        
+        let threadId: String
+        let body: String
+    }
+    
     struct TimestampInfo: FetchableRecord, Codable {
         public let id: Int64
         public let timestampMs: Int64
@@ -711,8 +722,7 @@ public extension Interaction {
     
     static func idsForTermWithin(threadId: String, pattern: FTS5Pattern) -> SQLRequest<TimestampInfo> {
         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
-        let interactionFullTextSearch: SQL = SQL(stringLiteral: Interaction.fullTextSearchTableName)
-        let threadIdLiteral: SQL = SQL(stringLiteral: Interaction.Columns.threadId.name)
+        let interactionFullTextSearch: TypedTableAlias<FullTextSearch> = TypedTableAlias(name: Interaction.fullTextSearchTableName)
         
         let request: SQLRequest<TimestampInfo> = """
             SELECT
@@ -720,9 +730,9 @@ public extension Interaction {
                 \(interaction[.timestampMs])
             FROM \(Interaction.self)
             JOIN \(interactionFullTextSearch) ON (
-                \(interactionFullTextSearch).rowid = \(interaction.alias[Column.rowID]) AND
-                \(SQL("\(interactionFullTextSearch).\(threadIdLiteral) = \(threadId)")) AND
-                \(interactionFullTextSearch).\(SQL(stringLiteral: Interaction.Columns.body.name)) MATCH \(pattern)
+                \(interactionFullTextSearch[.rowId]) = \(interaction[.rowId]) AND
+                \(SQL("\(interactionFullTextSearch[.threadId]) = \(threadId)")) AND
+                \(interactionFullTextSearch[.body]) MATCH \(pattern)
             )
         
             ORDER BY \(interaction[.timestampMs].desc)
