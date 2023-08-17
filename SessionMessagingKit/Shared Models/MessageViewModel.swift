@@ -777,10 +777,11 @@ public extension MessageViewModel {
             let disappearingMessagesConfig: TypedTableAlias<DisappearingMessagesConfiguration> = TypedTableAlias()
             let profile: TypedTableAlias<Profile> = TypedTableAlias()
             let quote: TypedTableAlias<Quote> = TypedTableAlias()
+            let quoteInteraction: TypedTableAlias<Interaction> = TypedTableAlias(name: "quoteInteraction")
+            let quoteLinkPreview: TypedTableAlias<LinkPreview> = TypedTableAlias(name: "quoteLinkPreview")
             let linkPreview: TypedTableAlias<LinkPreview> = TypedTableAlias()
             
             let threadProfile: SQL = SQL(stringLiteral: "threadProfile")
-            let quoteInteraction: SQL = SQL(stringLiteral: "quoteInteraction")
             let quoteInteractionAttachment: SQL = SQL(stringLiteral: "quoteInteractionAttachment")
             let readReceipt: SQL = SQL(stringLiteral: "readReceipt")
             let idColumn: SQL = SQL(stringLiteral: Interaction.Columns.id.name)
@@ -845,7 +846,7 @@ public extension MessageViewModel {
                     \(quote[.interactionId]),
                     \(quote[.authorId]),
                     \(quote[.timestampMs]),
-                    \(quoteInteraction).\(interactionBodyColumn) AS \(quoteBodyColumn),
+                    \(quoteInteraction[.body]),
                     \(quoteInteractionAttachment).\(interactionAttachmentAttachmentIdColumn) AS \(quoteAttachmentIdColumn),
                     \(ViewModel.quoteAttachmentKey).*,
                     \(ViewModel.linkPreviewKey).*,
@@ -873,12 +874,12 @@ public extension MessageViewModel {
                 LEFT JOIN \(OpenGroup.self) ON \(openGroup[.threadId]) = \(interaction[.threadId])
                 LEFT JOIN \(Profile.self) ON \(profile[.id]) = \(interaction[.authorId])
                 LEFT JOIN \(Quote.self) ON \(quote[.interactionId]) = \(interaction[.id])
-                LEFT JOIN \(Interaction.self) AS \(quoteInteraction) ON (
-                    \(quoteInteraction).\(timestampMsColumn) = \(quote[.timestampMs]) AND (
-                        \(quoteInteraction).\(authorIdColumn) = \(quote[.authorId]) OR (
+                LEFT JOIN \(quoteInteraction) ON (
+                    \(quoteInteraction[.timestampMs]) = \(quote[.timestampMs]) AND (
+                        \(quoteInteraction[.authorId]) = \(quote[.authorId]) OR (
                             -- A users outgoing message is stored in some cases using their standard id
                             -- but the quote will use their blinded id so handle that case
-                            \(quoteInteraction).\(authorIdColumn) = \(userPublicKey) AND
+                            \(quoteInteraction[.authorId]) = \(userPublicKey) AND
                             (
                                 \(quote[.authorId]) = \(blinded15PublicKey ?? "''") OR
                                 \(quote[.authorId]) = \(blinded25PublicKey ?? "''")
@@ -887,14 +888,25 @@ public extension MessageViewModel {
                     )
                 )
                 LEFT JOIN \(InteractionAttachment.self) AS \(quoteInteractionAttachment) ON (
-                    \(quoteInteractionAttachment).\(interactionAttachmentInteractionIdColumn) = \(quoteInteraction).\(idColumn) AND
+                    \(quoteInteractionAttachment).\(interactionAttachmentInteractionIdColumn) = \(quoteInteraction[.id]) AND
                     \(quoteInteractionAttachment).\(interactionAttachmentAlbumIndexColumn) = 0
                 )
-                LEFT JOIN \(Attachment.self) AS \(ViewModel.quoteAttachmentKey) ON \(ViewModel.quoteAttachmentKey).\(attachmentIdColumn) = \(quoteInteractionAttachment).\(interactionAttachmentAttachmentIdColumn)
+                LEFT JOIN \(quoteLinkPreview) ON (
+                    \(quoteLinkPreview[.url]) = \(quoteInteraction[.linkPreviewUrl]) AND
+                    \(Interaction.linkPreviewFilterLiteral(
+                        interaction: quoteInteraction,
+                        linkPreview: quoteLinkPreview
+                    ))
+                )
+                LEFT JOIN \(Attachment.self) AS \(ViewModel.quoteAttachmentKey) ON (
+                    \(ViewModel.quoteAttachmentKey).\(attachmentIdColumn) = \(quoteInteractionAttachment).\(interactionAttachmentAttachmentIdColumn) OR
+                    \(ViewModel.quoteAttachmentKey).\(attachmentIdColumn) = \(quoteLinkPreview[.attachmentId]) OR
+                    \(ViewModel.quoteAttachmentKey).\(attachmentIdColumn) = \(quote[.attachmentId])
+                )
             
                 LEFT JOIN \(LinkPreview.self) ON (
                     \(linkPreview[.url]) = \(interaction[.linkPreviewUrl]) AND
-                    \(Interaction.linkPreviewFilterLiteral)
+                    \(Interaction.linkPreviewFilterLiteral())
                 )
                 LEFT JOIN \(Attachment.self) AS \(ViewModel.linkPreviewAttachmentKey) ON \(ViewModel.linkPreviewAttachmentKey).\(attachmentIdColumn) = \(linkPreview[.attachmentId])
                 LEFT JOIN \(RecipientState.self) ON (

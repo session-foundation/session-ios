@@ -4,9 +4,15 @@ import Foundation
 import GRDB
 
 public class TypedTableAlias<T> where T: TableRecord, T: ColumnExpressible {
-    public let alias: TableAlias = TableAlias(name: T.databaseTableName)
+    internal let name: String
+    internal let tableName: String
+    public let alias: TableAlias
     
-    public init() {}
+    public init(name: String = T.databaseTableName) {
+        self.name = name
+        self.tableName = T.databaseTableName
+        self.alias = TableAlias(name: name)
+    }
     
     public subscript(_ column: T.Columns) -> SQLExpression {
         return alias[column.name]

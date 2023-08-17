@@ -712,7 +712,7 @@ public extension SessionThreadViewModel {
                 )
                 LEFT JOIN \(LinkPreview.self) ON (
                     \(linkPreview[.url]) = \(interaction[.linkPreviewUrl]) AND
-                    \(Interaction.linkPreviewFilterLiteral) AND
+                    \(Interaction.linkPreviewFilterLiteral()) AND
                     \(SQL("\(linkPreview[.variant]) = \(LinkPreview.Variant.openGroupInvitation)"))
                 )
                 LEFT JOIN \(InteractionAttachment.self) AS \(firstInteractionAttachmentLiteral) ON (

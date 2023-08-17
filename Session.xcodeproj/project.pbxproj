@@ -635,6 +635,7 @@
 		FD52090928B59411006098F6 /* ScreenLockUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD52090828B59411006098F6 /* ScreenLockUI.swift */; };
 		FD52090B28B59BB4006098F6 /* ScreenLockViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD52090A28B59BB4006098F6 /* ScreenLockViewController.swift */; };
 		FD559DF52A7368CB00C7C62A /* DispatchQueue+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD559DF42A7368CB00C7C62A /* DispatchQueue+Utilities.swift */; };
+		FD5931A72A8DA5DA0040147D /* SQLInterpolation+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5931A62A8DA5DA0040147D /* SQLInterpolation+Utilities.swift */; };
 		FD5C72F7284F0E560029977D /* MessageReceiver+ReadReceipts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5C72F6284F0E560029977D /* MessageReceiver+ReadReceipts.swift */; };
 		FD5C72F9284F0E880029977D /* MessageReceiver+TypingIndicators.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5C72F8284F0E880029977D /* MessageReceiver+TypingIndicators.swift */; };
 		FD5C72FB284F0EA10029977D /* MessageReceiver+DataExtractionNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5C72FA284F0EA10029977D /* MessageReceiver+DataExtractionNotification.swift */; };
@@ -1755,6 +1756,7 @@
 		FD52090828B59411006098F6 /* ScreenLockUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenLockUI.swift; sourceTree = "<group>"; };
 		FD52090A28B59BB4006098F6 /* ScreenLockViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenLockViewController.swift; sourceTree = "<group>"; };
 		FD559DF42A7368CB00C7C62A /* DispatchQueue+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DispatchQueue+Utilities.swift"; sourceTree = "<group>"; };
+		FD5931A62A8DA5DA0040147D /* SQLInterpolation+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SQLInterpolation+Utilities.swift"; sourceTree = "<group>"; };
 		FD5C72F6284F0E560029977D /* MessageReceiver+ReadReceipts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageReceiver+ReadReceipts.swift"; sourceTree = "<group>"; };
 		FD5C72F8284F0E880029977D /* MessageReceiver+TypingIndicators.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageReceiver+TypingIndicators.swift"; sourceTree = "<group>"; };
 		FD5C72FA284F0EA10029977D /* MessageReceiver+DataExtractionNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageReceiver+DataExtractionNotification.swift"; sourceTree = "<group>"; };
@@ -3693,6 +3695,7 @@
 				FDDF074329C3E3D000E5E8B5 /* FetchRequest+Utilities.swift */,
 				FDF2220E281B55E6000A4995 /* QueryInterfaceRequest+Utilities.swift */,
 				FD1A94FA2900D1C2000D73D3 /* PersistableRecord+Utilities.swift */,
+				FD5931A62A8DA5DA0040147D /* SQLInterpolation+Utilities.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -5666,6 +5669,7 @@
 				C32C5DD2256DD9E5003C73A2 /* LRUCache.swift in Sources */,
 				FD71160228C8255900B47552 /* UIControl+Combine.swift in Sources */,
 				FDFBB74B2A1EFF4900CA7350 /* Bencode.swift in Sources */,
+				FD5931A72A8DA5DA0040147D /* SQLInterpolation+Utilities.swift in Sources */,
 				FD9004152818B46300ABAAF6 /* JobRunner.swift in Sources */,
 				FDF8487929405906007DCAE5 /* HTTPQueryParam.swift in Sources */,
 				FD17D7CA27F546D900122BE0 /* _001_InitialSetupMigration.swift in Sources */,
