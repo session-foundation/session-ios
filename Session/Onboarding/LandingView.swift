@@ -1,8 +1,10 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import SwiftUI
-import UIKit
+import Sodium
 import SessionUIKit
+import SignalUtilitiesKit
+import SessionUtilitiesKit
 
 struct LandingView: View {
     @EnvironmentObject var host: HostWrapper
@@ -101,6 +103,15 @@ struct LandingView: View {
     }
     
     private func register() {
+        let seed: Data! = try! Randomness.generateRandomBytes(numberBytes: 16)
+        let (ed25519KeyPair, x25519KeyPair): (KeyPair, KeyPair) = try! Identity.generate(from: seed)
+        Onboarding.Flow.register
+            .preregister(
+                with: seed,
+                ed25519KeyPair: ed25519KeyPair,
+                x25519KeyPair: x25519KeyPair
+            )
+        
         let viewController: SessionHostingViewController = SessionHostingViewController(rootView: DisplayNameView(flow: .register))
         viewController.setUpNavBarSessionIcon()
         self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
