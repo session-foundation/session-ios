@@ -2,9 +2,11 @@
 
 import SwiftUI
 import SessionUIKit
+import SessionMessagingKit
+import SignalUtilitiesKit
 
 struct DisplayNameView: View {
-    @Environment(\.viewController) private var viewControllerHolder: UIViewController?
+    @EnvironmentObject var host: HostWrapper
     
     @State private var displayName: String = ""
     
@@ -54,7 +56,7 @@ struct DisplayNameView: View {
                     Spacer()
                     
                     Button {
-                        
+                        register()
                     } label: {
                         Text("continue_2".localized())
                             .bold()
@@ -75,6 +77,47 @@ struct DisplayNameView: View {
                 .padding(.vertical, Values.mediumSpacing)
             }
         }
+    }
+    
+    private func register() {
+        func showError(title: String, message: String = "") {
+            let modal: ConfirmationModal = ConfirmationModal(
+                targetView: self.host.controller?.view,
+                info: ConfirmationModal.Info(
+                    title: title,
+                    body: .text(message),
+                    cancelTitle: "BUTTON_OK".localized(),
+                    cancelStyle: .alert_text
+                )
+            )
+            self.host.controller?.present(modal, animated: true)
+        }
+        let displayName = self.displayName.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        guard !displayName.isEmpty else {
+            return showError(title: "vc_display_name_display_name_missing_error".localized())
+        }
+        guard !ProfileManager.isToLong(profileName: displayName) else {
+            return showError(title: "vc_display_name_display_name_too_long_error".localized())
+        }
+        
+        // Try to save the user name but ignore the result
+        ProfileManager.updateLocal(
+            queue: .global(qos: .default),
+            profileName: displayName
+        )
+        
+        // If we are not in the registration flow then we are finished and should go straight
+        // to the home screen
+        guard self.flow == .register else {
+            self.flow.completeRegistration()
+            
+            // Go to the home screen
+            let homeVC: HomeVC = HomeVC()
+            self.host.controller?.navigationController?.setViewControllers([ homeVC ], animated: true)
+            return
+        }
+        
+        // Need to get the PN mode if registering
     }
 }
 
