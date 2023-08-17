@@ -124,6 +124,7 @@
 		7B87EF422A8D9840002A0E8F /* DisplayNameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B87EF412A8D9840002A0E8F /* DisplayNameView.swift */; };
 		7B87EF442A8DA720002A0E8F /* SessionTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B87EF432A8DA720002A0E8F /* SessionTextField.swift */; };
 		7B87EF462A8DDA8E002A0E8F /* PNModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B87EF452A8DDA8E002A0E8F /* PNModeView.swift */; };
+		7B87EF482A8DFBBF002A0E8F /* RecoveryPasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B87EF472A8DFBBF002A0E8F /* RecoveryPasswordView.swift */; };
 		7B8914772A7CAAE200A4C627 /* SessionHostingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8914762A7CAAE200A4C627 /* SessionHostingViewController.swift */; };
 		7B8C44C528B49DDA00FBE25F /* NewConversationVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8C44C428B49DDA00FBE25F /* NewConversationVC.swift */; };
 		7B8D5FC428332600008324D9 /* VisibleMessage+Reaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8D5FC328332600008324D9 /* VisibleMessage+Reaction.swift */; };
@@ -1241,6 +1242,7 @@
 		7B87EF412A8D9840002A0E8F /* DisplayNameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayNameView.swift; sourceTree = "<group>"; };
 		7B87EF432A8DA720002A0E8F /* SessionTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTextField.swift; sourceTree = "<group>"; };
 		7B87EF452A8DDA8E002A0E8F /* PNModeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PNModeView.swift; sourceTree = "<group>"; };
+		7B87EF472A8DFBBF002A0E8F /* RecoveryPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryPasswordView.swift; sourceTree = "<group>"; };
 		7B8914762A7CAAE200A4C627 /* SessionHostingViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionHostingViewController.swift; sourceTree = "<group>"; };
 		7B8C44C428B49DDA00FBE25F /* NewConversationVC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewConversationVC.swift; sourceTree = "<group>"; };
 		7B8D5FC328332600008324D9 /* VisibleMessage+Reaction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VisibleMessage+Reaction.swift"; sourceTree = "<group>"; };
@@ -3008,6 +3010,7 @@
 				7BDE2A972A8B122900AE4393 /* LandingView.swift */,
 				7B87EF412A8D9840002A0E8F /* DisplayNameView.swift */,
 				7B87EF452A8DDA8E002A0E8F /* PNModeView.swift */,
+				7B87EF472A8DFBBF002A0E8F /* RecoveryPasswordView.swift */,
 			);
 			path = Onboarding;
 			sourceTree = "<group>";
@@ -6176,6 +6179,7 @@
 				B85357BF23A1AE0800AAF6CD /* SeedReminderView.swift in Sources */,
 				FD716E6C28505E1C00C96BF4 /* MessageRequestsViewModel.swift in Sources */,
 				C35E8AAE2485E51D00ACB629 /* IP2Country.swift in Sources */,
+				7B87EF482A8DFBBF002A0E8F /* RecoveryPasswordView.swift in Sources */,
 				B835249B25C3AB650089A44F /* VisibleMessageCell.swift in Sources */,
 				B8D0A25025E3678700C1835E /* LinkDeviceVC.swift in Sources */,
 				B894D0752339EDCF00B4D94D /* NukeDataModal.swift in Sources */,
