@@ -52,7 +52,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         profilePictureView,
         replyButton,
         timerView,
-        messageStatusImageView,
+        messageStatusContainerView,
         reactionContainerView
     ]
     
