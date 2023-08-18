@@ -10,15 +10,18 @@ struct RecoveryPasswordView: View {
     
     @State private var copied: Bool = false
     private let mnemonic: String
+    private let flow: Onboarding.Flow
     
     static let cornerRadius: CGFloat = 13
     
-    public init() throws {
+    public init(flow: Onboarding.Flow) throws {
         self.mnemonic = try Identity.mnemonic()
+        self.flow = flow
     }
     
-    public init(hardcode: String) {
+    public init(hardcode: String, flow: Onboarding.Flow) {
         self.mnemonic = hardcode
+        self.flow = flow
     }
     
     var body: some View {
@@ -124,7 +127,7 @@ struct RecoveryPasswordView: View {
     }
     
     private func finishRegister() {
-        let homeVC: HomeVC = HomeVC()
+        let homeVC: HomeVC = HomeVC(flow: self.flow)
         self.host.controller?.navigationController?.setViewControllers([ homeVC ], animated: true)
         return
     }
@@ -132,6 +135,6 @@ struct RecoveryPasswordView: View {
 
 struct RecoveryPasswordView_Previews: PreviewProvider {
     static var previews: some View {
-        RecoveryPasswordView(hardcode: "Voyage  urban  toyed  maverick peculiar  tuxedo  penguin  tree grass  building  listen  speak")
+        RecoveryPasswordView(hardcode: "Voyage  urban  toyed  maverick peculiar  tuxedo  penguin  tree grass  building  listen  speak", flow: .register)
     }
 }

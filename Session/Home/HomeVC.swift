@@ -8,7 +8,7 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
-final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewDataSource, UITableViewDelegate, SeedReminderViewDelegate {
+final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewDataSource, UITableViewDelegate {
     private static let loadingHeaderHeight: CGFloat = 40
     public static let newConversationButtonSize: CGFloat = 60
     
@@ -21,6 +21,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     private var isLoadingMore: Bool = false
     private var isAutoLoadingNextPage: Bool = false
     private var viewHasAppeared: Bool = false
+    private var flow: Onboarding.Flow?
     
     // MARK: - SessionUtilRespondingViewController
     
@@ -28,9 +29,9 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     
     // MARK: - Intialization
     
-    init() {
+    init(flow: Onboarding.Flow? = nil) {
         Storage.shared.addObserver(viewModel.pagedDataObserver)
-        
+        self.flow = flow
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -45,28 +46,6 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     // MARK: - UI
     
     private var tableViewTopConstraint: NSLayoutConstraint!
-    
-    private lazy var seedReminderView: SeedReminderView = {
-        let result = SeedReminderView(hasContinueButton: true)
-        result.accessibilityLabel = "Recovery phrase reminder"
-        let title = "You're almost finished! 80%"
-        result.subtitle = "view_seed_reminder_subtitle_1".localized()
-        result.setProgress(0.8, animated: false)
-        result.delegate = self
-        result.isHidden = !self.viewModel.state.showViewedSeedBanner
-        
-        ThemeManager.onThemeChange(observer: result) { [weak result] _, primaryColor in
-            let attributedTitle = NSMutableAttributedString(string: title)
-            attributedTitle.addAttribute(
-                .foregroundColor,
-                value: primaryColor.color,
-                range: (title as NSString).range(of: "80%")
-            )
-            result?.title = attributedTitle
-        }
-        
-        return result
-    }()
     
     private lazy var loadingConversationsLabel: UILabel = {
         let result: UILabel = UILabel()
@@ -215,6 +194,56 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         return result
     }()
     
+    private lazy var accountCreatedView: UIView = {
+        let image: UIImageView = UIImageView(image: UIImage(named: "Hooray"))
+        image.contentMode = .center
+        image.set(.height, to: 96)
+        
+        let accountCreatedLabel = UILabel()
+        accountCreatedLabel.font = .boldSystemFont(ofSize: Values.veryLargeFontSize)
+        accountCreatedLabel.text = "home_empty_state_account_created".localized()
+        accountCreatedLabel.themeTextColor = .textPrimary
+        accountCreatedLabel.textAlignment = .center
+        
+        let welcomeLabel = UILabel()
+        welcomeLabel.font = .systemFont(ofSize: Values.smallFontSize)
+        welcomeLabel.text = "home_empty_state_welcome".localized()
+        welcomeLabel.themeTextColor = .primary
+        welcomeLabel.textAlignment = .center
+        
+        let emptyConvoLabel = UILabel()
+        emptyConvoLabel.font = .boldSystemFont(ofSize: Values.mediumFontSize)
+        emptyConvoLabel.text = "home_empty_state_no_conversation".localized()
+        emptyConvoLabel.themeTextColor = .textPrimary
+        emptyConvoLabel.textAlignment = .center
+        
+        let instructionLabel = UILabel()
+        instructionLabel.font = .systemFont(ofSize: Values.verySmallFontSize)
+        instructionLabel.text = "home_empty_state_instruction".localized()
+        instructionLabel.themeTextColor = .textPrimary
+        instructionLabel.textAlignment = .center
+        instructionLabel.lineBreakMode = .byWordWrapping
+        instructionLabel.numberOfLines = 0
+        
+        let result = UIStackView(arrangedSubviews: [
+            image,
+            accountCreatedLabel,
+            welcomeLabel,
+            UIView.vSpacer(Values.smallSpacing),
+            UIView.line(),
+            UIView.vSpacer(Values.smallSpacing),
+            emptyConvoLabel,
+            UIView.vSpacer(Values.smallSpacing),
+            instructionLabel
+        ])
+        result.axis = .vertical
+        result.spacing = Values.verySmallSpacing
+        result.alignment = .fill
+        result.isHidden = true
+        
+        return result
+    }()
+    
     // MARK: - Lifecycle
     
     override func viewDidLoad() {
@@ -231,12 +260,6 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         updateNavBarButtons(userProfile: self.viewModel.state.userProfile)
         setUpNavBarSessionHeading()
         
-        // Recovery phrase reminder
-        view.addSubview(seedReminderView)
-        seedReminderView.pin(.leading, to: .leading, of: view)
-        seedReminderView.pin(.top, to: .top, of: view)
-        seedReminderView.pin(.trailing, to: .trailing, of: view)
-        
         // Loading conversations label
         view.addSubview(loadingConversationsLabel)
         
@@ -247,12 +270,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         // Table view
         view.addSubview(tableView)
         tableView.pin(.leading, to: .leading, of: view)
-        if self.viewModel.state.showViewedSeedBanner {
-            tableViewTopConstraint = tableView.pin(.top, to: .bottom, of: seedReminderView)
-        }
-        else {
-            tableViewTopConstraint = tableView.pin(.top, to: .top, of: view)
-        }
+        tableViewTopConstraint = tableView.pin(.top, to: .top, of: view)
         tableView.pin(.trailing, to: .trailing, of: view)
         tableView.pin(.bottom, to: .bottom, of: view)
         
@@ -261,6 +279,13 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         emptyStateView.center(.horizontal, in: view)
         let verticalCenteringConstraint = emptyStateView.center(.vertical, in: view)
         verticalCenteringConstraint.constant = -16 // Makes things appear centered visually
+        
+        view.addSubview(accountCreatedView)
+        accountCreatedView.pin(.leading, to: .leading, of: view, withInset: 50)
+        accountCreatedView.pin(.trailing, to: .trailing, of: view, withInset: -50)
+        accountCreatedView.center(.horizontal, in: view)
+        let verticalCenteringConstraint2 = accountCreatedView.center(.vertical, in: view)
+        verticalCenteringConstraint2.constant = -Values.massiveSpacing // Makes things appear centered visually
         
         // New conversation button
         view.addSubview(newConversationButton)
@@ -380,14 +405,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         // Update the 'view seed' UI
         if updatedState.showViewedSeedBanner != self.viewModel.state.showViewedSeedBanner {
             tableViewTopConstraint.isActive = false
-            seedReminderView.isHidden = !updatedState.showViewedSeedBanner
-            
-            if updatedState.showViewedSeedBanner {
-                tableViewTopConstraint = tableView.pin(.top, to: .bottom, of: seedReminderView)
-            }
-            else {
-                tableViewTopConstraint = tableView.pin(.top, to: .top, of: view, withInset: Values.smallSpacing)
-            }
+            tableViewTopConstraint = tableView.pin(.top, to: .top, of: view, withInset: Values.smallSpacing)
         }
         
         self.viewModel.updateState(updatedState)
@@ -406,10 +424,17 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
                 self?.loadingConversationsLabel.isHidden = true
                 
                 // Show the empty state if there is no data
-                self?.emptyStateView.isHidden = (
-                    !updatedData.isEmpty &&
-                    updatedData.contains(where: { !$0.elements.isEmpty })
-                )
+                if self?.flow == .register {
+                    self?.accountCreatedView.isHidden = (
+                        !updatedData.isEmpty &&
+                        updatedData.contains(where: { !$0.elements.isEmpty })
+                    )
+                } else {
+                    self?.emptyStateView.isHidden = (
+                        !updatedData.isEmpty &&
+                        updatedData.contains(where: { !$0.elements.isEmpty })
+                    )
+                }
                 
                 self?.viewModel.updateThreadData(updatedData)
                 self?.tableView.reloadData()
@@ -422,10 +447,17 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         loadingConversationsLabel.isHidden = true
         
         // Show the empty state if there is no data
-        emptyStateView.isHidden = (
-            !updatedData.isEmpty &&
-            updatedData.contains(where: { !$0.elements.isEmpty })
-        )
+        if self.flow == .register {
+            accountCreatedView.isHidden = (
+                !updatedData.isEmpty &&
+                updatedData.contains(where: { !$0.elements.isEmpty })
+            )
+        } else {
+            emptyStateView.isHidden = (
+                !updatedData.isEmpty &&
+                updatedData.contains(where: { !$0.elements.isEmpty })
+            )
+        }
         
         CATransaction.begin()
         CATransaction.setCompletionBlock { [weak self] in
@@ -742,25 +774,6 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     }
     
     // MARK: - Interaction
-    
-    func handleContinueButtonTapped(from seedReminderView: SeedReminderView) {
-        let targetViewController: UIViewController = {
-            if let seedVC: SeedVC = try? SeedVC() {
-                return StyledNavigationController(rootViewController: seedVC)
-            }
-            
-            return ConfirmationModal(
-                info: ConfirmationModal.Info(
-                    title: "ALERT_ERROR_TITLE".localized(),
-                    body: .text("LOAD_RECOVERY_PASSWORD_ERROR".localized()),
-                    cancelTitle: "BUTTON_OK".localized(),
-                    cancelStyle: .alert_text
-                )
-            )
-        }()
-        
-        present(targetViewController, animated: true, completion: nil)
-    }
     
     func show(
         _ threadId: String,

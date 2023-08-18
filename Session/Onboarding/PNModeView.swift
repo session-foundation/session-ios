@@ -114,7 +114,7 @@ struct PNModeView: View {
             self.flow.completeRegistration()
             
             // Go to recovery password screen
-            if let recoveryPasswordView = try? RecoveryPasswordView() {
+            if let recoveryPasswordView = try? RecoveryPasswordView(flow: self.flow) {
                 let viewController: SessionHostingViewController = SessionHostingViewController(rootView: recoveryPasswordView)
                 viewController.setUpNavBarSessionIcon()
                 self.host.controller?.navigationController?.pushViewController(viewController, animated: true)

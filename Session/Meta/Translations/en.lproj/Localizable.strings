@@ -669,3 +669,7 @@
 "onboarding_recovery_password_title" = "Save your\nrecovery password";
 "onboarding_recovery_password_explanation" = "Use your password to load your account on new devices. Make sure it is stored in a safe place — and don't share it with anyone.";
 "tap_to_copy" = "Tap to copy";
+"home_empty_state_account_created" = "Account Created";
+"home_empty_state_welcome" = "Welcome to Session";
+"home_empty_state_no_conversation" = "You don't have any conversations yet";
+"home_empty_state_instruction" = "Hit the plus button to start a chat, create a group, or join an official communitiy!";
