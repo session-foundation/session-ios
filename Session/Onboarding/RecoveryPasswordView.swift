@@ -8,6 +8,7 @@ import SessionUtilitiesKit
 struct RecoveryPasswordView: View {
     @EnvironmentObject var host: HostWrapper
     
+    @State private var copied: Bool = false
     private let mnemonic: String
     
     static let cornerRadius: CGFloat = 13
@@ -35,19 +36,34 @@ struct RecoveryPasswordView: View {
                 ) {
                     Spacer()
                     
-                    Text("onboarding_recovery_password_title".localized())
-                        .bold()
-                        .font(.system(size: Values.veryLargeFontSize))
-                        .foregroundColor(themeColor: .textPrimary)
-                        .padding(.vertical, Values.mediumSpacing)
+                    HStack(
+                        alignment: .bottom,
+                        spacing: Values.smallSpacing
+                    ) {
+                        Text("onboarding_recovery_password_title".localized())
+                            .bold()
+                            .font(.system(size: Values.veryLargeFontSize))
+                            .foregroundColor(themeColor: .textPrimary)
+                        
+                        Image("SessionShield")
+                            .resizable()
+                            .renderingMode(.template)
+                            .foregroundColor(themeColor: .textPrimary)
+                            .scaledToFit()
+                            .frame(
+                                maxWidth: Values.largeFontSize,
+                                maxHeight: Values.largeFontSize
+                            )
+                            .padding(.bottom, Values.verySmallSpacing)
+                    }
                     
                     Text("onboarding_recovery_password_explanation".localized())
                         .font(.system(size: Values.smallFontSize))
                         .foregroundColor(themeColor: .textPrimary)
-                        .padding(.vertical, Values.mediumSpacing)
                     
                     Text(mnemonic)
                         .font(.spaceMono(size: Values.verySmallFontSize))
+                        .multilineTextAlignment(.center)
                         .foregroundColor(themeColor: .primary)
                         .padding(.all, Values.largeSpacing)
                         .overlay(
@@ -61,9 +77,10 @@ struct RecoveryPasswordView: View {
                         )
                     
                     Button {
-                        
+                        copyRecoveryPassword()
                     } label: {
-                        Text("tap_to_copy".localized())
+                        let buttonTitle: String = self.copied ? "copied".localized() : "tap_to_copy".localized()
+                        Text(buttonTitle)
                             .font(.system(size: Values.verySmallFontSize))
                             .foregroundColor(themeColor: .textSecondary)
                     }
@@ -78,7 +95,7 @@ struct RecoveryPasswordView: View {
                     Spacer()
                     
                     Button {
-                        
+                        finishRegister()
                     } label: {
                         Text("continue_2".localized())
                             .bold()
@@ -100,10 +117,21 @@ struct RecoveryPasswordView: View {
             }
         }
     }
+    
+    private func copyRecoveryPassword() {
+        UIPasteboard.general.string = self.mnemonic
+        self.copied = true
+    }
+    
+    private func finishRegister() {
+        let homeVC: HomeVC = HomeVC()
+        self.host.controller?.navigationController?.setViewControllers([ homeVC ], animated: true)
+        return
+    }
 }
 
 struct RecoveryPasswordView_Previews: PreviewProvider {
     static var previews: some View {
-        RecoveryPasswordView(hardcode: "Voyage  urban  toyed  maverick peculiar  tuxedo  penguin  tree grass  building  listen  speak withdraw  terminal  plane ")
+        RecoveryPasswordView(hardcode: "Voyage  urban  toyed  maverick peculiar  tuxedo  penguin  tree grass  building  listen  speak")
     }
 }

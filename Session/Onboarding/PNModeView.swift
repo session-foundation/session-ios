@@ -107,7 +107,56 @@ struct PNModeView: View {
     }
     
     private func register() {
+        UserDefaults.standard[.isUsingFullAPNs] = (currentSelection == .fast)
         
+        // If we are registering then we can just continue on
+        guard flow != .register else {
+            self.flow.completeRegistration()
+            
+            // Go to recovery password screen
+            if let recoveryPasswordView = try? RecoveryPasswordView() {
+                let viewController: SessionHostingViewController = SessionHostingViewController(rootView: recoveryPasswordView)
+                viewController.setUpNavBarSessionIcon()
+                self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
+            } else {
+                let modal = ConfirmationModal(
+                    targetView: self.host.controller?.view,
+                    info: ConfirmationModal.Info(
+                        title: "ALERT_ERROR_TITLE".localized(),
+                        body: .text("LOAD_RECOVERY_PASSWORD_ERROR".localized()),
+                        cancelTitle: "BUTTON_OK".localized(),
+                        cancelStyle: .alert_text
+                    )
+                )
+                self.host.controller?.present(modal, animated: true)
+            }
+            
+            return
+        }
+        
+        // Check if we already have a profile name (ie. profile retrieval completed while waiting on
+        // this screen)
+        let existingProfileName: String? = Storage.shared
+            .read { db in
+                try Profile
+                    .filter(id: getUserHexEncodedPublicKey(db))
+                    .select(.name)
+                    .asRequest(of: String.self)
+                    .fetchOne(db)
+            }
+        
+        guard existingProfileName?.isEmpty != false else {
+            // If we have one then we can go straight to the home screen
+            self.flow.completeRegistration()
+            
+            // Go to the home screen
+            let homeVC: HomeVC = HomeVC()
+            self.host.controller?.navigationController?.setViewControllers([ homeVC ], animated: true)
+            return
+        }
+        
+        // TODO: If we don't have one then show a loading indicator and try to retrieve the existing name
+
     }
 }
 
