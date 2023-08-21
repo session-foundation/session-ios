@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import YapDatabase
 import SessionUtilitiesKit
 
 enum _004_FlagMessageHashAsDeletedOrInvalid: Migration {
