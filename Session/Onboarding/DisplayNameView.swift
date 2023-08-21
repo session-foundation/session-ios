@@ -35,7 +35,6 @@ struct DisplayNameView: View {
                         .bold()
                         .font(.system(size: Values.veryLargeFontSize))
                         .foregroundColor(themeColor: .textPrimary)
-                        .padding(.vertical, Values.mediumSpacing)
                     
                     Text("onboarding_display_name_explanation".localized())
                         .font(.system(size: Values.smallFontSize))

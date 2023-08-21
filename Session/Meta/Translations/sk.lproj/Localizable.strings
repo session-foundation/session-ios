@@ -673,3 +673,7 @@
 "home_empty_state_welcome" = "Welcome to Session";
 "home_empty_state_no_conversation" = "You don't have any conversations yet";
 "home_empty_state_instruction" = "Hit the plus button to start a chat, create a group, or join an official communitiy!";
+"onboarding_recovery_password_tab_title" = "Recovery Password";
+"onboarding_recovery_password_tab_explanation" = "To load your account, enter the recovery password that was given to you when you signed up.";
+"onboarding_recovery_password_hint" = "Enter your recovery password";
+"onboarding_load_account_title" = "Load Account";

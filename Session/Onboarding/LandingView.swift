@@ -118,7 +118,11 @@ struct LandingView: View {
     }
     
     private func restore() {
+        Onboarding.Flow.register.unregister()
         
+        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: LoadAccountView())
+        viewController.setNavBarTitle("onboarding_load_account_title".localized())
+        self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
     }
 }
 
