@@ -23,7 +23,7 @@ public enum GetSnodePoolJob: JobExecutor {
         // but we want to succeed this job immediately (since it's marked as blocking), this allows us
         // to block if we have no Snode pool and prevent other jobs from failing but avoids having to
         // wait if we already have a potentially valid snode pool
-        guard !SnodeAPI.hasCachedSnodesInclusingExpired() else {
+        guard !SnodeAPI.hasCachedSnodesIncludingExpired() else {
             SNLog("[GetSnodePoolJob] Has valid cached pool, running async instead")
             SnodeAPI
                 .getSnodePool()

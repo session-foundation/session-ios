@@ -16,6 +16,7 @@ public protocol AttachmentApprovalViewControllerDelegate: AnyObject {
         _ attachmentApproval: AttachmentApprovalViewController,
         didApproveAttachments attachments: [SignalAttachment],
         forThreadId threadId: String,
+        threadVariant: SessionThread.Variant,
         messageText: String?,
         using dependencies: Dependencies
     )
@@ -59,6 +60,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
 
     private let mode: Mode
     private let threadId: String
+    private let threadVariant: SessionThread.Variant
     private let isAddMoreVisible: Bool
 
     public weak var approvalDelegate: AttachmentApprovalViewControllerDelegate?
@@ -128,11 +130,13 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     required public init(
         mode: Mode,
         threadId: String,
+        threadVariant: SessionThread.Variant,
         attachments: [SignalAttachment]
     ) {
         assert(attachments.count > 0)
         self.mode = mode
         self.threadId = threadId
+        self.threadVariant = threadVariant
         let attachmentItems = attachments.map { SignalAttachmentItem(attachment: $0 )}
         self.isAddMoreVisible = (mode == .sharedNavigation)
 
@@ -162,10 +166,16 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
 
     public class func wrappedInNavController(
         threadId: String,
+        threadVariant: SessionThread.Variant,
         attachments: [SignalAttachment],
         approvalDelegate: AttachmentApprovalViewControllerDelegate
     ) -> UINavigationController {
-        let vc = AttachmentApprovalViewController(mode: .modal, threadId: threadId, attachments: attachments)
+        let vc = AttachmentApprovalViewController(
+            mode: .modal,
+            threadId: threadId,
+            threadVariant: threadVariant,
+            attachments: attachments
+        )
         vc.approvalDelegate = approvalDelegate
         
         let navController = StyledNavigationController(rootViewController: vc)
@@ -674,7 +684,14 @@ extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
         attachmentTextToolbar.isUserInteractionEnabled = false
         attachmentTextToolbar.isHidden = true
 
-        approvalDelegate?.attachmentApproval(self, didApproveAttachments: attachments, forThreadId: threadId, messageText: attachmentTextToolbar.messageText, using: dependencies)
+        approvalDelegate?.attachmentApproval(
+            self,
+            didApproveAttachments: attachments,
+            forThreadId: threadId,
+            threadVariant: threadVariant,
+            messageText: attachmentTextToolbar.messageText,
+            using: dependencies
+        )
     }
 
     func attachmentTextToolbarDidChange(_ attachmentTextToolbar: AttachmentTextToolbar) {
