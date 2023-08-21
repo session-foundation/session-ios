@@ -59,6 +59,7 @@ public struct SessionTextField: View {
                 .bold()
                 .font(.system(size: Values.mediumFontSize))
                 .foregroundColor(themeColor: .danger)
+                .multilineTextAlignment(.center)
         }
     }
 }
