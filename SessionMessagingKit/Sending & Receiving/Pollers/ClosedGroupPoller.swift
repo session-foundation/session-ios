@@ -7,7 +7,9 @@ import SessionSnodeKit
 import SessionUtilitiesKit
 
 public final class ClosedGroupPoller: Poller {
-    public static var namespaces: [SnodeAPI.Namespace] = [.legacyClosedGroup]
+    public static var namespaces: [SnodeAPI.Namespace] = [
+        .legacyClosedGroup, .default, .configGroupInfo, .configGroupMembers, .configGroupKeys
+    ]
 
     // MARK: - Settings
     

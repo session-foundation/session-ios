@@ -10,7 +10,9 @@ public extension SnodeAPI {
         case configContacts = 3
         case configConvoInfoVolatile = 4
         case configUserGroups = 5
-        case configClosedGroupInfo = 11
+        case configGroupInfo = 11
+        case configGroupMembers = 12
+        case configGroupKeys = 13
         
         case legacyClosedGroup = -10
         
@@ -52,7 +54,8 @@ public extension SnodeAPI {
                     
                 case .configUserProfile, .configContacts,
                     .configConvoInfoVolatile, .configUserGroups,
-                    .configClosedGroupInfo, .all:
+                    .configGroupInfo, .configGroupMembers, .configGroupKeys,
+                    .all:
                     return false
             }
         }
@@ -88,7 +91,8 @@ public extension SnodeAPI {
                     
                 case .configUserProfile, .configContacts,
                     .configConvoInfoVolatile, .configUserGroups,
-                    .configClosedGroupInfo, .all:
+                    .configGroupInfo, .configGroupMembers, .configGroupKeys,
+                    .all:
                     return 1
             }
         }

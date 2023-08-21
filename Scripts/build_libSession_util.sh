@@ -196,8 +196,23 @@ for i in "${!TARGET_ARCHS[@]}"; do
         -DENABLE_BITCODE=$ENABLE_BITCODE
     
     if [ $? -ne 0 ]; then
-      LAST_OUTPUT=$(tail -n 4 "${TARGET_BUILD_DIR}/libSessionUtil/libsession_util_output.log" | head -n 1)
-      echo_message "error: $LAST_OUTPUT"
+      ALL_ERROR_LINES=($(grep -n "error:" "${TARGET_BUILD_DIR}/libSessionUtil/libsession_util_output.log" | cut -d ":" -f 1))
+
+      for e in "${!ALL_ERROR_LINES[@]}"; do
+        error_line="${ALL_ERROR_LINES[$e]}"
+        error=$(sed "${error_line}q;d" "${TARGET_BUILD_DIR}/libSessionUtil/libsession_util_output.log")
+
+        # If it was a CMake Error then the actual error will be on the next line so we want to append that info
+        if [[ $error == *'CMake Error'* ]]; then
+            actual_error_line=$((error_line + 1))
+            error="${error}$(sed "${actual_error_line}q;d" "${TARGET_BUILD_DIR}/libSessionUtil/libsession_util_output.log")"
+        fi
+
+        # Exclude the 'ALL_ERROR_LINES' line and the 'grep' line
+        if [[ ! $error == *'grep -n "error'* ]] && [[ ! $error == *'grep -n error'* ]]; then
+            echo_message "error: $error"
+        fi
+      done
       exit 1
     fi
 done
