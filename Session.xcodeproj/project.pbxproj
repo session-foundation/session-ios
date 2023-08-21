@@ -126,6 +126,7 @@
 		7B87EF462A8DDA8E002A0E8F /* PNModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B87EF452A8DDA8E002A0E8F /* PNModeView.swift */; };
 		7B87EF482A8DFBBF002A0E8F /* RecoveryPasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B87EF472A8DFBBF002A0E8F /* RecoveryPasswordView.swift */; };
 		7B87EF4A2A92DFB4002A0E8F /* LoadAccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B87EF492A92DFB4002A0E8F /* LoadAccountView.swift */; };
+		7B87EF4C2A933355002A0E8F /* LoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B87EF4B2A933355002A0E8F /* LoadingView.swift */; };
 		7B8914772A7CAAE200A4C627 /* SessionHostingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8914762A7CAAE200A4C627 /* SessionHostingViewController.swift */; };
 		7B8C44C528B49DDA00FBE25F /* NewConversationVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8C44C428B49DDA00FBE25F /* NewConversationVC.swift */; };
 		7B8D5FC428332600008324D9 /* VisibleMessage+Reaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8D5FC328332600008324D9 /* VisibleMessage+Reaction.swift */; };
@@ -1245,6 +1246,7 @@
 		7B87EF452A8DDA8E002A0E8F /* PNModeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PNModeView.swift; sourceTree = "<group>"; };
 		7B87EF472A8DFBBF002A0E8F /* RecoveryPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryPasswordView.swift; sourceTree = "<group>"; };
 		7B87EF492A92DFB4002A0E8F /* LoadAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadAccountView.swift; sourceTree = "<group>"; };
+		7B87EF4B2A933355002A0E8F /* LoadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingView.swift; sourceTree = "<group>"; };
 		7B8914762A7CAAE200A4C627 /* SessionHostingViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionHostingViewController.swift; sourceTree = "<group>"; };
 		7B8C44C428B49DDA00FBE25F /* NewConversationVC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewConversationVC.swift; sourceTree = "<group>"; };
 		7B8D5FC328332600008324D9 /* VisibleMessage+Reaction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VisibleMessage+Reaction.swift"; sourceTree = "<group>"; };
@@ -3014,6 +3016,7 @@
 				7B87EF452A8DDA8E002A0E8F /* PNModeView.swift */,
 				7B87EF472A8DFBBF002A0E8F /* RecoveryPasswordView.swift */,
 				7B87EF492A92DFB4002A0E8F /* LoadAccountView.swift */,
+				7B87EF4B2A933355002A0E8F /* LoadingView.swift */,
 			);
 			path = Onboarding;
 			sourceTree = "<group>";
@@ -6113,6 +6116,7 @@
 				FD37EA1728AC5605003AE748 /* NotificationContentViewModel.swift in Sources */,
 				B886B4A72398B23E00211ABE /* QRCodeVC.swift in Sources */,
 				4C586926224FAB83003FD070 /* AVAudioSession+OWS.m in Sources */,
+				7B87EF4C2A933355002A0E8F /* LoadingView.swift in Sources */,
 				FD87DD0028B820F200AF0F98 /* BlockedContactCell.swift in Sources */,
 				C331FFF42558FF0300070591 /* PNOptionView.swift in Sources */,
 				7BB92B3F28C825FD0082762F /* NewConversationViewModel.swift in Sources */,

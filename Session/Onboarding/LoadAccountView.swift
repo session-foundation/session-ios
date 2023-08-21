@@ -29,7 +29,8 @@ struct LoadAccountView: View {
                     if tabIndex == 0 {
                         EnterRecoveryPasswordView(
                             $recoveryPassword,
-                            error: $error
+                            error: $error,
+                            continueWithSeed: continueWithSeed
                         )
                     }
                     else {
@@ -40,18 +41,12 @@ struct LoadAccountView: View {
         }
     }
     
-    func continueWithSeed(_ seed: Data, onError: (() -> ())?) {
+    func continueWithSeed() {
+        let mnemonic = recoveryPassword.lowercased()
+        guard let hexEncodedSeed = try? Mnemonic.decode(mnemonic: mnemonic) else { return }
+        let seed = Data(hex: hexEncodedSeed)
         if (seed.count != 16) {
-            let modal: ConfirmationModal = ConfirmationModal(
-                info: ConfirmationModal.Info(
-                    title: "invalid_recovery_phrase".localized(),
-                    body: .text("INVALID_RECOVERY_PHRASE_MESSAGE".localized()),
-                    cancelTitle: "BUTTON_OK".localized(),
-                    cancelStyle: .alert_text,
-                    afterClosed: onError
-                )
-            )
-            self.host.controller?.present(modal, animated: true)
+            //TODO: show error
             return
         }
         let (ed25519KeyPair, x25519KeyPair) = try! Identity.generate(from: seed)
@@ -139,9 +134,16 @@ struct EnterRecoveryPasswordView: View{
     @Binding var recoveryPassword: String
     @Binding var error: String?
     
-    init(_ recoveryPassword: Binding<String>, error: Binding<String?>) {
+    var continueWithSeed: (() -> Void)?
+    
+    init(
+        _ recoveryPassword: Binding<String>,
+        error: Binding<String?>,
+        continueWithSeed: (() -> Void)?
+    ) {
         self._recoveryPassword = recoveryPassword
         self._error = error
+        self.continueWithSeed = continueWithSeed
     }
     
     var body: some View{
@@ -177,7 +179,7 @@ struct EnterRecoveryPasswordView: View{
                 Spacer()
                 
                 Button {
-
+                    continueWithSeed?()
                 } label: {
                     Text("continue_2".localized())
                         .bold()

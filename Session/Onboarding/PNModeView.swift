@@ -155,8 +155,10 @@ struct PNModeView: View {
             return
         }
         
-        // TODO: If we don't have one then show a loading indicator and try to retrieve the existing name
-
+        // If we don't have one then show a loading indicator and try to retrieve the existing name
+        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: LoadingView(flow: flow))
+        viewController.setUpNavBarSessionIcon()
+        self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
     }
 }
 

@@ -677,3 +677,5 @@
 "onboarding_recovery_password_tab_explanation" = "To load your account, enter the recovery password that was given to you when you signed up.";
 "onboarding_recovery_password_hint" = "Enter your recovery password";
 "onboarding_load_account_title" = "Load Account";
+"onboarding_load_account_waiting" = "One moment please..";
+"onboarding_loading_account" = "Loading your account";

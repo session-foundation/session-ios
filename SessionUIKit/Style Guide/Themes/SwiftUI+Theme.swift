@@ -23,9 +23,17 @@ public extension Shape {
         )
     }
     
-    func stroke(themeColor: ThemeValue) -> some View {
+    func stroke(themeColor: ThemeValue, lineWidth: CGFloat = 1) -> some View {
         return self.stroke(
-            ThemeManager.currentTheme.colorSwiftUI(for: themeColor) ?? Color.primary
+            ThemeManager.currentTheme.colorSwiftUI(for: themeColor) ?? Color.primary,
+            lineWidth: lineWidth
+        )
+    }
+    
+    func stroke(themeColor: ThemeValue, style: StrokeStyle) -> some View {
+        return self.stroke(
+            ThemeManager.currentTheme.colorSwiftUI(for: themeColor) ?? Color.primary,
+            style: style
         )
     }
 }
