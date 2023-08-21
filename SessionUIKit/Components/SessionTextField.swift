@@ -1,6 +1,7 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import SwiftUI
+import Combine
 
 public struct SessionTextField: View {
     @Binding var text: String
@@ -31,14 +32,14 @@ public struct SessionTextField: View {
                 
                 SwiftUI.TextField(
                     "",
-                    text: $text
+                    text: $text.onChange{ value in
+                        if error?.isEmpty == false && text != value {
+                            error = nil
+                        }
+                    }
                 )
                 .font(.system(size: Values.mediumFontSize))
                 .foregroundColor(themeColor: (error?.isEmpty == false) ? .danger : .textPrimary)
-                .onReceive(text.publisher, perform: { _ in
-                    error = nil
-                })
-                
             }
             .padding(.horizontal, Values.largeSpacing)
             .frame(
