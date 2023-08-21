@@ -10,6 +10,7 @@ struct LoadAccountView: View {
     
     @State var tabIndex = 0
     @State private var recoveryPassword: String = ""
+    @State private var error: String? = nil
         
     var body: some View {
         NavigationView {
@@ -26,7 +27,10 @@ struct LoadAccountView: View {
                         .frame(maxWidth: .infinity)
                         
                     if tabIndex == 0 {
-                        EnterRecoveryPasswordView($recoveryPassword)
+                        EnterRecoveryPasswordView(
+                            $recoveryPassword,
+                            error: $error
+                        )
                     }
                     else {
                         ScanQRCodeView()
@@ -133,9 +137,11 @@ struct CustomTopTabBar: View {
 
 struct EnterRecoveryPasswordView: View{
     @Binding var recoveryPassword: String
+    @Binding var error: String?
     
-    init(_ recoveryPassword: Binding<String>) {
+    init(_ recoveryPassword: Binding<String>, error: Binding<String?>) {
         self._recoveryPassword = recoveryPassword
+        self._error = error
     }
     
     var body: some View{
@@ -158,7 +164,8 @@ struct EnterRecoveryPasswordView: View{
                 
                 SessionTextField(
                     $recoveryPassword,
-                    placeholder: "onboarding_recovery_password_hint".localized()
+                    placeholder: "onboarding_recovery_password_hint".localized(),
+                    error: $error
                 )
                 
                 Spacer()

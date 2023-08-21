@@ -9,6 +9,7 @@ struct DisplayNameView: View {
     @EnvironmentObject var host: HostWrapper
     
     @State private var displayName: String = ""
+    @State private var error: String? = nil
     
     private let flow: Onboarding.Flow
     
@@ -43,7 +44,8 @@ struct DisplayNameView: View {
                     
                     SessionTextField(
                         $displayName,
-                        placeholder: "onboarding_display_name_hint".localized()
+                        placeholder: "onboarding_display_name_hint".localized(),
+                        error: $error
                     )
                     
                     Spacer()
@@ -79,23 +81,14 @@ struct DisplayNameView: View {
     }
     
     private func register() {
-        func showError(title: String, message: String = "") {
-            let modal: ConfirmationModal = ConfirmationModal(
-                info: ConfirmationModal.Info(
-                    title: title,
-                    body: .text(message),
-                    cancelTitle: "BUTTON_OK".localized(),
-                    cancelStyle: .alert_text
-                )
-            )
-            self.host.controller?.present(modal, animated: true)
-        }
         let displayName = self.displayName.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
         guard !displayName.isEmpty else {
-            return showError(title: "vc_display_name_display_name_missing_error".localized())
+            error = "vc_display_name_display_name_missing_error".localized()
+            return
         }
         guard !ProfileManager.isToLong(profileName: displayName) else {
-            return showError(title: "vc_display_name_display_name_too_long_error".localized())
+            error = "vc_display_name_display_name_too_long_error".localized()
+            return
         }
         
         // Try to save the user name but ignore the result
@@ -109,7 +102,8 @@ struct DisplayNameView: View {
         guard self.flow == .register else {
             self.flow.completeRegistration()
             
-            // TODO: Go to the loading screen
+            let homeVC: HomeVC = HomeVC(flow: self.flow)
+            self.host.controller?.navigationController?.setViewControllers([ homeVC ], animated: true)
             
             return
         }
