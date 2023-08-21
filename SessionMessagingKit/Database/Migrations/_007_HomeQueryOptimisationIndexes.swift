@@ -9,7 +9,7 @@ enum _007_HomeQueryOptimisationIndexes: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "HomeQueryOptimisationIndexes"
     static let needsConfigSync: Bool = false
-    static let minExpectedRunDuration: TimeInterval = 0.1
+    static let minExpectedRunDuration: TimeInterval = 0.01
     
     static func migrate(_ db: Database) throws {
         try db.create(

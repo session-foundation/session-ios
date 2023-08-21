@@ -4,6 +4,7 @@ import Foundation
 import GRDB
 import DifferenceKit
 import SignalUtilitiesKit
+import SessionUtilitiesKit
 
 public class MessageRequestsViewModel {
     public typealias SectionModel = ArraySection<Section, SessionThreadViewModel>

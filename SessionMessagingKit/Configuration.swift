@@ -31,7 +31,8 @@ public enum SNMessagingKit: MigratableTarget { // Just to make the external API 
                     _011_AddPendingReadReceipts.self,
                     _012_AddFTSIfNeeded.self,
                     _013_SessionUtilChanges.self,
-                    _014_GenerateInitialUserConfigDumps.self
+                    _014_GenerateInitialUserConfigDumps.self,
+                    _015_BlockCommunityMessageRequests.self
                 ]
             ]
         )

@@ -285,6 +285,17 @@ class ConfigUserProfileSpec {
                 )
                 user_profile_set_pic(conf2, p2)
                 
+                user_profile_set_nts_expiry(conf2, 86400)
+                expect(user_profile_get_nts_expiry(conf2)).to(equal(86400))
+                
+                expect(user_profile_get_blinded_msgreqs(conf2)).to(equal(-1))
+                user_profile_set_blinded_msgreqs(conf2, 0)
+                expect(user_profile_get_blinded_msgreqs(conf2)).to(equal(0))
+                user_profile_set_blinded_msgreqs(conf2, -1)
+                expect(user_profile_get_blinded_msgreqs(conf2)).to(equal(-1))
+                user_profile_set_blinded_msgreqs(conf2, 1)
+                expect(user_profile_get_blinded_msgreqs(conf2)).to(equal(1))
+                
                 // Both have changes, so push need a push
                 expect(config_needs_push(conf)).to(beTrue())
                 expect(config_needs_push(conf2)).to(beTrue())
@@ -364,6 +375,10 @@ class ConfigUserProfileSpec {
                     .to(equal("7177657274007975696f31323334353637383930313233343536373839303132"))
                 expect(user_profile_get_nts_priority(conf)).to(equal(9))
                 expect(user_profile_get_nts_priority(conf2)).to(equal(9))
+                expect(user_profile_get_nts_expiry(conf)).to(equal(86400))
+                expect(user_profile_get_nts_expiry(conf2)).to(equal(86400))
+                expect(user_profile_get_blinded_msgreqs(conf)).to(equal(1))
+                expect(user_profile_get_blinded_msgreqs(conf2)).to(equal(1))
                 
                 let fakeHash4: String = "fakehash4"
                 var cFakeHash4: [CChar] = fakeHash4.cArray.nullTerminated()

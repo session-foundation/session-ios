@@ -6,6 +6,7 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionSnodeKit
 import SignalUtilitiesKit
+import SessionUtilitiesKit
 
 final class PNModeVC: BaseVC, OptionViewDelegate {
     private let flow: Onboarding.Flow

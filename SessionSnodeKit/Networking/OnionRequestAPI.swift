@@ -275,7 +275,7 @@ public enum OnionRequestAPI {
             if let snode = snode {
                 if let path = paths.first(where: { !$0.contains(snode) }) {
                     buildPaths(reusing: paths, using: dependencies) // Re-build paths in the background
-                        .subscribe(on: DispatchQueue.global(qos: .background))
+                        .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
                         .sink(receiveCompletion: { _ in cancellable = [] }, receiveValue: { _ in })
                         .store(in: &cancellable)
                     
@@ -817,50 +817,15 @@ public enum OnionRequestAPI {
     }
     
     public static func process(bencodedData data: Data) -> (info: ResponseInfoType, body: Data?)? {
-        // The data will be in the form of `l123:jsone` or `l123:json456:bodye` so we need to break
-        // the data into parts to properly process it
-        guard let responseString: String = String(data: data, encoding: .ascii), responseString.starts(with: "l") else {
+        guard let response: BencodeResponse<HTTP.ResponseInfo> = try? Bencode.decodeResponse(from: data) else {
             return nil
         }
         
-        let stringParts: [String.SubSequence] = responseString.split(separator: ":")
-        
-        guard stringParts.count > 1, let infoLength: Int = Int(stringParts[0].suffix(from: stringParts[0].index(stringParts[0].startIndex, offsetBy: 1))) else {
-            return nil
-        }
-        
-        let infoStringStartIndex: String.Index = responseString.index(responseString.startIndex, offsetBy: "l\(infoLength):".count)
-        let infoStringEndIndex: String.Index = responseString.index(infoStringStartIndex, offsetBy: infoLength)
-        let infoString: String = String(responseString[infoStringStartIndex..<infoStringEndIndex])
-
-        guard let infoStringData: Data = infoString.data(using: .utf8), let responseInfo: HTTP.ResponseInfo = try? JSONDecoder().decode(HTTP.ResponseInfo.self, from: infoStringData) else {
-            return nil
-        }
-
         // Custom handle a clock out of sync error (v4 returns '425' but included the '406' just
         // in case)
-        guard responseInfo.code != 406 && responseInfo.code != 425 else { return nil }
-        guard responseInfo.code != 401 else { return nil }
+        guard response.info.code != 406 && response.info.code != 425 else { return nil }
+        guard response.info.code != 401 else { return nil }
         
-        // If there is no data in the response then just return the ResponseInfo
-        guard responseString.count > "l\(infoLength)\(infoString)e".count else {
-            return (responseInfo, nil)
-        }
-        
-        // Extract the response data as well
-        let dataString: String = String(responseString.suffix(from: infoStringEndIndex))
-        let dataStringParts: [String.SubSequence] = dataString.split(separator: ":")
-        
-        guard dataStringParts.count > 1, let finalDataLength: Int = Int(dataStringParts[0]), let suffixData: Data = "e".data(using: .utf8) else {
-            return nil
-        }
-        
-        let dataBytes: Array<UInt8> = Array(data)
-        let dataEndIndex: Int = (dataBytes.count - suffixData.count)
-        let dataStartIndex: Int = (dataEndIndex - finalDataLength)
-        let finalDataBytes: ArraySlice<UInt8> = dataBytes[dataStartIndex..<dataEndIndex]
-        let finalData: Data = Data(finalDataBytes)
-        
-        return (responseInfo, finalData)
+        return (response.info, response.data)
     }
 }

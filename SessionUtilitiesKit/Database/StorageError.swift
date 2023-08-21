@@ -9,6 +9,8 @@ public enum StorageError: Error {
     case migrationFailed
     case migrationNoLongerSupported
     case invalidKeySpec
+    case keySpecCreationFailed
+    case keySpecInaccessible
     case decodingFailed
     
     case failedToSave

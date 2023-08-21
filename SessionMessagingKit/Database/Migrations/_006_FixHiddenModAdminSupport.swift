@@ -10,7 +10,7 @@ enum _006_FixHiddenModAdminSupport: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "FixHiddenModAdminSupport"
     static let needsConfigSync: Bool = false
-    static let minExpectedRunDuration: TimeInterval = 0.1
+    static let minExpectedRunDuration: TimeInterval = 0.01
     
     static func migrate(_ db: Database) throws {
         try db.alter(table: GroupMember.self) { t in

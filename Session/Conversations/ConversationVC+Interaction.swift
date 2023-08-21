@@ -11,6 +11,7 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
+import SessionSnodeKit
 
 extension ConversationVC:
     InputViewDelegate,

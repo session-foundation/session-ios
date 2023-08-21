@@ -8,17 +8,21 @@ public protocol Migration {
     static var identifier: String { get }
     static var needsConfigSync: Bool { get }
     static var minExpectedRunDuration: TimeInterval { get }
+    static var requirements: [MigrationRequirement] { get }
     
     static func migrate(_ db: Database) throws
 }
 
 public extension Migration {
+    static var requirements: [MigrationRequirement] { [] }
+    
     static func loggedMigrate(
         _ storage: Storage?,
         targetIdentifier: TargetMigrations.Identifier
     ) -> ((_ db: Database) throws -> ()) {
         return { (db: Database) in
             SNLogNotTests("[Migration Info] Starting \(targetIdentifier.key(with: self))")
+            storage?.willStartMigration(db, self)
             storage?.internalCurrentlyRunningMigration.mutate { $0 = (targetIdentifier, self) }
             defer { storage?.internalCurrentlyRunningMigration.mutate { $0 = nil } }
             

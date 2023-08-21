@@ -8,6 +8,7 @@ import NVActivityIndicatorView
 import SessionUIKit
 import SessionMessagingKit
 import SignalCoreKit
+import SessionUtilitiesKit
 
 public protocol MediaMessageViewAudioDelegate: AnyObject {
     func progressChanged(_ progressSeconds: CGFloat, durationSeconds: CGFloat)

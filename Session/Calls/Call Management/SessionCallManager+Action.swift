@@ -2,6 +2,7 @@
 
 import UIKit
 import GRDB
+import SessionUtilitiesKit
 
 extension SessionCallManager {
     @discardableResult

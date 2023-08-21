@@ -4,6 +4,7 @@
 
 import Foundation
 import SignalUtilitiesKit
+import SessionUtilitiesKit
 
 final class NotificationServiceExtensionContext : NSObject, AppContext {
     let appLaunchTime = Date()
@@ -31,10 +32,6 @@ final class NotificationServiceExtensionContext : NSObject, AppContext {
     func isInBackground() -> Bool { true }
     func mainApplicationStateOnLaunch() -> UIApplication.State { .inactive }
 
-    func appDatabaseBaseDirectoryPath() -> String {
-        return appSharedDataDirectoryPath()
-    }
-
     func appDocumentDirectoryPath() -> String {
         guard let documentDirectoryURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).last else {
             preconditionFailure("Couldn't get document directory.")
@@ -43,14 +40,14 @@ final class NotificationServiceExtensionContext : NSObject, AppContext {
     }
 
     func appSharedDataDirectoryPath() -> String {
-        guard let groupContainerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: SignalApplicationGroup) else {
+        guard let groupContainerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: UserDefaults.applicationGroup) else {
             preconditionFailure("Couldn't get shared data directory.")
         }
         return groupContainerURL.path
     }
 
     func appUserDefaults() -> UserDefaults {
-        guard let userDefaults = UserDefaults(suiteName: SignalApplicationGroup) else {
+        guard let userDefaults = UserDefaults.sharedLokiProject else {
             preconditionFailure("Couldn't set up shared user defaults.")
         }
         return userDefaults
