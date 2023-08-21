@@ -18,12 +18,14 @@ class SendMediaNavigationController: UINavigationController {
     static let bottomButtonsCenterOffset: CGFloat = -50
     
     private let threadId: String
+    private let threadVariant: SessionThread.Variant
     private var disposables: Set<AnyCancellable> = Set()
     
     // MARK: - Initialization
     
-    init(threadId: String) {
+    init(threadId: String, threadVariant: SessionThread.Variant) {
         self.threadId = threadId
+        self.threadVariant = threadVariant
         
         super.init(nibName: nil, bundle: nil)
     }
@@ -74,17 +76,15 @@ class SendMediaNavigationController: UINavigationController {
 
     public weak var sendMediaNavDelegate: SendMediaNavDelegate?
 
-    @objc
-    public class func showingCameraFirst(threadId: String) -> SendMediaNavigationController {
-        let navController = SendMediaNavigationController(threadId: threadId)
+    public class func showingCameraFirst(threadId: String, threadVariant: SessionThread.Variant) -> SendMediaNavigationController {
+        let navController = SendMediaNavigationController(threadId: threadId, threadVariant: threadVariant)
         navController.viewControllers = [navController.captureViewController]
 
         return navController
     }
 
-    @objc
-    public class func showingMediaLibraryFirst(threadId: String) -> SendMediaNavigationController {
-        let navController = SendMediaNavigationController(threadId: threadId)
+    public class func showingMediaLibraryFirst(threadId: String, threadVariant: SessionThread.Variant) -> SendMediaNavigationController {
+        let navController = SendMediaNavigationController(threadId: threadId, threadVariant: threadVariant)
         navController.viewControllers = [navController.mediaLibraryViewController]
 
         return navController
@@ -233,6 +233,7 @@ class SendMediaNavigationController: UINavigationController {
         let approvalViewController = AttachmentApprovalViewController(
             mode: .sharedNavigation,
             threadId: self.threadId,
+            threadVariant: self.threadVariant,
             attachments: self.attachments
         )
         approvalViewController.approvalDelegate = self
@@ -431,8 +432,22 @@ extension SendMediaNavigationController: AttachmentApprovalViewControllerDelegat
         attachmentDraftCollection.remove(attachment: attachment)
     }
 
-    func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didApproveAttachments attachments: [SignalAttachment], forThreadId threadId: String, messageText: String?, using dependencies: Dependencies) {
-        sendMediaNavDelegate?.sendMediaNav(self, didApproveAttachments: attachments, forThreadId: threadId, messageText: messageText, using: dependencies)
+    func attachmentApproval(
+        _ attachmentApproval: AttachmentApprovalViewController,
+        didApproveAttachments attachments: [SignalAttachment],
+        forThreadId threadId: String,
+        threadVariant: SessionThread.Variant,
+        messageText: String?,
+        using dependencies: Dependencies
+    ) {
+        sendMediaNavDelegate?.sendMediaNav(
+            self,
+            didApproveAttachments: attachments,
+            forThreadId: threadId,
+            threadVariant: threadVariant,
+            messageText: messageText,
+            using: dependencies
+        )
     }
 
     func attachmentApprovalDidCancel(_ attachmentApproval: AttachmentApprovalViewController) {
@@ -765,7 +780,7 @@ private class DoneButton: UIView {
 
 protocol SendMediaNavDelegate: AnyObject {
     func sendMediaNavDidCancel(_ sendMediaNavigationController: SendMediaNavigationController?)
-    func sendMediaNav(_ sendMediaNavigationController: SendMediaNavigationController, didApproveAttachments attachments: [SignalAttachment], forThreadId threadId: String, messageText: String?, using dependencies: Dependencies)
+    func sendMediaNav(_ sendMediaNavigationController: SendMediaNavigationController, didApproveAttachments attachments: [SignalAttachment], forThreadId threadId: String, threadVariant: SessionThread.Variant, messageText: String?, using dependencies: Dependencies)
 
     func sendMediaNavInitialMessageText(_ sendMediaNavigationController: SendMediaNavigationController) -> String?
     func sendMediaNav(_ sendMediaNavigationController: SendMediaNavigationController, didChangeMessageText newMessageText: String?)

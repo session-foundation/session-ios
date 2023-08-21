@@ -11,42 +11,66 @@ fileprivate typealias AttachmentInteractionInfo = MessageViewModel.AttachmentInt
 fileprivate typealias ReactionInfo = MessageViewModel.ReactionInfo
 fileprivate typealias TypingIndicatorInfo = MessageViewModel.TypingIndicatorInfo
 
-public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, Hashable, Identifiable, Differentiable {
-    public static let threadIdKey: SQL = SQL(stringLiteral: CodingKeys.threadId.stringValue)
-    public static let threadVariantKey: SQL = SQL(stringLiteral: CodingKeys.threadVariant.stringValue)
-    public static let threadIsTrustedKey: SQL = SQL(stringLiteral: CodingKeys.threadIsTrusted.stringValue)
-    public static let threadHasDisappearingMessagesEnabledKey: SQL = SQL(stringLiteral: CodingKeys.threadHasDisappearingMessagesEnabled.stringValue)
-    public static let threadOpenGroupServerKey: SQL = SQL(stringLiteral: CodingKeys.threadOpenGroupServer.stringValue)
-    public static let threadOpenGroupPublicKeyKey: SQL = SQL(stringLiteral: CodingKeys.threadOpenGroupPublicKey.stringValue)
-    public static let threadContactNameInternalKey: SQL = SQL(stringLiteral: CodingKeys.threadContactNameInternal.stringValue)
-    public static let rowIdKey: SQL = SQL(stringLiteral: CodingKeys.rowId.stringValue)
-    public static let authorNameInternalKey: SQL = SQL(stringLiteral: CodingKeys.authorNameInternal.stringValue)
-    public static let stateKey: SQL = SQL(stringLiteral: CodingKeys.state.stringValue)
-    public static let hasAtLeastOneReadReceiptKey: SQL = SQL(stringLiteral: CodingKeys.hasAtLeastOneReadReceipt.stringValue)
-    public static let mostRecentFailureTextKey: SQL = SQL(stringLiteral: CodingKeys.mostRecentFailureText.stringValue)
-    public static let isTypingIndicatorKey: SQL = SQL(stringLiteral: CodingKeys.isTypingIndicator.stringValue)
-    public static let isSenderOpenGroupModeratorKey: SQL = SQL(stringLiteral: CodingKeys.isSenderOpenGroupModerator.stringValue)
-    public static let profileKey: SQL = SQL(stringLiteral: CodingKeys.profile.stringValue)
-    public static let quoteKey: SQL = SQL(stringLiteral: CodingKeys.quote.stringValue)
-    public static let quoteAttachmentKey: SQL = SQL(stringLiteral: CodingKeys.quoteAttachment.stringValue)
-    public static let linkPreviewKey: SQL = SQL(stringLiteral: CodingKeys.linkPreview.stringValue)
-    public static let linkPreviewAttachmentKey: SQL = SQL(stringLiteral: CodingKeys.linkPreviewAttachment.stringValue)
-    public static let currentUserPublicKeyKey: SQL = SQL(stringLiteral: CodingKeys.currentUserPublicKey.stringValue)
-    public static let cellTypeKey: SQL = SQL(stringLiteral: CodingKeys.cellType.stringValue)
-    public static let authorNameKey: SQL = SQL(stringLiteral: CodingKeys.authorName.stringValue)
-    public static let canHaveProfileKey: SQL = SQL(stringLiteral: CodingKeys.canHaveProfile.stringValue)
-    public static let shouldShowProfileKey: SQL = SQL(stringLiteral: CodingKeys.shouldShowProfile.stringValue)
-    public static let shouldShowDateHeaderKey: SQL = SQL(stringLiteral: CodingKeys.shouldShowDateHeader.stringValue)
-    public static let positionInClusterKey: SQL = SQL(stringLiteral: CodingKeys.positionInCluster.stringValue)
-    public static let isOnlyMessageInClusterKey: SQL = SQL(stringLiteral: CodingKeys.isOnlyMessageInCluster.stringValue)
-    public static let isLastKey: SQL = SQL(stringLiteral: CodingKeys.isLast.stringValue)
-    public static let isLastOutgoingKey: SQL = SQL(stringLiteral: CodingKeys.isLastOutgoing.stringValue)
-    
-    public static let profileString: String = CodingKeys.profile.stringValue
-    public static let quoteString: String = CodingKeys.quote.stringValue
-    public static let quoteAttachmentString: String = CodingKeys.quoteAttachment.stringValue
-    public static let linkPreviewString: String = CodingKeys.linkPreview.stringValue
-    public static let linkPreviewAttachmentString: String = CodingKeys.linkPreviewAttachment.stringValue
+public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, Hashable, Identifiable, Differentiable, ColumnExpressible {
+    public typealias Columns = CodingKeys
+    public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
+        case threadId
+        case threadVariant
+        case threadIsTrusted
+        case threadHasDisappearingMessagesEnabled
+        case threadOpenGroupServer
+        case threadOpenGroupPublicKey
+        case threadContactNameInternal
+
+        // Interaction Info
+
+        case rowId
+        case id
+        case openGroupServerMessageId
+        case variant
+        case timestampMs
+        case receivedAtTimestampMs
+        case authorId
+        case authorNameInternal
+        case body
+        case rawBody
+        case expiresStartedAtMs
+        case expiresInSeconds
+
+        case state
+        case hasAtLeastOneReadReceipt
+        case mostRecentFailureText
+        case isSenderOpenGroupModerator
+        case isTypingIndicator
+        case profile
+        case quote
+        case quoteAttachment
+        case linkPreview
+        case linkPreviewAttachment
+
+        case currentUserPublicKey
+
+        // Post-Query Processing Data
+
+        case attachments
+        case reactionInfo
+        case cellType
+        case authorName
+        case senderName
+        case canHaveProfile
+        case shouldShowProfile
+        case shouldShowDateHeader
+        case containsOnlyEmoji
+        case glyphCount
+        case previousVariant
+        case positionInCluster
+        case isOnlyMessageInCluster
+        case isLast
+        case isLastOutgoing
+        case currentUserBlinded15PublicKey
+        case currentUserBlinded25PublicKey
+        case optimisticMessageId
+    }
     
     public enum CellType: Int, Decodable, Equatable, Hashable, DatabaseValueConvertible {
         case textOnlyMessage
@@ -462,13 +486,13 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
 // MARK: - AttachmentInteractionInfo
 
 public extension MessageViewModel {
-    struct AttachmentInteractionInfo: FetchableRecordWithRowId, Decodable, Identifiable, Equatable, Comparable {
-        public static let rowIdKey: SQL = SQL(stringLiteral: CodingKeys.rowId.stringValue)
-        public static let attachmentKey: SQL = SQL(stringLiteral: CodingKeys.attachment.stringValue)
-        public static let interactionAttachmentKey: SQL = SQL(stringLiteral: CodingKeys.interactionAttachment.stringValue)
-        
-        public static let attachmentString: String = CodingKeys.attachment.stringValue
-        public static let interactionAttachmentString: String = CodingKeys.interactionAttachment.stringValue
+    struct AttachmentInteractionInfo: FetchableRecordWithRowId, Decodable, Identifiable, Equatable, Comparable, ColumnExpressible {
+        public typealias Columns = CodingKeys
+        public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
+            case rowId
+            case attachment
+            case interactionAttachment
+        }
         
         public let rowId: Int64
         public let attachment: Attachment
@@ -491,13 +515,13 @@ public extension MessageViewModel {
 // MARK: - ReactionInfo
 
 public extension MessageViewModel {
-    struct ReactionInfo: FetchableRecordWithRowId, Decodable, Identifiable, Equatable, Comparable, Hashable, Differentiable {
-        public static let rowIdKey: SQL = SQL(stringLiteral: CodingKeys.rowId.stringValue)
-        public static let reactionKey: SQL = SQL(stringLiteral: CodingKeys.reaction.stringValue)
-        public static let profileKey: SQL = SQL(stringLiteral: CodingKeys.profile.stringValue)
-        
-        public static let reactionString: String = CodingKeys.reaction.stringValue
-        public static let profileString: String = CodingKeys.profile.stringValue
+    struct ReactionInfo: FetchableRecordWithRowId, Decodable, Identifiable, Equatable, Comparable, Hashable, Differentiable, ColumnExpressible {
+        public typealias Columns = CodingKeys
+        public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
+            case rowId
+            case reaction
+            case profile
+        }
         
         public let rowId: Int64
         public let reaction: Reaction
@@ -522,9 +546,12 @@ public extension MessageViewModel {
 // MARK: - TypingIndicatorInfo
 
 public extension MessageViewModel {
-    struct TypingIndicatorInfo: FetchableRecordWithRowId, Decodable, Identifiable, Equatable {
-        public static let rowIdKey: SQL = SQL(stringLiteral: CodingKeys.rowId.stringValue)
-        public static let threadIdKey: SQL = SQL(stringLiteral: CodingKeys.threadId.stringValue)
+    struct TypingIndicatorInfo: FetchableRecordWithRowId, Decodable, Identifiable, Equatable, ColumnExpressible {
+        public typealias Columns = CodingKeys
+        public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
+            case rowId
+            case threadId
+        }
         
         public let rowId: Int64
         public let threadId: String
@@ -776,59 +803,48 @@ public extension MessageViewModel {
             let contact: TypedTableAlias<Contact> = TypedTableAlias()
             let disappearingMessagesConfig: TypedTableAlias<DisappearingMessagesConfiguration> = TypedTableAlias()
             let profile: TypedTableAlias<Profile> = TypedTableAlias()
+            let threadProfile: TypedTableAlias<Profile> = TypedTableAlias(name: "threadProfile")
             let quote: TypedTableAlias<Quote> = TypedTableAlias()
+            let quoteInteraction: TypedTableAlias<Interaction> = TypedTableAlias(name: "quoteInteraction")
+            let quoteInteractionAttachment: TypedTableAlias<InteractionAttachment> = TypedTableAlias(
+                name: "quoteInteractionAttachment"
+            )
+            let quoteLinkPreview: TypedTableAlias<LinkPreview> = TypedTableAlias(name: "quoteLinkPreview")
+            let quoteAttachment: TypedTableAlias<Attachment> = TypedTableAlias(name: ViewModel.CodingKeys.quoteAttachment.stringValue)
             let linkPreview: TypedTableAlias<LinkPreview> = TypedTableAlias()
-            
-            let threadProfile: SQL = SQL(stringLiteral: "threadProfile")
-            let quoteInteraction: SQL = SQL(stringLiteral: "quoteInteraction")
-            let quoteInteractionAttachment: SQL = SQL(stringLiteral: "quoteInteractionAttachment")
-            let readReceipt: SQL = SQL(stringLiteral: "readReceipt")
-            let idColumn: SQL = SQL(stringLiteral: Interaction.Columns.id.name)
-            let interactionBodyColumn: SQL = SQL(stringLiteral: Interaction.Columns.body.name)
-            let profileIdColumn: SQL = SQL(stringLiteral: Profile.Columns.id.name)
-            let nicknameColumn: SQL = SQL(stringLiteral: Profile.Columns.nickname.name)
-            let nameColumn: SQL = SQL(stringLiteral: Profile.Columns.name.name)
-            let quoteBodyColumn: SQL = SQL(stringLiteral: Quote.Columns.body.name)
-            let quoteAttachmentIdColumn: SQL = SQL(stringLiteral: Quote.Columns.attachmentId.name)
-            let readReceiptInteractionIdColumn: SQL = SQL(stringLiteral: RecipientState.Columns.interactionId.name)
-            let readTimestampMsColumn: SQL = SQL(stringLiteral: RecipientState.Columns.readTimestampMs.name)
-            let timestampMsColumn: SQL = SQL(stringLiteral: Interaction.Columns.timestampMs.name)
-            let authorIdColumn: SQL = SQL(stringLiteral: Interaction.Columns.authorId.name)
-            let attachmentIdColumn: SQL = SQL(stringLiteral: Attachment.Columns.id.name)
-            let interactionAttachmentInteractionIdColumn: SQL = SQL(stringLiteral: InteractionAttachment.Columns.interactionId.name)
-            let interactionAttachmentAttachmentIdColumn: SQL = SQL(stringLiteral: InteractionAttachment.Columns.attachmentId.name)
-            let interactionAttachmentAlbumIndexColumn: SQL = SQL(stringLiteral: InteractionAttachment.Columns.albumIndex.name)
+            let linkPreviewAttachment: TypedTableAlias<Attachment> = TypedTableAlias(ViewModel.self, column: .linkPreviewAttachment)
+            let readReceipt: TypedTableAlias<RecipientState> = TypedTableAlias(name: "readReceipt")
             
             let numColumnsBeforeLinkedRecords: Int = 22
             let finalGroupSQL: SQL = (groupSQL ?? "")
             let request: SQLRequest<ViewModel> = """
                 SELECT
-                    \(thread[.id]) AS \(ViewModel.threadIdKey),
-                    \(thread[.variant]) AS \(ViewModel.threadVariantKey),
+                    \(thread[.id]) AS \(ViewModel.Columns.threadId),
+                    \(thread[.variant]) AS \(ViewModel.Columns.threadVariant),
                     -- Default to 'true' for non-contact threads
-                    IFNULL(\(contact[.isTrusted]), true) AS \(ViewModel.threadIsTrustedKey),
+                    IFNULL(\(contact[.isTrusted]), true) AS \(ViewModel.Columns.threadIsTrusted),
                     -- Default to 'false' when no contact exists
-                    IFNULL(\(disappearingMessagesConfig[.isEnabled]), false) AS \(ViewModel.threadHasDisappearingMessagesEnabledKey),
-                    \(openGroup[.server]) AS \(ViewModel.threadOpenGroupServerKey),
-                    \(openGroup[.publicKey]) AS \(ViewModel.threadOpenGroupPublicKeyKey),
-                    IFNULL(\(threadProfile).\(nicknameColumn), \(threadProfile).\(nameColumn)) AS \(ViewModel.threadContactNameInternalKey),
+                    IFNULL(\(disappearingMessagesConfig[.isEnabled]), false) AS \(ViewModel.Columns.threadHasDisappearingMessagesEnabled),
+                    \(openGroup[.server]) AS \(ViewModel.Columns.threadOpenGroupServer),
+                    \(openGroup[.publicKey]) AS \(ViewModel.Columns.threadOpenGroupPublicKey),
+                    IFNULL(\(threadProfile[.nickname]), \(threadProfile[.name])) AS \(ViewModel.Columns.threadContactNameInternal),
             
-                    \(interaction.alias[Column.rowID]) AS \(ViewModel.rowIdKey),
+                    \(interaction[.rowId]) AS \(ViewModel.Columns.rowId),
                     \(interaction[.id]),
                     \(interaction[.openGroupServerMessageId]),
                     \(interaction[.variant]),
                     \(interaction[.timestampMs]),
                     \(interaction[.receivedAtTimestampMs]),
                     \(interaction[.authorId]),
-                    IFNULL(\(profile[.nickname]), \(profile[.name])) AS \(ViewModel.authorNameInternalKey),
+                    IFNULL(\(profile[.nickname]), \(profile[.name])) AS \(ViewModel.Columns.authorNameInternal),
                     \(interaction[.body]),
                     \(interaction[.expiresStartedAtMs]),
                     \(interaction[.expiresInSeconds]),
             
                     -- Default to 'sending' assuming non-processed interaction when null
-                    IFNULL(MIN(\(recipientState[.state])), \(SQL("\(RecipientState.State.sending)"))) AS \(ViewModel.stateKey),
-                    (\(readReceipt).\(readTimestampMsColumn) IS NOT NULL) AS \(ViewModel.hasAtLeastOneReadReceiptKey),
-                    \(recipientState[.mostRecentFailureText]) AS \(ViewModel.mostRecentFailureTextKey),
+                    IFNULL(MIN(\(recipientState[.state])), \(SQL("\(RecipientState.State.sending)"))) AS \(ViewModel.Columns.state),
+                    (\(readReceipt[.readTimestampMs]) IS NOT NULL) AS \(ViewModel.Columns.hasAtLeastOneReadReceipt),
+                    \(recipientState[.mostRecentFailureText]) AS \(ViewModel.Columns.mostRecentFailureText),
                     
                     EXISTS (
                         SELECT 1
@@ -839,46 +855,46 @@ public extension MessageViewModel {
                             \(SQL("\(thread[.variant]) = \(SessionThread.Variant.community)")) AND
                             \(SQL("\(groupMember[.role]) IN \([GroupMember.Role.moderator, GroupMember.Role.admin])"))
                         )
-                    ) AS \(ViewModel.isSenderOpenGroupModeratorKey),
+                    ) AS \(ViewModel.Columns.isSenderOpenGroupModerator),
             
-                    \(ViewModel.profileKey).*,
+                    \(profile.allColumns),
                     \(quote[.interactionId]),
                     \(quote[.authorId]),
                     \(quote[.timestampMs]),
-                    \(quoteInteraction).\(interactionBodyColumn) AS \(quoteBodyColumn),
-                    \(quoteInteractionAttachment).\(interactionAttachmentAttachmentIdColumn) AS \(quoteAttachmentIdColumn),
-                    \(ViewModel.quoteAttachmentKey).*,
-                    \(ViewModel.linkPreviewKey).*,
-                    \(ViewModel.linkPreviewAttachmentKey).*,
+                    \(quoteInteraction[.body]),
+                    \(quoteInteractionAttachment[.attachmentId]),
+                    \(quoteAttachment.allColumns),
+                    \(linkPreview.allColumns),
+                    \(linkPreviewAttachment.allColumns),
                     
-                    \(SQL("\(userPublicKey)")) AS \(ViewModel.currentUserPublicKeyKey),
+                    \(SQL("\(userPublicKey)")) AS \(ViewModel.Columns.currentUserPublicKey),
             
                     -- All of the below properties are set in post-query processing but to prevent the
                     -- query from crashing when decoding we need to provide default values
-                    \(CellType.textOnlyMessage) AS \(ViewModel.cellTypeKey),
-                    '' AS \(ViewModel.authorNameKey),
-                    false AS \(ViewModel.canHaveProfileKey),
-                    false AS \(ViewModel.shouldShowProfileKey),
-                    false AS \(ViewModel.shouldShowDateHeaderKey),
-                    \(Position.middle) AS \(ViewModel.positionInClusterKey),
-                    false AS \(ViewModel.isOnlyMessageInClusterKey),
-                    false AS \(ViewModel.isLastKey),
-                    false AS \(ViewModel.isLastOutgoingKey)
+                    \(CellType.textOnlyMessage) AS \(ViewModel.Columns.cellType),
+                    '' AS \(ViewModel.Columns.authorName),
+                    false AS \(ViewModel.Columns.canHaveProfile),
+                    false AS \(ViewModel.Columns.shouldShowProfile),
+                    false AS \(ViewModel.Columns.shouldShowDateHeader),
+                    \(Position.middle) AS \(ViewModel.Columns.positionInCluster),
+                    false AS \(ViewModel.Columns.isOnlyMessageInCluster),
+                    false AS \(ViewModel.Columns.isLast),
+                    false AS \(ViewModel.Columns.isLastOutgoing)
                 
                 FROM \(Interaction.self)
                 JOIN \(SessionThread.self) ON \(thread[.id]) = \(interaction[.threadId])
                 LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(interaction[.threadId])
-                LEFT JOIN \(Profile.self) AS \(threadProfile) ON \(threadProfile).\(profileIdColumn) = \(interaction[.threadId])
+                LEFT JOIN \(threadProfile) ON \(threadProfile[.id]) = \(interaction[.threadId])
                 LEFT JOIN \(DisappearingMessagesConfiguration.self) ON \(disappearingMessagesConfig[.threadId]) = \(interaction[.threadId])
                 LEFT JOIN \(OpenGroup.self) ON \(openGroup[.threadId]) = \(interaction[.threadId])
                 LEFT JOIN \(Profile.self) ON \(profile[.id]) = \(interaction[.authorId])
                 LEFT JOIN \(Quote.self) ON \(quote[.interactionId]) = \(interaction[.id])
-                LEFT JOIN \(Interaction.self) AS \(quoteInteraction) ON (
-                    \(quoteInteraction).\(timestampMsColumn) = \(quote[.timestampMs]) AND (
-                        \(quoteInteraction).\(authorIdColumn) = \(quote[.authorId]) OR (
+                LEFT JOIN \(quoteInteraction) ON (
+                    \(quoteInteraction[.timestampMs]) = \(quote[.timestampMs]) AND (
+                        \(quoteInteraction[.authorId]) = \(quote[.authorId]) OR (
                             -- A users outgoing message is stored in some cases using their standard id
                             -- but the quote will use their blinded id so handle that case
-                            \(quoteInteraction).\(authorIdColumn) = \(userPublicKey) AND
+                            \(quoteInteraction[.authorId]) = \(userPublicKey) AND
                             (
                                 \(quote[.authorId]) = \(blinded15PublicKey ?? "''") OR
                                 \(quote[.authorId]) = \(blinded25PublicKey ?? "''")
@@ -886,27 +902,38 @@ public extension MessageViewModel {
                         )
                     )
                 )
-                LEFT JOIN \(InteractionAttachment.self) AS \(quoteInteractionAttachment) ON (
-                    \(quoteInteractionAttachment).\(interactionAttachmentInteractionIdColumn) = \(quoteInteraction).\(idColumn) AND
-                    \(quoteInteractionAttachment).\(interactionAttachmentAlbumIndexColumn) = 0
+                LEFT JOIN \(quoteInteractionAttachment) ON (
+                    \(quoteInteractionAttachment[.interactionId]) = \(quoteInteraction[.id]) AND
+                    \(quoteInteractionAttachment[.albumIndex]) = 0
                 )
-                LEFT JOIN \(Attachment.self) AS \(ViewModel.quoteAttachmentKey) ON \(ViewModel.quoteAttachmentKey).\(attachmentIdColumn) = \(quoteInteractionAttachment).\(interactionAttachmentAttachmentIdColumn)
+                LEFT JOIN \(quoteLinkPreview) ON (
+                    \(quoteLinkPreview[.url]) = \(quoteInteraction[.linkPreviewUrl]) AND
+                    \(Interaction.linkPreviewFilterLiteral(
+                        interaction: quoteInteraction,
+                        linkPreview: quoteLinkPreview
+                    ))
+                )
+                LEFT JOIN \(quoteAttachment) ON (
+                    \(quoteAttachment[.id]) = \(quoteInteractionAttachment[.attachmentId]) OR
+                    \(quoteAttachment[.id]) = \(quoteLinkPreview[.attachmentId]) OR
+                    \(quoteAttachment[.id]) = \(quote[.attachmentId])
+                )
             
                 LEFT JOIN \(LinkPreview.self) ON (
                     \(linkPreview[.url]) = \(interaction[.linkPreviewUrl]) AND
-                    \(Interaction.linkPreviewFilterLiteral)
+                    \(Interaction.linkPreviewFilterLiteral())
                 )
-                LEFT JOIN \(Attachment.self) AS \(ViewModel.linkPreviewAttachmentKey) ON \(ViewModel.linkPreviewAttachmentKey).\(attachmentIdColumn) = \(linkPreview[.attachmentId])
+                LEFT JOIN \(linkPreviewAttachment) ON \(linkPreviewAttachment[.id]) = \(linkPreview[.attachmentId])
                 LEFT JOIN \(RecipientState.self) ON (
                     -- Ignore 'skipped' states
                     \(SQL("\(recipientState[.state]) != \(RecipientState.State.skipped)")) AND
                     \(recipientState[.interactionId]) = \(interaction[.id])
                 )
-                LEFT JOIN \(RecipientState.self) AS \(readReceipt) ON (
-                    \(readReceipt).\(readTimestampMsColumn) IS NOT NULL AND
-                    \(readReceipt).\(readReceiptInteractionIdColumn) = \(interaction[.id])
+                LEFT JOIN \(readReceipt) ON (
+                    \(readReceipt[.readTimestampMs]) IS NOT NULL AND
+                    \(readReceipt[.interactionId]) = \(interaction[.id])
                 )
-                WHERE \(interaction.alias[Column.rowID]) IN \(rowIds)
+                WHERE \(interaction[.rowId]) IN \(rowIds)
                 \(finalGroupSQL)
                 ORDER BY \(orderSQL)
             """
@@ -921,12 +948,12 @@ public extension MessageViewModel {
                     Attachment.numberOfSelectedColumns(db)
                 ])
                 
-                return ScopeAdapter([
-                    ViewModel.profileString: adapters[1],
-                    ViewModel.quoteString: adapters[2],
-                    ViewModel.quoteAttachmentString: adapters[3],
-                    ViewModel.linkPreviewString: adapters[4],
-                    ViewModel.linkPreviewAttachmentString: adapters[5]
+                return ScopeAdapter.with(ViewModel.self, [
+                    .profile: adapters[1],
+                    .quote: adapters[2],
+                    .quoteAttachment: adapters[3],
+                    .linkPreview: adapters[4],
+                    .linkPreviewAttachment: adapters[5]
                 ])
             }
         }
@@ -953,9 +980,9 @@ public extension MessageViewModel.AttachmentInteractionInfo {
             let numColumnsBeforeLinkedRecords: Int = 1
             let request: SQLRequest<AttachmentInteractionInfo> = """
                 SELECT
-                    \(attachment.alias[Column.rowID]) AS \(AttachmentInteractionInfo.rowIdKey),
-                    \(AttachmentInteractionInfo.attachmentKey).*,
-                    \(AttachmentInteractionInfo.interactionAttachmentKey).*
+                    \(attachment[.rowId]) AS \(AttachmentInteractionInfo.Columns.rowId),
+                    \(attachment.allColumns),
+                    \(interactionAttachment.allColumns)
                 FROM \(Attachment.self)
                 JOIN \(InteractionAttachment.self) ON \(interactionAttachment[.attachmentId]) = \(attachment[.id])
                 \(finalFilterSQL)
@@ -968,9 +995,9 @@ public extension MessageViewModel.AttachmentInteractionInfo {
                     InteractionAttachment.numberOfSelectedColumns(db)
                 ])
                 
-                return ScopeAdapter([
-                    AttachmentInteractionInfo.attachmentString: adapters[1],
-                    AttachmentInteractionInfo.interactionAttachmentString: adapters[2]
+                return ScopeAdapter.with(AttachmentInteractionInfo.self, [
+                    .attachment: adapters[1],
+                    .interactionAttachment: adapters[2]
                 ])
             }
         }
@@ -1034,9 +1061,9 @@ public extension MessageViewModel.ReactionInfo {
             let numColumnsBeforeLinkedRecords: Int = 1
             let request: SQLRequest<ReactionInfo> = """
                 SELECT
-                    \(reaction.alias[Column.rowID]) AS \(ReactionInfo.rowIdKey),
-                    \(ReactionInfo.reactionKey).*,
-                    \(ReactionInfo.profileKey).*
+                    \(reaction[.rowId]) AS \(ReactionInfo.Columns.rowId),
+                    \(reaction.allColumns),
+                    \(profile.allColumns)
                 FROM \(Reaction.self)
                 LEFT JOIN \(Profile.self) ON \(profile[.id]) = \(reaction[.authorId])
                 \(finalFilterSQL)
@@ -1049,9 +1076,9 @@ public extension MessageViewModel.ReactionInfo {
                     Profile.numberOfSelectedColumns(db)
                 ])
                 
-                return ScopeAdapter([
-                    ReactionInfo.reactionString: adapters[1],
-                    ReactionInfo.profileString: adapters[2]
+                return ScopeAdapter.with(ReactionInfo.self, [
+                    .reaction: adapters[1],
+                    .profile: adapters[2]
                 ])
             }
         }
@@ -1117,8 +1144,8 @@ public extension MessageViewModel.TypingIndicatorInfo {
             }()
             let request: SQLRequest<MessageViewModel.TypingIndicatorInfo> = """
                 SELECT
-                    \(threadTypingIndicator.alias[Column.rowID]) AS \(MessageViewModel.TypingIndicatorInfo.rowIdKey),
-                    \(threadTypingIndicator[.threadId]) AS \(MessageViewModel.TypingIndicatorInfo.threadIdKey)
+                    \(threadTypingIndicator[.rowId]),
+                    \(threadTypingIndicator[.threadId])
                 FROM \(ThreadTypingIndicator.self)
                 \(finalFilterSQL)
             """

@@ -83,7 +83,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     try db.execute(literal: """
                         DELETE FROM \(Interaction.self)
                         WHERE \(Column.rowID) IN (
-                            SELECT \(interaction.alias[Column.rowID])
+                            SELECT \(interaction[.rowId])
                             FROM \(Interaction.self)
                             JOIN \(SessionThread.self) ON (
                                 \(SQL("\(thread[.variant]) = \(SessionThread.Variant.community)")) AND
@@ -91,7 +91,7 @@ public enum GarbageCollectionJob: JobExecutor {
                             )
                             JOIN (
                                 SELECT
-                                    COUNT(\(interaction.alias[Column.rowID])) AS interactionCount,
+                                    COUNT(\(interaction[.rowId])) AS interactionCount,
                                     \(interaction[.threadId])
                                 FROM \(Interaction.self)
                                 GROUP BY \(interaction[.threadId])
@@ -113,7 +113,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     try db.execute(literal: """
                         DELETE FROM \(Job.self)
                         WHERE \(Column.rowID) IN (
-                            SELECT \(job.alias[Column.rowID])
+                            SELECT \(job[.rowId])
                             FROM \(Job.self)
                             LEFT JOIN \(SessionThread.self) ON \(thread[.id]) = \(job[.threadId])
                             LEFT JOIN \(Interaction.self) ON \(interaction[.id]) = \(job[.interactionId])
@@ -140,11 +140,11 @@ public enum GarbageCollectionJob: JobExecutor {
                     try db.execute(literal: """
                         DELETE FROM \(LinkPreview.self)
                         WHERE \(Column.rowID) IN (
-                            SELECT \(linkPreview.alias[Column.rowID])
+                            SELECT \(linkPreview[.rowId])
                             FROM \(LinkPreview.self)
                             LEFT JOIN \(Interaction.self) ON (
                                 \(interaction[.linkPreviewUrl]) = \(linkPreview[.url]) AND
-                                \(Interaction.linkPreviewFilterLiteral)
+                                \(Interaction.linkPreviewFilterLiteral())
                             )
                             WHERE \(interaction[.id]) IS NULL
                         )
@@ -160,7 +160,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     try db.execute(literal: """
                         DELETE FROM \(OpenGroup.self)
                         WHERE \(Column.rowID) IN (
-                            SELECT \(openGroup.alias[Column.rowID])
+                            SELECT \(openGroup[.rowId])
                             FROM \(OpenGroup.self)
                             LEFT JOIN \(SessionThread.self) ON \(thread[.id]) = \(openGroup[.threadId])
                             WHERE (
@@ -179,7 +179,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     try db.execute(literal: """
                         DELETE FROM \(Capability.self)
                         WHERE \(Column.rowID) IN (
-                            SELECT \(capability.alias[Column.rowID])
+                            SELECT \(capability[.rowId])
                             FROM \(Capability.self)
                             LEFT JOIN \(OpenGroup.self) ON \(openGroup[.server]) = \(capability[.openGroupServer])
                             WHERE \(openGroup[.threadId]) IS NULL
@@ -196,7 +196,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     try db.execute(literal: """
                         DELETE FROM \(BlindedIdLookup.self)
                         WHERE \(Column.rowID) IN (
-                            SELECT \(blindedIdLookup.alias[Column.rowID])
+                            SELECT \(blindedIdLookup[.rowId])
                             FROM \(BlindedIdLookup.self)
                             LEFT JOIN \(SessionThread.self) ON (
                                 \(thread[.id]) = \(blindedIdLookup[.blindedId]) OR
@@ -223,7 +223,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     try db.execute(literal: """
                         DELETE FROM \(Contact.self)
                         WHERE \(Column.rowID) IN (
-                            SELECT \(contact.alias[Column.rowID])
+                            SELECT \(contact[.rowId])
                             FROM \(Contact.self)
                             LEFT JOIN \(BlindedIdLookup.self) ON (
                                 \(blindedIdLookup[.blindedId]) = \(contact[.id]) AND
@@ -244,7 +244,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     try db.execute(literal: """
                         DELETE FROM \(Attachment.self)
                         WHERE \(Column.rowID) IN (
-                            SELECT \(attachment.alias[Column.rowID])
+                            SELECT \(attachment[.rowId])
                             FROM \(Attachment.self)
                             LEFT JOIN \(Quote.self) ON \(quote[.attachmentId]) = \(attachment[.id])
                             LEFT JOIN \(LinkPreview.self) ON \(linkPreview[.attachmentId]) = \(attachment[.id])
@@ -270,7 +270,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     try db.execute(literal: """
                         DELETE FROM \(Profile.self)
                         WHERE \(Column.rowID) IN (
-                            SELECT \(profile.alias[Column.rowID])
+                            SELECT \(profile[.rowId])
                             FROM \(Profile.self)
                             LEFT JOIN \(SessionThread.self) ON \(thread[.id]) = \(profile[.id])
                             LEFT JOIN \(Interaction.self) ON \(interaction[.authorId]) = \(profile[.id])
@@ -320,7 +320,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     try db.execute(literal: """
                         DELETE FROM \(SessionThread.self)
                         WHERE \(Column.rowID) IN (
-                            SELECT \(thread.alias[Column.rowID])
+                            SELECT \(thread[.rowId])
                             FROM \(SessionThread.self)
                             LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])
                             LEFT JOIN \(OpenGroup.self) ON \(openGroup[.threadId]) = \(thread[.id])

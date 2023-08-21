@@ -298,6 +298,21 @@ public extension Profile {
     }
 }
 
+// MARK: - Search Queries
+
+public extension Profile {
+    struct FullTextSearch: Decodable, ColumnExpressible {
+        public typealias Columns = CodingKeys
+        public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
+            case nickname
+            case name
+        }
+        
+        let nickname: String?
+        let name: String
+    }
+}
+
 // MARK: - Convenience
 
 public extension Profile {
