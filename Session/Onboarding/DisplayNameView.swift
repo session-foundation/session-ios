@@ -32,12 +32,14 @@ struct DisplayNameView: View {
                 ) {
                     Spacer()
                     
-                    Text("vc_display_name_title_2".localized())
+                    let title: String = (self.flow == .register) ? "vc_display_name_title_2".localized() : "onboarding_display_name_title_new".localized()
+                    Text(title)
                         .bold()
                         .font(.system(size: Values.veryLargeFontSize))
                         .foregroundColor(themeColor: .textPrimary)
                     
-                    Text("onboarding_display_name_explanation".localized())
+                    let explanation: String = (self.flow == .register) ? "onboarding_display_name_explanation".localized() : "onboarding_display_name_explanation_new".localized()
+                    Text(explanation)
                         .font(.system(size: Values.smallFontSize))
                         .foregroundColor(themeColor: .textPrimary)
                         .padding(.vertical, Values.mediumSpacing)

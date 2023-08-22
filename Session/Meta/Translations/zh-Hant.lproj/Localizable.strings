@@ -666,6 +666,8 @@
 "privacy_policy" = "Privacy Policy";
 "onboarding_display_name_explanation" = "It can be your real name, an alias, or anything else you like — and you can change it any time.";
 "onboarding_display_name_hint" = "Enter your display name";
+"onboarding_display_name_title_new" = "Pick a new display name";
+"onboarding_display_name_explanation_new" = "We were unable to load your display name. Please enter a new display name to continue.";
 "onboarding_recovery_password_title" = "Save your recovery password";
 "onboarding_recovery_password_explanation" = "Use your password to load your account on new devices. Make sure it is stored in a safe place — and don't share it with anyone.";
 "tap_to_copy" = "Tap to copy";

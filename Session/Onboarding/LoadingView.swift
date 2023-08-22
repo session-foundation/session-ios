@@ -62,9 +62,17 @@ struct LoadingView: View {
         ) { timer in
             self.percentage += 0.01
             if percentage >= 1 {
+                self.percentage = 1
                 timer.invalidate()
+                finishLoading()
             }
         }
+    }
+    
+    private func finishLoading() {
+        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: DisplayNameView(flow: flow))
+        viewController.setUpNavBarSessionIcon()
+        self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
     }
 }
 
