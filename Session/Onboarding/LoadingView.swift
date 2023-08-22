@@ -9,6 +9,7 @@ struct LoadingView: View {
     @EnvironmentObject var host: HostWrapper
     
     @State var percentage: Double = 0.0
+    @State var animationTimer: Timer?
     
     private let flow: Onboarding.Flow
     
@@ -36,6 +37,7 @@ struct LoadingView: View {
                         .padding(.bottom, Values.mediumSpacing)
                         .onAppear {
                             progress()
+                            observeProfileRetrieving()
                         }
                     
                     Text("onboarding_load_account_waiting".localized())
@@ -56,7 +58,7 @@ struct LoadingView: View {
     }
     
     private func progress() {
-        Timer.scheduledTimerOnMainThread(
+        animationTimer = Timer.scheduledTimerOnMainThread(
             withTimeInterval: 0.15,
             repeats: true
         ) { timer in
@@ -64,15 +66,39 @@ struct LoadingView: View {
             if percentage >= 1 {
                 self.percentage = 1
                 timer.invalidate()
-                finishLoading()
+                finishLoading(success: false)
             }
         }
     }
     
-    private func finishLoading() {
-        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: DisplayNameView(flow: flow))
-        viewController.setUpNavBarSessionIcon()
-        self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
+    private func observeProfileRetrieving() {
+        Onboarding.profileNamePublisher
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+            .receive(on: DispatchQueue.main)
+            .sinkUntilComplete(
+                receiveValue: { displayName in
+                    finishLoading(success: true)
+                }
+            )
+    }
+    
+    private func finishLoading(success: Bool) {
+        guard success else {
+            let viewController: SessionHostingViewController = SessionHostingViewController(rootView: DisplayNameView(flow: flow))
+            viewController.setUpNavBarSessionIcon()
+            self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
+            return
+        }
+        self.animationTimer?.invalidate()
+        self.animationTimer = nil
+        Timer.scheduledTimerOnMainThread(withTimeInterval: 0.3) { _ in
+            self.percentage = 1
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            let homeVC: HomeVC = HomeVC(flow: self.flow)
+            self.host.controller?.navigationController?.setViewControllers([ homeVC ], animated: true)
+        }
+        
     }
 }
 
