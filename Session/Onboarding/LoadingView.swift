@@ -8,13 +8,12 @@ import SignalUtilitiesKit
 struct LoadingView: View {
     @EnvironmentObject var host: HostWrapper
     
-    @State var percentage: Double = 0
+    @State var percentage: Double = 0.0
     
     private let flow: Onboarding.Flow
     
     public init(flow: Onboarding.Flow) {
         self.flow = flow
-        progress()
     }
     
     var body: some View {
@@ -35,6 +34,9 @@ struct LoadingView: View {
                     CircularProgressView($percentage)
                         .padding(.horizontal, Values.massiveSpacing)
                         .padding(.bottom, Values.mediumSpacing)
+                        .onAppear {
+                            progress()
+                        }
                     
                     Text("onboarding_load_account_waiting".localized())
                         .bold()
@@ -54,15 +56,15 @@ struct LoadingView: View {
     }
     
     private func progress() {
-        guard percentage < 1 else { return }
-        print(percentage)
-        Timer.scheduledTimer(
+        Timer.scheduledTimerOnMainThread(
             withTimeInterval: 0.15,
-            repeats: false,
-            block: { _ in
-                percentage += 0.01
-                progress()
-            })
+            repeats: true
+        ) { timer in
+            self.percentage += 0.01
+            if percentage >= 1 {
+                timer.invalidate()
+            }
+        }
     }
 }
 
