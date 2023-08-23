@@ -12,9 +12,11 @@ struct LoadingView: View {
     @State var animationTimer: Timer?
     
     private let flow: Onboarding.Flow
+    private let preview: Bool
     
-    public init(flow: Onboarding.Flow) {
+    public init(flow: Onboarding.Flow, preview: Bool = false) {
         self.flow = flow
+        self.preview = preview
     }
     
     var body: some View {
@@ -66,7 +68,7 @@ struct LoadingView: View {
             if percentage >= 1 {
                 self.percentage = 1
                 timer.invalidate()
-                finishLoading(success: false)
+                if !self.preview { finishLoading(success: false) }
             }
         }
     }
@@ -91,7 +93,7 @@ struct LoadingView: View {
         }
         self.animationTimer?.invalidate()
         self.animationTimer = nil
-        Timer.scheduledTimerOnMainThread(withTimeInterval: 0.3) { _ in
+        withAnimation(.linear(duration: 0.3)) {
             self.percentage = 1
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -99,6 +101,25 @@ struct LoadingView: View {
             self.host.controller?.navigationController?.setViewControllers([ homeVC ], animated: true)
         }
         
+    }
+}
+
+struct AnimatableNumberModifier: AnimatableModifier {
+    var number: Double
+    
+    var animatableData: Double {
+        get { number }
+        set { number = newValue }
+    }
+    
+    func body(content: Content) -> some View {
+        content
+            .overlay(
+                Text(String(format: "%.0f%%", number))
+                    .bold()
+                    .font(.system(size: Values.superLargeFontSize))
+                    .foregroundColor(themeColor: .textPrimary)
+            )
     }
 }
 
@@ -137,17 +158,13 @@ struct CircularProgressView: View {
                 )
                 .rotationEffect(.degrees(117))
                 .animation(.easeOut, value: progress)
-            
-            Text(String(format: "%.0f%%", $percentage.wrappedValue * 100))
-                .bold()
-                .font(.system(size: Values.superLargeFontSize))
-                .foregroundColor(themeColor: .textPrimary)
         }
+        .modifier(AnimatableNumberModifier(number: $percentage.wrappedValue * 100))
     }
 }
 
 struct LoadingView_Previews: PreviewProvider {
     static var previews: some View {
-        LoadingView(flow: .link)
+        LoadingView(flow: .link, preview: true)
     }
 }
