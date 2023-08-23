@@ -80,7 +80,7 @@ struct LandingView: View {
                     .padding(.horizontal, Values.massiveSpacing)
                     
                     Button {
-                        
+                        openLegalUrl()
                     } label: {
                         let attributedText: NSAttributedString = {
                             let text = String(format: "onboarding_T&C".localized(), "terms_of_service".localized(), "privacy_policy".localized())
@@ -123,6 +123,30 @@ struct LandingView: View {
         let viewController: SessionHostingViewController = SessionHostingViewController(rootView: LoadAccountView())
         viewController.setNavBarTitle("onboarding_load_account_title".localized())
         self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
+    }
+    
+    private func openLegalUrl() {
+        let modal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "modal_open_url_title_2".localized(),
+                body: .text("modal_open_url_explanation_2".localized()),
+                confirmTitle: "terms_of_service".localized(),
+                confirmStyle: .textPrimary,
+                cancelTitle: "privacy_policy".localized(),
+                cancelStyle: .textPrimary,
+                onConfirm: { _ in
+                    if let url: URL = URL(string: "https://getsession.org/terms-of-service") {
+                        UIApplication.shared.open(url)
+                    }
+                },
+                onCancel: { _ in
+                    if let url: URL = URL(string: "https://getsession.org/privacy-policy") {
+                        UIApplication.shared.open(url)
+                    }
+                }
+            )
+        )
+        self.host.controller?.present(modal, animated: true)
     }
 }
 
