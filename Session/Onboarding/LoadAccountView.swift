@@ -10,7 +10,7 @@ struct LoadAccountView: View {
     
     @State var tabIndex = 0
     @State private var recoveryPassword: String = ""
-    @State private var error: String? = nil
+    @State private var errorString: String? = nil
         
     var body: some View {
         NavigationView {
@@ -29,8 +29,8 @@ struct LoadAccountView: View {
                     if tabIndex == 0 {
                         EnterRecoveryPasswordView(
                             $recoveryPassword,
-                            error: $error,
-                            continueWithSeed: continueWithSeed
+                            error: $errorString,
+                            continueWithMnemonic: continueWithMnemonic
                         )
                     }
                     else {
@@ -41,9 +41,26 @@ struct LoadAccountView: View {
         }
     }
     
-    func continueWithSeed() {
+    func continueWithMnemonic() {
         let mnemonic = recoveryPassword.lowercased()
-        guard let hexEncodedSeed = try? Mnemonic.decode(mnemonic: mnemonic) else { return }
+        let hexEncodedSeed: String
+        do {
+            hexEncodedSeed = try Mnemonic.decode(mnemonic: mnemonic)
+        } catch {
+            if let decodingError = error as? Mnemonic.DecodingError {
+                switch decodingError {
+                    case .inputTooShort:
+                        errorString = "recovery_password_error_length".localized()
+                    case .invalidWord:
+                        errorString = "recovery_password_error_invalid".localized()
+                    default:
+                        errorString = "recovery_password_error_generic".localized()
+                }
+            } else {
+                errorString = "recovery_password_error_generic".localized()
+            }
+            return
+        }
         let seed = Data(hex: hexEncodedSeed)
         if (seed.count != 16) {
             //TODO: show error
@@ -134,16 +151,16 @@ struct EnterRecoveryPasswordView: View{
     @Binding var recoveryPassword: String
     @Binding var error: String?
     
-    var continueWithSeed: (() -> Void)?
+    var continueWithMnemonic: (() -> Void)?
     
     init(
         _ recoveryPassword: Binding<String>,
         error: Binding<String?>,
-        continueWithSeed: (() -> Void)?
+        continueWithMnemonic: (() -> Void)?
     ) {
         self._recoveryPassword = recoveryPassword
         self._error = error
-        self.continueWithSeed = continueWithSeed
+        self.continueWithMnemonic = continueWithMnemonic
     }
     
     var body: some View{
@@ -179,7 +196,7 @@ struct EnterRecoveryPasswordView: View{
                 Spacer()
                 
                 Button {
-                    continueWithSeed?()
+                    continueWithMnemonic?()
                 } label: {
                     Text("continue_2".localized())
                         .bold()
