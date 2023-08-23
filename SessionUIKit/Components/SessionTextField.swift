@@ -27,7 +27,7 @@ public struct SessionTextField: View {
                 if text.isEmpty {
                     Text(placeholder)
                         .font(.system(size: Values.smallFontSize))
-                        .foregroundColor(themeColor: .textSecondary)
+                        .foregroundColor(themeColor: (error?.isEmpty == false) ? .danger : .textSecondary)
                 }
                 
                 SwiftUI.TextField(
