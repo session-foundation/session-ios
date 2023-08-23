@@ -26,7 +26,7 @@ public struct SessionTextField: View {
             ZStack(alignment: .topLeading) {
                 if text.isEmpty {
                     Text(placeholder)
-                        .font(.system(size: Values.mediumFontSize))
+                        .font(.system(size: Values.smallFontSize))
                         .foregroundColor(themeColor: .textSecondary)
                 }
                 
@@ -38,7 +38,7 @@ public struct SessionTextField: View {
                         }
                     }
                 )
-                .font(.system(size: Values.mediumFontSize))
+                .font(.system(size: Values.smallFontSize))
                 .foregroundColor(themeColor: (error?.isEmpty == false) ? .danger : .textPrimary)
             }
             .padding(.horizontal, Values.largeSpacing)
@@ -59,7 +59,7 @@ public struct SessionTextField: View {
             ZStack {
                 Text(error ?? "")
                     .bold()
-                    .font(.system(size: Values.mediumFontSize))
+                    .font(.system(size: Values.smallFontSize))
                     .foregroundColor(themeColor: .danger)
                     .multilineTextAlignment(.center)
             }
