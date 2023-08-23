@@ -56,11 +56,17 @@ public struct SessionTextField: View {
                 .stroke(themeColor: (error?.isEmpty == false) ? .danger : .borderSeparator)
             )
             
-            Text(error ?? " ")
-                .bold()
-                .font(.system(size: Values.mediumFontSize))
-                .foregroundColor(themeColor: .danger)
-                .multilineTextAlignment(.center)
+            ZStack {
+                Text(error ?? "")
+                    .bold()
+                    .font(.system(size: Values.mediumFontSize))
+                    .foregroundColor(themeColor: .danger)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(
+                height: 50,
+                alignment: .top
+            )
         }
     }
 }
