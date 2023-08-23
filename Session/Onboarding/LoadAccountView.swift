@@ -63,7 +63,7 @@ struct LoadAccountView: View {
         }
         let seed = Data(hex: hexEncodedSeed)
         if (seed.count != 16) {
-            //TODO: show error
+            errorString = "recovery_password_error_generic".localized()
             return
         }
         let (ed25519KeyPair, x25519KeyPair) = try! Identity.generate(from: seed)
