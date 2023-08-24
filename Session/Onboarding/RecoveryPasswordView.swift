@@ -68,6 +68,7 @@ struct RecoveryPasswordView: View {
                         .font(.spaceMono(size: Values.verySmallFontSize))
                         .multilineTextAlignment(.center)
                         .foregroundColor(themeColor: .primary)
+                        .frame(maxWidth: .infinity)
                         .padding(.all, Values.largeSpacing)
                         .overlay(
                             RoundedRectangle(
