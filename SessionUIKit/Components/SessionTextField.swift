@@ -42,10 +42,8 @@ public struct SessionTextField: View {
                 .foregroundColor(themeColor: (error?.isEmpty == false) ? .danger : .textPrimary)
             }
             .padding(.horizontal, Values.largeSpacing)
-            .frame(
-                maxWidth: .infinity,
-                maxHeight: Self.height
-            )
+            .frame(maxWidth: .infinity)
+            .frame(height: Self.height)
             .overlay(
                 RoundedRectangle(
                     cornerSize: CGSize(

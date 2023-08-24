@@ -30,10 +30,11 @@ struct LandingView: View {
                         .bold()
                         .font(.system(size: Values.veryLargeFontSize))
                         .foregroundColor(themeColor: .textPrimary)
-                        .padding(.bottom, Values.largeSpacing)
+                    
+                    Spacer(minLength: 0)
+                        .frame(maxHeight: 2 * Values.mediumSpacing)
                     
                     FakeChat($numberOfBubblesShown)
-                        .padding(.bottom, Values.mediumSpacing)
                         .onAppear {
                             guard numberOfBubblesShown < 4 else { return }
                             
@@ -51,6 +52,9 @@ struct LandingView: View {
                                 }
                             }
                         }
+                    
+                    Spacer(minLength: 0)
+                        .frame(maxHeight: Values.massiveSpacing)
                     
                     Spacer(minLength: 0)
                 }

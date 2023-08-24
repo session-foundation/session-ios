@@ -37,21 +37,27 @@ struct DisplayNameView: View {
                         .bold()
                         .font(.system(size: Values.veryLargeFontSize))
                         .foregroundColor(themeColor: .textPrimary)
-                        .padding(.bottom, Values.mediumSpacing)
+                    
+                    Spacer(minLength: 0)
+                        .frame(maxHeight: 2 * Values.mediumSpacing)
                     
                     let explanation: String = (self.flow == .register) ? "onboarding_display_name_explanation".localized() : "onboarding_display_name_explanation_new".localized()
                     Text(explanation)
                         .font(.system(size: Values.smallFontSize))
                         .foregroundColor(themeColor: .textPrimary)
-                        .padding(.vertical, Values.mediumSpacing)
+                        .fixedSize(horizontal: false, vertical: true)
+                    
+                    Spacer(minLength: 0)
+                        .frame(maxHeight: 2 * Values.mediumSpacing)
                     
                     SessionTextField(
                         $displayName,
                         placeholder: "onboarding_display_name_hint".localized(),
                         error: $error
                     )
-                    .padding(.top, Values.mediumSpacing)
-                    .padding(.bottom, Values.veryLargeSpacing)
+                    
+                    Spacer(minLength: 0)
+                        .frame(maxHeight: Values.massiveSpacing)
                     
                     Spacer(minLength: 0)
                 }

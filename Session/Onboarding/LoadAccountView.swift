@@ -182,19 +182,25 @@ struct EnterRecoveryPasswordView: View{
         ZStack(alignment: .center) {
             VStack(
                 alignment: .leading,
-                spacing: Values.mediumSpacing
+                spacing: 0
             ) {
-                Spacer()
+                Spacer(minLength: 0)
                 
                 Text("onboarding_recovery_password_tab_title".localized())
                     .bold()
                     .font(.system(size: Values.veryLargeFontSize))
                     .foregroundColor(themeColor: .textPrimary)
                 
+                Spacer(minLength: 0)
+                    .frame(maxHeight: 2 * Values.mediumSpacing)
+                
                 Text("onboarding_recovery_password_tab_explanation".localized())
                     .font(.system(size: Values.smallFontSize))
                     .foregroundColor(themeColor: .textPrimary)
-                    .padding(.vertical, Values.mediumSpacing)
+                    .fixedSize(horizontal: false, vertical: true)
+                
+                Spacer(minLength: 0)
+                    .frame(maxHeight: 2 * Values.mediumSpacing)
                 
                 SessionTextField(
                     $recoveryPassword,
@@ -202,10 +208,13 @@ struct EnterRecoveryPasswordView: View{
                     error: $error
                 )
                 
-                Spacer()
+                Spacer(minLength: 0)
+                    .frame(maxHeight: Values.massiveSpacing)
+                
+                Spacer(minLength: 0)
             }
             .padding(.horizontal, Values.veryLargeSpacing)
-            .padding(.bottom, Values.massiveSpacing + Values.largeButtonHeight)
+            .padding(.bottom, Values.largeButtonHeight)
             
             VStack() {
                 Spacer()
