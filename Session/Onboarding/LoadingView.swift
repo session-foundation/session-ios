@@ -79,7 +79,9 @@ struct LoadingView: View {
             .receive(on: DispatchQueue.main)
             .sinkUntilComplete(
                 receiveValue: { displayName in
-                    finishLoading(success: true)
+                    if displayName?.isEmpty == false {
+                        finishLoading(success: true)
+                    }
                 }
             )
     }
@@ -88,7 +90,11 @@ struct LoadingView: View {
         guard success else {
             let viewController: SessionHostingViewController = SessionHostingViewController(rootView: DisplayNameView(flow: flow))
             viewController.setUpNavBarSessionIcon()
-            self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
+            if let navigationController = self.host.controller?.navigationController {
+                let index = navigationController.viewControllers.count - 1
+                navigationController.pushViewController(viewController, animated: true)
+                navigationController.viewControllers.remove(at: index)
+            }
             return
         }
         self.animationTimer?.invalidate()
