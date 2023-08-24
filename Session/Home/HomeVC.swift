@@ -281,8 +281,8 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         verticalCenteringConstraint.constant = -16 // Makes things appear centered visually
         
         view.addSubview(accountCreatedView)
-        accountCreatedView.pin(.leading, to: .leading, of: view, withInset: 50)
-        accountCreatedView.pin(.trailing, to: .trailing, of: view, withInset: -50)
+        accountCreatedView.pin(.leading, to: .leading, of: view, withInset: Values.accountCreatedViewHorizontalOffset)
+        accountCreatedView.pin(.trailing, to: .trailing, of: view, withInset: -Values.accountCreatedViewHorizontalOffset)
         accountCreatedView.center(.horizontal, in: view)
         let verticalCenteringConstraint2 = accountCreatedView.center(.vertical, in: view)
         verticalCenteringConstraint2.constant = -Values.massiveSpacing // Makes things appear centered visually

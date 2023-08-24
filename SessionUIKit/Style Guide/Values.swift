@@ -48,6 +48,7 @@ public final class Values : NSObject {
     @objc public static let veryLargeSpacing = CGFloat(35)
     @objc public static let massiveSpacing = CGFloat(64)
     @objc public static let onboardingButtonBottomOffset = isIPhone5OrSmaller ? CGFloat(52) : CGFloat(72)
+    @objc public static let accountCreatedViewHorizontalOffset = isIPhone6OrSmaller ? CGFloat(24) : CGFloat(50)
     
     // MARK: - iPad Sizes
     @objc public static let iPadModalWidth = UIScreen.main.bounds.width / 2
