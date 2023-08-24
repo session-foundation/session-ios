@@ -34,11 +34,16 @@ struct LandingView: View {
                     
                     FakeChat($numberOfBubblesShown)
                         .onAppear {
-                            Timer.scheduledTimerOnMainThread(withTimeInterval: 1.5, repeats: true) { timer in
+                            Timer.scheduledTimerOnMainThread(withTimeInterval: 0.2, repeats: false) { _ in
                                 withAnimation(.spring().speed(0.68)) {
-                                    numberOfBubblesShown += 1
-                                    if numberOfBubblesShown >= 4 {
-                                        timer.invalidate()
+                                    numberOfBubblesShown = 1
+                                }
+                                Timer.scheduledTimerOnMainThread(withTimeInterval: 1.5, repeats: true) { timer in
+                                    withAnimation(.spring().speed(0.68)) {
+                                        numberOfBubblesShown += 1
+                                        if numberOfBubblesShown >= 4 {
+                                            timer.invalidate()
+                                        }
                                     }
                                 }
                             }
