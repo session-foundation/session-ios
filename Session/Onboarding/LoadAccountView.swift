@@ -41,6 +41,10 @@ struct LoadAccountView: View {
         }
     }
     
+    func continueWithQRCode() {
+        
+    }
+    
     func continueWithMnemonic() {
         let mnemonic = recoveryPassword.lowercased()
         let hexEncodedSeed: String

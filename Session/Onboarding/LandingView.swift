@@ -9,6 +9,8 @@ import SessionUtilitiesKit
 struct LandingView: View {
     @EnvironmentObject var host: HostWrapper
     
+    @State var numberOfBubblesShown: Int = 0
+    
     var body: some View {
         NavigationView {
             ZStack(alignment: .center) {
@@ -30,7 +32,17 @@ struct LandingView: View {
                         .foregroundColor(themeColor: .textPrimary)
                         .padding(.vertical, Values.mediumSpacing)
                     
-                    FakeChat()
+                    FakeChat($numberOfBubblesShown)
+                        .onAppear {
+                            Timer.scheduledTimerOnMainThread(withTimeInterval: 1.5, repeats: true) { timer in
+                                withAnimation(.spring().speed(0.68)) {
+                                    numberOfBubblesShown += 1
+                                    if numberOfBubblesShown >= 4 {
+                                        timer.invalidate()
+                                    }
+                                }
+                            }
+                        }
                     
                     Spacer()
                 }
@@ -170,12 +182,18 @@ struct ChatBubble: View {
 }
 
 struct FakeChat: View {
+    @Binding var numberOfBubblesShown: Int
+    
     let chatBubbles: [ChatBubble] = [
         ChatBubble(text: "onboarding_chat_bubble_1".localized(), outgoing: false),
         ChatBubble(text: "onboarding_chat_bubble_2".localized(), outgoing: true),
         ChatBubble(text: "onboarding_chat_bubble_3".localized(), outgoing: false),
         ChatBubble(text: "onboarding_chat_bubble_4".localized(), outgoing: true),
     ]
+    
+    init(_ numberOfBubblesShown: Binding<Int>) {
+        self._numberOfBubblesShown = numberOfBubblesShown
+    }
     
     var body: some View {
         VStack(
@@ -192,6 +210,7 @@ struct FakeChat: View {
                         maxWidth: .infinity,
                         alignment: chatBubble.outgoing ? .trailing : .leading
                     )
+                    .opacity(index < numberOfBubblesShown ? 1.0 : 0.0)
             }
         }
         .padding(.horizontal, 36)
