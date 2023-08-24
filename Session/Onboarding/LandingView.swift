@@ -22,18 +22,21 @@ struct LandingView: View {
                 
                 VStack(
                     alignment: .center,
-                    spacing: Values.mediumSpacing
+                    spacing: 0
                 ) {
-                    Spacer()
+                    Spacer(minLength: 0)
                     
                     Text("onboarding_landing_title".localized())
                         .bold()
                         .font(.system(size: Values.veryLargeFontSize))
                         .foregroundColor(themeColor: .textPrimary)
-                        .padding(.vertical, Values.mediumSpacing)
+                        .padding(.bottom, Values.largeSpacing)
                     
                     FakeChat($numberOfBubblesShown)
+                        .padding(.bottom, Values.mediumSpacing)
                         .onAppear {
+                            guard numberOfBubblesShown < 4 else { return }
+                            
                             Timer.scheduledTimerOnMainThread(withTimeInterval: 0.2, repeats: false) { _ in
                                 withAnimation(.spring().speed(0.68)) {
                                     numberOfBubblesShown = 1
@@ -49,15 +52,15 @@ struct LandingView: View {
                             }
                         }
                     
-                    Spacer()
+                    Spacer(minLength: 0)
                 }
                 .padding(.vertical, Values.mediumSpacing)
-                .padding(.bottom, Values.massiveSpacing + 3 * Values.largeButtonHeight)
+                .padding(.bottom, 3 * Values.largeButtonHeight)
                 
                 VStack(
                     alignment: .center,
-                    spacing: Values.mediumSpacing)
-                {
+                    spacing: Values.mediumSpacing
+                ) {
                     Spacer()
                     
                     Button {
