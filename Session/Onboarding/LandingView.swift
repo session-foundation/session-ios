@@ -205,14 +205,25 @@ struct FakeChat: View {
                 id: \.self
             ) { index in
                 let chatBubble: ChatBubble = chatBubbles[index]
-                chatBubble
+                let bubble = chatBubble
                     .frame(
                         maxWidth: .infinity,
                         alignment: chatBubble.outgoing ? .trailing : .leading
                     )
-                    .opacity(index < numberOfBubblesShown ? 1.0 : 0.0)
+                if index < numberOfBubblesShown {
+                    bubble
+                        .transition(
+                            AnyTransition
+                                .move(edge: .bottom)
+                                .combined(with:.opacity.animation(.easeIn(duration: 0.68)))
+                        )
+                }
             }
         }
+        .frame(
+            height: 320,
+            alignment: .bottom
+        )
         .padding(.horizontal, 36)
     }
 }
