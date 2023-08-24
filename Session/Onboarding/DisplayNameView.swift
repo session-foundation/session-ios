@@ -28,15 +28,16 @@ struct DisplayNameView: View {
                 
                 VStack(
                     alignment: .leading,
-                    spacing: Values.mediumSpacing
+                    spacing: 0
                 ) {
-                    Spacer()
+                    Spacer(minLength: 0)
                     
                     let title: String = (self.flow == .register) ? "vc_display_name_title_2".localized() : "onboarding_display_name_title_new".localized()
                     Text(title)
                         .bold()
                         .font(.system(size: Values.veryLargeFontSize))
                         .foregroundColor(themeColor: .textPrimary)
+                        .padding(.bottom, Values.mediumSpacing)
                     
                     let explanation: String = (self.flow == .register) ? "onboarding_display_name_explanation".localized() : "onboarding_display_name_explanation_new".localized()
                     Text(explanation)
@@ -49,14 +50,16 @@ struct DisplayNameView: View {
                         placeholder: "onboarding_display_name_hint".localized(),
                         error: $error
                     )
+                    .padding(.top, Values.mediumSpacing)
+                    .padding(.bottom, Values.veryLargeSpacing)
                     
-                    Spacer()
+                    Spacer(minLength: 0)
                 }
                 .padding(.horizontal, Values.veryLargeSpacing)
-                .padding(.bottom, Values.massiveSpacing + Values.largeButtonHeight)
+                .padding(.bottom, Values.largeButtonHeight)
                 
                 VStack() {
-                    Spacer()
+                    Spacer(minLength: 0)
                     
                     Button {
                         register()
