@@ -4,12 +4,14 @@ import SwiftUI
 import SessionUIKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
+import AVFoundation
 
 struct LoadAccountView: View {
     @EnvironmentObject var host: HostWrapper
     
     @State var tabIndex = 0
     @State private var recoveryPassword: String = ""
+    @State private var hexEncodedSeed: String = ""
     @State private var errorString: String? = nil
         
     var body: some View {
@@ -34,15 +36,40 @@ struct LoadAccountView: View {
                         )
                     }
                     else {
-                        ScanQRCodeView()
+                        ScanQRCodeView(
+                            $hexEncodedSeed,
+                            error: $errorString,
+                            continueWithhexEncodedSeed: continueWithhexEncodedSeed
+                        )
                     }
                 }
             }
         }
     }
     
-    func continueWithQRCode() {
+    private func continueWithSeed(seed: Data) {
+        if (seed.count != 16) {
+            errorString = "recovery_password_error_generic".localized()
+            return
+        }
+        let (ed25519KeyPair, x25519KeyPair) = try! Identity.generate(from: seed)
         
+        Onboarding.Flow.link
+            .preregister(
+                with: seed,
+                ed25519KeyPair: ed25519KeyPair,
+                x25519KeyPair: x25519KeyPair
+            )
+        
+        // Otherwise continue on to request push notifications permissions
+        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: PNModeView(flow: .link))
+        viewController.setUpNavBarSessionIcon()
+        self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
+    }
+    
+    func continueWithhexEncodedSeed() {
+        let seed = Data(hex: hexEncodedSeed)
+        continueWithSeed(seed: seed)
     }
     
     func continueWithMnemonic() {
@@ -66,23 +93,7 @@ struct LoadAccountView: View {
             return
         }
         let seed = Data(hex: hexEncodedSeed)
-        if (seed.count != 16) {
-            errorString = "recovery_password_error_generic".localized()
-            return
-        }
-        let (ed25519KeyPair, x25519KeyPair) = try! Identity.generate(from: seed)
-        
-        Onboarding.Flow.link
-            .preregister(
-                with: seed,
-                ed25519KeyPair: ed25519KeyPair,
-                x25519KeyPair: x25519KeyPair
-            )
-        
-        // Otherwise continue on to request push notifications permissions
-        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: PNModeView(flow: .link))
-        viewController.setUpNavBarSessionIcon()
-        self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
+        continueWithSeed(seed: seed)
     }
 }
 
@@ -224,8 +235,64 @@ struct EnterRecoveryPasswordView: View{
 }
 
 struct ScanQRCodeView: View{
+    @Binding var hexEncodedSeed: String
+    @Binding var error: String?
+    @State var hasCameraAccess: Bool = (AVCaptureDevice.authorizationStatus(for: .video) == .authorized)
+    
+    var continueWithhexEncodedSeed: (() -> Void)?
+    
+    init(
+        _ hexEncodedSeed: Binding<String>,
+        error: Binding<String?>,
+        continueWithhexEncodedSeed: (() -> Void)?
+    ) {
+        self._hexEncodedSeed = hexEncodedSeed
+        self._error = error
+        self.continueWithhexEncodedSeed = continueWithhexEncodedSeed
+    }
+    
     var body: some View{
         ZStack{
+            if hasCameraAccess {
+                VStack {
+                    QRCodeScanningVC_SwiftUI(scanDelegate: nil)
+                }
+                .frame(
+                    maxWidth: .infinity,
+                    maxHeight: .infinity
+                )
+            } else {
+                VStack(
+                    alignment: .center,
+                    spacing: Values.mediumSpacing
+                ) {
+                    Spacer()
+                    
+                    Text("vc_scan_qr_code_camera_access_explanation".localized())
+                        .font(.system(size: Values.smallFontSize))
+                        .foregroundColor(themeColor: .textPrimary)
+                        .multilineTextAlignment(.center)
+                    
+                    Button {
+                        requestCameraAccess()
+                    } label: {
+                        Text("vc_scan_qr_code_grant_camera_access_button_title".localized())
+                            .bold()
+                            .font(.system(size: Values.mediumFontSize))
+                            .foregroundColor(themeColor: .primary)
+                    }
+                    
+                    Spacer()
+                }
+                .padding(.horizontal, Values.massiveSpacing)
+                .padding(.bottom, Values.massiveSpacing)
+            }
+        }
+    }
+    
+    private func requestCameraAccess() {
+        Permissions.requestCameraPermissionIfNeeded {
+            hasCameraAccess.toggle()
         }
     }
 }

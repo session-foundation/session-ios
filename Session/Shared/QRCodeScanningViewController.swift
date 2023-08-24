@@ -204,3 +204,27 @@ class QRCodeScanningViewController: UIViewController, AVCaptureMetadataOutputObj
         }
     }
 }
+
+// MARK: SwiftUI
+import SwiftUI
+
+struct QRCodeScanningVC_SwiftUI: UIViewControllerRepresentable {
+    typealias UIViewControllerType = QRCodeScanningViewController
+    
+    public weak var scanDelegate: QRScannerDelegate?
+    
+    public init(scanDelegate: QRScannerDelegate?) {
+        self.scanDelegate = scanDelegate
+    }
+    
+    func makeUIViewController(context: Context) -> QRCodeScanningViewController {
+        let scanQRCodeVC = QRCodeScanningViewController()
+        scanQRCodeVC.scanDelegate = scanDelegate
+        
+        return scanQRCodeVC
+    }
+    
+    func updateUIViewController(_ scanQRCodeVC: QRCodeScanningViewController, context: Context) {
+        scanQRCodeVC.startCapture()
+    }
+}
