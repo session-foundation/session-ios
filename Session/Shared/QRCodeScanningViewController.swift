@@ -211,20 +211,38 @@ import SwiftUI
 struct QRCodeScanningVC_SwiftUI: UIViewControllerRepresentable {
     typealias UIViewControllerType = QRCodeScanningViewController
     
-    public weak var scanDelegate: QRScannerDelegate?
-    
-    public init(scanDelegate: QRScannerDelegate?) {
-        self.scanDelegate = scanDelegate
-    }
+    let scanQRCodeVC = QRCodeScanningViewController()
+    var didDetectQRCode: (String, (() -> ())?) -> ()
     
     func makeUIViewController(context: Context) -> QRCodeScanningViewController {
-        let scanQRCodeVC = QRCodeScanningViewController()
-        scanQRCodeVC.scanDelegate = scanDelegate
-        
         return scanQRCodeVC
     }
     
     func updateUIViewController(_ scanQRCodeVC: QRCodeScanningViewController, context: Context) {
         scanQRCodeVC.startCapture()
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(
+            scanQRCodeVC: scanQRCodeVC,
+            didDetectQRCode: didDetectQRCode
+        )
+    }
+    
+    class Coordinator: NSObject, QRScannerDelegate {
+        var didDetectQRCode: (String, (() -> ())?) -> ()
+        
+        init(
+            scanQRCodeVC: QRCodeScanningViewController,
+            didDetectQRCode: @escaping (String, (() -> ())?) -> ()
+        ) {
+            self.didDetectQRCode = didDetectQRCode
+            super.init()
+            scanQRCodeVC.scanDelegate = self
+        }
+        
+        func controller(_ controller: QRCodeScanningViewController, didDetectQRCodeWith string: String, onError: (() -> ())?) {
+            didDetectQRCode(string, onError)
+        }
     }
 }

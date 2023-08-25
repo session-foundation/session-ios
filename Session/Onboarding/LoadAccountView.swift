@@ -45,9 +45,10 @@ struct LoadAccountView: View {
         }
     }
     
-    private func continueWithSeed(seed: Data) {
+    private func continueWithSeed(seed: Data, onError: (() -> ())?) {
         if (seed.count != 16) {
             errorString = "recovery_password_error_generic".localized()
+            onError?()
             return
         }
         let (ed25519KeyPair, x25519KeyPair) = try! Identity.generate(from: seed)
@@ -65,9 +66,9 @@ struct LoadAccountView: View {
         self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
     }
     
-    func continueWithhexEncodedSeed() {
+    func continueWithhexEncodedSeed(onError: (() -> ())?) {
         let seed = Data(hex: hexEncodedSeed)
-        continueWithSeed(seed: seed)
+        continueWithSeed(seed: seed, onError: onError)
     }
     
     func continueWithMnemonic() {
@@ -91,7 +92,7 @@ struct LoadAccountView: View {
             return
         }
         let seed = Data(hex: hexEncodedSeed)
-        continueWithSeed(seed: seed)
+        continueWithSeed(seed: seed, onError: nil)
     }
 }
 
@@ -241,17 +242,17 @@ struct EnterRecoveryPasswordView: View{
     }
 }
 
-struct ScanQRCodeView: View{
+struct ScanQRCodeView: View {
     @Binding var hexEncodedSeed: String
     @Binding var error: String?
     @State var hasCameraAccess: Bool = (AVCaptureDevice.authorizationStatus(for: .video) == .authorized)
     
-    var continueWithhexEncodedSeed: (() -> Void)?
+    var continueWithhexEncodedSeed: (((() -> ())?) -> Void)?
     
     init(
         _ hexEncodedSeed: Binding<String>,
         error: Binding<String?>,
-        continueWithhexEncodedSeed: (() -> Void)?
+        continueWithhexEncodedSeed: (((() -> ())?) -> Void)?
     ) {
         self._hexEncodedSeed = hexEncodedSeed
         self._error = error
@@ -262,12 +263,30 @@ struct ScanQRCodeView: View{
         ZStack{
             if hasCameraAccess {
                 VStack {
-                    QRCodeScanningVC_SwiftUI(scanDelegate: nil)
+                    QRCodeScanningVC_SwiftUI { string, onError in
+                        hexEncodedSeed = string
+                        continueWithhexEncodedSeed?(onError)
+                    }
                 }
                 .frame(
                     maxWidth: .infinity,
                     maxHeight: .infinity
                 )
+                
+                if error?.isEmpty == false {
+                    VStack {
+                        Spacer()
+                        
+                        Text(error!)
+                            .font(.system(size: Values.verySmallFontSize))
+                            .foregroundColor(themeColor: .textPrimary)
+                            .multilineTextAlignment(.center)
+                            .frame(
+                                width: 320,
+                                height: 44
+                            )
+                    }
+                }
             } else {
                 VStack(
                     alignment: .center,
