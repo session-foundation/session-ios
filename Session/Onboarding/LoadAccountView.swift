@@ -15,33 +15,31 @@ struct LoadAccountView: View {
     @State private var errorString: String? = nil
         
     var body: some View {
-        NavigationView {
-            ZStack(alignment: .topLeading) {
-                if #available(iOS 14.0, *) {
-                    ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
-                } else {
-                    ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary)
+        ZStack(alignment: .topLeading) {
+            if #available(iOS 14.0, *) {
+                ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
+            } else {
+                ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary)
+            }
+            VStack(
+                spacing: 0
+            ){
+                CustomTopTabBar(tabIndex: $tabIndex)
+                    .frame(maxWidth: .infinity)
+                    
+                if tabIndex == 0 {
+                    EnterRecoveryPasswordView(
+                        $recoveryPassword,
+                        error: $errorString,
+                        continueWithMnemonic: continueWithMnemonic
+                    )
                 }
-                VStack(
-                    spacing: 0
-                ){
-                    CustomTopTabBar(tabIndex: $tabIndex)
-                        .frame(maxWidth: .infinity)
-                        
-                    if tabIndex == 0 {
-                        EnterRecoveryPasswordView(
-                            $recoveryPassword,
-                            error: $errorString,
-                            continueWithMnemonic: continueWithMnemonic
-                        )
-                    }
-                    else {
-                        ScanQRCodeView(
-                            $hexEncodedSeed,
-                            error: $errorString,
-                            continueWithhexEncodedSeed: continueWithhexEncodedSeed
-                        )
-                    }
+                else {
+                    ScanQRCodeView(
+                        $hexEncodedSeed,
+                        error: $errorString,
+                        continueWithhexEncodedSeed: continueWithhexEncodedSeed
+                    )
                 }
             }
         }

@@ -20,42 +20,40 @@ struct LoadingView: View {
     }
     
     var body: some View {
-        NavigationView {
-            ZStack(alignment: .center) {
-                if #available(iOS 14.0, *) {
-                    ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
-                } else {
-                    ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary)
-                }
-                
-                VStack(
-                    alignment: .center,
-                    spacing: Values.mediumSpacing
-                ) {
-                    Spacer()
-                    
-                    CircularProgressView($percentage)
-                        .padding(.horizontal, Values.massiveSpacing)
-                        .padding(.bottom, Values.mediumSpacing)
-                        .onAppear {
-                            progress()
-                            observeProfileRetrieving()
-                        }
-                    
-                    Text("onboarding_load_account_waiting".localized())
-                        .bold()
-                        .font(.system(size: Values.mediumLargeFontSize))
-                        .foregroundColor(themeColor: .textPrimary)
-                    
-                    Text("onboarding_loading_account".localized())
-                        .font(.system(size: Values.smallFontSize))
-                        .foregroundColor(themeColor: .textPrimary)
-                    
-                    Spacer()
-                }
-                .padding(.horizontal, Values.veryLargeSpacing)
-                .padding(.bottom, Values.massiveSpacing + Values.largeButtonHeight)
+        ZStack(alignment: .center) {
+            if #available(iOS 14.0, *) {
+                ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
+            } else {
+                ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary)
             }
+            
+            VStack(
+                alignment: .center,
+                spacing: Values.mediumSpacing
+            ) {
+                Spacer()
+                
+                CircularProgressView($percentage)
+                    .padding(.horizontal, Values.massiveSpacing)
+                    .padding(.bottom, Values.mediumSpacing)
+                    .onAppear {
+                        progress()
+                        observeProfileRetrieving()
+                    }
+                
+                Text("onboarding_load_account_waiting".localized())
+                    .bold()
+                    .font(.system(size: Values.mediumLargeFontSize))
+                    .foregroundColor(themeColor: .textPrimary)
+                
+                Text("onboarding_loading_account".localized())
+                    .font(.system(size: Values.smallFontSize))
+                    .foregroundColor(themeColor: .textPrimary)
+                
+                Spacer()
+            }
+            .padding(.horizontal, Values.veryLargeSpacing)
+            .padding(.bottom, Values.massiveSpacing + Values.largeButtonHeight)
         }
     }
     

@@ -39,70 +39,68 @@ struct PNModeView: View {
     ]
     
     var body: some View {
-        NavigationView {
-            ZStack(alignment: .center) {
-                if #available(iOS 14.0, *) {
-                    ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
-                } else {
-                    ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary)
-                }
+        ZStack(alignment: .center) {
+            if #available(iOS 14.0, *) {
+                ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
+            } else {
+                ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary)
+            }
+            
+            VStack(
+                alignment: .leading,
+                spacing: Values.mediumSpacing
+            ) {
+                Spacer()
+                
+                Text("vc_pn_mode_title".localized())
+                    .bold()
+                    .font(.system(size: Values.veryLargeFontSize))
+                    .foregroundColor(themeColor: .textPrimary)
+                    .padding(.vertical, Values.mediumSpacing)
                 
                 VStack(
                     alignment: .leading,
-                    spacing: Values.mediumSpacing
-                ) {
-                    Spacer()
-                    
-                    Text("vc_pn_mode_title".localized())
-                        .bold()
-                        .font(.system(size: Values.veryLargeFontSize))
-                        .foregroundColor(themeColor: .textPrimary)
-                        .padding(.vertical, Values.mediumSpacing)
-                    
-                    VStack(
-                        alignment: .leading,
-                        spacing: Values.mediumSpacing)
-                    {
-                        ForEach(
-                            0...(options.count - 1),
-                            id: \.self
-                        ) { index in
-                            PNOptionView(
-                                currentSelection: $currentSelection,
-                                info: options[index]
-                            )
-                        }
+                    spacing: Values.mediumSpacing)
+                {
+                    ForEach(
+                        0...(options.count - 1),
+                        id: \.self
+                    ) { index in
+                        PNOptionView(
+                            currentSelection: $currentSelection,
+                            info: options[index]
+                        )
                     }
-                    
-                    Spacer()
                 }
-                .padding(.horizontal, Values.veryLargeSpacing)
-                .padding(.bottom, Values.massiveSpacing + Values.largeButtonHeight)
                 
-                VStack() {
-                    Spacer()
-                    
-                    Button {
-                        register()
-                    } label: {
-                        Text("continue_2".localized())
-                            .bold()
-                            .font(.system(size: Values.smallFontSize))
-                            .foregroundColor(themeColor: .sessionButton_text)
-                            .frame(
-                                maxWidth: .infinity,
-                                maxHeight: Values.largeButtonHeight,
-                                alignment: .center
-                            )
-                            .overlay(
-                                Capsule()
-                                    .stroke(themeColor: .sessionButton_border)
-                            )
-                    }
-                    .padding(.horizontal, Values.massiveSpacing)
-                }
-                .padding(.vertical, Values.mediumSpacing)
+                Spacer()
             }
+            .padding(.horizontal, Values.veryLargeSpacing)
+            .padding(.bottom, Values.massiveSpacing + Values.largeButtonHeight)
+            
+            VStack() {
+                Spacer()
+                
+                Button {
+                    register()
+                } label: {
+                    Text("continue_2".localized())
+                        .bold()
+                        .font(.system(size: Values.smallFontSize))
+                        .foregroundColor(themeColor: .sessionButton_text)
+                        .frame(
+                            maxWidth: .infinity,
+                            maxHeight: Values.largeButtonHeight,
+                            alignment: .center
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(themeColor: .sessionButton_border)
+                        )
+                }
+                .padding(.horizontal, Values.massiveSpacing)
+            }
+            .padding(.vertical, Values.mediumSpacing)
         }
     }
     
