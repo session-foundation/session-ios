@@ -21,6 +21,10 @@ public struct ConfigDump: Codable, Equatable, Hashable, FetchableRecord, Persist
         case contacts
         case convoInfoVolatile
         case userGroups
+        
+        case groupInfo
+        case groupMembers
+        case groupKeys
     }
     
     /// The type of config this dump is for
@@ -63,6 +67,10 @@ public extension ConfigDump.Variant {
             case .contacts: return .contacts
             case .convoInfoVolatile: return .convoInfoVolatile
             case .userGroups: return .userGroups
+                
+            case .groupInfo: return .groupInfo
+            case .groupMembers: return .groupMembers
+            case .groupKeys: return .groupKeys
         }
     }
     
@@ -72,6 +80,10 @@ public extension ConfigDump.Variant {
             case .contacts: return SnodeAPI.Namespace.configContacts
             case .convoInfoVolatile: return SnodeAPI.Namespace.configConvoInfoVolatile
             case .userGroups: return SnodeAPI.Namespace.configUserGroups
+            
+            case .groupInfo: return SnodeAPI.Namespace.configGroupInfo
+            case .groupMembers: return SnodeAPI.Namespace.configGroupMembers
+            case .groupKeys: return SnodeAPI.Namespace.configGroupKeys
         }
     }
     
@@ -82,8 +94,8 @@ public extension ConfigDump.Variant {
     /// processed (without this we would have to wait until the next poll for it to be processed correctly)
     var processingOrder: Int {
         switch self {
-            case .userProfile, .contacts: return 0
-            case .userGroups: return 1
+            case .userProfile, .contacts, .groupKeys: return 0
+            case .userGroups, .groupInfo, .groupMembers: return 1
             case .convoInfoVolatile: return 2
         }
     }

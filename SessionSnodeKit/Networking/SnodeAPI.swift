@@ -442,8 +442,8 @@ public final class SnodeAPI {
                         using: dependencies
                     )
                     .decoded(as: responseTypes, using: dependencies)
-                    .map { (batchResponse: HTTP.BatchResponse) -> [SnodeAPI.Namespace: (info: ResponseInfoType, data: (messages: [SnodeReceivedMessage], lastHash: String?)?)] in
-                        let messageResponses: [HTTP.BatchSubResponse<GetMessagesResponse>] = batchResponse.responses
+                    .map { (_: ResponseInfoType, batchResponse: HTTP.BatchResponse) -> [SnodeAPI.Namespace: (info: ResponseInfoType, data: (messages: [SnodeReceivedMessage], lastHash: String?)?)] in
+                        let messageResponses: [HTTP.BatchSubResponse<GetMessagesResponse>] = batchResponse
                             .compactMap { $0 as? HTTP.BatchSubResponse<GetMessagesResponse> }
                         
                         /// Since we have extended the TTL for a number of messages we need to make sure we update the local
@@ -452,7 +452,6 @@ public final class SnodeAPI {
                         if
                             !refreshingConfigHashes.isEmpty,
                             let refreshTTLSubReponse: HTTP.BatchSubResponse<UpdateExpiryResponse> = batchResponse
-                                .responses
                                 .first(where: { $0 is HTTP.BatchSubResponse<UpdateExpiryResponse> })
                                 .asType(HTTP.BatchSubResponse<UpdateExpiryResponse>.self),
                             let refreshTTLResponse: UpdateExpiryResponse = refreshTTLSubReponse.body,
@@ -487,7 +486,7 @@ public final class SnodeAPI {
                                 let namespace: SnodeAPI.Namespace = next.0
                                 
                                 result[namespace] = (
-                                    info: next.1.responseInfo,
+                                    info: next.1,
                                     data: (
                                         messages: messageResponse.messages
                                             .compactMap { rawMessage -> SnodeReceivedMessage? in
@@ -723,7 +722,7 @@ public final class SnodeAPI {
         _ messages: [(message: SnodeMessage, namespace: Namespace)],
         allObsoleteHashes: [String],
         using dependencies: Dependencies = Dependencies()
-    ) -> AnyPublisher<HTTP.BatchResponse, Error> {
+    ) -> AnyPublisher<(ResponseInfoType, HTTP.BatchResponse), Error> {
         guard
             !messages.isEmpty,
             let recipient: String = messages.first?.message.recipient
@@ -793,7 +792,7 @@ public final class SnodeAPI {
         let responseTypes = requests.map { $0.responseType }
         
         return getSwarm(for: publicKey)
-            .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<HTTP.BatchResponse, Error> in
+            .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<(ResponseInfoType, HTTP.BatchResponse), Error> in
                 SnodeAPI
                     .send(
                         request: SnodeRequest(

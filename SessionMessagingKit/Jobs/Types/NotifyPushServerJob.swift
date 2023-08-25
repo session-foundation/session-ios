@@ -27,12 +27,16 @@ public enum NotifyPushServerJob: JobExecutor {
             return failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
         }
         
-        PushNotificationAPI
-            .legacyNotify(
-                recipient: details.message.recipient,
-                with: details.message.data,
-                maxRetryCount: 4
-            )
+        dependencies.storage
+            .readPublisher(using: dependencies) { db in
+                try PushNotificationAPI.preparedLegacyNotify(
+                    recipient: details.message.recipient,
+                    with: details.message.data,
+                    maxRetryCount: 4,
+                    using: dependencies
+                )
+            }
+            .flatMap { $0.send(using: dependencies) }
             .subscribe(on: queue)
             .receive(on: queue)
             .sinkUntilComplete(

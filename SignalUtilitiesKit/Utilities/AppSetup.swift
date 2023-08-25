@@ -89,24 +89,10 @@ public enum AppSetup {
                         
                         // After the migrations have run but before the migration completion we load the
                         // SessionUtil state
-                        SessionUtil.loadState(
-                            db,
-                            userPublicKey: getUserHexEncodedPublicKey(db),
-                            ed25519SecretKey: Identity.fetchUserEd25519KeyPair(db)?.secretKey
-                        )
+                        SessionUtil.loadState(db)
                 }
             },
             onComplete: { result, needsConfigSync in
-                // After the migrations have run but before the migration completion we load the
-                // SessionUtil state and update the 'needsConfigSync' flag based on whether the
-                // configs also need to be sync'ed
-                if Identity.userExists() {
-                    SessionUtil.loadState(
-                        userPublicKey: getUserHexEncodedPublicKey(),
-                        ed25519SecretKey: Identity.fetchUserEd25519KeyPair()?.secretKey
-                    )
-                }
-                
                 // The 'needsConfigSync' flag should be based on whether either a migration or the
                 // configs need to be sync'ed
                 migrationsCompletion(result, (needsConfigSync || SessionUtil.needsSync))

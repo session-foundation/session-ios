@@ -39,7 +39,6 @@ abstract_target 'GlobalDependencies' do
     pod 'SignalCoreKit', git: 'https://github.com/oxen-io/session-ios-core-kit', branch: 'session-version'
     
     target 'SessionNotificationServiceExtension'
-    target 'SessionSnodeKit'
     
     # Dependencies that are shared across a number of extensions/frameworks but not all
     abstract_target 'ExtendedDependencies' do
@@ -86,6 +85,20 @@ abstract_target 'GlobalDependencies' do
           
           pod 'Quick'
           pod 'Nimble'
+        end
+      end
+      
+      target 'SessionSnodeKit' do
+        target 'SessionSnodeKitTests' do
+          inherit! :complete
+          
+          pod 'Quick'
+          pod 'Nimble'
+          
+          # Need to include these for the tests because otherwise it won't actually build
+          pod 'SAMKeychain'
+          pod 'YYImage/libwebp', git: 'https://github.com/signalapp/YYImage'
+          pod 'DifferenceKit'
         end
       end
     end

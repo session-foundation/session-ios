@@ -172,7 +172,7 @@ class BatchResponseSpec: QuickSpec {
             }
             
             it("decodes valid data correctly") {
-                var result: HTTP.BatchResponse?
+                var result: (info: ResponseInfoType, response: HTTP.BatchResponse)?
                 Just((responseInfo, data))
                     .setFailureType(to: Error.self)
                     .eraseToAnyPublisher()
@@ -185,9 +185,9 @@ class BatchResponseSpec: QuickSpec {
                     )
         
                 expect(result).toNot(beNil())
-                expect((result?.responses[0] as? HTTP.BatchSubResponse<TestType>)?.body)
+                expect((result?.response[0] as? HTTP.BatchSubResponse<TestType>)?.body)
                     .to(equal(testType))
-                expect((result?.responses[1] as? HTTP.BatchSubResponse<TestType2>)?.body)
+                expect((result?.response[1] as? HTTP.BatchSubResponse<TestType2>)?.body)
                     .to(equal(testType2))
             }
             

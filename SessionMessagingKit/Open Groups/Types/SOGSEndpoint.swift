@@ -59,6 +59,11 @@ extension OpenGroupAPI {
         case userUnban(String)
         case userModerator(String)
         
+        public static var batchRequestVariant: HTTP.BatchRequest.Child.Variant = .sogs
+        public static var excludedSubRequestHeaders: [HTTPHeader] = [
+            .sogsPubKey, .sogsTimestamp, .sogsNonce, .sogsSignature
+        ]
+        
         public var path: String {
             switch self {
                 // Utility

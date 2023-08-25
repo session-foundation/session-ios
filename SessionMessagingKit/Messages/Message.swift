@@ -588,7 +588,7 @@ public extension Message {
                 case let closedGroupControlMessage as ClosedGroupControlMessage:
                     switch closedGroupControlMessage.kind {
                         case .encryptionKeyPair:
-                            try MessageReceiver.handleClosedGroupControlMessage(
+                            try MessageReceiver.handleLegacyClosedGroupControlMessage(
                                 db,
                                 threadId: threadId,
                                 threadVariant: threadVariant,

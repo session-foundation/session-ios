@@ -26,6 +26,10 @@ public final class SharedConfigMessage: ControlMessage {
         case contacts
         case convoInfoVolatile
         case userGroups
+        
+        case groupInfo
+        case groupMembers
+        case groupKeys
 
         public var description: String {
             switch self {
@@ -33,6 +37,10 @@ public final class SharedConfigMessage: ControlMessage {
                 case .contacts: return "contacts"
                 case .convoInfoVolatile: return "convoInfoVolatile"
                 case .userGroups: return "userGroups"
+                    
+                case .groupInfo: return "groupInfo"
+                case .groupMembers: return "groupMembers"
+                case .groupKeys: return "groupKeys"
             }
         }
     }
@@ -86,6 +94,10 @@ public final class SharedConfigMessage: ControlMessage {
                     case .contacts: return .contacts
                     case .convoInfoVolatile: return .convoInfoVolatile
                     case .userGroups: return .userGroups
+                        
+                    case .groupInfo: return .groupInfo
+                    case .groupMembers: return .groupMembers
+                    case .groupKeys: return .groupKeys
                 }
             }(),
             seqNo: sharedConfigMessage.seqno,
@@ -102,6 +114,10 @@ public final class SharedConfigMessage: ControlMessage {
                         case .contacts: return .contacts
                         case .convoInfoVolatile: return .convoInfoVolatile
                         case .userGroups: return .userGroups
+                            
+                        case .groupInfo: return .groupInfo
+                        case .groupMembers: return .groupMembers
+                        case .groupKeys: return .groupKeys
                     }
                 }(),
                 seqno: self.seqNo,
@@ -139,6 +155,10 @@ public extension SharedConfigMessage.Kind {
             case .contacts: return .contacts
             case .convoInfoVolatile: return .convoInfoVolatile
             case .userGroups: return .userGroups
+                
+            case .groupInfo: return .groupInfo
+            case .groupMembers: return .groupMembers
+            case .groupKeys: return .groupKeys
         }
     }
 }

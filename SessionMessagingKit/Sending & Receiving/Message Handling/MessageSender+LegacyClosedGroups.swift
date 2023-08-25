@@ -10,7 +10,7 @@ import SessionSnodeKit
 extension MessageSender {
     public static var distributingKeyPairs: Atomic<[String: [ClosedGroupKeyPair]]> = Atomic([:])
     
-    public static func createClosedGroup(
+    public static func createLegacyClosedGroup(
         name: String,
         members: Set<String>,
         using dependencies: Dependencies = Dependencies()
@@ -24,7 +24,7 @@ extension MessageSender {
                 else { throw MessageSenderError.noKeyPair }
                 
                 // Includes the 'SessionId.Prefix.standard' prefix
-                let groupPublicKey: String = groupKeyPair.hexEncodedPublicKey
+                let legacyGroupPublicKey: String = groupKeyPair.hexEncodedPublicKey
                 let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
                 var members: Set<String> = members
                 
@@ -37,17 +37,18 @@ extension MessageSender {
                 
                 // Create the relevant objects in the database
                 let thread: SessionThread = try SessionThread
-                    .fetchOrCreate(db, id: groupPublicKey, variant: .legacyGroup, shouldBeVisible: true)
+                    .fetchOrCreate(db, id: legacyGroupPublicKey, variant: .legacyGroup, shouldBeVisible: true)
                 try ClosedGroup(
-                    threadId: groupPublicKey,
+                    threadId: legacyGroupPublicKey,
                     name: name,
-                    formationTimestamp: formationTimestamp
+                    formationTimestamp: formationTimestamp,
+                    approved: true  // Legacy groups are always approved
                 ).insert(db)
                 
                 // Store the key pair
                 let latestKeyPairReceivedTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
                 try ClosedGroupKeyPair(
-                    threadId: groupPublicKey,
+                    threadId: legacyGroupPublicKey,
                     publicKey: Data(encryptionKeyPair.publicKey),
                     secretKey: Data(encryptionKeyPair.secretKey),
                     receivedTimestamp: latestKeyPairReceivedTimestamp
@@ -56,7 +57,7 @@ extension MessageSender {
                 // Create the member objects
                 try admins.forEach { adminId in
                     try GroupMember(
-                        groupId: groupPublicKey,
+                        groupId: legacyGroupPublicKey,
                         profileId: adminId,
                         role: .admin,
                         isHidden: false
@@ -65,7 +66,7 @@ extension MessageSender {
                 
                 try members.forEach { memberId in
                     try GroupMember(
-                        groupId: groupPublicKey,
+                        groupId: legacyGroupPublicKey,
                         profileId: memberId,
                         role: .standard,
                         isHidden: false
@@ -75,12 +76,12 @@ extension MessageSender {
                 // Update libSession
                 try SessionUtil.add(
                     db,
-                    groupPublicKey: groupPublicKey,
+                    legacyGroupPublicKey: legacyGroupPublicKey,
                     name: name,
                     latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),
                     latestKeyPairSecretKey: Data(encryptionKeyPair.secretKey),
                     latestKeyPairReceivedTimestamp: latestKeyPairReceivedTimestamp,
-                    disappearingConfig: DisappearingMessagesConfiguration.defaultWith(groupPublicKey),
+                    disappearingConfig: DisappearingMessagesConfiguration.defaultWith(legacyGroupPublicKey),
                     members: members,
                     admins: admins
                 )
@@ -91,7 +92,7 @@ extension MessageSender {
                             db,
                             message: ClosedGroupControlMessage(
                                 kind: .new(
-                                    publicKey: Data(hex: groupPublicKey),
+                                    publicKey: Data(hex: legacyGroupPublicKey),
                                     name: name,
                                     encryptionKeyPair: encryptionKeyPair,
                                     members: membersAsData,
@@ -117,7 +118,7 @@ extension MessageSender {
                     )
                     .asRequest(of: String.self)
                     .fetchSet(db)
-                    .inserting(groupPublicKey)  // Insert the new key just to be sure
+                    .inserting(legacyGroupPublicKey)  // Insert the new key just to be sure
                 
                 return (userPublicKey, thread, memberSendData, allActiveLegacyGroupIds)
             }
@@ -129,10 +130,14 @@ extension MessageSender {
                             .map { MessageSender.sendImmediate(data: $0, using: dependencies) }
                             .appending(
                                 // Resubscribe to all legacy groups
-                                PushNotificationAPI.subscribeToLegacyGroups(
-                                    currentUserPublicKey: userPublicKey,
-                                    legacyGroupIds: allActiveLegacyGroupIds
-                                )
+                                try? PushNotificationAPI
+                                    .preparedSubscribeToLegacyGroups(
+                                        currentUserPublicKey: userPublicKey,
+                                        legacyGroupIds: allActiveLegacyGroupIds
+                                    )?
+                                    .send(using: dependencies)
+                                    .map { _ in () }
+                                    .eraseToAnyPublisher()
                             )
                     )
                     .collect()
@@ -235,7 +240,7 @@ extension MessageSender {
                         // Update libSession
                         try? SessionUtil.update(
                             db,
-                            groupPublicKey: closedGroup.threadId,
+                            legacyGroupPublicKey: closedGroup.threadId,
                             latestKeyPair: newKeyPair,
                             members: allGroupMembers
                                 .filter { $0.role == .standard || $0.role == .zombie }
@@ -261,7 +266,7 @@ extension MessageSender {
     }
     
     public static func update(
-        groupPublicKey: String,
+        legacyGroupPublicKey: String,
         with members: Set<String>,
         name: String,
         using dependencies: Dependencies = Dependencies()
@@ -271,11 +276,11 @@ extension MessageSender {
                 let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
                 
                 // Get the group, check preconditions & prepare
-                guard (try? SessionThread.exists(db, id: groupPublicKey)) == true else {
+                guard (try? SessionThread.exists(db, id: legacyGroupPublicKey)) == true else {
                     SNLog("Can't update nonexistent closed group.")
                     throw MessageSenderError.noThread
                 }
-                guard let closedGroup: ClosedGroup = try? ClosedGroup.fetchOne(db, id: groupPublicKey) else {
+                guard let closedGroup: ClosedGroup = try? ClosedGroup.fetchOne(db, id: legacyGroupPublicKey) else {
                     throw MessageSenderError.invalidClosedGroupUpdate
                 }
                 
@@ -288,7 +293,7 @@ extension MessageSender {
                     
                     // Notify the user
                     let interaction: Interaction = try Interaction(
-                        threadId: groupPublicKey,
+                        threadId: legacyGroupPublicKey,
                         authorId: userPublicKey,
                         variant: .infoClosedGroupUpdated,
                         body: ClosedGroupControlMessage.Kind
@@ -304,7 +309,7 @@ extension MessageSender {
                         db,
                         message: ClosedGroupControlMessage(kind: .nameChange(name: name)),
                         interactionId: interactionId,
-                        threadId: groupPublicKey,
+                        threadId: legacyGroupPublicKey,
                         threadVariant: .legacyGroup,
                         using: dependencies
                     )
@@ -312,7 +317,7 @@ extension MessageSender {
                     // Update libSession
                     try? SessionUtil.update(
                         db,
-                        groupPublicKey: closedGroup.threadId,
+                        legacyGroupPublicKey: closedGroup.threadId,
                         name: name
                     )
                 }
@@ -416,7 +421,7 @@ extension MessageSender {
         // Update libSession
         try? SessionUtil.update(
             db,
-            groupPublicKey: closedGroup.threadId,
+            legacyGroupPublicKey: closedGroup.threadId,
             members: allGroupMembers
                 .filter { $0.role == .standard || $0.role == .zombie }
                 .map { $0.profileId }

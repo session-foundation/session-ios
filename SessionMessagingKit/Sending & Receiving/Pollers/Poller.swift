@@ -19,7 +19,7 @@ public class Poller {
     // MARK: - Settings
     
     /// The namespaces which this poller queries
-    internal var namespaces: [SnodeAPI.Namespace] {
+    internal func namespaces(for publicKey: String) -> [SnodeAPI.Namespace] {
         preconditionFailure("abstract class - override in subclass")
     }
     
@@ -139,7 +139,7 @@ public class Poller {
     ) {
         guard isPolling.wrappedValue[publicKey] == true else { return }
         
-        let namespaces: [SnodeAPI.Namespace] = self.namespaces
+        let namespaces: [SnodeAPI.Namespace] = self.namespaces(for: publicKey)
         let lastPollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         let lastPollInterval: TimeInterval = nextPollDelay(for: publicKey, using: dependencies)
         let getSnodePublisher: AnyPublisher<Snode, Error> = getSnodeForPolling(for: publicKey, using: dependencies)

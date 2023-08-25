@@ -769,6 +769,15 @@ struct SessionProtos_DataMessage {
   /// Clears the value of `blocksCommunityMessageRequests`. Subsequent reads from it will return its default value.
   mutating func clearBlocksCommunityMessageRequests() {_uniqueStorage()._blocksCommunityMessageRequests = nil}
 
+  var groupUpdateMessage: SessionProtos_GroupUpdateMessage {
+    get {return _storage._groupUpdateMessage ?? SessionProtos_GroupUpdateMessage()}
+    set {_uniqueStorage()._groupUpdateMessage = newValue}
+  }
+  /// Returns true if `groupUpdateMessage` has been explicitly set.
+  var hasGroupUpdateMessage: Bool {return _storage._groupUpdateMessage != nil}
+  /// Clears the value of `groupUpdateMessage`. Subsequent reads from it will return its default value.
+  mutating func clearGroupUpdateMessage() {_uniqueStorage()._groupUpdateMessage = nil}
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum Flags: SwiftProtobuf.Enum {
@@ -1697,6 +1706,9 @@ struct SessionProtos_SharedConfigMessage {
     case contacts // = 2
     case convoInfoVolatile // = 3
     case userGroups // = 4
+    case groupInfo // = 5
+    case groupMembers // = 6
+    case groupKeys // = 7
 
     init() {
       self = .userProfile
@@ -1708,6 +1720,9 @@ struct SessionProtos_SharedConfigMessage {
       case 2: self = .contacts
       case 3: self = .convoInfoVolatile
       case 4: self = .userGroups
+      case 5: self = .groupInfo
+      case 6: self = .groupMembers
+      case 7: self = .groupKeys
       default: return nil
       }
     }
@@ -1718,6 +1733,9 @@ struct SessionProtos_SharedConfigMessage {
       case .contacts: return 2
       case .convoInfoVolatile: return 3
       case .userGroups: return 4
+      case .groupInfo: return 5
+      case .groupMembers: return 6
+      case .groupKeys: return 7
       }
     }
 
@@ -1737,6 +1755,517 @@ extension SessionProtos_SharedConfigMessage.Kind: CaseIterable {
 }
 
 #endif  // swift(>=4.2)
+
+struct SessionProtos_GroupUpdateMessage {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var inviteMessage: SessionProtos_GroupUpdateInviteMessage {
+    get {return _storage._inviteMessage ?? SessionProtos_GroupUpdateInviteMessage()}
+    set {_uniqueStorage()._inviteMessage = newValue}
+  }
+  /// Returns true if `inviteMessage` has been explicitly set.
+  var hasInviteMessage: Bool {return _storage._inviteMessage != nil}
+  /// Clears the value of `inviteMessage`. Subsequent reads from it will return its default value.
+  mutating func clearInviteMessage() {_uniqueStorage()._inviteMessage = nil}
+
+  var deleteMessage: SessionProtos_GroupUpdateDeleteMessage {
+    get {return _storage._deleteMessage ?? SessionProtos_GroupUpdateDeleteMessage()}
+    set {_uniqueStorage()._deleteMessage = newValue}
+  }
+  /// Returns true if `deleteMessage` has been explicitly set.
+  var hasDeleteMessage: Bool {return _storage._deleteMessage != nil}
+  /// Clears the value of `deleteMessage`. Subsequent reads from it will return its default value.
+  mutating func clearDeleteMessage() {_uniqueStorage()._deleteMessage = nil}
+
+  var infoChangeMessage: SessionProtos_GroupUpdateInfoChangeMessage {
+    get {return _storage._infoChangeMessage ?? SessionProtos_GroupUpdateInfoChangeMessage()}
+    set {_uniqueStorage()._infoChangeMessage = newValue}
+  }
+  /// Returns true if `infoChangeMessage` has been explicitly set.
+  var hasInfoChangeMessage: Bool {return _storage._infoChangeMessage != nil}
+  /// Clears the value of `infoChangeMessage`. Subsequent reads from it will return its default value.
+  mutating func clearInfoChangeMessage() {_uniqueStorage()._infoChangeMessage = nil}
+
+  var memberChangeMessage: SessionProtos_GroupUpdateMemberChangeMessage {
+    get {return _storage._memberChangeMessage ?? SessionProtos_GroupUpdateMemberChangeMessage()}
+    set {_uniqueStorage()._memberChangeMessage = newValue}
+  }
+  /// Returns true if `memberChangeMessage` has been explicitly set.
+  var hasMemberChangeMessage: Bool {return _storage._memberChangeMessage != nil}
+  /// Clears the value of `memberChangeMessage`. Subsequent reads from it will return its default value.
+  mutating func clearMemberChangeMessage() {_uniqueStorage()._memberChangeMessage = nil}
+
+  var promoteMessage: SessionProtos_GroupUpdatePromoteMessage {
+    get {return _storage._promoteMessage ?? SessionProtos_GroupUpdatePromoteMessage()}
+    set {_uniqueStorage()._promoteMessage = newValue}
+  }
+  /// Returns true if `promoteMessage` has been explicitly set.
+  var hasPromoteMessage: Bool {return _storage._promoteMessage != nil}
+  /// Clears the value of `promoteMessage`. Subsequent reads from it will return its default value.
+  mutating func clearPromoteMessage() {_uniqueStorage()._promoteMessage = nil}
+
+  var memberLeftMessage: SessionProtos_GroupUpdateMemberLeftMessage {
+    get {return _storage._memberLeftMessage ?? SessionProtos_GroupUpdateMemberLeftMessage()}
+    set {_uniqueStorage()._memberLeftMessage = newValue}
+  }
+  /// Returns true if `memberLeftMessage` has been explicitly set.
+  var hasMemberLeftMessage: Bool {return _storage._memberLeftMessage != nil}
+  /// Clears the value of `memberLeftMessage`. Subsequent reads from it will return its default value.
+  mutating func clearMemberLeftMessage() {_uniqueStorage()._memberLeftMessage = nil}
+
+  var inviteResponse: SessionProtos_GroupUpdateInviteResponseMessage {
+    get {return _storage._inviteResponse ?? SessionProtos_GroupUpdateInviteResponseMessage()}
+    set {_uniqueStorage()._inviteResponse = newValue}
+  }
+  /// Returns true if `inviteResponse` has been explicitly set.
+  var hasInviteResponse: Bool {return _storage._inviteResponse != nil}
+  /// Clears the value of `inviteResponse`. Subsequent reads from it will return its default value.
+  mutating func clearInviteResponse() {_uniqueStorage()._inviteResponse = nil}
+
+  var promotionResponse: SessionProtos_GroupUpdatePromotionResponseMessage {
+    get {return _storage._promotionResponse ?? SessionProtos_GroupUpdatePromotionResponseMessage()}
+    set {_uniqueStorage()._promotionResponse = newValue}
+  }
+  /// Returns true if `promotionResponse` has been explicitly set.
+  var hasPromotionResponse: Bool {return _storage._promotionResponse != nil}
+  /// Clears the value of `promotionResponse`. Subsequent reads from it will return its default value.
+  mutating func clearPromotionResponse() {_uniqueStorage()._promotionResponse = nil}
+
+  var deleteMemberContent: SessionProtos_GroupUpdateDeleteMemberContentMessage {
+    get {return _storage._deleteMemberContent ?? SessionProtos_GroupUpdateDeleteMemberContentMessage()}
+    set {_uniqueStorage()._deleteMemberContent = newValue}
+  }
+  /// Returns true if `deleteMemberContent` has been explicitly set.
+  var hasDeleteMemberContent: Bool {return _storage._deleteMemberContent != nil}
+  /// Clears the value of `deleteMemberContent`. Subsequent reads from it will return its default value.
+  mutating func clearDeleteMemberContent() {_uniqueStorage()._deleteMemberContent = nil}
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _storage = _StorageClass.defaultInstance
+}
+
+struct SessionProtos_GroupUpdateInviteMessage {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// @required
+  var groupIdentityPublicKey: Data {
+    get {return _groupIdentityPublicKey ?? Data()}
+    set {_groupIdentityPublicKey = newValue}
+  }
+  /// Returns true if `groupIdentityPublicKey` has been explicitly set.
+  var hasGroupIdentityPublicKey: Bool {return self._groupIdentityPublicKey != nil}
+  /// Clears the value of `groupIdentityPublicKey`. Subsequent reads from it will return its default value.
+  mutating func clearGroupIdentityPublicKey() {self._groupIdentityPublicKey = nil}
+
+  /// @required
+  var name: String {
+    get {return _name ?? String()}
+    set {_name = newValue}
+  }
+  /// Returns true if `name` has been explicitly set.
+  var hasName: Bool {return self._name != nil}
+  /// Clears the value of `name`. Subsequent reads from it will return its default value.
+  mutating func clearName() {self._name = nil}
+
+  /// @required
+  var memberSubkey: Data {
+    get {return _memberSubkey ?? Data()}
+    set {_memberSubkey = newValue}
+  }
+  /// Returns true if `memberSubkey` has been explicitly set.
+  var hasMemberSubkey: Bool {return self._memberSubkey != nil}
+  /// Clears the value of `memberSubkey`. Subsequent reads from it will return its default value.
+  mutating func clearMemberSubkey() {self._memberSubkey = nil}
+
+  /// @required
+  var memberTag: Data {
+    get {return _memberTag ?? Data()}
+    set {_memberTag = newValue}
+  }
+  /// Returns true if `memberTag` has been explicitly set.
+  var hasMemberTag: Bool {return self._memberTag != nil}
+  /// Clears the value of `memberTag`. Subsequent reads from it will return its default value.
+  mutating func clearMemberTag() {self._memberTag = nil}
+
+  var profileKey: Data {
+    get {return _profileKey ?? Data()}
+    set {_profileKey = newValue}
+  }
+  /// Returns true if `profileKey` has been explicitly set.
+  var hasProfileKey: Bool {return self._profileKey != nil}
+  /// Clears the value of `profileKey`. Subsequent reads from it will return its default value.
+  mutating func clearProfileKey() {self._profileKey = nil}
+
+  var profile: SessionProtos_LokiProfile {
+    get {return _profile ?? SessionProtos_LokiProfile()}
+    set {_profile = newValue}
+  }
+  /// Returns true if `profile` has been explicitly set.
+  var hasProfile: Bool {return self._profile != nil}
+  /// Clears the value of `profile`. Subsequent reads from it will return its default value.
+  mutating func clearProfile() {self._profile = nil}
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _groupIdentityPublicKey: Data? = nil
+  fileprivate var _name: String? = nil
+  fileprivate var _memberSubkey: Data? = nil
+  fileprivate var _memberTag: Data? = nil
+  fileprivate var _profileKey: Data? = nil
+  fileprivate var _profile: SessionProtos_LokiProfile? = nil
+}
+
+struct SessionProtos_GroupUpdateDeleteMessage {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// @required
+  var groupIdentityPublicKey: Data {
+    get {return _groupIdentityPublicKey ?? Data()}
+    set {_groupIdentityPublicKey = newValue}
+  }
+  /// Returns true if `groupIdentityPublicKey` has been explicitly set.
+  var hasGroupIdentityPublicKey: Bool {return self._groupIdentityPublicKey != nil}
+  /// Clears the value of `groupIdentityPublicKey`. Subsequent reads from it will return its default value.
+  mutating func clearGroupIdentityPublicKey() {self._groupIdentityPublicKey = nil}
+
+  /// @required
+  var encryptedMemberSubkey: Data {
+    get {return _encryptedMemberSubkey ?? Data()}
+    set {_encryptedMemberSubkey = newValue}
+  }
+  /// Returns true if `encryptedMemberSubkey` has been explicitly set.
+  var hasEncryptedMemberSubkey: Bool {return self._encryptedMemberSubkey != nil}
+  /// Clears the value of `encryptedMemberSubkey`. Subsequent reads from it will return its default value.
+  mutating func clearEncryptedMemberSubkey() {self._encryptedMemberSubkey = nil}
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _groupIdentityPublicKey: Data? = nil
+  fileprivate var _encryptedMemberSubkey: Data? = nil
+}
+
+struct SessionProtos_GroupUpdateInfoChangeMessage {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// @required
+  var type: SessionProtos_GroupUpdateInfoChangeMessage.TypeEnum {
+    get {return _type ?? .name}
+    set {_type = newValue}
+  }
+  /// Returns true if `type` has been explicitly set.
+  var hasType: Bool {return self._type != nil}
+  /// Clears the value of `type`. Subsequent reads from it will return its default value.
+  mutating func clearType() {self._type = nil}
+
+  var updatedName: String {
+    get {return _updatedName ?? String()}
+    set {_updatedName = newValue}
+  }
+  /// Returns true if `updatedName` has been explicitly set.
+  var hasUpdatedName: Bool {return self._updatedName != nil}
+  /// Clears the value of `updatedName`. Subsequent reads from it will return its default value.
+  mutating func clearUpdatedName() {self._updatedName = nil}
+
+  var updatedExpiration: UInt32 {
+    get {return _updatedExpiration ?? 0}
+    set {_updatedExpiration = newValue}
+  }
+  /// Returns true if `updatedExpiration` has been explicitly set.
+  var hasUpdatedExpiration: Bool {return self._updatedExpiration != nil}
+  /// Clears the value of `updatedExpiration`. Subsequent reads from it will return its default value.
+  mutating func clearUpdatedExpiration() {self._updatedExpiration = nil}
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  enum TypeEnum: SwiftProtobuf.Enum {
+    typealias RawValue = Int
+    case name // = 1
+    case avatar // = 2
+    case disappearingMessages // = 3
+
+    init() {
+      self = .name
+    }
+
+    init?(rawValue: Int) {
+      switch rawValue {
+      case 1: self = .name
+      case 2: self = .avatar
+      case 3: self = .disappearingMessages
+      default: return nil
+      }
+    }
+
+    var rawValue: Int {
+      switch self {
+      case .name: return 1
+      case .avatar: return 2
+      case .disappearingMessages: return 3
+      }
+    }
+
+  }
+
+  init() {}
+
+  fileprivate var _type: SessionProtos_GroupUpdateInfoChangeMessage.TypeEnum? = nil
+  fileprivate var _updatedName: String? = nil
+  fileprivate var _updatedExpiration: UInt32? = nil
+}
+
+#if swift(>=4.2)
+
+extension SessionProtos_GroupUpdateInfoChangeMessage.TypeEnum: CaseIterable {
+  // Support synthesized by the compiler.
+}
+
+#endif  // swift(>=4.2)
+
+struct SessionProtos_GroupUpdateMemberChangeMessage {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// @required
+  var type: SessionProtos_GroupUpdateMemberChangeMessage.TypeEnum {
+    get {return _type ?? .added}
+    set {_type = newValue}
+  }
+  /// Returns true if `type` has been explicitly set.
+  var hasType: Bool {return self._type != nil}
+  /// Clears the value of `type`. Subsequent reads from it will return its default value.
+  mutating func clearType() {self._type = nil}
+
+  var memberPublicKeys: [Data] = []
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  enum TypeEnum: SwiftProtobuf.Enum {
+    typealias RawValue = Int
+    case added // = 1
+    case removed // = 2
+    case promoted // = 3
+
+    init() {
+      self = .added
+    }
+
+    init?(rawValue: Int) {
+      switch rawValue {
+      case 1: self = .added
+      case 2: self = .removed
+      case 3: self = .promoted
+      default: return nil
+      }
+    }
+
+    var rawValue: Int {
+      switch self {
+      case .added: return 1
+      case .removed: return 2
+      case .promoted: return 3
+      }
+    }
+
+  }
+
+  init() {}
+
+  fileprivate var _type: SessionProtos_GroupUpdateMemberChangeMessage.TypeEnum? = nil
+}
+
+#if swift(>=4.2)
+
+extension SessionProtos_GroupUpdateMemberChangeMessage.TypeEnum: CaseIterable {
+  // Support synthesized by the compiler.
+}
+
+#endif  // swift(>=4.2)
+
+struct SessionProtos_GroupUpdatePromoteMessage {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// @required
+  var memberPublicKey: Data {
+    get {return _memberPublicKey ?? Data()}
+    set {_memberPublicKey = newValue}
+  }
+  /// Returns true if `memberPublicKey` has been explicitly set.
+  var hasMemberPublicKey: Bool {return self._memberPublicKey != nil}
+  /// Clears the value of `memberPublicKey`. Subsequent reads from it will return its default value.
+  mutating func clearMemberPublicKey() {self._memberPublicKey = nil}
+
+  /// @required
+  var encryptedGroupIdentityPrivateKey: Data {
+    get {return _encryptedGroupIdentityPrivateKey ?? Data()}
+    set {_encryptedGroupIdentityPrivateKey = newValue}
+  }
+  /// Returns true if `encryptedGroupIdentityPrivateKey` has been explicitly set.
+  var hasEncryptedGroupIdentityPrivateKey: Bool {return self._encryptedGroupIdentityPrivateKey != nil}
+  /// Clears the value of `encryptedGroupIdentityPrivateKey`. Subsequent reads from it will return its default value.
+  mutating func clearEncryptedGroupIdentityPrivateKey() {self._encryptedGroupIdentityPrivateKey = nil}
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _memberPublicKey: Data? = nil
+  fileprivate var _encryptedGroupIdentityPrivateKey: Data? = nil
+}
+
+/// the pubkey of the member left is included as part of the closed group encryption logic (senderIdentity on desktop)
+struct SessionProtos_GroupUpdateMemberLeftMessage {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+struct SessionProtos_GroupUpdateInviteResponseMessage {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// @required
+  var isApproved: Bool {
+    get {return _isApproved ?? false}
+    set {_isApproved = newValue}
+  }
+  /// Returns true if `isApproved` has been explicitly set.
+  var hasIsApproved: Bool {return self._isApproved != nil}
+  /// Clears the value of `isApproved`. Subsequent reads from it will return its default value.
+  mutating func clearIsApproved() {self._isApproved = nil}
+
+  var profileKey: Data {
+    get {return _profileKey ?? Data()}
+    set {_profileKey = newValue}
+  }
+  /// Returns true if `profileKey` has been explicitly set.
+  var hasProfileKey: Bool {return self._profileKey != nil}
+  /// Clears the value of `profileKey`. Subsequent reads from it will return its default value.
+  mutating func clearProfileKey() {self._profileKey = nil}
+
+  var profile: SessionProtos_LokiProfile {
+    get {return _profile ?? SessionProtos_LokiProfile()}
+    set {_profile = newValue}
+  }
+  /// Returns true if `profile` has been explicitly set.
+  var hasProfile: Bool {return self._profile != nil}
+  /// Clears the value of `profile`. Subsequent reads from it will return its default value.
+  mutating func clearProfile() {self._profile = nil}
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _isApproved: Bool? = nil
+  fileprivate var _profileKey: Data? = nil
+  fileprivate var _profile: SessionProtos_LokiProfile? = nil
+}
+
+struct SessionProtos_GroupUpdatePromotionResponseMessage {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// @required
+  var encryptedMemberPublicKey: Data {
+    get {return _encryptedMemberPublicKey ?? Data()}
+    set {_encryptedMemberPublicKey = newValue}
+  }
+  /// Returns true if `encryptedMemberPublicKey` has been explicitly set.
+  var hasEncryptedMemberPublicKey: Bool {return self._encryptedMemberPublicKey != nil}
+  /// Clears the value of `encryptedMemberPublicKey`. Subsequent reads from it will return its default value.
+  mutating func clearEncryptedMemberPublicKey() {self._encryptedMemberPublicKey = nil}
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _encryptedMemberPublicKey: Data? = nil
+}
+
+struct SessionProtos_GroupUpdateDeleteMemberContentMessage {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var memberPublicKeys: [Data] = []
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+#if swift(>=5.5) && canImport(_Concurrency)
+extension SessionProtos_Envelope: @unchecked Sendable {}
+extension SessionProtos_Envelope.TypeEnum: @unchecked Sendable {}
+extension SessionProtos_TypingMessage: @unchecked Sendable {}
+extension SessionProtos_TypingMessage.Action: @unchecked Sendable {}
+extension SessionProtos_UnsendRequest: @unchecked Sendable {}
+extension SessionProtos_MessageRequestResponse: @unchecked Sendable {}
+extension SessionProtos_Content: @unchecked Sendable {}
+extension SessionProtos_Content.ExpirationType: @unchecked Sendable {}
+extension SessionProtos_CallMessage: @unchecked Sendable {}
+extension SessionProtos_CallMessage.TypeEnum: @unchecked Sendable {}
+extension SessionProtos_KeyPair: @unchecked Sendable {}
+extension SessionProtos_DataExtractionNotification: @unchecked Sendable {}
+extension SessionProtos_DataExtractionNotification.TypeEnum: @unchecked Sendable {}
+extension SessionProtos_LokiProfile: @unchecked Sendable {}
+extension SessionProtos_DataMessage: @unchecked Sendable {}
+extension SessionProtos_DataMessage.Flags: @unchecked Sendable {}
+extension SessionProtos_DataMessage.Quote: @unchecked Sendable {}
+extension SessionProtos_DataMessage.Quote.QuotedAttachment: @unchecked Sendable {}
+extension SessionProtos_DataMessage.Quote.QuotedAttachment.Flags: @unchecked Sendable {}
+extension SessionProtos_DataMessage.Preview: @unchecked Sendable {}
+extension SessionProtos_DataMessage.Reaction: @unchecked Sendable {}
+extension SessionProtos_DataMessage.Reaction.Action: @unchecked Sendable {}
+extension SessionProtos_DataMessage.OpenGroupInvitation: @unchecked Sendable {}
+extension SessionProtos_DataMessage.ClosedGroupControlMessage: @unchecked Sendable {}
+extension SessionProtos_DataMessage.ClosedGroupControlMessage.TypeEnum: @unchecked Sendable {}
+extension SessionProtos_DataMessage.ClosedGroupControlMessage.KeyPairWrapper: @unchecked Sendable {}
+extension SessionProtos_ConfigurationMessage: @unchecked Sendable {}
+extension SessionProtos_ConfigurationMessage.ClosedGroup: @unchecked Sendable {}
+extension SessionProtos_ConfigurationMessage.Contact: @unchecked Sendable {}
+extension SessionProtos_ReceiptMessage: @unchecked Sendable {}
+extension SessionProtos_ReceiptMessage.TypeEnum: @unchecked Sendable {}
+extension SessionProtos_AttachmentPointer: @unchecked Sendable {}
+extension SessionProtos_AttachmentPointer.Flags: @unchecked Sendable {}
+extension SessionProtos_SharedConfigMessage: @unchecked Sendable {}
+extension SessionProtos_SharedConfigMessage.Kind: @unchecked Sendable {}
+extension SessionProtos_GroupUpdateMessage: @unchecked Sendable {}
+extension SessionProtos_GroupUpdateInviteMessage: @unchecked Sendable {}
+extension SessionProtos_GroupUpdateDeleteMessage: @unchecked Sendable {}
+extension SessionProtos_GroupUpdateInfoChangeMessage: @unchecked Sendable {}
+extension SessionProtos_GroupUpdateInfoChangeMessage.TypeEnum: @unchecked Sendable {}
+extension SessionProtos_GroupUpdateMemberChangeMessage: @unchecked Sendable {}
+extension SessionProtos_GroupUpdateMemberChangeMessage.TypeEnum: @unchecked Sendable {}
+extension SessionProtos_GroupUpdatePromoteMessage: @unchecked Sendable {}
+extension SessionProtos_GroupUpdateMemberLeftMessage: @unchecked Sendable {}
+extension SessionProtos_GroupUpdateInviteResponseMessage: @unchecked Sendable {}
+extension SessionProtos_GroupUpdatePromotionResponseMessage: @unchecked Sendable {}
+extension SessionProtos_GroupUpdateDeleteMemberContentMessage: @unchecked Sendable {}
+#endif  // swift(>=5.5) && canImport(_Concurrency)
 
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
@@ -1777,24 +2306,28 @@ extension SessionProtos_Envelope: SwiftProtobuf.Message, SwiftProtobuf._MessageI
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._type {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._type {
       try visitor.visitSingularEnumField(value: v, fieldNumber: 1)
-    }
-    if let v = self._source {
+    } }()
+    try { if let v = self._source {
       try visitor.visitSingularStringField(value: v, fieldNumber: 2)
-    }
-    if let v = self._timestamp {
+    } }()
+    try { if let v = self._timestamp {
       try visitor.visitSingularUInt64Field(value: v, fieldNumber: 5)
-    }
-    if let v = self._sourceDevice {
+    } }()
+    try { if let v = self._sourceDevice {
       try visitor.visitSingularUInt32Field(value: v, fieldNumber: 7)
-    }
-    if let v = self._content {
+    } }()
+    try { if let v = self._content {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 8)
-    }
-    if let v = self._serverTimestamp {
+    } }()
+    try { if let v = self._serverTimestamp {
       try visitor.visitSingularUInt64Field(value: v, fieldNumber: 10)
-    }
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1844,12 +2377,16 @@ extension SessionProtos_TypingMessage: SwiftProtobuf.Message, SwiftProtobuf._Mes
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._timestamp {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._timestamp {
       try visitor.visitSingularUInt64Field(value: v, fieldNumber: 1)
-    }
-    if let v = self._action {
+    } }()
+    try { if let v = self._action {
       try visitor.visitSingularEnumField(value: v, fieldNumber: 2)
-    }
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1895,12 +2432,16 @@ extension SessionProtos_UnsendRequest: SwiftProtobuf.Message, SwiftProtobuf._Mes
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._timestamp {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._timestamp {
       try visitor.visitSingularUInt64Field(value: v, fieldNumber: 1)
-    }
-    if let v = self._author {
+    } }()
+    try { if let v = self._author {
       try visitor.visitSingularStringField(value: v, fieldNumber: 2)
-    }
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1940,15 +2481,19 @@ extension SessionProtos_MessageRequestResponse: SwiftProtobuf.Message, SwiftProt
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._isApproved {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._isApproved {
       try visitor.visitSingularBoolField(value: v, fieldNumber: 1)
-    }
-    if let v = self._profileKey {
+    } }()
+    try { if let v = self._profileKey {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 2)
-    }
-    if let v = self._profile {
+    } }()
+    try { if let v = self._profile {
       try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
-    }
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -2062,42 +2607,46 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
     try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
-      if let v = _storage._dataMessage {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every if/case branch local when no optimizations
+      // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+      // https://github.com/apple/swift-protobuf/issues/1182
+      try { if let v = _storage._dataMessage {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
-      }
-      if let v = _storage._callMessage {
+      } }()
+      try { if let v = _storage._callMessage {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
-      }
-      if let v = _storage._receiptMessage {
+      } }()
+      try { if let v = _storage._receiptMessage {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 5)
-      }
-      if let v = _storage._typingMessage {
+      } }()
+      try { if let v = _storage._typingMessage {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
-      }
-      if let v = _storage._configurationMessage {
+      } }()
+      try { if let v = _storage._configurationMessage {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
-      }
-      if let v = _storage._dataExtractionNotification {
+      } }()
+      try { if let v = _storage._dataExtractionNotification {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
-      }
-      if let v = _storage._unsendRequest {
+      } }()
+      try { if let v = _storage._unsendRequest {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 9)
-      }
-      if let v = _storage._messageRequestResponse {
+      } }()
+      try { if let v = _storage._messageRequestResponse {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 10)
-      }
-      if let v = _storage._sharedConfigMessage {
+      } }()
+      try { if let v = _storage._sharedConfigMessage {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 11)
-      }
-      if let v = _storage._expirationType {
+      } }()
+      try { if let v = _storage._expirationType {
         try visitor.visitSingularEnumField(value: v, fieldNumber: 12)
-      }
-      if let v = _storage._expirationTimer {
+      } }()
+      try { if let v = _storage._expirationTimer {
         try visitor.visitSingularUInt32Field(value: v, fieldNumber: 13)
-      }
-      if let v = _storage._lastDisappearingMessageChangeTimestamp {
+      } }()
+      try { if let v = _storage._lastDisappearingMessageChangeTimestamp {
         try visitor.visitSingularUInt64Field(value: v, fieldNumber: 14)
-      }
+      } }()
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -2169,9 +2718,13 @@ extension SessionProtos_CallMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._type {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._type {
       try visitor.visitSingularEnumField(value: v, fieldNumber: 1)
-    }
+    } }()
     if !self.sdps.isEmpty {
       try visitor.visitRepeatedStringField(value: self.sdps, fieldNumber: 2)
     }
@@ -2181,9 +2734,9 @@ extension SessionProtos_CallMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
     if !self.sdpMids.isEmpty {
       try visitor.visitRepeatedStringField(value: self.sdpMids, fieldNumber: 4)
     }
-    if let v = self._uuid {
+    try { if let v = self._uuid {
       try visitor.visitSingularStringField(value: v, fieldNumber: 5)
-    }
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -2236,12 +2789,16 @@ extension SessionProtos_KeyPair: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._publicKey {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._publicKey {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 1)
-    }
-    if let v = self._privateKey {
+    } }()
+    try { if let v = self._privateKey {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 2)
-    }
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -2279,12 +2836,16 @@ extension SessionProtos_DataExtractionNotification: SwiftProtobuf.Message, Swift
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._type {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._type {
       try visitor.visitSingularEnumField(value: v, fieldNumber: 1)
-    }
-    if let v = self._timestamp {
+    } }()
+    try { if let v = self._timestamp {
       try visitor.visitSingularUInt64Field(value: v, fieldNumber: 2)
-    }
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -2324,12 +2885,16 @@ extension SessionProtos_LokiProfile: SwiftProtobuf.Message, SwiftProtobuf._Messa
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._displayName {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._displayName {
       try visitor.visitSingularStringField(value: v, fieldNumber: 1)
-    }
-    if let v = self._profilePicture {
+    } }()
+    try { if let v = self._profilePicture {
       try visitor.visitSingularStringField(value: v, fieldNumber: 2)
-    }
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -2358,6 +2923,7 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
     104: .same(proto: "closedGroupControlMessage"),
     105: .same(proto: "syncTarget"),
     106: .same(proto: "blocksCommunityMessageRequests"),
+    120: .same(proto: "groupUpdateMessage"),
   ]
 
   fileprivate class _StorageClass {
@@ -2375,6 +2941,7 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
     var _closedGroupControlMessage: SessionProtos_DataMessage.ClosedGroupControlMessage? = nil
     var _syncTarget: String? = nil
     var _blocksCommunityMessageRequests: Bool? = nil
+    var _groupUpdateMessage: SessionProtos_GroupUpdateMessage? = nil
 
     static let defaultInstance = _StorageClass()
 
@@ -2395,6 +2962,7 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
       _closedGroupControlMessage = source._closedGroupControlMessage
       _syncTarget = source._syncTarget
       _blocksCommunityMessageRequests = source._blocksCommunityMessageRequests
+      _groupUpdateMessage = source._groupUpdateMessage
     }
   }
 
@@ -2413,6 +2981,7 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
       if let v = _storage._reaction, !v.isInitialized {return false}
       if let v = _storage._openGroupInvitation, !v.isInitialized {return false}
       if let v = _storage._closedGroupControlMessage, !v.isInitialized {return false}
+      if let v = _storage._groupUpdateMessage, !v.isInitialized {return false}
       return true
     }
   }
@@ -2439,6 +3008,7 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
         case 104: try { try decoder.decodeSingularMessageField(value: &_storage._closedGroupControlMessage) }()
         case 105: try { try decoder.decodeSingularStringField(value: &_storage._syncTarget) }()
         case 106: try { try decoder.decodeSingularBoolField(value: &_storage._blocksCommunityMessageRequests) }()
+        case 120: try { try decoder.decodeSingularMessageField(value: &_storage._groupUpdateMessage) }()
         default: break
         }
       }
@@ -2447,48 +3017,55 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
     try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
-      if let v = _storage._body {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every if/case branch local when no optimizations
+      // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+      // https://github.com/apple/swift-protobuf/issues/1182
+      try { if let v = _storage._body {
         try visitor.visitSingularStringField(value: v, fieldNumber: 1)
-      }
+      } }()
       if !_storage._attachments.isEmpty {
         try visitor.visitRepeatedMessageField(value: _storage._attachments, fieldNumber: 2)
       }
-      if let v = _storage._flags {
+      try { if let v = _storage._flags {
         try visitor.visitSingularUInt32Field(value: v, fieldNumber: 4)
-      }
-      if let v = _storage._expireTimer {
+      } }()
+      try { if let v = _storage._expireTimer {
         try visitor.visitSingularUInt32Field(value: v, fieldNumber: 5)
-      }
-      if let v = _storage._profileKey {
+      } }()
+      try { if let v = _storage._profileKey {
         try visitor.visitSingularBytesField(value: v, fieldNumber: 6)
-      }
-      if let v = _storage._timestamp {
+      } }()
+      try { if let v = _storage._timestamp {
         try visitor.visitSingularUInt64Field(value: v, fieldNumber: 7)
-      }
-      if let v = _storage._quote {
+      } }()
+      try { if let v = _storage._quote {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
-      }
+      } }()
       if !_storage._preview.isEmpty {
         try visitor.visitRepeatedMessageField(value: _storage._preview, fieldNumber: 10)
       }
-      if let v = _storage._reaction {
+      try { if let v = _storage._reaction {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 11)
-      }
-      if let v = _storage._profile {
+      } }()
+      try { if let v = _storage._profile {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 101)
-      }
-      if let v = _storage._openGroupInvitation {
+      } }()
+      try { if let v = _storage._openGroupInvitation {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 102)
-      }
-      if let v = _storage._closedGroupControlMessage {
+      } }()
+      try { if let v = _storage._closedGroupControlMessage {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 104)
-      }
-      if let v = _storage._syncTarget {
+      } }()
+      try { if let v = _storage._syncTarget {
         try visitor.visitSingularStringField(value: v, fieldNumber: 105)
-      }
-      if let v = _storage._blocksCommunityMessageRequests {
+      } }()
+      try { if let v = _storage._blocksCommunityMessageRequests {
         try visitor.visitSingularBoolField(value: v, fieldNumber: 106)
-      }
+      } }()
+      try { if let v = _storage._groupUpdateMessage {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 120)
+      } }()
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -2512,6 +3089,7 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
         if _storage._closedGroupControlMessage != rhs_storage._closedGroupControlMessage {return false}
         if _storage._syncTarget != rhs_storage._syncTarget {return false}
         if _storage._blocksCommunityMessageRequests != rhs_storage._blocksCommunityMessageRequests {return false}
+        if _storage._groupUpdateMessage != rhs_storage._groupUpdateMessage {return false}
         return true
       }
       if !storagesAreEqual {return false}
@@ -2559,15 +3137,19 @@ extension SessionProtos_DataMessage.Quote: SwiftProtobuf.Message, SwiftProtobuf.
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._id {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._id {
       try visitor.visitSingularUInt64Field(value: v, fieldNumber: 1)
-    }
-    if let v = self._author {
+    } }()
+    try { if let v = self._author {
       try visitor.visitSingularStringField(value: v, fieldNumber: 2)
-    }
-    if let v = self._text {
+    } }()
+    try { if let v = self._text {
       try visitor.visitSingularStringField(value: v, fieldNumber: 3)
-    }
+    } }()
     if !self.attachments.isEmpty {
       try visitor.visitRepeatedMessageField(value: self.attachments, fieldNumber: 4)
     }
@@ -2614,18 +3196,22 @@ extension SessionProtos_DataMessage.Quote.QuotedAttachment: SwiftProtobuf.Messag
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._contentType {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._contentType {
       try visitor.visitSingularStringField(value: v, fieldNumber: 1)
-    }
-    if let v = self._fileName {
+    } }()
+    try { if let v = self._fileName {
       try visitor.visitSingularStringField(value: v, fieldNumber: 2)
-    }
-    if let v = self._thumbnail {
+    } }()
+    try { if let v = self._thumbnail {
       try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
-    }
-    if let v = self._flags {
+    } }()
+    try { if let v = self._flags {
       try visitor.visitSingularUInt32Field(value: v, fieldNumber: 4)
-    }
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -2674,15 +3260,19 @@ extension SessionProtos_DataMessage.Preview: SwiftProtobuf.Message, SwiftProtobu
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._url {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._url {
       try visitor.visitSingularStringField(value: v, fieldNumber: 1)
-    }
-    if let v = self._title {
+    } }()
+    try { if let v = self._title {
       try visitor.visitSingularStringField(value: v, fieldNumber: 2)
-    }
-    if let v = self._image {
+    } }()
+    try { if let v = self._image {
       try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
-    }
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -2727,18 +3317,22 @@ extension SessionProtos_DataMessage.Reaction: SwiftProtobuf.Message, SwiftProtob
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._id {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._id {
       try visitor.visitSingularUInt64Field(value: v, fieldNumber: 1)
-    }
-    if let v = self._author {
+    } }()
+    try { if let v = self._author {
       try visitor.visitSingularStringField(value: v, fieldNumber: 2)
-    }
-    if let v = self._emoji {
+    } }()
+    try { if let v = self._emoji {
       try visitor.visitSingularStringField(value: v, fieldNumber: 3)
-    }
-    if let v = self._action {
+    } }()
+    try { if let v = self._action {
       try visitor.visitSingularEnumField(value: v, fieldNumber: 4)
-    }
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -2786,12 +3380,16 @@ extension SessionProtos_DataMessage.OpenGroupInvitation: SwiftProtobuf.Message, 
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._url {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._url {
       try visitor.visitSingularStringField(value: v, fieldNumber: 1)
-    }
-    if let v = self._name {
+    } }()
+    try { if let v = self._name {
       try visitor.visitSingularStringField(value: v, fieldNumber: 3)
-    }
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -2843,18 +3441,22 @@ extension SessionProtos_DataMessage.ClosedGroupControlMessage: SwiftProtobuf.Mes
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._type {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._type {
       try visitor.visitSingularEnumField(value: v, fieldNumber: 1)
-    }
-    if let v = self._publicKey {
+    } }()
+    try { if let v = self._publicKey {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 2)
-    }
-    if let v = self._name {
+    } }()
+    try { if let v = self._name {
       try visitor.visitSingularStringField(value: v, fieldNumber: 3)
-    }
-    if let v = self._encryptionKeyPair {
+    } }()
+    try { if let v = self._encryptionKeyPair {
       try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
-    }
+    } }()
     if !self.members.isEmpty {
       try visitor.visitRepeatedBytesField(value: self.members, fieldNumber: 5)
     }
@@ -2864,9 +3466,9 @@ extension SessionProtos_DataMessage.ClosedGroupControlMessage: SwiftProtobuf.Mes
     if !self.wrappers.isEmpty {
       try visitor.visitRepeatedMessageField(value: self.wrappers, fieldNumber: 7)
     }
-    if let v = self._expirationTimer {
+    try { if let v = self._expirationTimer {
       try visitor.visitSingularUInt32Field(value: v, fieldNumber: 8)
-    }
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -2923,12 +3525,16 @@ extension SessionProtos_DataMessage.ClosedGroupControlMessage.KeyPairWrapper: Sw
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._publicKey {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._publicKey {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 1)
-    }
-    if let v = self._encryptedKeyPair {
+    } }()
+    try { if let v = self._encryptedKeyPair {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 2)
-    }
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -2975,21 +3581,25 @@ extension SessionProtos_ConfigurationMessage: SwiftProtobuf.Message, SwiftProtob
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
     if !self.closedGroups.isEmpty {
       try visitor.visitRepeatedMessageField(value: self.closedGroups, fieldNumber: 1)
     }
     if !self.openGroups.isEmpty {
       try visitor.visitRepeatedStringField(value: self.openGroups, fieldNumber: 2)
     }
-    if let v = self._displayName {
+    try { if let v = self._displayName {
       try visitor.visitSingularStringField(value: v, fieldNumber: 3)
-    }
-    if let v = self._profilePicture {
+    } }()
+    try { if let v = self._profilePicture {
       try visitor.visitSingularStringField(value: v, fieldNumber: 4)
-    }
-    if let v = self._profileKey {
+    } }()
+    try { if let v = self._profileKey {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 5)
-    }
+    } }()
     if !self.contacts.isEmpty {
       try visitor.visitRepeatedMessageField(value: self.contacts, fieldNumber: 6)
     }
@@ -3042,24 +3652,28 @@ extension SessionProtos_ConfigurationMessage.ClosedGroup: SwiftProtobuf.Message,
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._publicKey {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._publicKey {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 1)
-    }
-    if let v = self._name {
+    } }()
+    try { if let v = self._name {
       try visitor.visitSingularStringField(value: v, fieldNumber: 2)
-    }
-    if let v = self._encryptionKeyPair {
+    } }()
+    try { if let v = self._encryptionKeyPair {
       try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
-    }
+    } }()
     if !self.members.isEmpty {
       try visitor.visitRepeatedBytesField(value: self.members, fieldNumber: 4)
     }
     if !self.admins.isEmpty {
       try visitor.visitRepeatedBytesField(value: self.admins, fieldNumber: 5)
     }
-    if let v = self._expirationTimer {
+    try { if let v = self._expirationTimer {
       try visitor.visitSingularUInt32Field(value: v, fieldNumber: 6)
-    }
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -3112,27 +3726,31 @@ extension SessionProtos_ConfigurationMessage.Contact: SwiftProtobuf.Message, Swi
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._publicKey {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._publicKey {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 1)
-    }
-    if let v = self._name {
+    } }()
+    try { if let v = self._name {
       try visitor.visitSingularStringField(value: v, fieldNumber: 2)
-    }
-    if let v = self._profilePicture {
+    } }()
+    try { if let v = self._profilePicture {
       try visitor.visitSingularStringField(value: v, fieldNumber: 3)
-    }
-    if let v = self._profileKey {
+    } }()
+    try { if let v = self._profileKey {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 4)
-    }
-    if let v = self._isApproved {
+    } }()
+    try { if let v = self._isApproved {
       try visitor.visitSingularBoolField(value: v, fieldNumber: 5)
-    }
-    if let v = self._isBlocked {
+    } }()
+    try { if let v = self._isBlocked {
       try visitor.visitSingularBoolField(value: v, fieldNumber: 6)
-    }
-    if let v = self._didApproveMe {
+    } }()
+    try { if let v = self._didApproveMe {
       try visitor.visitSingularBoolField(value: v, fieldNumber: 7)
-    }
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -3175,9 +3793,13 @@ extension SessionProtos_ReceiptMessage: SwiftProtobuf.Message, SwiftProtobuf._Me
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._type {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._type {
       try visitor.visitSingularEnumField(value: v, fieldNumber: 1)
-    }
+    } }()
     if !self.timestamp.isEmpty {
       try visitor.visitRepeatedUInt64Field(value: self.timestamp, fieldNumber: 2)
     }
@@ -3245,42 +3867,46 @@ extension SessionProtos_AttachmentPointer: SwiftProtobuf.Message, SwiftProtobuf.
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._id {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._id {
       try visitor.visitSingularFixed64Field(value: v, fieldNumber: 1)
-    }
-    if let v = self._contentType {
+    } }()
+    try { if let v = self._contentType {
       try visitor.visitSingularStringField(value: v, fieldNumber: 2)
-    }
-    if let v = self._key {
+    } }()
+    try { if let v = self._key {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 3)
-    }
-    if let v = self._size {
+    } }()
+    try { if let v = self._size {
       try visitor.visitSingularUInt32Field(value: v, fieldNumber: 4)
-    }
-    if let v = self._thumbnail {
+    } }()
+    try { if let v = self._thumbnail {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 5)
-    }
-    if let v = self._digest {
+    } }()
+    try { if let v = self._digest {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 6)
-    }
-    if let v = self._fileName {
+    } }()
+    try { if let v = self._fileName {
       try visitor.visitSingularStringField(value: v, fieldNumber: 7)
-    }
-    if let v = self._flags {
+    } }()
+    try { if let v = self._flags {
       try visitor.visitSingularUInt32Field(value: v, fieldNumber: 8)
-    }
-    if let v = self._width {
+    } }()
+    try { if let v = self._width {
       try visitor.visitSingularUInt32Field(value: v, fieldNumber: 9)
-    }
-    if let v = self._height {
+    } }()
+    try { if let v = self._height {
       try visitor.visitSingularUInt32Field(value: v, fieldNumber: 10)
-    }
-    if let v = self._caption {
+    } }()
+    try { if let v = self._caption {
       try visitor.visitSingularStringField(value: v, fieldNumber: 11)
-    }
-    if let v = self._url {
+    } }()
+    try { if let v = self._url {
       try visitor.visitSingularStringField(value: v, fieldNumber: 101)
-    }
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -3338,15 +3964,19 @@ extension SessionProtos_SharedConfigMessage: SwiftProtobuf.Message, SwiftProtobu
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._kind {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._kind {
       try visitor.visitSingularEnumField(value: v, fieldNumber: 1)
-    }
-    if let v = self._seqno {
+    } }()
+    try { if let v = self._seqno {
       try visitor.visitSingularInt64Field(value: v, fieldNumber: 2)
-    }
-    if let v = self._data {
+    } }()
+    try { if let v = self._data {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 3)
-    }
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -3365,5 +3995,584 @@ extension SessionProtos_SharedConfigMessage.Kind: SwiftProtobuf._ProtoNameProvid
     2: .same(proto: "CONTACTS"),
     3: .same(proto: "CONVO_INFO_VOLATILE"),
     4: .same(proto: "USER_GROUPS"),
+    5: .same(proto: "GROUP_INFO"),
+    6: .same(proto: "GROUP_MEMBERS"),
+    7: .same(proto: "GROUP_KEYS"),
   ]
+}
+
+extension SessionProtos_GroupUpdateMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".GroupUpdateMessage"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    31: .same(proto: "inviteMessage"),
+    32: .same(proto: "deleteMessage"),
+    33: .same(proto: "infoChangeMessage"),
+    34: .same(proto: "memberChangeMessage"),
+    35: .same(proto: "promoteMessage"),
+    36: .same(proto: "memberLeftMessage"),
+    37: .same(proto: "inviteResponse"),
+    38: .same(proto: "promotionResponse"),
+    39: .same(proto: "deleteMemberContent"),
+  ]
+
+  fileprivate class _StorageClass {
+    var _inviteMessage: SessionProtos_GroupUpdateInviteMessage? = nil
+    var _deleteMessage: SessionProtos_GroupUpdateDeleteMessage? = nil
+    var _infoChangeMessage: SessionProtos_GroupUpdateInfoChangeMessage? = nil
+    var _memberChangeMessage: SessionProtos_GroupUpdateMemberChangeMessage? = nil
+    var _promoteMessage: SessionProtos_GroupUpdatePromoteMessage? = nil
+    var _memberLeftMessage: SessionProtos_GroupUpdateMemberLeftMessage? = nil
+    var _inviteResponse: SessionProtos_GroupUpdateInviteResponseMessage? = nil
+    var _promotionResponse: SessionProtos_GroupUpdatePromotionResponseMessage? = nil
+    var _deleteMemberContent: SessionProtos_GroupUpdateDeleteMemberContentMessage? = nil
+
+    static let defaultInstance = _StorageClass()
+
+    private init() {}
+
+    init(copying source: _StorageClass) {
+      _inviteMessage = source._inviteMessage
+      _deleteMessage = source._deleteMessage
+      _infoChangeMessage = source._infoChangeMessage
+      _memberChangeMessage = source._memberChangeMessage
+      _promoteMessage = source._promoteMessage
+      _memberLeftMessage = source._memberLeftMessage
+      _inviteResponse = source._inviteResponse
+      _promotionResponse = source._promotionResponse
+      _deleteMemberContent = source._deleteMemberContent
+    }
+  }
+
+  fileprivate mutating func _uniqueStorage() -> _StorageClass {
+    if !isKnownUniquelyReferenced(&_storage) {
+      _storage = _StorageClass(copying: _storage)
+    }
+    return _storage
+  }
+
+  public var isInitialized: Bool {
+    return withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      if let v = _storage._inviteMessage, !v.isInitialized {return false}
+      if let v = _storage._deleteMessage, !v.isInitialized {return false}
+      if let v = _storage._infoChangeMessage, !v.isInitialized {return false}
+      if let v = _storage._memberChangeMessage, !v.isInitialized {return false}
+      if let v = _storage._promoteMessage, !v.isInitialized {return false}
+      if let v = _storage._inviteResponse, !v.isInitialized {return false}
+      if let v = _storage._promotionResponse, !v.isInitialized {return false}
+      return true
+    }
+  }
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    _ = _uniqueStorage()
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      while let fieldNumber = try decoder.nextFieldNumber() {
+        // The use of inline closures is to circumvent an issue where the compiler
+        // allocates stack space for every case branch when no optimizations are
+        // enabled. https://github.com/apple/swift-protobuf/issues/1034
+        switch fieldNumber {
+        case 31: try { try decoder.decodeSingularMessageField(value: &_storage._inviteMessage) }()
+        case 32: try { try decoder.decodeSingularMessageField(value: &_storage._deleteMessage) }()
+        case 33: try { try decoder.decodeSingularMessageField(value: &_storage._infoChangeMessage) }()
+        case 34: try { try decoder.decodeSingularMessageField(value: &_storage._memberChangeMessage) }()
+        case 35: try { try decoder.decodeSingularMessageField(value: &_storage._promoteMessage) }()
+        case 36: try { try decoder.decodeSingularMessageField(value: &_storage._memberLeftMessage) }()
+        case 37: try { try decoder.decodeSingularMessageField(value: &_storage._inviteResponse) }()
+        case 38: try { try decoder.decodeSingularMessageField(value: &_storage._promotionResponse) }()
+        case 39: try { try decoder.decodeSingularMessageField(value: &_storage._deleteMemberContent) }()
+        default: break
+        }
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every if/case branch local when no optimizations
+      // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+      // https://github.com/apple/swift-protobuf/issues/1182
+      try { if let v = _storage._inviteMessage {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 31)
+      } }()
+      try { if let v = _storage._deleteMessage {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 32)
+      } }()
+      try { if let v = _storage._infoChangeMessage {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 33)
+      } }()
+      try { if let v = _storage._memberChangeMessage {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 34)
+      } }()
+      try { if let v = _storage._promoteMessage {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 35)
+      } }()
+      try { if let v = _storage._memberLeftMessage {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 36)
+      } }()
+      try { if let v = _storage._inviteResponse {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 37)
+      } }()
+      try { if let v = _storage._promotionResponse {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 38)
+      } }()
+      try { if let v = _storage._deleteMemberContent {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 39)
+      } }()
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: SessionProtos_GroupUpdateMessage, rhs: SessionProtos_GroupUpdateMessage) -> Bool {
+    if lhs._storage !== rhs._storage {
+      let storagesAreEqual: Bool = withExtendedLifetime((lhs._storage, rhs._storage)) { (_args: (_StorageClass, _StorageClass)) in
+        let _storage = _args.0
+        let rhs_storage = _args.1
+        if _storage._inviteMessage != rhs_storage._inviteMessage {return false}
+        if _storage._deleteMessage != rhs_storage._deleteMessage {return false}
+        if _storage._infoChangeMessage != rhs_storage._infoChangeMessage {return false}
+        if _storage._memberChangeMessage != rhs_storage._memberChangeMessage {return false}
+        if _storage._promoteMessage != rhs_storage._promoteMessage {return false}
+        if _storage._memberLeftMessage != rhs_storage._memberLeftMessage {return false}
+        if _storage._inviteResponse != rhs_storage._inviteResponse {return false}
+        if _storage._promotionResponse != rhs_storage._promotionResponse {return false}
+        if _storage._deleteMemberContent != rhs_storage._deleteMemberContent {return false}
+        return true
+      }
+      if !storagesAreEqual {return false}
+    }
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension SessionProtos_GroupUpdateInviteMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".GroupUpdateInviteMessage"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "groupIdentityPublicKey"),
+    2: .same(proto: "name"),
+    3: .same(proto: "memberSubkey"),
+    4: .same(proto: "memberTag"),
+    5: .same(proto: "profileKey"),
+    6: .same(proto: "profile"),
+  ]
+
+  public var isInitialized: Bool {
+    if self._groupIdentityPublicKey == nil {return false}
+    if self._name == nil {return false}
+    if self._memberSubkey == nil {return false}
+    if self._memberTag == nil {return false}
+    return true
+  }
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularBytesField(value: &self._groupIdentityPublicKey) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self._name) }()
+      case 3: try { try decoder.decodeSingularBytesField(value: &self._memberSubkey) }()
+      case 4: try { try decoder.decodeSingularBytesField(value: &self._memberTag) }()
+      case 5: try { try decoder.decodeSingularBytesField(value: &self._profileKey) }()
+      case 6: try { try decoder.decodeSingularMessageField(value: &self._profile) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._groupIdentityPublicKey {
+      try visitor.visitSingularBytesField(value: v, fieldNumber: 1)
+    } }()
+    try { if let v = self._name {
+      try visitor.visitSingularStringField(value: v, fieldNumber: 2)
+    } }()
+    try { if let v = self._memberSubkey {
+      try visitor.visitSingularBytesField(value: v, fieldNumber: 3)
+    } }()
+    try { if let v = self._memberTag {
+      try visitor.visitSingularBytesField(value: v, fieldNumber: 4)
+    } }()
+    try { if let v = self._profileKey {
+      try visitor.visitSingularBytesField(value: v, fieldNumber: 5)
+    } }()
+    try { if let v = self._profile {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: SessionProtos_GroupUpdateInviteMessage, rhs: SessionProtos_GroupUpdateInviteMessage) -> Bool {
+    if lhs._groupIdentityPublicKey != rhs._groupIdentityPublicKey {return false}
+    if lhs._name != rhs._name {return false}
+    if lhs._memberSubkey != rhs._memberSubkey {return false}
+    if lhs._memberTag != rhs._memberTag {return false}
+    if lhs._profileKey != rhs._profileKey {return false}
+    if lhs._profile != rhs._profile {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension SessionProtos_GroupUpdateDeleteMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".GroupUpdateDeleteMessage"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "groupIdentityPublicKey"),
+    2: .same(proto: "encryptedMemberSubkey"),
+  ]
+
+  public var isInitialized: Bool {
+    if self._groupIdentityPublicKey == nil {return false}
+    if self._encryptedMemberSubkey == nil {return false}
+    return true
+  }
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularBytesField(value: &self._groupIdentityPublicKey) }()
+      case 2: try { try decoder.decodeSingularBytesField(value: &self._encryptedMemberSubkey) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._groupIdentityPublicKey {
+      try visitor.visitSingularBytesField(value: v, fieldNumber: 1)
+    } }()
+    try { if let v = self._encryptedMemberSubkey {
+      try visitor.visitSingularBytesField(value: v, fieldNumber: 2)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: SessionProtos_GroupUpdateDeleteMessage, rhs: SessionProtos_GroupUpdateDeleteMessage) -> Bool {
+    if lhs._groupIdentityPublicKey != rhs._groupIdentityPublicKey {return false}
+    if lhs._encryptedMemberSubkey != rhs._encryptedMemberSubkey {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension SessionProtos_GroupUpdateInfoChangeMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".GroupUpdateInfoChangeMessage"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "type"),
+    2: .same(proto: "updatedName"),
+    3: .same(proto: "updatedExpiration"),
+  ]
+
+  public var isInitialized: Bool {
+    if self._type == nil {return false}
+    return true
+  }
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularEnumField(value: &self._type) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self._updatedName) }()
+      case 3: try { try decoder.decodeSingularUInt32Field(value: &self._updatedExpiration) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._type {
+      try visitor.visitSingularEnumField(value: v, fieldNumber: 1)
+    } }()
+    try { if let v = self._updatedName {
+      try visitor.visitSingularStringField(value: v, fieldNumber: 2)
+    } }()
+    try { if let v = self._updatedExpiration {
+      try visitor.visitSingularUInt32Field(value: v, fieldNumber: 3)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: SessionProtos_GroupUpdateInfoChangeMessage, rhs: SessionProtos_GroupUpdateInfoChangeMessage) -> Bool {
+    if lhs._type != rhs._type {return false}
+    if lhs._updatedName != rhs._updatedName {return false}
+    if lhs._updatedExpiration != rhs._updatedExpiration {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension SessionProtos_GroupUpdateInfoChangeMessage.TypeEnum: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "NAME"),
+    2: .same(proto: "AVATAR"),
+    3: .same(proto: "DISAPPEARING_MESSAGES"),
+  ]
+}
+
+extension SessionProtos_GroupUpdateMemberChangeMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".GroupUpdateMemberChangeMessage"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "type"),
+    2: .same(proto: "memberPublicKeys"),
+  ]
+
+  public var isInitialized: Bool {
+    if self._type == nil {return false}
+    return true
+  }
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularEnumField(value: &self._type) }()
+      case 2: try { try decoder.decodeRepeatedBytesField(value: &self.memberPublicKeys) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._type {
+      try visitor.visitSingularEnumField(value: v, fieldNumber: 1)
+    } }()
+    if !self.memberPublicKeys.isEmpty {
+      try visitor.visitRepeatedBytesField(value: self.memberPublicKeys, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: SessionProtos_GroupUpdateMemberChangeMessage, rhs: SessionProtos_GroupUpdateMemberChangeMessage) -> Bool {
+    if lhs._type != rhs._type {return false}
+    if lhs.memberPublicKeys != rhs.memberPublicKeys {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension SessionProtos_GroupUpdateMemberChangeMessage.TypeEnum: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "ADDED"),
+    2: .same(proto: "REMOVED"),
+    3: .same(proto: "PROMOTED"),
+  ]
+}
+
+extension SessionProtos_GroupUpdatePromoteMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".GroupUpdatePromoteMessage"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "memberPublicKey"),
+    2: .same(proto: "encryptedGroupIdentityPrivateKey"),
+  ]
+
+  public var isInitialized: Bool {
+    if self._memberPublicKey == nil {return false}
+    if self._encryptedGroupIdentityPrivateKey == nil {return false}
+    return true
+  }
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularBytesField(value: &self._memberPublicKey) }()
+      case 2: try { try decoder.decodeSingularBytesField(value: &self._encryptedGroupIdentityPrivateKey) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._memberPublicKey {
+      try visitor.visitSingularBytesField(value: v, fieldNumber: 1)
+    } }()
+    try { if let v = self._encryptedGroupIdentityPrivateKey {
+      try visitor.visitSingularBytesField(value: v, fieldNumber: 2)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: SessionProtos_GroupUpdatePromoteMessage, rhs: SessionProtos_GroupUpdatePromoteMessage) -> Bool {
+    if lhs._memberPublicKey != rhs._memberPublicKey {return false}
+    if lhs._encryptedGroupIdentityPrivateKey != rhs._encryptedGroupIdentityPrivateKey {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension SessionProtos_GroupUpdateMemberLeftMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".GroupUpdateMemberLeftMessage"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap()
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let _ = try decoder.nextFieldNumber() {
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: SessionProtos_GroupUpdateMemberLeftMessage, rhs: SessionProtos_GroupUpdateMemberLeftMessage) -> Bool {
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension SessionProtos_GroupUpdateInviteResponseMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".GroupUpdateInviteResponseMessage"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "isApproved"),
+    2: .same(proto: "profileKey"),
+    3: .same(proto: "profile"),
+  ]
+
+  public var isInitialized: Bool {
+    if self._isApproved == nil {return false}
+    return true
+  }
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularBoolField(value: &self._isApproved) }()
+      case 2: try { try decoder.decodeSingularBytesField(value: &self._profileKey) }()
+      case 3: try { try decoder.decodeSingularMessageField(value: &self._profile) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._isApproved {
+      try visitor.visitSingularBoolField(value: v, fieldNumber: 1)
+    } }()
+    try { if let v = self._profileKey {
+      try visitor.visitSingularBytesField(value: v, fieldNumber: 2)
+    } }()
+    try { if let v = self._profile {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: SessionProtos_GroupUpdateInviteResponseMessage, rhs: SessionProtos_GroupUpdateInviteResponseMessage) -> Bool {
+    if lhs._isApproved != rhs._isApproved {return false}
+    if lhs._profileKey != rhs._profileKey {return false}
+    if lhs._profile != rhs._profile {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension SessionProtos_GroupUpdatePromotionResponseMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".GroupUpdatePromotionResponseMessage"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "encryptedMemberPublicKey"),
+  ]
+
+  public var isInitialized: Bool {
+    if self._encryptedMemberPublicKey == nil {return false}
+    return true
+  }
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularBytesField(value: &self._encryptedMemberPublicKey) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._encryptedMemberPublicKey {
+      try visitor.visitSingularBytesField(value: v, fieldNumber: 1)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: SessionProtos_GroupUpdatePromotionResponseMessage, rhs: SessionProtos_GroupUpdatePromotionResponseMessage) -> Bool {
+    if lhs._encryptedMemberPublicKey != rhs._encryptedMemberPublicKey {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension SessionProtos_GroupUpdateDeleteMemberContentMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".GroupUpdateDeleteMemberContentMessage"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    2: .same(proto: "memberPublicKeys"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 2: try { try decoder.decodeRepeatedBytesField(value: &self.memberPublicKeys) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.memberPublicKeys.isEmpty {
+      try visitor.visitRepeatedBytesField(value: self.memberPublicKeys, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: SessionProtos_GroupUpdateDeleteMemberContentMessage, rhs: SessionProtos_GroupUpdateDeleteMemberContentMessage) -> Bool {
+    if lhs.memberPublicKeys != rhs.memberPublicKeys {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
 }

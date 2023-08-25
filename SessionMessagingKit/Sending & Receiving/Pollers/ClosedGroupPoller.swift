@@ -7,13 +7,19 @@ import SessionSnodeKit
 import SessionUtilitiesKit
 
 public final class ClosedGroupPoller: Poller {
+    public static var legacyNamespaces: [SnodeAPI.Namespace] = [.legacyClosedGroup ]
     public static var namespaces: [SnodeAPI.Namespace] = [
-        .legacyClosedGroup, .default, .configGroupInfo, .configGroupMembers, .configGroupKeys
+        .groupMessages, .configGroupInfo, .configGroupMembers, .configGroupKeys
     ]
 
     // MARK: - Settings
     
-    override var namespaces: [SnodeAPI.Namespace] { ClosedGroupPoller.namespaces }
+    override func namespaces(for publicKey: String) -> [SnodeAPI.Namespace] {
+        guard SessionId.Prefix(from: publicKey) == .group else { return ClosedGroupPoller.legacyNamespaces }
+        
+        return ClosedGroupPoller.namespaces
+    }
+    
     override var maxNodePollCount: UInt { 0 }
     
     private static let minPollInterval: Double = 3

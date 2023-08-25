@@ -87,6 +87,7 @@ public extension Crypto.Verification {
 public extension Crypto.Size {
     static let signature: Crypto.Size = Crypto.Size(id: "signature") { Sodium().sign.Bytes }
     static let publicKey: Crypto.Size = Crypto.Size(id: "publicKey") { Sodium().sign.PublicKeyBytes }
+    static let secretKey: Crypto.Size = Crypto.Size(id: "secretKey") { Sodium().sign.SecretKeyBytes }
 }
 
 public extension Crypto.Action {
@@ -147,6 +148,28 @@ public extension Crypto.KeyPairType {
             let keyPair: ECKeyPair = Curve25519.generateKeyPair()
             
             return KeyPair(publicKey: Array(keyPair.publicKey), secretKey: Array(keyPair.privateKey))
+        }
+    }
+    
+    static func ed25519KeyPair(
+        seed: Data? = nil,
+        using dependencies: Dependencies = Dependencies()
+    ) -> Crypto.KeyPairType {
+        return Crypto.KeyPairType(id: "ed25519KeyPair") {
+            let pkSize: Int = dependencies.crypto.size(.publicKey)
+            let skSize: Int = dependencies.crypto.size(.secretKey)
+            var edPK: [UInt8] = [UInt8](repeating: 0, count: pkSize)
+            var edSK: [UInt8] = [UInt8](repeating: 0, count: skSize)
+            var targetSeed: [UInt8] = ((seed ?? (try? Randomness.generateRandomBytes(numberBytes: skSize)))
+                .map { Array($0) })
+                .defaulting(to: [])
+            
+            // Generate the key
+            guard Sodium.lib_crypto_sign_ed25519_seed_keypair(&edPK, &edSK, &targetSeed) == 0 else {
+                return nil
+            }
+            
+            return KeyPair(publicKey: edPK, secretKey: edSK)
         }
     }
 }

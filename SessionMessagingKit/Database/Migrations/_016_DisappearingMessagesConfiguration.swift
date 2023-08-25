@@ -75,7 +75,7 @@ enum _016_DisappearingMessagesConfiguration: Migration {
             }
         
         // Update the configs so the settings are synced
-        _ = try SessionUtil.updatingDisappearingConfigs(db, contactUpdate)
+        _ = try SessionUtil.updatingDisappearingConfigsOneToOne(db, contactUpdate)
         _ = try SessionUtil.batchUpdate(db, disappearingConfigs: legacyGroupUpdate)
         
         Storage.update(progress: 1, for: self, in: target) // In case this is the last migration

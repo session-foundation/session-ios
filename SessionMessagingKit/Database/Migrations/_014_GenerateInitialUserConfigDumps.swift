@@ -14,7 +14,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
     
     static func migrate(_ db: Database) throws {
         // If we have no ed25519 key then there is no need to create cached dump data
-        guard let secretKey: [UInt8] = Identity.fetchUserEd25519KeyPair(db)?.secretKey else {
+        guard Identity.fetchUserEd25519KeyPair(db) != nil else {
             Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
             return
         }
@@ -23,7 +23,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         let timestampMs: Int64 = Int64(Date().timeIntervalSince1970 * 1000)
         
-        SessionUtil.loadState(db, userPublicKey: userPublicKey, ed25519SecretKey: secretKey)
+        SessionUtil.loadState(db)
         
         // Retrieve all threads (we are going to base the config dump data on the active
         // threads rather than anything else in the database)

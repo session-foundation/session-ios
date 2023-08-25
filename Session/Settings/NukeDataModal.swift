@@ -152,7 +152,7 @@ final class NukeDataModal: Modal {
     
     private func clearDeviceOnly() {
         ModalActivityIndicatorViewController.present(fromViewController: self, canCancel: false) { [weak self] _ in
-            ConfigurationSyncJob.run()
+            ConfigurationSyncJob.run(publicKey: getUserHexEncodedPublicKey())
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
@@ -164,13 +164,16 @@ final class NukeDataModal: Modal {
         }
     }
     
-    private func clearEntireAccount(presentedViewController: UIViewController) {
+    private func clearEntireAccount(
+        presentedViewController: UIViewController,
+        using dependencies: Dependencies = Dependencies()
+    ) {
         ModalActivityIndicatorViewController
             .present(fromViewController: presentedViewController, canCancel: false) { [weak self] _ in
                 Publishers
                     .MergeMany(
                         Storage.shared
-                            .read { db -> [(String, OpenGroupAPI.PreparedSendData<OpenGroupAPI.DeleteInboxResponse>)] in
+                            .read { db -> [(String, HTTP.PreparedRequest<OpenGroupAPI.DeleteInboxResponse>)] in
                                 return try OpenGroup
                                     .filter(OpenGroup.Columns.isActive == true)
                                     .select(.server)
@@ -180,22 +183,22 @@ final class NukeDataModal: Modal {
                                     .map { ($0, try OpenGroupAPI.preparedClearInbox(db, on: $0))}
                             }
                             .defaulting(to: [])
-                            .compactMap { server, data in
-                                OpenGroupAPI
-                                    .send(data: data)
+                            .compactMap { server, preparedRequest in
+                                preparedRequest
+                                    .send(using: dependencies)
                                     .map { _ in [server: true] }
                                     .eraseToAnyPublisher()
                             }
                     )
                     .collect()
-                    .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+                    .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
                     .flatMap { results in
                         SnodeAPI
                             .deleteAllMessages(namespace: .all)
                             .map { results.reduce($0) { result, next in result.updated(with: next) } }
                             .eraseToAnyPublisher()
                     }
-                    .receive(on: DispatchQueue.main)
+                    .receive(on: DispatchQueue.main, using: dependencies)
                     .sinkUntilComplete(
                         receiveCompletion: { result in
                             switch result {
@@ -257,7 +260,7 @@ final class NukeDataModal: Modal {
         
         if isUsingFullAPNs, let deviceToken: String = maybeDeviceToken {
             PushNotificationAPI
-                .unsubscribe(token: Data(hex: deviceToken))
+                .unsubscribeAll(token: Data(hex: deviceToken), using: dependencies)
                 .sinkUntilComplete()
         }
         

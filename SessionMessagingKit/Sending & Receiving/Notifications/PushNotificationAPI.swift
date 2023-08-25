@@ -20,13 +20,17 @@ public enum PushNotificationAPI {
     public static let legacyServer = "https://live.apns.getsession.org"
     public static let legacyServerPublicKey = "642a6585919742e5a2d4dc51244964fbcd8bcab2b75612407de58b810740d049"
         
-    // MARK: - Requests
+    // MARK: - Batch Requests
     
-    public static func subscribe(
+    public static func subscribeAll(
         token: Data,
         isForcedUpdate: Bool,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
+        typealias SubscribeAllPreparedRequests = (
+            HTTP.PreparedRequest<PushNotificationAPI.SubscribeResponse>,
+            HTTP.PreparedRequest<PushNotificationAPI.LegacyPushServerResponse>?
+        )
         let hexEncodedToken: String = token.toHexString()
         let oldToken: String? = dependencies.standardUserDefaults[.deviceToken]
         let lastUploadTime: Double = dependencies.standardUserDefaults[.lastDeviceTokenUpload]
@@ -39,94 +43,66 @@ public enum PushNotificationAPI {
                 .eraseToAnyPublisher()
         }
         
-        guard let notificationsEncryptionKey: Data = try? getOrGenerateEncryptionKey(using: dependencies) else {
-            SNLog("Unable to retrieve PN encryption key.")
-            return Just(())
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
-        }
-        
-        // TODO: Need to generate requests for each updated group as well
         return dependencies.storage
-            .readPublisher(using: dependencies) { db -> (SubscribeRequest, String, Set<String>) in
+            .readPublisher(using: dependencies) { db -> SubscribeAllPreparedRequests in
                 guard let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
                     throw SnodeAPIError.noKeyPair
                 }
                 
                 let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
-                let request: SubscribeRequest = SubscribeRequest(
-                    pubkey: currentUserPublicKey,
-                    namespaces: [.default],
-                    // Note: Unfortunately we always need the message content because without the content
-                    // control messages can't be distinguished from visible messages which results in the
-                    // 'generic' notification being shown when receiving things like typing indicator updates
-                    includeMessageData: true,
-                    serviceInfo: SubscribeRequest.ServiceInfo(
-                        token: hexEncodedToken
-                    ),
-                    notificationsEncryptionKey: notificationsEncryptionKey,
-                    subkey: nil,
-                    timestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000),  // Seconds
-                    ed25519PublicKey: userED25519KeyPair.publicKey,
-                    ed25519SecretKey: userED25519KeyPair.secretKey
-                )
+                let preparedUserRequest = try PushNotificationAPI
+                    .preparedSubscribe(
+                        publicKey: currentUserPublicKey,
+                        subkey: nil,
+                        ed25519KeyPair: userED25519KeyPair,
+                        using: dependencies
+                    )
+                    .handleEvents(
+                        receiveOutput: { _, response in
+                            guard response.success == true else { return }
+                            
+                            dependencies.standardUserDefaults[.deviceToken] = hexEncodedToken
+                            dependencies.standardUserDefaults[.lastDeviceTokenUpload] = now
+                            dependencies.standardUserDefaults[.isUsingFullAPNs] = true
+                        }
+                    )
+                let preparedLegacyGroupRequest = try PushNotificationAPI
+                    .preparedSubscribeToLegacyGroups(
+                        forced: true,
+                        token: hexEncodedToken,
+                        currentUserPublicKey: currentUserPublicKey,
+                        legacyGroupIds: try ClosedGroup
+                            .select(.threadId)
+                            .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%"))
+                            .joining(
+                                required: ClosedGroup.members
+                                    .filter(GroupMember.Columns.profileId == currentUserPublicKey)
+                            )
+                            .asRequest(of: String.self)
+                            .fetchSet(db),
+                        using: dependencies
+                    )
+                
                 
                 return (
-                    request,
-                    currentUserPublicKey,
-                    try ClosedGroup
-                        .select(.threadId)
-                        .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%"))
-                        .joining(
-                            required: ClosedGroup.members
-                                .filter(GroupMember.Columns.profileId == currentUserPublicKey)
-                        )
-                        .asRequest(of: String.self)
-                        .fetchSet(db)
+                    preparedUserRequest,
+                    preparedLegacyGroupRequest
                 )
             }
-            .flatMap { request, currentUserPublicKey, legacyGroupIds -> AnyPublisher<Void, Error> in
+            .flatMap { userRequest, legacyGroupRequest -> AnyPublisher<Void, Error> in
                 Publishers
                     .MergeMany(
                         [
-                            PushNotificationAPI
-                                .send(
-                                    request: PushNotificationAPIRequest(
-                                        endpoint: .subscribe,
-                                        body: request
-                                    ),
-                                    using: dependencies
-                                )
-                                .decoded(as: SubscribeResponse.self, using: dependencies)
-                                .retry(maxRetryCount, using: dependencies)
-                                .handleEvents(
-                                    receiveOutput: { _, response in
-                                        guard response.success == true else {
-                                            return SNLog("Couldn't subscribe for push notifications due to error (\(response.error ?? -1)): \(response.message ?? "nil").")
-                                        }
-                                        
-                                        dependencies.standardUserDefaults[.deviceToken] = hexEncodedToken
-                                        dependencies.standardUserDefaults[.lastDeviceTokenUpload] = now
-                                        dependencies.standardUserDefaults[.isUsingFullAPNs] = true
-                                    },
-                                    receiveCompletion: { result in
-                                        switch result {
-                                            case .finished: break
-                                            case .failure: SNLog("Couldn't subscribe for push notifications.")
-                                        }
-                                    }
-                                )
-                                .map { _ in () }
+                            userRequest
+                                .send(using: dependencies)
+                                .map { _, _ in () }
                                 .eraseToAnyPublisher(),
                             // FIXME: Remove this once legacy groups are deprecated
-                            PushNotificationAPI.subscribeToLegacyGroups(
-                                forced: true,
-                                token: hexEncodedToken,
-                                currentUserPublicKey: currentUserPublicKey,
-                                legacyGroupIds: legacyGroupIds,
-                                using: dependencies
-                            )
-                        ]
+                            legacyGroupRequest?
+                                .send(using: dependencies)
+                                .map { _, _ in () }
+                                .eraseToAnyPublisher()
+                        ].compactMap { $0 }
                     )
                     .collect()
                     .map { _ in () }
@@ -135,116 +111,193 @@ public enum PushNotificationAPI {
             .eraseToAnyPublisher()
     }
     
-    public static func unsubscribe(
+    public static func unsubscribeAll(
         token: Data,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
-        let hexEncodedToken: String = token.toHexString()
+        typealias UnsubscribeAllPreparedRequests = (
+            HTTP.PreparedRequest<PushNotificationAPI.UnsubscribeResponse>,
+            [HTTP.PreparedRequest<PushNotificationAPI.LegacyPushServerResponse>]
+        )
         
-        // FIXME: Remove this once legacy groups are deprecated
-        /// Unsubscribe from all legacy groups (including ones the user is no longer a member of, just in case)
-        dependencies.storage
-            .readPublisher(using: dependencies) { db -> (String, Set<String>) in
-                (
-                    getUserHexEncodedPublicKey(db, using: dependencies),
-                    try ClosedGroup
-                        .select(.threadId)
-                        .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%"))
-                        .asRequest(of: String.self)
-                        .fetchSet(db)
-                )
-            }
-            .flatMap { currentUserPublicKey, legacyGroupIds in
-                Publishers
-                    .MergeMany(
-                        legacyGroupIds
-                            .map { legacyGroupId -> AnyPublisher<Void, Error> in
-                                PushNotificationAPI
-                                    .unsubscribeFromLegacyGroup(
-                                        legacyGroupId: legacyGroupId,
-                                        currentUserPublicKey: currentUserPublicKey,
-                                        using: dependencies
-                                    )
-                            }
-                    )
-                    .collect()
-                    .eraseToAnyPublisher()
-            }
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-            .sinkUntilComplete()
-        
-        // TODO: Need to generate requests for each updated group as well
         return dependencies.storage
-            .readPublisher(using: dependencies) { db -> UnsubscribeRequest in
+            .readPublisher(using: dependencies) { db -> UnsubscribeAllPreparedRequests in
                 guard let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
                     throw SnodeAPIError.noKeyPair
                 }
                 
-                return UnsubscribeRequest(
-                    pubkey: getUserHexEncodedPublicKey(db, using: dependencies),
-                    serviceInfo: UnsubscribeRequest.ServiceInfo(
-                        token: hexEncodedToken
-                    ),
-                    subkey: nil,
-                    timestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000),  // Seconds
-                    ed25519PublicKey: userED25519KeyPair.publicKey,
-                    ed25519SecretKey: userED25519KeyPair.secretKey
-                )
-            }
-            .flatMap { request -> AnyPublisher<Void, Error> in
-                PushNotificationAPI
-                    .send(
-                        request: PushNotificationAPIRequest(
-                            endpoint: .unsubscribe,
-                            body: request
-                        ),
-                        using: dependencies
+                let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+                let preparedUserRequest = try PushNotificationAPI
+                    .preparedUnsubscribe(
+                        token: token,
+                        publicKey: currentUserPublicKey,
+                        subkey: nil,
+                        ed25519KeyPair: userED25519KeyPair
                     )
-                    .decoded(as: UnsubscribeResponse.self, using: dependencies)
-                    .retry(maxRetryCount, using: dependencies)
                     .handleEvents(
                         receiveOutput: { _, response in
-                            guard response.success == true else {
-                                return SNLog("Couldn't unsubscribe for push notifications due to error (\(response.error ?? -1)): \(response.message ?? "nil").")
-                            }
+                            guard response.success == true else { return }
                             
                             dependencies.standardUserDefaults[.deviceToken] = nil
-                        },
-                        receiveCompletion: { result in
-                            switch result {
-                                case .finished: break
-                                case .failure: SNLog("Couldn't unsubscribe for push notifications.")
-                            }
                         }
                     )
-                    .map { _ in () }
-                    .eraseToAnyPublisher()
+                
+                // FIXME: Remove this once legacy groups are deprecated
+                let preparedLegacyUnsubscribeRequests = (try? ClosedGroup
+                    .select(.threadId)
+                    .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%"))
+                    .asRequest(of: String.self)
+                    .fetchSet(db))
+                    .defaulting(to: [])
+                    .compactMap { legacyGroupId in
+                        try? PushNotificationAPI.preparedUnsubscribeFromLegacyGroup(
+                            legacyGroupId: legacyGroupId,
+                            currentUserPublicKey: currentUserPublicKey
+                        )
+                    }
+                
+                return (preparedUserRequest, preparedLegacyUnsubscribeRequests)
             }
+            .flatMap { preparedUserRequest, preparedLegacyUnsubscribeRequests in
+                // FIXME: Remove this once legacy groups are deprecated
+                /// Unsubscribe from all legacy groups (including ones the user is no longer a member of, just in case)
+                Publishers
+                    .MergeMany(preparedLegacyUnsubscribeRequests.map { $0.send(using: dependencies) })
+                    .collect()
+                    .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
+                    .receive(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
+                    .sinkUntilComplete()
+                
+                return preparedUserRequest.send(using: dependencies)
+            }
+            .map { _ in () }
             .eraseToAnyPublisher()
+    }
+    
+    // MARK: - Prepared Requests
+    
+    public static func preparedSubscribe(
+        publicKey: String,
+        subkey: String?,
+        ed25519KeyPair: KeyPair,
+        using dependencies: Dependencies = Dependencies()
+    ) throws -> HTTP.PreparedRequest<SubscribeResponse> {
+        guard
+            UserDefaults.standard[.isUsingFullAPNs],
+            let token: String = dependencies.standardUserDefaults[.deviceToken]
+        else { throw HTTPError.invalidRequest }
+        
+        guard let notificationsEncryptionKey: Data = try? getOrGenerateEncryptionKey(using: dependencies) else {
+            SNLog("Unable to retrieve PN encryption key.")
+            throw StorageError.invalidKeySpec
+        }
+        
+        return try PushNotificationAPI
+            .prepareRequest(
+                request: Request(
+                    method: .post,
+                    server: PushNotificationAPI.server,
+                    endpoint: .subscribe,
+                    body: SubscribeRequest(
+                        pubkey: publicKey,
+                        namespaces: [.default],
+                        // Note: Unfortunately we always need the message content because without the content
+                        // control messages can't be distinguished from visible messages which results in the
+                        // 'generic' notification being shown when receiving things like typing indicator updates
+                        includeMessageData: true,
+                        serviceInfo: SubscribeRequest.ServiceInfo(
+                            token: token
+                        ),
+                        notificationsEncryptionKey: notificationsEncryptionKey,
+                        subkey: subkey,
+                        timestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000),  // Seconds
+                        ed25519PublicKey: ed25519KeyPair.publicKey,
+                        ed25519SecretKey: ed25519KeyPair.secretKey
+                    )
+                ),
+                responseType: SubscribeResponse.self,
+                retryCount: PushNotificationAPI.maxRetryCount
+            )
+            .handleEvents(
+                receiveOutput: { _, response in
+                    guard response.success == true else {
+                        return SNLog("Couldn't subscribe for push notifications for: \(publicKey) due to error (\(response.error ?? -1)): \(response.message ?? "nil").")
+                    }
+                },
+                receiveCompletion: { result in
+                    switch result {
+                        case .finished: break
+                        case .failure: SNLog("Couldn't subscribe for push notifications for: \(publicKey).")
+                    }
+                }
+            )
+    }
+    
+    public static func preparedUnsubscribe(
+        token: Data,
+        publicKey: String,
+        subkey: String?,
+        ed25519KeyPair: KeyPair,
+        using dependencies: Dependencies = Dependencies()
+    ) throws -> HTTP.PreparedRequest<UnsubscribeResponse> {
+        return try PushNotificationAPI
+            .prepareRequest(
+                request: Request(
+                    method: .post,
+                    server: PushNotificationAPI.server,
+                    endpoint: .unsubscribe,
+                    body: UnsubscribeRequest(
+                        pubkey: publicKey,
+                        serviceInfo: UnsubscribeRequest.ServiceInfo(
+                            token: token.toHexString()
+                        ),
+                        subkey: nil,
+                        timestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000),  // Seconds
+                        ed25519PublicKey: ed25519KeyPair.publicKey,
+                        ed25519SecretKey: ed25519KeyPair.secretKey
+                    )
+                ),
+                responseType: UnsubscribeResponse.self,
+                retryCount: PushNotificationAPI.maxRetryCount
+            )
+            .handleEvents(
+                receiveOutput: { _, response in
+                    guard response.success == true else {
+                        return SNLog("Couldn't unsubscribe for push notifications for: \(publicKey) due to error (\(response.error ?? -1)): \(response.message ?? "nil").")
+                    }
+                },
+                receiveCompletion: { result in
+                    switch result {
+                        case .finished: break
+                        case .failure: SNLog("Couldn't unsubscribe for push notifications for: \(publicKey).")
+                    }
+                }
+            )
     }
     
     // MARK: - Legacy Notifications
     
     // FIXME: Remove this once legacy notifications and legacy groups are deprecated
-    public static func legacyNotify(
+    public static func preparedLegacyNotify(
         recipient: String,
         with message: String,
         maxRetryCount: Int? = nil,
         using dependencies: Dependencies = Dependencies()
-    ) -> AnyPublisher<Void, Error> {
-        return PushNotificationAPI
-            .send(
-                request: PushNotificationAPIRequest(
+    ) throws -> HTTP.PreparedRequest<LegacyPushServerResponse> {
+        return try PushNotificationAPI
+            .prepareRequest(
+                request: Request(
+                    method: .post,
+                    server: PushNotificationAPI.legacyServer,
                     endpoint: .legacyNotify,
                     body: LegacyNotifyRequest(
                         data: message,
                         sendTo: recipient
                     )
                 ),
-                using: dependencies
+                responseType: LegacyPushServerResponse.self,
+                retryCount: (maxRetryCount ?? PushNotificationAPI.maxRetryCount)
             )
-            .decoded(as: LegacyPushServerResponse.self, using: dependencies)
-            .retry(maxRetryCount ?? PushNotificationAPI.maxRetryCount, using: dependencies)
             .handleEvents(
                 receiveOutput: { _, response in
                     guard response.code != 0 else {
@@ -258,35 +311,32 @@ public enum PushNotificationAPI {
                     }
                 }
             )
-            .map { _ in () }
-            .eraseToAnyPublisher()
     }
     
     // MARK: - Legacy Groups
     
     // FIXME: Remove this once legacy groups are deprecated
-    public static func subscribeToLegacyGroups(
+    public static func preparedSubscribeToLegacyGroups(
         forced: Bool = false,
         token: String? = nil,
         currentUserPublicKey: String,
         legacyGroupIds: Set<String>,
         using dependencies: Dependencies = Dependencies()
-    ) -> AnyPublisher<Void, Error> {
+    ) throws -> HTTP.PreparedRequest<LegacyPushServerResponse>? {
         let isUsingFullAPNs = dependencies.standardUserDefaults[.isUsingFullAPNs]
         
         // Only continue if PNs are enabled and we have a device token
         guard
+            !legacyGroupIds.isEmpty,
             (forced || isUsingFullAPNs),
             let deviceToken: String = (token ?? dependencies.standardUserDefaults[.deviceToken])
-        else {
-            return Just(())
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
-        }
+        else { return nil }
         
-        return PushNotificationAPI
-            .send(
-                request: PushNotificationAPIRequest(
+        return try PushNotificationAPI
+            .prepareRequest(
+                request: Request(
+                    method: .post,
+                    server: PushNotificationAPI.legacyServer,
                     endpoint: .legacyGroupsOnlySubscribe,
                     body: LegacyGroupOnlyRequest(
                         token: deviceToken,
@@ -295,10 +345,9 @@ public enum PushNotificationAPI {
                         legacyGroupPublicKeys: legacyGroupIds
                     )
                 ),
-                using: dependencies
+                responseType: LegacyPushServerResponse.self,
+                retryCount: PushNotificationAPI.maxRetryCount
             )
-            .decoded(as: LegacyPushServerResponse.self, using: dependencies)
-            .retry(maxRetryCount, using: dependencies)
             .handleEvents(
                 receiveOutput: { _, response in
                     guard response.code != 0 else {
@@ -312,29 +361,28 @@ public enum PushNotificationAPI {
                     }
                 }
             )
-            .map { _ in () }
-            .eraseToAnyPublisher()
     }
     
     // FIXME: Remove this once legacy groups are deprecated
-    public static func unsubscribeFromLegacyGroup(
+    public static func preparedUnsubscribeFromLegacyGroup(
         legacyGroupId: String,
         currentUserPublicKey: String,
         using dependencies: Dependencies = Dependencies()
-    ) -> AnyPublisher<Void, Error> {
-        return PushNotificationAPI
-            .send(
-                request: PushNotificationAPIRequest(
+    ) throws -> HTTP.PreparedRequest<LegacyPushServerResponse> {
+        return try PushNotificationAPI
+            .prepareRequest(
+                request: Request(
+                    method: .post,
+                    server: PushNotificationAPI.legacyServer,
                     endpoint: .legacyGroupUnsubscribe,
                     body: LegacyGroupRequest(
                         pubKey: currentUserPublicKey,
                         closedGroupPublicKey: legacyGroupId
                     )
                 ),
-                using: dependencies
+                responseType: LegacyPushServerResponse.self,
+                retryCount: PushNotificationAPI.maxRetryCount
             )
-            .decoded(as: LegacyPushServerResponse.self, using: dependencies)
-            .retry(maxRetryCount, using: dependencies)
             .handleEvents(
                 receiveOutput: { _, response in
                     guard response.code != 0 else {
@@ -348,8 +396,6 @@ public enum PushNotificationAPI {
                     }
                 }
             )
-            .map { _ in () }
-            .eraseToAnyPublisher()
     }
     
     // MARK: - Notification Handling
@@ -472,7 +518,7 @@ public enum PushNotificationAPI {
         using dependencies: Dependencies
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         guard
-            let url: URL = URL(string: "\(request.endpoint.server)/\(request.endpoint.rawValue)"),
+            let url: URL = URL(string: "\(request.endpoint.server)/\(request.endpoint.path)"),
             let payload: Data = try? JSONEncoder().encode(request.body)
         else {
             return Fail(error: HTTPError.invalidJSON)
@@ -483,7 +529,7 @@ public enum PushNotificationAPI {
             return HTTP
                 .execute(
                     .post,
-                    "\(request.endpoint.server)/\(request.endpoint.rawValue)",
+                    "\(request.endpoint.server)/\(request.endpoint.path)",
                     body: payload
                 )
                 .map { response in (HTTP.ResponseInfo(code: -1, headers: [:]), response) }
@@ -504,5 +550,24 @@ public enum PushNotificationAPI {
                 )
             )
             .eraseToAnyPublisher()
+    }
+    
+    // MARK: - Convenience
+    
+    private static func prepareRequest<T: Encodable, R: Decodable>(
+        request: Request<T, Endpoint>,
+        responseType: R.Type,
+        retryCount: Int = 0,
+        timeout: TimeInterval = HTTP.defaultTimeout,
+        using dependencies: Dependencies = Dependencies()
+    ) throws -> HTTP.PreparedRequest<R> {
+        return HTTP.PreparedRequest<R>(
+            request: request,
+            urlRequest: try request.generateUrlRequest(),
+            publicKey: request.endpoint.serverPublicKey,
+            responseType: responseType,
+            retryCount: retryCount,
+            timeout: timeout
+        )
     }
 }

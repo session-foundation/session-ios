@@ -167,7 +167,12 @@ public enum MessageReceiver {
         
         // Extract the proper threadId for the message
         let (threadId, threadVariant): (String, SessionThread.Variant) = {
-            if let groupPublicKey: String = groupPublicKey { return (groupPublicKey, .legacyGroup) }
+            if let groupPublicKey: String = groupPublicKey {
+                switch SessionId.Prefix(from: groupPublicKey) {
+                    case .group: return (groupPublicKey, .group)
+                    default: return (groupPublicKey, .legacyGroup)
+                }
+            }
             if let openGroupId: String = openGroupId { return (openGroupId, .community) }
             
             switch message {
@@ -236,7 +241,7 @@ public enum MessageReceiver {
                 )
                 
             case let message as ClosedGroupControlMessage:
-                try MessageReceiver.handleClosedGroupControlMessage(
+                try MessageReceiver.handleLegacyClosedGroupControlMessage(
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,

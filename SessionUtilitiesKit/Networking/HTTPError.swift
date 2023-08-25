@@ -7,6 +7,8 @@ public enum HTTPError: LocalizedError, Equatable {
     case invalidURL
     case invalidJSON
     case parsingFailed
+    case invalidPreparedRequest
+    case invalidRequest
     case invalidResponse
     case maxFileSizeExceeded
     case httpRequestFailed(statusCode: UInt, data: Data?)
@@ -17,6 +19,8 @@ public enum HTTPError: LocalizedError, Equatable {
             case .generic: return "An error occurred."
             case .invalidURL: return "Invalid URL."
             case .invalidJSON: return "Invalid JSON."
+            case .invalidPreparedRequest: return "Invalid PreparedRequest provided."
+            case .invalidRequest: return "Invalid request."
             case .parsingFailed, .invalidResponse: return "Invalid response."
             case .maxFileSizeExceeded: return "Maximum file size exceeded."
             case .httpRequestFailed(let statusCode, _): return "HTTP request failed with status code: \(statusCode)."

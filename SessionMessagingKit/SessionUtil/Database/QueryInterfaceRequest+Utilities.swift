@@ -114,6 +114,15 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
                 
             case is QueryInterfaceRequest<SessionThread>:
                 return try SessionUtil.updatingThreads(db, updatedData)
+            
+            case is QueryInterfaceRequest<ClosedGroup>:
+                return try SessionUtil.updatingGroupInfo(db, updatedData)
+                
+            case is QueryInterfaceRequest<DisappearingMessagesConfiguration>:
+                let oneToOneUpdates: [RowDecoder] = try SessionUtil.updatingDisappearingConfigsOneToOne(db, updatedData)
+                let groupUpdates: [RowDecoder] = try SessionUtil.updatingDisappearingConfigsGroups(db, updatedData)
+                
+                return (oneToOneUpdates + groupUpdates)
                 
             default: return updatedData
         }

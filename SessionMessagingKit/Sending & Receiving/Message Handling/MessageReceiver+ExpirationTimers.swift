@@ -92,7 +92,7 @@ extension MessageReceiver {
                     try SessionUtil
                         .update(
                             db,
-                            groupPublicKey: threadId,
+                            legacyGroupPublicKey: threadId,
                             disappearingConfig: remoteConfig
                         )
                     
@@ -237,9 +237,12 @@ extension MessageReceiver {
                     try SessionUtil
                         .update(
                             db,
-                            groupPublicKey: threadId,
+                            legacyGroupPublicKey: threadId,
                             disappearingConfig: remoteConfig
                         )
+                    
+                case .group:
+                    preconditionFailure()
                     
                 default: break
             }

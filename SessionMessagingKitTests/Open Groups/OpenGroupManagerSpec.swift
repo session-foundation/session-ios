@@ -778,7 +778,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     mockNetwork
                         .when { $0.send(.onionRequest(any(), to: any(), with: any())) }
-                        .thenReturn(OpenGroupAPI.BatchResponse.mockCapabilitiesAndRoomResponse)
+                        .thenReturn(HTTP.BatchResponse.mockCapabilitiesAndRoomResponse)
                     mockOGMCache.when { $0.pollers }.thenReturn([:])
                     
                     mockUserDefaults
@@ -3055,7 +3055,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 beforeEach {
                     mockNetwork
                         .when { $0.send(.onionRequest(any(), to: any(), with: any())) }
-                        .thenReturn(OpenGroupAPI.BatchResponse.mockCapabilitiesAndRoomsResponse)
+                        .thenReturn(HTTP.BatchResponse.mockCapabilitiesAndRoomsResponse)
                     
                     mockStorage.write { db in
                         try OpenGroup.deleteAll(db)
@@ -3673,7 +3673,7 @@ extension OpenGroupAPI.DirectMessage: Mocked {
     )
 }
                         
-extension OpenGroupAPI.BatchResponse {
+extension HTTP.BatchResponse {
     static let mockUnblindedPollResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
         with: [
             (OpenGroupAPI.Endpoint.capabilities, OpenGroupAPI.Capabilities.mockBatchSubResponse()),

@@ -1,20 +1,36 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import SessionUtilitiesKit
 
 public extension PushNotificationAPI {
-    enum Endpoint: String {
-        case subscribe = "subscribe"
-        case unsubscribe = "unsubscribe"
+    enum Endpoint: EndpointType {
+        case subscribe
+        case unsubscribe
         
         // MARK: - Legacy Endpoints
         
-        case legacyNotify = "notify"
-        case legacyRegister = "register"
-        case legacyUnregister = "unregister"
-        case legacyGroupsOnlySubscribe = "register_legacy_groups_only"
-        case legacyGroupSubscribe = "subscribe_closed_group"
-        case legacyGroupUnsubscribe = "unsubscribe_closed_group"
+        case legacyNotify
+        case legacyRegister
+        case legacyUnregister
+        case legacyGroupsOnlySubscribe
+        case legacyGroupSubscribe
+        case legacyGroupUnsubscribe
+        
+        public var path: String {
+            switch self {
+                case .subscribe: return "subscribe"
+                case .unsubscribe: return "unsubscribe"
+                    
+                // Legacy Endpoints
+                case .legacyNotify: return "notify"
+                case .legacyRegister: return "register"
+                case .legacyUnregister: return "unregister"
+                case .legacyGroupsOnlySubscribe: return "register_legacy_groups_only"
+                case .legacyGroupSubscribe: return "subscribe_closed_group"
+                case .legacyGroupUnsubscribe: return "unsubscribe_closed_group"
+            }
+        }
         
         // MARK: - Convenience
         

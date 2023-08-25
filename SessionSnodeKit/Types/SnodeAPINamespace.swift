@@ -10,9 +10,14 @@ public extension SnodeAPI {
         case configContacts = 3
         case configConvoInfoVolatile = 4
         case configUserGroups = 5
-        case configGroupInfo = 11
-        case configGroupMembers = 12
-        case configGroupKeys = 13
+        
+        // Messages sent to a closed group:
+        case groupMessages = 11
+        
+        // Groups config namespaces (i.e. for shared config of the group itself, not one user's group settings)
+        case configGroupInfo = 12
+        case configGroupMembers = 13
+        case configGroupKeys = 14
         
         case legacyClosedGroup = -10
         
@@ -50,7 +55,7 @@ public extension SnodeAPI {
         /// we have seen)
         public var shouldDedupeMessages: Bool {
             switch self {
-                case .`default`, .legacyClosedGroup: return true
+                case .`default`, .legacyClosedGroup, .groupMessages: return true
                     
                 case .configUserProfile, .configContacts,
                     .configConvoInfoVolatile, .configUserGroups,
@@ -87,7 +92,7 @@ public extension SnodeAPI {
         ///
         var batchRequestSizePriority: Int64 {
             switch self {
-                case .`default`, .legacyClosedGroup: return 10
+                case .`default`, .legacyClosedGroup, .groupMessages: return 10
                     
                 case .configUserProfile, .configContacts,
                     .configConvoInfoVolatile, .configUserGroups,

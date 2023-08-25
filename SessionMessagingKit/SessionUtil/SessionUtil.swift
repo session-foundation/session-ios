@@ -74,27 +74,16 @@ public enum SessionUtil {
         }
     }
     
-    public static func loadState(
-        _ db: Database? = nil,
-        userPublicKey: String,
-        ed25519SecretKey: [UInt8]?
-    ) {
+    public static func loadState(_ db: Database, using dependencies: Dependencies = Dependencies()) {
         // Ensure we have the ed25519 key and that we haven't already loaded the state before
         // we continue
         guard
-            let secretKey: [UInt8] = ed25519SecretKey,
+            let ed25519SecretKey: [UInt8] = Identity.fetchUserEd25519KeyPair(db)?.secretKey,
             SessionUtil.configStore.wrappedValue.isEmpty
         else { return }
         
-        // If we weren't given a database instance then get one
-        guard let db: Database = db else {
-            Storage.shared.read { db in
-                SessionUtil.loadState(db, userPublicKey: userPublicKey, ed25519SecretKey: secretKey)
-            }
-            return
-        }
-        
         // Retrieve the existing dumps from the database
+        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
         let existingDumps: Set<ConfigDump> = ((try? ConfigDump.fetchSet(db)) ?? [])
         let existingDumpVariants: Set<ConfigDump.Variant> = existingDumps
             .map { $0.variant }
@@ -102,6 +91,11 @@ public enum SessionUtil {
         let missingRequiredVariants: Set<ConfigDump.Variant> = ConfigDump.Variant.userVariants
             .asSet()
             .subtracting(existingDumpVariants)
+        let groupsByKey: [String: Data] = (try? ClosedGroup
+            .filter(ids: existingDumps.map { $0.publicKey })
+            .fetchAll(db)
+            .reduce(into: [:]) { result, next in result[next.threadId] = next.groupIdentityPrivateKey })
+            .defaulting(to: [:])
         
         // Create the 'config_object' records for each dump
         SessionUtil.configStore.mutate { confStore in
@@ -109,17 +103,21 @@ public enum SessionUtil {
                 confStore[ConfigKey(variant: dump.variant, publicKey: dump.publicKey)] = Atomic(
                     try? SessionUtil.loadState(
                         for: dump.variant,
-                        secretKey: secretKey,
+                        publicKey: dump.publicKey,
+                        userEd25519SecretKey: ed25519SecretKey,
+                        groupEd25519SecretKey: groupsByKey[dump.publicKey].map { Array($0) },
                         cachedData: dump.data
                     )
                 )
             }
             
             missingRequiredVariants.forEach { variant in
-                confStore[ConfigKey(variant: variant, publicKey: userPublicKey)] = Atomic(
+                confStore[ConfigKey(variant: variant, publicKey: currentUserPublicKey)] = Atomic(
                     try? SessionUtil.loadState(
                         for: variant,
-                        secretKey: secretKey,
+                        publicKey: currentUserPublicKey,
+                        userEd25519SecretKey: ed25519SecretKey,
+                        groupEd25519SecretKey: nil,
                         cachedData: nil
                     )
                 )
@@ -127,14 +125,27 @@ public enum SessionUtil {
         }
     }
     
+    public static func storeState(
+        _ configs: [ConfigDump.Variant: UnsafeMutablePointer<config_object>?],
+        publicKey: String
+    ) {
+        SessionUtil.configStore.mutate { confStore in
+            configs.forEach { variant, conf in
+                confStore[ConfigKey(variant: variant, publicKey: publicKey)] = Atomic(conf)
+            }
+        }
+    }
+    
     private static func loadState(
         for variant: ConfigDump.Variant,
-        secretKey ed25519SecretKey: [UInt8],
+        publicKey: String,
+        userEd25519SecretKey: [UInt8],
+        groupEd25519SecretKey: [UInt8]?,
         cachedData: Data?
     ) throws -> UnsafeMutablePointer<config_object>? {
         // Setup initial variables (including getting the memory address for any cached data)
         var conf: UnsafeMutablePointer<config_object>? = nil
-        let error: UnsafeMutablePointer<CChar>? = nil
+        var error: [CChar] = [CChar](repeating: 0, count: 256)
         let cachedDump: (data: UnsafePointer<UInt8>, length: Int)? = cachedData?.withUnsafeBytes { unsafeBytes in
             return unsafeBytes.baseAddress.map {
                 (
@@ -144,33 +155,35 @@ public enum SessionUtil {
             }
         }
         
-        // No need to deallocate the `cachedDump.data` as it'll automatically be cleaned up by
-        // the `cachedDump` lifecycle, but need to deallocate the `error` if it gets set
-        defer {
-            error?.deallocate()
-        }
-        
         // Try to create the object
-        var secretKey: [UInt8] = ed25519SecretKey
+        var secretKey: [UInt8]? = userEd25519SecretKey
         let result: Int32 = {
             switch variant {
                 case .userProfile:
-                    return user_profile_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), error)
+                    return user_profile_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), &error)
 
                 case .contacts:
-                    return contacts_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), error)
+                    return contacts_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), &error)
 
                 case .convoInfoVolatile:
-                    return convo_info_volatile_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), error)
+                    return convo_info_volatile_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), &error)
 
                 case .userGroups:
-                    return user_groups_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), error)
+                    return user_groups_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), &error)
+                    
+                case .groupInfo:
+                    return groups_info_init(&conf, &secretKey, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), &error)
+                    
+                case .groupMembers:
+                    return groups_members_init(&conf, &secretKey, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), &error)
+                    
+                case .groupKeys:
+                    preconditionFailure()
             }
         }()
         
         guard result == 0 else {
-            let errorString: String = (error.map { String(cString: $0) } ?? "unknown error")
-            SNLog("[SessionUtil Error] Unable to create \(variant.rawValue) config object: \(errorString)")
+            SNLog("[SessionUtil Error] Unable to create \(variant.rawValue) config object: \(String(cString: error))")
             throw SessionUtilError.unableToCreateConfigObject
         }
         
@@ -409,6 +422,30 @@ public enum SessionUtil {
                                     
                                 case .userGroups:
                                     try SessionUtil.handleGroupsUpdate(
+                                        db,
+                                        in: conf,
+                                        mergeNeedsDump: config_needs_dump(conf),
+                                        latestConfigSentTimestampMs: latestConfigSentTimestampMs
+                                    )
+                                    
+                                case .groupInfo:
+                                    try SessionUtil.handleGroupInfoUpdate(
+                                        db,
+                                        in: conf,
+                                        mergeNeedsDump: config_needs_dump(conf),
+                                        latestConfigSentTimestampMs: latestConfigSentTimestampMs
+                                    )
+                                    
+                                case .groupMembers:
+                                    try SessionUtil.handleGroupMembersUpdate(
+                                        db,
+                                        in: conf,
+                                        mergeNeedsDump: config_needs_dump(conf),
+                                        latestConfigSentTimestampMs: latestConfigSentTimestampMs
+                                    )
+                                    
+                                case .groupKeys:
+                                    try SessionUtil.handleGroupKeysUpdate(
                                         db,
                                         in: conf,
                                         mergeNeedsDump: config_needs_dump(conf),

@@ -8,7 +8,7 @@ import SessionUtilitiesKit
 import SessionSnodeKit
 
 extension MessageReceiver {
-    public static func handleClosedGroupControlMessage(
+    public static func handleLegacyClosedGroupControlMessage(
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
@@ -16,7 +16,7 @@ extension MessageReceiver {
         using dependencies: Dependencies = Dependencies()
     ) throws {
         switch message.kind {
-            case .new: try handleNewClosedGroup(db, message: message, using: dependencies)
+            case .new: try handleNewLegacyClosedGroup(db, message: message, using: dependencies)
             
             case .encryptionKeyPair:
                 try handleClosedGroupEncryptionKeyPair(
@@ -66,7 +66,7 @@ extension MessageReceiver {
     
     // MARK: - Specific Handling
     
-    private static func handleNewClosedGroup(
+    private static func handleNewLegacyClosedGroup(
         _ db: Database,
         message: ClosedGroupControlMessage,
         using dependencies: Dependencies
@@ -108,7 +108,7 @@ extension MessageReceiver {
             return
         }
         
-        try handleNewClosedGroup(
+        try handleNewLegacyClosedGroup(
             db,
             groupPublicKey: publicKeyAsData.toHexString(),
             name: name,
@@ -122,7 +122,7 @@ extension MessageReceiver {
         )
     }
 
-    internal static func handleNewClosedGroup(
+    internal static func handleNewLegacyClosedGroup(
         _ db: Database,
         groupPublicKey: String,
         name: String,
@@ -157,7 +157,8 @@ extension MessageReceiver {
         let closedGroup: ClosedGroup = try ClosedGroup(
             threadId: groupPublicKey,
             name: name,
-            formationTimestamp: (TimeInterval(formationTimestampMs) / 1000)
+            formationTimestamp: (TimeInterval(formationTimestampMs) / 1000),
+            approved: true // Legacy groups are always approved
         ).saved(db)
         
         // Clear the zombie list if the group wasn't active (ie. had no keys)
@@ -217,7 +218,7 @@ extension MessageReceiver {
             // Update libSession
             try? SessionUtil.add(
                 db,
-                groupPublicKey: groupPublicKey,
+                legacyGroupPublicKey: groupPublicKey,
                 name: name,
                 latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),
                 latestKeyPairSecretKey: Data(encryptionKeyPair.secretKey),
@@ -234,8 +235,8 @@ extension MessageReceiver {
         // Resubscribe for group push notifications
         let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
         
-        PushNotificationAPI
-            .subscribeToLegacyGroups(
+        try? PushNotificationAPI
+            .preparedSubscribeToLegacyGroups(
                 currentUserPublicKey: currentUserPublicKey,
                 legacyGroupIds: try ClosedGroup
                     .select(.threadId)
@@ -247,7 +248,9 @@ extension MessageReceiver {
                     .asRequest(of: String.self)
                     .fetchSet(db)
                     .inserting(groupPublicKey)  // Insert the new key just to be sure
-            )
+            )?
+            .send(using: dependencies)
+            .subscribe(on: DispatchQueue.global(qos: .default), using: dependencies)
             .sinkUntilComplete()
     }
 
@@ -315,7 +318,7 @@ extension MessageReceiver {
             // Update libSession
             try? SessionUtil.update(
                 db,
-                groupPublicKey: groupPublicKey,
+                legacyGroupPublicKey: groupPublicKey,
                 latestKeyPair: keyPair
             )
         }
@@ -352,7 +355,7 @@ extension MessageReceiver {
                 // Update libSession
                 try? SessionUtil.update(
                     db,
-                    groupPublicKey: threadId,
+                    legacyGroupPublicKey: threadId,
                     name: name
                 )
                 
@@ -395,7 +398,7 @@ extension MessageReceiver {
                 // Update libSession
                 try? SessionUtil.update(
                     db,
-                    groupPublicKey: threadId,
+                    legacyGroupPublicKey: threadId,
                     members: allMembers
                         .filter { $0.role == .standard || $0.role == .zombie }
                         .map { $0.profileId }
@@ -502,7 +505,7 @@ extension MessageReceiver {
                 // Update libSession
                 try? SessionUtil.update(
                     db,
-                    groupPublicKey: threadId,
+                    legacyGroupPublicKey: threadId,
                     members: allMembers
                         .filter { $0.role == .standard || $0.role == .zombie }
                         .map { $0.profileId }
@@ -554,6 +557,8 @@ extension MessageReceiver {
             case .memberLeft = messageKind
         else { return }
         
+        // TODO: [GROUPS REBUILD] If the current user is an admin then we need to actually remove the member from the group.
+        
         try processIfValid(
             db,
             threadId: threadId,
@@ -577,7 +582,7 @@ extension MessageReceiver {
                 // Update libSession
                 try? SessionUtil.update(
                     db,
-                    groupPublicKey: threadId,
+                    legacyGroupPublicKey: threadId,
                     members: allMembers
                         .filter { $0.role == .standard || $0.role == .zombie }
                         .map { $0.profileId }
@@ -660,6 +665,7 @@ extension MessageReceiver {
                     try legacyGroupChanges(sender, closedGroup, allMembers)
                     
                 case .group:
+                    // TODO: [GROUPS REBUILD] Need to check if the user has access to historic messages
                     break
                     
                 default: return // Ignore as invalid

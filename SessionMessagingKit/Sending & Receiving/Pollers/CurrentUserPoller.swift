@@ -14,7 +14,7 @@ public final class CurrentUserPoller: Poller {
 
     // MARK: - Settings
     
-    override var namespaces: [SnodeAPI.Namespace] { CurrentUserPoller.namespaces }
+    override func namespaces(for publicKey: String) -> [SnodeAPI.Namespace] { CurrentUserPoller.namespaces }
     
     /// After polling a given snode this many times we always switch to a new one.
     ///

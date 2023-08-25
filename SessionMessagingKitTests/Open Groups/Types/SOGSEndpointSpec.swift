@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import SessionUtilitiesKit
 
 import Quick
 import Nimble
@@ -12,6 +13,19 @@ class SOGSEndpointSpec: QuickSpec {
 
     override func spec() {
         describe("a SOGSEndpoint") {
+            it("provides the correct batch request variant") {
+                expect(OpenGroupAPI.Endpoint.batchRequestVariant).to(equal(.sogs))
+            }
+            
+            it("excludes the correct headers from batch sub request") {
+                expect(OpenGroupAPI.Endpoint.excludedSubRequestHeaders).to(equal([
+                    HTTPHeader.sogsPubKey,
+                    HTTPHeader.sogsTimestamp,
+                    HTTPHeader.sogsNonce,
+                    HTTPHeader.sogsSignature
+                ]))
+            }
+            
             it("generates the path value correctly") {
                 // Utility
                 

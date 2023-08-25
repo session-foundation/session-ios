@@ -28,6 +28,9 @@ internal extension SessionUtil {
             .appending(contentsOf: columnsRelatedToConvoInfoVolatile)
             .appending(contentsOf: columnsRelatedToUserGroups)
             .appending(contentsOf: columnsRelatedToThreads)
+            .appending(contentsOf: columnsRelatedToGroupInfo)
+            .appending(contentsOf: columnsRelatedToGroupMembers)
+            .appending(contentsOf: columnsRelatedToGroupKeys)
             .map { ColumnKey($0) }
             .asSet()
         
@@ -203,7 +206,24 @@ internal extension SessionUtil {
                     }
                 
                 case .group:
-                    break
+                    try SessionUtil.performAndPushChange(
+                        db,
+                        for: .userGroups,
+                        publicKey: userPublicKey
+                    ) { conf in
+                        try SessionUtil.upsert(
+                            groups: threads
+                                .map { thread in
+                                    GroupInfo(
+                                        groupIdentityPublicKey: thread.id,
+                                        priority: thread.pinnedPriority
+                                            .map { Int32($0 == 0 ? SessionUtil.visiblePriority : max($0, 1)) }
+                                            .defaulting(to: SessionUtil.visiblePriority)
+                                    )
+                                },
+                            in: conf
+                        )
+                    }
             }
         }
         
@@ -346,7 +366,8 @@ internal extension SessionUtil {
     ) -> Bool {
         let targetPublicKey: String = {
             switch targetConfig {
-                default: return getUserHexEncodedPublicKey(db)
+                case .userProfile, .contacts, .convoInfoVolatile, .userGroups: return getUserHexEncodedPublicKey(db)
+                case .groupInfo, .groupMembers, .groupKeys: return threadId
             }
         }()
         

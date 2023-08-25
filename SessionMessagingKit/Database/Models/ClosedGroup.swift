@@ -3,6 +3,7 @@
 import Foundation
 import GRDB
 import DifferenceKit
+import SessionSnodeKit
 import SessionUtilitiesKit
 
 public struct ClosedGroup: Codable, Identifiable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
@@ -20,6 +21,16 @@ public struct ClosedGroup: Codable, Identifiable, FetchableRecord, PersistableRe
         case threadId
         case name
         case formationTimestamp
+        
+        case displayPictureUrl
+        case displayPictureFilename
+        case displayPictureEncryptionKey
+        case lastDisplayPictureUpdate
+        
+        case groupIdentityPrivateKey
+        case tag
+        case subkey
+        case approved
     }
     
     /// The Group public key takes up 32 bytes
@@ -37,6 +48,34 @@ public struct ClosedGroup: Codable, Identifiable, FetchableRecord, PersistableRe
     public let threadId: String
     public let name: String
     public let formationTimestamp: TimeInterval
+    
+    /// The URL from which to fetch the groups's display picture.
+    public let displayPictureUrl: String?
+
+    /// The file name of the groups's display picture on local storage.
+    public let displayPictureFilename: String?
+
+    /// The key with which the display picture is encrypted.
+    public let displayPictureEncryptionKey: Data?
+    
+    /// The timestamp (in seconds since epoch) that the display picture was last updated
+    public let lastDisplayPictureUpdate: TimeInterval
+    
+    /// The private key for performing admin actions on this group
+    public let groupIdentityPrivateKey: Data?
+    
+    /// The unique tag for the user within the group
+    ///
+    /// **Note:** This will be `null` if the `groupIdentityPrivateKey`  is set
+    public let tag: Data?
+    
+    /// The unique subkey for the user within the group
+    ///
+    /// **Note:** This will be `null` if the `groupIdentityPrivateKey`  is set
+    public let subkey: Data?
+    
+    /// A flag indicating whether the user has approved the group invitation
+    public let approved: Bool
     
     // MARK: - Relationships
     
@@ -77,11 +116,27 @@ public struct ClosedGroup: Codable, Identifiable, FetchableRecord, PersistableRe
     public init(
         threadId: String,
         name: String,
-        formationTimestamp: TimeInterval
+        formationTimestamp: TimeInterval,
+        displayPictureUrl: String? = nil,
+        displayPictureFilename: String? = nil,
+        displayPictureEncryptionKey: Data? = nil,
+        lastDisplayPictureUpdate: TimeInterval = 0,
+        groupIdentityPrivateKey: Data? = nil,
+        tag: Data? = nil,
+        subkey: Data? = nil,
+        approved: Bool
     ) {
         self.threadId = threadId
         self.name = name
         self.formationTimestamp = formationTimestamp
+        self.displayPictureUrl = displayPictureUrl
+        self.displayPictureFilename = displayPictureFilename
+        self.displayPictureEncryptionKey = displayPictureEncryptionKey
+        self.lastDisplayPictureUpdate = lastDisplayPictureUpdate
+        self.groupIdentityPrivateKey = groupIdentityPrivateKey
+        self.tag = tag
+        self.subkey = subkey
+        self.approved = approved
     }
 }
 
@@ -135,7 +190,8 @@ public extension ClosedGroup {
         _ db: Database? = nil,
         threadIds: [String],
         removeGroupData: Bool,
-        calledFromConfigHandling: Bool
+        calledFromConfigHandling: Bool,
+        using dependencies: Dependencies = Dependencies()
     ) throws {
         guard !threadIds.isEmpty else { return }
         guard let db: Database = db else {
@@ -156,11 +212,12 @@ public extension ClosedGroup {
         threadIds.forEach { threadId in
             ClosedGroupPoller.shared.stopPolling(for: threadId)
             
-            PushNotificationAPI
-                .unsubscribeFromLegacyGroup(
+            try? PushNotificationAPI
+                .preparedUnsubscribeFromLegacyGroup(
                     legacyGroupId: threadId,
                     currentUserPublicKey: userPublicKey
                 )
+                .send(using: dependencies)
                 .sinkUntilComplete()
         }
         

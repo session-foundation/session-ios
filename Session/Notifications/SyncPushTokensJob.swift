@@ -53,7 +53,8 @@ public enum SyncPushTokensJob: JobExecutor {
                     // Unregister from our server
                     if let existingToken: String = lastRecordedPushToken {
                         SNLog("[SyncPushTokensJob] Unregister using last recorded push token: \(redact(existingToken))")
-                        return PushNotificationAPI.unsubscribe(token: Data(hex: existingToken))
+                        return PushNotificationAPI
+                            .unsubscribeAll(token: Data(hex: existingToken), using: dependencies)
                             .map { _ in () }
                             .eraseToAnyPublisher()
                     }
@@ -86,7 +87,7 @@ public enum SyncPushTokensJob: JobExecutor {
         PushRegistrationManager.shared.requestPushTokens()
             .flatMap { (pushToken: String, voipToken: String) -> AnyPublisher<Void, Error> in
                 PushNotificationAPI
-                    .subscribe(
+                    .subscribeAll(
                         token: Data(hex: pushToken),
                         isForcedUpdate: true,
                         using: dependencies

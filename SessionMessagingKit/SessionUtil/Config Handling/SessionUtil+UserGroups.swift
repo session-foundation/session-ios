@@ -605,7 +605,7 @@ public extension SessionUtil {
     
     static func add(
         _ db: Database,
-        groupPublicKey: String,
+        legacyGroupPublicKey: String,
         name: String,
         latestKeyPairPublicKey: Data,
         latestKeyPairSecretKey: Data,
@@ -621,7 +621,7 @@ public extension SessionUtil {
         ) { conf in
             guard conf != nil else { throw SessionUtilError.nilConfigObject }
             
-            var cGroupId: [CChar] = groupPublicKey.cArray.nullTerminated()
+            var cGroupId: [CChar] = legacyGroupPublicKey.cArray.nullTerminated()
             let userGroup: UnsafeMutablePointer<ugroups_legacy_group_info>? = user_groups_get_legacy_group(conf, &cGroupId)
             
             // Need to make sure the group doesn't already exist (otherwise we will end up overriding the
@@ -635,10 +635,10 @@ public extension SessionUtil {
             try SessionUtil.upsert(
                 legacyGroups: [
                     LegacyGroupInfo(
-                        id: groupPublicKey,
+                        id: legacyGroupPublicKey,
                         name: name,
                         lastKeyPair: ClosedGroupKeyPair(
-                            threadId: groupPublicKey,
+                            threadId: legacyGroupPublicKey,
                             publicKey: latestKeyPairPublicKey,
                             secretKey: latestKeyPairSecretKey,
                             receivedTimestamp: latestKeyPairReceivedTimestamp
@@ -647,7 +647,7 @@ public extension SessionUtil {
                         groupMembers: members
                             .map { memberId in
                                 GroupMember(
-                                    groupId: groupPublicKey,
+                                    groupId: legacyGroupPublicKey,
                                     profileId: memberId,
                                     role: .standard,
                                     isHidden: false
@@ -656,7 +656,7 @@ public extension SessionUtil {
                         groupAdmins: admins
                             .map { memberId in
                                 GroupMember(
-                                    groupId: groupPublicKey,
+                                    groupId: legacyGroupPublicKey,
                                     profileId: memberId,
                                     role: .admin,
                                     isHidden: false
@@ -671,7 +671,7 @@ public extension SessionUtil {
     
     static func update(
         _ db: Database,
-        groupPublicKey: String,
+        legacyGroupPublicKey: String,
         name: String? = nil,
         latestKeyPair: ClosedGroupKeyPair? = nil,
         disappearingConfig: DisappearingMessagesConfiguration? = nil,
@@ -686,14 +686,14 @@ public extension SessionUtil {
             try SessionUtil.upsert(
                 legacyGroups: [
                     LegacyGroupInfo(
-                        id: groupPublicKey,
+                        id: legacyGroupPublicKey,
                         name: name,
                         lastKeyPair: latestKeyPair,
                         disappearingConfig: disappearingConfig,
                         groupMembers: members?
                             .map { memberId in
                                 GroupMember(
-                                    groupId: groupPublicKey,
+                                    groupId: legacyGroupPublicKey,
                                     profileId: memberId,
                                     role: .standard,
                                     isHidden: false
@@ -702,7 +702,7 @@ public extension SessionUtil {
                         groupAdmins: admins?
                             .map { memberId in
                                 GroupMember(
-                                    groupId: groupPublicKey,
+                                    groupId: legacyGroupPublicKey,
                                     profileId: memberId,
                                     role: .admin,
                                     isHidden: false
@@ -758,6 +758,52 @@ public extension SessionUtil {
     
     // MARK: -- Group Changes
     
+    static func add(
+        _ db: Database,
+        groupIdentityPublicKey: String,
+        groupIdentityPrivateKey: Data?,
+        name: String,
+        tag: Data?,
+        subkey: Data?
+    ) throws {
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .userGroups,
+            publicKey: getUserHexEncodedPublicKey(db)
+        ) { conf in
+            guard conf != nil else { throw SessionUtilError.nilConfigObject }
+            var cGroupId: [CChar] = groupIdentityPublicKey.cArray.nullTerminated()
+        }
+    }
+    
+    static func update(
+        _ db: Database,
+        groupIdentityPublicKey: String,
+        groupIdentityPrivateKey: Data? = nil,
+        name: String? = nil,
+        tag: Data? = nil,
+        subkey: Data? = nil
+    ) throws {
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .userGroups,
+            publicKey: getUserHexEncodedPublicKey(db)
+        ) { conf in
+            try SessionUtil.upsert(
+                groups: [
+                    GroupInfo(
+                        groupIdentityPublicKey: groupIdentityPublicKey,
+                        groupIdentityPrivateKey: groupIdentityPrivateKey,
+                        name: name,
+                        tag: tag,
+                        subkey: subkey
+                    )
+                ],
+                in: conf
+            )
+        }
+    }
+    
     static func remove(_ db: Database, groupIds: [String]) throws {
         guard !groupIds.isEmpty else { return }
         
@@ -768,13 +814,6 @@ public extension SessionUtil {
 
 extension SessionUtil {
     struct LegacyGroupInfo: Decodable, FetchableRecord, ColumnExpressible {
-        private static let threadIdKey: SQL = SQL(stringLiteral: CodingKeys.threadId.stringValue)
-        private static let nameKey: SQL = SQL(stringLiteral: CodingKeys.name.stringValue)
-        private static let lastKeyPairKey: SQL = SQL(stringLiteral: CodingKeys.lastKeyPair.stringValue)
-        private static let disappearingConfigKey: SQL = SQL(stringLiteral: CodingKeys.disappearingConfig.stringValue)
-        private static let priorityKey: SQL = SQL(stringLiteral: CodingKeys.priority.stringValue)
-        private static let joinedAtKey: SQL = SQL(stringLiteral: CodingKeys.joinedAt.stringValue)
-        
         typealias Columns = CodingKeys
         enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
             case threadId
@@ -821,15 +860,11 @@ extension SessionUtil {
         static func fetchAll(_ db: Database) throws -> [LegacyGroupInfo] {
             let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
             let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
-            let keyPair: TypedTableAlias<ClosedGroupKeyPair> = TypedTableAlias()
-            
-            let prefixLiteral: SQL = SQL(stringLiteral: "\(SessionId.Prefix.standard.rawValue)%")
-            let keyPairThreadIdColumnLiteral: SQL = SQL(stringLiteral: ClosedGroupKeyPair.Columns.threadId.name)
-            let receivedTimestampColumnLiteral: SQL = SQL(stringLiteral: ClosedGroupKeyPair.Columns.receivedTimestamp.name)
-            let threadIdColumnLiteral: SQL = SQL(stringLiteral: DisappearingMessagesConfiguration.Columns.threadId.name)
+            let lastKeyPair: TypedTableAlias<ClosedGroupKeyPair> = TypedTableAlias(LegacyGroupInfo.self, column: .lastKeyPair)
+            let disappearingConfig: TypedTableAlias<DisappearingMessagesConfiguration> = TypedTableAlias(LegacyGroupInfo.self, column: .disappearingConfig)
             
             /// **Note:** The `numColumnsBeforeTypes` value **MUST** match the number of fields before
-            /// the `LegacyGroupInfo.lastKeyPairKey` entry below otherwise the query will fail to
+            /// the `lastKeyPair` entry below otherwise the query will fail to
             /// parse and might throw
             ///
             /// Explicitly set default values for the fields ignored for search results
@@ -837,28 +872,28 @@ extension SessionUtil {
             
             let request: SQLRequest<LegacyGroupInfo> = """
                 SELECT
-                    \(closedGroup[.threadId]) AS \(LegacyGroupInfo.threadIdKey),
-                    \(closedGroup[.name]) AS \(LegacyGroupInfo.nameKey),
-                    \(closedGroup[.formationTimestamp]) AS \(LegacyGroupInfo.joinedAtKey),
-                    \(thread[.pinnedPriority]) AS \(LegacyGroupInfo.priorityKey),
-                    \(LegacyGroupInfo.lastKeyPairKey).*,
-                    \(LegacyGroupInfo.disappearingConfigKey).*
+                    \(closedGroup[.threadId]) AS \(LegacyGroupInfo.Columns.threadId),
+                    \(closedGroup[.name]) AS \(LegacyGroupInfo.Columns.name),
+                    \(closedGroup[.formationTimestamp]) AS \(LegacyGroupInfo.Columns.joinedAt),
+                    \(thread[.pinnedPriority]) AS \(LegacyGroupInfo.Columns.priority),
+                    \(lastKeyPair.allColumns),
+                    \(disappearingConfig.allColumns)
                 
                 FROM \(ClosedGroup.self)
                 JOIN \(SessionThread.self) ON \(thread[.id]) = \(closedGroup[.threadId])
                 LEFT JOIN (
                     SELECT
-                        \(keyPair[.threadId]),
-                        \(keyPair[.publicKey]),
-                        \(keyPair[.secretKey]),
-                        MAX(\(keyPair[.receivedTimestamp])) AS \(receivedTimestampColumnLiteral),
-                        \(keyPair[.threadKeyPairHash])
+                        \(lastKeyPair[.threadId]),
+                        \(lastKeyPair[.publicKey]),
+                        \(lastKeyPair[.secretKey]),
+                        MAX(\(lastKeyPair[.receivedTimestamp])) AS \(ClosedGroupKeyPair.Columns.receivedTimestamp),
+                        \(lastKeyPair[.threadKeyPairHash])
                     FROM \(ClosedGroupKeyPair.self)
-                    GROUP BY \(keyPair[.threadId])
-                ) AS \(LegacyGroupInfo.lastKeyPairKey) ON \(LegacyGroupInfo.lastKeyPairKey).\(keyPairThreadIdColumnLiteral) = \(closedGroup[.threadId])
-                LEFT JOIN \(DisappearingMessagesConfiguration.self) AS \(LegacyGroupInfo.disappearingConfigKey) ON \(LegacyGroupInfo.disappearingConfigKey).\(threadIdColumnLiteral) = \(closedGroup[.threadId])
+                    GROUP BY \(lastKeyPair[.threadId])
+                ) AS \(lastKeyPair) ON \(lastKeyPair[.threadId]) = \(closedGroup[.threadId])
+                LEFT JOIN \(disappearingConfig) ON \(disappearingConfig[.threadId]) = \(closedGroup[.threadId])
                 
-                WHERE \(SQL("\(closedGroup[.threadId]) LIKE '\(prefixLiteral)'"))
+                WHERE \(SQL("\(closedGroup[.threadId]) LIKE '\(SessionId.Prefix.standard)%'"))
             """
             
             let legacyGroupInfoNoMembers: [LegacyGroupInfo] = try request
@@ -869,9 +904,9 @@ extension SessionUtil {
                         DisappearingMessagesConfiguration.numberOfSelectedColumns(db)
                     ])
                     
-                    return ScopeAdapter([
-                        CodingKeys.lastKeyPair.stringValue: adapters[1],
-                        CodingKeys.disappearingConfig.stringValue: adapters[2]
+                    return ScopeAdapter.with(LegacyGroupInfo.self, [
+                        .lastKeyPair: adapters[1],
+                        .disappearingConfig: adapters[2]
                     ])
                 }
                 .fetchAll(db)
@@ -898,7 +933,43 @@ extension SessionUtil {
                 }
         }
     }
-    
+}
+
+// MARK: - GroupInfo
+
+extension SessionUtil {
+    struct GroupInfo {
+        let groupIdentityPublicKey: String
+        let groupIdentityPrivateKey: Data?
+        let name: String?
+        let tag: Data?
+        let subkey: Data?
+        let priority: Int32?
+        let joinedAt: Int64?
+        
+        init(
+            groupIdentityPublicKey: String,
+            groupIdentityPrivateKey: Data? = nil,
+            name: String? = nil,
+            tag: Data? = nil,
+            subkey: Data? = nil,
+            priority: Int32? = nil,
+            joinedAt: Int64? = nil
+        ) {
+            self.groupIdentityPublicKey = groupIdentityPublicKey
+            self.groupIdentityPrivateKey = groupIdentityPrivateKey
+            self.name = name
+            self.tag = tag
+            self.subkey = subkey
+            self.priority = priority
+            self.joinedAt = joinedAt
+        }
+    }
+}
+
+// MARK: - CommunityInfo
+
+extension SessionUtil {
     struct CommunityInfo {
         let urlInfo: OpenGroupUrlInfo
         let priority: Int32?
@@ -911,13 +982,21 @@ extension SessionUtil {
             self.priority = priority
         }
     }
-    
+}
+
+// MARK: - GroupThreadData
+
+extension SessionUtil {
     fileprivate struct GroupThreadData {
         let communities: [PrioritisedData<SessionUtil.OpenGroupUrlInfo>]
         let legacyGroups: [PrioritisedData<LegacyGroupInfo>]
-        let groups: [PrioritisedData<String>]
+        let groups: [PrioritisedData<GroupInfo>]
     }
-    
+}
+
+// MARK: - PrioritisedData
+
+extension SessionUtil {
     fileprivate struct PrioritisedData<T> {
         let data: T
         let priority: Int32

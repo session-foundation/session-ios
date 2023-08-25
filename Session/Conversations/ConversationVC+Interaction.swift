@@ -1212,7 +1212,7 @@ extension ConversationVC:
         guard cellViewModel.threadVariant == .community else { return }
         
         Storage.shared
-            .readPublisher { db -> (OpenGroupAPI.PreparedSendData<OpenGroupAPI.ReactionRemoveAllResponse>, OpenGroupAPI.PendingChange) in
+            .readPublisher { db -> (HTTP.PreparedRequest<OpenGroupAPI.ReactionRemoveAllResponse>, OpenGroupAPI.PendingChange) in
                 guard
                     let openGroup: OpenGroup = try? OpenGroup
                         .fetchOne(db, id: cellViewModel.threadId),
@@ -1223,7 +1223,7 @@ extension ConversationVC:
                         .fetchOne(db)
                 else { throw StorageError.objectNotFound }
                 
-                let sendData: OpenGroupAPI.PreparedSendData<OpenGroupAPI.ReactionRemoveAllResponse> = try OpenGroupAPI
+                let preparedRequest: HTTP.PreparedRequest<OpenGroupAPI.ReactionRemoveAllResponse> = try OpenGroupAPI
                     .preparedReactionDeleteAll(
                         db,
                         emoji: emoji,
@@ -1240,11 +1240,11 @@ extension ConversationVC:
                         type: .removeAll
                     )
                 
-                return (sendData, pendingChange)
+                return (preparedRequest, pendingChange)
             }
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .flatMap { sendData, pendingChange in
-                OpenGroupAPI.send(data: sendData)
+            .flatMap { preparedRequest, pendingChange in
+                preparedRequest.send(using: dependencies)
                     .handleEvents(
                         receiveOutput: { _, response in
                             OpenGroupManager
@@ -1312,7 +1312,7 @@ extension ConversationVC:
         typealias OpenGroupInfo = (
             pendingReaction: Reaction?,
             pendingChange: OpenGroupAPI.PendingChange,
-            sendData: OpenGroupAPI.PreparedSendData<Int64?>
+            preparedRequest: HTTP.PreparedRequest<Int64?>
         )
         
         /// Perform the sending logic, we generate the pending reaction first in a deferred future closure to prevent the OpenGroup
@@ -1399,7 +1399,7 @@ extension ConversationVC:
                             OpenGroupManager.doesOpenGroupSupport(db, capability: .reactions, on: openGroupServer)
                         else { throw MessageSenderError.invalidMessage }
                         
-                        let sendData: OpenGroupAPI.PreparedSendData<Int64?> = try {
+                        let preparedRequest: HTTP.PreparedRequest<Int64?> = try {
                             guard !remove else {
                                 return try OpenGroupAPI
                                     .preparedReactionDelete(
@@ -1423,7 +1423,7 @@ extension ConversationVC:
                                 .map { _, response in response.seqNo }
                         }()
                         
-                        return (nil, (pendingReaction, pendingChange, sendData))
+                        return (nil, (pendingReaction, pendingChange, preparedRequest))
                         
                     default:
                         let sendData: MessageSender.PreparedSendData = try MessageSender.preparedSendData(
@@ -1463,7 +1463,7 @@ extension ConversationVC:
                     return MessageSender.sendImmediate(data: sendData, using: dependencies)
                     
                 case (_, .some(let info)):
-                    return OpenGroupAPI.send(data: info.sendData)
+                    return info.preparedRequest.send(using: dependencies)
                         .handleEvents(
                             receiveOutput: { _, seqNo in
                                 OpenGroupManager
@@ -1970,7 +1970,7 @@ extension ConversationVC:
                                 on: openGroup.server
                             )
                         }
-                        .flatMap { OpenGroupAPI.send(data: $0) }
+                        .flatMap { $0.send(using: dependencies) }
                         .map { _ in () }
                         .eraseToAnyPublisher()
                 ) { [weak self] in
@@ -2160,7 +2160,7 @@ extension ConversationVC:
                 cancelStyle: .alert_text,
                 onConfirm: { [weak self] _ in
                     Storage.shared
-                        .readPublisher { db -> OpenGroupAPI.PreparedSendData<NoResponse> in
+                        .readPublisher { db -> HTTP.PreparedRequest<NoResponse> in
                             guard let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId) else {
                                 throw StorageError.objectNotFound
                             }
@@ -2173,7 +2173,7 @@ extension ConversationVC:
                                     on: openGroup.server
                                 )
                         }
-                        .flatMap { OpenGroupAPI.send(data: $0) }
+                        .flatMap { $0.send(using: dependencies) }
                         .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                         .receive(on: DispatchQueue.main)
                         .sinkUntilComplete(
@@ -2215,7 +2215,7 @@ extension ConversationVC:
                 confirmTitle: "BUTTON_OK".localized(),
                 cancelStyle: .alert_text,
                 onConfirm: { [weak self] _ in
-                    Storage.shared
+                    dependencies.storage
                         .readPublisher { db in
                             guard let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId) else {
                                 throw StorageError.objectNotFound
@@ -2229,7 +2229,7 @@ extension ConversationVC:
                                     on: openGroup.server
                                 )
                         }
-                        .flatMap { OpenGroupAPI.send(data: $0) }
+                        .flatMap { $0.send(using: dependencies) }
                         .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                         .receive(on: DispatchQueue.main)
                         .sinkUntilComplete(

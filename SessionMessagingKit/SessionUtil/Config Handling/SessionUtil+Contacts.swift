@@ -487,12 +487,18 @@ internal extension SessionUtil {
         return updated
     }
     
-    static func updatingDisappearingConfigs<T>(_ db: Database, _ updated: [T]) throws -> [T] {
+    static func updatingDisappearingConfigsOneToOne<T>(_ db: Database, _ updated: [T]) throws -> [T] {
         guard let updatedDisappearingConfigs: [DisappearingMessagesConfiguration] = updated as? [DisappearingMessagesConfiguration] else { throw StorageError.generic }
+        
+        // Filter out any disappearing config changes related to groups
+        let targetUpdatedConfigs: [DisappearingMessagesConfiguration] = updatedDisappearingConfigs
+            .filter { SessionId.Prefix(from: $0.id) != .group }
+        
+        guard !targetUpdatedConfigs.isEmpty else { return updated }
         
         // We should only sync disappearing messages configs which are associated to existing contacts
         let existingContactIds: [String] = (try? Contact
-            .filter(ids: updatedDisappearingConfigs.map { $0.id })
+            .filter(ids: targetUpdatedConfigs.map { $0.id })
             .select(.id)
             .asRequest(of: String.self)
             .fetchAll(db))
@@ -504,7 +510,7 @@ internal extension SessionUtil {
         
         // Get the user public key (updating note to self is handled separately)
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
-        let targetDisappearingConfigs: [DisappearingMessagesConfiguration] = updatedDisappearingConfigs
+        let targetDisappearingConfigs: [DisappearingMessagesConfiguration] = targetUpdatedConfigs
             .filter {
                 $0.id != userPublicKey &&
                 SessionId(from: $0.id)?.prefix == .standard &&
@@ -512,7 +518,7 @@ internal extension SessionUtil {
             }
         
         // Update the note to self disappearing messages config first (if needed)
-        if let updatedUserDisappearingConfig: DisappearingMessagesConfiguration = updatedDisappearingConfigs.first(where: { $0.id == userPublicKey }) {
+        if let updatedUserDisappearingConfig: DisappearingMessagesConfiguration = targetUpdatedConfigs.first(where: { $0.id == userPublicKey }) {
             try SessionUtil.performAndPushChange(
                 db,
                 for: .userProfile,

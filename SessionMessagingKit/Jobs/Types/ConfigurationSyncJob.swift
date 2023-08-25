@@ -92,7 +92,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                     )
                 }
             }
-            .flatMap { (changes: [MessageSender.PreparedSendData]) -> AnyPublisher<HTTP.BatchResponse, Error> in
+            .flatMap { (changes: [MessageSender.PreparedSendData]) -> AnyPublisher<(ResponseInfoType, HTTP.BatchResponse), Error> in
                 SnodeAPI
                     .sendConfigMessages(
                         changes.compactMap { change in
@@ -109,11 +109,11 @@ public enum ConfigurationSyncJob: JobExecutor {
             }
             .subscribe(on: queue)
             .receive(on: queue)
-            .map { (response: HTTP.BatchResponse) -> [ConfigDump] in
+            .map { (_: ResponseInfoType, response: HTTP.BatchResponse) -> [ConfigDump] in
                 /// The number of responses returned might not match the number of changes sent but they will be returned
                 /// in the same order, this means we can just `zip` the two arrays as it will take the smaller of the two and
                 /// correctly align the response to the change
-                zip(response.responses, pendingConfigChanges)
+                zip(response, pendingConfigChanges)
                     .compactMap { (subResponse: Decodable, change: SessionUtil.OutgoingConfResult) in
                         /// If the request wasn't successful then just ignore it (the next time we sync this config we will try
                         /// to send the changes again)
@@ -236,12 +236,15 @@ public extension ConfigurationSyncJob {
         )
     }
     
-    static func run(using dependencies: Dependencies = Dependencies()) -> AnyPublisher<Void, Error> {
+    static func run(
+        publicKey: String,
+        using dependencies: Dependencies = Dependencies()
+    ) -> AnyPublisher<Void, Error> {
         // Trigger the job emitting the result when completed
         return Deferred {
             Future { resolver in
                 ConfigurationSyncJob.run(
-                    Job(variant: .configurationSync),
+                    Job(variant: .configurationSync, threadId: publicKey),
                     queue: .global(qos: .userInitiated),
                     success: { _, _, _ in resolver(Result.success(())) },
                     failure: { _, error, _, _ in resolver(Result.failure(error ?? HTTPError.generic)) },

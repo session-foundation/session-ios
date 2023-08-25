@@ -134,7 +134,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             )
                             
                         case let closedGroupControlMessage as ClosedGroupControlMessage:
-                            try MessageReceiver.handleClosedGroupControlMessage(
+                            try MessageReceiver.handleLegacyClosedGroupControlMessage(
                                 db,
                                 threadId: processedMessage.threadId,
                                 threadVariant: processedMessage.threadVariant,

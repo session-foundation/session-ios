@@ -1,0 +1,33 @@
+// Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
+
+import Foundation
+import GRDB
+import SessionUtilitiesKit
+
+enum _017_GroupsRebuildChanges: Migration {
+    static let target: TargetMigrations.Identifier = .messagingKit
+    static let identifier: String = "GroupsRebuildChanges"
+    static let needsConfigSync: Bool = false
+    static let minExpectedRunDuration: TimeInterval = 0.1
+    static var requirements: [MigrationRequirement] = [.sessionUtilStateLoaded]
+    
+    static func migrate(_ db: GRDB.Database) throws {
+        try db.alter(table: ClosedGroup.self) { t in
+            t.add(.displayPictureUrl, .text)
+            t.add(.displayPictureFilename, .text)
+            t.add(.displayPictureEncryptionKey, .blob)
+            t.add(.lastDisplayPictureUpdate, .integer)
+                .notNull()
+                .defaults(to: 0)
+            t.add(.groupIdentityPrivateKey, .blob)
+            t.add(.tag, .blob)
+            t.add(.subkey, .blob)
+            t.add(.approved, .boolean)
+                .notNull()
+                .defaults(to: true)
+        }
+        
+        Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
+    }
+}
+

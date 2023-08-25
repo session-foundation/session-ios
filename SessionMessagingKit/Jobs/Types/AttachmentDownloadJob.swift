@@ -95,7 +95,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                 else { throw AttachmentDownloadError.invalidUrl }
                 
                 return Storage.shared
-                    .readPublisher { db -> OpenGroupAPI.PreparedSendData<Data>? in
+                    .readPublisher { db -> HTTP.PreparedRequest<Data>? in
                         try OpenGroup.fetchOne(db, id: threadId)
                             .map { openGroup in
                                 try OpenGroupAPI
@@ -107,8 +107,8 @@ public enum AttachmentDownloadJob: JobExecutor {
                                     )
                             }
                     }
-                    .flatMap { maybePreparedSendData -> AnyPublisher<Data, Error> in
-                        guard let preparedSendData: OpenGroupAPI.PreparedSendData<Data> = maybePreparedSendData else {
+                    .flatMap { maybePreparedRequest -> AnyPublisher<Data, Error> in
+                        guard let preparedRequest: HTTP.PreparedRequest<Data> = maybePreparedRequest else {
                             return FileServerAPI
                                 .download(
                                     fileId,
@@ -117,8 +117,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                                 .eraseToAnyPublisher()
                         }
                         
-                        return OpenGroupAPI
-                            .send(data: preparedSendData)
+                        return preparedRequest.send(using: dependencies)
                             .map { _, data in data }
                             .eraseToAnyPublisher()
                     }

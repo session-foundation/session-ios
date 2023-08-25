@@ -159,9 +159,9 @@ extension MessageSender {
                     try? OpenGroup.fetchOne(db, id: threadId)
                 )
             }
-            .flatMap { attachments, openGroup -> AnyPublisher<[String?], Error> in
+            .flatMap { attachments, openGroup -> AnyPublisher<[String], Error> in
                 guard !attachments.isEmpty else {
-                    return Just<[String?]>([])
+                    return Just<[String]>([])
                         .setFailureType(to: Error.self)
                         .eraseToAnyPublisher()
                 }
@@ -169,7 +169,7 @@ extension MessageSender {
                 return Publishers
                     .MergeMany(
                         attachments
-                            .map { attachment -> AnyPublisher<String?, Error> in
+                            .map { attachment -> AnyPublisher<String, Error> in
                                 attachment
                                     .upload(
                                         to: (
@@ -183,11 +183,9 @@ extension MessageSender {
                     .collect()
                     .eraseToAnyPublisher()
             }
-            .map { results -> PreparedSendData in
+            .map { fileIds -> PreparedSendData in
                 // Once the attachments are processed then update the PreparedSendData with
                 // the fileIds associated to the message
-                let fileIds: [String] = results.compactMap { result -> String? in result }
-                
                 return preparedSendData.with(fileIds: fileIds)
             }
             .eraseToAnyPublisher()

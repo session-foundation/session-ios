@@ -2,7 +2,7 @@
 
 import Foundation
 
-extension PushNotificationAPI {
+public extension PushNotificationAPI {
     struct SubscribeResponse: Codable {
         /// Flag indicating the success of the registration
         let success: Bool?

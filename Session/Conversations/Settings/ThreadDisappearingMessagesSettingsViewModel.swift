@@ -537,7 +537,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                     try SessionUtil
                         .update(
                             db,
-                            groupPublicKey: threadId,
+                            legacyGroupPublicKey: threadId,
                             disappearingConfig: updatedConfig
                         )
                     

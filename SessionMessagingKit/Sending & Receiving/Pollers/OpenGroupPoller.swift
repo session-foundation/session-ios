@@ -126,7 +126,7 @@ extension OpenGroupAPI {
             )
             
             return dependencies.storage
-                .readPublisher { db -> (Int64, PreparedSendData<BatchResponse>) in
+                .readPublisher { db -> (Int64, HTTP.PreparedRequest<HTTP.BatchResponseMap<OpenGroupAPI.Endpoint>>) in
                     let failureCount: Int64 = (try? OpenGroup
                         .filter(OpenGroup.Columns.server == server)
                         .select(max(OpenGroup.Columns.pollFailureCount))
@@ -146,8 +146,8 @@ extension OpenGroupAPI {
                             )
                     )
                 }
-                .flatMap { failureCount, sendData in
-                    OpenGroupAPI.send(data: sendData, using: dependencies)
+                .flatMap { failureCount, preparedRequest in
+                    preparedRequest.send(using: dependencies)
                         .map { info, response in (failureCount, info, response) }
                 }
                 .handleEvents(
@@ -330,7 +330,7 @@ extension OpenGroupAPI {
                         using: dependencies
                     )
                 }
-                .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
+                .flatMap { $0.send(using: dependencies) }
                 .flatMap { [weak self] _, responseBody -> AnyPublisher<Void, Error> in
                     guard let strongSelf = self, isBackgroundPollerValid() else {
                         return Just(())
@@ -372,7 +372,7 @@ extension OpenGroupAPI {
         
         private func handlePollResponse(
             info: ResponseInfoType,
-            response: BatchResponse,
+            response: HTTP.BatchResponseMap<OpenGroupAPI.Endpoint>,
             failureCount: Int64,
             using dependencies: Dependencies
         ) {

@@ -474,11 +474,10 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
                         groupPublicKey: threadId,
                         deleteThread: true
                     )
-                    
                 }
                 .flatMap {
                     MessageSender.update(
-                        groupPublicKey: threadId,
+                        legacyGroupPublicKey: threadId,
                         with: updatedMemberIds,
                         name: updatedName
                     )

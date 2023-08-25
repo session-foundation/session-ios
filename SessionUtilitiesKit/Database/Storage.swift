@@ -50,7 +50,7 @@ open class Storage {
     private var unprocessedMigrationRequirements: Atomic<[MigrationRequirement]> = Atomic(MigrationRequirement.allCases)
     private var migrator: DatabaseMigrator?
     private var migrationProgressUpdater: Atomic<((String, CGFloat) -> ())>?
-    private var migrationRequirementProcesser: Atomic<(Database?, MigrationRequirement) -> ()>?
+    private var migrationRequirementProcesser: Atomic<(Database, MigrationRequirement) -> ()>?
     
     // MARK: - Initialization
     
@@ -151,7 +151,7 @@ open class Storage {
         migrationTargets: [MigratableTarget.Type],
         async: Bool = true,
         onProgressUpdate: ((CGFloat, TimeInterval) -> ())?,
-        onMigrationRequirement: @escaping (Database?, MigrationRequirement) -> (),
+        onMigrationRequirement: @escaping (Database, MigrationRequirement) -> (),
         onComplete: @escaping (Swift.Result<Void, Error>, Bool) -> ()
     ) {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
@@ -240,14 +240,20 @@ open class Storage {
         
         // Store the logic to run when the migration completes
         let migrationCompleted: (Swift.Result<Void, Error>) -> () = { [weak self] result in
-            // Process any unprocessed requirements which need to be processed before completion
-            // then clear out the state
-            self?.unprocessedMigrationRequirements.wrappedValue
-                .filter { $0.shouldProcessAtCompletionIfNotRequired }
-                .forEach { self?.migrationRequirementProcesser?.wrappedValue(nil, $0) }
+            // Clear out the stored migration state
+            let remainingRequirements: [MigrationRequirement] = (self?.unprocessedMigrationRequirements.wrappedValue
+                .filter { $0.shouldProcessAtCompletionIfNotRequired })
+                .defaulting(to: [])
+            let requirementProcesser: ((Database, MigrationRequirement) -> ())? = self?.migrationRequirementProcesser?.wrappedValue
             self?.migrationsCompleted.mutate { $0 = true }
             self?.migrationProgressUpdater = nil
             self?.migrationRequirementProcesser = nil
+            
+            // Process any unprocessed requirements which need to be processed before completion
+            // then clear out the state
+            if !remainingRequirements.isEmpty && requirementProcesser != nil {
+                self?.write { db in remainingRequirements.forEach { requirementProcesser?(db, $0) } }
+            }
             
             // Reset in case there is a requirement on a migration which runs when returning from
             // the background

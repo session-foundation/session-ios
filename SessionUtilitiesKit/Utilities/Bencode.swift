@@ -9,11 +9,12 @@ public protocol BencodableType {
     static var isDictionary: Bool { get }
 }
 
-public struct BencodeResponse<T: Codable> {
+public struct BencodeResponse<T: Decodable> {
     public let info: T
     public let data: Data?
 }
 
+extension BencodeResponse: Encodable where T: Encodable {}
 extension BencodeResponse: Equatable where T: Equatable {}
 
 public enum Bencode {

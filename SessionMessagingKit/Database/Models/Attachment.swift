@@ -968,6 +968,10 @@ extension Attachment {
         return true
     }
     
+    public static func downloadUrl(for fileId: String) -> String {
+        return "\(FileServerAPI.server)/file/\(fileId)"
+    }
+    
     public static func fileId(for downloadUrl: String?) -> String? {
         return downloadUrl
             .map { urlString -> String? in
@@ -1042,12 +1046,18 @@ extension Attachment {
     internal func upload(
         to destination: Attachment.Destination,
         using dependencies: Dependencies
-    ) -> AnyPublisher<String?, Error> {
+    ) -> AnyPublisher<String, Error> {
         // This can occur if an AttachmnetUploadJob was explicitly created for a message
         // dependant on the attachment being uploaded (in this case the attachment has
         // already been uploaded so just succeed)
         guard state != .uploaded else {
-            return Just(Attachment.fileId(for: self.downloadUrl))
+            guard let fileId: String = Attachment.fileId(for: self.downloadUrl) else {
+                SNLog("Previously uploaded attachment had invalid fileId.")
+                return Fail(error: AttachmentError.invalidData)
+                    .eraseToAnyPublisher()
+            }
+            
+            return Just(fileId)
                 .setFailureType(to: Error.self)
                 .eraseToAnyPublisher()
         }
@@ -1061,8 +1071,8 @@ extension Attachment {
         
         let attachmentId: String = self.id
         
-        return Storage.shared
-            .writePublisher { db -> (OpenGroupAPI.PreparedSendData<FileUploadResponse>?, String?, Data?, Data?) in
+        return dependencies.storage
+            .writePublisher { db -> (HTTP.PreparedRequest<FileUploadResponse>?, String?, Data?, Data?) in
                 // If the attachment is a downloaded attachment, check if it came from
                 // the server and if so just succeed immediately (no use re-uploading
                 // an attachment that is already present on the server) - or if we want
@@ -1108,7 +1118,7 @@ extension Attachment {
                     .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.uploading))
                 
                 // We need database access for OpenGroup uploads so generate prepared data
-                let preparedSendData: OpenGroupAPI.PreparedSendData<FileUploadResponse>? = try {
+                let preparedRequest: HTTP.PreparedRequest<FileUploadResponse>? = try {
                     switch destination {
                         case .openGroup(let openGroup):
                             return try OpenGroupAPI
@@ -1124,13 +1134,13 @@ extension Attachment {
                 }()
                 
                 return (
-                    preparedSendData,
+                    preparedRequest,
                     nil,
                     (destination.shouldEncrypt ? encryptionKey as Data : nil),
                     (destination.shouldEncrypt ? digest as Data : nil)
                 )
             }
-            .flatMap { preparedSendData, existingFileId, encryptionKey, digest -> AnyPublisher<(String?, Data?, Data?), Error> in
+            .flatMap { preparedRequest, existingFileId, encryptionKey, digest -> AnyPublisher<(String, Data?, Data?), Error> in
                 // No need to upload if the file was already uploaded
                 if let fileId: String = existingFileId {
                     return Just((fileId, encryptionKey, digest))
@@ -1140,7 +1150,7 @@ extension Attachment {
                 
                 switch destination {
                     case .openGroup:
-                        return OpenGroupAPI.send(data: preparedSendData)
+                        return preparedRequest.send(using: dependencies)
                             .map { _, response -> (String, Data?, Data?) in (response.id, encryptionKey, digest) }
                             .eraseToAnyPublisher()
                         
@@ -1150,12 +1160,12 @@ extension Attachment {
                             .eraseToAnyPublisher()
                 }
             }
-            .flatMap { fileId, encryptionKey, digest -> AnyPublisher<String?, Error> in
+            .flatMap { fileId, encryptionKey, digest -> AnyPublisher<String, Error> in
                 /// Save the final upload info
                 ///
                 /// **Note:** We **MUST** use the `.with` function here to ensure the `isValid` flag is
                 /// updated correctly
-                Storage.shared
+                dependencies.storage
                     .writePublisher { db in
                         try self
                             .with(
@@ -1165,7 +1175,7 @@ extension Attachment {
                                     self.creationTimestamp ??
                                     (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
                                 ),
-                                downloadUrl: fileId.map { "\(FileServerAPI.server)/file/\($0)" },
+                                downloadUrl: Attachment.downloadUrl(for: fileId),
                                 encryptionKey: encryptionKey,
                                 digest: digest
                             )
@@ -1179,7 +1189,7 @@ extension Attachment {
                     switch result {
                         case .finished: break
                         case .failure:
-                            Storage.shared.write { db in
+                            dependencies.storage.write { db in
                                 try Attachment
                                     .filter(id: attachmentId)
                                     .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.failedUpload))

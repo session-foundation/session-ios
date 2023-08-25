@@ -10,7 +10,15 @@ public typealias NoBody = Empty
 public typealias NoResponse = Empty
 
 public protocol EndpointType: Hashable {
+    static var batchRequestVariant: HTTP.BatchRequest.Child.Variant { get }
+    static var excludedSubRequestHeaders: [HTTPHeader] { get }
+    
     var path: String { get }
+}
+
+public extension EndpointType {
+    static var batchRequestVariant: HTTP.BatchRequest.Child.Variant { .unsupported }
+    static var excludedSubRequestHeaders: [HTTPHeader] { [] }
 }
 
 // MARK: - Request

@@ -66,4 +66,14 @@ public extension SQLInterpolation {
     private func generateSelection<T: ColumnExpressible>(for type: T.Type) -> String {
         return "SELECT 1"
     }
+    
+    /// Appends the table name of the record type.
+    ///
+    ///     // SELECT * FROM user WHERE user.id LIKE '05%'
+    ///     let user: TypedTableAlias<User> = TypedTableAlias()
+    ///     let request: SQLRequest<User> = "SELECT * FROM \(user) WHERE \(user[.id]) LIKE '\(SessionId.Prefix.standard)%'"
+    @_disfavoredOverload
+    mutating func appendInterpolation(_ idPrefix: SessionId.Prefix) {
+        appendLiteral("\(SQL(stringLiteral: "\(idPrefix.rawValue)"))")
+    }
 }
