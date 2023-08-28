@@ -195,6 +195,7 @@ public indirect enum ThemeValue: Hashable {
     case alert_text
     case alert_background
     case alert_buttonBackground
+    case toast_background
     
     // ConversationButton
     case conversationButton_background

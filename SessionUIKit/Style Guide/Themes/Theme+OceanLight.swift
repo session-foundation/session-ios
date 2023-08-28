@@ -83,6 +83,7 @@ internal enum Theme_OceanLight: ThemeColors {
         .alert_text: .oceanLight0,
         .alert_background: .oceanLight7,
         .alert_buttonBackground: .oceanLight7,
+        .toast_background: .oceanLight5,
         
         // ConversationButton
         .conversationButton_background: .oceanLight7,
@@ -203,6 +204,7 @@ internal enum Theme_OceanLight: ThemeColors {
         .alert_text: .oceanLight0,
         .alert_background: .oceanLight7,
         .alert_buttonBackground: .oceanLight7,
+        .toast_background: .oceanLight5,
         
         // ConversationButton
         .conversationButton_background: .oceanLight7,

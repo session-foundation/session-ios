@@ -12,7 +12,7 @@ struct LoadAccountView: View {
     @State var tabIndex = 0
     @State private var recoveryPassword: String = ""
     @State private var hexEncodedSeed: String = ""
-    @State private var errorString: String? = nil
+    @State private var errorString: String? = "Test Error"
         
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -273,18 +273,9 @@ struct ScanQRCodeView: View {
                     maxHeight: .infinity
                 )
                 
-                if error?.isEmpty == false {
-                    VStack {
-                        Spacer()
-                        
-                        Text(error!)
-                            .font(.system(size: Values.verySmallFontSize))
-                            .foregroundColor(themeColor: .textPrimary)
-                            .multilineTextAlignment(.center)
-                            .frame(
-                                width: 320,
-                                height: 44
-                            )
+                if let error: String = error, !error.isEmpty {
+                    withAnimation(.easeIn(duration: 0.5)) {
+                        Toast(error)
                     }
                 }
             } else {

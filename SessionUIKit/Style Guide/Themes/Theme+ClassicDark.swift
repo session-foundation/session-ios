@@ -83,6 +83,7 @@ internal enum Theme_ClassicDark: ThemeColors {
         .alert_text: .classicDark6,
         .alert_background: .classicDark1,
         .alert_buttonBackground: .classicDark1,
+        .toast_background: .classicDark2,
         
         // ConversationButton
         .conversationButton_background: .classicDark1,
@@ -203,6 +204,7 @@ internal enum Theme_ClassicDark: ThemeColors {
         .alert_text: .classicDark6,
         .alert_background: .classicDark1,
         .alert_buttonBackground: .classicDark1,
+        .toast_background: .classicDark2,
         
         // ConversationButton
         .conversationButton_background: .classicDark1,
