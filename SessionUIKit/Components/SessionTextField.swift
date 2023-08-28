@@ -6,8 +6,17 @@ import Combine
 public struct SessionTextField: View {
     @Binding var text: String
     @Binding var error: String?
+    @State var previousError: String = ""
     
     let placeholder: String
+    var textThemeColor: ThemeValue {
+        (error?.isEmpty == false) ? .danger : .textPrimary
+    }
+    var isErrorMode: Bool {
+        guard previousError.isEmpty else { return true }
+        if error?.isEmpty == false { return true }
+        return false
+    }
     
     static let height: CGFloat = isIPhone5OrSmaller ? CGFloat(48) : CGFloat(80)
     static let cornerRadius: CGFloat = 13
@@ -27,19 +36,20 @@ public struct SessionTextField: View {
                 if text.isEmpty {
                     Text(placeholder)
                         .font(.system(size: Values.smallFontSize))
-                        .foregroundColor(themeColor: (error?.isEmpty == false) ? .danger : .textSecondary)
+                        .foregroundColor(themeColor: isErrorMode ? .danger : .textSecondary)
                 }
                 
                 SwiftUI.TextField(
                     "",
                     text: $text.onChange{ value in
                         if error?.isEmpty == false && text != value {
+                            previousError = error!
                             error = nil
                         }
                     }
                 )
                 .font(.system(size: Values.smallFontSize))
-                .foregroundColor(themeColor: (error?.isEmpty == false) ? .danger : .textPrimary)
+                .foregroundColor(themeColor: textThemeColor)
             }
             .padding(.horizontal, Values.largeSpacing)
             .frame(maxWidth: .infinity)
@@ -51,11 +61,11 @@ public struct SessionTextField: View {
                         height: Self.cornerRadius
                     )
                 )
-                .stroke(themeColor: (error?.isEmpty == false) ? .danger : .borderSeparator)
+                .stroke(themeColor: isErrorMode ? .danger : .borderSeparator)
             )
             
             ZStack {
-                Text(error ?? "")
+                Text(error ?? previousError)
                     .bold()
                     .font(.system(size: Values.smallFontSize))
                     .foregroundColor(themeColor: .danger)
