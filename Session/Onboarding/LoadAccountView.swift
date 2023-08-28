@@ -12,7 +12,7 @@ struct LoadAccountView: View {
     @State var tabIndex = 0
     @State private var recoveryPassword: String = ""
     @State private var hexEncodedSeed: String = ""
-    @State private var errorString: String? = "Test Error"
+    @State private var errorString: String? = nil
         
     var body: some View {
         ZStack(alignment: .topLeading) {
