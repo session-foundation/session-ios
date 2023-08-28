@@ -48,7 +48,9 @@ struct LoadAccountView: View {
     private func continueWithSeed(seed: Data, onError: (() -> ())?) {
         if (seed.count != 16) {
             errorString = "recovery_password_error_generic".localized()
-            onError?()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                onError?()
+            }
             return
         }
         let (ed25519KeyPair, x25519KeyPair) = try! Identity.generate(from: seed)
@@ -272,12 +274,6 @@ struct ScanQRCodeView: View {
                     maxWidth: .infinity,
                     maxHeight: .infinity
                 )
-                
-                if let error: String = error, !error.isEmpty {
-                    withAnimation(.easeIn(duration: 0.5)) {
-                        Toast(error)
-                    }
-                }
             } else {
                 VStack(
                     alignment: .center,
@@ -305,6 +301,7 @@ struct ScanQRCodeView: View {
                 .padding(.bottom, Values.massiveSpacing)
             }
         }
+        .toastView(message: $error)
     }
     
     private func requestCameraAccess() {

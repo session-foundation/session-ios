@@ -84,6 +84,10 @@ extension View {
                 .foregroundColor(themeColor: color)
         )
     }
+    
+    public func toastView(message: Binding<String?>) -> some View {
+        self.modifier(ToastModifier(message: message))
+    }
 }
 
 extension Binding {
