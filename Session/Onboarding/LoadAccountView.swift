@@ -265,8 +265,8 @@ struct ScanQRCodeView: View {
         ZStack{
             if hasCameraAccess {
                 VStack {
-                    QRCodeScanningVC_SwiftUI { string, onError in
-                        hexEncodedSeed = string
+                    QRCodeScanningVC_SwiftUI { result, onError in
+                        hexEncodedSeed = result
                         continueWithhexEncodedSeed?(onError)
                     }
                 }
