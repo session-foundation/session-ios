@@ -8,9 +8,7 @@ import SessionUtilitiesKit
 
 struct LandingView: View {
     @EnvironmentObject var host: HostWrapper
-    
-    @State var numberOfBubblesShown: Int = 0
-    
+
     var body: some View {
         ZStack(alignment: .center) {
             if #available(iOS 14.0, *) {
@@ -33,24 +31,7 @@ struct LandingView: View {
                 Spacer(minLength: 0)
                     .frame(maxHeight: 2 * Values.mediumSpacing)
                 
-                FakeChat($numberOfBubblesShown)
-                    .onAppear {
-                        guard numberOfBubblesShown < 4 else { return }
-                        
-                        Timer.scheduledTimerOnMainThread(withTimeInterval: 0.2, repeats: false) { _ in
-                            withAnimation(.spring().speed(0.68)) {
-                                numberOfBubblesShown = 1
-                            }
-                            Timer.scheduledTimerOnMainThread(withTimeInterval: 1.5, repeats: true) { timer in
-                                withAnimation(.spring().speed(0.68)) {
-                                    numberOfBubblesShown += 1
-                                    if numberOfBubblesShown >= 4 {
-                                        timer.invalidate()
-                                    }
-                                }
-                            }
-                        }
-                    }
+                FakeChat()
                 
                 Spacer(minLength: 0)
                     .frame(maxHeight: Values.massiveSpacing)
@@ -192,7 +173,7 @@ struct ChatBubble: View {
 }
 
 struct FakeChat: View {
-    @Binding var numberOfBubblesShown: Int
+    @State var numberOfBubblesShown: Int = 0
     
     let chatBubbles: [ChatBubble] = [
         ChatBubble(text: "onboarding_chat_bubble_1".localized(), outgoing: false),
@@ -200,10 +181,6 @@ struct FakeChat: View {
         ChatBubble(text: "onboarding_chat_bubble_3".localized(), outgoing: false),
         ChatBubble(text: "onboarding_chat_bubble_4".localized(), outgoing: true),
     ]
-    
-    init(_ numberOfBubblesShown: Binding<Int>) {
-        self._numberOfBubblesShown = numberOfBubblesShown
-    }
     
     var body: some View {
         VStack(
@@ -235,6 +212,23 @@ struct FakeChat: View {
             alignment: .bottom
         )
         .padding(.horizontal, 36)
+        .onAppear {
+            guard numberOfBubblesShown < 4 else { return }
+            
+            Timer.scheduledTimerOnMainThread(withTimeInterval: 0.2, repeats: false) { _ in
+                withAnimation(.spring().speed(0.68)) {
+                    numberOfBubblesShown = 1
+                }
+                Timer.scheduledTimerOnMainThread(withTimeInterval: 1.5, repeats: true) { timer in
+                    withAnimation(.spring().speed(0.68)) {
+                        numberOfBubblesShown += 1
+                        if numberOfBubblesShown >= 4 {
+                            timer.invalidate()
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
