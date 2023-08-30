@@ -36,10 +36,6 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
             SetCurrentAppContext(appContext)
         }
         
-        // Need to manually trigger these since we don't have a "mainWindow" here and the current theme
-        // might have been changed since the share extension was last opened
-        ThemeManager.applySavedTheme()
-
         Logger.info("")
 
         _ = AppVersion.sharedInstance()
@@ -66,6 +62,11 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                     case .failure: SNLog("[SessionShareExtension] Failed to complete migrations")
                     case .success:
                         DispatchQueue.main.async {
+                            // Need to manually trigger these since we don't have a "mainWindow" here
+                            // and the current theme might have been changed since the share extension
+                            // was last opened
+                            ThemeManager.applySavedTheme()
+                            
                             // performUpdateCheck must be invoked after Environment has been initialized because
                             // upgrade process may depend on Environment.
                             self?.versionMigrationsDidComplete(needsConfigSync: needsConfigSync)
