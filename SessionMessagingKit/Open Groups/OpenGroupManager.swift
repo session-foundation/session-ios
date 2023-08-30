@@ -786,14 +786,14 @@ public final class OpenGroupManager {
                     }
                 }
                 
-                if let messageInfo: MessageReceiveJob.Details.MessageInfo = processedMessage?.messageInfo {
+                if let messageInfo: MessageReceiveJob.Details.MessageInfo = processedMessage?.messageInfo, let proto: SNProtoContent = processedMessage?.proto {
                     try MessageReceiver.handle(
                         db,
                         threadId: (lookup.sessionId ?? lookup.blindedId),
                         threadVariant: .contact,    // Technically not open group messages
                         message: messageInfo.message,
                         serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                        associatedWithProto: try SNProtoContent.parseData(messageInfo.serializedProtoData),
+                        associatedWithProto: proto,
                         using: dependencies
                     )
                 }
