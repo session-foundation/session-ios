@@ -155,6 +155,7 @@ extension ConversationVC:
         _ sendMediaNavigationController: SendMediaNavigationController,
         didApproveAttachments attachments: [SignalAttachment],
         forThreadId threadId: String,
+        threadVariant: SessionThread.Variant,
         messageText: String?,
         using dependencies: Dependencies
     ) {
@@ -181,7 +182,14 @@ extension ConversationVC:
 
     // MARK: - AttachmentApprovalViewControllerDelegate
     
-    func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didApproveAttachments attachments: [SignalAttachment], forThreadId threadId: String, messageText: String?, using dependencies: Dependencies) {
+    func attachmentApproval(
+        _ attachmentApproval: AttachmentApprovalViewController,
+        didApproveAttachments attachments: [SignalAttachment],
+        forThreadId threadId: String,
+        threadVariant: SessionThread.Variant,
+        messageText: String?,
+        using dependencies: Dependencies
+    ) {
         sendMessage(text: (messageText ?? ""), attachments: attachments, using: dependencies)
         resetMentions()
         
@@ -256,11 +264,13 @@ extension ConversationVC:
     
     func handleLibraryButtonTapped() {
         let threadId: String = self.viewModel.threadData.threadId
+        let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         
         Permissions.requestLibraryPermissionIfNeeded { [weak self] in
             DispatchQueue.main.async {
                 let sendMediaNavController = SendMediaNavigationController.showingMediaLibraryFirst(
-                    threadId: threadId
+                    threadId: threadId,
+                    threadVariant: threadVariant
                 )
                 sendMediaNavController.sendMediaNavDelegate = self
                 sendMediaNavController.modalPresentationStyle = .fullScreen
@@ -278,7 +288,10 @@ extension ConversationVC:
             SNLog("Proceeding without microphone access. Any recorded video will be silent.")
         }
         
-        let sendMediaNavController = SendMediaNavigationController.showingCameraFirst(threadId: self.viewModel.threadData.threadId)
+        let sendMediaNavController = SendMediaNavigationController.showingCameraFirst(
+            threadId: self.viewModel.threadData.threadId,
+            threadVariant: self.viewModel.threadData.threadVariant
+        )
         sendMediaNavController.sendMediaNavDelegate = self
         sendMediaNavController.modalPresentationStyle = .fullScreen
         
@@ -364,6 +377,7 @@ extension ConversationVC:
     func showAttachmentApprovalDialog(for attachments: [SignalAttachment]) {
         let navController = AttachmentApprovalViewController.wrappedInNavController(
             threadId: self.viewModel.threadData.threadId,
+            threadVariant: self.viewModel.threadData.threadVariant,
             attachments: attachments,
             approvalDelegate: self
         )
@@ -648,6 +662,7 @@ extension ConversationVC:
 
         let approvalVC = AttachmentApprovalViewController.wrappedInNavController(
             threadId: self.viewModel.threadData.threadId,
+            threadVariant: self.viewModel.threadData.threadVariant,
             attachments: [ attachment ],
             approvalDelegate: self
         )

@@ -95,6 +95,19 @@ public extension ClosedGroup {
     }
 }
 
+// MARK: - Search Queries
+
+public extension ClosedGroup {
+    struct FullTextSearch: Decodable, ColumnExpressible {
+        public typealias Columns = CodingKeys
+        public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
+            case name
+        }
+        
+        let name: String
+    }
+}
+
 // MARK: - Convenience
 
 public extension ClosedGroup {
