@@ -141,7 +141,7 @@ public final class SnodeAPI {
 
     // MARK: - Public API
     
-    public static func hasCachedSnodesInclusingExpired() -> Bool {
+    public static func hasCachedSnodesIncludingExpired() -> Bool {
         loadSnodePoolIfNeeded()
         
         return !hasInsufficientSnodes
@@ -1009,7 +1009,7 @@ public final class SnodeAPI {
     
     // MARK: - Internal API
     
-    private static func getNetworkTime(
+    public static func getNetworkTime(
         from snode: Snode,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<UInt64, Error> {
@@ -1024,7 +1024,14 @@ public final class SnodeAPI {
                 using: dependencies
             )
             .decoded(as: GetNetworkTimestampResponse.self, using: dependencies)
-            .map { _, response in response.timestamp }
+            .map { _, response in
+                // Assume we've fetched the networkTime in order to send a message to the specified snode, in
+                // which case we want to update the 'clockOffsetMs' value for subsequent requests
+                let offset = (Int64(response.timestamp) - Int64(floor(dependencies.dateNow.timeIntervalSince1970 * 1000)))
+                SnodeAPI.clockOffsetMs.mutate { $0 = offset }
+
+                return response.timestamp
+            }
             .eraseToAnyPublisher()
     }
     

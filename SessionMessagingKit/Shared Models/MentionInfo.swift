@@ -3,12 +3,14 @@
 import GRDB
 import SessionUtilitiesKit
 
-public struct MentionInfo: FetchableRecord, Decodable {
-    fileprivate static let threadVariantKey: SQL = SQL(stringLiteral: CodingKeys.threadVariant.stringValue)
-    fileprivate static let openGroupServerKey: SQL = SQL(stringLiteral: CodingKeys.openGroupServer.stringValue)
-    fileprivate static let openGroupRoomTokenKey: SQL = SQL(stringLiteral: CodingKeys.openGroupRoomToken.stringValue)
-    
-    fileprivate static let profileString: String = CodingKeys.profile.stringValue
+public struct MentionInfo: FetchableRecord, Decodable, ColumnExpressible {
+    public typealias Columns = CodingKeys
+    public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
+        case profile
+        case threadVariant
+        case openGroupServer
+        case openGroupRoomToken
+    }
     
     public let profile: Profile
     public let threadVariant: SessionThread.Variant
@@ -79,7 +81,7 @@ public extension MentionInfo {
                     return SQLRequest("""
                         SELECT
                             \(Profile.self).*,
-                            \(SQL("\(threadVariant) AS \(MentionInfo.threadVariantKey)"))
+                            \(SQL("\(threadVariant) AS \(MentionInfo.Columns.threadVariant)"))
                     
                         \(targetJoin)
                         \(targetWhere) AND \(SQL("\(profile[.id]) = \(threadId)"))
@@ -89,7 +91,7 @@ public extension MentionInfo {
                     return SQLRequest("""
                         SELECT
                             \(Profile.self).*,
-                            \(SQL("\(threadVariant) AS \(MentionInfo.threadVariantKey)"))
+                            \(SQL("\(threadVariant) AS \(MentionInfo.Columns.threadVariant)"))
                     
                         \(targetJoin)
                         JOIN \(GroupMember.self) ON (
@@ -107,9 +109,9 @@ public extension MentionInfo {
                         SELECT
                             \(Profile.self).*,
                             MAX(\(interaction[.timestampMs])),  -- Want the newest interaction (for sorting)
-                            \(SQL("\(threadVariant) AS \(MentionInfo.threadVariantKey)")),
-                            \(openGroup[.server]) AS \(MentionInfo.openGroupServerKey),
-                            \(openGroup[.roomToken]) AS \(MentionInfo.openGroupRoomTokenKey)
+                            \(SQL("\(threadVariant) AS \(MentionInfo.Columns.threadVariant)")),
+                            \(openGroup[.server]) AS \(MentionInfo.Columns.openGroupServer),
+                            \(openGroup[.roomToken]) AS \(MentionInfo.Columns.openGroupRoomToken)
                     
                         \(targetJoin)
                         JOIN \(Interaction.self) ON (
@@ -130,8 +132,8 @@ public extension MentionInfo {
                 Profile.numberOfSelectedColumns(db)
             ])
             
-            return ScopeAdapter([
-                MentionInfo.profileString: adapters[0]
+            return ScopeAdapter.with(MentionInfo.self, [
+                .profile: adapters[0]
             ])
         }
     }

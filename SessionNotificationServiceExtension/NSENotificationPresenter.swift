@@ -45,8 +45,11 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
             .replacingMentions(for: thread.id))
             .defaulting(to: "APN_Message".localized())
         
-        var userInfo: [String: Any] = [ NotificationServiceExtension.isFromRemoteKey: true ]
-        userInfo[NotificationServiceExtension.threadIdKey] = thread.id
+        let userInfo: [String: Any] = [
+            NotificationServiceExtension.isFromRemoteKey: true,
+            NotificationServiceExtension.threadIdKey: thread.id,
+            NotificationServiceExtension.threadVariantRaw: thread.variant.rawValue
+        ]
         
         let notificationContent = UNMutableNotificationContent()
         notificationContent.userInfo = userInfo
@@ -145,8 +148,11 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         // Only notify missed calls
         guard messageInfo.state == .missed || messageInfo.state == .permissionDenied else { return }
         
-        var userInfo: [String: Any] = [ NotificationServiceExtension.isFromRemoteKey: true ]
-        userInfo[NotificationServiceExtension.threadIdKey] = thread.id
+        let userInfo: [String: Any] = [
+            NotificationServiceExtension.isFromRemoteKey: true,
+            NotificationServiceExtension.threadIdKey: thread.id,
+            NotificationServiceExtension.threadVariantRaw: thread.variant.rawValue
+        ]
         
         let notificationContent = UNMutableNotificationContent()
         notificationContent.userInfo = userInfo
@@ -206,8 +212,11 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
             default: notificationBody = NotificationStrings.incomingMessageBody
         }
 
-        var userInfo: [String: Any] = [ NotificationServiceExtension.isFromRemoteKey: true ]
-        userInfo[NotificationServiceExtension.threadIdKey] = thread.id
+        let userInfo: [String: Any] = [
+            NotificationServiceExtension.isFromRemoteKey: true,
+            NotificationServiceExtension.threadIdKey: thread.id,
+            NotificationServiceExtension.threadVariantRaw: thread.variant.rawValue
+        ]
         
         let notificationContent = UNMutableNotificationContent()
         notificationContent.userInfo = userInfo

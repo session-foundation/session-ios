@@ -522,7 +522,7 @@ extension Attachment {
                     \(interaction[.id]) = \(interactionAttachment[.interactionId]) OR
                     (
                         \(interaction[.linkPreviewUrl]) = \(linkPreview[.url]) AND
-                        \(Interaction.linkPreviewFilterLiteral)
+                        \(Interaction.linkPreviewFilterLiteral())
                     )
                 )
             
@@ -568,7 +568,7 @@ extension Attachment {
                     \(interaction[.id]) = \(interactionAttachment[.interactionId]) OR
                     (
                         \(interaction[.linkPreviewUrl]) = \(linkPreview[.url]) AND
-                        \(Interaction.linkPreviewFilterLiteral)
+                        \(Interaction.linkPreviewFilterLiteral())
                     )
                 )
             

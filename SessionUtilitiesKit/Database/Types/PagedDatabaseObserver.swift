@@ -1351,18 +1351,24 @@ public class AssociatedRecord<T, PagedType>: ErasedAssociatedRecord where T: Fet
         
         // Fetch the inserted/updated rows
         let additionalFilters: SQL = SQL(rowIds.contains(Column.rowID))
-        let updatedItems: [T] = (try? dataQuery(additionalFilters)
-            .fetchAll(db))
-            .defaulting(to: [])
         
-        // If the inserted/updated rows we irrelevant (eg. associated to another thread, a quote or a link
-        // preview) then trigger the update callback (if there were deletions) and stop here
-        guard !updatedItems.isEmpty else { return hasOtherChanges }
-        
-        // Process the upserted data (assume at least one value changed)
-        dataCache.mutate { $0 = $0.upserting(items: updatedItems) }
-        
-        return true
+        do {
+            let updatedItems: [T] = try dataQuery(additionalFilters)
+                .fetchAll(db)
+            
+            // If the inserted/updated rows we irrelevant (eg. associated to another thread, a quote or a link
+            // preview) then trigger the update callback (if there were deletions) and stop here
+            guard !updatedItems.isEmpty else { return hasOtherChanges }
+            
+            // Process the upserted data (assume at least one value changed)
+            dataCache.mutate { $0 = $0.upserting(items: updatedItems) }
+            
+            return true
+        }
+        catch {
+            SNLog("[PagedDatabaseObserver] Error loading associated data: \(error)")
+            return hasOtherChanges
+        }
     }
     
     public func clearCache(_ db: Database) {
