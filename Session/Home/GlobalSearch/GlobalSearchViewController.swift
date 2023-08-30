@@ -203,6 +203,11 @@ class GlobalSearchViewController: BaseVC, SessionUtilRespondingViewController, U
                     ])
                 }
                 catch {
+                    // Don't log the 'interrupt' error as that's just the user typing too fast
+                    if (error as? DatabaseError)?.resultCode != DatabaseError.SQLITE_INTERRUPT {
+                        SNLog("[GlobalSearch] Failed to find results due to error: \(error)")
+                    }
+                    
                     return .failure(error)
                 }
             }

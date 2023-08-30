@@ -3,21 +3,64 @@
 import Foundation
 import GRDB
 
-public class TypedTableAlias<T> where T: TableRecord, T: ColumnExpressible {
-    public let alias: TableAlias = TableAlias(name: T.databaseTableName)
+public struct TypedTableAlias<T: ColumnExpressible> {
+    public enum RowIdColumn {
+        case rowId
+    }
     
-    public init() {}
+    internal let name: String
+    internal let tableName: String?
+    internal let alias: TableAlias
+    
+    public var allColumns: SQLSelection { alias[AllColumns().sqlSelection] }
+    public var never: NeverJoiningTypedTableAlias<T> { NeverJoiningTypedTableAlias<T>(alias: self) }
+    
+    // MARK: - Initialization
+    
+    public init(name: String, tableName: String? = nil) {
+        self.name = name
+        self.tableName = tableName
+        self.alias = TableAlias(name: name)
+    }
+    
+    public init(name: String) where T: TableRecord {
+        self.name = name
+        self.tableName = T.databaseTableName
+        self.alias = TableAlias(name: name)
+    }
+    
+    public init() where T: TableRecord {
+        self = TypedTableAlias(name: T.databaseTableName)
+    }
+    
+    public init<VM: ColumnExpressible>(_ viewModel: VM.Type, column: VM.Columns, tableName: String?) {
+        self.name = column.name
+        self.tableName = tableName
+        self.alias = TableAlias(name: name)
+    }
+    
+    public init<VM: ColumnExpressible>(_ viewModel: VM.Type, column: VM.Columns) where T: TableRecord {
+        self = TypedTableAlias(viewModel, column: column, tableName: T.databaseTableName)
+    }
+    
+    // MARK: - Functions
     
     public subscript(_ column: T.Columns) -> SQLExpression {
         return alias[column.name]
     }
     
-    /// **Warning:** For this to work you **MUST** call the '.aliased()' method when joining or it will
-    /// throw when trying to decode
-    public func allColumns() -> SQLSelection {
-        return alias[AllColumns().sqlSelection]
+    public subscript(_ column: RowIdColumn) -> SQLSelection {
+        return alias[Column.rowID]
     }
 }
+
+// MARK: - NeverJoiningTypedTableAlias
+
+public struct NeverJoiningTypedTableAlias<T: ColumnExpressible> {
+    internal let alias: TypedTableAlias<T>
+}
+
+// MARK: - Extensions
 
 extension QueryInterfaceRequest {
     public func aliased<T>(_ typedAlias: TypedTableAlias<T>) -> Self {
@@ -32,7 +75,5 @@ extension Association {
 }
 
 extension TableAlias {
-    public func allColumns() -> SQLSelection {
-        return self[AllColumns().sqlSelection]
-    }
+    public var allColumns: SQLSelection { self[AllColumns().sqlSelection] }
 }

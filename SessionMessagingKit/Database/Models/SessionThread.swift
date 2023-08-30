@@ -365,7 +365,7 @@ public extension SessionThread {
         let contact: TypedTableAlias<Contact> = TypedTableAlias()
         
         return """
-            SELECT \(thread.allColumns())
+            SELECT \(thread.allColumns)
             FROM \(SessionThread.self)
             LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])
             WHERE (
