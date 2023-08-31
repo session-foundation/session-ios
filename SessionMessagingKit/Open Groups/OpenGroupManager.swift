@@ -219,7 +219,8 @@ public final class OpenGroupManager {
                 .updateAllAndConfig(
                     db,
                     OpenGroup.Columns.isActive.set(to: true),
-                    OpenGroup.Columns.sequenceNumber.set(to: 0)
+                    OpenGroup.Columns.sequenceNumber.set(to: 0),
+                    using: dependencies
                 )
         }
         
@@ -269,7 +270,8 @@ public final class OpenGroupManager {
                                 db,
                                 server: server,
                                 rootToken: roomToken,
-                                publicKey: publicKey
+                                publicKey: publicKey,
+                                using: dependencies
                             )
                         }
                         
@@ -369,7 +371,7 @@ public final class OpenGroupManager {
             .deleteAll(db)
         
         if !calledFromConfigHandling, let server: String = server, let roomToken: String = roomToken {
-            try? SessionUtil.remove(db, server: server, roomToken: roomToken)
+            try? SessionUtil.remove(db, server: server, roomToken: roomToken, using: dependencies)
         }
     }
     

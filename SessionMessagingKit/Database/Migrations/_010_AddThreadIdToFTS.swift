@@ -12,7 +12,7 @@ enum _010_AddThreadIdToFTS: Migration {
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 3
     
-    static func migrate(_ db: Database) throws {
+    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         // Can't actually alter a virtual table in SQLite so we need to drop and recreate it,
         // luckily this is actually pretty quick
         if try db.tableExists(Interaction.fullTextSearchTableName) {

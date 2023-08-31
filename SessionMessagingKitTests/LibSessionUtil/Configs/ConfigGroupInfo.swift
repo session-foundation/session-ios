@@ -17,6 +17,7 @@ extension LibSessionSpec {
             context("GROUP_INFO") {
                 // MARK: - generates config correctly
                 it("generates config correctly") {
+                    let userSeed: Data = Data(hex: "0123456789abcdef0123456789abcdef")
                     let seed: Data = Data(
                         hex: "0123456789abcdef0123456789abcdeffedcba9876543210fedcba9876543210"
                     )

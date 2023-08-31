@@ -11,7 +11,7 @@ enum _007_HomeQueryOptimisationIndexes: Migration {
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.01
     
-    static func migrate(_ db: Database) throws {
+    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         try db.create(
             index: "interaction_on_wasRead_and_hasMention_and_threadId",
             on: Interaction.databaseTableName,

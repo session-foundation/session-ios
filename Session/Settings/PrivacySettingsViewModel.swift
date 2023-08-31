@@ -10,12 +10,14 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 
 class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.NavButton, PrivacySettingsViewModel.Section, PrivacySettingsViewModel.Item> {
+    private let dependencies: Dependencies
     private let shouldShowCloseButton: Bool
     
     // MARK: - Initialization
     
-    init(shouldShowCloseButton: Bool = false) {
+    init(shouldShowCloseButton: Bool = false, using dependencies: Dependencies = Dependencies()) {
         self.shouldShowCloseButton = shouldShowCloseButton
+        self.dependencies = dependencies
         
         super.init()
     }
@@ -111,9 +113,9 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
         }
         .removeDuplicates()
         .handleEvents(didFail: { SNLog("[PrivacySettingsViewModel] Observation failed with error: \($0)") })
-        .publisher(in: Storage.shared)
+        .publisher(in: dependencies.storage)
         .withPrevious()
-        .map { (previous: State?, current: State) -> [SectionModel] in
+        .map { [dependencies] (previous: State?, current: State) -> [SectionModel] in
             return [
                 SectionModel(
                     model: .screenSecurity,
@@ -146,8 +148,12 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                                     return
                                 }
                                 
-                                Storage.shared.write { db in
-                                    try db.setAndUpdateConfig(.isScreenLockEnabled, to: !db[.isScreenLockEnabled])
+                                dependencies.storage.write { db in
+                                    try db.setAndUpdateConfig(
+                                        .isScreenLockEnabled,
+                                        to: !db[.isScreenLockEnabled],
+                                        using: dependencies
+                                    )
                                 }
                             }
                         )
@@ -168,10 +174,11 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                                 )
                             ),
                             onTap: { [weak self] in
-                                Storage.shared.write { db in
+                                dependencies.storage.write { db in
                                     try db.setAndUpdateConfig(
                                         .checkForCommunityMessageRequests,
-                                        to: !db[.checkForCommunityMessageRequests]
+                                        to: !db[.checkForCommunityMessageRequests],
+                                        using: dependencies
                                     )
                                 }
                             }
@@ -193,8 +200,12 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                                 )
                             ),
                             onTap: {
-                                Storage.shared.write { db in
-                                    try db.setAndUpdateConfig(.areReadReceiptsEnabled, to: !db[.areReadReceiptsEnabled])
+                                dependencies.storage.write { db in
+                                    try db.setAndUpdateConfig(
+                                        .areReadReceiptsEnabled,
+                                        to: !db[.areReadReceiptsEnabled],
+                                        using: dependencies
+                                    )
                                 }
                             }
                         )
@@ -247,8 +258,12 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                                 )
                             ),
                             onTap: {
-                                Storage.shared.write { db in
-                                    try db.setAndUpdateConfig(.typingIndicatorsEnabled, to: !db[.typingIndicatorsEnabled])
+                                dependencies.storage.write { db in
+                                    try db.setAndUpdateConfig(
+                                        .typingIndicatorsEnabled,
+                                        to: !db[.typingIndicatorsEnabled],
+                                        using: dependencies
+                                    )
                                 }
                             }
                         )
@@ -269,8 +284,12 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                                 )
                             ),
                             onTap: {
-                                Storage.shared.write { db in
-                                    try db.setAndUpdateConfig(.areLinkPreviewsEnabled, to: !db[.areLinkPreviewsEnabled])
+                                dependencies.storage.write { db in
+                                    try db.setAndUpdateConfig(
+                                        .areLinkPreviewsEnabled,
+                                        to: !db[.areLinkPreviewsEnabled],
+                                        using: dependencies
+                                    )
                                 }
                             }
                         )
@@ -303,8 +322,12 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                                 onConfirm: { _ in Permissions.requestMicrophonePermissionIfNeeded() }
                             ),
                             onTap: {
-                                Storage.shared.write { db in
-                                    try db.setAndUpdateConfig(.areCallsEnabled, to: !db[.areCallsEnabled])
+                                dependencies.storage.write { db in
+                                    try db.setAndUpdateConfig(
+                                        .areCallsEnabled,
+                                        to: !db[.areCallsEnabled],
+                                        using: dependencies
+                                    )
                                 }
                             }
                         )

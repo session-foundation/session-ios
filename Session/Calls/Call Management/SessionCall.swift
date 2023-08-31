@@ -283,13 +283,13 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     
     // MARK: - Call Message Handling
     
-    public func updateCallMessage(mode: EndCallMode) {
+    public func updateCallMessage(mode: EndCallMode, using dependencies: Dependencies = Dependencies()) {
         guard let callInteractionId: Int64 = callInteractionId else { return }
         
         let duration: TimeInterval = self.duration
         let hasStartedConnecting: Bool = self.hasStartedConnecting
         
-        Storage.shared.writeAsync(
+        dependencies.storage.writeAsync(
             updates: { db in
                 guard let interaction: Interaction = try? Interaction.fetchOne(db, id: callInteractionId) else {
                     return
@@ -344,7 +344,8 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
                     threadId: interaction.threadId,
                     threadVariant: threadVariant,
                     includingOlder: false,
-                    trySendReadReceipt: false
+                    trySendReadReceipt: false,
+                    using: dependencies
                 )
             },
             completion: { _, _ in

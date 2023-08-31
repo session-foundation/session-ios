@@ -146,10 +146,10 @@ class OpenGroupManagerSpec: QuickSpec {
                 )
                 
                 mockStorage.write { db in
-                    try Identity(variant: .x25519PublicKey, data: Data.data(fromHex: TestConstants.publicKey)!).insert(db)
-                    try Identity(variant: .x25519PrivateKey, data: Data.data(fromHex: TestConstants.privateKey)!).insert(db)
-                    try Identity(variant: .ed25519PublicKey, data: Data.data(fromHex: TestConstants.edPublicKey)!).insert(db)
-                    try Identity(variant: .ed25519SecretKey, data: Data.data(fromHex: TestConstants.edSecretKey)!).insert(db)
+                    try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
+                    try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
+                    try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
+                    try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
                     
                     try testGroupThread.insert(db)
                     try testOpenGroup.insert(db)
@@ -170,8 +170,8 @@ class OpenGroupManagerSpec: QuickSpec {
                     }
                     .thenReturn(
                         KeyPair(
-                            publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
-                            secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
+                            publicKey: Data(hex: TestConstants.publicKey).bytes,
+                            secretKey: Data(hex: TestConstants.edSecretKey).bytes
                         )
                     )
                 mockCrypto
@@ -337,7 +337,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     openGroupManager.startPolling(using: dependencies)
                     
                     expect(mockOGMCache)
-                        .to(call(matchingParameters: true) {
+                        .to(call(matchingParameters: .all) {
                             $0.pollers = [
                                 "testserver": OpenGroupAPI.Poller(for: "testserver"),
                                 "testserver1": OpenGroupAPI.Poller(for: "testserver1")
@@ -350,7 +350,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     openGroupManager.startPolling(using: dependencies)
                     
                     expect(mockOGMCache)
-                        .to(call(matchingParameters: true) { $0.isPolling = true })
+                        .to(call(matchingParameters: .all) { $0.isPolling = true })
                 }
                 
                 // MARK: -- does nothing if already polling
@@ -389,14 +389,14 @@ class OpenGroupManagerSpec: QuickSpec {
                 it("removes all pollers") {
                     openGroupManager.stopPolling(using: dependencies)
                     
-                    expect(mockOGMCache).to(call(matchingParameters: true) { $0.pollers = [:] })
+                    expect(mockOGMCache).to(call(matchingParameters: .all) { $0.pollers = [:] })
                 }
                 
                 // MARK: - updates the isPolling flag
                 it("updates the isPolling flag") {
                     openGroupManager.stopPolling(using: dependencies)
                     
-                    expect(mockOGMCache).to(call(matchingParameters: true) { $0.isPolling = false })
+                    expect(mockOGMCache).to(call(matchingParameters: .all) { $0.isPolling = false })
                 }
             }
             
@@ -853,7 +853,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         .sinkAndStore(in: &disposables)
                     
                     expect(mockOGMCache)
-                        .to(call(matchingParameters: true) {
+                        .to(call(matchingParameters: .all) {
                             $0.pollers = ["testserver": OpenGroupAPI.Poller(for: "testserver")]
                         })
                 }
@@ -1036,7 +1036,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 )
                         }
                         
-                        expect(mockOGMCache).to(call(matchingParameters: true) { $0.pollers = [:] })
+                        expect(mockOGMCache).to(call(matchingParameters: .all) { $0.pollers = [:] })
                     }
                     
                     // MARK: ---- removes the open group
@@ -1615,7 +1615,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         }
                         
                         expect(mockOGMCache)
-                            .to(call(matchingParameters: true) {
+                            .to(call(matchingParameters: .all) {
                                 $0.pollers = ["testserver": OpenGroupAPI.Poller(for: "testserver")]
                             })
                     }
@@ -2698,8 +2698,8 @@ class OpenGroupManagerSpec: QuickSpec {
                         mockStorage.write { db in
                             let otherKey: String = TestConstants.publicKey.replacingOccurrences(of: "7", with: "6")
                             
-                            try Identity(variant: .x25519PublicKey, data: Data.data(fromHex: otherKey)!).save(db)
-                            try Identity(variant: .x25519PrivateKey, data: Data.data(fromHex: TestConstants.privateKey)!).save(db)
+                            try Identity(variant: .x25519PublicKey, data: Data(hex: otherKey)).save(db)
+                            try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).save(db)
                         }
                         
                         expect(
@@ -2724,8 +2724,8 @@ class OpenGroupManagerSpec: QuickSpec {
                                 isHidden: false
                             ).insert(db)
                             
-                            try Identity(variant: .ed25519PublicKey, data: Data.data(fromHex: otherKey)!).save(db)
-                            try Identity(variant: .ed25519SecretKey, data: Data.data(fromHex: TestConstants.edSecretKey)!).save(db)
+                            try Identity(variant: .ed25519PublicKey, data: Data(hex: otherKey)).save(db)
+                            try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).save(db)
                         }
                         
                         expect(
@@ -2753,8 +2753,8 @@ class OpenGroupManagerSpec: QuickSpec {
                             }
                             .thenReturn(
                                 KeyPair(
-                                    publicKey: Data.data(fromHex: otherKey)!.bytes,
-                                    secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
+                                    publicKey: Data(hex: otherKey).bytes,
+                                    secretKey: Data(hex: TestConstants.edSecretKey).bytes
                                 )
                             )
                         mockStorage.write { db in
@@ -2801,8 +2801,8 @@ class OpenGroupManagerSpec: QuickSpec {
                         mockStorage.write { db in
                             let otherKey: String = TestConstants.publicKey.replacingOccurrences(of: "7", with: "6")
                             
-                            try Identity(variant: .ed25519PublicKey, data: Data.data(fromHex: otherKey)!).save(db)
-                            try Identity(variant: .ed25519SecretKey, data: Data.data(fromHex: TestConstants.edSecretKey)!).save(db)
+                            try Identity(variant: .ed25519PublicKey, data: Data(hex: otherKey)).save(db)
+                            try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).save(db)
                         }
                         
                         expect(
@@ -2827,10 +2827,10 @@ class OpenGroupManagerSpec: QuickSpec {
                                 isHidden: false
                             ).insert(db)
                             
-                            try Identity(variant: .x25519PublicKey, data: Data.data(fromHex: otherKey)!).save(db)
-                            try Identity(variant: .x25519PrivateKey, data: Data.data(fromHex: TestConstants.privateKey)!).save(db)
-                            try Identity(variant: .ed25519PublicKey, data: Data.data(fromHex: TestConstants.publicKey)!).save(db)
-                            try Identity(variant: .ed25519SecretKey, data: Data.data(fromHex: TestConstants.edSecretKey)!).save(db)
+                            try Identity(variant: .x25519PublicKey, data: Data(hex: otherKey)).save(db)
+                            try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).save(db)
+                            try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.publicKey)).save(db)
+                            try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).save(db)
                         }
                         
                         expect(
@@ -2858,8 +2858,8 @@ class OpenGroupManagerSpec: QuickSpec {
                             }
                             .thenReturn(
                                 KeyPair(
-                                    publicKey: Data.data(fromHex: otherKey)!.bytes,
-                                    secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
+                                    publicKey: Data(hex: otherKey).bytes,
+                                    secretKey: Data(hex: TestConstants.edSecretKey).bytes
                                 )
                             )
                         mockStorage.write { db in
@@ -2870,10 +2870,10 @@ class OpenGroupManagerSpec: QuickSpec {
                                 isHidden: false
                             ).insert(db)
                             
-                            try Identity(variant: .x25519PublicKey, data: Data.data(fromHex: TestConstants.publicKey)!).save(db)
-                            try Identity(variant: .x25519PrivateKey, data: Data.data(fromHex: TestConstants.privateKey)!).save(db)
-                            try Identity(variant: .ed25519PublicKey, data: Data.data(fromHex: TestConstants.publicKey)!).save(db)
-                            try Identity(variant: .ed25519SecretKey, data: Data.data(fromHex: TestConstants.edSecretKey)!).save(db)
+                            try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).save(db)
+                            try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).save(db)
+                            try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.publicKey)).save(db)
+                            try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).save(db)
                         }
                         
                         expect(
@@ -2945,8 +2945,8 @@ class OpenGroupManagerSpec: QuickSpec {
                             }
                             .thenReturn(
                                 KeyPair(
-                                    publicKey: Data.data(fromHex: otherKey)!.bytes,
-                                    secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
+                                    publicKey: Data(hex: otherKey).bytes,
+                                    secretKey: Data(hex: TestConstants.edSecretKey).bytes
                                 )
                             )
                         
@@ -2976,8 +2976,8 @@ class OpenGroupManagerSpec: QuickSpec {
                             }
                             .thenReturn(
                                 KeyPair(
-                                    publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
-                                    secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
+                                    publicKey: Data(hex: TestConstants.publicKey).bytes,
+                                    secretKey: Data(hex: TestConstants.edSecretKey).bytes
                                 )
                             )
                         mockStorage.write { db in
@@ -2988,10 +2988,10 @@ class OpenGroupManagerSpec: QuickSpec {
                                 isHidden: false
                             ).insert(db)
                             
-                            try Identity(variant: .x25519PublicKey, data: Data.data(fromHex: otherKey)!).save(db)
-                            try Identity(variant: .x25519PrivateKey, data: Data.data(fromHex: TestConstants.privateKey)!).save(db)
-                            try Identity(variant: .ed25519PublicKey, data: Data.data(fromHex: TestConstants.publicKey)!).save(db)
-                            try Identity(variant: .ed25519SecretKey, data: Data.data(fromHex: TestConstants.edSecretKey)!).save(db)
+                            try Identity(variant: .x25519PublicKey, data: Data(hex: otherKey)).save(db)
+                            try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).save(db)
+                            try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.publicKey)).save(db)
+                            try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).save(db)
                         }
                         
                         expect(
@@ -3018,8 +3018,8 @@ class OpenGroupManagerSpec: QuickSpec {
                             }
                             .thenReturn(
                                 KeyPair(
-                                    publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
-                                    secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
+                                    publicKey: Data(hex: TestConstants.publicKey).bytes,
+                                    secretKey: Data(hex: TestConstants.edSecretKey).bytes
                                 )
                             )
                         mockStorage.write { db in
@@ -3032,10 +3032,10 @@ class OpenGroupManagerSpec: QuickSpec {
                                 isHidden: false
                             ).insert(db)
                             
-                            try Identity(variant: .x25519PublicKey, data: Data.data(fromHex: TestConstants.publicKey)!).save(db)
-                            try Identity(variant: .x25519PrivateKey, data: Data.data(fromHex: TestConstants.privateKey)!).save(db)
-                            try Identity(variant: .ed25519PublicKey, data: Data.data(fromHex: otherKey)!).save(db)
-                            try Identity(variant: .ed25519SecretKey, data: Data.data(fromHex: TestConstants.edSecretKey)!).save(db)
+                            try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).save(db)
+                            try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).save(db)
+                            try Identity(variant: .ed25519PublicKey, data: Data(hex: otherKey)).save(db)
+                            try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).save(db)
                         }
                         
                         expect(
@@ -3088,7 +3088,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     let publisher = OpenGroupManager.getDefaultRoomsIfNeeded(using: dependencies)
                     
                     expect(mockOGMCache)
-                        .to(call(matchingParameters: true) {
+                        .to(call(matchingParameters: .all) {
                             $0.defaultRoomsPublisher = publisher
                         })
                 }
@@ -3188,7 +3188,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     expect(error)
                         .to(matchError(HTTPError.parsingFailed))
                     expect(mockOGMCache)
-                        .to(call(matchingParameters: true) {
+                        .to(call(matchingParameters: .all) {
                             $0.defaultRoomsPublisher = nil
                         })
                 }
@@ -3242,7 +3242,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         .sinkAndStore(in: &disposables)
                     
                     expect(mockUserDefaults)
-                        .to(call(matchingParameters: true) {
+                        .to(call(matchingParameters: .all) {
                             $0.set(
                                 testDate,
                                 forKey: SNUserDefaults.Date.lastOpenGroupImageUpdate.rawValue
@@ -3351,7 +3351,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         .sinkAndStore(in: &disposables)
                     
                     expect(mockUserDefaults)
-                        .toNot(call(matchingParameters: true) {
+                        .toNot(call(matchingParameters: .all) {
                             $0.set(
                                 dependencies.dateNow,
                                 forKey: SNUserDefaults.Date.lastOpenGroupImageUpdate.rawValue
@@ -3372,7 +3372,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     publisher.sinkAndStore(in: &disposables)
                     
                     expect(mockOGMCache)
-                        .to(call(matchingParameters: true) {
+                        .to(call(matchingParameters: .all) {
                             $0.groupImagePublishers = [OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): publisher]
                         })
                 }
@@ -3433,7 +3433,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             .sinkAndStore(in: &disposables)
                         
                         expect(mockUserDefaults)
-                            .to(call(matchingParameters: true) {
+                            .to(call(matchingParameters: .all) {
                                 $0.set(
                                     dependencies.dateNow,
                                     forKey: SNUserDefaults.Date.lastOpenGroupImageUpdate.rawValue

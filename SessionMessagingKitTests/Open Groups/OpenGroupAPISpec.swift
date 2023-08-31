@@ -45,10 +45,10 @@ class OpenGroupAPISpec: QuickSpec {
                 )
                 
                 mockStorage.write { db in
-                    try Identity(variant: .x25519PublicKey, data: Data.data(fromHex: TestConstants.publicKey)!).insert(db)
-                    try Identity(variant: .x25519PrivateKey, data: Data.data(fromHex: TestConstants.privateKey)!).insert(db)
-                    try Identity(variant: .ed25519PublicKey, data: Data.data(fromHex: TestConstants.edPublicKey)!).insert(db)
-                    try Identity(variant: .ed25519SecretKey, data: Data.data(fromHex: TestConstants.edSecretKey)!).insert(db)
+                    try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
+                    try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
+                    try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
+                    try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
                     
                     try OpenGroup(
                         server: "testServer",
@@ -76,8 +76,8 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     .thenReturn(
                         KeyPair(
-                            publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
-                            secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
+                            publicKey: Data(hex: TestConstants.publicKey).bytes,
+                            secretKey: Data(hex: TestConstants.edSecretKey).bytes
                         )
                     )
                 mockCrypto

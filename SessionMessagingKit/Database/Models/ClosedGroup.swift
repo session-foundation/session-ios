@@ -259,14 +259,16 @@ public extension ClosedGroup {
                 db,
                 legacyGroupIds: threadVariants
                     .filter { $0.variant == .legacyGroup }
-                    .map { $0.id }
+                    .map { $0.id },
+                using: dependencies
             )
             
             try SessionUtil.remove(
                 db,
                 groupIds: threadVariants
                     .filter { $0.variant == .group }
-                    .map { $0.id }
+                    .map { $0.id },
+                using: dependencies
             )
         }
     }

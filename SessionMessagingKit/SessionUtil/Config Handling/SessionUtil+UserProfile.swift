@@ -20,15 +20,14 @@ internal extension SessionUtil {
     
     static func handleUserProfileUpdate(
         _ db: Database,
-        in conf: UnsafeMutablePointer<config_object>?,
-        mergeNeedsDump: Bool,
+        in config: Config?,
         latestConfigSentTimestampMs: Int64,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws {
         typealias ProfileData = (profileName: String, profilePictureUrl: String?, profilePictureKey: Data?)
         
-        guard mergeNeedsDump else { return }
-        guard conf != nil else { throw SessionUtilError.nilConfigObject }
+        guard config.needsDump else { return }
+        guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
         
         // A profile must have a name so if this is null then it's invalid and can be ignored
         guard let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf) else { return }
@@ -114,7 +113,8 @@ internal extension SessionUtil {
                         threadId: userPublicKey,
                         threadVariant: .contact,
                         groupLeaveType: .forced,
-                        calledFromConfigHandling: true
+                        calledFromConfigHandling: true,
+                        using: dependencies
                     )
             }
         }
@@ -178,9 +178,9 @@ internal extension SessionUtil {
     
     static func update(
         profile: Profile,
-        in conf: UnsafeMutablePointer<config_object>?
+        in config: Config?
     ) throws {
-        guard conf != nil else { throw SessionUtilError.nilConfigObject }
+        guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
         
         // Update the name
         var updatedName: [CChar] = profile.name.cArray.nullTerminated()
@@ -196,9 +196,9 @@ internal extension SessionUtil {
     static func updateNoteToSelf(
         priority: Int32? = nil,
         disappearingMessagesConfig: DisappearingMessagesConfiguration? = nil,
-        in conf: UnsafeMutablePointer<config_object>?
+        in config: Config?
     ) throws {
-        guard conf != nil else { throw SessionUtilError.nilConfigObject }
+        guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
         
         if let priority: Int32 = priority {
             user_profile_set_nts_priority(conf, priority)
@@ -211,9 +211,9 @@ internal extension SessionUtil {
     
     static func updateSettings(
         checkForCommunityMessageRequests: Bool? = nil,
-        in conf: UnsafeMutablePointer<config_object>?
+        in config: Config?
     ) throws {
-        guard conf != nil else { throw SessionUtilError.nilConfigObject }
+        guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
         
         if let blindedMessageRequests: Bool = checkForCommunityMessageRequests {
             user_profile_set_blinded_msgreqs(conf, (blindedMessageRequests ? 1 : 0))
@@ -224,8 +224,8 @@ internal extension SessionUtil {
 // MARK: - Direct Values
 
 extension SessionUtil {
-    static func rawBlindedMessageRequestValue(in conf: UnsafeMutablePointer<config_object>?) throws -> Int32 {
-        guard conf != nil else { throw SessionUtilError.nilConfigObject }
+    static func rawBlindedMessageRequestValue(in config: Config?) throws -> Int32 {
+        guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
     
         return user_profile_get_blinded_msgreqs(conf)
     }

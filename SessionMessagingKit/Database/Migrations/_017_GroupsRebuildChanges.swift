@@ -11,7 +11,7 @@ enum _017_GroupsRebuildChanges: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     static var requirements: [MigrationRequirement] = [.sessionUtilStateLoaded]
     
-    static func migrate(_ db: GRDB.Database) throws {
+    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         try db.alter(table: ClosedGroup.self) { t in
             t.add(.displayPictureUrl, .text)
             t.add(.displayPictureFilename, .text)

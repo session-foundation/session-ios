@@ -33,7 +33,8 @@ public enum GeneralError: Error {
 public func getUserHexEncodedPublicKey(_ db: Database? = nil, using dependencies: Dependencies = Dependencies()) -> String {
     if let cachedKey: String = dependencies.caches[.general].encodedPublicKey { return cachedKey }
     
-    if let publicKey: Data = Identity.fetchUserPublicKey(db) { // Can be nil under some circumstances
+    // Can be nil under some circumstances
+    if let publicKey: Data = Identity.fetchUserPublicKey(db, using: dependencies) {
         let sessionId: SessionId = SessionId(.standard, publicKey: publicKey.bytes)
         
         dependencies.caches.mutate(cache: .general) { $0.encodedPublicKey = sessionId.hexString }

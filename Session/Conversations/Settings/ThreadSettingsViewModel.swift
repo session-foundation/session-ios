@@ -531,14 +531,15 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     confirmStyle: .danger,
                                     cancelStyle: .alert_text
                                 ),
-                                onTap: { [weak self] in
+                                onTap: {
                                     dependencies.storage.write { db in
                                         try SessionThread.deleteOrLeave(
                                             db,
                                             threadId: threadId,
                                             threadVariant: threadVariant,
                                             groupLeaveType: .standard,
-                                            calledFromConfigHandling: false
+                                            calledFromConfigHandling: false,
+                                            using: dependencies
                                         )
                                     }
                                 }

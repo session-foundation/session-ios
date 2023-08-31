@@ -53,7 +53,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
         static let needsConfigSync: Bool = false
         static let minExpectedRunDuration: TimeInterval = 0
         
-        static func migrate(_ db: Database) throws {
+        static func migrate(_ db: Database, using dependencies: Dependencies) throws {
             try db.create(table: TestType.self) { t in
                 t.column(.columnA, .text).primaryKey()
             }
@@ -71,7 +71,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
         static let needsConfigSync: Bool = false
         static let minExpectedRunDuration: TimeInterval = 0
         
-        static func migrate(_ db: Database) throws {
+        static func migrate(_ db: Database, using dependencies: Dependencies) throws {
             try db.alter(table: TestType.self) { t in
                 t.add(.columnB, .text)
             }
@@ -98,6 +98,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
     override func spec() {
         var customWriter: DatabaseQueue!
         var mockStorage: Storage!
+        var dependencies: Dependencies!
         
         describe("a PersistableRecord") {
             beforeEach {
@@ -107,6 +108,9 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     customMigrationTargets: [
                         TestTarget.self
                     ]
+                )
+                dependencies = Dependencies(
+                    storage: mockStorage
                 )
             }
             
@@ -345,7 +349,8 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     migrator.registerMigration(
                         mockStorage,
                         targetIdentifier: TestAddColumnMigration.target,
-                        migration: TestAddColumnMigration.self
+                        migration: TestAddColumnMigration.self,
+                        using: dependencies
                     )
                     
                     expect { try migrator.migrate(customWriter) }

@@ -61,21 +61,22 @@ public final class SnodeAPI {
     private static let snodeFailureThreshold: Int = 3
     private static let minSnodePoolCount: Int = 12
     
-    public static func currentOffsetTimestampMs() -> Int64 {
-        return Int64(
-            Int64(floor(Date().timeIntervalSince1970 * 1000)) +
-            SnodeAPI.clockOffsetMs.wrappedValue
-        )
+    public static func currentOffsetTimestampMs(using dependencies: Dependencies = Dependencies()) -> Int64 {
+        let clockOffsetMs: Int64 = SnodeAPI.clockOffsetMs.wrappedValue
+        
+        return (Int64(floor(dependencies.dateNow.timeIntervalSince1970 * 1000)) + clockOffsetMs)
     }
 
     // MARK: Snode Pool Interaction
     
     private static var hasInsufficientSnodes: Bool { snodePool.wrappedValue.count < minSnodePoolCount }
     
-    private static func loadSnodePoolIfNeeded() {
+    private static func loadSnodePoolIfNeeded(
+        using dependencies: Dependencies = Dependencies()
+    ) {
         guard !hasLoadedSnodePool.wrappedValue else { return }
         
-        let fetchedSnodePool: Set<Snode> = Storage.shared
+        let fetchedSnodePool: Set<Snode> = dependencies.storage
             .read { db in try Snode.fetchSet(db) }
             .defaulting(to: [])
         
@@ -83,9 +84,13 @@ public final class SnodeAPI {
         hasLoadedSnodePool.mutate { $0 = true }
     }
     
-    private static func setSnodePool(_ db: Database? = nil, to newValue: Set<Snode>) {
+    private static func setSnodePool(
+        _ db: Database? = nil,
+        to newValue: Set<Snode>,
+        using dependencies: Dependencies = Dependencies()
+    ) {
         guard let db: Database = db else {
-            Storage.shared.write { db in setSnodePool(db, to: newValue) }
+            dependencies.storage.write { db in setSnodePool(db, to: newValue, using: dependencies) }
             return
         }
         
@@ -111,10 +116,13 @@ public final class SnodeAPI {
     
     // MARK: - Swarm Interaction
     
-    private static func loadSwarmIfNeeded(for publicKey: String) {
+    private static func loadSwarmIfNeeded(
+        for publicKey: String,
+        using dependencies: Dependencies = Dependencies()
+    ) {
         guard !loadedSwarms.wrappedValue.contains(publicKey) else { return }
         
-        let updatedCacheForKey: Set<Snode> = Storage.shared
+        let updatedCacheForKey: Set<Snode> = dependencies.storage
            .read { db in try Snode.fetchSet(db, publicKey: publicKey) }
            .defaulting(to: [])
         
@@ -122,27 +130,38 @@ public final class SnodeAPI {
         loadedSwarms.mutate { $0.insert(publicKey) }
     }
     
-    private static func setSwarm(to newValue: Set<Snode>, for publicKey: String, persist: Bool = true) {
+    private static func setSwarm(
+        to newValue: Set<Snode>,
+        for publicKey: String,
+        persist: Bool = true,
+        using dependencies: Dependencies
+    ) {
         swarmCache.mutate { $0[publicKey] = newValue }
         
         guard persist else { return }
         
-        Storage.shared.write { db in
+        dependencies.storage.write { db in
             try? newValue.save(db, key: publicKey)
         }
     }
     
-    public static func dropSnodeFromSwarmIfNeeded(_ snode: Snode, publicKey: String) {
+    public static func dropSnodeFromSwarmIfNeeded(
+        _ snode: Snode,
+        publicKey: String,
+        using dependencies: Dependencies = Dependencies()
+    ) {
         let swarmOrNil = swarmCache.wrappedValue[publicKey]
         guard var swarm = swarmOrNil, let index = swarm.firstIndex(of: snode) else { return }
         swarm.remove(at: index)
-        setSwarm(to: swarm, for: publicKey)
+        setSwarm(to: swarm, for: publicKey, using: dependencies)
     }
 
     // MARK: - Public API
     
-    public static func hasCachedSnodesIncludingExpired() -> Bool {
-        loadSnodePoolIfNeeded()
+    public static func hasCachedSnodesIncludingExpired(
+        using dependencies: Dependencies = Dependencies()
+    ) -> Bool {
+        loadSnodePoolIfNeeded(using: dependencies)
         
         return !hasInsufficientSnodes
     }
@@ -150,7 +169,7 @@ public final class SnodeAPI {
     public static func getSnodePool(
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Set<Snode>, Error> {
-        loadSnodePoolIfNeeded()
+        loadSnodePoolIfNeeded(using: dependencies)
         
         let now: Date = Date()
         let hasSnodePoolExpired: Bool = dependencies.storage[.lastSnodePoolRefreshDate]
@@ -190,10 +209,10 @@ public final class SnodeAPI {
                 .tryFlatMap { snodePool -> AnyPublisher<Set<Snode>, Error> in
                     guard !snodePool.isEmpty else { throw SnodeAPIError.snodePoolUpdatingFailed }
                     
-                    return Storage.shared
+                    return dependencies.storage
                         .writePublisher { db in
                             db[.lastSnodePoolRefreshDate] = now
-                            setSnodePool(db, to: snodePool)
+                            setSnodePool(db, to: snodePool, using: dependencies)
                             
                             return snodePool
                         }
@@ -238,35 +257,35 @@ public final class SnodeAPI {
                 (0..<validationCount)
                     .map { _ in
                         SnodeAPI
-                            .getRandomSnode()
-                                .flatMap { snode -> AnyPublisher<String, Error> in
-                                    SnodeAPI
-                                        .send(
-                                            request: SnodeRequest(
-                                                endpoint: .oxenDaemonRPCCall,
-                                                body: OxenDaemonRPCRequest(
-                                                    endpoint: .daemonOnsResolve,
-                                                    body: ONSResolveRequest(
-                                                        type: 0, // type 0 means Session
-                                                        base64EncodedNameHash: base64EncodedNameHash
-                                                    )
+                            .getRandomSnode(using: dependencies)
+                            .flatMap { snode -> AnyPublisher<String, Error> in
+                                SnodeAPI
+                                    .send(
+                                        request: SnodeRequest(
+                                            endpoint: .oxenDaemonRPCCall,
+                                            body: OxenDaemonRPCRequest(
+                                                endpoint: .daemonOnsResolve,
+                                                body: ONSResolveRequest(
+                                                    type: 0, // type 0 means Session
+                                                    base64EncodedNameHash: base64EncodedNameHash
                                                 )
-                                            ),
-                                            to: snode,
-                                            associatedWith: nil,
-                                            using: dependencies
-                                        )
-                                        .decoded(as: ONSResolveResponse.self)
-                                        .tryMap { _, response -> String in
-                                            try response.sessionId(
-                                                sodium: sodium.wrappedValue,
-                                                nameBytes: nameAsData,
-                                                nameHashBytes: nameHash
                                             )
-                                        }
-                                        .retry(4)
-                                        .eraseToAnyPublisher()
-                                }
+                                        ),
+                                        to: snode,
+                                        associatedWith: nil,
+                                        using: dependencies
+                                    )
+                                    .decoded(as: ONSResolveResponse.self)
+                                    .tryMap { _, response -> String in
+                                        try response.sessionId(
+                                            sodium: sodium.wrappedValue,
+                                            nameBytes: nameAsData,
+                                            nameHashBytes: nameHash
+                                        )
+                                    }
+                                    .retry(4)
+                                    .eraseToAnyPublisher()
+                            }
                     }
             )
             .collect()
@@ -284,7 +303,7 @@ public final class SnodeAPI {
         for publicKey: String,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Set<Snode>, Error> {
-        loadSwarmIfNeeded(for: publicKey)
+        loadSwarmIfNeeded(for: publicKey, using: dependencies)
         
         if let cachedSwarm = swarmCache.wrappedValue[publicKey], cachedSwarm.count >= minSwarmSnodeCount {
             return Just(cachedSwarm)
@@ -292,9 +311,10 @@ public final class SnodeAPI {
                 .eraseToAnyPublisher()
         }
         
-        SNLog("Getting swarm for: \((publicKey == getUserHexEncodedPublicKey()) ? "self" : publicKey).")
+        let currentUserPublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
+        SNLog("Getting swarm for: \((publicKey == currentUserPublicKey) ? "self" : publicKey).")
         
-        return getRandomSnode()
+        return getRandomSnode(using: dependencies)
             .flatMap { snode in
                 SnodeAPI.send(
                     request: SnodeRequest(
@@ -310,7 +330,7 @@ public final class SnodeAPI {
             }
             .map { _, responseData in parseSnodes(from: responseData) }
             .handleEvents(
-                receiveOutput: { swarm in setSwarm(to: swarm, for: publicKey) }
+                receiveOutput: { swarm in setSwarm(to: swarm, for: publicKey, using: dependencies) }
             )
             .eraseToAnyPublisher()
     }
@@ -1083,9 +1103,11 @@ public final class SnodeAPI {
             .eraseToAnyPublisher()
     }
     
-    internal static func getRandomSnode() -> AnyPublisher<Snode, Error> {
+    internal static func getRandomSnode(
+        using dependencies: Dependencies
+    ) -> AnyPublisher<Snode, Error> {
         // randomElement() uses the system's default random generator, which is cryptographically secure
-        return getSnodePool()
+        return getSnodePool(using: dependencies)
             .map { $0.randomElement()! }
             .eraseToAnyPublisher()
     }
@@ -1246,7 +1268,15 @@ public final class SnodeAPI {
                 .mapError { error in
                     switch error {
                         case HTTPError.httpRequestFailed(let statusCode, let data):
-                            return (SnodeAPI.handleError(withStatusCode: statusCode, data: data, forSnode: snode, associatedWith: publicKey) ?? error)
+                            return SnodeAPI
+                                .handleError(
+                                    withStatusCode: statusCode,
+                                    data: data,
+                                    forSnode: snode,
+                                    associatedWith: publicKey,
+                                    using: dependencies
+                                )
+                                .defaulting(to: error)
                             
                         default: return error
                     }
@@ -1259,7 +1289,15 @@ public final class SnodeAPI {
             .mapError { error in
                 switch error {
                     case HTTPError.httpRequestFailed(let statusCode, let data):
-                        return (SnodeAPI.handleError(withStatusCode: statusCode, data: data, forSnode: snode, associatedWith: publicKey) ?? error)
+                        return SnodeAPI
+                            .handleError(
+                                withStatusCode: statusCode,
+                                data: data,
+                                forSnode: snode,
+                                associatedWith: publicKey,
+                                using: dependencies
+                            )
+                            .defaulting(to: error)
                         
                     default: return error
                 }
@@ -1334,9 +1372,10 @@ public final class SnodeAPI {
         withStatusCode statusCode: UInt,
         data: Data?,
         forSnode snode: Snode,
-        associatedWith publicKey: String? = nil
+        associatedWith publicKey: String? = nil,
+        using dependencies: Dependencies
     ) -> Error? {
-        func handleBadSnode() {
+        func handleBadSnode(using dependencies: Dependencies) {
             let oldFailureCount = (SnodeAPI.snodeFailureCount.wrappedValue[snode] ?? 0)
             let newFailureCount = oldFailureCount + 1
             SnodeAPI.snodeFailureCount.mutate { $0[snode] = newFailureCount }
@@ -1344,7 +1383,7 @@ public final class SnodeAPI {
             if newFailureCount >= SnodeAPI.snodeFailureThreshold {
                 SNLog("Failure threshold reached for: \(snode); dropping it.")
                 if let publicKey = publicKey {
-                    SnodeAPI.dropSnodeFromSwarmIfNeeded(snode, publicKey: publicKey)
+                    SnodeAPI.dropSnodeFromSwarmIfNeeded(snode, publicKey: publicKey, using: dependencies)
                 }
                 SnodeAPI.dropSnodeFromSnodePool(snode)
                 SNLog("Snode pool count: \(snodePool.wrappedValue.count).")
@@ -1355,7 +1394,7 @@ public final class SnodeAPI {
         switch statusCode {
             case 500, 502, 503:
                 // The snode is unreachable
-                handleBadSnode()
+                handleBadSnode(using: dependencies)
                 
             case 404:
                 // May caused by invalid open groups
@@ -1370,14 +1409,14 @@ public final class SnodeAPI {
                 if let publicKey = publicKey {
                     func invalidateSwarm() {
                         SNLog("Invalidating swarm for: \(publicKey).")
-                        SnodeAPI.dropSnodeFromSwarmIfNeeded(snode, publicKey: publicKey)
+                        SnodeAPI.dropSnodeFromSwarmIfNeeded(snode, publicKey: publicKey, using: dependencies)
                     }
                     
                     if let data: Data = data {
                         let snodes = parseSnodes(from: data)
                         
                         if !snodes.isEmpty {
-                            setSwarm(to: snodes, for: publicKey)
+                            setSwarm(to: snodes, for: publicKey, using: dependencies)
                         }
                         else {
                             invalidateSwarm()
@@ -1392,7 +1431,7 @@ public final class SnodeAPI {
                 }
                 
             default:
-                handleBadSnode()
+                handleBadSnode(using: dependencies)
                 let message: String = {
                     if let data: Data = data, let stringFromData = String(data: data, encoding: .utf8) {
                         return stringFromData

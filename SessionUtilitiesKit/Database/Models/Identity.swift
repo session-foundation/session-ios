@@ -74,33 +74,45 @@ public extension Identity {
         try Identity(variant: .x25519PublicKey, data: Data(x25519KeyPair.publicKey)).save(db)
     }
     
-    static func userExists(_ db: Database? = nil) -> Bool {
-        return (fetchUserKeyPair(db) != nil)
+    static func userExists(
+        _ db: Database? = nil,
+        using dependencies: Dependencies = Dependencies()
+    ) -> Bool {
+        return (fetchUserKeyPair(db, using: dependencies) != nil)
     }
     
-    static func fetchUserPublicKey(_ db: Database? = nil) -> Data? {
+    static func fetchUserPublicKey(
+        _ db: Database? = nil,
+        using dependencies: Dependencies = Dependencies()
+    ) -> Data? {
         guard let db: Database = db else {
-            return Storage.shared.read { db in fetchUserPublicKey(db) }
+            return dependencies.storage.read { db in fetchUserPublicKey(db, using: dependencies) }
         }
         
         return try? Identity.fetchOne(db, id: .x25519PublicKey)?.data
     }
     
-    static func fetchUserPrivateKey(_ db: Database? = nil) -> Data? {
+    static func fetchUserPrivateKey(
+        _ db: Database? = nil,
+        using dependencies: Dependencies = Dependencies()
+    ) -> Data? {
         guard let db: Database = db else {
-            return Storage.shared.read { db in fetchUserPrivateKey(db) }
+            return dependencies.storage.read { db in fetchUserPrivateKey(db, using: dependencies) }
         }
         
         return try? Identity.fetchOne(db, id: .x25519PrivateKey)?.data
     }
     
-    static func fetchUserKeyPair(_ db: Database? = nil) -> KeyPair? {
+    static func fetchUserKeyPair(
+        _ db: Database? = nil,
+        using dependencies: Dependencies = Dependencies()
+    ) -> KeyPair? {
         guard let db: Database = db else {
-            return Storage.shared.read { db in fetchUserKeyPair(db) }
+            return dependencies.storage.read { db in fetchUserKeyPair(db, using: dependencies) }
         }
         guard
-            let publicKey: Data = fetchUserPublicKey(db),
-            let privateKey: Data = fetchUserPrivateKey(db)
+            let publicKey: Data = fetchUserPublicKey(db, using: dependencies),
+            let privateKey: Data = fetchUserPrivateKey(db, using: dependencies)
         else { return nil }
         
         return KeyPair(
@@ -109,9 +121,12 @@ public extension Identity {
         )
     }
     
-    static func fetchUserEd25519KeyPair(_ db: Database? = nil) -> KeyPair? {
+    static func fetchUserEd25519KeyPair(
+        _ db: Database? = nil,
+        using dependencies: Dependencies = Dependencies()
+    ) -> KeyPair? {
         guard let db: Database = db else {
-            return Storage.shared.read { db in fetchUserEd25519KeyPair(db) }
+            return dependencies.storage.read { db in fetchUserEd25519KeyPair(db, using: dependencies) }
         }
         guard
             let publicKey: Data = try? Identity.fetchOne(db, id: .ed25519PublicKey)?.data,

@@ -4,7 +4,7 @@ import Foundation
 
 public enum SessionUtilError: Error {
     case unableToCreateConfigObject
-    case nilConfigObject
+    case invalidConfigObject
     case userDoesNotExist
     case getOrConstructFailedUnexpectedly
     case processingLoopLimitReached

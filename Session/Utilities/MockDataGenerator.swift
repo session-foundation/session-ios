@@ -200,7 +200,8 @@ enum MockDataGenerator {
                 _ = try! ClosedGroup(
                     threadId: randomGroupPublicKey,
                     name: groupName,
-                    formationTimestamp: timestampNow
+                    formationTimestamp: timestampNow,
+                    approved: true
                 )
                 .saved(db)
                 

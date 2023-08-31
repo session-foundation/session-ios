@@ -13,7 +13,7 @@ enum _013_SessionUtilChanges: Migration {
     static let needsConfigSync: Bool = true
     static let minExpectedRunDuration: TimeInterval = 0.4
     
-    static func migrate(_ db: Database) throws {
+    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         // Add `markedAsUnread` to the thread table
         try db.alter(table: SessionThread.self) { t in
             t.add(.markedAsUnread, .boolean)
@@ -187,7 +187,7 @@ enum _013_SessionUtilChanges: Migration {
             )
         
         // If we don't have an ed25519 key then no need to create cached dump data
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
         
         /// Remove any hidden threads to avoid syncing them (they are basically shadow threads created by starting a conversation
         /// but not sending a message so can just be cleared out)

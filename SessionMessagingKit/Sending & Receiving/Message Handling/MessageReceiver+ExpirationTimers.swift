@@ -9,7 +9,8 @@ extension MessageReceiver {
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        message: ExpirationTimerUpdate
+        message: ExpirationTimerUpdate,
+        using dependencies: Dependencies
     ) throws {
         guard !Features.useNewDisappearingMessagesConfig else { return }
         guard
@@ -85,7 +86,8 @@ extension MessageReceiver {
                         .update(
                             db,
                             sessionId: threadId,
-                            disappearingMessagesConfig: remoteConfig
+                            disappearingMessagesConfig: remoteConfig,
+                            using: dependencies
                         )
                 
                 case .legacyGroup:
@@ -93,7 +95,8 @@ extension MessageReceiver {
                         .update(
                             db,
                             legacyGroupPublicKey: threadId,
-                            disappearingConfig: remoteConfig
+                            disappearingConfig: remoteConfig,
+                            using: dependencies
                         )
                     
                 default: break
@@ -133,7 +136,8 @@ extension MessageReceiver {
                 threadVariant: threadVariant,
                 timestampMs: (timestampMs * 1000),
                 userPublicKey: currentUserPublicKey,
-                openGroup: nil
+                openGroup: nil,
+                using: dependencies
             ),
             expiresInSeconds: (remoteConfig.isEnabled ? nil : localConfig.durationSeconds)
         ).inserted(db)
@@ -144,7 +148,8 @@ extension MessageReceiver {
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: Message,
-        proto: SNProtoContent
+        proto: SNProtoContent,
+        using dependencies: Dependencies
     ) throws {
         guard let sender: String = message.sender else { return }
         
@@ -157,7 +162,8 @@ extension MessageReceiver {
             .filter(id: sender)
             .updateAllAndConfig(
                 db,
-                Contact.Columns.lastKnownClientVersion.set(to: lastKnownClientVersion)
+                Contact.Columns.lastKnownClientVersion.set(to: lastKnownClientVersion),
+                using: dependencies
             )
         
         guard
@@ -230,7 +236,8 @@ extension MessageReceiver {
                         .update(
                             db,
                             sessionId: threadId,
-                            disappearingMessagesConfig: remoteConfig
+                            disappearingMessagesConfig: remoteConfig,
+                            using: dependencies
                         )
                 
                 case .legacyGroup:
@@ -238,11 +245,18 @@ extension MessageReceiver {
                         .update(
                             db,
                             legacyGroupPublicKey: threadId,
-                            disappearingConfig: remoteConfig
+                            disappearingConfig: remoteConfig,
+                            using: dependencies
                         )
                     
                 case .group:
-                    preconditionFailure()
+                    try SessionUtil
+                        .update(
+                            db,
+                            groupIdentityPublicKey: threadId,
+                            disappearingConfig: remoteConfig,
+                            using: dependencies
+                        )
                     
                 default: break
             }

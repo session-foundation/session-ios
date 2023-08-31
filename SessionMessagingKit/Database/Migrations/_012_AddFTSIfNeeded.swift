@@ -11,7 +11,7 @@ enum _012_AddFTSIfNeeded: Migration {
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.01
     
-    static func migrate(_ db: Database) throws {
+    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         // Fix an issue that the fullTextSearchTable was dropped unintentionally and global search won't work.
         // This issue only happens to internal test users.
         if try db.tableExists(Interaction.fullTextSearchTableName) == false {

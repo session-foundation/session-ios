@@ -61,7 +61,8 @@ public enum ConfigMessageReceiveJob: JobExecutor {
                 try SessionUtil.handleConfigMessages(
                     db,
                     messages: sharedConfigMessages,
-                    publicKey: (job.threadId ?? "")
+                    publicKey: (job.threadId ?? ""),
+                    using: dependencies
                 )
             }
             catch { lastError = error }

@@ -573,13 +573,12 @@
 		FD29598B2A43BB8100888A17 /* GetStatsResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD29598A2A43BB8100888A17 /* GetStatsResponse.swift */; };
 		FD29598D2A43BC0B00888A17 /* Version.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD29598C2A43BC0B00888A17 /* Version.swift */; };
 		FD2959902A43BE5F00888A17 /* VersionSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD29598F2A43BE5F00888A17 /* VersionSpec.swift */; };
-		FD2959922A4417A900888A17 /* PreparedSendData.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2959912A4417A900888A17 /* PreparedSendData.swift */; };
 		FD2AAAED28ED3E1000A49611 /* MockGeneralCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFD645C27F273F300808CA1 /* MockGeneralCache.swift */; };
 		FD2AAAEE28ED3E1100A49611 /* MockGeneralCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFD645C27F273F300808CA1 /* MockGeneralCache.swift */; };
 		FD2AAAF028ED57B500A49611 /* SynchronousStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */; };
 		FD2AAAF128ED57B500A49611 /* SynchronousStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */; };
 		FD2AAAF228ED57B500A49611 /* SynchronousStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */; };
-		FD2B4AFB29429D1000AB4848 /* ConfigContactsSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2B4AFA29429D1000AB4848 /* ConfigContactsSpec.swift */; };
+		FD2B4AFB29429D1000AB4848 /* ConfigContacts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2B4AFA29429D1000AB4848 /* ConfigContacts.swift */; };
 		FD2B4AFD294688D000AB4848 /* SessionUtil+Contacts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2B4AFC294688D000AB4848 /* SessionUtil+Contacts.swift */; };
 		FD2B4AFF2946C93200AB4848 /* ConfigurationSyncJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2B4AFE2946C93200AB4848 /* ConfigurationSyncJob.swift */; };
 		FD2B4B042949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2B4B032949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift */; };
@@ -617,7 +616,6 @@
 		FD39352C28F382920084DADA /* VersionFooterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD39352B28F382920084DADA /* VersionFooterView.swift */; };
 		FD39353628F7C3390084DADA /* _004_FlagMessageHashAsDeletedOrInvalid.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD39353528F7C3390084DADA /* _004_FlagMessageHashAsDeletedOrInvalid.swift */; };
 		FD3AABE928306BBD00E5099A /* ThreadPickerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3AABE828306BBD00E5099A /* ThreadPickerViewModel.swift */; };
-		FD3C905C27E3FBEF00CD579F /* BatchRequestInfoSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3C905B27E3FBEF00CD579F /* BatchRequestInfoSpec.swift */; };
 		FD3C906027E410F700CD579F /* FileUploadResponseSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3C905F27E410F700CD579F /* FileUploadResponseSpec.swift */; };
 		FD3C906727E416AF00CD579F /* BlindedIdLookupSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3C906627E416AF00CD579F /* BlindedIdLookupSpec.swift */; };
 		FD3C906A27E417CE00CD579F /* CryptoSMKSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3C906927E417CE00CD579F /* CryptoSMKSpec.swift */; };
@@ -730,7 +728,7 @@
 		FD8ECF7B29340FFD00C0D1BB /* SessionUtil.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF7A29340FFD00C0D1BB /* SessionUtil.swift */; };
 		FD8ECF7D2934293A00C0D1BB /* _013_SessionUtilChanges.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF7C2934293A00C0D1BB /* _013_SessionUtilChanges.swift */; };
 		FD8ECF7F2934298100C0D1BB /* ConfigDump.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF7E2934298100C0D1BB /* ConfigDump.swift */; };
-		FD8ECF822934387A00C0D1BB /* ConfigUserProfileSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF812934387A00C0D1BB /* ConfigUserProfileSpec.swift */; };
+		FD8ECF822934387A00C0D1BB /* ConfigUserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF812934387A00C0D1BB /* ConfigUserProfile.swift */; };
 		FD8ECF892935AB7200C0D1BB /* SessionUtilError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF882935AB7200C0D1BB /* SessionUtilError.swift */; };
 		FD8ECF8B2935DB4B00C0D1BB /* SharedConfigMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF8A2935DB4B00C0D1BB /* SharedConfigMessage.swift */; };
 		FD8ECF9029381FC200C0D1BB /* SessionUtil+UserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF8F29381FC200C0D1BB /* SessionUtil+UserProfile.swift */; };
@@ -750,7 +748,7 @@
 		FD9DD2712A72516D00ECB68E /* TestExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9DD2702A72516D00ECB68E /* TestExtensions.swift */; };
 		FD9DD2722A72516D00ECB68E /* TestExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9DD2702A72516D00ECB68E /* TestExtensions.swift */; };
 		FD9DD2732A72516D00ECB68E /* TestExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9DD2702A72516D00ECB68E /* TestExtensions.swift */; };
-		FDA1E83629A5748F00C5C3BD /* ConfigUserGroupsSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1E83529A5748F00C5C3BD /* ConfigUserGroupsSpec.swift */; };
+		FDA1E83629A5748F00C5C3BD /* ConfigUserGroups.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1E83529A5748F00C5C3BD /* ConfigUserGroups.swift */; };
 		FDA1E83929A5771A00C5C3BD /* LibSessionSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1E83829A5771A00C5C3BD /* LibSessionSpec.swift */; };
 		FDA1E83B29A5F2D500C5C3BD /* SessionUtil+Shared.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1E83A29A5F2D500C5C3BD /* SessionUtil+Shared.swift */; };
 		FDA1E83D29AC71A800C5C3BD /* SessionUtilSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1E83C29AC71A800C5C3BD /* SessionUtilSpec.swift */; };
@@ -760,9 +758,54 @@
 		FDAED05C2A7C6CE600091B25 /* MigrationRequirement.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDAED05B2A7C6CE600091B25 /* MigrationRequirement.swift */; };
 		FDB4BBC72838B91E00B7C95D /* LinkPreviewError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB4BBC62838B91E00B7C95D /* LinkPreviewError.swift */; };
 		FDB4BBC92839BEF000B7C95D /* ProfileManagerError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB4BBC82839BEF000B7C95D /* ProfileManagerError.swift */; };
+		FDB5DAC12A9443A5002C8721 /* MessageSender+Groups.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DAC02A9443A5002C8721 /* MessageSender+Groups.swift */; };
+		FDB5DAC32A944504002C8721 /* SessionUtil+SharedGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DAC22A944504002C8721 /* SessionUtil+SharedGroup.swift */; };
+		FDB5DAC52A944757002C8721 /* SessionUtil+GroupInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DAC42A944757002C8721 /* SessionUtil+GroupInfo.swift */; };
+		FDB5DAC72A9447E7002C8721 /* _017_GroupsRebuildChanges.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DAC62A9447E7002C8721 /* _017_GroupsRebuildChanges.swift */; };
+		FDB5DAC92A944E12002C8721 /* SessionUtil+GroupMembers.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DAC82A944E12002C8721 /* SessionUtil+GroupMembers.swift */; };
+		FDB5DACB2A944E72002C8721 /* SessionUtil+GroupKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DACA2A944E72002C8721 /* SessionUtil+GroupKeys.swift */; };
+		FDB5DACD2A9452F0002C8721 /* ConfigGroupMembers.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DACC2A9452F0002C8721 /* ConfigGroupMembers.swift */; };
+		FDB5DACF2A945307002C8721 /* ConfigGroupKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DACE2A945307002C8721 /* ConfigGroupKeys.swift */; };
+		FDB5DAD12A94838C002C8721 /* GroupInviteMemberJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DAD02A94838C002C8721 /* GroupInviteMemberJob.swift */; };
+		FDB5DAD42A9483F3002C8721 /* GroupUpdateInviteMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DAD32A9483F3002C8721 /* GroupUpdateInviteMessage.swift */; };
+		FDB5DAD82A95D830002C8721 /* GroupUpdateDeleteMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DAD72A95D830002C8721 /* GroupUpdateDeleteMessage.swift */; };
+		FDB5DADA2A95D839002C8721 /* GroupUpdateInfoChangeMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DAD92A95D839002C8721 /* GroupUpdateInfoChangeMessage.swift */; };
+		FDB5DADC2A95D840002C8721 /* GroupUpdateMemberChangeMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DADB2A95D840002C8721 /* GroupUpdateMemberChangeMessage.swift */; };
+		FDB5DADE2A95D847002C8721 /* GroupUpdatePromoteMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DADD2A95D847002C8721 /* GroupUpdatePromoteMessage.swift */; };
+		FDB5DAE02A95D84D002C8721 /* GroupUpdateMemberLeftMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DADF2A95D84D002C8721 /* GroupUpdateMemberLeftMessage.swift */; };
+		FDB5DAE22A95D8A0002C8721 /* GroupUpdateInviteResponseMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DAE12A95D8A0002C8721 /* GroupUpdateInviteResponseMessage.swift */; };
+		FDB5DAE42A95D8A9002C8721 /* GroupUpdatePromotionResponseMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DAE32A95D8A9002C8721 /* GroupUpdatePromotionResponseMessage.swift */; };
+		FDB5DAE62A95D8B0002C8721 /* GroupUpdateDeleteMemberContentMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DAE52A95D8B0002C8721 /* GroupUpdateDeleteMemberContentMessage.swift */; };
+		FDB5DAE82A95D96C002C8721 /* MessageReceiver+Groups.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DAE72A95D96C002C8721 /* MessageReceiver+Groups.swift */; };
+		FDB5DAEC2A95E2C2002C8721 /* PreparedRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DAEB2A95E2C2002C8721 /* PreparedRequest.swift */; };
+		FDB5DAEE2A95E462002C8721 /* BatchRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DAED2A95E462002C8721 /* BatchRequest.swift */; };
+		FDB5DAF32A96DD4F002C8721 /* PreparedRequest+OnionRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DAF22A96DD4F002C8721 /* PreparedRequest+OnionRequest.swift */; };
+		FDB5DAF52A9721A5002C8721 /* PreparedRequest+OpenGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DAF42A9721A5002C8721 /* PreparedRequest+OpenGroup.swift */; };
+		FDB5DAFE2A981C43002C8721 /* SessionSnodeKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A59F255385C100C340D1 /* SessionSnodeKit.framework */; platformFilter = ios; };
+		FDB5DB062A981C67002C8721 /* PreparedRequestOnionRequestsSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DB052A981C67002C8721 /* PreparedRequestOnionRequestsSpec.swift */; };
+		FDB5DB072A981F88002C8721 /* Mock.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC290A527D860CE005DAE71 /* Mock.swift */; };
+		FDB5DB082A981F8B002C8721 /* Mocked.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0969F82A69FFE700C5C365 /* Mocked.swift */; };
+		FDB5DB092A981F8D002C8721 /* MockCrypto.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD23CE272A67755C0000B97C /* MockCrypto.swift */; };
+		FDB5DB0A2A981F90002C8721 /* MockCaches.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD23CE2B2A678DF80000B97C /* MockCaches.swift */; };
+		FDB5DB0B2A981F92002C8721 /* MockGeneralCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFD645C27F273F300808CA1 /* MockGeneralCache.swift */; };
+		FDB5DB0C2A981F96002C8721 /* MockNetwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD23CE312A67C38D0000B97C /* MockNetwork.swift */; };
+		FDB5DB0D2A981F9D002C8721 /* MockJobRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD96F3A629DBD43D00401309 /* MockJobRunner.swift */; };
+		FDB5DB0E2A981FA0002C8721 /* MockJobRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD96F3A629DBD43D00401309 /* MockJobRunner.swift */; };
+		FDB5DB0F2A981FA1002C8721 /* MockJobRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD96F3A629DBD43D00401309 /* MockJobRunner.swift */; };
+		FDB5DB102A981FA3002C8721 /* TestConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD83B9BD27CF2243005E1583 /* TestConstants.swift */; };
+		FDB5DB112A981FA6002C8721 /* TestExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9DD2702A72516D00ECB68E /* TestExtensions.swift */; };
+		FDB5DB122A981FA8002C8721 /* NimbleExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC290A727D9B46D005DAE71 /* NimbleExtensions.swift */; };
+		FDB5DB142A981FAE002C8721 /* CombineExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD23EA6028ED0B260058676E /* CombineExtensions.swift */; };
+		FDB5DB152A981FB0002C8721 /* SynchronousStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */; };
+		FDB5DB162A9821DF002C8721 /* CommonMockedExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD078E4727E02561000769AF /* CommonMockedExtensions.swift */; };
 		FDB7400B28EB99A70094D718 /* TimeInterval+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB7400A28EB99A70094D718 /* TimeInterval+Utilities.swift */; };
 		FDB7400D28EBEC240094D718 /* DateHeaderCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB7400C28EBEC240094D718 /* DateHeaderCell.swift */; };
-		FDBB25E12983909300F1508E /* ConfigConvoInfoVolatileSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBB25E02983909300F1508E /* ConfigConvoInfoVolatileSpec.swift */; };
+		FDB947102A982EF2001F271A /* BatchRequestSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3C905B27E3FBEF00CD579F /* BatchRequestSpec.swift */; };
+		FDB947122A9831B5001F271A /* PreparedRequestSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB947112A9831B5001F271A /* PreparedRequestSpec.swift */; };
+		FDB947152A9C23AF001F271A /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB947142A9C23AF001F271A /* Config.swift */; };
+		FDB947172A9D69A8001F271A /* MockSessionUtilCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB947162A9D69A8001F271A /* MockSessionUtilCache.swift */; };
+		FDB9471B2A9D70A6001F271A /* CommonSMKMockExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB9471A2A9D70A6001F271A /* CommonSMKMockExtensions.swift */; };
+		FDBB25E12983909300F1508E /* ConfigConvoInfoVolatile.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBB25E02983909300F1508E /* ConfigConvoInfoVolatile.swift */; };
 		FDBB25E32988B13800F1508E /* _004_AddJobPriority.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBB25E22988B13800F1508E /* _004_AddJobPriority.swift */; };
 		FDBB25E72988BBBE00F1508E /* UIContextualAction+Theming.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBB25E62988BBBD00F1508E /* UIContextualAction+Theming.swift */; };
 		FDC13D472A16E4CA007267C7 /* SubscribeRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D462A16E4CA007267C7 /* SubscribeRequest.swift */; };
@@ -789,6 +832,7 @@
 		FDC290A927D9B46D005DAE71 /* NimbleExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC290A727D9B46D005DAE71 /* NimbleExtensions.swift */; };
 		FDC290AA27D9B6FD005DAE71 /* Mock.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC290A527D860CE005DAE71 /* Mock.swift */; };
 		FDC383392A93411100FFD6A2 /* Setting+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1D73292A85AA2000E3F410 /* Setting+Utilities.swift */; };
+		FDC3833B2A9344C700FFD6A2 /* ConfigGroupInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC3833A2A9344C700FFD6A2 /* ConfigGroupInfo.swift */; };
 		FDC4380927B31D4E00C60D73 /* OpenGroupAPIError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC4380827B31D4E00C60D73 /* OpenGroupAPIError.swift */; };
 		FDC4381727B32EC700C60D73 /* Personalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC4381627B32EC700C60D73 /* Personalization.swift */; };
 		FDC4382027B36ADC00C60D73 /* SOGSEndpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC4381F27B36ADC00C60D73 /* SOGSEndpoint.swift */; };
@@ -840,6 +884,7 @@
 		FDE6E99829F8E63A00F93C5D /* Accessibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE6E99729F8E63A00F93C5D /* Accessibility.swift */; };
 		FDE77F6B280FEB28002CFC5D /* ControlMessageProcessRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE77F6A280FEB28002CFC5D /* ControlMessageProcessRecord.swift */; };
 		FDED2E3C282E1B5D00B2CD2A /* UICollectionView+ReusableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDED2E3B282E1B5D00B2CD2A /* UICollectionView+ReusableView.swift */; };
+		FDF01FAB2A9EBAD500CAF969 /* MessageSenderGroupsSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF01FAA2A9EBAD500CAF969 /* MessageSenderGroupsSpec.swift */; };
 		FDF0B73C27FFD3D6004C14C5 /* LinkPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B73B27FFD3D6004C14C5 /* LinkPreview.swift */; };
 		FDF0B7422804EA4F004C14C5 /* _002_SetupStandardJobs.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B7412804EA4F004C14C5 /* _002_SetupStandardJobs.swift */; };
 		FDF0B7472804F0CE004C14C5 /* DisappearingMessagesJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B7462804F0CE004C14C5 /* DisappearingMessagesJob.swift */; };
@@ -867,7 +912,6 @@
 		FDF8488329405A12007DCAE5 /* BatchResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF8488229405A12007DCAE5 /* BatchResponse.swift */; };
 		FDF8488429405A2B007DCAE5 /* RequestInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC438B027BB159600C60D73 /* RequestInfo.swift */; };
 		FDF8488629405A61007DCAE5 /* Request.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF8488529405A60007DCAE5 /* Request.swift */; };
-		FDF8488829405A9A007DCAE5 /* SOGSBatchRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF8488729405A9A007DCAE5 /* SOGSBatchRequest.swift */; };
 		FDF8488929405B27007DCAE5 /* Data+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFD645A27F26D4600808CA1 /* Data+Utilities.swift */; };
 		FDF8488E29405C04007DCAE5 /* GetSnodePoolJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF8488D29405C04007DCAE5 /* GetSnodePoolJob.swift */; };
 		FDF8489129405C13007DCAE5 /* SnodeAPINamespace.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF8489029405C13007DCAE5 /* SnodeAPINamespace.swift */; };
@@ -1068,6 +1112,13 @@
 			remoteGlobalIDString = C3C2A678255388CC00C340D1;
 			remoteInfo = SessionUtilitiesKit;
 		};
+		FDB5DAFF2A981C43002C8721 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D221A080169C9E5E00537ABF /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C3C2A59E255385C100C340D1;
+			remoteInfo = SessionSnodeKit;
+		};
 		FDC4389327B9FFC700C60D73 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = D221A080169C9E5E00537ABF /* Project object */;
@@ -1112,8 +1163,10 @@
 		0772459E7D5F6747EDC889F3 /* Pods-GlobalDependencies-Session-SessionTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-Session-SessionTests.debug.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-Session-SessionTests/Pods-GlobalDependencies-Session-SessionTests.debug.xcconfig"; sourceTree = "<group>"; };
 		164F5FAD2DCE932054F61E78 /* Pods_GlobalDependencies_Session_SessionTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_GlobalDependencies_Session_SessionTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		1677131E9189A0043FF97ACB /* Pods_GlobalDependencies_Session.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_GlobalDependencies_Session.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		20C893ED841B5CA3952827C9 /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionSnodeKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionSnodeKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		285705D20F792E174C8A9BBA /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionNotificationServiceExtension.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionNotificationServiceExtension.debug.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionNotificationServiceExtension/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionNotificationServiceExtension.debug.xcconfig"; sourceTree = "<group>"; };
 		29E827FDF6C1032BB985740C /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_SessionNotificationServiceExtension.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_GlobalDependencies_FrameworkAndExtensionDependencies_SessionNotificationServiceExtension.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		314E29623131BCCB6DEB5A8B /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit-SessionSnodeKitTests.app store release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit-SessionSnodeKitTests.app store release.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit-SessionSnodeKitTests/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit-SessionSnodeKitTests.app store release.xcconfig"; sourceTree = "<group>"; };
 		34040971CC7AF9C8A6C1E838 /* Pods-GlobalDependencies-Session.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-Session.debug.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-Session/Pods-GlobalDependencies-Session.debug.xcconfig"; sourceTree = "<group>"; };
 		3427C64120F500DE00EEC730 /* OWSMessageTimerView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OWSMessageTimerView.h; sourceTree = "<group>"; };
 		3427C64220F500DF00EEC730 /* OWSMessageTimerView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = OWSMessageTimerView.m; sourceTree = "<group>"; };
@@ -1141,6 +1194,7 @@
 		34D99CE3217509C1000AFB39 /* AppEnvironment.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
 		34F308A01ECB469700BB7697 /* OWSBezierPathView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OWSBezierPathView.h; sourceTree = "<group>"; };
 		34F308A11ECB469700BB7697 /* OWSBezierPathView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = OWSBezierPathView.m; sourceTree = "<group>"; };
+		3D3D403893C359F3958F9620 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit.debug.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit.debug.xcconfig"; sourceTree = "<group>"; };
 		3E517F8611575B37B76BCC54 /* Pods_GlobalDependencies_SessionUIKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_GlobalDependencies_SessionUIKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		4503F1BB20470A5B00CEE724 /* classic-quiet.aifc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "classic-quiet.aifc"; sourceTree = "<group>"; };
 		4503F1BC20470A5B00CEE724 /* classic.aifc */ = {isa = PBXFileReference; lastKnownFileType = file; path = classic.aifc; sourceTree = "<group>"; };
@@ -1202,10 +1256,12 @@
 		4CC613352227A00400E21A3A /* ConversationSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationSearch.swift; sourceTree = "<group>"; };
 		55C13C7B4B700846E49C0E25 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SignalUtilitiesKit.app store release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SignalUtilitiesKit.app store release.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SignalUtilitiesKit/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SignalUtilitiesKit.app store release.xcconfig"; sourceTree = "<group>"; };
 		5DA3BDDFFB9E937A49C35FCC /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit-SessionUtilitiesKitTests.app store release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit-SessionUtilitiesKitTests.app store release.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit-SessionUtilitiesKitTests/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit-SessionUtilitiesKitTests.app store release.xcconfig"; sourceTree = "<group>"; };
+		617BD3E40896AC5BFC3C314E /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionSnodeKit-SessionSnodeKitTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionSnodeKit-SessionSnodeKitTests.debug.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionSnodeKit-SessionSnodeKitTests/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionSnodeKit-SessionSnodeKitTests.debug.xcconfig"; sourceTree = "<group>"; };
 		621B42AC592F3456ACD82F8B /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionMessagingKit-SessionMessagingKitTests.app store release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionMessagingKit-SessionMessagingKitTests.app store release.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionMessagingKit-SessionMessagingKitTests/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionMessagingKit-SessionMessagingKitTests.app store release.xcconfig"; sourceTree = "<group>"; };
 		62B512CEB14BD4A4A53CF532 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionNotificationServiceExtension.app store release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionNotificationServiceExtension.app store release.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionNotificationServiceExtension/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionNotificationServiceExtension.app store release.xcconfig"; sourceTree = "<group>"; };
 		6A71AD9BEAFF0C9E8016BC23 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionShareExtension.app store release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionShareExtension.app store release.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionShareExtension/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionShareExtension.app store release.xcconfig"; sourceTree = "<group>"; };
 		6DA09080DD9779C860023A60 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionMessagingKit.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionMessagingKit.debug.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionMessagingKit/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionMessagingKit.debug.xcconfig"; sourceTree = "<group>"; };
+		6E9BA69BD34B56C3E6EA7377 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit-SessionSnodeKitTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit-SessionSnodeKitTests.debug.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit-SessionSnodeKitTests/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit-SessionSnodeKitTests.debug.xcconfig"; sourceTree = "<group>"; };
 		70377AAA1918450100CAF501 /* MobileCoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileCoreServices.framework; path = System/Library/Frameworks/MobileCoreServices.framework; sourceTree = SDKROOT; };
 		76C87F18181EFCE600C4ACAB /* MediaPlayer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaPlayer.framework; path = System/Library/Frameworks/MediaPlayer.framework; sourceTree = SDKROOT; };
 		7B02DF432A16F47B00ADCFD2 /* EmojiGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmojiGenerator.swift; sourceTree = "<group>"; };
@@ -1290,11 +1346,13 @@
 		7BFD1A892745C4F000FB91B9 /* Permissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Permissions.swift; sourceTree = "<group>"; };
 		7BFD1A8B2747150E00FB91B9 /* TurnServerInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TurnServerInfo.swift; sourceTree = "<group>"; };
 		7BFD1A962747689000FB91B9 /* Session-Turn-Server */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "Session-Turn-Server"; sourceTree = "<group>"; };
+		7D248E4A1B53B011414F39C5 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionSnodeKit-SessionSnodeKitTests.app store release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionSnodeKit-SessionSnodeKitTests.app store release.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionSnodeKit-SessionSnodeKitTests/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionSnodeKit-SessionSnodeKitTests.app store release.xcconfig"; sourceTree = "<group>"; };
 		8448EFF76CD3CA5B2283B8A0 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit-SessionUtilitiesKitTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit-SessionUtilitiesKitTests.debug.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit-SessionUtilitiesKitTests/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit-SessionUtilitiesKitTests.debug.xcconfig"; sourceTree = "<group>"; };
 		847091A12D82E41B1EBB8FB3 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionSnodeKit.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionSnodeKit.debug.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionSnodeKit/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionSnodeKit.debug.xcconfig"; sourceTree = "<group>"; };
 		8603226ED1C6F61F1F2D3734 /* Pods-GlobalDependencies-Session.app store release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-Session.app store release.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-Session/Pods-GlobalDependencies-Session.app store release.xcconfig"; sourceTree = "<group>"; };
 		8727C47348B6EFA767EE583A /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionMessagingKit-SessionMessagingKitTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionMessagingKit-SessionMessagingKitTests.debug.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionMessagingKit-SessionMessagingKitTests/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionMessagingKit-SessionMessagingKitTests.debug.xcconfig"; sourceTree = "<group>"; };
 		8E946CB54A221018E23599DE /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit.debug.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit.debug.xcconfig"; sourceTree = "<group>"; };
+		926A0D0D67FD41010FE84169 /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionSnodeKit_SessionSnodeKitTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionSnodeKit_SessionSnodeKitTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		92E8569C96285EE3CDB5960D /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SignalUtilitiesKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SignalUtilitiesKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		93359C81CF2660040B7CD106 /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionUtilitiesKit_SessionUtilitiesKitTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionUtilitiesKit_SessionUtilitiesKitTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
@@ -1302,6 +1360,7 @@
 		A1C32D4D17A0652C000A904E /* AddressBook.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AddressBook.framework; path = System/Library/Frameworks/AddressBook.framework; sourceTree = SDKROOT; };
 		A1C32D4F17A06537000A904E /* AddressBookUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AddressBookUI.framework; path = System/Library/Frameworks/AddressBookUI.framework; sourceTree = SDKROOT; };
 		A1FDCBEE16DAA6C300868894 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
+		A2BF9B687CFBA825049BA13E /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit.app store release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit.app store release.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit.app store release.xcconfig"; sourceTree = "<group>"; };
 		B1910A32EB2AD01913629646 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionShareExtension.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionShareExtension.debug.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionShareExtension/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionShareExtension.debug.xcconfig"; sourceTree = "<group>"; };
 		B4F9FCBDA07F07CB48220D4C /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SignalUtilitiesKit.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SignalUtilitiesKit.debug.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SignalUtilitiesKit/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SignalUtilitiesKit.debug.xcconfig"; sourceTree = "<group>"; };
 		B60EDE031A05A01700D73516 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
@@ -1420,7 +1479,7 @@
 		C328253F25CA55880062D0A7 /* ContextMenuVC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextMenuVC.swift; sourceTree = "<group>"; };
 		C328254825CA60E60062D0A7 /* ContextMenuVC+Action.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ContextMenuVC+Action.swift"; sourceTree = "<group>"; };
 		C328255125CA64470062D0A7 /* ContextMenuVC+ActionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ContextMenuVC+ActionView.swift"; sourceTree = "<group>"; };
-		C32C5A87256DBCF9003C73A2 /* MessageReceiver+ClosedGroups.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageReceiver+ClosedGroups.swift"; sourceTree = "<group>"; };
+		C32C5A87256DBCF9003C73A2 /* MessageReceiver+LegacyClosedGroups.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageReceiver+LegacyClosedGroups.swift"; sourceTree = "<group>"; };
 		C33100272559000A00070591 /* UIView+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIView+Utilities.swift"; sourceTree = "<group>"; };
 		C331FF1B2558F9D300070591 /* SessionUIKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = SessionUIKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		C331FF1D2558F9D300070591 /* SessionUIKit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SessionUIKit.h; sourceTree = "<group>"; };
@@ -1493,7 +1552,7 @@
 		C374EEEA25DA3CA70073A857 /* ConversationTitleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationTitleView.swift; sourceTree = "<group>"; };
 		C374EEF325DB31D40073A857 /* VoiceMessageRecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceMessageRecordingView.swift; sourceTree = "<group>"; };
 		C379DCF3256735770002D4EB /* VisibleMessage+Attachment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VisibleMessage+Attachment.swift"; sourceTree = "<group>"; };
-		C38D5E8C2575011E00B6A65C /* MessageSender+ClosedGroups.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageSender+ClosedGroups.swift"; sourceTree = "<group>"; };
+		C38D5E8C2575011E00B6A65C /* MessageSender+LegacyClosedGroups.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageSender+LegacyClosedGroups.swift"; sourceTree = "<group>"; };
 		C38EEF09255B49A8007E1867 /* SNProtoEnvelope+Conversion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SNProtoEnvelope+Conversion.swift"; sourceTree = "<group>"; };
 		C38EF224255B6D5D007E1867 /* SignalAttachment.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SignalAttachment.swift; path = "SessionMessagingKit/Sending & Receiving/Attachments/SignalAttachment.swift"; sourceTree = SOURCE_ROOT; };
 		C38EF226255B6D5D007E1867 /* ShareViewDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ShareViewDelegate.swift; path = SignalUtilitiesKit/Utilities/ShareViewDelegate.swift; sourceTree = SOURCE_ROOT; };
@@ -1632,7 +1691,6 @@
 		F154A10CE1ADA33C16B45357 /* Pods-GlobalDependencies-Session-SessionTests.app store release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-Session-SessionTests.app store release.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-Session-SessionTests/Pods-GlobalDependencies-Session-SessionTests.app store release.xcconfig"; sourceTree = "<group>"; };
 		F390F8E34CA76B3F7D3B1826 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionMessagingKit.app store release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionMessagingKit.app store release.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionMessagingKit/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionMessagingKit.app store release.xcconfig"; sourceTree = "<group>"; };
 		F60C5B6CD14329816B0E8CC0 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit.app store release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit.app store release.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit.app store release.xcconfig"; sourceTree = "<group>"; };
-		F8B0BA5257C58DC6FF797278 /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_SessionSnodeKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_GlobalDependencies_FrameworkAndExtensionDependencies_SessionSnodeKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC3BD9871A30A790005B96BB /* Social.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Social.framework; path = System/Library/Frameworks/Social.framework; sourceTree = SDKROOT; };
 		FCB11D8B1A129A76002F93FB /* CoreMedia.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMedia.framework; path = System/Library/Frameworks/CoreMedia.framework; sourceTree = SDKROOT; };
 		FD078E4727E02561000769AF /* CommonMockedExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommonMockedExtensions.swift; sourceTree = "<group>"; };
@@ -1708,9 +1766,8 @@
 		FD29598A2A43BB8100888A17 /* GetStatsResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetStatsResponse.swift; sourceTree = "<group>"; };
 		FD29598C2A43BC0B00888A17 /* Version.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Version.swift; sourceTree = "<group>"; };
 		FD29598F2A43BE5F00888A17 /* VersionSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionSpec.swift; sourceTree = "<group>"; };
-		FD2959912A4417A900888A17 /* PreparedSendData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreparedSendData.swift; sourceTree = "<group>"; };
 		FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SynchronousStorage.swift; sourceTree = "<group>"; };
-		FD2B4AFA29429D1000AB4848 /* ConfigContactsSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ConfigContactsSpec.swift; sourceTree = "<group>"; };
+		FD2B4AFA29429D1000AB4848 /* ConfigContacts.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ConfigContacts.swift; sourceTree = "<group>"; };
 		FD2B4AFC294688D000AB4848 /* SessionUtil+Contacts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionUtil+Contacts.swift"; sourceTree = "<group>"; };
 		FD2B4AFE2946C93200AB4848 /* ConfigurationSyncJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationSyncJob.swift; sourceTree = "<group>"; };
 		FD2B4B032949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "QueryInterfaceRequest+Utilities.swift"; sourceTree = "<group>"; };
@@ -1750,7 +1807,7 @@
 		FD39352B28F382920084DADA /* VersionFooterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionFooterView.swift; sourceTree = "<group>"; };
 		FD39353528F7C3390084DADA /* _004_FlagMessageHashAsDeletedOrInvalid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _004_FlagMessageHashAsDeletedOrInvalid.swift; sourceTree = "<group>"; };
 		FD3AABE828306BBD00E5099A /* ThreadPickerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadPickerViewModel.swift; sourceTree = "<group>"; };
-		FD3C905B27E3FBEF00CD579F /* BatchRequestInfoSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchRequestInfoSpec.swift; sourceTree = "<group>"; };
+		FD3C905B27E3FBEF00CD579F /* BatchRequestSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchRequestSpec.swift; sourceTree = "<group>"; };
 		FD3C905F27E410F700CD579F /* FileUploadResponseSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileUploadResponseSpec.swift; sourceTree = "<group>"; };
 		FD3C906627E416AF00CD579F /* BlindedIdLookupSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlindedIdLookupSpec.swift; sourceTree = "<group>"; };
 		FD3C906927E417CE00CD579F /* CryptoSMKSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoSMKSpec.swift; sourceTree = "<group>"; };
@@ -1859,7 +1916,7 @@
 		FD8ECF7A29340FFD00C0D1BB /* SessionUtil.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionUtil.swift; sourceTree = "<group>"; };
 		FD8ECF7C2934293A00C0D1BB /* _013_SessionUtilChanges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _013_SessionUtilChanges.swift; sourceTree = "<group>"; };
 		FD8ECF7E2934298100C0D1BB /* ConfigDump.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigDump.swift; sourceTree = "<group>"; };
-		FD8ECF812934387A00C0D1BB /* ConfigUserProfileSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigUserProfileSpec.swift; sourceTree = "<group>"; };
+		FD8ECF812934387A00C0D1BB /* ConfigUserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigUserProfile.swift; sourceTree = "<group>"; };
 		FD8ECF882935AB7200C0D1BB /* SessionUtilError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionUtilError.swift; sourceTree = "<group>"; };
 		FD8ECF8A2935DB4B00C0D1BB /* SharedConfigMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedConfigMessage.swift; sourceTree = "<group>"; };
 		FD8ECF8F29381FC200C0D1BB /* SessionUtil+UserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionUtil+UserProfile.swift"; sourceTree = "<group>"; };
@@ -1873,7 +1930,7 @@
 		FD9B30F2293EA0BF008DEE3E /* BatchResponseSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchResponseSpec.swift; sourceTree = "<group>"; };
 		FD9BDDF82A5D2294005F1EBC /* libSessionUtil.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libSessionUtil.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		FD9DD2702A72516D00ECB68E /* TestExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestExtensions.swift; sourceTree = "<group>"; };
-		FDA1E83529A5748F00C5C3BD /* ConfigUserGroupsSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigUserGroupsSpec.swift; sourceTree = "<group>"; };
+		FDA1E83529A5748F00C5C3BD /* ConfigUserGroups.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigUserGroups.swift; sourceTree = "<group>"; };
 		FDA1E83829A5771A00C5C3BD /* LibSessionSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionSpec.swift; sourceTree = "<group>"; };
 		FDA1E83A29A5F2D500C5C3BD /* SessionUtil+Shared.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionUtil+Shared.swift"; sourceTree = "<group>"; };
 		FDA1E83C29AC71A800C5C3BD /* SessionUtilSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionUtilSpec.swift; sourceTree = "<group>"; };
@@ -1883,9 +1940,38 @@
 		FDAED05B2A7C6CE600091B25 /* MigrationRequirement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationRequirement.swift; sourceTree = "<group>"; };
 		FDB4BBC62838B91E00B7C95D /* LinkPreviewError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkPreviewError.swift; sourceTree = "<group>"; };
 		FDB4BBC82839BEF000B7C95D /* ProfileManagerError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileManagerError.swift; sourceTree = "<group>"; };
+		FDB5DAC02A9443A5002C8721 /* MessageSender+Groups.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageSender+Groups.swift"; sourceTree = "<group>"; };
+		FDB5DAC22A944504002C8721 /* SessionUtil+SharedGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionUtil+SharedGroup.swift"; sourceTree = "<group>"; };
+		FDB5DAC42A944757002C8721 /* SessionUtil+GroupInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionUtil+GroupInfo.swift"; sourceTree = "<group>"; };
+		FDB5DAC62A9447E7002C8721 /* _017_GroupsRebuildChanges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _017_GroupsRebuildChanges.swift; sourceTree = "<group>"; };
+		FDB5DAC82A944E12002C8721 /* SessionUtil+GroupMembers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionUtil+GroupMembers.swift"; sourceTree = "<group>"; };
+		FDB5DACA2A944E72002C8721 /* SessionUtil+GroupKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionUtil+GroupKeys.swift"; sourceTree = "<group>"; };
+		FDB5DACC2A9452F0002C8721 /* ConfigGroupMembers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigGroupMembers.swift; sourceTree = "<group>"; };
+		FDB5DACE2A945307002C8721 /* ConfigGroupKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigGroupKeys.swift; sourceTree = "<group>"; };
+		FDB5DAD02A94838C002C8721 /* GroupInviteMemberJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupInviteMemberJob.swift; sourceTree = "<group>"; };
+		FDB5DAD32A9483F3002C8721 /* GroupUpdateInviteMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupUpdateInviteMessage.swift; sourceTree = "<group>"; };
+		FDB5DAD72A95D830002C8721 /* GroupUpdateDeleteMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupUpdateDeleteMessage.swift; sourceTree = "<group>"; };
+		FDB5DAD92A95D839002C8721 /* GroupUpdateInfoChangeMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupUpdateInfoChangeMessage.swift; sourceTree = "<group>"; };
+		FDB5DADB2A95D840002C8721 /* GroupUpdateMemberChangeMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupUpdateMemberChangeMessage.swift; sourceTree = "<group>"; };
+		FDB5DADD2A95D847002C8721 /* GroupUpdatePromoteMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupUpdatePromoteMessage.swift; sourceTree = "<group>"; };
+		FDB5DADF2A95D84D002C8721 /* GroupUpdateMemberLeftMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupUpdateMemberLeftMessage.swift; sourceTree = "<group>"; };
+		FDB5DAE12A95D8A0002C8721 /* GroupUpdateInviteResponseMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupUpdateInviteResponseMessage.swift; sourceTree = "<group>"; };
+		FDB5DAE32A95D8A9002C8721 /* GroupUpdatePromotionResponseMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupUpdatePromotionResponseMessage.swift; sourceTree = "<group>"; };
+		FDB5DAE52A95D8B0002C8721 /* GroupUpdateDeleteMemberContentMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupUpdateDeleteMemberContentMessage.swift; sourceTree = "<group>"; };
+		FDB5DAE72A95D96C002C8721 /* MessageReceiver+Groups.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageReceiver+Groups.swift"; sourceTree = "<group>"; };
+		FDB5DAEB2A95E2C2002C8721 /* PreparedRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreparedRequest.swift; sourceTree = "<group>"; };
+		FDB5DAED2A95E462002C8721 /* BatchRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchRequest.swift; sourceTree = "<group>"; };
+		FDB5DAF22A96DD4F002C8721 /* PreparedRequest+OnionRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PreparedRequest+OnionRequest.swift"; sourceTree = "<group>"; };
+		FDB5DAF42A9721A5002C8721 /* PreparedRequest+OpenGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PreparedRequest+OpenGroup.swift"; sourceTree = "<group>"; };
+		FDB5DAFA2A981C42002C8721 /* SessionSnodeKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SessionSnodeKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		FDB5DB052A981C67002C8721 /* PreparedRequestOnionRequestsSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreparedRequestOnionRequestsSpec.swift; sourceTree = "<group>"; };
 		FDB7400A28EB99A70094D718 /* TimeInterval+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TimeInterval+Utilities.swift"; sourceTree = "<group>"; };
 		FDB7400C28EBEC240094D718 /* DateHeaderCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateHeaderCell.swift; sourceTree = "<group>"; };
-		FDBB25E02983909300F1508E /* ConfigConvoInfoVolatileSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigConvoInfoVolatileSpec.swift; sourceTree = "<group>"; };
+		FDB947112A9831B5001F271A /* PreparedRequestSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreparedRequestSpec.swift; sourceTree = "<group>"; };
+		FDB947142A9C23AF001F271A /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
+		FDB947162A9D69A8001F271A /* MockSessionUtilCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockSessionUtilCache.swift; sourceTree = "<group>"; };
+		FDB9471A2A9D70A6001F271A /* CommonSMKMockExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommonSMKMockExtensions.swift; sourceTree = "<group>"; };
+		FDBB25E02983909300F1508E /* ConfigConvoInfoVolatile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigConvoInfoVolatile.swift; sourceTree = "<group>"; };
 		FDBB25E22988B13800F1508E /* _004_AddJobPriority.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _004_AddJobPriority.swift; sourceTree = "<group>"; };
 		FDBB25E62988BBBD00F1508E /* UIContextualAction+Theming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIContextualAction+Theming.swift"; sourceTree = "<group>"; };
 		FDC13D462A16E4CA007267C7 /* SubscribeRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscribeRequest.swift; sourceTree = "<group>"; };
@@ -1910,6 +1996,7 @@
 		FDC2909D27D85751005DAE71 /* OpenGroupManagerSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenGroupManagerSpec.swift; sourceTree = "<group>"; };
 		FDC290A527D860CE005DAE71 /* Mock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mock.swift; sourceTree = "<group>"; };
 		FDC290A727D9B46D005DAE71 /* NimbleExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbleExtensions.swift; sourceTree = "<group>"; };
+		FDC3833A2A9344C700FFD6A2 /* ConfigGroupInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigGroupInfo.swift; sourceTree = "<group>"; };
 		FDC4380827B31D4E00C60D73 /* OpenGroupAPIError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenGroupAPIError.swift; sourceTree = "<group>"; };
 		FDC4381627B32EC700C60D73 /* Personalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Personalization.swift; sourceTree = "<group>"; };
 		FDC4381F27B36ADC00C60D73 /* SOGSEndpoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOGSEndpoint.swift; sourceTree = "<group>"; };
@@ -1965,6 +2052,7 @@
 		FDE77F68280F9EDA002CFC5D /* JobRunnerError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobRunnerError.swift; sourceTree = "<group>"; };
 		FDE77F6A280FEB28002CFC5D /* ControlMessageProcessRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControlMessageProcessRecord.swift; sourceTree = "<group>"; };
 		FDED2E3B282E1B5D00B2CD2A /* UICollectionView+ReusableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UICollectionView+ReusableView.swift"; sourceTree = "<group>"; };
+		FDF01FAA2A9EBAD500CAF969 /* MessageSenderGroupsSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageSenderGroupsSpec.swift; sourceTree = "<group>"; };
 		FDF0B73B27FFD3D6004C14C5 /* LinkPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkPreview.swift; sourceTree = "<group>"; };
 		FDF0B73F280402C4004C14C5 /* Job.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Job.swift; sourceTree = "<group>"; };
 		FDF0B7412804EA4F004C14C5 /* _002_SetupStandardJobs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _002_SetupStandardJobs.swift; sourceTree = "<group>"; };
@@ -1993,7 +2081,6 @@
 		FDF8487E29405994007DCAE5 /* HTTPQueryParam+OpenGroup.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "HTTPQueryParam+OpenGroup.swift"; sourceTree = "<group>"; };
 		FDF8488229405A12007DCAE5 /* BatchResponse.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BatchResponse.swift; sourceTree = "<group>"; };
 		FDF8488529405A60007DCAE5 /* Request.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Request.swift; sourceTree = "<group>"; };
-		FDF8488729405A9A007DCAE5 /* SOGSBatchRequest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SOGSBatchRequest.swift; sourceTree = "<group>"; };
 		FDF8488D29405C04007DCAE5 /* GetSnodePoolJob.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GetSnodePoolJob.swift; sourceTree = "<group>"; };
 		FDF8489029405C13007DCAE5 /* SnodeAPINamespace.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SnodeAPINamespace.swift; sourceTree = "<group>"; };
 		FDF8489329405C1B007DCAE5 /* SnodeAPI.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SnodeAPI.swift; sourceTree = "<group>"; };
@@ -2109,7 +2196,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C3C2A6C62553896A00C340D1 /* SessionUtilitiesKit.framework in Frameworks */,
-				9593A1E796C9E6BE2352EA6F /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_SessionSnodeKit.framework in Frameworks */,
+				64349178A217B35B0CA8170E /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionSnodeKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2194,6 +2281,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		FDB5DAF72A981C42002C8721 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FDB5DAFE2A981C43002C8721 /* SessionSnodeKit.framework in Frameworks */,
+				36F011B7CEB4059DD0E31523 /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionSnodeKit_SessionSnodeKitTests.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FDC4388B27B9FFC700C60D73 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -2231,6 +2327,12 @@
 				F154A10CE1ADA33C16B45357 /* Pods-GlobalDependencies-Session-SessionTests.app store release.xcconfig */,
 				EB5B8ACA4C6F512FA3E21859 /* Pods-GlobalDependencies-SessionUIKit.debug.xcconfig */,
 				05C76EFA593DD507061C50B2 /* Pods-GlobalDependencies-SessionUIKit.app store release.xcconfig */,
+				617BD3E40896AC5BFC3C314E /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionSnodeKit-SessionSnodeKitTests.debug.xcconfig */,
+				7D248E4A1B53B011414F39C5 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionSnodeKit-SessionSnodeKitTests.app store release.xcconfig */,
+				3D3D403893C359F3958F9620 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit.debug.xcconfig */,
+				A2BF9B687CFBA825049BA13E /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit.app store release.xcconfig */,
+				6E9BA69BD34B56C3E6EA7377 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit-SessionSnodeKitTests.debug.xcconfig */,
+				314E29623131BCCB6DEB5A8B /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit-SessionSnodeKitTests.app store release.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -2594,6 +2696,8 @@
 				C3C2A5D92553860B00C340D1 /* JSON.swift */,
 				FDF8488529405A60007DCAE5 /* Request.swift */,
 				FDC438B027BB159600C60D73 /* RequestInfo.swift */,
+				FDB5DAEB2A95E2C2002C8721 /* PreparedRequest.swift */,
+				FDB5DAED2A95E462002C8721 /* BatchRequest.swift */,
 				FDF8488229405A12007DCAE5 /* BatchResponse.swift */,
 				FDC438B227BB15B400C60D73 /* ResponseInfo.swift */,
 				C33FDAF2255A580500E217F9 /* ProxiedContentDownloader.swift */,
@@ -2634,9 +2738,7 @@
 				FDC4383D27B4708600C60D73 /* Atomic.swift */,
 				C33FDAA8255A57FF00E217F9 /* BuildConfiguration.swift */,
 				B8F5F58225EC94A6003BF8D4 /* Collection+Utilities.swift */,
-				FD23CE2F2A67B8820000B97C /* Caches.swift */,
 				FDFD645A27F26D4600808CA1 /* Data+Utilities.swift */,
-				FDC6D75F2862B3F600B04575 /* Dependencies.swift */,
 				C3C2A5D52553860A00C340D1 /* Dictionary+Utilities.swift */,
 				B87EF18026377A1D00124B3C /* Features.swift */,
 				B8BC00BF257D90E30032E807 /* General.swift */,
@@ -2765,6 +2867,7 @@
 		C300A5C72554B03900555489 /* Control Messages */ = {
 			isa = PBXGroup;
 			children = (
+				FDB5DAD22A9483D4002C8721 /* Group Update Messages */,
 				C3C2A7702553A41E00C340D1 /* ControlMessage.swift */,
 				B8DE1FB526C22FCB0079C9CE /* CallMessage.swift */,
 				C34A977325A3E34A00852C71 /* ClosedGroupControlMessage.swift */,
@@ -3316,6 +3419,7 @@
 				FD7115F528C8150600B47552 /* Combine */,
 				B8A582AC258C653C00AFD84C /* Crypto */,
 				B8A582AB258C64E800AFD84C /* Database */,
+				FDF01FAE2A9ED0C800CAF969 /* Dependency Injection */,
 				B8A582B0258C66C900AFD84C /* General */,
 				FD9004102818ABB000ABAAF6 /* JobRunner */,
 				B8A582AF258C665E00AFD84C /* Media */,
@@ -3479,6 +3583,7 @@
 				FD83B9BC27CF2215005E1583 /* _SharedTestUtilities */,
 				FD71160A28D00BAE00B47552 /* SessionTests */,
 				FDC4388F27B9FFC700C60D73 /* SessionMessagingKitTests */,
+				FDB5DAFB2A981C43002C8721 /* SessionSnodeKitTests */,
 				FD83B9B027CF200A005E1583 /* SessionUtilitiesKitTests */,
 				FDE7214E287E50D50093DF33 /* Scripts */,
 				D221A08C169C9E5E00537ABF /* Frameworks */,
@@ -3502,6 +3607,7 @@
 				FD83B9AF27CF200A005E1583 /* SessionUtilitiesKitTests.xctest */,
 				FD71160928D00BAE00B47552 /* SessionTests.xctest */,
 				FD9BDDF82A5D2294005F1EBC /* libSessionUtil.a */,
+				FDB5DAFA2A981C42002C8721 /* SessionSnodeKitTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -3542,12 +3648,13 @@
 				93359C81CF2660040B7CD106 /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionUtilitiesKit_SessionUtilitiesKitTests.framework */,
 				92E8569C96285EE3CDB5960D /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SignalUtilitiesKit.framework */,
 				29E827FDF6C1032BB985740C /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_SessionNotificationServiceExtension.framework */,
-				F8B0BA5257C58DC6FF797278 /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_SessionSnodeKit.framework */,
 				1677131E9189A0043FF97ACB /* Pods_GlobalDependencies_Session.framework */,
 				164F5FAD2DCE932054F61E78 /* Pods_GlobalDependencies_Session_SessionTests.framework */,
 				3E517F8611575B37B76BCC54 /* Pods_GlobalDependencies_SessionUIKit.framework */,
 				DA2B4D0F28E3FD1F3D18E2C4 /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionMessagingKit_SessionMessagingKitTests.framework */,
 				BA1B4423336A8A5EA0A894FA /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionShareExtension.framework */,
+				20C893ED841B5CA3952827C9 /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionSnodeKit.framework */,
+				926A0D0D67FD41010FE84169 /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionSnodeKit_SessionSnodeKitTests.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -3645,6 +3752,7 @@
 				FD778B6329B189FF001BAC6B /* _014_GenerateInitialUserConfigDumps.swift */,
 				FD1D732D2A86114600E3F410 /* _015_BlockCommunityMessageRequests.swift */,
 				7B5233C5290636D700F8F375 /* _016_DisappearingMessagesConfiguration.swift */,
+				FDB5DAC62A9447E7002C8721 /* _017_GroupsRebuildChanges.swift */,
 			);
 			path = Migrations;
 			sourceTree = "<group>";
@@ -3869,6 +3977,7 @@
 		FD3C906B27E43C2400CD579F /* Sending & Receiving */ = {
 			isa = PBXGroup;
 			children = (
+				FDF01FAA2A9EBAD500CAF969 /* MessageSenderGroupsSpec.swift */,
 				FD3C907027E445E500CD579F /* MessageReceiverDecryptionSpec.swift */,
 				FD3C906C27E43C4B00CD579F /* MessageSenderEncryptionSpec.swift */,
 			);
@@ -4006,7 +4115,8 @@
 		FD7728A1284F0DF50018502F /* Message Handling */ = {
 			isa = PBXGroup;
 			children = (
-				C38D5E8C2575011E00B6A65C /* MessageSender+ClosedGroups.swift */,
+				FDB5DAC02A9443A5002C8721 /* MessageSender+Groups.swift */,
+				C38D5E8C2575011E00B6A65C /* MessageSender+LegacyClosedGroups.swift */,
 				FD5C72F6284F0E560029977D /* MessageReceiver+ReadReceipts.swift */,
 				FD5C72F8284F0E880029977D /* MessageReceiver+TypingIndicators.swift */,
 				FD5C72FA284F0EA10029977D /* MessageReceiver+DataExtractionNotification.swift */,
@@ -4014,7 +4124,8 @@
 				FD5C7300284F0F7A0029977D /* MessageReceiver+UnsendRequests.swift */,
 				FD5C7302284F0FA50029977D /* MessageReceiver+Calls.swift */,
 				FD5C7304284F0FF30029977D /* MessageReceiver+VisibleMessages.swift */,
-				C32C5A87256DBCF9003C73A2 /* MessageReceiver+ClosedGroups.swift */,
+				FDB5DAE72A95D96C002C8721 /* MessageReceiver+Groups.swift */,
+				C32C5A87256DBCF9003C73A2 /* MessageReceiver+LegacyClosedGroups.swift */,
 				FD5C7306284F103B0029977D /* MessageReceiver+MessageRequests.swift */,
 			);
 			path = "Message Handling";
@@ -4066,7 +4177,6 @@
 		FD83B9C127CF33EE005E1583 /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				FD3C905B27E3FBEF00CD579F /* BatchRequestInfoSpec.swift */,
 				FD83B9C627CF3F10005E1583 /* CapabilitiesSpec.swift */,
 				FD83B9C427CF3E2A005E1583 /* OpenGroupSpec.swift */,
 				FDC2908627D7047F005DAE71 /* RoomSpec.swift */,
@@ -4092,6 +4202,7 @@
 			children = (
 				FD2B4B022949886900AB4848 /* Database */,
 				FD8ECF8E29381FB200C0D1BB /* Config Handling */,
+				FDB947132A9C23A3001F271A /* Types */,
 				FD432435299DEA1C008A0213 /* Utilities */,
 				FD8ECF882935AB7200C0D1BB /* SessionUtilError.swift */,
 				FD8ECF7A29340FFD00C0D1BB /* SessionUtil.swift */,
@@ -4115,7 +4226,11 @@
 			children = (
 				FD2B4AFC294688D000AB4848 /* SessionUtil+Contacts.swift */,
 				FD43EE9E297E2EE0009C87C5 /* SessionUtil+ConvoInfoVolatile.swift */,
+				FDB5DAC42A944757002C8721 /* SessionUtil+GroupInfo.swift */,
+				FDB5DAC82A944E12002C8721 /* SessionUtil+GroupMembers.swift */,
+				FDB5DACA2A944E72002C8721 /* SessionUtil+GroupKeys.swift */,
 				FDA1E83A29A5F2D500C5C3BD /* SessionUtil+Shared.swift */,
+				FDB5DAC22A944504002C8721 /* SessionUtil+SharedGroup.swift */,
 				FD43EE9C297A5190009C87C5 /* SessionUtil+UserGroups.swift */,
 				FD8ECF8F29381FC200C0D1BB /* SessionUtil+UserProfile.swift */,
 			);
@@ -4150,6 +4265,8 @@
 		FD9B30F1293EA0AF008DEE3E /* Networking */ = {
 			isa = PBXGroup;
 			children = (
+				FDB947112A9831B5001F271A /* PreparedRequestSpec.swift */,
+				FD3C905B27E3FBEF00CD579F /* BatchRequestSpec.swift */,
 				FD9B30F2293EA0BF008DEE3E /* BatchResponseSpec.swift */,
 			);
 			path = Networking;
@@ -4158,12 +4275,55 @@
 		FDA1E83729A5770C00C5C3BD /* Configs */ = {
 			isa = PBXGroup;
 			children = (
-				FD2B4AFA29429D1000AB4848 /* ConfigContactsSpec.swift */,
-				FD8ECF812934387A00C0D1BB /* ConfigUserProfileSpec.swift */,
-				FDBB25E02983909300F1508E /* ConfigConvoInfoVolatileSpec.swift */,
-				FDA1E83529A5748F00C5C3BD /* ConfigUserGroupsSpec.swift */,
+				FD2B4AFA29429D1000AB4848 /* ConfigContacts.swift */,
+				FD8ECF812934387A00C0D1BB /* ConfigUserProfile.swift */,
+				FDBB25E02983909300F1508E /* ConfigConvoInfoVolatile.swift */,
+				FDA1E83529A5748F00C5C3BD /* ConfigUserGroups.swift */,
+				FDC3833A2A9344C700FFD6A2 /* ConfigGroupInfo.swift */,
+				FDB5DACC2A9452F0002C8721 /* ConfigGroupMembers.swift */,
+				FDB5DACE2A945307002C8721 /* ConfigGroupKeys.swift */,
 			);
 			path = Configs;
+			sourceTree = "<group>";
+		};
+		FDB5DAD22A9483D4002C8721 /* Group Update Messages */ = {
+			isa = PBXGroup;
+			children = (
+				FDB5DAD32A9483F3002C8721 /* GroupUpdateInviteMessage.swift */,
+				FDB5DAD72A95D830002C8721 /* GroupUpdateDeleteMessage.swift */,
+				FDB5DAD92A95D839002C8721 /* GroupUpdateInfoChangeMessage.swift */,
+				FDB5DADB2A95D840002C8721 /* GroupUpdateMemberChangeMessage.swift */,
+				FDB5DADD2A95D847002C8721 /* GroupUpdatePromoteMessage.swift */,
+				FDB5DADF2A95D84D002C8721 /* GroupUpdateMemberLeftMessage.swift */,
+				FDB5DAE12A95D8A0002C8721 /* GroupUpdateInviteResponseMessage.swift */,
+				FDB5DAE32A95D8A9002C8721 /* GroupUpdatePromotionResponseMessage.swift */,
+				FDB5DAE52A95D8B0002C8721 /* GroupUpdateDeleteMemberContentMessage.swift */,
+			);
+			path = "Group Update Messages";
+			sourceTree = "<group>";
+		};
+		FDB5DAFB2A981C43002C8721 /* SessionSnodeKitTests */ = {
+			isa = PBXGroup;
+			children = (
+				FDB5DB042A981C55002C8721 /* Networking */,
+			);
+			path = SessionSnodeKitTests;
+			sourceTree = "<group>";
+		};
+		FDB5DB042A981C55002C8721 /* Networking */ = {
+			isa = PBXGroup;
+			children = (
+				FDB5DB052A981C67002C8721 /* PreparedRequestOnionRequestsSpec.swift */,
+			);
+			path = Networking;
+			sourceTree = "<group>";
+		};
+		FDB947132A9C23A3001F271A /* Types */ = {
+			isa = PBXGroup;
+			children = (
+				FDB947142A9C23AF001F271A /* Config.swift */,
+			);
+			path = Types;
 			sourceTree = "<group>";
 		};
 		FDC13D4E2A16EE41007267C7 /* Types */ = {
@@ -4192,10 +4352,10 @@
 			children = (
 				FDF8487D29405993007DCAE5 /* HTTPHeader+OpenGroup.swift */,
 				FDF8487E29405994007DCAE5 /* HTTPQueryParam+OpenGroup.swift */,
+				FDB5DAF42A9721A5002C8721 /* PreparedRequest+OpenGroup.swift */,
 				FDC4381F27B36ADC00C60D73 /* SOGSEndpoint.swift */,
 				FDC4380827B31D4E00C60D73 /* OpenGroupAPIError.swift */,
 				FDC4381627B32EC700C60D73 /* Personalization.swift */,
-				FD2959912A4417A900888A17 /* PreparedSendData.swift */,
 			);
 			path = Types;
 			sourceTree = "<group>";
@@ -4203,7 +4363,6 @@
 		FDC4381827B34EAD00C60D73 /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				FDF8488729405A9A007DCAE5 /* SOGSBatchRequest.swift */,
 				FDC4386627B4E10E00C60D73 /* Capabilities.swift */,
 				FDC4385C27B4C18900C60D73 /* Room.swift */,
 				FDC4386427B4DE7600C60D73 /* RoomPollInfo.swift */,
@@ -4300,6 +4459,8 @@
 				FDC438BC27BB2AB400C60D73 /* Mockable.swift */,
 				FD83B9D127D59495005E1583 /* MockUserDefaults.swift */,
 				FD078E4C27E17156000769AF /* MockOGMCache.swift */,
+				FDB947162A9D69A8001F271A /* MockSessionUtilCache.swift */,
+				FDB9471A2A9D70A6001F271A /* CommonSMKMockExtensions.swift */,
 			);
 			path = _TestUtilities;
 			sourceTree = "<group>";
@@ -4332,6 +4493,15 @@
 			path = Scripts;
 			sourceTree = "<group>";
 		};
+		FDF01FAE2A9ED0C800CAF969 /* Dependency Injection */ = {
+			isa = PBXGroup;
+			children = (
+				FD23CE2F2A67B8820000B97C /* Caches.swift */,
+				FDC6D75F2862B3F600B04575 /* Dependencies.swift */,
+			);
+			path = "Dependency Injection";
+			sourceTree = "<group>";
+		};
 		FDF0B7452804F0A8004C14C5 /* Types */ = {
 			isa = PBXGroup;
 			children = (
@@ -4352,6 +4522,7 @@
 				FD2B4AFE2946C93200AB4848 /* ConfigurationSyncJob.swift */,
 				7B7E5B512A4D024C00A8208E /* ExpirationUpdateJob.swift */,
 				7B7AD41E2A5512CA00469FB1 /* GetExpirationJob.swift */,
+				FDB5DAD02A94838C002C8721 /* GroupInviteMemberJob.swift */,
 			);
 			path = Types;
 			sourceTree = "<group>";
@@ -4395,6 +4566,7 @@
 				FDF848EA29405E4E007DCAE5 /* Notification+OnionRequestAPI.swift */,
 				FDF848E829405E4E007DCAE5 /* OnionRequestAPI.swift */,
 				FDF848E929405E4E007DCAE5 /* OnionRequestAPI+Encryption.swift */,
+				FDB5DAF22A96DD4F002C8721 /* PreparedRequest+OnionRequest.swift */,
 			);
 			path = Networking;
 			sourceTree = "<group>";
@@ -4752,6 +4924,26 @@
 			productReference = FD9BDDF82A5D2294005F1EBC /* libSessionUtil.a */;
 			productType = "com.apple.product-type.library.static";
 		};
+		FDB5DAF92A981C42002C8721 /* SessionSnodeKitTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FDB5DB012A981C43002C8721 /* Build configuration list for PBXNativeTarget "SessionSnodeKitTests" */;
+			buildPhases = (
+				68676F20009B512D62388A81 /* [CP] Check Pods Manifest.lock */,
+				FDB5DAF62A981C42002C8721 /* Sources */,
+				FDB5DAF72A981C42002C8721 /* Frameworks */,
+				FDB5DAF82A981C42002C8721 /* Resources */,
+				6E70539186805D72DD66D022 /* [CP] Embed Pods Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FDB5DB002A981C43002C8721 /* PBXTargetDependency */,
+			);
+			name = SessionSnodeKitTests;
+			productName = SessionSnodeKitTests;
+			productReference = FDB5DAFA2A981C42002C8721 /* SessionSnodeKitTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		FDC4388D27B9FFC700C60D73 /* SessionMessagingKitTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = FDC4389527B9FFC700C60D73 /* Build configuration list for PBXNativeTarget "SessionMessagingKitTests" */;
@@ -4880,6 +5072,9 @@
 					FD9BDDF72A5D2294005F1EBC = {
 						CreatedOnToolsVersion = 14.3;
 					};
+					FDB5DAF92A981C42002C8721 = {
+						CreatedOnToolsVersion = 14.3;
+					};
 					FDC4388D27B9FFC700C60D73 = {
 						CreatedOnToolsVersion = 13.2.1;
 					};
@@ -4929,6 +5124,7 @@
 				C3C2A678255388CC00C340D1 /* SessionUtilitiesKit */,
 				FD71160828D00BAE00B47552 /* SessionTests */,
 				FDC4388D27B9FFC700C60D73 /* SessionMessagingKitTests */,
+				FDB5DAF92A981C42002C8721 /* SessionSnodeKitTests */,
 				FD83B9AE27CF200A005E1583 /* SessionUtilitiesKitTests */,
 				FD9BDDF72A5D2294005F1EBC /* SessionUtil */,
 			);
@@ -5062,6 +5258,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		FD83B9AD27CF200A005E1583 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FDB5DAF82A981C42002C8721 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -5288,6 +5491,45 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
+		68676F20009B512D62388A81 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit-SessionSnodeKitTests-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		6E70539186805D72DD66D022 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit-SessionSnodeKitTests/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit-SessionSnodeKitTests-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit-SessionSnodeKitTests/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit-SessionSnodeKitTests-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit-SessionSnodeKitTests/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit-SessionSnodeKitTests-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
 		77F55C879DAF28750120D343 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -5303,7 +5545,7 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionSnodeKit-checkManifestLockResult.txt",
+				"$(DERIVED_FILE_DIR)/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit-checkManifestLockResult.txt",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -5617,6 +5859,7 @@
 				FDF848C029405C5A007DCAE5 /* ONSResolveResponse.swift in Sources */,
 				FD17D7A427F40F8100122BE0 /* _003_YDBToGRDBMigration.swift in Sources */,
 				FDFC4D9A29F0C51500992FB6 /* String+Trimming.swift in Sources */,
+				FDB5DAF32A96DD4F002C8721 /* PreparedRequest+OnionRequest.swift in Sources */,
 				FDF848C629405C5B007DCAE5 /* DeleteAllMessagesRequest.swift in Sources */,
 				FDF848D429405C5B007DCAE5 /* DeleteAllBeforeResponse.swift in Sources */,
 				FDF848D629405C5B007DCAE5 /* SnodeMessage.swift in Sources */,
@@ -5677,6 +5920,7 @@
 				FDA8EB10280F8238002B68E5 /* Codable+Utilities.swift in Sources */,
 				FDBB25E32988B13800F1508E /* _004_AddJobPriority.swift in Sources */,
 				C352A36D2557858E00338F3E /* NSTimer+Proxying.m in Sources */,
+				FDB5DAEE2A95E462002C8721 /* BatchRequest.swift in Sources */,
 				7B7CB192271508AD0079FF93 /* CallRingTonePlayer.swift in Sources */,
 				FD848B8B283DC509000E298B /* PagedDatabaseObserver.swift in Sources */,
 				B8856E09256F1676001CE70E /* UIDevice+featureSupport.swift in Sources */,
@@ -5764,6 +6008,7 @@
 				C32C5A48256DB8F0003C73A2 /* BuildConfiguration.swift in Sources */,
 				FDF84881294059F5007DCAE5 /* ResponseInfo.swift in Sources */,
 				FD17D7BF27F51F8200122BE0 /* ColumnExpressible.swift in Sources */,
+				FDB5DAEC2A95E2C2002C8721 /* PreparedRequest.swift in Sources */,
 				FD17D7E527F6A09900122BE0 /* Identity.swift in Sources */,
 				FD9004142818AD0B00ABAAF6 /* _002_SetupStandardJobs.swift in Sources */,
 				FDF8487A29405906007DCAE5 /* HTTPError.swift in Sources */,
@@ -5793,6 +6038,7 @@
 				C3471F4C25553AB000297E91 /* MessageReceiver+Decryption.swift in Sources */,
 				FD245C672850665E00B966DD /* AttachmentDownloadJob.swift in Sources */,
 				C300A5D32554B05A00555489 /* TypingIndicator.swift in Sources */,
+				FDB5DAE42A95D8A9002C8721 /* GroupUpdatePromotionResponseMessage.swift in Sources */,
 				7B521E0A29BFF84400C3C36A /* GroupLeavingJob.swift in Sources */,
 				FDC13D582A17207D007267C7 /* UnsubscribeResponse.swift in Sources */,
 				FD09799927FFC1A300936362 /* Attachment.swift in Sources */,
@@ -5806,6 +6052,8 @@
 				FD71161C28D194FB00B47552 /* MentionInfo.swift in Sources */,
 				7B4C75CB26B37E0F0000AC89 /* UnsendRequest.swift in Sources */,
 				C300A5F22554B09800555489 /* MessageSender.swift in Sources */,
+				FDB5DAC52A944757002C8721 /* SessionUtil+GroupInfo.swift in Sources */,
+				FDB5DACB2A944E72002C8721 /* SessionUtil+GroupKeys.swift in Sources */,
 				FDF848F729414477007DCAE5 /* CurrentUserPoller.swift in Sources */,
 				B8B558FF26C4E05E00693325 /* WebRTCSession+MessageHandling.swift in Sources */,
 				C3C2A74D2553A39700C340D1 /* VisibleMessage.swift in Sources */,
@@ -5830,9 +6078,11 @@
 				7B7AD41F2A5512CA00469FB1 /* GetExpirationJob.swift in Sources */,
 				FDA8EAFE280E8B78002B68E5 /* FailedMessageSendsJob.swift in Sources */,
 				FD245C6A2850666F00B966DD /* FileServerAPI.swift in Sources */,
+				FDB5DAF52A9721A5002C8721 /* PreparedRequest+OpenGroup.swift in Sources */,
 				FDFBB74D2A1F3C4E00CA7350 /* NotificationMetadata.swift in Sources */,
 				FDC4386927B4E6B800C60D73 /* String+Utlities.swift in Sources */,
 				FD716E6628502EE200C96BF4 /* CurrentCallProtocol.swift in Sources */,
+				FDB5DAC72A9447E7002C8721 /* _017_GroupsRebuildChanges.swift in Sources */,
 				FD8ECF9029381FC200C0D1BB /* SessionUtil+UserProfile.swift in Sources */,
 				FD09B7E5288670BB00ED0B66 /* _008_EmojiReacts.swift in Sources */,
 				FDFF61D729F2600300F95FB0 /* Identity+Utilities.swift in Sources */,
@@ -5877,8 +6127,11 @@
 				FD5C7307284F103B0029977D /* MessageReceiver+MessageRequests.swift in Sources */,
 				C3A71D0B2558989C0043A11F /* MessageWrapper.swift in Sources */,
 				FDE77F6B280FEB28002CFC5D /* ControlMessageProcessRecord.swift in Sources */,
+				FDB5DADC2A95D840002C8721 /* GroupUpdateMemberChangeMessage.swift in Sources */,
+				FDB5DAE02A95D84D002C8721 /* GroupUpdateMemberLeftMessage.swift in Sources */,
 				7B93D07127CF194000811CB6 /* MessageRequestResponse.swift in Sources */,
-				FDF8488829405A9A007DCAE5 /* SOGSBatchRequest.swift in Sources */,
+				FDB5DAC32A944504002C8721 /* SessionUtil+SharedGroup.swift in Sources */,
+				FDB5DADE2A95D847002C8721 /* GroupUpdatePromoteMessage.swift in Sources */,
 				FD245C662850665900B966DD /* OpenGroupAPI.swift in Sources */,
 				FD245C5B2850660500B966DD /* ReadReceipt.swift in Sources */,
 				B8F5F60325EDE16F003BF8D4 /* DataExtractionNotification.swift in Sources */,
@@ -5887,6 +6140,7 @@
 				FDF0B74F28079E5E004C14C5 /* SendReadReceiptsJob.swift in Sources */,
 				FDF0B7422804EA4F004C14C5 /* _002_SetupStandardJobs.swift in Sources */,
 				FD43EE9F297E2EE0009C87C5 /* SessionUtil+ConvoInfoVolatile.swift in Sources */,
+				FDB947152A9C23AF001F271A /* Config.swift in Sources */,
 				B8EB20EE2640F28000773E52 /* VisibleMessage+OpenGroupInvitation.swift in Sources */,
 				FDF8487F29405994007DCAE5 /* HTTPHeader+OpenGroup.swift in Sources */,
 				FD8ECF7D2934293A00C0D1BB /* _013_SessionUtilChanges.swift in Sources */,
@@ -5902,6 +6156,7 @@
 				FD42F9A8285064B800A0C77D /* PushNotificationAPI.swift in Sources */,
 				FD245C6C2850669200B966DD /* MessageReceiveJob.swift in Sources */,
 				FD43EE9D297A5190009C87C5 /* SessionUtil+UserGroups.swift in Sources */,
+				FDB5DAC12A9443A5002C8721 /* MessageSender+Groups.swift in Sources */,
 				FD83B9CC27D179BC005E1583 /* FSEndpoint.swift in Sources */,
 				FDC13D4B2A16ECBA007267C7 /* SubscribeResponse.swift in Sources */,
 				FD7115F228C6CB3900B47552 /* _010_AddThreadIdToFTS.swift in Sources */,
@@ -5913,11 +6168,13 @@
 				FD245C51285065CC00B966DD /* MessageReceiver.swift in Sources */,
 				FD23CE222A661D000000B97C /* OpenGroupAPI+Crypto.swift in Sources */,
 				FD245C652850665400B966DD /* ClosedGroupControlMessage.swift in Sources */,
+				FDB5DAD12A94838C002C8721 /* GroupInviteMemberJob.swift in Sources */,
 				FDC4387827B5C35400C60D73 /* SendMessageRequest.swift in Sources */,
 				FDC383392A93411100FFD6A2 /* Setting+Utilities.swift in Sources */,
+				FDB5DAE62A95D8B0002C8721 /* GroupUpdateDeleteMemberContentMessage.swift in Sources */,
 				7B5233C6290636D700F8F375 /* _016_DisappearingMessagesConfiguration.swift in Sources */,
 				FD5C72FD284F0EC90029977D /* MessageReceiver+ExpirationTimers.swift in Sources */,
-				C32C5A88256DBCF9003C73A2 /* MessageReceiver+ClosedGroups.swift in Sources */,
+				C32C5A88256DBCF9003C73A2 /* MessageReceiver+LegacyClosedGroups.swift in Sources */,
 				B8D0A25925E367AC00C1835E /* Notification+MessageReceiver.swift in Sources */,
 				FD245C53285065DB00B966DD /* ProximityMonitoringManager.swift in Sources */,
 				FD245C55285065E500B966DD /* OpenGroupManager.swift in Sources */,
@@ -5928,12 +6185,13 @@
 				FD37EA0D28AB2A45003AE748 /* _005_FixDeletedMessageReadState.swift in Sources */,
 				7BAA7B6628D2DE4700AE1489 /* _009_OpenGroupPermission.swift in Sources */,
 				FDC4380927B31D4E00C60D73 /* OpenGroupAPIError.swift in Sources */,
+				FDB5DAC92A944E12002C8721 /* SessionUtil+GroupMembers.swift in Sources */,
 				FDC4382027B36ADC00C60D73 /* SOGSEndpoint.swift in Sources */,
 				FDC438C927BB706500C60D73 /* SendDirectMessageRequest.swift in Sources */,
 				C3A71D1F25589AC30043A11F /* WebSocketResources.pb.swift in Sources */,
 				FDF0B74B28061F7A004C14C5 /* InteractionAttachment.swift in Sources */,
 				FD09796E27FA6D0000936362 /* Contact.swift in Sources */,
-				C38D5E8D2575011E00B6A65C /* MessageSender+ClosedGroups.swift in Sources */,
+				C38D5E8D2575011E00B6A65C /* MessageSender+LegacyClosedGroups.swift in Sources */,
 				FD5C72F7284F0E560029977D /* MessageReceiver+ReadReceipts.swift in Sources */,
 				FDC13D492A16EC20007267C7 /* Service.swift in Sources */,
 				FD778B6429B189FF001BAC6B /* _014_GenerateInitialUserConfigDumps.swift in Sources */,
@@ -5950,6 +6208,7 @@
 				FD716E722850647600C96BF4 /* Data+Utilities.swift in Sources */,
 				FD368A6829DE8F9C000DBF1E /* _012_AddFTSIfNeeded.swift in Sources */,
 				FD245C5C2850660A00B966DD /* LegacyConfigurationMessage.swift in Sources */,
+				FDB5DAD82A95D830002C8721 /* GroupUpdateDeleteMessage.swift in Sources */,
 				FD5C7301284F0F7A0029977D /* MessageReceiver+UnsendRequests.swift in Sources */,
 				C3C2A75F2553A3C500C340D1 /* VisibleMessage+LinkPreview.swift in Sources */,
 				FD245C642850664F00B966DD /* Threading.swift in Sources */,
@@ -5965,8 +6224,8 @@
 				FD245C632850664600B966DD /* Configuration.swift in Sources */,
 				C32C5DBF256DD743003C73A2 /* ClosedGroupPoller.swift in Sources */,
 				C352A35B2557824E00338F3E /* AttachmentUploadJob.swift in Sources */,
-				FD2959922A4417A900888A17 /* PreparedSendData.swift in Sources */,
 				FD5C7305284F0FF30029977D /* MessageReceiver+VisibleMessages.swift in Sources */,
+				FDB5DAE82A95D96C002C8721 /* MessageReceiver+Groups.swift in Sources */,
 				FD1D732E2A86114600E3F410 /* _015_BlockCommunityMessageRequests.swift in Sources */,
 				FD432437299DEA38008A0213 /* TypeConversion+Utilities.swift in Sources */,
 				FD2B4B042949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift in Sources */,
@@ -5976,10 +6235,13 @@
 				C3BBE0C72554F1570050F1E3 /* FixedWidthInteger+BigEndian.swift in Sources */,
 				FD09798127FCFEE800936362 /* SessionThread.swift in Sources */,
 				FD09C5EA282A1BB2000CE219 /* ThreadTypingIndicator.swift in Sources */,
+				FDB5DADA2A95D839002C8721 /* GroupUpdateInfoChangeMessage.swift in Sources */,
 				FDF0B75E280AAF35004C14C5 /* Preferences.swift in Sources */,
 				FDC4383827B3863200C60D73 /* VersionResponse.swift in Sources */,
+				FDB5DAD42A9483F3002C8721 /* GroupUpdateInviteMessage.swift in Sources */,
 				B806ECA126C4A7E4008BDA44 /* WebRTCSession+UI.swift in Sources */,
 				FD432432299C6933008A0213 /* _011_AddPendingReadReceipts.swift in Sources */,
+				FDB5DAE22A95D8A0002C8721 /* GroupUpdateInviteResponseMessage.swift in Sources */,
 				7BCD116C27016062006330F1 /* WebRTCSession+DataChannel.swift in Sources */,
 				FD5C72F9284F0E880029977D /* MessageReceiver+TypingIndicators.swift in Sources */,
 				FD5C7303284F0FA50029977D /* MessageReceiver+Calls.swift in Sources */,
@@ -6219,6 +6481,7 @@
 				7B6ACADE2A32D3A9009AFB73 /* MessageReceiverDisappearingMessagesSpec.swift in Sources */,
 				FD9DD2712A72516D00ECB68E /* TestExtensions.swift in Sources */,
 				FD2AAAED28ED3E1000A49611 /* MockGeneralCache.swift in Sources */,
+				FDB5DB0D2A981F9D002C8721 /* MockJobRunner.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6231,11 +6494,13 @@
 				FD83B9BF27CF2294005E1583 /* TestConstants.swift in Sources */,
 				FDFBB7542A2023EB00CA7350 /* BencodeSpec.swift in Sources */,
 				FD9DD2732A72516D00ECB68E /* TestExtensions.swift in Sources */,
+				FDB5DB0E2A981FA0002C8721 /* MockJobRunner.swift in Sources */,
 				FD83B9BB27CF20AF005E1583 /* SessionIdSpec.swift in Sources */,
 				FDC290A927D9B46D005DAE71 /* NimbleExtensions.swift in Sources */,
 				FD23EA6328ED0B260058676E /* CombineExtensions.swift in Sources */,
 				FD23CE352A67C4DA0000B97C /* MockNetwork.swift in Sources */,
 				FD23CE282A67755C0000B97C /* MockCrypto.swift in Sources */,
+				FDB947122A9831B5001F271A /* PreparedRequestSpec.swift in Sources */,
 				FD2AAAEE28ED3E1100A49611 /* MockGeneralCache.swift in Sources */,
 				FD9B30F3293EA0BF008DEE3E /* BatchResponseSpec.swift in Sources */,
 				FD37EA1528AB42CB003AE748 /* IdentitySpec.swift in Sources */,
@@ -6247,6 +6512,28 @@
 				FD0969FB2A6A00B100C5C365 /* Mocked.swift in Sources */,
 				FDC290AA27D9B6FD005DAE71 /* Mock.swift in Sources */,
 				FD2959902A43BE5F00888A17 /* VersionSpec.swift in Sources */,
+				FDB947102A982EF2001F271A /* BatchRequestSpec.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FDB5DAF62A981C42002C8721 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FDB5DB062A981C67002C8721 /* PreparedRequestOnionRequestsSpec.swift in Sources */,
+				FDB5DB082A981F8B002C8721 /* Mocked.swift in Sources */,
+				FDB5DB142A981FAE002C8721 /* CombineExtensions.swift in Sources */,
+				FDB5DB162A9821DF002C8721 /* CommonMockedExtensions.swift in Sources */,
+				FDB5DB0A2A981F90002C8721 /* MockCaches.swift in Sources */,
+				FDB5DB112A981FA6002C8721 /* TestExtensions.swift in Sources */,
+				FDB5DB092A981F8D002C8721 /* MockCrypto.swift in Sources */,
+				FDB5DB102A981FA3002C8721 /* TestConstants.swift in Sources */,
+				FDB5DB0C2A981F96002C8721 /* MockNetwork.swift in Sources */,
+				FDB5DB0F2A981FA1002C8721 /* MockJobRunner.swift in Sources */,
+				FDB5DB072A981F88002C8721 /* Mock.swift in Sources */,
+				FDB5DB0B2A981F92002C8721 /* MockGeneralCache.swift in Sources */,
+				FDB5DB122A981FA8002C8721 /* NimbleExtensions.swift in Sources */,
+				FDB5DB152A981FB0002C8721 /* SynchronousStorage.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6254,38 +6541,43 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FD3C905C27E3FBEF00CD579F /* BatchRequestInfoSpec.swift in Sources */,
 				FDDC08F229A300E800BF9681 /* LibSessionTypeConversionUtilitiesSpec.swift in Sources */,
 				FDC2909427D710B4005DAE71 /* SOGSEndpointSpec.swift in Sources */,
 				FD96F3A529DBC3DC00401309 /* MessageSendJobSpec.swift in Sources */,
 				FDC2909127D709CA005DAE71 /* SOGSMessageSpec.swift in Sources */,
 				FD3C906A27E417CE00CD579F /* CryptoSMKSpec.swift in Sources */,
+				FDB947172A9D69A8001F271A /* MockSessionUtilCache.swift in Sources */,
 				FD96F3A729DBD43D00401309 /* MockJobRunner.swift in Sources */,
-				FDBB25E12983909300F1508E /* ConfigConvoInfoVolatileSpec.swift in Sources */,
+				FDBB25E12983909300F1508E /* ConfigConvoInfoVolatile.swift in Sources */,
 				FD3C907127E445E500CD579F /* MessageReceiverDecryptionSpec.swift in Sources */,
 				FDC2909627D71252005DAE71 /* SOGSErrorSpec.swift in Sources */,
 				FDC2908727D7047F005DAE71 /* RoomSpec.swift in Sources */,
 				FD3C906027E410F700CD579F /* FileUploadResponseSpec.swift in Sources */,
 				FD83B9C727CF3F10005E1583 /* CapabilitiesSpec.swift in Sources */,
 				FDC2909A27D71376005DAE71 /* NonceGeneratorSpec.swift in Sources */,
+				FDB5DACF2A945307002C8721 /* ConfigGroupKeys.swift in Sources */,
 				FD2AAAF128ED57B500A49611 /* SynchronousStorage.swift in Sources */,
 				FD078E4827E02561000769AF /* CommonMockedExtensions.swift in Sources */,
 				FD23CE2A2A6775660000B97C /* MockCrypto.swift in Sources */,
 				FDC2909827D7129B005DAE71 /* PersonalizationSpec.swift in Sources */,
 				FD078E4D27E17156000769AF /* MockOGMCache.swift in Sources */,
 				FD9DD2722A72516D00ECB68E /* TestExtensions.swift in Sources */,
-				FDA1E83629A5748F00C5C3BD /* ConfigUserGroupsSpec.swift in Sources */,
+				FDA1E83629A5748F00C5C3BD /* ConfigUserGroups.swift in Sources */,
 				FDC290A627D860CE005DAE71 /* Mock.swift in Sources */,
-				FD2B4AFB29429D1000AB4848 /* ConfigContactsSpec.swift in Sources */,
+				FDF01FAB2A9EBAD500CAF969 /* MessageSenderGroupsSpec.swift in Sources */,
+				FD2B4AFB29429D1000AB4848 /* ConfigContacts.swift in Sources */,
 				FDA1E83D29AC71A800C5C3BD /* SessionUtilSpec.swift in Sources */,
 				FD83B9C027CF2294005E1583 /* TestConstants.swift in Sources */,
 				FDC4389A27BA002500C60D73 /* OpenGroupAPISpec.swift in Sources */,
 				FD23CE2E2A678E1E0000B97C /* MockCaches.swift in Sources */,
 				FD23EA6228ED0B260058676E /* CombineExtensions.swift in Sources */,
+				FDC3833B2A9344C700FFD6A2 /* ConfigGroupInfo.swift in Sources */,
+				FDB5DACD2A9452F0002C8721 /* ConfigGroupMembers.swift in Sources */,
+				FDB9471B2A9D70A6001F271A /* CommonSMKMockExtensions.swift in Sources */,
 				FD83B9C527CF3E2A005E1583 /* OpenGroupSpec.swift in Sources */,
 				FD23CE342A67C4D90000B97C /* MockNetwork.swift in Sources */,
 				FDC2908B27D707F3005DAE71 /* SendMessageRequestSpec.swift in Sources */,
-				FD8ECF822934387A00C0D1BB /* ConfigUserProfileSpec.swift in Sources */,
+				FD8ECF822934387A00C0D1BB /* ConfigUserProfile.swift in Sources */,
 				FDC290A827D9B46D005DAE71 /* NimbleExtensions.swift in Sources */,
 				FD7692F72A53A2ED000E4B70 /* SessionThreadViewModelSpec.swift in Sources */,
 				FD0969F92A69FFE700C5C365 /* Mocked.swift in Sources */,
@@ -6400,6 +6692,12 @@
 			isa = PBXTargetDependency;
 			target = C3C2A678255388CC00C340D1 /* SessionUtilitiesKit */;
 			targetProxy = FD83B9B427CF200A005E1583 /* PBXContainerItemProxy */;
+		};
+		FDB5DB002A981C43002C8721 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilter = ios;
+			target = C3C2A59E255385C100C340D1 /* SessionSnodeKit */;
+			targetProxy = FDB5DAFF2A981C43002C8721 /* PBXContainerItemProxy */;
 		};
 		FDC4389427B9FFC700C60D73 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -7015,7 +7313,7 @@
 		};
 		C3C2A5A8255385C100C340D1 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 847091A12D82E41B1EBB8FB3 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionSnodeKit.debug.xcconfig */;
+			baseConfigurationReference = 3D3D403893C359F3958F9620 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit.debug.xcconfig */;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -7072,7 +7370,7 @@
 		};
 		C3C2A5A9255385C100C340D1 /* App Store Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = EED1CF82CAB23FE3345564F9 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionSnodeKit.app store release.xcconfig */;
+			baseConfigurationReference = A2BF9B687CFBA825049BA13E /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit.app store release.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				APPLICATION_EXTENSION_API_ONLY = YES;
@@ -8083,6 +8381,110 @@
 			};
 			name = "App Store Release";
 		};
+		FDB5DB022A981C43002C8721 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 6E9BA69BD34B56C3E6EA7377 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit-SessionSnodeKitTests.debug.xcconfig */;
+			buildSettings = {
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = "$(inherited)";
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = io.oxen.SessionSnodeKitTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		FDB5DB032A981C43002C8721 /* App Store Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 314E29623131BCCB6DEB5A8B /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit-SessionSnodeKitTests.app store release.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = "$(inherited)";
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = io.oxen.SessionSnodeKitTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = "App Store Release";
+		};
 		FDC4389627B9FFC700C60D73 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 8727C47348B6EFA767EE583A /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionMessagingKit-SessionMessagingKitTests.debug.xcconfig */;
@@ -8297,6 +8699,15 @@
 			buildConfigurations = (
 				FD9BDDFD2A5D2294005F1EBC /* Debug */,
 				FD9BDDFE2A5D2294005F1EBC /* App Store Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = "App Store Release";
+		};
+		FDB5DB012A981C43002C8721 /* Build configuration list for PBXNativeTarget "SessionSnodeKitTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FDB5DB022A981C43002C8721 /* Debug */,
+				FDB5DB032A981C43002C8721 /* App Store Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = "App Store Release";

@@ -12,7 +12,7 @@ enum _011_AddPendingReadReceipts: Migration {
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.01
     
-    static func migrate(_ db: Database) throws {
+    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         try db.create(table: PendingReadReceipt.self) { t in
             t.column(.threadId, .text)
                 .notNull()

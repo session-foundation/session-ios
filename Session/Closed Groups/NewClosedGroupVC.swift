@@ -31,7 +31,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     private lazy var data: [ArraySection<Section, Profile>] = [
         ArraySection(model: .contacts, elements: contactProfiles)
     ]
-    private var selectedContacts: Set<String> = []
+    private var selectedProfiles: [String: Profile] = [:]
     private var searchText: String = ""
 
     // MARK: - Components
@@ -211,7 +211,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                 leftAccessory: .profile(id: profile.id, profile: profile),
                 title: profile.displayName(),
                 rightAccessory: .radio(isSelected: { [weak self] in
-                    self?.selectedContacts.contains(profile.id) == true
+                    (self?.selectedProfiles[profile.id] != nil)
                 }),
                 styling: SessionCell.StyleInfo(backgroundStyle: .edgeToEdge),
                 accessibility: Accessibility(
@@ -234,13 +234,13 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     }
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        let profileId: String = data[indexPath.section].elements[indexPath.row].id
+        let profile: Profile = data[indexPath.section].elements[indexPath.row]
         
-        if !selectedContacts.contains(profileId) {
-            selectedContacts.insert(profileId)
+        if selectedProfiles[profile.id] == nil {
+            selectedProfiles[profile.id] = profile
         }
         else {
-            selectedContacts.remove(profileId)
+            selectedProfiles.removeValue(forKey: profile.id)
         }
         
         tableView.deselectRow(at: indexPath, animated: true)
@@ -323,17 +323,17 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         guard name.utf8CString.count < SessionUtil.libSessionMaxGroupNameByteLength else {
             return showError(title: "vc_create_closed_group_group_name_too_long_error".localized())
         }
-        guard selectedContacts.count >= 1 else {
+        guard selectedProfiles.count >= 1 else {
             return showError(title: "GROUP_ERROR_NO_MEMBER_SELECTION".localized())
         }
-        guard selectedContacts.count < 100 else { // Minus one because we're going to include self later
+        guard selectedProfiles.count < 100 else { // Minus one because we're going to include self later
             return showError(title: "vc_create_closed_group_too_many_group_members_error".localized())
         }
-        let selectedContacts = self.selectedContacts
-        let message: String? = (selectedContacts.count > 20 ? "GROUP_CREATION_PLEASE_WAIT".localized() : nil)
-        ModalActivityIndicatorViewController.present(fromViewController: navigationController!, message: message) { [weak self] _ in
+        let selectedProfiles: [(String, Profile?)] = self.selectedProfiles
+            .reduce(into: []) { result, next in result.append((next.key, next.value)) }
+        ModalActivityIndicatorViewController.present(fromViewController: navigationController!) { [weak self] _ in
             MessageSender
-                .createClosedGroup(name: name, members: selectedContacts)
+                .createLegacyClosedGroup(name: name, members: selectedProfiles.map { $0.0 }.asSet())
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(

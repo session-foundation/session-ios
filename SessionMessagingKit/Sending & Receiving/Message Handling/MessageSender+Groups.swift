@@ -12,13 +12,13 @@ extension MessageSender {
         thread: SessionThread,
         group: ClosedGroup,
         members: [GroupMember],
-        preparedNotificationsSubscription: HTTP.PreparedRequest<PushNotificationAPI.SubscribeResponse>,
+        preparedNotificationsSubscription: HTTP.PreparedRequest<PushNotificationAPI.SubscribeResponse>?,
         currentUserPublicKey: String
     )
     public static func createGroup(
         name: String,
         displayPicture: SignalAttachment?,
-        members: Set<String>,
+        members: [(String, Profile?)],
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<SessionThread, Error> {
         Just(())
@@ -38,6 +38,7 @@ extension MessageSender {
                 dependencies.storage.write { db -> PreparedGroupData in
                     // Create and cache the libSession entries
                     let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+                    let currentUserProfile: Profile = Profile.fetchOrCreateCurrentUser(db, using: dependencies)
                     let groupData: (identityKeyPair: KeyPair, group: ClosedGroup, members: [GroupMember]) = try SessionUtil.createGroup(
                         db,
                         name: name,
@@ -45,10 +46,10 @@ extension MessageSender {
                         displayPictureFilename: displayPictureInfo?.filename,
                         displayPictureEncryptionKey: displayPictureInfo?.encryptionKey,
                         members: members,
-                        admins: [currentUserPublicKey],
+                        admins: [(currentUserPublicKey, currentUserProfile)],
                         using: dependencies
                     )
-                    let preparedNotificationSubscription = try PushNotificationAPI
+                    let preparedNotificationSubscription = try? PushNotificationAPI
                         .preparedSubscribe(
                             publicKey: groupData.group.id,
                             subkey: nil,
@@ -58,7 +59,13 @@ extension MessageSender {
                     
                     // Save the relevant objects to the database
                     let thread: SessionThread = try SessionThread
-                        .fetchOrCreate(db, id: groupData.group.id, variant: .group, shouldBeVisible: true)
+                        .fetchOrCreate(
+                            db,
+                            id: groupData.group.id,
+                            variant: .group,
+                            shouldBeVisible: true,
+                            using: dependencies
+                        )
                     try groupData.group.insert(db)
                     try groupData.members.forEach { try $0.insert(db) }
                     
@@ -86,8 +93,8 @@ extension MessageSender {
                     // Start polling
                     ClosedGroupPoller.shared.startIfNeeded(for: group.id, using: dependencies)
                     
-                    // Subscribe for push notifications
-                    preparedNotificationSubscription
+                    // Subscribe for push notifications (if PNs are enabled)
+                    preparedNotificationSubscription?
                         .send(using: dependencies)
                         .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                         .sinkUntilComplete()

@@ -67,7 +67,7 @@ public class Poller {
     internal func startIfNeeded(for publicKey: String, using dependencies: Dependencies) {
         // Run on the 'pollerQueue' to ensure any 'Atomic' access doesn't block the main thread
         // on startup
-        Threading.pollerQueue.async { [weak self] in
+        Threading.pollerQueue.async(using: dependencies) { [weak self] in
             guard self?.isPolling.wrappedValue[publicKey] != true else { return }
             
             // Might be a race condition that the setUpPolling finishes too soon,
@@ -225,7 +225,7 @@ public class Poller {
             poller?.pollerName(for: publicKey) ??
             "poller with public key \(publicKey)"
         )
-        let configHashes: [String] = SessionUtil.configHashes(for: publicKey)
+        let configHashes: [String] = SessionUtil.configHashes(for: publicKey, using: dependencies)
         
         // Fetch the messages
         return SnodeAPI

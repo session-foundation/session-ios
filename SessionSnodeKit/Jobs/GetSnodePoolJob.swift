@@ -23,11 +23,11 @@ public enum GetSnodePoolJob: JobExecutor {
         // but we want to succeed this job immediately (since it's marked as blocking), this allows us
         // to block if we have no Snode pool and prevent other jobs from failing but avoids having to
         // wait if we already have a potentially valid snode pool
-        guard !SnodeAPI.hasCachedSnodesIncludingExpired() else {
+        guard !SnodeAPI.hasCachedSnodesIncludingExpired(using: dependencies) else {
             SNLog("[GetSnodePoolJob] Has valid cached pool, running async instead")
             SnodeAPI
-                .getSnodePool()
-                .subscribe(on: DispatchQueue.global(qos: .default))
+                .getSnodePool(using: dependencies)
+                .subscribe(on: DispatchQueue.global(qos: .default), using: dependencies)
                 .sinkUntilComplete()
             return success(job, false, dependencies)
         }
@@ -53,7 +53,7 @@ public enum GetSnodePoolJob: JobExecutor {
             )
     }
     
-    public static func run(using dependencies: Dependencies = Dependencies()) {
+    public static func run(using dependencies: Dependencies) {
         GetSnodePoolJob.run(
             Job(variant: .getSnodePool),
             queue: .global(qos: .background),

@@ -561,7 +561,12 @@ public enum OnionRequestAPI {
                                 if pathFailureCount >= pathFailureThreshold {
                                     dropGuardSnode(guardSnode)
                                     path.forEach { snode in
-                                        SnodeAPI.handleError(withStatusCode: statusCode, data: data, forSnode: snode) // Intentionally don't throw
+                                        SnodeAPI.handleError(
+                                            withStatusCode: statusCode,
+                                            data: data,
+                                            forSnode: snode,
+                                            using: dependencies
+                                        ) // Intentionally don't throw
                                     }
                                     
                                     drop(path)
@@ -592,13 +597,15 @@ public enum OnionRequestAPI {
                                     snodeFailureCount += 1
                                     
                                     if snodeFailureCount >= snodeFailureThreshold {
-                                        SnodeAPI.handleError(withStatusCode: statusCode, data: data, forSnode: snode) // Intentionally don't throw
-                                        do {
-                                            try drop(snode)
-                                        }
-                                        catch {
-                                            handleUnspecificError()
-                                        }
+                                        SnodeAPI.handleError(
+                                            withStatusCode: statusCode,
+                                            data: data,
+                                            forSnode: snode,
+                                            using: dependencies
+                                        ) // Intentionally don't throw
+                                        
+                                        do { try drop(snode) }
+                                        catch { handleUnspecificError() }
                                     }
                                     else {
                                         OnionRequestAPI.snodeFailureCount

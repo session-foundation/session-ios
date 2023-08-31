@@ -33,16 +33,16 @@ internal extension SessionUtil {
     
     static func handleContactsUpdate(
         _ db: Database,
-        in conf: UnsafeMutablePointer<config_object>?,
-        mergeNeedsDump: Bool,
-        latestConfigSentTimestampMs: Int64
+        in config: Config?,
+        latestConfigSentTimestampMs: Int64,
+        using dependencies: Dependencies
     ) throws {
-        guard mergeNeedsDump else { return }
-        guard conf != nil else { throw SessionUtilError.nilConfigObject }
+        guard config.needsDump else { return }
+        guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
         
         // The current users contact data is handled separately so exclude it if it's present (as that's
         // actually a bug)
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
         let targetContactData: [String: ContactData] = try extractContacts(
             from: conf,
             latestConfigSentTimestampMs: latestConfigSentTimestampMs
@@ -151,7 +151,8 @@ internal extension SessionUtil {
                                 threadId: sessionId,
                                 threadVariant: .contact,
                                 groupLeaveType: .forced,
-                                calledFromConfigHandling: true
+                                calledFromConfigHandling: true,
+                                using: dependencies
                             )
                         
                     case (true, false):
@@ -270,10 +271,11 @@ internal extension SessionUtil {
                     threadIds: combinedIds,
                     threadVariant: .contact,
                     groupLeaveType: .forced,
-                    calledFromConfigHandling: true
+                    calledFromConfigHandling: true,
+                    using: dependencies
                 )
             
-            try SessionUtil.remove(db, volatileContactIds: combinedIds)
+            try SessionUtil.remove(db, volatileContactIds: combinedIds, using: dependencies)
         }
     }
     
@@ -281,9 +283,9 @@ internal extension SessionUtil {
     
     static func upsert(
         contactData: [SyncedContactInfo],
-        in conf: UnsafeMutablePointer<config_object>?
+        in config: Config?
     ) throws {
-        guard conf != nil else { throw SessionUtilError.nilConfigObject }
+        guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
         
         // The current users contact data doesn't need to sync so exclude it, we also don't want to sync
         // blinded message requests so exclude those as well
@@ -305,7 +307,7 @@ internal extension SessionUtil {
                 guard contacts_get_or_construct(conf, &contact, &sessionId) else {
                     /// It looks like there are some situations where this object might not get created correctly (and
                     /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
-                    SNLog("Unable to upsert contact to SessionUtil: \(SessionUtil.lastError(conf))")
+                    SNLog("Unable to upsert contact to SessionUtil: \(config.lastError)")
                     throw SessionUtilError.getOrConstructFailedUnexpectedly
                 }
                 
@@ -374,12 +376,16 @@ internal extension SessionUtil {
 // MARK: - Outgoing Changes
 
 internal extension SessionUtil {
-    static func updatingContacts<T>(_ db: Database, _ updated: [T]) throws -> [T] {
+    static func updatingContacts<T>(
+        _ db: Database,
+        _ updated: [T],
+        using dependencies: Dependencies
+    ) throws -> [T] {
         guard let updatedContacts: [Contact] = updated as? [Contact] else { throw StorageError.generic }
         
         // The current users contact data doesn't need to sync so exclude it, we also don't want to sync
         // blinded message requests so exclude those as well
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
         let targetContacts: [Contact] = updatedContacts
             .filter {
                 $0.id != userPublicKey &&
@@ -392,8 +398,11 @@ internal extension SessionUtil {
         try SessionUtil.performAndPushChange(
             db,
             for: .contacts,
-            publicKey: userPublicKey
-        ) { conf in
+            publicKey: userPublicKey,
+            using: dependencies
+        ) { config in
+            guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+            
             // When inserting new contacts (or contacts with invalid profile data) we want
             // to add any valid profile information we have so identify if any of the updated
             // contacts are new/invalid, and if so, fetch any profile data we have for them
@@ -424,14 +433,18 @@ internal extension SessionUtil {
                                 profile: newProfiles[contact.id]
                             )
                         },
-                    in: conf
+                    in: config
                 )
         }
         
         return updated
     }
     
-    static func updatingProfiles<T>(_ db: Database, _ updated: [T]) throws -> [T] {
+    static func updatingProfiles<T>(
+        _ db: Database,
+        _ updated: [T],
+        using dependencies: Dependencies
+    ) throws -> [T] {
         guard let updatedProfiles: [Profile] = updated as? [Profile] else { throw StorageError.generic }
         
         // We should only sync profiles which are associated to contact data to avoid including profiles
@@ -449,7 +462,7 @@ internal extension SessionUtil {
         guard !existingContactIds.isEmpty else { return updated }
         
         // Get the user public key (updating their profile is handled separately)
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
         let targetProfiles: [Profile] = updatedProfiles
             .filter {
                 $0.id != userPublicKey &&
@@ -462,11 +475,12 @@ internal extension SessionUtil {
             try SessionUtil.performAndPushChange(
                 db,
                 for: .userProfile,
-                publicKey: userPublicKey
-            ) { conf in
+                publicKey: userPublicKey,
+                using: dependencies
+            ) { config in
                 try SessionUtil.update(
                     profile: updatedUserProfile,
-                    in: conf
+                    in: config
                 )
             }
         }
@@ -474,20 +488,25 @@ internal extension SessionUtil {
         try SessionUtil.performAndPushChange(
             db,
             for: .contacts,
-            publicKey: userPublicKey
-        ) { conf in
+            publicKey: userPublicKey,
+            using: dependencies
+        ) { config in
             try SessionUtil
                 .upsert(
                     contactData: targetProfiles
                         .map { SyncedContactInfo(id: $0.id, profile: $0) },
-                    in: conf
+                    in: config
                 )
         }
         
         return updated
     }
     
-    static func updatingDisappearingConfigsOneToOne<T>(_ db: Database, _ updated: [T]) throws -> [T] {
+    static func updatingDisappearingConfigsOneToOne<T>(
+        _ db: Database,
+        _ updated: [T],
+        using dependencies: Dependencies
+    ) throws -> [T] {
         guard let updatedDisappearingConfigs: [DisappearingMessagesConfiguration] = updated as? [DisappearingMessagesConfiguration] else { throw StorageError.generic }
         
         // Filter out any disappearing config changes related to groups
@@ -509,7 +528,7 @@ internal extension SessionUtil {
         guard !existingContactIds.isEmpty else { return updated }
         
         // Get the user public key (updating note to self is handled separately)
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
         let targetDisappearingConfigs: [DisappearingMessagesConfiguration] = targetUpdatedConfigs
             .filter {
                 $0.id != userPublicKey &&
@@ -522,11 +541,12 @@ internal extension SessionUtil {
             try SessionUtil.performAndPushChange(
                 db,
                 for: .userProfile,
-                publicKey: userPublicKey
-            ) { conf in
+                publicKey: userPublicKey,
+                using: dependencies
+            ) { config in
                 try SessionUtil.updateNoteToSelf(
                     disappearingMessagesConfig: updatedUserDisappearingConfig,
-                    in: conf
+                    in: config
                 )
             }
         }
@@ -534,13 +554,14 @@ internal extension SessionUtil {
         try SessionUtil.performAndPushChange(
             db,
             for: .contacts,
-            publicKey: userPublicKey
-        ) { conf in
+            publicKey: userPublicKey,
+            using: dependencies
+        ) { config in
             try SessionUtil
                 .upsert(
                     contactData: targetDisappearingConfigs
                         .map { SyncedContactInfo(id: $0.id, disappearingMessagesConfig: $0) },
-                    in: conf
+                    in: config
                 )
         }
         
@@ -551,12 +572,17 @@ internal extension SessionUtil {
 // MARK: - External Outgoing Changes
 
 public extension SessionUtil {
-    static func hide(_ db: Database, contactIds: [String]) throws {
+    static func hide(
+        _ db: Database,
+        contactIds: [String],
+        using dependencies: Dependencies
+    ) throws {
         try SessionUtil.performAndPushChange(
             db,
             for: .contacts,
-            publicKey: getUserHexEncodedPublicKey(db)
-        ) { conf in
+            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            using: dependencies
+        ) { config in
             // Mark the contacts as hidden
             try SessionUtil.upsert(
                 contactData: contactIds
@@ -566,19 +592,26 @@ public extension SessionUtil {
                             priority: SessionUtil.hiddenPriority
                         )
                     },
-                in: conf
+                in: config
             )
         }
     }
     
-    static func remove(_ db: Database, contactIds: [String]) throws {
+    static func remove(
+        _ db: Database,
+        contactIds: [String],
+        using dependencies: Dependencies
+    ) throws {
         guard !contactIds.isEmpty else { return }
         
         try SessionUtil.performAndPushChange(
             db,
             for: .contacts,
-            publicKey: getUserHexEncodedPublicKey(db)
-        ) { conf in
+            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            using: dependencies
+        ) { config in
+            guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+            
             contactIds.forEach { sessionId in
                 var cSessionId: [CChar] = sessionId.cArray.nullTerminated()
                 
@@ -591,20 +624,22 @@ public extension SessionUtil {
     static func update(
         _ db: Database,
         sessionId: String,
-        disappearingMessagesConfig: DisappearingMessagesConfiguration
+        disappearingMessagesConfig: DisappearingMessagesConfiguration,
+        using dependencies: Dependencies
     ) throws {
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
         
         switch sessionId {
             case userPublicKey:
                 try SessionUtil.performAndPushChange(
                     db,
                     for: .userProfile,
-                    publicKey: userPublicKey
-                ) { conf in
+                    publicKey: userPublicKey,
+                    using: dependencies
+                ) { config in
                     try SessionUtil.updateNoteToSelf(
                         disappearingMessagesConfig: disappearingMessagesConfig,
-                        in: conf
+                        in: config
                     )
                 }
                 
@@ -612,8 +647,9 @@ public extension SessionUtil {
                 try SessionUtil.performAndPushChange(
                     db,
                     for: .contacts,
-                    publicKey: userPublicKey
-                ) { conf in
+                    publicKey: userPublicKey,
+                    using: dependencies
+                ) { config in
                     try SessionUtil
                         .upsert(
                             contactData: [
@@ -622,7 +658,7 @@ public extension SessionUtil {
                                     disappearingMessagesConfig: disappearingMessagesConfig
                                 )
                             ],
-                            in: conf
+                            in: config
                         )
                 }
         }

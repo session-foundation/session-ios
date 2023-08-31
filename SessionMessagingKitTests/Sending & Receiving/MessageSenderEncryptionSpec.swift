@@ -154,8 +154,8 @@ class MessageSenderEncryptionSpec: QuickSpec {
                         }
                         .thenReturn(
                             KeyPair(
-                                publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
-                                secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
+                                publicKey: Data(hex: TestConstants.publicKey).bytes,
+                                secretKey: Data(hex: TestConstants.edSecretKey).bytes
                             )
                         )
                     mockCrypto

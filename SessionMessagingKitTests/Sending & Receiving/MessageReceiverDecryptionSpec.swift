@@ -131,8 +131,8 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             "dt0eBaXneOBfr7qB8pHwwMZjtkOu1ED07T9nszgbWabBphUfWXe2U9K3PTRisSCI="
                         )!,
                         using: KeyPair(
-                            publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
-                            secretKey: Data.data(fromHex: TestConstants.privateKey)!.bytes
+                            publicKey: Data(hex: TestConstants.publicKey).bytes,
+                            secretKey: Data(hex: TestConstants.privateKey).bytes
                         ),
                         using: Dependencies()
                     )
@@ -159,8 +159,8 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                         try MessageReceiver.decryptWithSessionProtocol(
                             ciphertext: "TestMessage".data(using: .utf8)!,
                             using: KeyPair(
-                                publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
-                                secretKey: Data.data(fromHex: TestConstants.privateKey)!.bytes
+                                publicKey: Data(hex: TestConstants.publicKey).bytes,
+                                secretKey: Data(hex: TestConstants.privateKey).bytes
                             ),
                             using: dependencies
                         )
@@ -185,8 +185,8 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                         try MessageReceiver.decryptWithSessionProtocol(
                             ciphertext: "TestMessage".data(using: .utf8)!,
                             using: KeyPair(
-                                publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
-                                secretKey: Data.data(fromHex: TestConstants.privateKey)!.bytes
+                                publicKey: Data(hex: TestConstants.publicKey).bytes,
+                                secretKey: Data(hex: TestConstants.privateKey).bytes
                             ),
                             using: dependencies
                         )
@@ -203,8 +203,8 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                         try MessageReceiver.decryptWithSessionProtocol(
                             ciphertext: "TestMessage".data(using: .utf8)!,
                             using: KeyPair(
-                                publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
-                                secretKey: Data.data(fromHex: TestConstants.privateKey)!.bytes
+                                publicKey: Data(hex: TestConstants.publicKey).bytes,
+                                secretKey: Data(hex: TestConstants.privateKey).bytes
                             ),
                             using: dependencies
                         )
@@ -219,8 +219,8 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                         try MessageReceiver.decryptWithSessionProtocol(
                             ciphertext: "TestMessage".data(using: .utf8)!,
                             using: KeyPair(
-                                publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
-                                secretKey: Data.data(fromHex: TestConstants.privateKey)!.bytes
+                                publicKey: Data(hex: TestConstants.publicKey).bytes,
+                                secretKey: Data(hex: TestConstants.privateKey).bytes
                             ),
                             using: dependencies
                         )
@@ -241,8 +241,8 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                         otherBlindedPublicKey: "15\(TestConstants.blindedPublicKey)",
                         with: TestConstants.serverPublicKey,
                         userEd25519KeyPair: KeyPair(
-                            publicKey: Data.data(fromHex: TestConstants.edPublicKey)!.bytes,
-                            secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
+                            publicKey: Data(hex: TestConstants.edPublicKey).bytes,
+                            secretKey: Data(hex: TestConstants.edSecretKey).bytes
                         ),
                         using: Dependencies()
                     )
@@ -263,8 +263,8 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                         otherBlindedPublicKey: "15\(TestConstants.blindedPublicKey)",
                         with: TestConstants.serverPublicKey,
                         userEd25519KeyPair: KeyPair(
-                            publicKey: Data.data(fromHex: TestConstants.edPublicKey)!.bytes,
-                            secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
+                            publicKey: Data(hex: TestConstants.edPublicKey).bytes,
+                            secretKey: Data(hex: TestConstants.edSecretKey).bytes
                         ),
                         using: dependencies
                     )
@@ -282,8 +282,8 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             otherBlindedPublicKey: "15\(TestConstants.blindedPublicKey)",
                             with: TestConstants.serverPublicKey,
                             userEd25519KeyPair: KeyPair(
-                                publicKey: Data.data(fromHex: TestConstants.edPublicKey)!.bytes,
-                                secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
+                                publicKey: Data(hex: TestConstants.edPublicKey).bytes,
+                                secretKey: Data(hex: TestConstants.edSecretKey).bytes
                             ),
                             using: dependencies
                         )
@@ -315,8 +315,8 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             otherBlindedPublicKey: "15\(TestConstants.blindedPublicKey)",
                             with: TestConstants.serverPublicKey,
                             userEd25519KeyPair: KeyPair(
-                                publicKey: Data.data(fromHex: TestConstants.edPublicKey)!.bytes,
-                                secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
+                                publicKey: Data(hex: TestConstants.edPublicKey).bytes,
+                                secretKey: Data(hex: TestConstants.edSecretKey).bytes
                             ),
                             using: dependencies
                         )
@@ -350,8 +350,8 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             otherBlindedPublicKey: "15\(TestConstants.blindedPublicKey)",
                             with: TestConstants.serverPublicKey,
                             userEd25519KeyPair: KeyPair(
-                                publicKey: Data.data(fromHex: TestConstants.edPublicKey)!.bytes,
-                                secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
+                                publicKey: Data(hex: TestConstants.edPublicKey).bytes,
+                                secretKey: Data(hex: TestConstants.edSecretKey).bytes
                             ),
                             using: dependencies
                         )
@@ -371,8 +371,8 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             otherBlindedPublicKey: "15\(TestConstants.blindedPublicKey)",
                             with: TestConstants.serverPublicKey,
                             userEd25519KeyPair: KeyPair(
-                                publicKey: Data.data(fromHex: TestConstants.edPublicKey)!.bytes,
-                                secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
+                                publicKey: Data(hex: TestConstants.edPublicKey).bytes,
+                                secretKey: Data(hex: TestConstants.edSecretKey).bytes
                             ),
                             using: dependencies
                         )
@@ -404,8 +404,8 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             otherBlindedPublicKey: "15\(TestConstants.blindedPublicKey)",
                             with: TestConstants.serverPublicKey,
                             userEd25519KeyPair: KeyPair(
-                                publicKey: Data.data(fromHex: TestConstants.edPublicKey)!.bytes,
-                                secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
+                                publicKey: Data(hex: TestConstants.edPublicKey).bytes,
+                                secretKey: Data(hex: TestConstants.edSecretKey).bytes
                             ),
                             using: dependencies
                         )
@@ -437,8 +437,8 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             otherBlindedPublicKey: "15\(TestConstants.blindedPublicKey)",
                             with: TestConstants.serverPublicKey,
                             userEd25519KeyPair: KeyPair(
-                                publicKey: Data.data(fromHex: TestConstants.edPublicKey)!.bytes,
-                                secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
+                                publicKey: Data(hex: TestConstants.edPublicKey).bytes,
+                                secretKey: Data(hex: TestConstants.edSecretKey).bytes
                             ),
                             using: dependencies
                         )
@@ -464,8 +464,8 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             otherBlindedPublicKey: "15\(TestConstants.blindedPublicKey)",
                             with: TestConstants.serverPublicKey,
                             userEd25519KeyPair: KeyPair(
-                                publicKey: Data.data(fromHex: TestConstants.edPublicKey)!.bytes,
-                                secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
+                                publicKey: Data(hex: TestConstants.edPublicKey).bytes,
+                                secretKey: Data(hex: TestConstants.edSecretKey).bytes
                             ),
                             using: dependencies
                         )
@@ -489,8 +489,8 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             otherBlindedPublicKey: "15\(TestConstants.blindedPublicKey)",
                             with: TestConstants.serverPublicKey,
                             userEd25519KeyPair: KeyPair(
-                                publicKey: Data.data(fromHex: TestConstants.edPublicKey)!.bytes,
-                                secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
+                                publicKey: Data(hex: TestConstants.edPublicKey).bytes,
+                                secretKey: Data(hex: TestConstants.edSecretKey).bytes
                             ),
                             using: dependencies
                         )
@@ -514,8 +514,8 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             otherBlindedPublicKey: "15\(TestConstants.blindedPublicKey)",
                             with: TestConstants.serverPublicKey,
                             userEd25519KeyPair: KeyPair(
-                                publicKey: Data.data(fromHex: TestConstants.edPublicKey)!.bytes,
-                                secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
+                                publicKey: Data(hex: TestConstants.edPublicKey).bytes,
+                                secretKey: Data(hex: TestConstants.edSecretKey).bytes
                             ),
                             using: dependencies
                         )
@@ -539,8 +539,8 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             otherBlindedPublicKey: "15\(TestConstants.blindedPublicKey)",
                             with: TestConstants.serverPublicKey,
                             userEd25519KeyPair: KeyPair(
-                                publicKey: Data.data(fromHex: TestConstants.edPublicKey)!.bytes,
-                                secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
+                                publicKey: Data(hex: TestConstants.edPublicKey).bytes,
+                                secretKey: Data(hex: TestConstants.edSecretKey).bytes
                             ),
                             using: dependencies
                         )

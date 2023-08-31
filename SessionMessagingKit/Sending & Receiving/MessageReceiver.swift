@@ -200,7 +200,7 @@ public enum MessageReceiver {
         // the config then the message will be dropped)
         guard
             !Message.requiresExistingConversation(message: message, threadVariant: threadVariant) ||
-            SessionUtil.conversationInConfig(db, threadId: threadId, threadVariant: threadVariant, visibleOnly: false)
+            SessionUtil.conversationInConfig(db, threadId: threadId, threadVariant: threadVariant, visibleOnly: false, using: dependencies)
         else { throw MessageReceiverError.requiredThreadNotInConfig }
         
         // Throw if the message is outdated and shouldn't be processed
@@ -221,7 +221,8 @@ public enum MessageReceiver {
             threadId: threadId,
             threadVariant: threadVariant,
             message: message,
-            proto: proto
+            proto: proto,
+            using: dependencies
         )
         
         switch message {
@@ -254,7 +255,8 @@ public enum MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    using: dependencies
                 )
                 
             case let message as ExpirationTimerUpdate:
@@ -262,7 +264,8 @@ public enum MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    using: dependencies
                 )
                 
             case let message as UnsendRequest:
@@ -270,7 +273,8 @@ public enum MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    using: dependencies
                 )
                 
             case let message as CallMessage:
@@ -278,7 +282,8 @@ public enum MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    using: dependencies
                 )
                 
             case let message as MessageRequestResponse:
@@ -403,7 +408,8 @@ public enum MessageReceiver {
             db,
             threadId: threadId,
             threadVariant: threadVariant,
-            visibleOnly: true
+            visibleOnly: true,
+            using: dependencies
         )
         let canPerformChange: Bool = SessionUtil.canPerformChange(
             db,

@@ -14,7 +14,7 @@ enum _004_FlagMessageHashAsDeletedOrInvalid: Migration {
     /// messages from the beginning of time)
     static let minExpectedRunDuration: TimeInterval = 0.2
     
-    static func migrate(_ db: Database) throws {
+    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         try db.alter(table: SnodeReceivedMessageInfo.self) { t in
             t.add(.wasDeletedOrInvalid, .boolean)
                 .indexed()                                 // Faster querying

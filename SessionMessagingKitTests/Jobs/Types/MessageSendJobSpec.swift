@@ -378,7 +378,7 @@ class MessageSendJobSpec: QuickSpec {
                             )
                             
                             expect(mockJobRunner)
-                                .to(call(.exactly(times: 1), matchingParameters: true) {
+                                .to(call(.exactly(times: 1), matchingParameters: .all) {
                                     $0.insert(
                                         any(),
                                         job: Job(

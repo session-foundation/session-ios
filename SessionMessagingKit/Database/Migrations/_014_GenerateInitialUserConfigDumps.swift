@@ -12,7 +12,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
     static let needsConfigSync: Bool = true
     static let minExpectedRunDuration: TimeInterval = 4.0
     
-    static func migrate(_ db: Database) throws {
+    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         // If we have no ed25519 key then there is no need to create cached dump data
         guard Identity.fetchUserEd25519KeyPair(db) != nil else {
             Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
@@ -23,7 +23,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         let timestampMs: Int64 = Int64(Date().timeIntervalSince1970 * 1000)
         
-        SessionUtil.loadState(db)
+        SessionUtil.loadState(db, using: dependencies)
         
         // Retrieve all threads (we are going to base the config dump data on the active
         // threads rather than anything else in the database)
@@ -33,12 +33,12 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         // MARK: - UserProfile Config Dump
         
-        try SessionUtil
+        try dependencies.caches[.sessionUtil]
             .config(for: .userProfile, publicKey: userPublicKey)
-            .mutate { conf in
+            .mutate { config in
                 try SessionUtil.update(
                     profile: Profile.fetchOrCreateCurrentUser(db),
-                    in: conf
+                    in: config
                 )
                 
                 try SessionUtil.updateNoteToSelf(
@@ -47,13 +47,13 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                         
                         return Int32(allThreads[userPublicKey]?.pinnedPriority ?? 0)
                     }(),
-                    in: conf
+                    in: config
                 )
                 
-                if config_needs_dump(conf) {
+                if config.needsDump {
                     try SessionUtil
                         .createDump(
-                            conf: conf,
+                            config: config,
                             for: .userProfile,
                             publicKey: userPublicKey,
                             timestampMs: timestampMs
@@ -64,9 +64,9 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         // MARK: - Contact Config Dump
         
-        try SessionUtil
+        try dependencies.caches[.sessionUtil]
             .config(for: .contacts, publicKey: userPublicKey)
-            .mutate { conf in
+            .mutate { config in
                 // Exclude Note to Self, community, group and outgoing blinded message requests
                 let validContactIds: [String] = allThreads
                     .values
@@ -113,13 +113,13 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                                 created: allThreads[data.contact.id]?.creationDateTimestamp
                             )
                         },
-                    in: conf
+                    in: config
                 )
                 
-                if config_needs_dump(conf) {
+                if config.needsDump {
                     try SessionUtil
                         .createDump(
-                            conf: conf,
+                            config: config,
                             for: .contacts,
                             publicKey: userPublicKey,
                             timestampMs: timestampMs
@@ -130,21 +130,21 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         // MARK: - ConvoInfoVolatile Config Dump
         
-        try SessionUtil
+        try dependencies.caches[.sessionUtil]
             .config(for: .convoInfoVolatile, publicKey: userPublicKey)
-            .mutate { conf in
+            .mutate { config in
                 let volatileThreadInfo: [SessionUtil.VolatileThreadInfo] = SessionUtil.VolatileThreadInfo
                     .fetchAll(db, ids: Array(allThreads.keys))
                 
                 try SessionUtil.upsert(
                     convoInfoVolatileChanges: volatileThreadInfo,
-                    in: conf
+                    in: config
                 )
                 
-                if config_needs_dump(conf) {
+                if config.needsDump {
                     try SessionUtil
                         .createDump(
-                            conf: conf,
+                            config: config,
                             for: .convoInfoVolatile,
                             publicKey: userPublicKey,
                             timestampMs: timestampMs
@@ -155,16 +155,16 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         // MARK: - UserGroups Config Dump
         
-        try SessionUtil
+        try dependencies.caches[.sessionUtil]
             .config(for: .userGroups, publicKey: userPublicKey)
-            .mutate { conf in
+            .mutate { config in
                 let legacyGroupData: [SessionUtil.LegacyGroupInfo] = try SessionUtil.LegacyGroupInfo.fetchAll(db)
                 let communityData: [SessionUtil.OpenGroupUrlInfo] = try SessionUtil.OpenGroupUrlInfo
                     .fetchAll(db, ids: Array(allThreads.keys))
                 
                 try SessionUtil.upsert(
                     legacyGroups: legacyGroupData,
-                    in: conf
+                    in: config
                 )
                 try SessionUtil.upsert(
                     communities: communityData
@@ -174,13 +174,13 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                                 priority: Int32(allThreads[urlInfo.threadId]?.pinnedPriority ?? 0)
                             )
                         },
-                    in: conf
+                    in: config
                 )
                 
-                if config_needs_dump(conf) {
+                if config.needsDump {
                     try SessionUtil
                         .createDump(
-                            conf: conf,
+                            config: config,
                             for: .userGroups,
                             publicKey: userPublicKey,
                             timestampMs: timestampMs
@@ -191,7 +191,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                 
         // MARK: - Threads
         
-        try SessionUtil.updatingThreads(db, Array(allThreads.values))
+        try SessionUtil.updatingThreads(db, Array(allThreads.values), using: dependencies)
         
         // MARK: - Syncing
         

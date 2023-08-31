@@ -10,7 +10,8 @@ extension MessageReceiver {
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        message: DataExtractionNotification
+        message: DataExtractionNotification,
+        using dependencies: Dependencies
     ) throws {
         guard
             threadVariant == .contact,
@@ -38,7 +39,8 @@ extension MessageReceiver {
                 threadVariant: threadVariant,
                 timestampMs: (timestampMs * 1000),
                 userPublicKey: getUserHexEncodedPublicKey(db),
-                openGroup: nil
+                openGroup: nil,
+                using: dependencies
             )
         ).inserted(db)
     }

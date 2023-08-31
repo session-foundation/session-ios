@@ -530,7 +530,8 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                         .update(
                             db,
                             sessionId: threadId,
-                            disappearingMessagesConfig: updatedConfig
+                            disappearingMessagesConfig: updatedConfig,
+                            using: dependencies
                         )
                 
                 case .legacyGroup:
@@ -538,7 +539,17 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                         .update(
                             db,
                             legacyGroupPublicKey: threadId,
-                            disappearingConfig: updatedConfig
+                            disappearingConfig: updatedConfig,
+                            using: dependencies
+                        )
+                    
+                case .group:
+                    try SessionUtil
+                        .update(
+                            db,
+                            groupIdentityPublicKey: threadId,
+                            disappearingConfig: updatedConfig,
+                            using: dependencies
                         )
                     
                 default: break

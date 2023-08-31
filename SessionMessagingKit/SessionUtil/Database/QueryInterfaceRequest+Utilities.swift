@@ -52,15 +52,17 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
     @discardableResult
     func updateAllAndConfig(
         _ db: Database,
-        _ assignments: ConfigColumnAssignment...
+        _ assignments: ConfigColumnAssignment...,
+        using dependencies: Dependencies = Dependencies()
     ) throws -> Int {
-        return try updateAllAndConfig(db, assignments)
+        return try updateAllAndConfig(db, assignments, using: dependencies)
     }
     
     @discardableResult
     func updateAllAndConfig(
         _ db: Database,
-        _ assignments: [ConfigColumnAssignment]
+        _ assignments: [ConfigColumnAssignment],
+        using dependencies: Dependencies = Dependencies()
     ) throws -> Int {
         let targetAssignments: [ColumnAssignment] = assignments.map { $0.assignment }
         
@@ -69,7 +71,7 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
             return try self.updateAll(db, targetAssignments)
         }
         
-        return try self.updateAndFetchAllAndUpdateConfig(db, assignments).count
+        return try self.updateAndFetchAllAndUpdateConfig(db, assignments, using: dependencies).count
     }
     
     // MARK: -- updateAndFetchAll
@@ -77,15 +79,17 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
     @discardableResult
     func updateAndFetchAllAndUpdateConfig(
         _ db: Database,
-        _ assignments: ConfigColumnAssignment...
+        _ assignments: ConfigColumnAssignment...,
+        using dependencies: Dependencies = Dependencies()
     ) throws -> [RowDecoder] {
-        return try updateAndFetchAllAndUpdateConfig(db, assignments)
+        return try updateAndFetchAllAndUpdateConfig(db, assignments, using: dependencies)
     }
     
     @discardableResult
     func updateAndFetchAllAndUpdateConfig(
         _ db: Database,
-        _ assignments: [ConfigColumnAssignment]
+        _ assignments: [ConfigColumnAssignment],
+        using dependencies: Dependencies = Dependencies()
     ) throws -> [RowDecoder] {
         // First perform the actual updates
         let updatedData: [RowDecoder] = try self.updateAndFetchAll(db, assignments.map { $0.assignment })
@@ -107,20 +111,20 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
         // Update the config dump state where needed
         switch self {
             case is QueryInterfaceRequest<Contact>:
-                return try SessionUtil.updatingContacts(db, updatedData)
+                return try SessionUtil.updatingContacts(db, updatedData, using: dependencies)
                 
             case is QueryInterfaceRequest<Profile>:
-                return try SessionUtil.updatingProfiles(db, updatedData)
+                return try SessionUtil.updatingProfiles(db, updatedData, using: dependencies)
                 
             case is QueryInterfaceRequest<SessionThread>:
-                return try SessionUtil.updatingThreads(db, updatedData)
+                return try SessionUtil.updatingThreads(db, updatedData, using: dependencies)
             
             case is QueryInterfaceRequest<ClosedGroup>:
-                return try SessionUtil.updatingGroupInfo(db, updatedData)
+                return try SessionUtil.updatingGroupInfo(db, updatedData, using: dependencies)
                 
             case is QueryInterfaceRequest<DisappearingMessagesConfiguration>:
-                let oneToOneUpdates: [RowDecoder] = try SessionUtil.updatingDisappearingConfigsOneToOne(db, updatedData)
-                let groupUpdates: [RowDecoder] = try SessionUtil.updatingDisappearingConfigsGroups(db, updatedData)
+                let oneToOneUpdates: [RowDecoder] = try SessionUtil.updatingDisappearingConfigsOneToOne(db, updatedData, using: dependencies)
+                let groupUpdates: [RowDecoder] = try SessionUtil.updatingDisappearingConfigsGroups(db, updatedData, using: dependencies)
                 
                 return (oneToOneUpdates + groupUpdates)
                 

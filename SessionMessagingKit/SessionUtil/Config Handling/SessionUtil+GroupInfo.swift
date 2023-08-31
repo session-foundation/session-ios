@@ -21,21 +21,25 @@ internal extension SessionUtil {
     
     static func handleGroupInfoUpdate(
         _ db: Database,
-        in conf: UnsafeMutablePointer<config_object>?,
-        mergeNeedsDump: Bool,
-        latestConfigSentTimestampMs: Int64
+        in config: Config?,
+        latestConfigSentTimestampMs: Int64,
+        using dependencies: Dependencies
     ) throws {
         typealias GroupData = (profileName: String, profilePictureUrl: String?, profilePictureKey: Data?)
         
-        guard mergeNeedsDump else { return }
-        guard conf != nil else { throw SessionUtilError.nilConfigObject }
+        guard config.needsDump else { return }
+        guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
     }
 }
 
 // MARK: - Outgoing Changes
 
 internal extension SessionUtil {
-    static func updatingGroupInfo<T>(_ db: Database, _ updated: [T]) throws -> [T] {
+    static func updatingGroupInfo<T>(
+        _ db: Database,
+        _ updated: [T],
+        using dependencies: Dependencies
+    ) throws -> [T] {
         guard let updatedGroups: [ClosedGroup] = updated as? [ClosedGroup] else { throw StorageError.generic }
         
         // Exclude legacy groups as they aren't managed via SessionUtil
@@ -50,8 +54,11 @@ internal extension SessionUtil {
             try SessionUtil.performAndPushChange(
                 db,
                 for: .groupInfo,
-                publicKey: group.threadId
-            ) { conf in
+                publicKey: group.threadId,
+                using: dependencies
+            ) { config in
+                guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+                
                 // Update the name
                 var updatedName: [CChar] = group.name.cArray.nullTerminated()
                 groups_info_set_name(conf, &updatedName)
@@ -67,7 +74,11 @@ internal extension SessionUtil {
         return updated
     }
     
-    static func updatingDisappearingConfigsGroups<T>(_ db: Database, _ updated: [T]) throws -> [T] {
+    static func updatingDisappearingConfigsGroups<T>(
+        _ db: Database,
+        _ updated: [T],
+        using dependencies: Dependencies
+    ) throws -> [T] {
         guard let updatedDisappearingConfigs: [DisappearingMessagesConfiguration] = updated as? [DisappearingMessagesConfiguration] else { throw StorageError.generic }
         
         // Filter out any disappearing config changes not related to updated groups
@@ -95,8 +106,11 @@ internal extension SessionUtil {
             try SessionUtil.performAndPushChange(
                 db,
                 for: .groupInfo,
-                publicKey: groupIdentityPublicKey
-            ) { conf in
+                publicKey: groupIdentityPublicKey,
+                using: dependencies
+            ) { config in
+                guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+                
                 groups_info_set_expiry_timer(conf, Int32(updatedConfig.durationSeconds))
             }
         }
@@ -112,13 +126,17 @@ public extension SessionUtil {
         _ db: Database,
         groupIdentityPublicKey: String,
         name: String? = nil,
-        disappearingConfig: DisappearingMessagesConfiguration? = nil
+        disappearingConfig: DisappearingMessagesConfiguration? = nil,
+        using dependencies: Dependencies
     ) throws {
         try SessionUtil.performAndPushChange(
             db,
             for: .groupInfo,
-            publicKey: groupIdentityPublicKey
-        ) { conf in
+            publicKey: groupIdentityPublicKey,
+            using: dependencies
+        ) { config in
+            guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+            
             if let name: String = name {
                 groups_info_set_name(conf, name.toLibSession())
             }

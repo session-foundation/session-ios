@@ -115,7 +115,7 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
     public init(
         id: String,
         variant: Variant,
-        creationDateTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000),
+        creationDateTimestamp: TimeInterval? = nil,
         shouldBeVisible: Bool = false,
         isPinned: Bool = false,
         messageDraft: String? = nil,
@@ -123,11 +123,15 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
         mutedUntilTimestamp: TimeInterval? = nil,
         onlyNotifyForMentions: Bool = false,
         markedAsUnread: Bool? = false,
-        pinnedPriority: Int32? = nil
+        pinnedPriority: Int32? = nil,
+        using dependencies: Dependencies = Dependencies()
     ) {
         self.id = id
         self.variant = variant
-        self.creationDateTimestamp = creationDateTimestamp
+        self.creationDateTimestamp = (
+            creationDateTimestamp ??
+            (TimeInterval(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000)
+        )
         self.shouldBeVisible = shouldBeVisible
         self.messageDraft = messageDraft
         self.notificationSound = notificationSound
@@ -158,13 +162,15 @@ public extension SessionThread {
         _ db: Database,
         id: ID,
         variant: Variant,
-        shouldBeVisible: Bool?
+        shouldBeVisible: Bool?,
+        using dependencies: Dependencies = Dependencies()
     ) throws -> SessionThread {
         guard let existingThread: SessionThread = try? fetchOne(db, id: id) else {
             return try SessionThread(
                 id: id,
                 variant: variant,
-                shouldBeVisible: (shouldBeVisible ?? false)
+                shouldBeVisible: (shouldBeVisible ?? false),
+                using: dependencies
             ).saved(db)
         }
         
@@ -179,7 +185,8 @@ public extension SessionThread {
             .filter(id: id)
             .updateAllAndConfig(
                 db,
-                SessionThread.Columns.shouldBeVisible.set(to: shouldBeVisible)
+                SessionThread.Columns.shouldBeVisible.set(to: shouldBeVisible),
+                using: dependencies
             )
         
         // Retrieve the updated thread and return it (we don't recursively call this method
@@ -187,8 +194,12 @@ public extension SessionThread {
         // would result in an infinite loop)
         return (try fetchOne(db, id: id))
             .defaulting(
-                to: try SessionThread(id: id, variant: variant, shouldBeVisible: desiredVisibility)
-                    .saved(db)
+                to: try SessionThread(
+                    id: id,
+                    variant: variant,
+                    shouldBeVisible: desiredVisibility,
+                    using: dependencies
+                ).saved(db)
             )
     }
     
@@ -277,14 +288,16 @@ public extension SessionThread {
         threadId: String,
         threadVariant: Variant,
         groupLeaveType: ClosedGroup.LeaveType,
-        calledFromConfigHandling: Bool
+        calledFromConfigHandling: Bool,
+        using dependencies: Dependencies = Dependencies()
     ) throws {
         try deleteOrLeave(
             db,
             threadIds: [threadId],
             threadVariant: threadVariant,
             groupLeaveType: groupLeaveType,
-            calledFromConfigHandling: calledFromConfigHandling
+            calledFromConfigHandling: calledFromConfigHandling,
+            using: dependencies
         )
     }
     
@@ -293,9 +306,10 @@ public extension SessionThread {
         threadIds: [String],
         threadVariant: Variant,
         groupLeaveType: ClosedGroup.LeaveType,
-        calledFromConfigHandling: Bool
+        calledFromConfigHandling: Bool,
+        using dependencies: Dependencies = Dependencies()
     ) throws {
-        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
+        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
         let remainingThreadIds: [String] = threadIds.filter { $0 != currentUserPublicKey }
         
         switch (threadVariant, groupLeaveType) {
@@ -312,7 +326,8 @@ public extension SessionThread {
                         .updateAllAndConfig(
                             db,
                             SessionThread.Columns.pinnedPriority.set(to: 0),
-                            SessionThread.Columns.shouldBeVisible.set(to: false)
+                            SessionThread.Columns.shouldBeVisible.set(to: false),
+                            using: dependencies
                         )
                     return
                 }
@@ -320,7 +335,7 @@ public extension SessionThread {
                 // If this wasn't called from config handling then we need to hide the conversation
                 if !calledFromConfigHandling {
                     try SessionUtil
-                        .hide(db, contactIds: threadIds)
+                        .hide(db, contactIds: threadIds, using: dependencies)
                 }
                 
                 _ = try SessionThread
@@ -333,7 +348,8 @@ public extension SessionThread {
                         .leave(
                             db,
                             groupPublicKey: threadId,
-                            deleteThread: true
+                            deleteThread: true,
+                            using: dependencies
                         )
                 }
                 
@@ -342,7 +358,8 @@ public extension SessionThread {
                     db,
                     threadIds: threadIds,
                     removeGroupData: true,
-                    calledFromConfigHandling: calledFromConfigHandling
+                    calledFromConfigHandling: calledFromConfigHandling,
+                    using: dependencies
                 )
                 
             case (.community, _):
@@ -350,7 +367,8 @@ public extension SessionThread {
                     OpenGroupManager.shared.delete(
                         db,
                         openGroupId: threadId,
-                        calledFromConfigHandling: calledFromConfigHandling
+                        calledFromConfigHandling: calledFromConfigHandling,
+                        using: dependencies
                     )
                 }
         }

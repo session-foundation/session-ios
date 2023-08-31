@@ -183,7 +183,7 @@ public enum PushNotificationAPI {
         using dependencies: Dependencies = Dependencies()
     ) throws -> HTTP.PreparedRequest<SubscribeResponse> {
         guard
-            UserDefaults.standard[.isUsingFullAPNs],
+            dependencies.standardUserDefaults[.isUsingFullAPNs],
             let token: String = dependencies.standardUserDefaults[.deviceToken]
         else { throw HTTPError.invalidRequest }
         

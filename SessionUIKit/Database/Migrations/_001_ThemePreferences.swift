@@ -12,7 +12,7 @@ enum _001_ThemePreferences: Migration {
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     
-    static func migrate(_ db: Database) throws {
+    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         // Determine if the user was matching the system setting (previously the absence of this value
         // indicated that the app should match the system setting)
         let isExistingUser: Bool = Identity.userExists(db)

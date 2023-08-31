@@ -11,7 +11,7 @@ enum _005_FixDeletedMessageReadState: Migration {
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.01
     
-    static func migrate(_ db: Database) throws {
+    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         _ = try Interaction
             .filter(
                 Interaction.Columns.variant == Interaction.Variant.standardIncomingDeleted ||

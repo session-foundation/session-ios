@@ -21,7 +21,9 @@ public enum ConfigurationSyncJob: JobExecutor {
         deferred: @escaping (Job, Dependencies) -> (),
         using dependencies: Dependencies
     ) {
-        guard Identity.userCompletedRequiredOnboarding() else { return success(job, true, dependencies) }
+        guard Identity.userCompletedRequiredOnboarding(using: dependencies) else {
+            return success(job, true, dependencies)
+        }
         
         // It's possible for multiple ConfigSyncJob's with the same target (user/group) to try to run at the
         // same time since as soon as one is started we will enqueue a second one, rather than adding dependencies
@@ -55,7 +57,9 @@ public enum ConfigurationSyncJob: JobExecutor {
         guard
             let publicKey: String = job.threadId,
             let pendingConfigChanges: [SessionUtil.OutgoingConfResult] = dependencies.storage
-                .read(using: dependencies, { db in try SessionUtil.pendingChanges(db, publicKey: publicKey) })
+                .read(using: dependencies, { db in
+                    try SessionUtil.pendingChanges(db, publicKey: publicKey, using: dependencies)
+                })
         else {
             SNLog("[ConfigurationSyncJob] For \(job.threadId ?? "UnknownId") failed due to invalid data")
             return failure(job, StorageError.generic, false, dependencies)
@@ -129,7 +133,8 @@ public enum ConfigurationSyncJob: JobExecutor {
                         return SessionUtil.markingAsPushed(
                             message: change.message,
                             serverHash: sendMessageResponse.hash,
-                            publicKey: publicKey
+                            publicKey: publicKey,
+                            using: dependencies
                         )
                     }
             }

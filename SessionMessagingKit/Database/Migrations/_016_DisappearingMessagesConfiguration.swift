@@ -11,7 +11,7 @@ enum _016_DisappearingMessagesConfiguration: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     static var requirements: [MigrationRequirement] = [.sessionUtilStateLoaded]
     
-    static func migrate(_ db: GRDB.Database) throws {
+    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         try db.alter(table: DisappearingMessagesConfiguration.self) { t in
             t.add(.type, .integer)
             t.add(.lastChangeTimestampMs, .integer)
@@ -75,8 +75,8 @@ enum _016_DisappearingMessagesConfiguration: Migration {
             }
         
         // Update the configs so the settings are synced
-        _ = try SessionUtil.updatingDisappearingConfigsOneToOne(db, contactUpdate)
-        _ = try SessionUtil.batchUpdate(db, disappearingConfigs: legacyGroupUpdate)
+        _ = try SessionUtil.updatingDisappearingConfigsOneToOne(db, contactUpdate, using: dependencies)
+        _ = try SessionUtil.batchUpdate(db, disappearingConfigs: legacyGroupUpdate, using: dependencies)
         
         Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
     }

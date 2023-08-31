@@ -268,21 +268,22 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     }
     
     /// This method marks a thread as read and depending on the target may also update the interactions within a thread as read
-    public func markAsRead(target: ReadTarget) {
+    public func markAsRead(target: ReadTarget, using dependencies: Dependencies = Dependencies()) {
         // Store the logic to mark a thread as read (to paths need to run this)
         let threadId: String = self.threadId
         let threadWasMarkedUnread: Bool? = self.threadWasMarkedUnread
-        let markThreadAsReadIfNeeded: () -> () = {
+        let markThreadAsReadIfNeeded: (Dependencies) -> () = { dependencies in
             // Only make this change if needed (want to avoid triggering a thread update
             // if not needed)
             guard threadWasMarkedUnread == true else { return }
             
-            Storage.shared.writeAsync { db in
+            dependencies.storage.writeAsync { db in
                 try SessionThread
                     .filter(id: threadId)
                     .updateAllAndConfig(
                         db,
-                        SessionThread.Columns.markedAsUnread.set(to: false)
+                        SessionThread.Columns.markedAsUnread.set(to: false),
+                        using: dependencies
                     )
             }
         }
@@ -290,7 +291,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
         // Determine what we want to mark as read
         switch target {
             // Only mark the thread as read
-            case .thread: markThreadAsReadIfNeeded()
+            case .thread: markThreadAsReadIfNeeded(dependencies)
             
             // We want to mark both the thread and interactions as read
             case .threadAndInteractions(let interactionId):
@@ -299,7 +300,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
                     let targetInteractionId: Int64 = (interactionId ?? self.interactionId)
                 else {
                     // No unread interactions so just mark the thread as read if needed
-                    markThreadAsReadIfNeeded()
+                    markThreadAsReadIfNeeded(dependencies)
                     return
                 }
                 
@@ -308,8 +309,8 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
                 let threadIsBlocked: Bool? = self.threadIsBlocked
                 let threadIsMessageRequest: Bool? = self.threadIsMessageRequest
                 
-                Storage.shared.writeAsync { db in
-                    markThreadAsReadIfNeeded()
+                dependencies.storage.writeAsync { db in
+                    markThreadAsReadIfNeeded(dependencies)
                     
                     try Interaction.markAsRead(
                         db,
@@ -323,24 +324,26 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
                             threadVariant: threadVariant,
                             isBlocked: threadIsBlocked,
                             isMessageRequest: threadIsMessageRequest
-                        )
+                        ),
+                        using: dependencies
                     )
                 }
         }
     }
     
     /// This method will mark a thread as read
-    public func markAsUnread() {
+    public func markAsUnread(using dependencies: Dependencies = Dependencies()) {
         guard self.threadWasMarkedUnread != true else { return }
         
         let threadId: String = self.threadId
         
-        Storage.shared.writeAsync { db in
+        dependencies.storage.writeAsync { db in
             try SessionThread
                 .filter(id: threadId)
                 .updateAllAndConfig(
                     db,
-                    SessionThread.Columns.markedAsUnread.set(to: true)
+                    SessionThread.Columns.markedAsUnread.set(to: true),
+                    using: dependencies
                 )
         }
     }

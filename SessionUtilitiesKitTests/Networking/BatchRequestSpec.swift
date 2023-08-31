@@ -2,13 +2,11 @@
 
 import Foundation
 import Combine
-import SessionSnodeKit
-import SessionUtilitiesKit
 
 import Quick
 import Nimble
 
-@testable import SessionMessagingKit
+@testable import SessionUtilitiesKit
 
 private extension HTTPHeader {
     static let testHeader: HTTPHeader = "TestHeader"

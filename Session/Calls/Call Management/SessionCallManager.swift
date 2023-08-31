@@ -128,7 +128,10 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         }
     }
     
-    public func reportCurrentCallEnded(reason: CXCallEndedReason?) {
+    public func reportCurrentCallEnded(
+        reason: CXCallEndedReason?,
+        using dependencies: Dependencies = Dependencies()
+    ) {
         guard Thread.isMainThread else {
             DispatchQueue.main.async {
                 self.reportCurrentCallEnded(reason: reason)
@@ -155,14 +158,14 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
             self.provider?.reportCall(with: call.callId, endedAt: nil, reason: reason)
             
             switch (reason) {
-                case .answeredElsewhere: call.updateCallMessage(mode: .answeredElsewhere)
-                case .unanswered: call.updateCallMessage(mode: .unanswered)
-                case .declinedElsewhere: call.updateCallMessage(mode: .local)
-                default: call.updateCallMessage(mode: .remote)
+                case .answeredElsewhere: call.updateCallMessage(mode: .answeredElsewhere, using: dependencies)
+                case .unanswered: call.updateCallMessage(mode: .unanswered, using: dependencies)
+                case .declinedElsewhere: call.updateCallMessage(mode: .local, using: dependencies)
+                default: call.updateCallMessage(mode: .remote, using: dependencies)
             }
         }
         else {
-            call.updateCallMessage(mode: .local)
+            call.updateCallMessage(mode: .local, using: dependencies)
         }
         
         call.webRTCSession.dropConnection()

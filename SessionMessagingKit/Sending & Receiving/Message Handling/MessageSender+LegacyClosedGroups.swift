@@ -83,7 +83,9 @@ extension MessageSender {
                     latestKeyPairReceivedTimestamp: latestKeyPairReceivedTimestamp,
                     disappearingConfig: DisappearingMessagesConfiguration.defaultWith(legacyGroupPublicKey),
                     members: members,
-                    admins: admins
+                    admins: admins,
+                    formationTimestamp: formationTimestamp,
+                    using: dependencies
                 )
                 
                 let memberSendData: [MessageSender.PreparedSendData] = try members
@@ -249,7 +251,8 @@ extension MessageSender {
                             admins: allGroupMembers
                                 .filter { $0.role == .admin }
                                 .map { $0.profileId }
-                                .asSet()
+                                .asSet(),
+                            using: dependencies
                         )
                     }
                     
@@ -271,7 +274,7 @@ extension MessageSender {
         name: String,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
-        return Storage.shared
+        return dependencies.storage
             .writePublisher { db -> (String, ClosedGroup, [GroupMember], Set<String>) in
                 let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
                 
@@ -318,7 +321,8 @@ extension MessageSender {
                     try? SessionUtil.update(
                         db,
                         legacyGroupPublicKey: closedGroup.threadId,
-                        name: name
+                        name: name,
+                        using: dependencies
                     )
                 }
                 
@@ -430,7 +434,8 @@ extension MessageSender {
             admins: allGroupMembers
                 .filter { $0.role == .admin }
                 .map { $0.profileId }
-                .asSet()
+                .asSet(),
+            using: dependencies
         )
         
         // Send the update to the group

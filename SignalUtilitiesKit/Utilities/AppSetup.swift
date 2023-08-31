@@ -13,7 +13,8 @@ public enum AppSetup {
     public static func setupEnvironment(
         appSpecificBlock: @escaping () -> (),
         migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
-        migrationsCompletion: @escaping (Result<Void, Error>, Bool) -> ()
+        migrationsCompletion: @escaping (Result<Void, Error>, Bool) -> (),
+        using dependencies: Dependencies = Dependencies()
     ) {
         guard !AppSetup.hasRun.wrappedValue else { return }
         
@@ -51,7 +52,8 @@ public enum AppSetup {
             runPostSetupMigrations(
                 backgroundTask: backgroundTask,
                 migrationProgressChanged: migrationProgressChanged,
-                migrationsCompletion: migrationsCompletion
+                migrationsCompletion: migrationsCompletion,
+                using: dependencies
             )
             
             // The 'if' is only there to prevent the "variable never read" warning from showing
@@ -62,7 +64,8 @@ public enum AppSetup {
     public static func runPostSetupMigrations(
         backgroundTask: OWSBackgroundTask? = nil,
         migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
-        migrationsCompletion: @escaping (Result<Void, Error>, Bool) -> ()
+        migrationsCompletion: @escaping (Result<Void, Error>, Bool) -> (),
+        using dependencies: Dependencies = Dependencies()
     ) {
         // If the database can't be initialised into a valid state then error
         guard Storage.shared.isValid else {
@@ -74,7 +77,7 @@ public enum AppSetup {
         
         var backgroundTask: OWSBackgroundTask? = (backgroundTask ?? OWSBackgroundTask(labelStr: #function))
         
-        Storage.shared.perform(
+        dependencies.storage.perform(
             migrationTargets: [
                 SNUtilitiesKit.self,
                 SNSnodeKit.self,
@@ -89,17 +92,18 @@ public enum AppSetup {
                         
                         // After the migrations have run but before the migration completion we load the
                         // SessionUtil state
-                        SessionUtil.loadState(db)
+                        SessionUtil.loadState(db, using: dependencies)
                 }
             },
             onComplete: { result, needsConfigSync in
                 // The 'needsConfigSync' flag should be based on whether either a migration or the
                 // configs need to be sync'ed
-                migrationsCompletion(result, (needsConfigSync || SessionUtil.needsSync))
+                migrationsCompletion(result, (needsConfigSync || dependencies.caches[.sessionUtil].needsSync))
                 
                 // The 'if' is only there to prevent the "variable never read" warning from showing
                 if backgroundTask != nil { backgroundTask = nil }
-            }
+            },
+            using: dependencies
         )
     }
 }

@@ -56,14 +56,20 @@ open class Storage {
     
     public init(
         customWriter: DatabaseWriter? = nil,
-        customMigrationTargets: [MigratableTarget.Type]? = nil
+        customMigrationTargets: [MigratableTarget.Type]? = nil,
+        using dependencies: Dependencies = Dependencies()
     ) {
-        configureDatabase(customWriter: customWriter, customMigrationTargets: customMigrationTargets)
+        configureDatabase(
+            customWriter: customWriter,
+            customMigrationTargets: customMigrationTargets,
+            using: dependencies
+        )
     }
     
     private func configureDatabase(
         customWriter: DatabaseWriter? = nil,
-        customMigrationTargets: [MigratableTarget.Type]? = nil
+        customMigrationTargets: [MigratableTarget.Type]? = nil,
+        using dependencies: Dependencies = Dependencies()
     ) {
         // Create the database directory if needed and ensure it's protection level is set before attempting to
         // create the database KeySpec or the database itself
@@ -80,7 +86,8 @@ open class Storage {
                 async: false,
                 onProgressUpdate: nil,
                 onMigrationRequirement: { _, _ in },
-                onComplete: { _, _ in }
+                onComplete: { _, _ in },
+                using: dependencies
             )
             return
         }
@@ -152,7 +159,8 @@ open class Storage {
         async: Bool = true,
         onProgressUpdate: ((CGFloat, TimeInterval) -> ())?,
         onMigrationRequirement: @escaping (Database, MigrationRequirement) -> (),
-        onComplete: @escaping (Swift.Result<Void, Error>, Bool) -> ()
+        onComplete: @escaping (Swift.Result<Void, Error>, Bool) -> (),
+        using dependencies: Dependencies
     ) {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
             let error: Error = (startupError ?? StorageError.startupFailed)
@@ -186,11 +194,16 @@ open class Storage {
         }
         
         // Setup and run any required migrations
-        migrator = { [weak self] in
+        migrator = { [weak self, dependencies] in
             var migrator: DatabaseMigrator = DatabaseMigrator()
             sortedMigrationInfo.forEach { migrationInfo in
                 migrationInfo.migrations.forEach { migration in
-                    migrator.registerMigration(self, targetIdentifier: migrationInfo.identifier, migration: migration)
+                    migrator.registerMigration(
+                        self,
+                        targetIdentifier: migrationInfo.identifier,
+                        migration: migration,
+                        using: dependencies
+                    )
                 }
             }
             

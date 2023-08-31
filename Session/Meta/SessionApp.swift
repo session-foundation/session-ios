@@ -111,12 +111,15 @@ public struct SessionApp {
 
     // MARK: - Functions
     
-    public static func resetAppData(onReset: (() -> ())? = nil) {
+    public static func resetAppData(
+        onReset: (() -> ())? = nil,
+        using dependencies: Dependencies = Dependencies()
+    ) {
         // This _should_ be wiped out below.
         Logger.error("")
         DDLog.flushLog()
         
-        SessionUtil.clearMemoryState()
+        SessionUtil.clearMemoryState(using: dependencies)
         Storage.resetAllStorage()
         ProfileManager.resetProfileStorage()
         Attachment.resetAttachmentStorage()

@@ -11,7 +11,8 @@ extension MessageReceiver {
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        message: CallMessage
+        message: CallMessage,
+        using dependencies: Dependencies = Dependencies()
     ) throws {
         // Only support calls from contact threads
         guard threadVariant == .contact else { return }
@@ -19,7 +20,7 @@ extension MessageReceiver {
         switch message.kind {
             case .preOffer: try MessageReceiver.handleNewCallMessage(db, message: message)
             case .offer: MessageReceiver.handleOfferCallMessage(db, message: message)
-            case .answer: MessageReceiver.handleAnswerCallMessage(db, message: message)
+            case .answer: MessageReceiver.handleAnswerCallMessage(db, message: message, using: dependencies)
             case .provisionalAnswer: break // TODO: Implement
                 
             case let .iceCandidates(sdpMLineIndexes, sdpMids):
@@ -37,7 +38,7 @@ extension MessageReceiver {
                 }
                 currentWebRTCSession.handleICECandidates(candidates)
                 
-            case .endCall: MessageReceiver.handleEndCallMessage(db, message: message)
+            case .endCall: MessageReceiver.handleEndCallMessage(db, message: message, using: dependencies)
         }
     }
     
@@ -145,7 +146,11 @@ extension MessageReceiver {
         currentCall.didReceiveRemoteSDP(sdp: sdpDescription)
     }
     
-    private static func handleAnswerCallMessage(_ db: Database, message: CallMessage) {
+    private static func handleAnswerCallMessage(
+        _ db: Database,
+        message: CallMessage,
+        using dependencies: Dependencies
+    ) {
         SNLog("[Calls] Received answer message.")
         
         guard
@@ -161,7 +166,7 @@ extension MessageReceiver {
             guard !currentCall.hasStartedConnecting else { return }
             
             callManager.dismissAllCallUI()
-            callManager.reportCurrentCallEnded(reason: .answeredElsewhere)
+            callManager.reportCurrentCallEnded(reason: .answeredElsewhere, using: dependencies)
             return
         }
         guard let sdp: String = message.sdps.first else { return }
@@ -172,7 +177,11 @@ extension MessageReceiver {
         callManager.handleAnswerMessage(message)
     }
     
-    private static func handleEndCallMessage(_ db: Database, message: CallMessage) {
+    private static func handleEndCallMessage(
+        _ db: Database,
+        message: CallMessage,
+        using dependencies: Dependencies
+    ) {
         SNLog("[Calls] Received end call message.")
         
         guard
@@ -188,7 +197,8 @@ extension MessageReceiver {
             reason: (sender == getUserHexEncodedPublicKey(db) ?
                 .declinedElsewhere :
                 .remoteEnded
-            )
+            ),
+            using: dependencies
         )
     }
     
@@ -227,7 +237,8 @@ extension MessageReceiver {
                 threadVariant: thread.variant,
                 timestampMs: (messageSentTimestamp * 1000),
                 userPublicKey: getUserHexEncodedPublicKey(db),
-                openGroup: nil
+                openGroup: nil,
+                using: dependencies
             )
         )
         .inserted(db)
@@ -258,7 +269,8 @@ extension MessageReceiver {
     @discardableResult public static func insertCallInfoMessage(
         _ db: Database,
         for message: CallMessage,
-        state: CallMessage.MessageInfo.State? = nil
+        state: CallMessage.MessageInfo.State? = nil,
+        using dependencies: Dependencies = Dependencies()
     ) throws -> Interaction? {
         guard
             (try? Interaction
@@ -300,7 +312,8 @@ extension MessageReceiver {
                 threadVariant: thread.variant,
                 timestampMs: (timestampMs * 1000),
                 userPublicKey: currentUserPublicKey,
-                openGroup: nil
+                openGroup: nil,
+                using: dependencies
             )
         ).inserted(db)
     }

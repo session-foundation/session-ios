@@ -9,7 +9,7 @@ enum _001_InitialSetupMigration: Migration {
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     
-    static func migrate(_ db: Database) throws {
+    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         try db.create(table: Identity.self) { t in
             t.column(.variant, .text)
                 .notNull()

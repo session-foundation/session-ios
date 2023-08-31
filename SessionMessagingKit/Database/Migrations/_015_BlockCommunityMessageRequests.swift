@@ -12,7 +12,7 @@ enum _015_BlockCommunityMessageRequests: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.01
     static var requirements: [MigrationRequirement] = [.sessionUtilStateLoaded]
     
-    static func migrate(_ db: Database) throws {
+    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         // Add the new 'Profile' properties
         try db.alter(table: Profile.self) { t in
             t.add(.blocksCommunityMessageRequests, .boolean)
@@ -26,10 +26,10 @@ enum _015_BlockCommunityMessageRequests: Migration {
             Identity.userExists(db),
             (try Setting.exists(db, id: Setting.BoolKey.checkForCommunityMessageRequests.rawValue)) == false
         {
-            let rawBlindedMessageRequestValue: Int32 = try SessionUtil
+            let rawBlindedMessageRequestValue: Int32 = try dependencies.caches[.sessionUtil]
                 .config(for: .userProfile, publicKey: getUserHexEncodedPublicKey(db))
                 .wrappedValue
-                .map { conf -> Int32 in try SessionUtil.rawBlindedMessageRequestValue(in: conf) }
+                .map { config -> Int32 in try SessionUtil.rawBlindedMessageRequestValue(in: config) }
                 .defaulting(to: -1)
             
             // Use the value in the config if we happen to have one, otherwise use the default

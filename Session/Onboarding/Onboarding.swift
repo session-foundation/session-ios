@@ -84,12 +84,12 @@ enum Onboarding {
         
         /// If the user returns to an earlier screen during Onboarding we might need to clear out a partially created
         /// account (eg. returning from the PN setting screen to the seed entry screen when linking a device)
-        func unregister() {
+        func unregister(using dependencies: Dependencies = Dependencies()) {
             // Clear the in-memory state from SessionUtil
-            SessionUtil.clearMemoryState()
+            SessionUtil.clearMemoryState(using: dependencies)
             
             // Clear any data which gets set during Onboarding
-            Storage.shared.write { db in
+            dependencies.storage.write { db in
                 db[.hasViewedSeed] = false
                 
                 try SessionThread.deleteAll(db)
@@ -104,18 +104,16 @@ enum Onboarding {
             profileNameRetrievalIdentifier.mutate { $0 = nil }
             profileNameRetrievalPublisher.mutate { $0 = nil }
             
-            UserDefaults.standard[.hasSyncedInitialConfiguration] = false
+            dependencies.standardUserDefaults[.hasSyncedInitialConfiguration] = false
         }
         
-        func preregister(with seed: Data, ed25519KeyPair: KeyPair, x25519KeyPair: KeyPair) {
+        func preregister(
+            with seed: Data,
+            ed25519KeyPair: KeyPair,
+            x25519KeyPair: KeyPair,
+            using dependencies: Dependencies = Dependencies()
+        ) {
             let x25519PublicKey = x25519KeyPair.hexEncodedPublicKey
-            
-            // Create the initial shared util state (won't have been created on
-            // launch due to lack of ed25519 key)
-            SessionUtil.loadState(
-                userPublicKey: x25519PublicKey,
-                ed25519SecretKey: ed25519KeyPair.secretKey
-            )
             
             // Store the user identity information
             Storage.shared.write { db in
@@ -126,6 +124,10 @@ enum Onboarding {
                     x25519KeyPair: x25519KeyPair
                 )
                 
+                // Create the initial shared util state (won't have been created on
+                // launch due to lack of ed25519 key)
+                SessionUtil.loadState(db, using: dependencies)
+
                 // No need to show the seed again if the user is restoring or linking
                 db[.hasViewedSeed] = (self == .recover || self == .link)
                 
@@ -140,7 +142,8 @@ enum Onboarding {
                         db,
                         Contact.Columns.isTrusted.set(to: true),    // Always trust the current user
                         Contact.Columns.isApproved.set(to: true),
-                        Contact.Columns.didApproveMe.set(to: true)
+                        Contact.Columns.didApproveMe.set(to: true),
+                        using: dependencies
                     )
 
                 /// Create the 'Note to Self' thread (not visible by default)
@@ -154,7 +157,8 @@ enum Onboarding {
                     .filter(id: x25519PublicKey)
                     .updateAllAndConfig(
                         db,
-                        SessionThread.Columns.shouldBeVisible.set(to: false)
+                        SessionThread.Columns.shouldBeVisible.set(to: false),
+                        using: dependencies
                     )
             }
             
@@ -162,28 +166,29 @@ enum Onboarding {
             // home screen a configuration sync is triggered (yes, the logic is a
             // bit weird). This is needed so that if the user registers and
             // immediately links a device, there'll be a configuration in their swarm.
-            UserDefaults.standard[.hasSyncedInitialConfiguration] = (self == .register)
+            dependencies.standardUserDefaults[.hasSyncedInitialConfiguration] = (self == .register)
             
             // Only continue if this isn't a new account
             guard self != .register else { return }
             
             // Fetch the
             Onboarding.profileNamePublisher
-                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
                 .sinkUntilComplete()
         }
         
-        func completeRegistration() {
+        func completeRegistration(using dependencies: Dependencies = Dependencies()) {
             // Set the `lastNameUpdate` to the current date, so that we don't overwrite
             // what the user set in the display name step with whatever we find in their
             // swarm (otherwise the user could enter a display name and have it immediately
             // overwritten due to the config request running slow)
-            Storage.shared.write { db in
+            dependencies.storage.write { db in
                 try Profile
                     .filter(id: getUserHexEncodedPublicKey(db))
                     .updateAllAndConfig(
                         db,
-                        Profile.Columns.lastNameUpdate.set(to: Date().timeIntervalSince1970)
+                        Profile.Columns.lastNameUpdate.set(to: Date().timeIntervalSince1970),
+                        using: dependencies
                     )
             }
             
@@ -192,7 +197,7 @@ enum Onboarding {
             
             // Now that we have registered get the Snode pool (just in case) - other non-blocking
             // launch jobs will automatically be run because the app activation was triggered
-            GetSnodePoolJob.run()
+            GetSnodePoolJob.run(using: dependencies)
         }
     }
 }

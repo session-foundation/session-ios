@@ -568,7 +568,7 @@ class NotificationActionHandler {
                 .eraseToAnyPublisher()
         }
         
-        return Storage.shared
+        return dependencies.storage
             .writePublisher { db in
                 let interaction: Interaction = try Interaction(
                     threadId: threadId,
@@ -589,7 +589,8 @@ class NotificationActionHandler {
                         db,
                         threadId: threadId,
                         threadVariant: thread.variant
-                    )
+                    ),
+                    using: dependencies
                 )
                 
                 return try MessageSender.preparedSendData(
@@ -646,8 +647,11 @@ class NotificationActionHandler {
             .eraseToAnyPublisher()
     }
     
-    private func markAsRead(threadId: String) -> AnyPublisher<Void, Error> {
-        return Storage.shared
+    private func markAsRead(
+        threadId: String,
+        using dependencies: Dependencies = Dependencies()
+    ) -> AnyPublisher<Void, Error> {
+        return dependencies.storage
             .writePublisher { db in
                 guard
                     let threadVariant: SessionThread.Variant = try SessionThread
@@ -673,7 +677,8 @@ class NotificationActionHandler {
                         db,
                         threadId: threadId,
                         threadVariant: threadVariant
-                    )
+                    ),
+                    using: dependencies
                 )
             }
             .eraseToAnyPublisher()

@@ -1,24 +1,103 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-
-import Foundation
+import GRDB
 import Sodium
 import SessionUtil
 import SessionUtilitiesKit
-import SessionMessagingKit
 
 import Quick
 import Nimble
+
+@testable import SessionMessagingKit
 
 class SessionUtilSpec: QuickSpec {
     // MARK: - Spec
     
     override func spec() {
+        var mockStorage: Storage!
+        var mockCrypto: MockCrypto!
+        var mockCaches: MockCaches!
+        var mockGeneralCache: MockGeneralCache!
+        var mockSessionUtilCache: MockSessionUtilCache!
+        var dependencies: Dependencies!
+        
+        var createGroupOutput: (identityKeyPair: KeyPair, group: ClosedGroup, members: [GroupMember])!
+        var userGroupsConfig: SessionUtil.Config!
+        
         describe("SessionUtil") {
-            // MARK: - Parsing URLs
+            // MARK: - Configuration
             
+            beforeEach {
+                mockStorage = SynchronousStorage(
+                    customWriter: try! DatabaseQueue(),
+                    customMigrationTargets: [
+                        SNUtilitiesKit.self,
+                        SNMessagingKit.self
+                    ]
+                )
+                mockCrypto = MockCrypto()
+                mockCaches = MockCaches()
+                mockGeneralCache = MockGeneralCache()
+                mockSessionUtilCache = MockSessionUtilCache()
+                dependencies = Dependencies(
+                    storage: mockStorage,
+                    crypto: mockCrypto,
+                    caches: mockCaches,
+                    dateNow: Date(timeIntervalSince1970: 1234567890),
+                    forceSynchronous: true
+                )
+                mockCaches[.general] = mockGeneralCache
+                mockCaches[.sessionUtil] = mockSessionUtilCache
+                
+                mockStorage.write { db in
+                    try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
+                    try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
+                    try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
+                    try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
+                }
+                
+                mockCrypto
+                    .when { [dependencies = dependencies!] crypto in
+                        crypto.generate(
+                            .ed25519KeyPair(
+                                seed: any(),
+                                using: dependencies
+                            )
+                        )
+                    }
+                    .thenReturn(
+                        KeyPair(
+                            publicKey: Data.data(
+                                fromHex: "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"
+                            )!.bytes,
+                            secretKey: Data.data(
+                                fromHex: "0123456789abcdef0123456789abcdeffedcba9876543210fedcba9876543210" +
+                                "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"
+                            )!.bytes
+                        )
+                    )
+                
+                mockGeneralCache.when { $0.encodedPublicKey }.thenReturn("05\(TestConstants.publicKey)")
+                mockSessionUtilCache
+                    .when { $0.setConfig(for: any(), publicKey: any(), to: any()) }
+                    .thenReturn(())
+            }
+
+            afterEach {
+                mockStorage = nil
+                mockCrypto = nil
+                mockCaches = nil
+                mockGeneralCache = nil
+                dependencies = nil
+                
+                createGroupOutput = nil
+                userGroupsConfig = nil
+            }
+            
+            // MARK: - when parsing a community url
             context("when parsing a community url") {
+                // MARK: -- handles the example urls correctly
                 it("handles the example urls correctly") {
                     let validUrls: [String] = [
                         [
@@ -82,6 +161,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(processedPublicKeys).to(equal(expectedPublicKeys))
                 }
                 
+                // MARK: -- handles the r prefix if present
                 it("handles the r prefix if present") {
                     let info = SessionUtil.parseCommunity(
                         url: [
@@ -95,6 +175,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(info?.publicKey).to(equal("658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c"))
                 }
                 
+                // MARK: -- fails if no scheme is provided
                 it("fails if no scheme is provided") {
                     let info = SessionUtil.parseCommunity(
                         url: [
@@ -108,6 +189,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(info?.publicKey).to(beNil())
                 }
                 
+                // MARK: -- fails if there is no room
                 it("fails if there is no room") {
                     let info = SessionUtil.parseCommunity(
                         url: [
@@ -121,6 +203,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(info?.publicKey).to(beNil())
                 }
                 
+                // MARK: -- fails if there is no public key parameter
                 it("fails if there is no public key parameter") {
                     let info = SessionUtil.parseCommunity(
                         url: "https://sessionopengroup.co/r/main"
@@ -131,6 +214,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(info?.publicKey).to(beNil())
                 }
                 
+                // MARK: -- fails if the public key parameter is not 64 characters
                 it("fails if the public key parameter is not 64 characters") {
                     let info = SessionUtil.parseCommunity(
                         url: [
@@ -144,6 +228,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(info?.publicKey).to(beNil())
                 }
                 
+                // MARK: -- fails if the public key parameter is not a hex string
                 it("fails if the public key parameter is not a hex string") {
                     let info = SessionUtil.parseCommunity(
                         url: [
@@ -157,6 +242,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(info?.publicKey).to(beNil())
                 }
                 
+                // MARK: -- maintains the same TLS
                 it("maintains the same TLS") {
                     let server1 = SessionUtil.parseCommunity(
                         url: [
@@ -175,6 +261,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(server2).to(equal("https://sessionopengroup.co"))
                 }
                 
+                // MARK: -- maintains the same port
                 it("maintains the same port") {
                     let server1 = SessionUtil.parseCommunity(
                         url: [
@@ -194,17 +281,378 @@ class SessionUtilSpec: QuickSpec {
                 }
             }
             
-            // MARK: - Generating URLs
-            
+            // MARK: - when generating a url
             context("when generating a url") {
+                // MARK: -- generates the url correctly
                 it("generates the url correctly") {
                     expect(SessionUtil.communityUrlFor(server: "server", roomToken: "room", publicKey: "f8fec9b701000000ffffffff0400008000000000000000000000000000000000"))
                         .to(equal("server/room?public_key=f8fec9b701000000ffffffff0400008000000000000000000000000000000000"))
                 }
                 
+                // MARK: -- maintains the casing provided
                 it("maintains the casing provided") {
                     expect(SessionUtil.communityUrlFor(server: "SeRVer", roomToken: "RoOM", publicKey: "f8fec9b701000000ffffffff0400008000000000000000000000000000000000"))
                         .to(equal("SeRVer/RoOM?public_key=f8fec9b701000000ffffffff0400008000000000000000000000000000000000"))
+                }
+            }
+            
+            // MARK: - when creating a group
+            context("when creating a group") {
+                beforeEach {
+                    var userGroupsConf: UnsafeMutablePointer<config_object>!
+                    var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
+                    _ = user_groups_init(&userGroupsConf, &secretKey, nil, 0, nil)
+                    userGroupsConfig = .object(userGroupsConf)
+                    
+                    mockSessionUtilCache
+                        .when { $0.config(for: .userGroups, publicKey: any()) }
+                        .thenReturn(Atomic(userGroupsConfig))
+                }
+                
+                // MARK: -- throws when there is no user ed25519 keyPair
+                it("throws when there is no user ed25519 keyPair") {
+                    var resultError: Error? = nil
+                    
+                    mockStorage.write { db in
+                        try Identity.filter(id: .ed25519PublicKey).deleteAll(db)
+                        try Identity.filter(id: .ed25519SecretKey).deleteAll(db)
+                        
+                        do {
+                            _ = try SessionUtil.createGroup(
+                                db,
+                                name: "Testname",
+                                displayPictureUrl: nil,
+                                displayPictureFilename: nil,
+                                displayPictureEncryptionKey: nil,
+                                members: [],
+                                admins: [],
+                                using: dependencies
+                            )
+                        }
+                        catch { resultError = error }
+                    }
+                    
+                    expect(resultError).to(matchError(MessageSenderError.noKeyPair))
+                }
+                
+                // MARK: -- throws when it fails to generate a new identity ed25519 keyPair
+                it("throws when it fails to generate a new identity ed25519 keyPair") {
+                    var resultError: Error? = nil
+                    
+                    mockCrypto
+                        .when { [dependencies = dependencies!] crypto in
+                            crypto.generate(
+                                .ed25519KeyPair(
+                                    seed: any(),
+                                    using: dependencies
+                                )
+                            )
+                        }
+                        .thenReturn(nil)
+                    
+                    mockStorage.write { db in
+                        do {
+                            _ = try SessionUtil.createGroup(
+                                db,
+                                name: "Testname",
+                                displayPictureUrl: nil,
+                                displayPictureFilename: nil,
+                                displayPictureEncryptionKey: nil,
+                                members: [],
+                                admins: [],
+                                using: dependencies
+                            )
+                        }
+                        catch { resultError = error }
+                    }
+                    
+                    expect(resultError).to(matchError(MessageSenderError.noKeyPair))
+                }
+                
+                // MARK: -- throws when given an invalid member id
+                it("throws when given an invalid member id") {
+                    var resultError: Error? = nil
+                    
+                    mockStorage.write { db in
+                        do {
+                            _ = try SessionUtil.createGroup(
+                                db,
+                                name: "Testname",
+                                displayPictureUrl: nil,
+                                displayPictureFilename: nil,
+                                displayPictureEncryptionKey: nil,
+                                members: [(
+                                    id: "123456",
+                                    profile: Profile(
+                                        id: "123456",
+                                        name: "",
+                                        lastNameUpdate: 0,
+                                        lastProfilePictureUpdate: 0,
+                                        lastBlocksCommunityMessageRequests: 0
+                                    )
+                                )],
+                                admins: [],
+                                using: dependencies
+                            )
+                        }
+                        catch { resultError = error }
+                    }
+                    
+                    expect(resultError).to(matchError(
+                        NSError(
+                            domain: "cpp_exception",
+                            code: -2,
+                            userInfo: [
+                                NSLocalizedDescriptionKey: "Invalid session ID: expected 66 hex digits starting with 05; got 123456"
+                            ]
+                        )
+                    ))
+                }
+                
+                // MARK: -- returns the correct identity keyPair
+                it("returns the correct identity keyPair") {
+                    createGroupOutput = mockStorage.write(using: dependencies) { db in
+                        try SessionUtil.createGroup(
+                            db,
+                            name: "Testname",
+                            displayPictureUrl: nil,
+                            displayPictureFilename: nil,
+                            displayPictureEncryptionKey: nil,
+                            members: [],
+                            admins: [],
+                            using: dependencies
+                        )
+                    }
+                    
+                    expect(createGroupOutput.identityKeyPair.publicKey.toHexString())
+                        .to(equal("cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"))
+                    expect(createGroupOutput.identityKeyPair.secretKey.toHexString())
+                        .to(equal(
+                            "0123456789abcdef0123456789abcdeffedcba9876543210fedcba9876543210" +
+                            "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"
+                        ))
+                }
+                
+                // MARK: -- returns a closed group with the correct data set
+                it("returns a closed group with the correct data set") {
+                    createGroupOutput = mockStorage.write(using: dependencies) { db in
+                        try SessionUtil.createGroup(
+                            db,
+                            name: "Testname",
+                            displayPictureUrl: "TestUrl",
+                            displayPictureFilename: "TestFilename",
+                            displayPictureEncryptionKey: Data([1, 2, 3]),
+                            members: [],
+                            admins: [],
+                            using: dependencies
+                        )
+                    }
+                    
+                    expect(createGroupOutput.group.threadId)
+                        .to(equal("03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"))
+                    expect(createGroupOutput.group.groupIdentityPrivateKey?.toHexString())
+                        .to(equal(
+                            "0123456789abcdef0123456789abcdeffedcba9876543210fedcba9876543210" +
+                            "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"
+                        ))
+                    expect(createGroupOutput.group.name).to(equal("Testname"))
+                    expect(createGroupOutput.group.displayPictureUrl).to(equal("TestUrl"))
+                    expect(createGroupOutput.group.displayPictureFilename).to(equal("TestFilename"))
+                    expect(createGroupOutput.group.displayPictureEncryptionKey).to(equal(Data([1, 2, 3])))
+                    expect(createGroupOutput.group.formationTimestamp).to(equal(1234567890))
+                    expect(createGroupOutput.group.approved).to(beTrue())
+                }
+                
+                // MARK: -- returns the members setup correctly
+                it("returns the members setup correctly") {
+                    createGroupOutput = mockStorage.write(using: dependencies) { db in
+                        try SessionUtil.createGroup(
+                            db,
+                            name: "Testname",
+                            displayPictureUrl: nil,
+                            displayPictureFilename: nil,
+                            displayPictureEncryptionKey: nil,
+                            members: [(
+                                id: "051111111111111111111111111111111111111111111111111111111111111111",
+                                profile: Profile(
+                                    id: "051111111111111111111111111111111111111111111111111111111111111111",
+                                    name: "TestName",
+                                    lastNameUpdate: 0,
+                                    profilePictureUrl: "testUrl",
+                                    profileEncryptionKey: Data([1, 2, 3]),
+                                    lastProfilePictureUpdate: 0,
+                                    lastBlocksCommunityMessageRequests: 0
+                                )
+                            )],
+                            admins: [(
+                                id: "05\(TestConstants.publicKey)",
+                                profile: Profile(
+                                    id: "05\(TestConstants.publicKey)",
+                                    name: "TestName2",
+                                    lastNameUpdate: 0,
+                                    lastProfilePictureUpdate: 0,
+                                    lastBlocksCommunityMessageRequests: 0
+                                )
+                            )],
+                            using: dependencies
+                        )
+                    }
+                    
+                    expect(createGroupOutput.members.count).to(equal(2))
+                    expect(createGroupOutput.members.map { $0.groupId })
+                        .to(equal([
+                            "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
+                            "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
+                        ]))
+                    expect(createGroupOutput.members.map { $0.profileId }.asSet())
+                        .to(equal([
+                            "051111111111111111111111111111111111111111111111111111111111111111",
+                            "05\(TestConstants.publicKey)"
+                        ]))
+                    expect(createGroupOutput.members.map { $0.role }.asSet())
+                        .to(equal([
+                            .standard,
+                            .admin
+                        ]))
+                    expect(createGroupOutput.members.map { $0.isHidden }.asSet())
+                        .to(equal([
+                            false,
+                            false
+                        ]))
+                }
+                
+                // MARK: -- adds the current user as an admin when not provided
+                it("adds the current user as an admin when not provided") {
+                    createGroupOutput = mockStorage.write(using: dependencies) { db in
+                        try SessionUtil.createGroup(
+                            db,
+                            name: "Testname",
+                            displayPictureUrl: nil,
+                            displayPictureFilename: nil,
+                            displayPictureEncryptionKey: nil,
+                            members: [(
+                                id: "051111111111111111111111111111111111111111111111111111111111111111",
+                                profile: Profile(
+                                    id: "051111111111111111111111111111111111111111111111111111111111111111",
+                                    name: "TestName",
+                                    lastNameUpdate: 0,
+                                    lastProfilePictureUpdate: 0,
+                                    lastBlocksCommunityMessageRequests: 0
+                                )
+                            )],
+                            admins: [],
+                            using: dependencies
+                        )
+                    }
+                    
+                    expect(createGroupOutput.members.map { $0.groupId })
+                        .to(contain("03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"))
+                    expect(createGroupOutput.members.map { $0.profileId })
+                        .to(contain("05\(TestConstants.publicKey)"))
+                    expect(createGroupOutput.members.map { $0.role }).to(contain(.admin))
+                }
+                
+                // MARK: -- handles members without profile data correctly
+                it("handles members without profile data correctly") {
+                    createGroupOutput = mockStorage.write(using: dependencies) { db in
+                        try SessionUtil.createGroup(
+                            db,
+                            name: "Testname",
+                            displayPictureUrl: nil,
+                            displayPictureFilename: nil,
+                            displayPictureEncryptionKey: nil,
+                            members: [(
+                                id: "051111111111111111111111111111111111111111111111111111111111111111",
+                                profile: nil
+                            )],
+                            admins: [],
+                            using: dependencies
+                        )
+                    }
+                    
+                    expect(createGroupOutput.members.count).to(equal(2))
+                    expect(createGroupOutput.members.map { $0.groupId })
+                        .to(contain("03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"))
+                    expect(createGroupOutput.members.map { $0.profileId })
+                        .to(contain("051111111111111111111111111111111111111111111111111111111111111111"))
+                    expect(createGroupOutput.members.map { $0.role }).to(contain(.standard))
+                }
+                
+                // MARK: -- stores the config states in the cache correctly
+                it("stores the config states in the cache correctly") {
+                    createGroupOutput = mockStorage.write(using: dependencies) { db in
+                        try SessionUtil.createGroup(
+                            db,
+                            name: "Testname",
+                            displayPictureUrl: nil,
+                            displayPictureFilename: nil,
+                            displayPictureEncryptionKey: nil,
+                            members: [(
+                                id: "051111111111111111111111111111111111111111111111111111111111111111",
+                                profile: nil
+                            )],
+                            admins: [],
+                            using: dependencies
+                        )
+                    }
+                    
+                    expect(mockSessionUtilCache).to(call(.exactly(times: 3)) {
+                        $0.setConfig(for: any(), publicKey: any(), to: any())
+                    })
+                    expect(mockSessionUtilCache)
+                        .to(call(matchingParameters: .atLeast(2)) {
+                            $0.setConfig(
+                                for: .groupInfo,
+                                publicKey: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
+                                to: any()
+                            )
+                        })
+                    expect(mockSessionUtilCache)
+                        .to(call(matchingParameters: .atLeast(2)) {
+                            $0.setConfig(
+                                for: .groupMembers,
+                                publicKey: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
+                                to: any()
+                            )
+                        })
+                    expect(mockSessionUtilCache)
+                        .to(call(matchingParameters: .atLeast(2)) {
+                            $0.setConfig(
+                                for: .groupKeys,
+                                publicKey: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
+                                to: any()
+                            )
+                        })
+                }
+                
+                // MARK: -- saves config dumps for the stored configs
+                it("saves config dumps for the stored configs") {
+                    createGroupOutput = mockStorage.write(using: dependencies) { db in
+                        try SessionUtil.createGroup(
+                            db,
+                            name: "Testname",
+                            displayPictureUrl: nil,
+                            displayPictureFilename: nil,
+                            displayPictureEncryptionKey: nil,
+                            members: [(
+                                id: "051111111111111111111111111111111111111111111111111111111111111111",
+                                profile: nil
+                            )],
+                            admins: [],
+                            using: dependencies
+                        )
+                    }
+                    
+                    let result: [ConfigDump]? = mockStorage.read(using: dependencies) { db in
+                        try ConfigDump.fetchAll(db)
+                    }
+                    
+                    expect(result?.map { $0.variant }.asSet())
+                        .to(equal([.groupInfo, .groupKeys, .groupMembers]))
+                    expect(result?.map { $0.publicKey }.asSet())
+                        .to(equal(["03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"]))
+                    expect(result?.map { $0.timestampMs }.asSet())
+                        .to(equal([1234567890000]))
                 }
             }
         }

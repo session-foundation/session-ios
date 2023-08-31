@@ -9,7 +9,7 @@ enum _003_YDBToGRDBMigration: Migration {
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     
-    static func migrate(_ db: Database) throws {
+    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         guard !SNUtilitiesKit.isRunningTests else { return Storage.update(progress: 1, for: self, in: target) }
         
         SNLogNotTests("[Migration Error] Attempted to perform legacy migation")

@@ -93,7 +93,7 @@ extension MessageReceiver {
                     
                     guard
                         let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
-                        let blindedKeyPair: KeyPair = try? dependencies.crypto.generate(
+                        let blindedKeyPair: KeyPair = dependencies.crypto.generate(
                             .blindedKeyPair(
                                 serverPublicKey: openGroup.publicKey,
                                 edKeyPair: userEdKeyPair,
@@ -132,7 +132,8 @@ extension MessageReceiver {
             associatedWithProto: proto,
             sender: sender,
             messageSentTimestamp: messageSentTimestamp,
-            openGroup: maybeOpenGroup
+            openGroup: maybeOpenGroup,
+            using: dependencies
         ) {
             return interactionId
         }
@@ -159,7 +160,8 @@ extension MessageReceiver {
                         threadVariant: thread.variant,
                         timestampMs: Int64(messageSentTimestamp * 1000),
                         userPublicKey: currentUserPublicKey,
-                        openGroup: maybeOpenGroup
+                        openGroup: maybeOpenGroup,
+                        using: dependencies
                     )
                 ),
                 hasMention: Interaction.isUserMentioned(
@@ -208,7 +210,8 @@ extension MessageReceiver {
                         interactionId: existingInteractionId,
                         messageSentTimestamp: messageSentTimestamp,
                         variant: variant,
-                        syncTarget: message.syncTarget
+                        syncTarget: message.syncTarget,
+                        using: dependencies
                     )
                     
                     getExpirationForOutgoingDisappearingMessages(
@@ -234,7 +237,8 @@ extension MessageReceiver {
             interactionId: interactionId,
             messageSentTimestamp: messageSentTimestamp,
             variant: variant,
-            syncTarget: message.syncTarget
+            syncTarget: message.syncTarget,
+            using: dependencies
         )
         
         getExpirationForOutgoingDisappearingMessages(
@@ -366,7 +370,8 @@ extension MessageReceiver {
         associatedWithProto proto: SNProtoContent,
         sender: String,
         messageSentTimestamp: TimeInterval,
-        openGroup: OpenGroup?
+        openGroup: OpenGroup?,
+        using dependencies: Dependencies
     ) throws -> Int64? {
         guard
             let reaction: VisibleMessage.VMReaction = message.reaction,
@@ -413,7 +418,8 @@ extension MessageReceiver {
                     threadVariant: thread.variant,
                     timestampMs: timestampMs,
                     userPublicKey: currentUserPublicKey,
-                    openGroup: openGroup
+                    openGroup: openGroup,
+                    using: dependencies
                 )
                 
                 // Don't notify if the reaction was added before the lastest read timestamp for
@@ -444,7 +450,8 @@ extension MessageReceiver {
         interactionId: Int64,
         messageSentTimestamp: TimeInterval,
         variant: Interaction.Variant,
-        syncTarget: String?
+        syncTarget: String?,
+        using dependencies: Dependencies
     ) throws {
         guard variant == .standardOutgoing else { return }
         
@@ -494,7 +501,8 @@ extension MessageReceiver {
             threadId: thread.id,
             threadVariant: thread.variant,
             includingOlder: true,
-            trySendReadReceipt: false
+            trySendReadReceipt: false,
+            using: dependencies
         )
         
         // Process any PendingReadReceipt values

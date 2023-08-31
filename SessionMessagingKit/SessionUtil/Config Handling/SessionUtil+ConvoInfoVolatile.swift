@@ -16,11 +16,11 @@ internal extension SessionUtil {
     
     static func handleConvoInfoVolatileUpdate(
         _ db: Database,
-        in conf: UnsafeMutablePointer<config_object>?,
-        mergeNeedsDump: Bool
+        in config: Config?,
+        using dependencies: Dependencies
     ) throws {
-        guard mergeNeedsDump else { return }
-        guard conf != nil else { throw SessionUtilError.nilConfigObject }
+        guard config.needsDump else { return }
+        guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
         
         // Get the volatile thread info from the conf and local conversations
         let volatileThreadInfo: [VolatileThreadInfo] = try extractConvoVolatileInfo(from: conf)
@@ -101,15 +101,15 @@ internal extension SessionUtil {
         
         try upsert(
             convoInfoVolatileChanges: newerLocalChanges,
-            in: conf
+            in: config
         )
     }
     
     static func upsert(
         convoInfoVolatileChanges: [VolatileThreadInfo],
-        in conf: UnsafeMutablePointer<config_object>?
+        in config: Config?
     ) throws {
-        guard conf != nil else { throw SessionUtilError.nilConfigObject }
+        guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
         
         // Exclude any invalid thread info
         let validChanges: [VolatileThreadInfo] = convoInfoVolatileChanges
@@ -135,7 +135,7 @@ internal extension SessionUtil {
                     guard convo_info_volatile_get_or_construct_1to1(conf, &oneToOne, &cThreadId) else {
                         /// It looks like there are some situations where this object might not get created correctly (and
                         /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
-                        SNLog("Unable to upsert contact volatile info to SessionUtil: \(SessionUtil.lastError(conf))")
+                        SNLog("Unable to upsert contact volatile info to SessionUtil: \(config.lastError)")
                         throw SessionUtilError.getOrConstructFailedUnexpectedly
                     }
                     
@@ -156,7 +156,7 @@ internal extension SessionUtil {
                     guard convo_info_volatile_get_or_construct_legacy_group(conf, &legacyGroup, &cThreadId) else {
                         /// It looks like there are some situations where this object might not get created correctly (and
                         /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
-                        SNLog("Unable to upsert legacy group volatile info to SessionUtil: \(SessionUtil.lastError(conf))")
+                        SNLog("Unable to upsert legacy group volatile info to SessionUtil: \(config.lastError)")
                         throw SessionUtilError.getOrConstructFailedUnexpectedly
                     }
                     
@@ -186,7 +186,7 @@ internal extension SessionUtil {
                     guard convo_info_volatile_get_or_construct_community(conf, &community, &cBaseUrl, &cRoomToken, &cPubkey) else {
                         /// It looks like there are some situations where this object might not get created correctly (and
                         /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
-                        SNLog("Unable to upsert community volatile info to SessionUtil: \(SessionUtil.lastError(conf))")
+                        SNLog("Unable to upsert community volatile info to SessionUtil: \(config.lastError)")
                         throw SessionUtilError.getOrConstructFailedUnexpectedly
                     }
                     
@@ -208,7 +208,8 @@ internal extension SessionUtil {
     
     static func updateMarkedAsUnreadState(
         _ db: Database,
-        threads: [SessionThread]
+        threads: [SessionThread],
+        using dependencies: Dependencies
     ) throws {
         // If we have no updated threads then no need to continue
         guard !threads.isEmpty else { return }
@@ -227,21 +228,29 @@ internal extension SessionUtil {
         try SessionUtil.performAndPushChange(
             db,
             for: .convoInfoVolatile,
-            publicKey: getUserHexEncodedPublicKey(db)
-        ) { conf in
+            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            using: dependencies
+        ) { config in
             try upsert(
                 convoInfoVolatileChanges: changes,
-                in: conf
+                in: config
             )
         }
     }
     
-    static func remove(_ db: Database, volatileContactIds: [String]) throws {
+    static func remove(
+        _ db: Database,
+        volatileContactIds: [String],
+        using dependencies: Dependencies
+    ) throws {
         try SessionUtil.performAndPushChange(
             db,
             for: .convoInfoVolatile,
-            publicKey: getUserHexEncodedPublicKey(db)
-        ) { conf in
+            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            using: dependencies
+        ) { config in
+            guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+            
             volatileContactIds.forEach { contactId in
                 var cSessionId: [CChar] = contactId.cArray.nullTerminated()
                 
@@ -251,12 +260,19 @@ internal extension SessionUtil {
         }
     }
     
-    static func remove(_ db: Database, volatileLegacyGroupIds: [String]) throws {
+    static func remove(
+        _ db: Database,
+        volatileLegacyGroupIds: [String],
+        using dependencies: Dependencies
+    ) throws {
         try SessionUtil.performAndPushChange(
             db,
             for: .convoInfoVolatile,
-            publicKey: getUserHexEncodedPublicKey(db)
-        ) { conf in
+            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            using: dependencies
+        ) { config in
+            guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+            
             volatileLegacyGroupIds.forEach { legacyGroupId in
                 var cLegacyGroupId: [CChar] = legacyGroupId.cArray.nullTerminated()
                 
@@ -266,12 +282,35 @@ internal extension SessionUtil {
         }
     }
     
-    static func remove(_ db: Database, volatileCommunityInfo: [OpenGroupUrlInfo]) throws {
+    static func remove(
+        _ db: Database,
+        volatileGroupIds: [String],
+        using dependencies: Dependencies
+    ) throws {
         try SessionUtil.performAndPushChange(
             db,
             for: .convoInfoVolatile,
-            publicKey: getUserHexEncodedPublicKey(db)
-        ) { conf in
+            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            using: dependencies
+        ) { config in
+            guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+            
+        }
+    }
+    
+    static func remove(
+        _ db: Database,
+        volatileCommunityInfo: [OpenGroupUrlInfo],
+        using dependencies: Dependencies
+    ) throws {
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .convoInfoVolatile,
+            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            using: dependencies
+        ) { config in
+            guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+            
             volatileCommunityInfo.forEach { urlInfo in
                 var cBaseUrl: [CChar] = urlInfo.server.cArray.nullTerminated()
                 var cRoom: [CChar] = urlInfo.roomToken.cArray.nullTerminated()
@@ -290,13 +329,15 @@ public extension SessionUtil {
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        lastReadTimestampMs: Int64
+        lastReadTimestampMs: Int64,
+        using dependencies: Dependencies
     ) throws {
         try SessionUtil.performAndPushChange(
             db,
             for: .convoInfoVolatile,
-            publicKey: getUserHexEncodedPublicKey(db)
-        ) { conf in
+            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            using: dependencies
+        ) { config in
             try upsert(
                 convoInfoVolatileChanges: [
                     VolatileThreadInfo(
@@ -308,7 +349,7 @@ public extension SessionUtil {
                         changes: [.lastReadTimestampMs(lastReadTimestampMs)]
                     )
                 ],
-                in: conf
+                in: config
             )
         }
     }
@@ -318,12 +359,15 @@ public extension SessionUtil {
         threadVariant: SessionThread.Variant,
         timestampMs: Int64,
         userPublicKey: String,
-        openGroup: OpenGroup?
+        openGroup: OpenGroup?,
+        using dependencies: Dependencies
     ) -> Bool {
-        return SessionUtil
+        return dependencies.caches[.sessionUtil]
             .config(for: .convoInfoVolatile, publicKey: userPublicKey)
             .wrappedValue
-            .map { conf in
+            .map { config in
+                guard case .object(let conf) = config else { return false }
+                
                 switch threadVariant {
                     case .contact:
                         var cThreadId: [CChar] = threadId.cArray.nullTerminated()

@@ -67,7 +67,7 @@ public final class CurrentUserPoller: Poller {
         else if let targetSnode: Snode = targetSnode.wrappedValue {
             SNLog("Main Poller polling \(targetSnode) failed; dropping it and switching to next snode.")
             self.targetSnode.mutate { $0 = nil }
-            SnodeAPI.dropSnodeFromSwarmIfNeeded(targetSnode, publicKey: publicKey)
+            SnodeAPI.dropSnodeFromSwarmIfNeeded(targetSnode, publicKey: publicKey, using: dependencies)
         }
         else {
             SNLog("Polling failed due to having no target service node.")

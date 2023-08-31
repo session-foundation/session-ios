@@ -223,7 +223,7 @@ class SOGSMessageSpec: QuickSpec {
                             _ = try? decoder.decode(OpenGroupAPI.Message.self, from: messageData)
                             
                             expect(mockCrypto)
-                                .to(call(matchingParameters: true) {
+                                .to(call(matchingParameters: .all) {
                                     $0.verify(
                                         .signature(
                                             message: Data(base64Encoded: "VGVzdERhdGE=")!.bytes,
@@ -268,7 +268,7 @@ class SOGSMessageSpec: QuickSpec {
                             _ = try? decoder.decode(OpenGroupAPI.Message.self, from: messageData)
                             
                             expect(mockCrypto)
-                                .to(call(matchingParameters: true) {
+                                .to(call(matchingParameters: .all) {
                                     $0.verify(
                                         .signatureEd25519(
                                             Data(base64Encoded: "VGVzdFNpZ25hdHVyZQ==")!,

@@ -11,7 +11,7 @@ enum _002_SetupStandardJobs: Migration {
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     
-    static func migrate(_ db: Database) throws {
+    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         try autoreleasepool {
             // Note: This job exists in the 'Session' target but that doesn't have it's own migrations
             _ = try Job(

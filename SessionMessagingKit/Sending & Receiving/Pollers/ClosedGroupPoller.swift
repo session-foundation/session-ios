@@ -60,7 +60,7 @@ public final class ClosedGroupPoller: Poller {
     override func nextPollDelay(for publicKey: String, using dependencies: Dependencies) -> TimeInterval {
         // Get the received date of the last message in the thread. If we don't have
         // any messages yet, pick some reasonable fake time interval to use instead
-        let lastMessageDate: Date = Storage.shared
+        let lastMessageDate: Date = dependencies.storage
             .read { db in
                 try Interaction
                     .filter(Interaction.Columns.threadId == publicKey)
@@ -74,7 +74,7 @@ public final class ClosedGroupPoller: Poller {
                 
                 return Date(timeIntervalSince1970: (TimeInterval(receivedAtTimestampMs) / 1000))
             }
-            .defaulting(to: Date().addingTimeInterval(-5 * 60))
+            .defaulting(to: dependencies.dateNow.addingTimeInterval(-5 * 60))
         
         let timeSinceLastMessage: TimeInterval = dependencies.dateNow.timeIntervalSince(lastMessageDate)
         let minPollInterval: Double = ClosedGroupPoller.minPollInterval

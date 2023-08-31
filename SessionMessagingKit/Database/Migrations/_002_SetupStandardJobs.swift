@@ -13,7 +13,7 @@ enum _002_SetupStandardJobs: Migration {
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     
-    static func migrate(_ db: Database) throws {
+    static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         // Start by adding the jobs that don't have collections (in the jobs like these
         // will be added via migrations)
         try autoreleasepool {

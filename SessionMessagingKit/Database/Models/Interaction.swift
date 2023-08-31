@@ -520,7 +520,8 @@ public extension Interaction {
         threadId: String,
         threadVariant: SessionThread.Variant,
         includingOlder: Bool,
-        trySendReadReceipt: Bool
+        trySendReadReceipt: Bool,
+        using dependencies: Dependencies
     ) throws {
         guard let interactionId: Int64 = interactionId else { return }
         
@@ -537,7 +538,8 @@ public extension Interaction {
             threadId: String,
             threadVariant: SessionThread.Variant,
             interactionInfo: [InteractionReadInfo],
-            lastReadTimestampMs: Int64
+            lastReadTimestampMs: Int64,
+            using dependencies: Dependencies
         ) throws {
             // Add the 'DisappearingMessagesJob' if needed - this will update any expiring
             // messages `expiresStartedAtMs` values in local database, and create seperate
@@ -549,7 +551,8 @@ public extension Interaction {
                     interactionIds: interactionInfo.map { $0.id },
                     startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs()),
                     threadId: threadId
-                )
+                ),
+                using: dependencies
             )
             
             // Update the last read timestamp if needed
@@ -557,7 +560,8 @@ public extension Interaction {
                 db,
                 threadId: threadId,
                 threadVariant: threadVariant,
-                lastReadTimestampMs: lastReadTimestampMs
+                lastReadTimestampMs: lastReadTimestampMs,
+                using: dependencies
             )
             
             // Clear out any notifications for the interactions we mark as read
@@ -588,7 +592,8 @@ public extension Interaction {
                         interactionIds: interactionInfo
                             .filter { !$0.wasRead && $0.variant != .standardOutgoing }
                             .map { $0.id }
-                    )
+                    ),
+                    using: dependencies
                 )
             }
         }
@@ -631,7 +636,8 @@ public extension Interaction {
                         wasRead: false
                     )
                 ],
-                lastReadTimestampMs: timestampMs
+                lastReadTimestampMs: timestampMs,
+                using: dependencies
             )
             return
         }
@@ -654,7 +660,8 @@ public extension Interaction {
                 threadId: threadId,
                 threadVariant: threadVariant,
                 interactionInfo: [interactionInfo],
-                lastReadTimestampMs: interactionInfo.timestampMs
+                lastReadTimestampMs: interactionInfo.timestampMs,
+                using: dependencies
             )
             return
         }
@@ -668,7 +675,8 @@ public extension Interaction {
             threadId: threadId,
             threadVariant: threadVariant,
             interactionInfo: interactionInfoToMarkAsRead,
-            lastReadTimestampMs: interactionInfo.timestampMs
+            lastReadTimestampMs: interactionInfo.timestampMs,
+            using: dependencies
         )
     }
     

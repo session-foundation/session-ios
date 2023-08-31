@@ -23,7 +23,8 @@ extension MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    using: dependencies
                 )
                 
             case .nameChange:
@@ -31,7 +32,8 @@ extension MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    using: dependencies
                 )
                 
             case .membersAdded:
@@ -39,7 +41,8 @@ extension MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    using: dependencies
                 )
                 
             case .membersRemoved:
@@ -47,7 +50,8 @@ extension MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    using: dependencies
                 )
                 
             case .memberLeft:
@@ -55,7 +59,8 @@ extension MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    using: dependencies
                 )
                 
             case .encryptionKeyPairRequest: break // Currently not used
@@ -225,7 +230,9 @@ extension MessageReceiver {
                 latestKeyPairReceivedTimestamp: receivedTimestamp,
                 disappearingConfig: disappearingConfig,
                 members: members.asSet(),
-                admins: admins.asSet()
+                admins: admins.asSet(),
+                formationTimestamp: TimeInterval(formationTimestampMs * 1000),
+                using: dependencies
             )
         }
         
@@ -260,7 +267,8 @@ extension MessageReceiver {
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        message: ClosedGroupControlMessage
+        message: ClosedGroupControlMessage,
+        using dependencies: Dependencies
     ) throws {
         guard case let .encryptionKeyPair(explicitGroupPublicKey, wrappers) = message.kind else {
             return
@@ -319,7 +327,8 @@ extension MessageReceiver {
             try? SessionUtil.update(
                 db,
                 legacyGroupPublicKey: groupPublicKey,
-                latestKeyPair: keyPair
+                latestKeyPair: keyPair,
+                using: dependencies
             )
         }
         catch {
@@ -337,7 +346,8 @@ extension MessageReceiver {
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        message: ClosedGroupControlMessage
+        message: ClosedGroupControlMessage,
+        using dependencies: Dependencies
     ) throws {
         guard
             let messageKind: ClosedGroupControlMessage.Kind = message.kind,
@@ -356,7 +366,8 @@ extension MessageReceiver {
                 try? SessionUtil.update(
                     db,
                     legacyGroupPublicKey: threadId,
-                    name: name
+                    name: name,
+                    using: dependencies
                 )
                 
                 _ = try ClosedGroup
@@ -373,7 +384,8 @@ extension MessageReceiver {
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        message: ClosedGroupControlMessage
+        message: ClosedGroupControlMessage,
+        using dependencies: Dependencies
     ) throws {
         guard
             let messageKind: ClosedGroupControlMessage.Kind = message.kind,
@@ -407,7 +419,8 @@ extension MessageReceiver {
                     admins: allMembers
                         .filter { $0.role == .admin }
                         .map { $0.profileId }
-                        .asSet()
+                        .asSet(),
+                    using: dependencies
                 )
                 
                 // Create records for any new members
@@ -462,7 +475,8 @@ extension MessageReceiver {
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        message: ClosedGroupControlMessage
+        message: ClosedGroupControlMessage,
+        using dependencies: Dependencies
     ) throws {
         guard
             let messageKind: ClosedGroupControlMessage.Kind = message.kind,
@@ -514,7 +528,8 @@ extension MessageReceiver {
                     admins: allMembers
                         .filter { $0.role == .admin }
                         .map { $0.profileId }
-                        .asSet()
+                        .asSet(),
+                    using: dependencies
                 )
                 
                 // Delete the removed members
@@ -550,7 +565,8 @@ extension MessageReceiver {
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        message: ClosedGroupControlMessage
+        message: ClosedGroupControlMessage,
+        using dependencies: Dependencies
     ) throws {
         guard
             let messageKind: ClosedGroupControlMessage.Kind = message.kind,
@@ -591,7 +607,8 @@ extension MessageReceiver {
                     admins: allMembers
                         .filter { $0.role == .admin }
                         .map { $0.profileId }
-                        .asSet()
+                        .asSet(),
+                    using: dependencies
                 )
                 
                 // Delete the members to remove
