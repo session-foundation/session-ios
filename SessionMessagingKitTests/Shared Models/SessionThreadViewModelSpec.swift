@@ -24,12 +24,16 @@ class SessionThreadViewModelSpec: QuickSpec {
 
     override func spec() {
         describe("a SessionThreadViewModel") {
+            var dependencies: TestDependencies!
             var mockStorage: Storage!
             
             beforeEach {
+                dependencies = TestDependencies()
                 mockStorage = SynchronousStorage(
-                    customWriter: try! DatabaseQueue()
+                    customWriter: try! DatabaseQueue(),
+                    using: dependencies
                 )
+                dependencies[singleton: .storage] = mockStorage
                 
                 mockStorage.write { db in
                     try db.create(table: TestMessage.self) { t in

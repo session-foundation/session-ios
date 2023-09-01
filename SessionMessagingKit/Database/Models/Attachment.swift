@@ -1071,7 +1071,7 @@ extension Attachment {
         
         let attachmentId: String = self.id
         
-        return dependencies.storage
+        return dependencies[singleton: .storage]
             .writePublisher { db -> (HTTP.PreparedRequest<FileUploadResponse>?, String?, Data?, Data?) in
                 // If the attachment is a downloaded attachment, check if it came from
                 // the server and if so just succeed immediately (no use re-uploading
@@ -1165,7 +1165,7 @@ extension Attachment {
                 ///
                 /// **Note:** We **MUST** use the `.with` function here to ensure the `isValid` flag is
                 /// updated correctly
-                dependencies.storage
+                dependencies[singleton: .storage]
                     .writePublisher { db in
                         try self
                             .with(
@@ -1189,7 +1189,7 @@ extension Attachment {
                     switch result {
                         case .finished: break
                         case .failure:
-                            dependencies.storage.write { db in
+                            dependencies[singleton: .storage].write { db in
                                 try Attachment
                                     .filter(id: attachmentId)
                                     .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.failedUpload))

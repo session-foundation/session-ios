@@ -21,7 +21,7 @@ public enum FailedAttachmentDownloadsJob: JobExecutor {
         var changeCount: Int = -1
         
         // Update all 'sending' message states to 'failed'
-        dependencies.storage.write { db in
+        dependencies[singleton: .storage].write { db in
             changeCount = try Attachment
                 .filter(Attachment.Columns.state == Attachment.State.downloading)
                 .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.failedDownload))

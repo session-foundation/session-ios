@@ -167,7 +167,7 @@ class ScreenLockUI {
         // It's not safe to access OWSScreenLock.isScreenLockEnabled
         // until the app is ready.
         AppReadiness.runNowOrWhenAppWillBecomeReady { [weak self] in
-            self?.isScreenLockLocked = Storage.shared[.isScreenLockEnabled]
+            self?.isScreenLockLocked = Dependencies()[singleton: .storage][.isScreenLockEnabled]
             self?.ensureUI()
         }
     }
@@ -184,7 +184,7 @@ class ScreenLockUI {
             Logger.verbose("tryToActivateScreenLockUponBecomingActive NO 0")
             return
         }
-        guard Storage.shared[.isScreenLockEnabled] else {
+        guard Dependencies()[singleton: .storage][.isScreenLockEnabled] else {
             // Screen lock is not enabled.
             Logger.verbose("tryToActivateScreenLockUponBecomingActive NO 1")
             return;
@@ -372,7 +372,7 @@ class ScreenLockUI {
             return;
         }
         
-        self.isScreenLockLocked = Storage.shared[.isScreenLockEnabled]
+        self.isScreenLockLocked = Dependencies()[singleton: .storage][.isScreenLockEnabled]
 
         // NOTE: this notifications fires _before_ applicationDidBecomeActive,
         // which is desirable.  Don't assume that though; call ensureUI

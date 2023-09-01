@@ -20,14 +20,14 @@ extension MessageSender {
         
         let verificationData = plaintext + Data(userEd25519KeyPair.publicKey) + recipientX25519PublicKey
         guard
-            let signature = try? dependencies.crypto.perform(
+            let signature = try? dependencies[singleton: .crypto].perform(
                 .signature(message: Bytes(verificationData), secretKey: userEd25519KeyPair.secretKey)
             )
         else { throw MessageSenderError.signingFailed }
         
         let plaintextWithMetadata = plaintext + Data(userEd25519KeyPair.publicKey) + Data(signature)
         guard
-            let ciphertext = try? dependencies.crypto.perform(
+            let ciphertext = try? dependencies[singleton: .crypto].perform(
                 .seal(
                     message: Bytes(plaintextWithMetadata),
                     recipientPublicKey: Bytes(recipientX25519PublicKey)
@@ -53,7 +53,7 @@ extension MessageSender {
             throw MessageSenderError.noUserED25519KeyPair
         }
         guard
-            let blindedKeyPair = dependencies.crypto.generate(
+            let blindedKeyPair = dependencies[singleton: .crypto].generate(
                 .blindedKeyPair(serverPublicKey: openGroupPublicKey, edKeyPair: userEd25519KeyPair, using: dependencies)
             )
         else { throw MessageSenderError.signingFailed }
@@ -62,7 +62,7 @@ extension MessageSender {
         
         /// Step one: calculate the shared encryption key, sending from A to B
         guard
-            let enc_key: Bytes = try? dependencies.crypto.perform(
+            let enc_key: Bytes = try? dependencies[singleton: .crypto].perform(
                 .sharedBlindedEncryptionKey(
                     secretKey: userEd25519KeyPair.secretKey,
                     otherBlindedPublicKey: recipientBlindedPublicKey.bytes,
@@ -71,7 +71,7 @@ extension MessageSender {
                     using: dependencies
                 )
             ),
-            let nonce: Bytes = try? dependencies.crypto.perform(.generateNonce24())
+            let nonce: Bytes = try? dependencies[singleton: .crypto].perform(.generateNonce24())
         else { throw MessageSenderError.signingFailed }
         
         /// Inner data: msg || A   (i.e. the sender's ed25519 master pubkey, *not* kA blinded pubkey)
@@ -79,7 +79,7 @@ extension MessageSender {
         
         /// Encrypt using xchacha20-poly1305
         guard
-            let ciphertext = try? dependencies.crypto.perform(
+            let ciphertext = try? dependencies[singleton: .crypto].perform(
                 .encryptAeadXChaCha20(message: innerBytes, secretKey: enc_key, nonce: nonce, using: dependencies)
             )
         else { throw MessageSenderError.encryptionFailed }

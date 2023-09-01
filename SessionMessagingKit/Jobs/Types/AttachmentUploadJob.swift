@@ -24,7 +24,7 @@ public enum AttachmentUploadJob: JobExecutor {
             let interactionId: Int64 = job.interactionId,
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData),
-            let (attachment, openGroup): (Attachment, OpenGroup?) = dependencies.storage.read({ db in
+            let (attachment, openGroup): (Attachment, OpenGroup?) = dependencies[singleton: .storage].read({ db in
                 guard let attachment: Attachment = try Attachment.fetchOne(db, id: details.attachmentId) else {
                     return nil
                 }
@@ -38,7 +38,7 @@ public enum AttachmentUploadJob: JobExecutor {
         
         // If the original interaction no longer exists then don't bother uploading the attachment (ie. the
         // message was deleted before it even got sent)
-        guard dependencies.storage.read({ db in try Interaction.exists(db, id: interactionId) }) == true else {
+        guard dependencies[singleton: .storage].read({ db in try Interaction.exists(db, id: interactionId) }) == true else {
             SNLog("[AttachmentUploadJob] Failed due to missing interaction")
             return failure(job, StorageError.objectNotFound, true, dependencies)
         }
@@ -52,7 +52,7 @@ public enum AttachmentUploadJob: JobExecutor {
         // If this upload is related to sending a message then trigger the 'handleMessageWillSend' logic
         // as if this is a retry the logic wouldn't run until after the upload has completed resulting in
         // a potentially incorrect delivery status
-        dependencies.storage.write { db in
+        dependencies[singleton: .storage].write { db in
             guard
                 let sendJob: Job = try Job.fetchOne(db, id: details.messageSendJobId),
                 let sendJobDetails: Data = sendJob.details,
@@ -82,7 +82,7 @@ public enum AttachmentUploadJob: JobExecutor {
                             // If this upload is related to sending a message then trigger the
                             // 'handleFailedMessageSend' logic as we want to ensure the message
                             // has the correct delivery status
-                            dependencies.storage.read { db in
+                            dependencies[singleton: .storage].read { db in
                                 guard
                                     let sendJob: Job = try Job.fetchOne(db, id: details.messageSendJobId),
                                     let sendJobDetails: Data = sendJob.details,

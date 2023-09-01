@@ -163,20 +163,28 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         joinOpenGroup(roomToken: room, server: server, publicKey: publicKey, shouldOpenCommunity: true, onError: onError)
     }
 
-    fileprivate func joinOpenGroup(roomToken: String, server: String, publicKey: String, shouldOpenCommunity: Bool, onError: (() -> ())?) {
+    fileprivate func joinOpenGroup(
+        roomToken: String,
+        server: String,
+        publicKey: String,
+        shouldOpenCommunity: Bool,
+        using dependencies: Dependencies = Dependencies(),
+        onError: (() -> ())?
+    ) {
         guard !isJoining, let navigationController: UINavigationController = navigationController else { return }
         
         isJoining = true
         
         ModalActivityIndicatorViewController.present(fromViewController: navigationController, canCancel: false) { [weak self] _ in
-            Storage.shared
+            dependencies[singleton: .storage]
                 .writePublisher { db in
                     OpenGroupManager.shared.add(
                         db,
                         roomToken: roomToken,
                         server: server,
                         publicKey: publicKey,
-                        calledFromConfigHandling: false
+                        calledFromConfigHandling: false,
+                        using: dependencies
                     )
                 }
                 .flatMap { successfullyAddedGroup in
@@ -185,7 +193,8 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                         roomToken: roomToken,
                         server: server,
                         publicKey: publicKey,
-                        calledFromConfigHandling: false
+                        calledFromConfigHandling: false,
+                        using: dependencies
                     )
                 }
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
@@ -197,7 +206,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                                 // If there was a failure then the group will be in invalid state until
                                 // the next launch so remove it (the user will be left on the previous
                                 // screen so can re-trigger the join)
-                                Storage.shared.writeAsync { db in
+                                dependencies[singleton: .storage].writeAsync { db in
                                     OpenGroupManager.shared.delete(
                                         db,
                                         openGroupId: OpenGroup.idFor(roomToken: roomToken, server: server),

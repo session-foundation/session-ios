@@ -15,12 +15,12 @@ extension MessageSender {
         members: Set<String>,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<SessionThread, Error> {
-        dependencies.storage
+        dependencies[singleton: .storage]
             .writePublisher { db -> (String, SessionThread, [MessageSender.PreparedSendData], Set<String>) in
                 // Generate the group's two keys
                 guard
-                    let groupKeyPair: KeyPair = dependencies.crypto.generate(.x25519KeyPair()),
-                    let encryptionKeyPair: KeyPair = dependencies.crypto.generate(.x25519KeyPair())
+                    let groupKeyPair: KeyPair = dependencies[singleton: .crypto].generate(.x25519KeyPair()),
+                    let encryptionKeyPair: KeyPair = dependencies[singleton: .crypto].generate(.x25519KeyPair())
                 else { throw MessageSenderError.noKeyPair }
                 
                 // Includes the 'SessionId.Prefix.standard' prefix
@@ -172,10 +172,10 @@ extension MessageSender {
                 .eraseToAnyPublisher()
         }
         
-        return dependencies.storage
+        return dependencies[singleton: .storage]
             .readPublisher { db -> (ClosedGroupKeyPair, MessageSender.PreparedSendData) in
                 // Generate the new encryption key pair
-                guard let legacyNewKeyPair: KeyPair = dependencies.crypto.generate(.x25519KeyPair()) else {
+                guard let legacyNewKeyPair: KeyPair = dependencies[singleton: .crypto].generate(.x25519KeyPair()) else {
                     throw MessageSenderError.noKeyPair
                 }
                 
@@ -236,7 +236,7 @@ extension MessageSender {
             .handleEvents(
                 receiveOutput: { newKeyPair in
                     /// Store it **after** having sent out the message to the group
-                    dependencies.storage.write { db in
+                    dependencies[singleton: .storage].write { db in
                         try newKeyPair.insert(db)
                         
                         // Update libSession
@@ -274,7 +274,7 @@ extension MessageSender {
         name: String,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
-        return dependencies.storage
+        return dependencies[singleton: .storage]
             .writePublisher { db -> (String, ClosedGroup, [GroupMember], Set<String>) in
                 let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
                 
@@ -520,7 +520,7 @@ extension MessageSender {
             .map { $0.profileId }
         let members: Set<String> = Set(groupMemberIds).subtracting(removedMembers)
         
-        return dependencies.storage
+        return dependencies[singleton: .storage]
             .writePublisher { db in
                 // Update zombie & member list
                 try GroupMember
@@ -607,7 +607,7 @@ extension MessageSender {
             timestampMs: SnodeAPI.currentOffsetTimestampMs()
         ).inserted(db)
         
-        dependencies.jobRunner.upsert(
+        dependencies[singleton: .jobRunner].upsert(
             db,
             job: Job(
                 variant: .groupLeaving,

@@ -102,7 +102,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         
         let threadId: String = self.threadId
         
-        Storage.shared.read { [weak self] db in
+        Dependencies()[singleton: .storage].read { [weak self] db in
             let userPublicKey: String = getUserHexEncodedPublicKey(db)
             self?.userPublicKey = userPublicKey
             self?.name = try ClosedGroup
@@ -368,7 +368,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
                 .map { $0.profileId }
                 .asSet()
         ) { [weak self] selectedUserIds in
-            Storage.shared.read { [weak self] db in
+            Dependencies()[singleton: .storage].read { [weak self] db in
                 let selectedGroupMembers: [GroupMemberDisplayInfo] = try Profile
                     .filter(selectedUserIds.contains(Profile.Columns.id))
                     .fetchAll(db)
@@ -464,7 +464,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         }
         
         ModalActivityIndicatorViewController.present(fromViewController: navigationController) { _ in
-            Storage.shared
+            Dependencies()[singleton: .storage]
                 .writePublisher { db in
                     // If the user is no longer a member then leave the group
                     guard !updatedMemberIds.contains(userPublicKey) else { return }

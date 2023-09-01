@@ -21,7 +21,7 @@ internal extension SessionUtil {
         using dependencies: Dependencies
     ) throws -> (identityKeyPair: KeyPair, group: ClosedGroup, members: [GroupMember]) {
         guard
-            let groupIdentityKeyPair: KeyPair = dependencies.crypto.generate(.ed25519KeyPair()),
+            let groupIdentityKeyPair: KeyPair = dependencies[singleton: .crypto].generate(.ed25519KeyPair()),
             let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db, using: dependencies)
         else { throw MessageSenderError.noKeyPair }
         
@@ -131,7 +131,7 @@ internal extension SessionUtil {
             .groupInfo: .object(infoConf),
             .groupMembers: .object(membersConf),
         ]
-        dependencies.caches.mutate(cache: .sessionUtil) { cache in
+        dependencies.mutate(cache: .sessionUtil) { cache in
             groupState.forEach { variant, config in
                 cache.setConfig(for: variant, publicKey: groupId.hexString, to: config)
             }

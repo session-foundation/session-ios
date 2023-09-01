@@ -40,6 +40,8 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
     private let changesInCommit: Atomic<Set<PagedData.TrackedChange>> = Atomic([])
     private let onChangeUnsorted: (([T], PagedData.PageInfo) -> ())
     
+    private let dependencies: Dependencies
+    
     // MARK: - Initialization
     
     public init(
@@ -53,7 +55,8 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
         orderSQL: SQL,
         dataQuery: @escaping ([Int64]) -> any FetchRequest<T>,
         associatedRecords: [ErasedAssociatedRecord] = [],
-        onChangeUnsorted: @escaping ([T], PagedData.PageInfo) -> ()
+        onChangeUnsorted: @escaping ([T], PagedData.PageInfo) -> (),
+        using dependencies: Dependencies = Dependencies()
     ) {
         let associatedTables: Set<String> = associatedRecords.map { $0.databaseTableName }.asSet()
         assert(!associatedTables.contains(pagedTable.databaseTableName), "The paged table cannot also exist as an associatedRecord")
@@ -93,6 +96,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
             .filter { $0.events.contains(.delete) }
             .map { $0.databaseTableName }
             .asSet()
+        self.dependencies = dependencies
     }
     
     // MARK: - TransactionObserver
@@ -131,7 +135,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
             
             // Retrieve the pagedRowId for the related value that is
             // getting deleted
-            let pagedRowIds: [Int64] = Storage.shared
+            let pagedRowIds: [Int64] = dependencies[singleton: .storage]
                 .read { db in
                     PagedData.pagedRowIdsForRelatedRowIds(
                         db,
@@ -218,7 +222,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
             .filter { $0.kind == .delete }
         
         // Process and retrieve the updated data
-        let updatedData: UpdatedData = Storage.shared
+        let updatedData: UpdatedData = dependencies[singleton: .storage]
             .read { db -> UpdatedData in
                 // If there aren't any direct or related changes then early-out
                 guard !directChanges.isEmpty || !relatedChanges.isEmpty || !relatedDeletions.isEmpty else {
@@ -488,7 +492,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
         let orderSQL: SQL = self.orderSQL
         let dataQuery: ([Int64]) -> any FetchRequest<T> = self.dataQuery
         
-        let loadedPage: (data: [T]?, pageInfo: PagedData.PageInfo, failureCallback: (() -> ())?)? = Storage.shared.read { [weak self] db in
+        let loadedPage: (data: [T]?, pageInfo: PagedData.PageInfo, failureCallback: (() -> ())?)? = dependencies[singleton: .storage].read { [weak self] db in
             typealias QueryInfo = (limit: Int, offset: Int, updatedCacheOffset: Int)
             let totalCount: Int = PagedData.totalCount(
                 db,

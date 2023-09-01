@@ -6,6 +6,19 @@ import Combine
 import GRDB
 import SignalCoreKit
 
+// MARK: - Singleton
+
+public extension Singleton {
+    static let storage: SingletonInfo.Config<Storage> = SingletonInfo.create { dependencies in
+        Storage(using: dependencies)
+    }
+    static let scheduler: SingletonInfo.Config<ValueObservationScheduler> = SingletonInfo.create { _ in
+        AsyncValueObservationScheduler.async(onQueue: .main)
+    }
+}
+
+// MARK: - Storage
+
 open class Storage {
     public static let queuePrefix: String = "SessionDatabase"
     private static let dbFileName: String = "Session.sqlite"
@@ -31,7 +44,6 @@ open class Storage {
     private static let internalHasCreatedValidInstance: Atomic<Bool> = Atomic(false)
     internal let internalCurrentlyRunningMigration: Atomic<(identifier: TargetMigrations.Identifier, migration: Migration.Type)?> = Atomic(nil)
     
-    public static let shared: Storage = Storage()
     public private(set) var isValid: Bool = false
     
     /// This property gets set when triggering the suspend/resume notifications for the database but `GRDB` will attempt to
@@ -43,7 +55,6 @@ open class Storage {
     public var currentlyRunningMigration: (identifier: TargetMigrations.Identifier, migration: Migration.Type)? {
         internalCurrentlyRunningMigration.wrappedValue
     }
-    public static let defaultPublisherScheduler: ValueObservationScheduler = .async(onQueue: .main)
     
     fileprivate var dbWriter: DatabaseWriter?
     internal var testDbWriter: DatabaseWriter? { dbWriter }
@@ -57,7 +68,7 @@ open class Storage {
     public init(
         customWriter: DatabaseWriter? = nil,
         customMigrationTargets: [MigratableTarget.Type]? = nil,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) {
         configureDatabase(
             customWriter: customWriter,
@@ -69,7 +80,7 @@ open class Storage {
     private func configureDatabase(
         customWriter: DatabaseWriter? = nil,
         customMigrationTargets: [MigratableTarget.Type]? = nil,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) {
         // Create the database directory if needed and ensure it's protection level is set before attempting to
         // create the database KeySpec or the database itself
@@ -253,6 +264,12 @@ open class Storage {
         
         // Store the logic to run when the migration completes
         let migrationCompleted: (Swift.Result<Void, Error>) -> () = { [weak self] result in
+            // Make sure to transition the progress updater to 100% for the final migration (just
+            // in case the migration itself didn't update to 100% itself)
+            if let lastMigrationKey: String = unperformedMigrations.last?.key {
+                self?.migrationProgressUpdater?.wrappedValue(lastMigrationKey, 1)
+            }
+            
             // Clear out the stored migration state
             let remainingRequirements: [MigrationRequirement] = (self?.unprocessedMigrationRequirements.wrappedValue
                 .filter { $0.shouldProcessAtCompletionIfNotRequired })
@@ -340,12 +357,14 @@ open class Storage {
     public static func update(
         progress: CGFloat,
         for migration: Migration.Type,
-        in target: TargetMigrations.Identifier
+        in target: TargetMigrations.Identifier,
+        using dependencies: Dependencies
     ) {
         // In test builds ignore any migration progress updates (we run in a custom database writer anyway)
         guard !SNUtilitiesKit.isRunningTests else { return }
         
-        Storage.shared.migrationProgressUpdater?.wrappedValue(target.key(with: migration), progress)
+        dependencies[singleton: .storage].migrationProgressUpdater?
+            .wrappedValue(target.key(with: migration), progress)
     }
     
     // MARK: - Security
@@ -424,32 +443,32 @@ open class Storage {
     /// database and other files into the App folder
     public static func suspendDatabaseAccess(using dependencies: Dependencies = Dependencies()) {
         NotificationCenter.default.post(name: Database.suspendNotification, object: self)
-        if Storage.hasCreatedValidInstance { dependencies.storage.isSuspendedUnsafe = true }
+        if Storage.hasCreatedValidInstance { dependencies[singleton: .storage].isSuspendedUnsafe = true }
     }
     
     /// This method reverses the database suspension used to prevent the `0xdead10cc` exception (see `suspendDatabaseAccess()`
     /// above for more information
     public static func resumeDatabaseAccess(using dependencies: Dependencies = Dependencies()) {
         NotificationCenter.default.post(name: Database.resumeNotification, object: self)
-        if Storage.hasCreatedValidInstance { dependencies.storage.isSuspendedUnsafe = false }
+        if Storage.hasCreatedValidInstance { dependencies[singleton: .storage].isSuspendedUnsafe = false }
     }
     
-    public static func resetAllStorage() {
-        Storage.shared.isValid = false
+    public static func resetAllStorage(using dependencies: Dependencies = Dependencies()) {
+        dependencies[singleton: .storage].isValid = false
+        dependencies[singleton: .storage].migrationsCompleted.mutate { $0 = false }
+        dependencies[singleton: .storage].dbWriter = nil
         Storage.internalHasCreatedValidInstance.mutate { $0 = false }
-        Storage.shared.migrationsCompleted.mutate { $0 = false }
-        Storage.shared.dbWriter = nil
         
         deleteDatabaseFiles()
         try? deleteDbKeys()
     }
     
-    public static func resetForCleanMigration() {
+    public static func resetForCleanMigration(using dependencies: Dependencies = Dependencies()) {
         // Clear existing content
         resetAllStorage()
         
         // Reconfigure
-        Storage.shared.configureDatabase()
+        dependencies[singleton: .storage].configureDatabase(using: dependencies)
     }
     
     private static func deleteDatabaseFiles() {
@@ -701,7 +720,7 @@ open class Storage {
 public extension ValueObservation {
     func publisher(
         in storage: Storage,
-        scheduling scheduler: ValueObservationScheduler = Storage.defaultPublisherScheduler
+        scheduling scheduler: ValueObservationScheduler
     ) -> AnyPublisher<Reducer.Value, Error> where Reducer: ValueReducer {
         guard storage.isValid, let dbWriter: DatabaseWriter = storage.dbWriter else {
             return Fail(error: StorageError.databaseInvalid).eraseToAnyPublisher()

@@ -50,8 +50,7 @@ public extension Message {
                     
                     return .contact(publicKey: threadId)
                 
-                case .legacyGroup, .group:
-                    return .closedGroup(groupPublicKey: threadId)
+                case .legacyGroup, .group: return .closedGroup(groupPublicKey: threadId)
                 
                 case .community:
                     guard let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId) else {

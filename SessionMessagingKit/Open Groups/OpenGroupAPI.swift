@@ -1300,10 +1300,10 @@ public enum OpenGroupAPI {
         // If we have no capabilities or if the server supports blinded keys then sign using the blinded key
         if forceBlinded || capabilities.isEmpty || capabilities.contains(.blind) {
             guard
-                let blindedKeyPair: KeyPair = dependencies.crypto.generate(
+                let blindedKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
                     .blindedKeyPair(serverPublicKey: serverPublicKey, edKeyPair: userEdKeyPair, using: dependencies)
                 ),
-                let signatureResult: Bytes = try? dependencies.crypto.perform(
+                let signatureResult: Bytes = try? dependencies[singleton: .crypto].perform(
                     .sogsSignature(message: messageBytes, secretKey: userEdKeyPair.secretKey, blindedSecretKey: blindedKeyPair.secretKey, blindedPublicKey: blindedKeyPair.publicKey)
                 )
             else { throw OpenGroupAPIError.signingFailed }
@@ -1318,7 +1318,7 @@ public enum OpenGroupAPI {
         switch signingType {
             case .unblinded:
                 guard
-                    let signatureResult: Bytes = try? dependencies.crypto.perform(
+                    let signatureResult: Bytes = try? dependencies[singleton: .crypto].perform(
                         .signature(message: messageBytes, secretKey: userEdKeyPair.secretKey)
                     )
                 else { throw OpenGroupAPIError.signingFailed }
@@ -1332,7 +1332,7 @@ public enum OpenGroupAPI {
             default:
                 guard
                     let userKeyPair: KeyPair = Identity.fetchUserKeyPair(db),
-                    let signatureResult: Bytes = try? dependencies.crypto.perform(
+                    let signatureResult: Bytes = try? dependencies[singleton: .crypto].perform(
                         .signEd25519(data: messageBytes, keyPair: userKeyPair)
                     )
                 else { throw OpenGroupAPIError.signingFailed }
@@ -1368,7 +1368,7 @@ public enum OpenGroupAPI {
         
         guard
             !serverPublicKeyData.isEmpty,
-            let nonce: Data = (try? dependencies.crypto.perform(.generateNonce16())).map({ Data($0) }),
+            let nonce: Data = (try? dependencies[singleton: .crypto].perform(.generateNonce16())).map({ Data($0) }),
             let timestampBytes: Bytes = "\(timestamp)".data(using: .ascii)?.bytes
         else { throw OpenGroupAPIError.signingFailed }
         
@@ -1376,7 +1376,7 @@ public enum OpenGroupAPI {
         let bodyHash: Bytes? = {
             guard let body: Data = preparedRequest.request.httpBody else { return nil }
             
-            return try? dependencies.crypto.perform(.hash(message: body.bytes, outputLength: 64))
+            return try? dependencies[singleton: .crypto].perform(.hash(message: body.bytes, outputLength: 64))
         }()
         
         /// Generate the signature message

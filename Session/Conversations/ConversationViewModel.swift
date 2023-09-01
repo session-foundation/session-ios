@@ -47,6 +47,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     private let initialUnreadInteractionId: Int64?
     private let markAsReadTrigger: PassthroughSubject<(SessionThreadViewModel.ReadTarget, Int64?), Never> = PassthroughSubject()
     private var markAsReadPublisher: AnyPublisher<Void, Never>?
+    private let dependencies: Dependencies
     
     public lazy var blockedBannerMessage: String = {
         switch self.threadData.threadVariant {
@@ -64,7 +65,12 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     
     // MARK: - Initialization
     
-    init(threadId: String, threadVariant: SessionThread.Variant, focusedInteractionInfo: Interaction.TimestampInfo?) {
+    init(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        focusedInteractionInfo: Interaction.TimestampInfo?,
+        using dependencies: Dependencies = Dependencies()
+    ) {
         typealias InitialData = (
             currentUserPublicKey: String,
             initialUnreadInteractionInfo: Interaction.TimestampInfo?,
@@ -75,10 +81,10 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             blinded25Key: String?
         )
         
-        let initialData: InitialData? = Storage.shared.read { db -> InitialData in
+        let initialData: InitialData? = dependencies[singleton: .storage].read { db -> InitialData in
             let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
             let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
-            let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
+            let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
             
             // If we have a specified 'focusedInteractionInfo' then use that, otherwise retrieve the oldest
             // unread interaction and start focused around that one
@@ -152,6 +158,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             currentUserBlinded25PublicKeyForThisThread: initialData?.blinded25Key
         )
         self.pagedDataObserver = nil
+        self.dependencies = dependencies
         
         // Note: Since this references self we need to finish initializing before setting it, we
         // also want to skip the initial query and trigger it async so that the push animation
@@ -161,7 +168,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             for: threadId,
             userPublicKey: (initialData?.currentUserPublicKey ?? getUserHexEncodedPublicKey()),
             blinded15PublicKey: initialData?.blinded15Key,
-            blinded25PublicKey: initialData?.blinded25Key
+            blinded25PublicKey: initialData?.blinded25Key,
+            using: dependencies
         )
         
         // Run the initial query on a background thread so we don't block the push transition
@@ -252,7 +260,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         for threadId: String,
         userPublicKey: String,
         blinded15PublicKey: String?,
-        blinded25PublicKey: String?
+        blinded25PublicKey: String?,
+        using dependencies: Dependencies
     ) -> PagedDatabaseObserver<Interaction, MessageViewModel> {
         return PagedDatabaseObserver(
             pagedTable: Interaction.self,
@@ -365,7 +374,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                         )
                     }
                 )
-            }
+            },
+            using: dependencies
         )
     }
     
@@ -633,12 +643,15 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     
     // MARK: - Mentions
     
-    public func mentions(for query: String = "") -> [MentionInfo] {
+    public func mentions(
+        for query: String = "",
+        using dependencies: Dependencies = Dependencies()
+    ) -> [MentionInfo] {
         let threadData: SessionThreadViewModel = self.threadData
         
-        return Storage.shared
+        return dependencies[singleton: .storage]
             .read { db -> [MentionInfo] in
-                let userPublicKey: String = getUserHexEncodedPublicKey(db)
+                let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
                 let pattern: FTS5Pattern? = try? SessionThreadViewModel.pattern(db, searchTerm: query, forTable: Profile.self)
                 let capabilities: Set<Capability.Variant> = (threadData.threadVariant != .community ?
                     nil :
@@ -670,9 +683,12 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     
     // MARK: - Functions
     
-    public func updateDraft(to draft: String) {
+    public func updateDraft(
+        to draft: String,
+        using dependencies: Dependencies = Dependencies()
+    ) {
         let threadId: String = self.threadId
-        let currentDraft: String = Storage.shared
+        let currentDraft: String = dependencies[singleton: .storage]
             .read { db in
                 try SessionThread
                     .select(.messageDraft)
@@ -685,7 +701,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         // Only write the updated draft to the database if it's changed (avoid unnecessary writes)
         guard draft != currentDraft else { return }
         
-        Storage.shared.writeAsync { db in
+        dependencies[singleton: .storage].writeAsync { db in
             try SessionThread
                 .filter(id: threadId)
                 .updateAll(db, SessionThread.Columns.messageDraft.set(to: draft))
@@ -741,7 +757,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         markAsReadTrigger.send((target, timestampMs))
     }
     
-    public func swapToThread(updatedThreadId: String) {
+    public func swapToThread(updatedThreadId: String, using dependencies: Dependencies = Dependencies()) {
         let oldestMessageId: Int64? = self.interactionData
             .filter { $0.model == .messages }
             .first?
@@ -755,7 +771,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             for: updatedThreadId,
             userPublicKey: getUserHexEncodedPublicKey(),
             blinded15PublicKey: nil,
-            blinded25PublicKey: nil
+            blinded25PublicKey: nil,
+            using: dependencies
         )
         
         // Try load everything up to the initial visible message, fallback to just the initial page of messages
@@ -766,12 +783,12 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         }
     }
     
-    public func trustContact() {
+    public func trustContact(using dependencies: Dependencies = Dependencies()) {
         guard self.threadData.threadVariant == .contact else { return }
         
         let threadId: String = self.threadId
         
-        Storage.shared.writeAsync { db in
+        dependencies[singleton: .storage].writeAsync { db in
             try Contact
                 .filter(id: threadId)
                 .updateAll(db, Contact.Columns.isTrusted.set(to: true))
@@ -782,7 +799,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                 .stateInfo(authorId: threadId, state: .pendingDownload)
                 .fetchAll(db)
                 .forEach { attachmentDownloadInfo in
-                    JobRunner.add(
+                    dependencies[singleton: .jobRunner].add(
                         db,
                         job: Job(
                             variant: .attachmentDownload,
@@ -791,18 +808,20 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                             details: AttachmentDownloadJob.Details(
                                 attachmentId: attachmentDownloadInfo.attachmentId
                             )
-                        )
+                        ),
+                        canStartJob: true,
+                        using: dependencies
                     )
                 }
         }
     }
     
-    public func unblockContact() {
+    public func unblockContact(using dependencies: Dependencies = Dependencies()) {
         guard self.threadData.threadVariant == .contact else { return }
         
         let threadId: String = self.threadId
         
-        Storage.shared.writeAsync { db in
+        dependencies[singleton: .storage].writeAsync { db in
             try Contact
                 .filter(id: threadId)
                 .updateAllAndConfig(db, Contact.Columns.isBlocked.set(to: false))
@@ -1025,7 +1044,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                 .firstIndex(where: { $0.id == interactionId }),
             currentIndex < (messageSection.elements.count - 1),
             messageSection.elements[currentIndex + 1].cellType == .audio,
-            Storage.shared[.shouldAutoPlayConsecutiveAudioMessages] == true
+            dependencies[singleton: .storage][.shouldAutoPlayConsecutiveAudioMessages] == true
         else { return }
         
         let nextItem: MessageViewModel = messageSection.elements[currentIndex + 1]

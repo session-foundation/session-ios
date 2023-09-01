@@ -13,13 +13,13 @@ class MessageSendJobSpec: QuickSpec {
     // MARK: - Spec
 
     override func spec() {
+        var dependencies: TestDependencies!
+        var mockStorage: Storage!
+        var mockJobRunner: MockJobRunner!
         var job: Job!
         var interaction: Interaction!
         var attachment: Attachment!
         var interactionAttachment: InteractionAttachment!
-        var mockStorage: Storage!
-        var mockJobRunner: MockJobRunner!
-        var dependencies: Dependencies!
         
         // MARK: - JobRunner
         
@@ -27,19 +27,22 @@ class MessageSendJobSpec: QuickSpec {
             // MARK: - Configuration
             
             beforeEach {
+                dependencies = TestDependencies(
+                    dateNow: Date(timeIntervalSince1970: 1234567890)
+                )
                 mockStorage = SynchronousStorage(
                     customWriter: try! DatabaseQueue(),
                     customMigrationTargets: [
                         SNUtilitiesKit.self,
                         SNMessagingKit.self
-                    ]
+                    ],
+                    using: dependencies
                 )
                 mockJobRunner = MockJobRunner()
-                dependencies = Dependencies(
-                    storage: mockStorage,
-                    jobRunner: mockJobRunner,
-                    dateNow: Date(timeIntervalSince1970: 1234567890)
-                )
+                
+                dependencies[singleton: .storage] = mockStorage
+                dependencies[singleton: .jobRunner] = mockJobRunner
+                
                 attachment = Attachment(
                     id: "200",
                     variant: .standard,
@@ -74,9 +77,14 @@ class MessageSendJobSpec: QuickSpec {
             }
             
             afterEach {
-                job = nil
-                mockStorage = nil
                 dependencies = nil
+                mockStorage = nil
+                mockJobRunner = nil
+                
+                job = nil
+                interaction = nil
+                attachment = nil
+                interactionAttachment = nil
             }
             
             // MARK: - fails when not given any details

@@ -16,14 +16,13 @@ class OpenGroupManagerSpec: QuickSpec {
     // MARK: - Spec
 
     override func spec() {
+        var dependencies: TestDependencies!
+        var mockGeneralCache: MockGeneralCache!
         var mockStorage: Storage!
         var mockNetwork: MockNetwork!
         var mockCrypto: MockCrypto!
         var mockUserDefaults: MockUserDefaults!
-        var mockCaches: MockCaches!
-        var mockGeneralCache: MockGeneralCache!
         var mockOGMCache: MockOGMCache!
-        var dependencies: Dependencies!
         var disposables: [AnyCancellable] = []
         
         var testInteraction1: Interaction!
@@ -40,30 +39,33 @@ class OpenGroupManagerSpec: QuickSpec {
             // MARK: - Configuration
             
             beforeEach {
+                dependencies = TestDependencies(
+                    dateNow: Date(timeIntervalSince1970: 1234567890),
+                    forceSynchronous: true
+                )
+                mockGeneralCache = MockGeneralCache()
+                mockGeneralCache.when { $0.encodedPublicKey }.thenReturn("05\(TestConstants.publicKey)")
+                dependencies[cache: .general] = mockGeneralCache
+                
                 mockStorage = SynchronousStorage(
                     customWriter: try! DatabaseQueue(),
                     customMigrationTargets: [
                         SNUtilitiesKit.self,
                         SNMessagingKit.self
-                    ]
+                    ],
+                    using: dependencies
                 )
                 mockNetwork = MockNetwork()
                 mockCrypto = MockCrypto()
                 mockUserDefaults = MockUserDefaults()
-                mockCaches = MockCaches()
-                mockGeneralCache = MockGeneralCache()
                 mockOGMCache = MockOGMCache()
-                dependencies = Dependencies(
-                    storage: mockStorage,
-                    network: mockNetwork,
-                    crypto: mockCrypto,
-                    standardUserDefaults: mockUserDefaults,
-                    caches: mockCaches,
-                    dateNow: Date(timeIntervalSince1970: 1234567890),
-                    forceSynchronous: true
-                )
-                mockCaches[.general] = mockGeneralCache
-                mockCaches[.openGroupManager] = mockOGMCache
+                
+                dependencies[singleton: .storage] = mockStorage
+                dependencies[singleton: .network] = mockNetwork
+                dependencies[singleton: .crypto] = mockCrypto
+                dependencies[singleton: .standardUserDefaults] = mockUserDefaults
+                dependencies[cache: .openGroupManager] = mockOGMCache
+                
                 testInteraction1 = Interaction(
                     id: 234,
                     serverHash: "TestServerHash",
@@ -217,7 +219,6 @@ class OpenGroupManagerSpec: QuickSpec {
                 mockOGMCache
                     .when { $0.pendingChanges = any(type: OpenGroupAPI.PendingChange.self) }
                     .thenReturn(())
-                mockGeneralCache.when { $0.encodedPublicKey }.thenReturn("05\(TestConstants.publicKey)")
                 
                 cache = OpenGroupManager.Cache()
                 openGroupManager = OpenGroupManager()
@@ -229,13 +230,12 @@ class OpenGroupManagerSpec: QuickSpec {
                 OpenGroupManager.shared.stopPolling()   // Need to stop any pollers which get created during tests
                 openGroupManager.stopPolling()          // Assuming it's different from the above
                 
+                dependencies = nil
+                mockGeneralCache = nil
                 mockStorage = nil
                 mockCrypto = nil
                 mockUserDefaults = nil
-                mockCaches = nil
-                mockGeneralCache = nil
                 mockOGMCache = nil
-                dependencies = nil
                 disposables = []
                 
                 testInteraction1 = nil

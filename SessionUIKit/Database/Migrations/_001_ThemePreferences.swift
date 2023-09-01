@@ -42,6 +42,6 @@ enum _001_ThemePreferences: Migration {
             matchSystemNightModeSetting: matchSystemNightModeSetting
         )
         
-        Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
+        Storage.update(progress: 1, for: self, in: target, using: dependencies)
     }
 }

@@ -27,7 +27,7 @@ enum _017_GroupsRebuildChanges: Migration {
                 .defaults(to: true)
         }
         
-        Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
+        Storage.update(progress: 1, for: self, in: target, using: dependencies)
     }
 }
 

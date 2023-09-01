@@ -213,8 +213,12 @@ public extension Profile {
             )
     }
     
-    static func fetchAllContactProfiles(excluding: Set<String> = [], excludeCurrentUser: Bool = true) -> [Profile] {
-        return Storage.shared
+    static func fetchAllContactProfiles(
+        excluding: Set<String> = [],
+        excludeCurrentUser: Bool = true,
+        using dependencies: Dependencies = Dependencies()
+    ) -> [Profile] {
+        return dependencies[singleton: .storage]
             .read { db in
                 // Sort the contacts by their displayName value
                 try Profile
@@ -228,10 +232,24 @@ public extension Profile {
             .defaulting(to: [])
     }
     
-    static func displayName(_ db: Database? = nil, id: ID, threadVariant: SessionThread.Variant = .contact, customFallback: String? = nil) -> String {
+    static func displayName(
+        _ db: Database? = nil,
+        id: ID,
+        threadVariant: SessionThread.Variant = .contact,
+        customFallback: String? = nil,
+        using dependencies: Dependencies = Dependencies()
+    ) -> String {
         guard let db: Database = db else {
-            return Storage.shared
-                .read { db in displayName(db, id: id, threadVariant: threadVariant, customFallback: customFallback) }
+            return dependencies[singleton: .storage]
+                .read { db in
+                    displayName(
+                        db,
+                        id: id,
+                        threadVariant: threadVariant,
+                        customFallback: customFallback,
+                        using: dependencies
+                    )
+                }
                 .defaulting(to: (customFallback ?? id))
         }
         
@@ -241,9 +259,16 @@ public extension Profile {
         return (existingDisplayName ?? (customFallback ?? id))
     }
     
-    static func displayNameNoFallback(_ db: Database? = nil, id: ID, threadVariant: SessionThread.Variant = .contact) -> String? {
+    static func displayNameNoFallback(
+        _ db: Database? = nil,
+        id: ID,
+        threadVariant: SessionThread.Variant = .contact,
+        using dependencies: Dependencies = Dependencies()
+    ) -> String? {
         guard let db: Database = db else {
-            return Storage.shared.read { db in displayNameNoFallback(db, id: id, threadVariant: threadVariant) }
+            return dependencies[singleton: .storage].read { db in
+                displayNameNoFallback(db, id: id, threadVariant: threadVariant, using: dependencies)
+            }
         }
         
         return (try? Profile.fetchOne(db, id: id))?
@@ -278,7 +303,7 @@ public extension Profile {
         let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
         
         guard let db: Database = db else {
-            return dependencies.storage
+            return dependencies[singleton: .storage]
                 .read { db in fetchOrCreateCurrentUser(db, using: dependencies) }
                 .defaulting(to: defaultFor(userPublicKey))
         }

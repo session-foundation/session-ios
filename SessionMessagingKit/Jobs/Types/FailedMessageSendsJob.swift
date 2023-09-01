@@ -21,7 +21,7 @@ public enum FailedMessageSendsJob: JobExecutor {
         var attachmentChangeCount: Int = -1
         
         // Update all 'sending' message states to 'failed'
-        dependencies.storage.write { db in
+        dependencies[singleton: .storage].write { db in
             let sendChangeCount: Int = try RecipientState
                 .filter(RecipientState.Columns.state == RecipientState.State.sending)
                 .updateAll(db, RecipientState.Columns.state.set(to: RecipientState.State.failed))

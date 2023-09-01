@@ -93,7 +93,7 @@ extension MessageReceiver {
                     
                     guard
                         let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
-                        let blindedKeyPair: KeyPair = dependencies.crypto.generate(
+                        let blindedKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
                             .blindedKeyPair(
                                 serverPublicKey: openGroup.publicKey,
                                 edKeyPair: userEdKeyPair,
@@ -219,7 +219,8 @@ extension MessageReceiver {
                         threadId: threadId,
                         variant: variant,
                         serverHash: message.serverHash,
-                        expireInSeconds: expiresInSeconds
+                        expireInSeconds: expiresInSeconds,
+                        using: dependencies
                     )
                     
                 default: break
@@ -246,7 +247,8 @@ extension MessageReceiver {
             threadId: threadId,
             variant: variant,
             serverHash: message.serverHash,
-            expireInSeconds: expiresInSeconds
+            expireInSeconds: expiresInSeconds,
+            using: dependencies
         )
         
         // Parse & persist attachments
@@ -313,7 +315,7 @@ extension MessageReceiver {
                 .appending(quote?.attachmentId)
                 .appending(linkPreview?.attachmentId)
                 .forEach { attachmentId in
-                    dependencies.jobRunner.add(
+                    dependencies[singleton: .jobRunner].add(
                         db,
                         job: Job(
                             variant: .attachmentDownload,
@@ -528,7 +530,8 @@ extension MessageReceiver {
         threadId: String,
         variant: Interaction.Variant,
         serverHash: String?,
-        expireInSeconds: TimeInterval?
+        expireInSeconds: TimeInterval?,
+        using dependencies: Dependencies
     ) {
         guard
             variant == .standardOutgoing,
@@ -541,7 +544,7 @@ extension MessageReceiver {
         
         let startedAtTimestampMs: Double = Double(SnodeAPI.currentOffsetTimestampMs())
         
-        JobRunner.add(
+        dependencies[singleton: .jobRunner].add(
             db,
             job: Job(
                 variant: .getExpiration,
@@ -551,7 +554,9 @@ extension MessageReceiver {
                     expirationInfo: [serverHash: expireInSeconds],
                     startedAtTimestampMs: startedAtTimestampMs
                 )
-            )
+            ),
+            canStartJob: true,
+            using: dependencies
         )
     }
 }

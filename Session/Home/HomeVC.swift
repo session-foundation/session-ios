@@ -29,7 +29,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     // MARK: - Intialization
     
     init() {
-        Storage.shared.addObserver(viewModel.pagedDataObserver)
+        Dependencies()[singleton: .storage].addObserver(viewModel.pagedDataObserver)
         
         super.init(nibName: nil, bundle: nil)
     }
@@ -282,7 +282,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         
         // Start polling if needed (i.e. if the user just created or restored their Session ID)
         if Identity.userExists(), let appDelegate: AppDelegate = UIApplication.shared.delegate as? AppDelegate {
-            appDelegate.startPollersIfNeeded()
+            appDelegate.startPollersIfNeeded(using: Dependencies())
         }
         
         // Onion request path countries cache
@@ -333,7 +333,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
             runAndClearInitialChangeCallback = nil
         }
         
-        dataChangeObservable = Storage.shared.start(
+        dataChangeObservable = Dependencies()[singleton: .storage].start(
             viewModel.observableState,
             onError: { _ in },
             onChange: { [weak self] state in

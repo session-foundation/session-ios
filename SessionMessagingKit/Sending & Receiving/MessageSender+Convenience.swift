@@ -76,7 +76,7 @@ extension MessageSender {
             return
         }
         
-        dependencies.jobRunner.add(
+        dependencies[singleton: .jobRunner].add(
             db,
             job: Job(
                 variant: .messageSend,
@@ -140,7 +140,7 @@ extension MessageSender {
             }
         }()
         
-        return dependencies.storage
+        return dependencies[singleton: .storage]
             .readPublisher { db -> (attachments: [Attachment], openGroup: OpenGroup?) in
                 let attachmentStateInfo: [Attachment.StateInfo] = (try? Attachment
                     .stateInfo(interactionId: interactionId, state: .uploading)

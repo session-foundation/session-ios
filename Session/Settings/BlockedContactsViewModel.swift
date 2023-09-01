@@ -173,7 +173,7 @@ class BlockedContactsViewModel: SessionTableViewModel<NoNav, BlockedContactsView
         ].flatMap { $0 }
     }
     
-    private func unblockTapped() {
+    private func unblockTapped(using dependencies: Dependencies = Dependencies()) {
         guard !selectedContactIdsSubject.value.isEmpty else { return }
         
         let contactIds: Set<String> = selectedContactIdsSubject.value
@@ -244,7 +244,7 @@ class BlockedContactsViewModel: SessionTableViewModel<NoNav, BlockedContactsView
                 cancelStyle: .alert_text
             ) { [weak self] _ in
                 // Unblock the contacts
-                Storage.shared.write { db in
+                dependencies[singleton: .storage].write { db in
                     _ = try Contact
                         .filter(ids: contactIds)
                         .updateAllAndConfig(db, Contact.Columns.isBlocked.set(to: false))

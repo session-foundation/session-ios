@@ -13,13 +13,18 @@ class SOGSMessageSpec: QuickSpec {
 
     override func spec() {
         describe("a SOGSMessage") {
+            var dependencies: TestDependencies!
+            var mockCrypto: MockCrypto!
             var messageJson: String!
             var messageData: Data!
             var decoder: JSONDecoder!
-            var mockCrypto: MockCrypto!
-            var dependencies: Dependencies!
             
             beforeEach {
+                dependencies = TestDependencies()
+                mockCrypto = MockCrypto()
+                
+                dependencies[singleton: .crypto] = mockCrypto
+                
                 messageJson = """
                 {
                     "id": 123,
@@ -34,10 +39,7 @@ class SOGSMessageSpec: QuickSpec {
                 }
                 """
                 messageData = messageJson.data(using: .utf8)!
-                mockCrypto = MockCrypto()
-                dependencies = Dependencies(
-                    crypto: mockCrypto
-                )
+                
                 decoder = JSONDecoder()
                 decoder.userInfo = [ Dependencies.userInfoKey: dependencies as Any ]
             }

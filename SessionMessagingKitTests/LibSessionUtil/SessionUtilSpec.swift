@@ -15,12 +15,11 @@ class SessionUtilSpec: QuickSpec {
     // MARK: - Spec
     
     override func spec() {
+        var dependencies: TestDependencies!
+        var mockGeneralCache: MockGeneralCache!
         var mockStorage: Storage!
         var mockCrypto: MockCrypto!
-        var mockCaches: MockCaches!
-        var mockGeneralCache: MockGeneralCache!
         var mockSessionUtilCache: MockSessionUtilCache!
-        var dependencies: Dependencies!
         
         var createGroupOutput: (identityKeyPair: KeyPair, group: ClosedGroup, members: [GroupMember])!
         var userGroupsConfig: SessionUtil.Config!
@@ -29,26 +28,28 @@ class SessionUtilSpec: QuickSpec {
             // MARK: - Configuration
             
             beforeEach {
+                dependencies = TestDependencies(
+                    dateNow: Date(timeIntervalSince1970: 1234567890),
+                    forceSynchronous: true
+                )
+                mockGeneralCache = MockGeneralCache()
+                mockGeneralCache.when { $0.encodedPublicKey }.thenReturn("05\(TestConstants.publicKey)")
+                dependencies[cache: .general] = mockGeneralCache
+                
                 mockStorage = SynchronousStorage(
                     customWriter: try! DatabaseQueue(),
                     customMigrationTargets: [
                         SNUtilitiesKit.self,
                         SNMessagingKit.self
-                    ]
+                    ],
+                    using: dependencies
                 )
                 mockCrypto = MockCrypto()
-                mockCaches = MockCaches()
-                mockGeneralCache = MockGeneralCache()
                 mockSessionUtilCache = MockSessionUtilCache()
-                dependencies = Dependencies(
-                    storage: mockStorage,
-                    crypto: mockCrypto,
-                    caches: mockCaches,
-                    dateNow: Date(timeIntervalSince1970: 1234567890),
-                    forceSynchronous: true
-                )
-                mockCaches[.general] = mockGeneralCache
-                mockCaches[.sessionUtil] = mockSessionUtilCache
+                
+                dependencies[singleton: .storage] = mockStorage
+                dependencies[singleton: .crypto] = mockCrypto
+                dependencies[cache: .sessionUtil] = mockSessionUtilCache
                 
                 mockStorage.write { db in
                     try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
@@ -78,18 +79,16 @@ class SessionUtilSpec: QuickSpec {
                         )
                     )
                 
-                mockGeneralCache.when { $0.encodedPublicKey }.thenReturn("05\(TestConstants.publicKey)")
                 mockSessionUtilCache
                     .when { $0.setConfig(for: any(), publicKey: any(), to: any()) }
                     .thenReturn(())
             }
 
             afterEach {
+                dependencies = nil
+                mockGeneralCache = nil
                 mockStorage = nil
                 mockCrypto = nil
-                mockCaches = nil
-                mockGeneralCache = nil
-                dependencies = nil
                 
                 createGroupOutput = nil
                 userGroupsConfig = nil

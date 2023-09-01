@@ -86,7 +86,7 @@ extension ConversationSearchController: UISearchResultsUpdating {
         let threadId: String = self.threadId
         
         DispatchQueue.global(qos: .default).async { [weak self] in
-            let results: [Interaction.TimestampInfo]? = Storage.shared.read { db -> [Interaction.TimestampInfo] in
+            let results: [Interaction.TimestampInfo]? = Dependencies()[singleton: .storage].read { db -> [Interaction.TimestampInfo] in
                 self?.resultsBar.willStartSearching(readConnection: db)
                 
                 return try Interaction.idsForTermWithin(

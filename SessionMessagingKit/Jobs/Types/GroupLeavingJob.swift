@@ -32,7 +32,7 @@ public enum GroupLeavingJob: JobExecutor {
         
         let destination: Message.Destination = .closedGroup(groupPublicKey: threadId)
         
-        dependencies.storage
+        dependencies[singleton: .storage]
             .writePublisher { db in
                 guard (try? SessionThread.exists(db, id: threadId)) == true else {
                     SNLog("[GroupLeavingJob] Failed due to non-existent group conversation")
@@ -72,7 +72,7 @@ public enum GroupLeavingJob: JobExecutor {
                     ]
                     
                     // Handle the appropriate response
-                    dependencies.storage.writeAsync { db in
+                    dependencies[singleton: .storage].writeAsync { db in
                         // If it failed due to one of these errors then clear out any associated data (as somehow
                         // the 'SessionThread' exists but not the data required to send the 'MEMBER_LEFT' message
                         // which would leave the user in a state where they can't leave the group)

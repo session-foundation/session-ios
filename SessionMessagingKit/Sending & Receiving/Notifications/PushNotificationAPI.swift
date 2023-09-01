@@ -32,8 +32,8 @@ public enum PushNotificationAPI {
             HTTP.PreparedRequest<PushNotificationAPI.LegacyPushServerResponse>?
         )
         let hexEncodedToken: String = token.toHexString()
-        let oldToken: String? = dependencies.standardUserDefaults[.deviceToken]
-        let lastUploadTime: Double = dependencies.standardUserDefaults[.lastDeviceTokenUpload]
+        let oldToken: String? = dependencies[singleton: .standardUserDefaults][.deviceToken]
+        let lastUploadTime: Double = dependencies[singleton: .standardUserDefaults][.lastDeviceTokenUpload]
         let now: TimeInterval = Date().timeIntervalSince1970
         
         guard isForcedUpdate || hexEncodedToken != oldToken || now - lastUploadTime > tokenExpirationInterval else {
@@ -43,7 +43,7 @@ public enum PushNotificationAPI {
                 .eraseToAnyPublisher()
         }
         
-        return dependencies.storage
+        return dependencies[singleton: .storage]
             .readPublisher(using: dependencies) { db -> SubscribeAllPreparedRequests in
                 guard let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
                     throw SnodeAPIError.noKeyPair
@@ -61,9 +61,9 @@ public enum PushNotificationAPI {
                         receiveOutput: { _, response in
                             guard response.success == true else { return }
                             
-                            dependencies.standardUserDefaults[.deviceToken] = hexEncodedToken
-                            dependencies.standardUserDefaults[.lastDeviceTokenUpload] = now
-                            dependencies.standardUserDefaults[.isUsingFullAPNs] = true
+                            dependencies[singleton: .standardUserDefaults][.deviceToken] = hexEncodedToken
+                            dependencies[singleton: .standardUserDefaults][.lastDeviceTokenUpload] = now
+                            dependencies[singleton: .standardUserDefaults][.isUsingFullAPNs] = true
                         }
                     )
                 let preparedLegacyGroupRequest = try PushNotificationAPI
@@ -120,7 +120,7 @@ public enum PushNotificationAPI {
             [HTTP.PreparedRequest<PushNotificationAPI.LegacyPushServerResponse>]
         )
         
-        return dependencies.storage
+        return dependencies[singleton: .storage]
             .readPublisher(using: dependencies) { db -> UnsubscribeAllPreparedRequests in
                 guard let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
                     throw SnodeAPIError.noKeyPair
@@ -138,7 +138,7 @@ public enum PushNotificationAPI {
                         receiveOutput: { _, response in
                             guard response.success == true else { return }
                             
-                            dependencies.standardUserDefaults[.deviceToken] = nil
+                            dependencies[singleton: .standardUserDefaults][.deviceToken] = nil
                         }
                     )
                 
@@ -183,8 +183,8 @@ public enum PushNotificationAPI {
         using dependencies: Dependencies = Dependencies()
     ) throws -> HTTP.PreparedRequest<SubscribeResponse> {
         guard
-            dependencies.standardUserDefaults[.isUsingFullAPNs],
-            let token: String = dependencies.standardUserDefaults[.deviceToken]
+            dependencies[singleton: .standardUserDefaults][.isUsingFullAPNs],
+            let token: String = dependencies[singleton: .standardUserDefaults][.deviceToken]
         else { throw HTTPError.invalidRequest }
         
         guard let notificationsEncryptionKey: Data = try? getOrGenerateEncryptionKey(using: dependencies) else {
@@ -323,13 +323,13 @@ public enum PushNotificationAPI {
         legacyGroupIds: Set<String>,
         using dependencies: Dependencies = Dependencies()
     ) throws -> HTTP.PreparedRequest<LegacyPushServerResponse>? {
-        let isUsingFullAPNs = dependencies.standardUserDefaults[.isUsingFullAPNs]
+        let isUsingFullAPNs = dependencies[singleton: .standardUserDefaults][.isUsingFullAPNs]
         
         // Only continue if PNs are enabled and we have a device token
         guard
             !legacyGroupIds.isEmpty,
             (forced || isUsingFullAPNs),
-            let deviceToken: String = (token ?? dependencies.standardUserDefaults[.deviceToken])
+            let deviceToken: String = (token ?? dependencies[singleton: .standardUserDefaults][.deviceToken])
         else { return nil }
         
         return try PushNotificationAPI
@@ -422,14 +422,14 @@ public enum PushNotificationAPI {
             let base64EncodedEncString: String = notificationContent.userInfo["enc_payload"] as? String,
             let encData: Data = Data(base64Encoded: base64EncodedEncString),
             let notificationsEncryptionKey: Data = try? getOrGenerateEncryptionKey(using: dependencies),
-            encData.count > dependencies.crypto.size(.aeadXChaCha20NonceBytes)
+            encData.count > dependencies[singleton: .crypto].size(.aeadXChaCha20NonceBytes)
         else { return (nil, .failure) }
         
-        let nonce: Data = encData[0..<dependencies.crypto.size(.aeadXChaCha20NonceBytes)]
-        let payload: Data = encData[dependencies.crypto.size(.aeadXChaCha20NonceBytes)...]
+        let nonce: Data = encData[0..<dependencies[singleton: .crypto].size(.aeadXChaCha20NonceBytes)]
+        let payload: Data = encData[dependencies[singleton: .crypto].size(.aeadXChaCha20NonceBytes)...]
         
         guard
-            let paddedData: [UInt8] = try? dependencies.crypto.perform(
+            let paddedData: [UInt8] = try? dependencies[singleton: .crypto].perform(
                 .decryptAeadXChaCha20(
                     authenticatedCipherText: payload.bytes,
                     secretKey: notificationsEncryptionKey.bytes,
@@ -541,7 +541,7 @@ public enum PushNotificationAPI {
         urlRequest.allHTTPHeaderFields = [ HTTPHeader.contentType: "application/json" ]
         urlRequest.httpBody = payload
         
-        return dependencies.network
+        return dependencies[singleton: .network]
             .send(
                 .onionRequest(
                     urlRequest,

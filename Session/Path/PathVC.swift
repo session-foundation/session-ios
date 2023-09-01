@@ -6,6 +6,7 @@ import NVActivityIndicatorView
 import SessionMessagingKit
 import SessionUIKit
 import SessionSnodeKit
+import SessionUtilitiesKit
 
 final class PathVC: BaseVC {
     public static let dotSize: CGFloat = 8
@@ -135,7 +136,7 @@ final class PathVC: BaseVC {
     private func update() {
         pathStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
         
-        guard let pathToDisplay: [Snode] = OnionRequestAPI.paths.first else {
+        guard let pathToDisplay: [Snode] = Dependencies()[cache: .onionRequestAPI].paths.first else {
             spinner.startAnimating()
             
             UIView.animate(withDuration: 0.25) {
@@ -338,7 +339,7 @@ private final class LineView: UIView {
             }
         }
         
-        switch (reachability?.isReachable(), OnionRequestAPI.paths.isEmpty) {
+        switch (reachability?.isReachable(), Dependencies()[cache: .onionRequestAPI].paths.isEmpty) {
             case (.some(false), _), (nil, _): setStatus(to: .error)
             case (.some(true), true): setStatus(to: .connecting)
             case (.some(true), false): setStatus(to: .connected)
@@ -420,6 +421,6 @@ private final class LineView: UIView {
             return
         }
         
-        setStatus(to: (!OnionRequestAPI.paths.isEmpty ? .connected : .connecting))
+        setStatus(to: (!Dependencies()[cache: .onionRequestAPI].paths.isEmpty ? .connected : .connecting))
     }
 }

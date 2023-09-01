@@ -76,7 +76,7 @@ public final class SnodeAPI {
     ) {
         guard !hasLoadedSnodePool.wrappedValue else { return }
         
-        let fetchedSnodePool: Set<Snode> = dependencies.storage
+        let fetchedSnodePool: Set<Snode> = dependencies[singleton: .storage]
             .read { db in try Snode.fetchSet(db) }
             .defaulting(to: [])
         
@@ -90,7 +90,7 @@ public final class SnodeAPI {
         using dependencies: Dependencies = Dependencies()
     ) {
         guard let db: Database = db else {
-            dependencies.storage.write { db in setSnodePool(db, to: newValue, using: dependencies) }
+            dependencies[singleton: .storage].write { db in setSnodePool(db, to: newValue, using: dependencies) }
             return
         }
         
@@ -122,7 +122,7 @@ public final class SnodeAPI {
     ) {
         guard !loadedSwarms.wrappedValue.contains(publicKey) else { return }
         
-        let updatedCacheForKey: Set<Snode> = dependencies.storage
+        let updatedCacheForKey: Set<Snode> = dependencies[singleton: .storage]
            .read { db in try Snode.fetchSet(db, publicKey: publicKey) }
            .defaulting(to: [])
         
@@ -140,7 +140,7 @@ public final class SnodeAPI {
         
         guard persist else { return }
         
-        dependencies.storage.write { db in
+        dependencies[singleton: .storage].write { db in
             try? newValue.save(db, key: publicKey)
         }
     }
@@ -172,7 +172,7 @@ public final class SnodeAPI {
         loadSnodePoolIfNeeded(using: dependencies)
         
         let now: Date = Date()
-        let hasSnodePoolExpired: Bool = dependencies.storage[.lastSnodePoolRefreshDate]
+        let hasSnodePoolExpired: Bool = dependencies[singleton: .storage][.lastSnodePoolRefreshDate]
             .map { now.timeIntervalSince($0) > 2 * 60 * 60 }
             .defaulting(to: true)
         let snodePool: Set<Snode> = SnodeAPI.snodePool.wrappedValue
@@ -209,7 +209,7 @@ public final class SnodeAPI {
                 .tryFlatMap { snodePool -> AnyPublisher<Set<Snode>, Error> in
                     guard !snodePool.isEmpty else { throw SnodeAPIError.snodePoolUpdatingFailed }
                     
-                    return dependencies.storage
+                    return dependencies[singleton: .storage]
                         .writePublisher { db in
                             db[.lastSnodePoolRefreshDate] = now
                             setSnodePool(db, to: snodePool, using: dependencies)
@@ -486,7 +486,7 @@ public final class SnodeAPI {
                                 .groupedByValue()
                                 .nullIfEmpty()
                         {
-                            dependencies.storage.writeAsync { db in
+                            dependencies[singleton: .storage].writeAsync { db in
                                 try groupedExpiryResult.forEach { updatedExpiry, hashes in
                                     try SnodeReceivedMessageInfo
                                         .filter(hashes.contains(SnodeReceivedMessageInfo.Columns.hash))
@@ -582,7 +582,7 @@ public final class SnodeAPI {
                     .eraseToAnyPublisher()
             }
             
-            guard let userED25519KeyPair: KeyPair = Storage.shared.read({ db in Identity.fetchUserEd25519KeyPair(db) }) else {
+            guard let userED25519KeyPair: KeyPair = dependencies[singleton: .storage].read({ db in Identity.fetchUserEd25519KeyPair(db, using: dependencies) }) else {
                 throw SnodeAPIError.noKeyPair
             }
             
@@ -636,7 +636,7 @@ public final class SnodeAPI {
         of serverHashes: [String],
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<(ResponseInfoType, GetExpiriesResponse), Error> {
-        guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair() else {
+        guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair(using: dependencies) else {
             return Fail(error: SnodeAPIError.noKeyPair)
                 .eraseToAnyPublisher()
         }
@@ -675,8 +675,8 @@ public final class SnodeAPI {
         using dependencies: Dependencies
     ) -> AnyPublisher<(ResponseInfoType, SendMessagesResponse), Error> {
         let publicKey: String = message.recipient
-        let userX25519PublicKey: String = getUserHexEncodedPublicKey()
-        let sendTimestamp: UInt64 = UInt64(SnodeAPI.currentOffsetTimestampMs())
+        let userX25519PublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
+        let sendTimestamp: UInt64 = UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
         
         // Create a convenience method to send a message to an individual Snode
         func sendMessage(to snode: Snode) throws -> AnyPublisher<(any ResponseInfoType, SendMessagesResponse), Error> {
@@ -698,7 +698,7 @@ public final class SnodeAPI {
                     .eraseToAnyPublisher()
             }
                     
-            guard let userED25519KeyPair: KeyPair = Storage.shared.read({ db in Identity.fetchUserEd25519KeyPair(db) }) else {
+            guard let userED25519KeyPair: KeyPair = dependencies[singleton: .storage].read({ db in Identity.fetchUserEd25519KeyPair(db, using: dependencies) }) else {
                 throw SnodeAPIError.noKeyPair
             }
             
@@ -756,7 +756,7 @@ public final class SnodeAPI {
                 .eraseToAnyPublisher()
         }
         
-        let userX25519PublicKey: String = getUserHexEncodedPublicKey()
+        let userX25519PublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
         let publicKey: String = recipient
         var requests: [SnodeAPI.BatchRequest.Info] = messages
             .map { message, namespace in
@@ -931,14 +931,14 @@ public final class SnodeAPI {
         serverHashes: [String],
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<[String: Bool], Error> {
-        guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair() else {
+        guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair(using: dependencies) else {
             return Fail(error: SnodeAPIError.noKeyPair)
                 .eraseToAnyPublisher()
         }
         
         let userX25519PublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
         
-        return getSwarm(for: publicKey)
+        return getSwarm(for: publicKey, using: dependencies)
             .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: Bool], Error> in
                 SnodeAPI
                     .send(
@@ -968,7 +968,7 @@ public final class SnodeAPI {
                         // deleted successfully so we should mark the hash as invalid so we
                         // don't try to fetch updates using that hash going forward (if we
                         // do we would end up re-fetching all old messages)
-                        Storage.shared.writeAsync { db in
+                        dependencies[singleton: .storage].writeAsync { db in
                             try? SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
                                 db,
                                 potentiallyInvalidHashes: serverHashes
@@ -986,14 +986,14 @@ public final class SnodeAPI {
         namespace: SnodeAPI.Namespace,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<[String: Bool], Error> {
-        guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair() else {
+        guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair(using: dependencies) else {
             return Fail(error: SnodeAPIError.noKeyPair)
                 .eraseToAnyPublisher()
         }
         
-        let userX25519PublicKey: String = getUserHexEncodedPublicKey()
+        let userX25519PublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
         
-        return getSwarm(for: userX25519PublicKey)
+        return getSwarm(for: userX25519PublicKey, using: dependencies)
             .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: Bool], Error> in
                 getNetworkTime(from: snode)
                     .flatMap { timestampMs -> AnyPublisher<[String: Bool], Error> in
@@ -1033,14 +1033,14 @@ public final class SnodeAPI {
         namespace: SnodeAPI.Namespace,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<[String: Bool], Error> {
-        guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair() else {
+        guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair(using: dependencies) else {
             return Fail(error: SnodeAPIError.noKeyPair)
                 .eraseToAnyPublisher()
         }
         
-        let userX25519PublicKey: String = getUserHexEncodedPublicKey()
+        let userX25519PublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
         
-        return getSwarm(for: userX25519PublicKey)
+        return getSwarm(for: userX25519PublicKey, using: dependencies)
             .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: Bool], Error> in
                 getNetworkTime(from: snode)
                     .flatMap { timestampMs -> AnyPublisher<[String: Bool], Error> in
@@ -1284,7 +1284,7 @@ public final class SnodeAPI {
                 .eraseToAnyPublisher()
         }
         
-        return dependencies.network
+        return dependencies[singleton: .network]
             .send(.onionRequest(payload, to: snode))
             .mapError { error in
                 switch error {

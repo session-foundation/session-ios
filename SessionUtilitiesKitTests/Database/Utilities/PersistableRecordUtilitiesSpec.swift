@@ -98,25 +98,26 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
     override func spec() {
         var customWriter: DatabaseQueue!
         var mockStorage: Storage!
-        var dependencies: Dependencies!
+        var dependencies: TestDependencies!
         
         describe("a PersistableRecord") {
             beforeEach {
+                dependencies = TestDependencies()
                 customWriter = try! DatabaseQueue()
                 mockStorage = SynchronousStorage(
                     customWriter: customWriter,
                     customMigrationTargets: [
                         TestTarget.self
-                    ]
+                    ],
+                    using: dependencies
                 )
-                dependencies = Dependencies(
-                    storage: mockStorage
-                )
+                dependencies[singleton: .storage] = mockStorage
             }
             
             afterEach {
                 customWriter = nil
                 mockStorage = nil
+                dependencies = nil
             }
             
             context("before running the add column migration") {

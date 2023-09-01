@@ -16,15 +16,18 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
     // MARK: - Spec
 
     override func spec() {
+        var dependencies: TestDependencies!
         var mockStorage: Storage!
         var cancellables: [AnyCancellable] = []
-        var dependencies: Dependencies!
         var viewModel: ThreadDisappearingMessagesSettingsViewModel!
         
         describe("a ThreadDisappearingMessagesSettingsViewModel") {
             // MARK: - Configuration
             
             beforeEach {
+                dependencies = TestDependencies(
+                    forceSynchronous: true
+                )
                 mockStorage = SynchronousStorage(
                     customWriter: try! DatabaseQueue(),
                     customMigrationTargets: [
@@ -32,13 +35,12 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                         SNSnodeKit.self,
                         SNMessagingKit.self,
                         SNUIKit.self
-                    ]
+                    ],
+                    using: dependencies
                 )
-                dependencies = Dependencies(
-                    storage: mockStorage,
-                    scheduler: .immediate,
-                    forceSynchronous: true
-                )
+                dependencies[singleton: .storage] = mockStorage
+                dependencies[singleton: .scheduler] = .immediate
+                
                 mockStorage.write { db in
                     try SessionThread(
                         id: "TestId",
@@ -66,9 +68,9 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
             afterEach {
                 cancellables.forEach { $0.cancel() }
                 
+                dependencies = nil
                 mockStorage = nil
                 cancellables = []
-                dependencies = nil
                 viewModel = nil
             }
             

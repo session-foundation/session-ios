@@ -277,7 +277,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
             // if not needed)
             guard threadWasMarkedUnread == true else { return }
             
-            dependencies.storage.writeAsync { db in
+            dependencies[singleton: .storage].writeAsync { db in
                 try SessionThread
                     .filter(id: threadId)
                     .updateAllAndConfig(
@@ -309,7 +309,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
                 let threadIsBlocked: Bool? = self.threadIsBlocked
                 let threadIsMessageRequest: Bool? = self.threadIsMessageRequest
                 
-                dependencies.storage.writeAsync { db in
+                dependencies[singleton: .storage].writeAsync { db in
                     markThreadAsReadIfNeeded(dependencies)
                     
                     try Interaction.markAsRead(
@@ -337,7 +337,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
         
         let threadId: String = self.threadId
         
-        dependencies.storage.writeAsync { db in
+        dependencies[singleton: .storage].writeAsync { db in
             try SessionThread
                 .filter(id: threadId)
                 .updateAllAndConfig(

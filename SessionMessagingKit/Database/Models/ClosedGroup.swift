@@ -195,12 +195,13 @@ public extension ClosedGroup {
     ) throws {
         guard !threadIds.isEmpty else { return }
         guard let db: Database = db else {
-            Storage.shared.write { db in
+            dependencies[singleton: .storage].write { db in
                 try ClosedGroup.removeKeysAndUnsubscribe(
                     db,
                     threadIds: threadIds,
                     removeGroupData: removeGroupData,
-                    calledFromConfigHandling: calledFromConfigHandling
+                    calledFromConfigHandling: calledFromConfigHandling,
+                    using: dependencies
                 )
             }
             return
@@ -210,7 +211,7 @@ public extension ClosedGroup {
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         
         threadIds.forEach { threadId in
-            ClosedGroupPoller.shared.stopPolling(for: threadId)
+            dependencies[singleton: .closedGroupPoller].stopPolling(for: threadId)
             
             try? PushNotificationAPI
                 .preparedUnsubscribeFromLegacyGroup(

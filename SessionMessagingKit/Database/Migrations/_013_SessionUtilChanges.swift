@@ -243,6 +243,6 @@ enum _013_SessionUtilChanges: Migration {
             }
         }
         
-        Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
+        Storage.update(progress: 1, for: self, in: target, using: dependencies)
     }
 }

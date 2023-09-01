@@ -172,7 +172,7 @@ final class NukeDataModal: Modal {
             .present(fromViewController: presentedViewController, canCancel: false) { [weak self] _ in
                 Publishers
                     .MergeMany(
-                        Storage.shared
+                        dependencies[singleton: .storage]
                             .read { db -> [(String, HTTP.PreparedRequest<OpenGroupAPI.DeleteInboxResponse>)] in
                                 return try OpenGroup
                                     .filter(OpenGroup.Columns.isActive == true)
@@ -268,7 +268,7 @@ final class NukeDataModal: Modal {
         ///
         /// **Note:** This is file as long as this process kills the app, if it doesn't then we need an alternate mechanism to flag that
         /// the `JobRunner` is allowed to start it's queues again
-        JobRunner.stopAndClearPendingJobs()
+        dependencies[singleton: .jobRunner].stopAndClearPendingJobs()
         
         // Clear the app badge and notifications
         AppEnvironment.shared.notificationPresenter.clearAllNotifications()
@@ -278,7 +278,7 @@ final class NukeDataModal: Modal {
         UserDefaults.removeAll()
         
         // Remove the cached key so it gets re-cached on next access
-        dependencies.caches.mutate(cache: .general) {
+        dependencies.mutate(cache: .general) {
             $0.encodedPublicKey = nil
             $0.recentReactionTimestamps = []
         }

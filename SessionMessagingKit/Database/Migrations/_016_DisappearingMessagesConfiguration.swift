@@ -34,7 +34,7 @@ enum _016_DisappearingMessagesConfiguration: Migration {
         // If there isn't already a user account then we can just finish here (there will be no
         // threads/configs to update and the configs won't be setup which would cause this to crash
         guard Identity.userExists(db) else {
-            return Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
+            return Storage.update(progress: 1, for: self, in: target, using: dependencies)
         }
         
         // Convenience function to set the disappearing messages type per conversation
@@ -78,7 +78,7 @@ enum _016_DisappearingMessagesConfiguration: Migration {
         _ = try SessionUtil.updatingDisappearingConfigsOneToOne(db, contactUpdate, using: dependencies)
         _ = try SessionUtil.batchUpdate(db, disappearingConfigs: legacyGroupUpdate, using: dependencies)
         
-        Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
+        Storage.update(progress: 1, for: self, in: target, using: dependencies)
     }
 }
 

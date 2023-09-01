@@ -13,12 +13,12 @@ extension MessageReceiver {
     ) throws -> (plaintext: Data, senderX25519PublicKey: String) {
         let recipientX25519PrivateKey: Bytes = x25519KeyPair.secretKey
         let recipientX25519PublicKey: Bytes = x25519KeyPair.publicKey
-        let signatureSize: Int = dependencies.crypto.size(.signature)
-        let ed25519PublicKeySize: Int = dependencies.crypto.size(.publicKey)
+        let signatureSize: Int = dependencies[singleton: .crypto].size(.signature)
+        let ed25519PublicKeySize: Int = dependencies[singleton: .crypto].size(.publicKey)
         
         // 1. ) Decrypt the message
         guard
-            let plaintextWithMetadata = try? dependencies.crypto.perform(
+            let plaintextWithMetadata = try? dependencies[singleton: .crypto].perform(
                 .open(
                     anonymousCipherText: Bytes(ciphertext),
                     recipientPublicKey: Box.PublicKey(Bytes(recipientX25519PublicKey)),
@@ -39,14 +39,14 @@ extension MessageReceiver {
         let verificationData = plaintext + senderED25519PublicKey + recipientX25519PublicKey
         
         guard
-            dependencies.crypto.verify(
+            dependencies[singleton: .crypto].verify(
                 .signature(message: verificationData, publicKey: senderED25519PublicKey, signature: signature)
             )
         else { throw MessageReceiverError.invalidSignature }
         
         // 4. ) Get the sender's X25519 public key
         guard
-            let senderX25519PublicKey = try? dependencies.crypto.perform(
+            let senderX25519PublicKey = try? dependencies[singleton: .crypto].perform(
                 .toX25519(ed25519PublicKey: senderED25519PublicKey)
             )
         else { throw MessageReceiverError.decryptionFailed }
@@ -64,8 +64,8 @@ extension MessageReceiver {
     ) throws -> (plaintext: Data, senderX25519PublicKey: String) {
         /// Ensure the data is at least long enough to have the required components
         guard
-            data.count > (dependencies.crypto.size(.nonce24) + 2),
-            let blindedKeyPair = dependencies.crypto.generate(
+            data.count > (dependencies[singleton: .crypto].size(.nonce24) + 2),
+            let blindedKeyPair = dependencies[singleton: .crypto].generate(
                 .blindedKeyPair(serverPublicKey: openGroupPublicKey, edKeyPair: userEd25519KeyPair, using: dependencies)
             )
         else { throw MessageReceiverError.decryptionFailed }
@@ -74,7 +74,7 @@ extension MessageReceiver {
         let otherKeyBytes: Bytes = Data(hex: otherBlindedPublicKey.removingIdPrefixIfNeeded()).bytes
         let kA: Bytes = (isOutgoing ? blindedKeyPair.publicKey : otherKeyBytes)
         guard
-            let dec_key: Bytes = try? dependencies.crypto.perform(
+            let dec_key: Bytes = try? dependencies[singleton: .crypto].perform(
                 .sharedBlindedEncryptionKey(
                     secretKey: userEd25519KeyPair.secretKey,
                     otherBlindedPublicKey: otherKeyBytes,
@@ -87,15 +87,15 @@ extension MessageReceiver {
         
         /// v, ct, nc = data[0], data[1:-24], data[-24:]
         let version: UInt8 = data.bytes[0]
-        let ciphertext: Bytes = Bytes(data.bytes[1..<(data.count - dependencies.crypto.size(.nonce24))])
-        let nonce: Bytes = Bytes(data.bytes[(data.count - dependencies.crypto.size(.nonce24))..<data.count])
+        let ciphertext: Bytes = Bytes(data.bytes[1..<(data.count - dependencies[singleton: .crypto].size(.nonce24))])
+        let nonce: Bytes = Bytes(data.bytes[(data.count - dependencies[singleton: .crypto].size(.nonce24))..<data.count])
 
         /// Make sure our encryption version is okay
         guard version == 0 else { throw MessageReceiverError.decryptionFailed }
 
         /// Decrypt
         guard
-            let innerBytes: Bytes = try? dependencies.crypto.perform(
+            let innerBytes: Bytes = try? dependencies[singleton: .crypto].perform(
                 .decryptAeadXChaCha20(
                     authenticatedCipherText: ciphertext,
                     secretKey: dec_key,
@@ -105,22 +105,22 @@ extension MessageReceiver {
         else { throw MessageReceiverError.decryptionFailed }
         
         /// Ensure the length is correct
-        guard innerBytes.count > dependencies.crypto.size(.publicKey) else { throw MessageReceiverError.decryptionFailed }
+        guard innerBytes.count > dependencies[singleton: .crypto].size(.publicKey) else { throw MessageReceiverError.decryptionFailed }
 
         /// Split up: the last 32 bytes are the sender's *unblinded* ed25519 key
         let plaintext: Bytes = Bytes(innerBytes[
-            0...(innerBytes.count - 1 - dependencies.crypto.size(.publicKey))
+            0...(innerBytes.count - 1 - dependencies[singleton: .crypto].size(.publicKey))
         ])
         let sender_edpk: Bytes = Bytes(innerBytes[
-            (innerBytes.count - dependencies.crypto.size(.publicKey))...(innerBytes.count - 1)
+            (innerBytes.count - dependencies[singleton: .crypto].size(.publicKey))...(innerBytes.count - 1)
         ])
         
         /// Verify that the inner sender_edpk (A) yields the same outer kA we got with the message
         guard
-            let blindingFactor: Bytes = try? dependencies.crypto.perform(
+            let blindingFactor: Bytes = try? dependencies[singleton: .crypto].perform(
                 .generateBlindingFactor(serverPublicKey: openGroupPublicKey, using: dependencies)
             ),
-            let sharedSecret: Bytes = try? dependencies.crypto.perform(
+            let sharedSecret: Bytes = try? dependencies[singleton: .crypto].perform(
                 .combineKeys(lhsKeyBytes: blindingFactor, rhsKeyBytes: sender_edpk)
             ),
             kA == sharedSecret
@@ -128,7 +128,7 @@ extension MessageReceiver {
         
         /// Get the sender's X25519 public key
         guard
-            let senderSessionIdBytes: Bytes = try? dependencies.crypto.perform(
+            let senderSessionIdBytes: Bytes = try? dependencies[singleton: .crypto].perform(
                 .toX25519(ed25519PublicKey: sender_edpk)
             )
         else { throw MessageReceiverError.decryptionFailed }

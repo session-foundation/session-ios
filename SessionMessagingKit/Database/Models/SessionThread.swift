@@ -548,7 +548,7 @@ public extension SessionThread {
     ) -> String? {
         guard threadVariant == .community else { return nil }
         guard let db: Database = db else {
-            return dependencies.storage.read { db in
+            return dependencies[singleton: .storage].read { db in
                 getUserHexEncodedBlindedKey(
                     db,
                     threadId: threadId,
@@ -584,7 +584,7 @@ public extension SessionThread {
         
         guard capabilities.isEmpty || capabilities.contains(.blind) else { return nil }
         
-        let blindedKeyPair: KeyPair? = dependencies.crypto.generate(
+        let blindedKeyPair: KeyPair? = dependencies[singleton: .crypto].generate(
             .blindedKeyPair(serverPublicKey: openGroupInfo.publicKey, edKeyPair: userEdKeyPair, using: dependencies)
         )
         

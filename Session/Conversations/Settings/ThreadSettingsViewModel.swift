@@ -72,7 +72,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
         self.didTriggerSearch = didTriggerSearch
         self.oldDisplayName = (threadVariant != .contact ?
             nil :
-            dependencies.storage.read { db in
+            dependencies[singleton: .storage].read { db in
                 try Profile
                     .filter(id: threadId)
                     .select(.nickname)
@@ -151,7 +151,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                    .trimmingCharacters(in: .whitespacesAndNewlines)
                                self?.oldDisplayName = (updatedNickname.isEmpty ? nil : editedDisplayName)
 
-                               dependencies.storage.writeAsync { db in
+                               dependencies[singleton: .storage].writeAsync { db in
                                    try Profile
                                        .filter(id: threadId)
                                        .updateAllAndConfig(
@@ -532,7 +532,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     cancelStyle: .alert_text
                                 ),
                                 onTap: {
-                                    dependencies.storage.write { db in
+                                    dependencies[singleton: .storage].write { db in
                                         try SessionThread.deleteOrLeave(
                                             db,
                                             threadId: threadId,
@@ -596,7 +596,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 onTap: {
                                     let newValue: Bool = !(threadViewModel.threadOnlyNotifyForMentions == true)
                                     
-                                    dependencies.storage.writeAsync { db in
+                                    dependencies[singleton: .storage].writeAsync { db in
                                         try SessionThread
                                             .filter(id: threadId)
                                             .updateAll(
@@ -635,7 +635,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     label: "Mute notifications"
                                 ),
                                 onTap: {
-                                    dependencies.storage.writeAsync { db in
+                                    dependencies[singleton: .storage].writeAsync { db in
                                         let currentValue: TimeInterval? = try SessionThread
                                             .filter(id: threadId)
                                             .select(.mutedUntilTimestamp)
@@ -719,7 +719,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
         }
         .removeDuplicates()
         .handleEvents(didFail: { SNLog("[ThreadSettingsViewModel] Observation failed with error: \($0)") })
-        .publisher(in: dependencies.storage, scheduling: dependencies.scheduler)
+        .publisher(in: dependencies[singleton: .storage], scheduling: dependencies[singleton: .scheduler])
         .mapToSessionTableViewData(for: self)
     
     // MARK: - Functions
@@ -764,7 +764,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
             publicKey: publicKey
         )
         
-        dependencies.storage.writeAsync { [dependencies] db in
+        dependencies[singleton: .storage].writeAsync { [dependencies] db in
             try selectedUsers.forEach { userId in
                 let thread: SessionThread = try SessionThread
                     .fetchOrCreate(db, id: userId, variant: .contact, shouldBeVisible: nil)
@@ -810,7 +810,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
     ) {
         guard oldBlockedState != isBlocked else { return }
         
-        dependencies.storage.writeAsync(
+        dependencies[singleton: .storage].writeAsync(
             updates: { db in
                 try Contact
                     .filter(id: threadId)

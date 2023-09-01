@@ -29,7 +29,7 @@ class PreparedRequestOnionRequestsSpec: QuickSpec {
     
     override func spec() {
         var mockNetwork: MockNetwork!
-        var dependencies: Dependencies!
+        var dependencies: TestDependencies!
         var disposables: [AnyCancellable] = []
         
         var error: Error?
@@ -40,10 +40,10 @@ class PreparedRequestOnionRequestsSpec: QuickSpec {
             
             beforeEach {
                 mockNetwork = MockNetwork()
-                dependencies = Dependencies(
-                    network: mockNetwork,
+                dependencies = TestDependencies(
                     dateNow: Date(timeIntervalSince1970: 1234567890)
                 )
+                dependencies[singleton: .network] = mockNetwork
                 
                 let request = Request<NoBody, TestEndpoint>(
                     method: .post,

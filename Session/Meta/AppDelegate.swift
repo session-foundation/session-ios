@@ -35,6 +35,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         SetCurrentAppContext(MainAppContext())
         verifyDBKeysAvailableBeforeBackgroundLaunch()
 
+        // Called via the OS so create a default 'Dependencies' instance
+        let dependencies: Dependencies = Dependencies()
         Cryptography.seedRandom()
         AppVersion.sharedInstance()
         AppEnvironment.shared.pushRegistrationManager.createVoipRegistryIfNecessary()
@@ -74,7 +76,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 if case .failure(let error) = result {
                     DispatchQueue.main.async {
                         self?.initialLaunchFailed = true
-                        self?.showFailedStartupAlert(calledFrom: .finishLaunching, error: .databaseError(error))
+                        self?.showFailedStartupAlert(
+                            calledFrom: .finishLaunching,
+                            error: .databaseError(error),
+                            using: dependencies
+                        )
                     }
                     return
                 }
@@ -84,7 +90,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 /// **Note:** Need to do this after the db migrations because theme preferences are stored in the database and
                 /// we don't want to access it until after the migrations run
                 ThemeManager.mainWindow = mainWindow
-                self?.completePostMigrationSetup(calledFrom: .finishLaunching, needsConfigSync: needsConfigSync)
+                self?.completePostMigrationSetup(
+                    calledFrom: .finishLaunching,
+                    needsConfigSync: needsConfigSync,
+                    using: dependencies
+                )
             }
         )
         
@@ -135,14 +145,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// Apple's documentation on the matter)
         UNUserNotificationCenter.current().delegate = self
         
-        Storage.resumeDatabaseAccess()
+        // Called via the OS so create a default 'Dependencies' instance
+        let dependencies: Dependencies = Dependencies()
+        Storage.resumeDatabaseAccess(using: dependencies)
         
         // Reset the 'startTime' (since it would be invalid from the last launch)
         startTime = CACurrentMediaTime()
         
         // If we've already completed migrations at least once this launch then check
         // to see if any "delayed" migrations now need to run
-        if Storage.shared.hasCompletedMigrations {
+        if dependencies[singleton: .storage].hasCompletedMigrations {
             SNLog("Checking for pending migrations")
             let initialLaunchFailed: Bool = self.initialLaunchFailed
             
@@ -169,7 +181,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                             DispatchQueue.main.async {
                                 self?.showFailedStartupAlert(
                                     calledFrom: .enterForeground(initialLaunchFailed: initialLaunchFailed),
-                                    error: .databaseError(error)
+                                    error: .databaseError(error),
+                                    using: dependencies
                                 )
                             }
                             return
@@ -177,9 +190,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                         
                         self?.completePostMigrationSetup(
                             calledFrom: .enterForeground(initialLaunchFailed: initialLaunchFailed),
-                            needsConfigSync: needsConfigSync
+                            needsConfigSync: needsConfigSync,
+                            using: dependencies
                         )
-                    }
+                    },
+                    using: dependencies
                 )
             }
         }
@@ -190,12 +205,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         DDLog.flushLog()
         
+        // Called via the OS so create a default 'Dependencies' instance
+        let dependencies: Dependencies = Dependencies()
+        
         // NOTE: Fix an edge case where user taps on the callkit notification
         // but answers the call on another device
-        stopPollers(shouldStopUserPoller: !self.hasCallOngoing())
+        stopPollers(shouldStopUserPoller: !self.hasCallOngoing(), using: dependencies)
         
         // Stop all jobs except for message sending and when completed suspend the database
-        JobRunner.stopAndClearPendingJobs(exceptForVariant: .messageSend) {
+        dependencies[singleton: .jobRunner].stopAndClearPendingJobs(exceptForVariant: .messageSend) {
             if !self.hasCallOngoing() {
                 Storage.suspendDatabaseAccess()
             }
@@ -215,12 +233,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     func applicationDidBecomeActive(_ application: UIApplication) {
         guard !SNUtilitiesKit.isRunningTests else { return }
         
+        // Called via the OS so create a default 'Dependencies' instance
+        let dependencies: Dependencies = Dependencies()
         UserDefaults.sharedLokiProject?[.isMainAppActive] = true
         
-        ensureRootViewController(calledFrom: .didBecomeActive)
+        ensureRootViewController(calledFrom: .didBecomeActive, using: dependencies)
 
         AppReadiness.runNowOrWhenAppDidBecomeReady { [weak self] in
-            self?.handleActivation()
+            self?.handleActivation(using: dependencies)
             
             /// Clear all notifications whenever we become active once the app is ready
             ///
@@ -229,7 +249,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             /// within the `runNowOrWhenAppDidBecomeReady` callback and dispatch to the next run loop to ensure it runs after
             /// the notification has actually been handled
             DispatchQueue.main.async { [weak self] in
-                self?.clearAllNotificationsAndRestoreBadgeCount()
+                self?.clearAllNotificationsAndRestoreBadgeCount(using: dependencies)
             }
         }
 
@@ -312,13 +332,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     // MARK: - App Readiness
     
-    private func completePostMigrationSetup(calledFrom lifecycleMethod: LifecycleMethod, needsConfigSync: Bool) {
+    private func completePostMigrationSetup(
+        calledFrom lifecycleMethod: LifecycleMethod,
+        needsConfigSync: Bool,
+        using dependencies: Dependencies
+    ) {
         SNLog("Migrations completed, performing setup and ensuring rootViewController")
-        Configuration.performMainSetup()
-        JobRunner.setExecutor(SyncPushTokensJob.self, for: .syncPushTokens)
+        Configuration.performMainSetup(using: dependencies)
+        dependencies[singleton: .jobRunner].setExecutor(SyncPushTokensJob.self, for: .syncPushTokens)
         
         // Setup the UI if needed, then trigger any post-UI setup actions
-        self.ensureRootViewController(calledFrom: lifecycleMethod) { [weak self] success in
+        self.ensureRootViewController(calledFrom: lifecycleMethod, using: dependencies) { [weak self] success in
             // If we didn't successfully ensure the rootViewController then don't continue as
             // the user is in an invalid state (and should have already been shown a modal)
             guard success else { return }
@@ -326,12 +350,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             SNLog("RootViewController ready, readying remaining processes")
             self?.initialLaunchFailed = false
             
-            /// Trigger any launch-specific jobs and start the JobRunner with `JobRunner.appDidFinishLaunching()` some
+            /// Trigger any launch-specific jobs and start the JobRunner with `jobRunner.appDidFinishLaunching(using:)` some
             /// of these jobs (eg. DisappearingMessages job) can impact the interactions which get fetched to display on the home
             /// screen, if the PagedDatabaseObserver hasn't been setup yet then the home screen can show stale (ie. deleted)
             /// interactions incorrectly
             if lifecycleMethod == .finishLaunching {
-                JobRunner.appDidFinishLaunching()
+                dependencies[singleton: .jobRunner].appDidFinishLaunching(using: dependencies)
             }
             
             /// Flag that the app is ready via `AppReadiness.setAppIsReady()`
@@ -341,7 +365,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             ///
             /// **Note:** This this does much more than set a flag - it will also run all deferred blocks (including the JobRunner
             /// `appDidBecomeActive` method hence why it **must** also come after calling
-            /// `JobRunner.appDidFinishLaunching()`)
+            /// `jobRunner.appDidFinishLaunching(using:)`)
             AppReadiness.setAppIsReady()
             
             /// Remove the sleep blocking once the startup is done (needs to run on the main thread and sleeping while
@@ -352,7 +376,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             AppVersion.sharedInstance().mainAppLaunchDidComplete()
             
             /// App won't be ready for extensions and no need to enqueue a config sync unless we successfully completed startup
-            Storage.shared.writeAsync { db in
+            dependencies[singleton: .storage].writeAsync { db in
                 // Increment the launch count (guaranteed to change which results in the write actually
                 // doing something and outputting and error if the DB is suspended)
                 db[.activeCounter] = ((db[.activeCounter] ?? 0) + 1)
@@ -391,6 +415,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         calledFrom lifecycleMethod: LifecycleMethod,
         error: StartupError,
         animated: Bool = true,
+        using dependencies: Dependencies,
         presentationCompletion: (() -> ())? = nil
     ) {
         /// This **must** be a standard `UIAlertController` instead of a `ConfirmationModal` because we may not
@@ -408,7 +433,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 // the app)
                 guard self?.hasInitialRootViewController == false else { return }
                 
-                self?.showFailedStartupAlert(calledFrom: lifecycleMethod, error: error)
+                self?.showFailedStartupAlert(calledFrom: lifecycleMethod, error: error, using: dependencies)
             }
         })
         
@@ -439,13 +464,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                             switch result {
                                 case .failure:
                                     DispatchQueue.main.async {
-                                        self?.showFailedStartupAlert(calledFrom: lifecycleMethod, error: .failedToRestore)
+                                        self?.showFailedStartupAlert(
+                                            calledFrom: lifecycleMethod,
+                                            error: .failedToRestore,
+                                            using: dependencies
+                                        )
                                     }
                                     
                                 case .success:
-                                    self?.completePostMigrationSetup(calledFrom: lifecycleMethod, needsConfigSync: needsConfigSync)
+                                    self?.completePostMigrationSetup(
+                                        calledFrom: lifecycleMethod,
+                                        needsConfigSync: needsConfigSync,
+                                        using: dependencies
+                                    )
                             }
-                        }
+                        },
+                        using: dependencies
                     )
                 })
                 
@@ -498,19 +532,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
     }
 
-    private func handleActivation() {
+    private func handleActivation(using dependencies: Dependencies = Dependencies()) {
         /// There is a _fun_ behaviour here where if the user launches the app, sends it to the background at the right time and then
         /// opens it again the `AppReadiness` closures can be triggered before `applicationDidBecomeActive` has been
         /// called again - this can result in odd behaviours so hold off on running this logic until it's properly called again
         guard
-            Identity.userExists() &&
+            Identity.userExists(using: dependencies) &&
             UserDefaults.sharedLokiProject?[.isMainAppActive] == true
         else { return }
         
         enableBackgroundRefreshIfNecessary()
-        JobRunner.appDidBecomeActive()
+        dependencies[singleton: .jobRunner].appDidBecomeActive(using: dependencies)
         
-        startPollersIfNeeded()
+        startPollersIfNeeded(using: dependencies)
         
         if CurrentAppContext().isMainApp {
             handleAppActivatedWithOngoingCallIfNeeded()
@@ -519,13 +553,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     private func ensureRootViewController(
         calledFrom lifecycleMethod: LifecycleMethod,
+        using dependencies: Dependencies,
         onComplete: @escaping ((Bool) -> ()) = { _ in }
     ) {
         let hasInitialRootViewController: Bool = self.hasInitialRootViewController
         
         // Always call the completion block and indicate whether we successfully created the UI
         guard
-            Storage.shared.isValid &&
+            dependencies[singleton: .storage].isValid &&
             (
                 AppReadiness.isAppReady() ||
                 lifecycleMethod == .finishLaunching ||
@@ -541,7 +576,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             repeats: false
         ) { [weak self] timer in
             timer.invalidate()
-            self?.showFailedStartupAlert(calledFrom: lifecycleMethod, error: .startupTimeout)
+            self?.showFailedStartupAlert(
+                calledFrom: lifecycleMethod,
+                error: .startupTimeout,
+                using: dependencies
+            )
         }
         
         // All logic which needs to run after the 'rootViewController' is created
@@ -577,7 +616,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 case is UIAlertController, is ConfirmationModal:
                     /// If the viewController we were presenting happened to be the "failed startup" modal then we can dismiss it
                     /// automatically (while this seems redundant it's less jarring for the user than just instantly having it disappear)
-                    self?.showFailedStartupAlert(calledFrom: lifecycleMethod, error: .startupTimeout, animated: false) {
+                    self?.showFailedStartupAlert(
+                        calledFrom: lifecycleMethod,
+                        error: .startupTimeout,
+                        animated: false,
+                        using: dependencies
+                    ) {
                         self?.window?.rootViewController?.dismiss(animated: true)
                     }
                 
@@ -642,7 +686,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         #endif
     }
     
-    private func clearAllNotificationsAndRestoreBadgeCount() {
+    private func clearAllNotificationsAndRestoreBadgeCount(using dependencies: Dependencies = Dependencies()) {
         AppReadiness.runNowOrWhenAppDidBecomeReady {
             AppEnvironment.shared.notificationPresenter.clearAllNotifications()
             
@@ -652,9 +696,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             /// read pools (up to a few seconds), since this read is blocking we want to dispatch it to run async to ensure
             /// we don't block user interaction while it's running
             DispatchQueue.global(qos: .default).async {
-                let unreadCount: Int = Storage.shared
+                let unreadCount: Int = dependencies[singleton: .storage]
                     .read { db in
-                        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+                        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
                         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
                         
                         return try Interaction
@@ -766,28 +810,34 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     // MARK: - Polling
     
-    public func startPollersIfNeeded(shouldStartGroupPollers: Bool = true) {
-        guard Identity.userExists() else { return }
+    public func startPollersIfNeeded(
+        shouldStartGroupPollers: Bool = true,
+        using dependencies: Dependencies
+    ) {
+        guard Identity.userExists(using: dependencies) else { return }
         
         /// There is a fun issue where if you launch without any valid paths then the pollers are guaranteed to fail their first poll due to
         /// trying and failing to build paths without having the `SnodeAPI.snodePool` populated, by waiting for the
-        /// `JobRunner.blockingQueue` to complete we can have more confidence that paths won't fail to build incorrectly
-        JobRunner.afterBlockingQueue { [weak self] in
+        /// `jobRunner.blockingQueue` to complete we can have more confidence that paths won't fail to build incorrectly
+        dependencies[singleton: .jobRunner].afterBlockingQueue { [weak self] in
             self?.poller.start()
             
             guard shouldStartGroupPollers else { return }
             
-            ClosedGroupPoller.shared.start()
+            dependencies[singleton: .closedGroupPoller].start(using: dependencies)
             OpenGroupManager.shared.startPolling()
         }
     }
     
-    public func stopPollers(shouldStopUserPoller: Bool = true) {
+    public func stopPollers(
+        shouldStopUserPoller: Bool = true,
+        using dependencies: Dependencies = Dependencies()
+    ) {
         if shouldStopUserPoller {
             poller.stopAllPollers()
         }
-        
-        ClosedGroupPoller.shared.stopAllPollers()
+    
+        dependencies[singleton: .closedGroupPoller].stopAllPollers()
         OpenGroupManager.shared.stopPolling()
     }
     

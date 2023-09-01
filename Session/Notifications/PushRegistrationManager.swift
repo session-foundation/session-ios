@@ -286,11 +286,13 @@ public enum PushRegistrationError: Error {
             return
         }
         
+        // Called via the OS so create a default 'Dependencies' instance
+        let dependencies: Dependencies = Dependencies()
         Storage.resumeDatabaseAccess()
         
-        let maybeCall: SessionCall? = Storage.shared.write { db in
+        let maybeCall: SessionCall? = dependencies[singleton: .storage].write { db in
             let messageInfo: CallMessage.MessageInfo = CallMessage.MessageInfo(
-                state: (caller == getUserHexEncodedPublicKey(db) ?
+                state: (caller == getUserHexEncodedPublicKey(db, using: dependencies) ?
                     .outgoing :
                     .incoming
                 )
@@ -327,7 +329,7 @@ public enum PushRegistrationError: Error {
         }
         
         // NOTE: Just start 1-1 poller so that it won't wait for polling group messages
-        (UIApplication.shared.delegate as? AppDelegate)?.startPollersIfNeeded(shouldStartGroupPollers: false)
+        (UIApplication.shared.delegate as? AppDelegate)?.startPollersIfNeeded(shouldStartGroupPollers: false, using: dependencies)
         
         call.reportIncomingCallIfNeeded { error in
             if let error = error {

@@ -512,7 +512,7 @@ public class NotificationPresenter: NotificationsProtocol {
 
     private func checkIfShouldPlaySound(applicationState: UIApplication.State) -> Bool {
         guard applicationState == .active else { return true }
-        guard Storage.shared[.playNotificationSoundInForeground] else { return false }
+        guard Dependencies()[singleton: .storage][.playNotificationSoundInForeground] else { return false }
 
         let nowMs: UInt64 = UInt64(floor(Date().timeIntervalSince1970 * 1000))
         let recentThreshold = nowMs - UInt64(kAudioNotificationsThrottleInterval * Double(kSecondInMs))
@@ -544,7 +544,7 @@ class NotificationActionHandler {
                 .eraseToAnyPublisher()
         }
         
-        guard Storage.shared.read({ db in try SessionThread.exists(db, id: threadId) }) == true else {
+        guard Dependencies()[singleton: .storage].read({ db in try SessionThread.exists(db, id: threadId) }) == true else {
             return Fail(error: NotificationError.failDebug("unable to find thread with id: \(threadId)"))
                 .eraseToAnyPublisher()
         }
@@ -563,12 +563,12 @@ class NotificationActionHandler {
                 .eraseToAnyPublisher()
         }
         
-        guard let thread: SessionThread = Storage.shared.read({ db in try SessionThread.fetchOne(db, id: threadId) }) else {
+        guard let thread: SessionThread = dependencies[singleton: .storage].read({ db in try SessionThread.fetchOne(db, id: threadId) }) else {
             return Fail<Void, Error>(error: NotificationError.failDebug("unable to find thread with id: \(threadId)"))
                 .eraseToAnyPublisher()
         }
         
-        return dependencies.storage
+        return dependencies[singleton: .storage]
             .writePublisher { db in
                 let interaction: Interaction = try Interaction(
                     threadId: threadId,
@@ -607,7 +607,7 @@ class NotificationActionHandler {
                     switch result {
                         case .finished: break
                         case .failure:
-                            Storage.shared.read { [weak self] db in
+                            dependencies[singleton: .storage].read { [weak self] db in
                                 self?.notificationPresenter.notifyForFailedSend(
                                     db,
                                     in: thread,
@@ -651,7 +651,7 @@ class NotificationActionHandler {
         threadId: String,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
-        return dependencies.storage
+        return dependencies[singleton: .storage]
             .writePublisher { db in
                 guard
                     let threadVariant: SessionThread.Variant = try SessionThread

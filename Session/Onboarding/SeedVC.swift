@@ -6,11 +6,11 @@ import SessionUtilitiesKit
 import SignalUtilitiesKit
 
 final class SeedVC: BaseVC {
-    public static func mnemonic() throws -> String {
-        let dbIsValid: Bool = Storage.shared.isValid
-        let dbIsSuspendedUnsafe: Bool = Storage.shared.isSuspendedUnsafe
+    public static func mnemonic(using dependencies: Dependencies = Dependencies()) throws -> String {
+        let dbIsValid: Bool = dependencies[singleton: .storage].isValid
+        let dbIsSuspendedUnsafe: Bool = dependencies[singleton: .storage].isSuspendedUnsafe
         
-        if let hexEncodedSeed: String = Identity.fetchHexEncodedSeed() {
+        if let hexEncodedSeed: String = Identity.fetchHexEncodedSeed(using: dependencies) {
             return Mnemonic.encode(hexEncodedString: hexEncodedSeed)
         }
         
@@ -131,7 +131,7 @@ final class SeedVC: BaseVC {
         
         // Set up mnemonic label
         mnemonicLabel.text = redactedMnemonic
-        let mnemonicLabelGestureRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(revealMnemonic))
+        let mnemonicLabelGestureRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(revealMnemonicTapped))
         mnemonicLabel.addGestureRecognizer(mnemonicLabelGestureRecognizer)
         mnemonicLabel.isUserInteractionEnabled = true
         mnemonicLabel.isEnabled = true
@@ -151,7 +151,7 @@ final class SeedVC: BaseVC {
         callToActionLabel.themeTextColor = .textSecondary
         callToActionLabel.textAlignment = .center
         
-        let callToActionLabelGestureRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(revealMnemonic))
+        let callToActionLabelGestureRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(revealMnemonicTapped))
         callToActionLabel.addGestureRecognizer(callToActionLabelGestureRecognizer)
         callToActionLabel.isUserInteractionEnabled = true
         callToActionLabel.isEnabled = true
@@ -222,7 +222,9 @@ final class SeedVC: BaseVC {
         dismiss(animated: true, completion: nil)
     }
     
-    @objc private func revealMnemonic() {
+    @objc private func revealMnemonicTapped() { revealMnemonic() }
+    
+    private func revealMnemonic(using dependencies: Dependencies = Dependencies()) {
         UIView.transition(with: mnemonicLabel, duration: 0.25, options: .transitionCrossDissolve, animations: {
             self.mnemonicLabel.text = self.mnemonic
             self.mnemonicLabel.themeTextColor = .textPrimary
@@ -246,7 +248,7 @@ final class SeedVC: BaseVC {
         }, completion: nil)
         seedReminderView.setProgress(1, animated: true)
         
-        Storage.shared.writeAsync { db in db[.hasViewedSeed] = true }
+        dependencies[singleton: .storage].writeAsync { db in db[.hasViewedSeed] = true }
     }
     
     @objc private func copyMnemonic() {

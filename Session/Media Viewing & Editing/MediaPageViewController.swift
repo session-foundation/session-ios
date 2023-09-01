@@ -393,7 +393,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         guard dataChangeObservable == nil else { return }
         
         // Start observing for data changes
-        dataChangeObservable = Storage.shared.start(
+        dataChangeObservable = Dependencies()[singleton: .storage].start(
             viewModel.observableAlbumData,
             onError: { _ in },
             onChange: { [weak self] albumData in
@@ -545,7 +545,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
             let threadId: String = self.viewModel.threadId
             let threadVariant: SessionThread.Variant = self.viewModel.threadVariant
             
-            Storage.shared.write { db in
+            Dependencies()[singleton: .storage].write { db in
                 try MessageSender.send(
                     db,
                     message: DataExtractionNotification(
@@ -571,13 +571,13 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
             title: "delete_message_for_me".localized(),
             style: .destructive
         ) { _ in
-            Storage.shared.writeAsync { db in
+            Dependencies()[singleton: .storage].writeAsync { db in
                 _ = try Attachment
                     .filter(id: itemToDelete.attachment.id)
                     .deleteAll(db)
                 
                 // Add the garbage collection job to delete orphaned attachment files
-                JobRunner.add(
+                Dependencies()[singleton: .jobRunner].add(
                     db,
                     job: Job(
                         variant: .garbageCollection,
@@ -585,7 +585,9 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                         details: GarbageCollectionJob.Details(
                             typesToCollect: [.orphanedAttachmentFiles]
                         )
-                    )
+                    ),
+                    canStartJob: true,
+                    using: Dependencies()
                 )
                 
                 // Delete any interactions which had all of their attachments removed
@@ -891,7 +893,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         let name: String = {
             switch targetItem.interactionVariant {
                 case .standardIncoming:
-                    return Storage.shared
+                    return Dependencies()[singleton: .storage]
                         .read { db in
                             Profile.displayName(
                                 db,

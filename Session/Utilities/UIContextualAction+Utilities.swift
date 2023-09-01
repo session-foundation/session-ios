@@ -48,7 +48,8 @@ public extension UIContextualAction {
         indexPath: IndexPath,
         tableView: UITableView,
         threadViewModel: SessionThreadViewModel,
-        viewController: UIViewController?
+        viewController: UIViewController?,
+        using dependencies: Dependencies = Dependencies()
     ) -> [UIContextualAction]? {
         guard !actions.isEmpty else { return nil }
         
@@ -128,7 +129,9 @@ public extension UIContextualAction {
                         ) { _, _, completionHandler  in
                             switch threadViewModel.threadId {
                                 case SessionThreadViewModel.messageRequestsSectionId:
-                                    Storage.shared.write { db in db[.hasHiddenMessageRequests] = true }
+                                    dependencies[singleton: .storage].write { db in
+                                        db[.hasHiddenMessageRequests] = true
+                                    }
                                     completionHandler(true)
                                     
                                 default:
@@ -159,7 +162,7 @@ public extension UIContextualAction {
                                             cancelStyle: .alert_text,
                                             dismissOnConfirm: true,
                                             onConfirm: { _ in
-                                                Storage.shared.writeAsync { db in
+                                                dependencies[singleton: .storage].writeAsync { db in
                                                     try SessionThread.deleteOrLeave(
                                                         db,
                                                         threadId: threadViewModel.threadId,
@@ -207,7 +210,7 @@ public extension UIContextualAction {
                             
                             // Delay the change to give the cell "unswipe" animation some time to complete
                             DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
-                                Storage.shared.writeAsync { db in
+                                dependencies[singleton: .storage].writeAsync { db in
                                     try SessionThread
                                         .filter(id: threadViewModel.threadId)
                                         .updateAllAndConfig(
@@ -247,7 +250,7 @@ public extension UIContextualAction {
                             
                             // Delay the change to give the cell "unswipe" animation some time to complete
                             DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
-                                Storage.shared.writeAsync { db in
+                                dependencies[singleton: .storage].writeAsync { db in
                                     let currentValue: TimeInterval? = try SessionThread
                                         .filter(id: threadViewModel.threadId)
                                         .select(.mutedUntilTimestamp)
@@ -308,7 +311,7 @@ public extension UIContextualAction {
                                 
                                 // Delay the change to give the cell "unswipe" animation some time to complete
                                 DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
-                                    Storage.shared
+                                    dependencies[singleton: .storage]
                                         .writePublisher { db in
                                             // Create the contact if it doesn't exist
                                             try Contact
@@ -412,7 +415,7 @@ public extension UIContextualAction {
                                     cancelStyle: .alert_text,
                                     dismissOnConfirm: true,
                                     onConfirm: { _ in
-                                        Storage.shared.writeAsync { db in
+                                        dependencies[singleton: .storage].writeAsync { db in
                                             try SessionThread.deleteOrLeave(
                                                 db,
                                                 threadId: threadViewModel.threadId,
@@ -510,7 +513,7 @@ public extension UIContextualAction {
                                     cancelStyle: .alert_text,
                                     dismissOnConfirm: true,
                                     onConfirm: { _ in
-                                        Storage.shared.writeAsync { db in
+                                        dependencies[singleton: .storage].writeAsync { db in
                                             try SessionThread.deleteOrLeave(
                                                 db,
                                                 threadId: threadViewModel.threadId,

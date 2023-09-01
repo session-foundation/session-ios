@@ -16,10 +16,10 @@ class OpenGroupAPISpec: QuickSpec {
     // MARK: - Spec
 
     override func spec() {
+        var dependencies: TestDependencies!
         var mockStorage: Storage!
         var mockNetwork: MockNetwork!
         var mockCrypto: MockCrypto!
-        var dependencies: Dependencies!
         var disposables: [AnyCancellable] = []
         
         var error: Error?
@@ -28,21 +28,23 @@ class OpenGroupAPISpec: QuickSpec {
             // MARK: - Configuration
             
             beforeEach {
+                dependencies = TestDependencies(
+                    dateNow: Date(timeIntervalSince1970: 1234567890)
+                )
                 mockStorage = SynchronousStorage(
                     customWriter: try! DatabaseQueue(),
                     customMigrationTargets: [
                         SNUtilitiesKit.self,
                         SNMessagingKit.self
-                    ]
+                    ],
+                    using: dependencies
                 )
                 mockNetwork = MockNetwork()
                 mockCrypto = MockCrypto()
-                dependencies = Dependencies(
-                    storage: mockStorage,
-                    network: mockNetwork,
-                    crypto: mockCrypto,
-                    dateNow: Date(timeIntervalSince1970: 1234567890)
-                )
+                
+                dependencies[singleton: .storage] = mockStorage
+                dependencies[singleton: .network] = mockNetwork
+                dependencies[singleton: .crypto] = mockCrypto
                 
                 mockStorage.write { db in
                     try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
@@ -109,10 +111,10 @@ class OpenGroupAPISpec: QuickSpec {
             afterEach {
                 disposables.forEach { $0.cancel() }
                 
+                dependencies = nil
                 mockStorage = nil
                 mockNetwork = nil
                 mockCrypto = nil
-                dependencies = nil
                 disposables = []
                 
                 error = nil

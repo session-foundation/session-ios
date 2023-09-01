@@ -29,6 +29,16 @@ class HelpViewModel: SessionTableViewModel<NoNav, HelpViewModel.Section, HelpVie
         var style: SessionTableSectionStyle { .padding }
     }
     
+    // MARK: - Initialization
+    
+    private let dependencies: Dependencies
+    
+    init(using dependencies: Dependencies = Dependencies()) {
+        self.dependencies = dependencies
+        
+        super.init()
+    }
+    
     // MARK: - Content
     
     override var title: String { "HELP_TITLE".localized() }
@@ -169,7 +179,7 @@ class HelpViewModel: SessionTableViewModel<NoNav, HelpViewModel.Section, HelpVie
         }
         .removeDuplicates()
         .handleEvents(didFail: { SNLog("[HelpViewModel] Observation failed with error: \($0)") })
-        .publisher(in: Storage.shared)
+        .publisher(in: dependencies[singleton: .storage], scheduling: dependencies[singleton: .scheduler])
         .mapToSessionTableViewData(for: self)
     
     // MARK: - Functions
@@ -242,7 +252,7 @@ class HelpViewModel: SessionTableViewModel<NoNav, HelpViewModel.Section, HelpVie
                     ),
                     confirmTitle: "Export",
                     dismissOnConfirm: false,
-                    onConfirm: { [weak self] modal in
+                    onConfirm: { [weak self, dependencies] modal in
                         modal.dismiss(animated: true) {
                             guard let password: String = self?.databaseKeyEncryptionPassword, password.count >= 6 else {
                                 self?.transitionToScreen(
@@ -258,7 +268,7 @@ class HelpViewModel: SessionTableViewModel<NoNav, HelpViewModel.Section, HelpVie
                             }
                             
                             do {
-                                let exportInfo = try Storage.shared.exportInfo(password: password)
+                                let exportInfo = try dependencies[singleton: .storage].exportInfo(password: password)
                                 let shareVC = UIActivityViewController(
                                     activityItems: [
                                         URL(fileURLWithPath: exportInfo.dbPath),

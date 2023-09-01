@@ -29,7 +29,7 @@ public enum GetExpirationJob: JobExecutor {
             return
         }
         
-        let expirationInfo: [String: TimeInterval] = dependencies.storage
+        let expirationInfo: [String: TimeInterval] = dependencies[singleton: .storage]
             .read(using: dependencies) { db -> [String: TimeInterval] in
                 details
                     .expirationInfo
@@ -75,7 +75,7 @@ public enum GetExpirationJob: JobExecutor {
                     let hashesToUseDefault: Set<String> = Set(expirationInfo.keys)
                         .subtracting(serverSpecifiedExpirationStartTimesMs.keys)
                     
-                    dependencies.storage.write(using: dependencies) { db in
+                    dependencies[singleton: .storage].write(using: dependencies) { db in
                         try serverSpecifiedExpirationStartTimesMs.forEach { hash, expiresStartedAtMs in
                             try Interaction
                                 .filter(Interaction.Columns.serverHash == hash)
@@ -93,7 +93,7 @@ public enum GetExpirationJob: JobExecutor {
                                 Interaction.Columns.expiresStartedAtMs.set(to: details.startedAtTimestampMs)
                             )
                         
-                        dependencies.jobRunner
+                        dependencies[singleton: .jobRunner]
                             .upsert(
                                 db,
                                 job: DisappearingMessagesJob.updateNextRunIfNeeded(db),
@@ -103,7 +103,7 @@ public enum GetExpirationJob: JobExecutor {
                     }
                     
                     guard hashesToUseDefault.isEmpty else {
-                        let updatedJob: Job? = dependencies.storage.write(using: dependencies) { db in
+                        let updatedJob: Job? = dependencies[singleton: .storage].write(using: dependencies) { db in
                             try job
                                 .with(nextRunTimestamp: dependencies.dateNow.timeIntervalSince1970 + minRunFrequency)
                                 .saved(db)

@@ -176,7 +176,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                         }
                     }
                     
-                    dependencies.storage
+                    dependencies[singleton: .storage]
                         .writePublisher { db in
                             try MessageSender
                                 .preparedSendData(
@@ -220,7 +220,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         let uuid: String = self.uuid
         let mediaConstraints: RTCMediaConstraints = mediaConstraints(false)
         
-        return dependencies.storage
+        return dependencies[singleton: .storage]
             .readPublisher { db -> SessionThread in
                 guard let thread: SessionThread = try? SessionThread.fetchOne(db, id: sessionId) else {
                     throw WebRTCSessionError.noThread
@@ -247,7 +247,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                             }
                         }
                         
-                        dependencies.storage
+                        dependencies[singleton: .storage]
                             .writePublisher { db in
                                 try MessageSender
                                     .preparedSendData(
@@ -300,7 +300,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         // Empty the queue
         self.queuedICECandidates.removeAll()
         
-        dependencies.storage
+        dependencies[singleton: .storage]
             .writePublisher { db in
                 guard let thread: SessionThread = try SessionThread.fetchOne(db, id: contactSessionId) else {
                     throw WebRTCSessionError.noThread

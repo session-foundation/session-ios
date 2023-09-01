@@ -35,7 +35,7 @@ extension MessageSender {
                     .eraseToAnyPublisher()
             }
             .map { displayPictureInfo -> PreparedGroupData? in
-                dependencies.storage.write { db -> PreparedGroupData in
+                dependencies[singleton: .storage].write(using: dependencies) { db -> PreparedGroupData in
                     // Create and cache the libSession entries
                     let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
                     let currentUserProfile: Profile = Profile.fetchOrCreateCurrentUser(db, using: dependencies)
@@ -91,7 +91,7 @@ extension MessageSender {
             .handleEvents(
                 receiveOutput: { _, group, members, preparedNotificationSubscription, currentUserPublicKey in
                     // Start polling
-                    ClosedGroupPoller.shared.startIfNeeded(for: group.id, using: dependencies)
+                    dependencies[singleton: .closedGroupPoller].startIfNeeded(for: group.id, using: dependencies)
                     
                     // Subscribe for push notifications (if PNs are enabled)
                     preparedNotificationSubscription?
@@ -100,11 +100,11 @@ extension MessageSender {
                         .sinkUntilComplete()
                     
                     // Save jobs for sending group member invitations
-                    dependencies.storage.write { db in
+                    dependencies[singleton: .storage].write(using: dependencies) { db in
                         members
                             .filter { $0.profileId != currentUserPublicKey }
                             .forEach { member in
-                                dependencies.jobRunner.add(
+                                dependencies[singleton: .jobRunner].add(
                                     db,
                                     job: Job(
                                         variant: .groupInviteMemberJob,

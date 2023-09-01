@@ -70,7 +70,7 @@ class JobRunnerSpec: QuickSpec {
                             stringValue: details.stringValue
                         )
                     )!
-                dependencies.storage.write { db in try _ = updatedJob.saved(db) }
+                dependencies[singleton: .storage].write { db in try _ = updatedJob.saved(db) }
                 
                 switch details.result {
                     case .success: success(job, true, dependencies)
@@ -101,23 +101,27 @@ class JobRunnerSpec: QuickSpec {
         var job1: Job!
         var job2: Job!
         var mockStorage: Storage!
-        var dependencies: Dependencies!
+        var dependencies: TestDependencies!
         
         describe("a JobRunner") {
             // MARK: - Configuration
             
             beforeEach {
+                dependencies = TestDependencies(
+                    dateNow: Date(timeIntervalSince1970: 0),
+                    forceSynchronous: true
+                )
                 mockStorage = SynchronousStorage(
                     customWriter: try! DatabaseQueue(),
                     customMigrationTargets: [
                         SNUtilitiesKit.self
-                    ]
+                    ],
+                    using: dependencies
                 )
-                dependencies = Dependencies(
-                    storage: mockStorage,
-                    dateNow: Date(timeIntervalSince1970: 0),
-                    forceSynchronous: true
-                )
+                jobRunner = JobRunner(isTestingJobRunner: true, using: dependencies)
+                
+                dependencies[singleton: .storage] = mockStorage
+                dependencies[singleton: .jobRunner] = jobRunner
                 
                 // Migrations add jobs which we don't want so delete them
                 mockStorage.write { db in try Job.deleteAll(db) }
@@ -147,13 +151,9 @@ class JobRunnerSpec: QuickSpec {
                     details: nil
                 )
                 
-                jobRunner = JobRunner(isTestingJobRunner: true, using: dependencies)
                 jobRunner.setExecutor(TestJob.self, for: .messageSend)
                 jobRunner.setExecutor(TestJob.self, for: .attachmentUpload)
                 jobRunner.setExecutor(TestJob.self, for: .messageReceive)
-                
-                // Need to assign this to ensure it's used by nested dependencies
-                dependencies.jobRunner = jobRunner
             }
             
             afterEach {

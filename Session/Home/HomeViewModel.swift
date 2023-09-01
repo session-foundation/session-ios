@@ -31,18 +31,20 @@ public class HomeViewModel {
     
     // MARK: - Initialization
     
-    init() {
+    init(
+        using dependencies: Dependencies = Dependencies()
+    ) {
         typealias InitialData = (
             showViewedSeedBanner: Bool,
             hasHiddenMessageRequests: Bool,
             profile: Profile
         )
         
-        let initialData: InitialData? = Storage.shared.read { db -> InitialData in
+        let initialData: InitialData? = dependencies[singleton: .storage].read { db -> InitialData in
             (
                 !db[.hasViewedSeed],
                 db[.hasHiddenMessageRequests],
-                Profile.fetchOrCreateCurrentUser(db)
+                Profile.fetchOrCreateCurrentUser(db, using: dependencies)
             )
         }
         
@@ -217,7 +219,8 @@ public class HomeViewModel {
                 )
                 
                 self?.hasReceivedInitialThreadData = true
-            }
+            },
+            using: dependencies
         )
         
         // Run the initial query on a background thread so we don't block the main thread

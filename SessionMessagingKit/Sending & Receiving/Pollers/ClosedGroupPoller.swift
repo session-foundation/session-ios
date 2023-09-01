@@ -6,6 +6,16 @@ import GRDB
 import SessionSnodeKit
 import SessionUtilitiesKit
 
+// MARK: - Singleton
+
+public extension Singleton {
+    static let closedGroupPoller: SingletonInfo.Config<ClosedGroupPoller> = SingletonInfo.create { _ in
+        ClosedGroupPoller()
+    }
+}
+
+// MARK: - ClosedGroupPoller
+
 public final class ClosedGroupPoller: Poller {
     public static var legacyNamespaces: [SnodeAPI.Namespace] = [.legacyClosedGroup ]
     public static var namespaces: [SnodeAPI.Namespace] = [
@@ -34,7 +44,7 @@ public final class ClosedGroupPoller: Poller {
     public func start(using dependencies: Dependencies = Dependencies()) {
         // Fetch all closed groups (excluding any don't contain the current user as a
         // GroupMemeber as the user is no longer a member of those)
-        dependencies.storage
+        dependencies[singleton: .storage]
             .read { db in
                 try ClosedGroup
                     .select(.threadId)
@@ -60,7 +70,7 @@ public final class ClosedGroupPoller: Poller {
     override func nextPollDelay(for publicKey: String, using dependencies: Dependencies) -> TimeInterval {
         // Get the received date of the last message in the thread. If we don't have
         // any messages yet, pick some reasonable fake time interval to use instead
-        let lastMessageDate: Date = dependencies.storage
+        let lastMessageDate: Date = dependencies[singleton: .storage]
             .read { db in
                 try Interaction
                     .filter(Interaction.Columns.threadId == publicKey)

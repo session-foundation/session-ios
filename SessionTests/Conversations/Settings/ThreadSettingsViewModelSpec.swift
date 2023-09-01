@@ -16,11 +16,10 @@ class ThreadSettingsViewModelSpec: QuickSpec {
     // MARK: - Spec
     
     override func spec() {
-        var mockStorage: Storage!
-        var mockCaches: MockCaches!
+        var dependencies: TestDependencies!
         var mockGeneralCache: MockGeneralCache!
+        var mockStorage: Storage!
         var disposables: [AnyCancellable] = []
-        var dependencies: Dependencies!
         var viewModel: ThreadSettingsViewModel!
         var didTriggerSearchCallbackTriggered: Bool = false
         
@@ -28,6 +27,11 @@ class ThreadSettingsViewModelSpec: QuickSpec {
             // MARK: - Configuration
             
             beforeEach {
+                dependencies = TestDependencies()
+                mockGeneralCache = MockGeneralCache()
+                mockGeneralCache.when { $0.encodedPublicKey }.thenReturn("05\(TestConstants.publicKey)")
+                dependencies[cache: .general] = mockGeneralCache
+                
                 mockStorage = SynchronousStorage(
                     customWriter: try! DatabaseQueue(),
                     customMigrationTargets: [
@@ -35,17 +39,12 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         SNSnodeKit.self,
                         SNMessagingKit.self,
                         SNUIKit.self
-                    ]
+                    ],
+                    using: dependencies
                 )
-                mockCaches = MockCaches()
-                mockGeneralCache = MockGeneralCache()
-                dependencies = Dependencies(
-                    storage: mockStorage,
-                    caches: mockCaches,
-                    scheduler: .immediate
-                )
-                mockCaches[.general] = mockGeneralCache
-                mockGeneralCache.when { $0.encodedPublicKey }.thenReturn("05\(TestConstants.publicKey)")
+                dependencies[singleton: .storage] = mockStorage
+                dependencies[singleton: .scheduler] = .immediate
+                
                 mockStorage.write { db in
                     try SessionThread(
                         id: "TestId",
@@ -94,9 +93,10 @@ class ThreadSettingsViewModelSpec: QuickSpec {
             afterEach {
                 disposables.forEach { $0.cancel() }
                 
+                dependencies = nil
+                mockGeneralCache = nil
                 mockStorage = nil
                 disposables = []
-                dependencies = nil
                 viewModel = nil
                 didTriggerSearchCallbackTriggered = false
             }

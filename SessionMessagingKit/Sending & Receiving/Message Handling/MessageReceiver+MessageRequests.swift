@@ -74,7 +74,7 @@ extension MessageReceiver {
             // If the sessionId matches the blindedId then this thread needs to be converted to an
             // un-blinded thread
             guard
-                dependencies.crypto.verify(
+                dependencies[singleton: .crypto].verify(
                     .sessionId(
                         senderId,
                         matchesBlindedId: blindedIdLookup.blindedId,

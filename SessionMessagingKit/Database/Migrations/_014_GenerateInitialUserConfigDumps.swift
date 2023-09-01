@@ -15,7 +15,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         // If we have no ed25519 key then there is no need to create cached dump data
         guard Identity.fetchUserEd25519KeyPair(db) != nil else {
-            Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
+            Storage.update(progress: 1, for: self, in: target, using: dependencies)
             return
         }
         
@@ -33,7 +33,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         // MARK: - UserProfile Config Dump
         
-        try dependencies.caches[.sessionUtil]
+        try dependencies[cache: .sessionUtil]
             .config(for: .userProfile, publicKey: userPublicKey)
             .mutate { config in
                 try SessionUtil.update(
@@ -64,7 +64,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         // MARK: - Contact Config Dump
         
-        try dependencies.caches[.sessionUtil]
+        try dependencies[cache: .sessionUtil]
             .config(for: .contacts, publicKey: userPublicKey)
             .mutate { config in
                 // Exclude Note to Self, community, group and outgoing blinded message requests
@@ -130,7 +130,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         // MARK: - ConvoInfoVolatile Config Dump
         
-        try dependencies.caches[.sessionUtil]
+        try dependencies[cache: .sessionUtil]
             .config(for: .convoInfoVolatile, publicKey: userPublicKey)
             .mutate { config in
                 let volatileThreadInfo: [SessionUtil.VolatileThreadInfo] = SessionUtil.VolatileThreadInfo
@@ -155,7 +155,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         // MARK: - UserGroups Config Dump
         
-        try dependencies.caches[.sessionUtil]
+        try dependencies[cache: .sessionUtil]
             .config(for: .userGroups, publicKey: userPublicKey)
             .mutate { config in
                 let legacyGroupData: [SessionUtil.LegacyGroupInfo] = try SessionUtil.LegacyGroupInfo.fetchAll(db)
@@ -200,7 +200,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
             ConfigurationSyncJob.enqueue(db, publicKey: userPublicKey)
         }
         
-        Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
+        Storage.update(progress: 1, for: self, in: target, using: dependencies)
     }
     
     struct ContactInfo: FetchableRecord, Decodable, ColumnExpressible {

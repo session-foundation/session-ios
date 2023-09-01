@@ -310,13 +310,19 @@ public enum MessageReceiver {
         }
         
         // Perform any required post-handling logic
-        try MessageReceiver.postHandleMessage(db, threadId: threadId, message: message)
+        try MessageReceiver.postHandleMessage(
+            db,
+            threadId: threadId,
+            message: message,
+            using: dependencies
+        )
     }
     
     public static func postHandleMessage(
         _ db: Database,
         threadId: String,
-        message: Message
+        message: Message,
+        using dependencies: Dependencies
     ) throws {
         // When handling any message type which has related UI we want to make sure the thread becomes
         // visible (the only other spot this flag gets set is when sending messages)
@@ -347,9 +353,11 @@ public enum MessageReceiver {
                 
                 // Start the disappearing messages timer if needed
                 // For disappear after send, this is necessary so the message will disappear even if it is not read
-                JobRunner.upsert(
+                dependencies[singleton: .jobRunner].upsert(
                     db,
-                    job: DisappearingMessagesJob.updateNextRunIfNeeded(db)
+                    job: DisappearingMessagesJob.updateNextRunIfNeeded(db),
+                    canStartJob: true,
+                    using: dependencies
                 )
 
                 guard !isCurrentlyVisible else { return }
@@ -359,7 +367,8 @@ public enum MessageReceiver {
                     .updateAllAndConfig(
                         db,
                         SessionThread.Columns.shouldBeVisible.set(to: true),
-                        SessionThread.Columns.pinnedPriority.set(to: SessionUtil.visiblePriority)
+                        SessionThread.Columns.pinnedPriority.set(to: SessionUtil.visiblePriority),
+                        using: dependencies
                     )
         }
     }

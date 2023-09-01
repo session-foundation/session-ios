@@ -32,7 +32,7 @@ class GlobalSearchViewController: BaseVC, SessionUtilRespondingViewController, U
     // MARK: - Variables
     
     private lazy var defaultSearchResults: [SectionModel] = {
-        let result: SessionThreadViewModel? = Storage.shared.read { db -> SessionThreadViewModel? in
+        let result: SessionThreadViewModel? = Dependencies()[singleton: .storage].read { db -> SessionThreadViewModel? in
             try SessionThreadViewModel
                 .noteToSelfOnlyQuery(userPublicKey: getUserHexEncodedPublicKey(db))
                 .fetchOne(db)
@@ -160,7 +160,11 @@ class GlobalSearchViewController: BaseVC, SessionUtilRespondingViewController, U
         }
     }
 
-    private func updateSearchResults(searchText rawSearchText: String, force: Bool = false) {
+    private func updateSearchResults(
+        searchText rawSearchText: String,
+        force: Bool = false,
+        using dependencies: Dependencies = Dependencies()
+    ) {
         let searchText = rawSearchText.stripped
         
         guard searchText.count > 0 else {
@@ -178,7 +182,7 @@ class GlobalSearchViewController: BaseVC, SessionUtilRespondingViewController, U
         DispatchQueue.global(qos: .default).async { [weak self] in
             self?.readConnection.wrappedValue?.interrupt()
             
-            let result: Result<[SectionModel], Error>? = Storage.shared.read { db -> Result<[SectionModel], Error> in
+            let result: Result<[SectionModel], Error>? = dependencies[singleton: .storage].read { db -> Result<[SectionModel], Error> in
                 self?.readConnection.mutate { $0 = db }
                 
                 do {
@@ -308,7 +312,13 @@ extension GlobalSearchViewController {
         }
     }
 
-    private func show(threadId: String, threadVariant: SessionThread.Variant, focusedInteractionInfo: Interaction.TimestampInfo? = nil, animated: Bool = true) {
+    private func show(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        focusedInteractionInfo: Interaction.TimestampInfo? = nil,
+        animated: Bool = true,
+        using dependencies: Dependencies = Dependencies()
+    ) {
         guard Thread.isMainThread else {
             DispatchQueue.main.async { [weak self] in
                 self?.show(threadId: threadId, threadVariant: threadVariant, focusedInteractionInfo: focusedInteractionInfo, animated: animated)
@@ -319,7 +329,7 @@ extension GlobalSearchViewController {
         // If it's a one-to-one thread then make sure the thread exists before pushing to it (in case the
         // contact has been hidden)
         if threadVariant == .contact {
-            Storage.shared.write { db in
+            dependencies[singleton: .storage].write { db in
                 try SessionThread.fetchOrCreate(
                     db,
                     id: threadId,

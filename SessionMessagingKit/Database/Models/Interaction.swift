@@ -456,9 +456,11 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         
         // Start the disappearing messages timer if needed
         if self.expiresStartedAtMs != nil {
-            JobRunner.upsert(
+            Dependencies()[singleton: .jobRunner].upsert(
                 db,
-                job: DisappearingMessagesJob.updateNextRunIfNeeded(db)
+                job: DisappearingMessagesJob.updateNextRunIfNeeded(db),
+                canStartJob: true,
+                using: Dependencies()
             )
         }
     }
@@ -544,14 +546,16 @@ public extension Interaction {
             // Add the 'DisappearingMessagesJob' if needed - this will update any expiring
             // messages `expiresStartedAtMs` values in local database, and create seperate
             // jobs updating message expiration
-            JobRunner.upsert(
+            dependencies[singleton: .jobRunner].upsert(
                 db,
                 job: DisappearingMessagesJob.updateNextRunIfNeeded(
                     db,
                     interactionIds: interactionInfo.map { $0.id },
                     startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs()),
-                    threadId: threadId
+                    threadId: threadId,
+                    using: dependencies
                 ),
+                canStartJob: true,
                 using: dependencies
             )
             
@@ -584,15 +588,17 @@ public extension Interaction {
             // If we want to send read receipts and it's a contact thread then try to add the
             // 'SendReadReceiptsJob' for and unread messages that weren't outgoing
             if trySendReadReceipt && threadVariant == .contact {
-                JobRunner.upsert(
+                dependencies[singleton: .jobRunner].upsert(
                     db,
                     job: SendReadReceiptsJob.createOrUpdateIfNeeded(
                         db,
                         threadId: threadId,
                         interactionIds: interactionInfo
                             .filter { !$0.wasRead && $0.variant != .standardOutgoing }
-                            .map { $0.id }
+                            .map { $0.id },
+                        using: dependencies
                     ),
+                    canStartJob: true,
                     using: dependencies
                 )
             }
@@ -871,7 +877,7 @@ public extension Interaction {
         if let openGroup: OpenGroup = try? OpenGroup.fetchOne(db, id: threadId) {
             if
                 let userEd25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
-                let blindedKeyPair: KeyPair = dependencies.crypto.generate(
+                let blindedKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
                     .blindedKeyPair(serverPublicKey: openGroup.publicKey, edKeyPair: userEd25519KeyPair, using: dependencies)
                 )
             {

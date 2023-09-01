@@ -23,7 +23,7 @@ public enum AttachmentDownloadJob: JobExecutor {
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData),
-            let attachment: Attachment = Storage.shared
+            let attachment: Attachment = dependencies[singleton: .storage]
                 .read({ db in try Attachment.fetchOne(db, id: details.attachmentId) })
         else {
             failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
@@ -42,7 +42,7 @@ public enum AttachmentDownloadJob: JobExecutor {
         // the same attachment multiple times at the same time (it also adds a "clean up" mechanism
         // if an attachment ends up stuck in a "downloading" state incorrectly
         guard attachment.state != .downloading else {
-            let otherCurrentJobAttachmentIds: Set<String> = dependencies.jobRunner
+            let otherCurrentJobAttachmentIds: Set<String> = dependencies[singleton: .jobRunner]
                 .jobInfoFor(state: .running, variant: .attachmentDownload)
                 .filter { key, _ in key != job.id }
                 .values
@@ -58,7 +58,7 @@ public enum AttachmentDownloadJob: JobExecutor {
             // then we should update the state of the attachment to be failed to avoid having attachments
             // appear in an endlessly downloading state
             if !otherCurrentJobAttachmentIds.contains(attachment.id) {
-                dependencies.storage.write { db in
+                dependencies[singleton: .storage].write { db in
                     _ = try Attachment
                         .filter(id: attachment.id)
                         .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.failedDownload))
@@ -76,7 +76,7 @@ public enum AttachmentDownloadJob: JobExecutor {
         }
         
         // Update to the 'downloading' state (no need to update the 'attachment' instance)
-        dependencies.storage.write { db in
+        dependencies[singleton: .storage].write { db in
             try Attachment
                 .filter(id: attachment.id)
                 .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.downloading))
@@ -94,7 +94,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                     let fileId: String = Attachment.fileId(for: downloadUrl)
                 else { throw AttachmentDownloadError.invalidUrl }
                 
-                return Storage.shared
+                return dependencies[singleton: .storage]
                     .readPublisher { db -> HTTP.PreparedRequest<Data>? in
                         try OpenGroup.fetchOne(db, id: threadId)
                             .map { openGroup in
@@ -164,7 +164,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                             ///
                             /// **Note:** We **MUST** use the `'with()` function here as it will update the
                             /// `isValid` and `duration` values based on the downloaded data and the state
-                            dependencies.storage.write { db in
+                            dependencies[singleton: .storage].write { db in
                                 _ = try attachment
                                     .with(
                                         state: .downloaded,
@@ -209,7 +209,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                             ///
                             /// **Note:** We **MUST** use the `'with()` function here as it will update the
                             /// `isValid` and `duration` values based on the downloaded data and the state
-                            dependencies.storage.write { db in
+                            dependencies[singleton: .storage].write { db in
                                 _ = try Attachment
                                     .filter(id: attachment.id)
                                     .updateAll(db, Attachment.Columns.state.set(to: targetState))

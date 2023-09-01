@@ -15,6 +15,7 @@ class MessageReceiverDisappearingMessagesSpec: QuickSpec {
     // MARK: - Spec
 
     override func spec() {
+        var dependencies: TestDependencies!
         var mockStorage: Storage!
         var mockProto: SNProtoContent!
         var mockMessage: VisibleMessage!
@@ -24,6 +25,7 @@ class MessageReceiverDisappearingMessagesSpec: QuickSpec {
             // MARK: - Configuration
             
             beforeEach {
+                dependencies = TestDependencies()
                 mockStorage = SynchronousStorage(
                     customWriter: try! DatabaseQueue(),
                     customMigrationTargets: [
@@ -31,8 +33,10 @@ class MessageReceiverDisappearingMessagesSpec: QuickSpec {
                         SNSnodeKit.self,
                         SNMessagingKit.self,
                         SNUIKit.self
-                    ]
+                    ],
+                    using: dependencies
                 )
+                dependencies[singleton: .storage] = mockStorage
                 
                 let proto = SNProtoContent.builder()
                 let dataMessage = SNProtoDataMessage.builder()
@@ -62,6 +66,7 @@ class MessageReceiverDisappearingMessagesSpec: QuickSpec {
             }
             
             afterEach {
+                dependencies = nil
                 mockStorage = nil
                 mockProto = nil
             }

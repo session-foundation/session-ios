@@ -60,7 +60,7 @@ extension OpenGroupAPI {
                 .receive(on: OpenGroupAPI.workQueue, using: dependencies)
                 .sinkUntilComplete(
                     receiveCompletion: { [weak self] _ in
-                        let minPollFailureCount: Int64 = dependencies.storage
+                        let minPollFailureCount: Int64 = dependencies[singleton: .storage]
                             .read { db in
                                 try OpenGroup
                                     .filter(OpenGroup.Columns.server == server)
@@ -117,15 +117,15 @@ extension OpenGroupAPI {
             
             self.isPolling = true
             let server: String = self.server
-            let hasPerformedInitialPoll: Bool = (dependencies.caches[.openGroupManager].hasPerformedInitialPoll[server] == true)
+            let hasPerformedInitialPoll: Bool = (dependencies[cache: .openGroupManager].hasPerformedInitialPoll[server] == true)
             let timeSinceLastPoll: TimeInterval = (
-                dependencies.caches[.openGroupManager].timeSinceLastPoll[server] ??
-                dependencies.caches.mutate(cache: .openGroupManager) { cache in
+                dependencies[cache: .openGroupManager].timeSinceLastPoll[server] ??
+                dependencies.mutate(cache: .openGroupManager) { cache in
                     cache.getTimeSinceLastOpen(using: dependencies)
                 }
             )
             
-            return dependencies.storage
+            return dependencies[singleton: .storage]
                 .readPublisher { db -> (Int64, HTTP.PreparedRequest<HTTP.BatchResponseMap<OpenGroupAPI.Endpoint>>) in
                     let failureCount: Int64 = (try? OpenGroup
                         .filter(OpenGroup.Columns.server == server)
@@ -168,10 +168,10 @@ extension OpenGroupAPI {
                         )
 
             
-                        dependencies.caches.mutate(cache: .openGroupManager) { cache in
+                        dependencies.mutate(cache: .openGroupManager) { cache in
                             cache.hasPerformedInitialPoll[server] = true
                             cache.timeSinceLastPoll[server] = dependencies.dateNow.timeIntervalSince1970
-                            dependencies.standardUserDefaults[.lastOpen] = dependencies.dateNow
+                            dependencies[singleton: .standardUserDefaults][.lastOpen] = dependencies.dateNow
                         }
 
                         SNLog("Open group polling finished for \(server).")
@@ -207,7 +207,7 @@ extension OpenGroupAPI {
                             receiveOutput: { [weak self] didHandleError in
                                 if !didHandleError && isBackgroundPollerValid() {
                                     // Increase the failure count
-                                    let pollFailureCount: Int64 = Storage.shared
+                                    let pollFailureCount: Int64 = dependencies[singleton: .storage]
                                         .read { db in
                                             try OpenGroup
                                                 .filter(OpenGroup.Columns.server == server)
@@ -218,7 +218,7 @@ extension OpenGroupAPI {
                                         .defaulting(to: 0)
                                     var prunedIds: [String] = []
 
-                                    dependencies.storage.writeAsync { db in
+                                    dependencies[singleton: .storage].writeAsync { db in
                                         struct Info: Decodable, FetchableRecord {
                                             let id: String
                                             let shouldBeVisible: Bool
@@ -321,7 +321,7 @@ extension OpenGroupAPI {
                     .eraseToAnyPublisher()
             }
             
-            return dependencies.storage
+            return dependencies[singleton: .storage]
                 .readPublisher { db in
                     try OpenGroupAPI.preparedCapabilities(
                         db,
@@ -341,7 +341,7 @@ extension OpenGroupAPI {
                     // Handle the updated capabilities and re-trigger the poll
                     strongSelf.isPolling = false
                     
-                    dependencies.storage.write { db in
+                    dependencies[singleton: .storage].write { db in
                         OpenGroupManager.handleCapabilities(
                             db,
                             capabilities: responseBody,
@@ -452,7 +452,7 @@ extension OpenGroupAPI {
                         default: return nil
                     }
                 }
-            let currentInfo: (capabilities: Capabilities, groups: [OpenGroup])? = dependencies.storage.read { db in
+            let currentInfo: (capabilities: Capabilities, groups: [OpenGroup])? = dependencies[singleton: .storage].read { db in
                 let allCapabilities: [Capability] = try Capability
                     .filter(Capability.Columns.openGroupServer == server)
                     .fetchAll(db)
@@ -514,7 +514,7 @@ extension OpenGroupAPI {
             // no need to do anything else
             guard !changedResponses.isEmpty || failureCount != 0 else { return }
             
-            dependencies.storage.write { db in
+            dependencies[singleton: .storage].write { db in
                 // Reset the failure count
                 if failureCount > 0 {
                     try OpenGroup

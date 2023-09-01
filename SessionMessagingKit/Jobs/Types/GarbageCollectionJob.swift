@@ -40,7 +40,7 @@ public enum GarbageCollectionJob: JobExecutor {
         /// app at about the same time every day will trigger the garbage collection) - since this runs when the app becomes active we
         /// want to prevent it running to frequently (the app becomes active if a system alert, the notification center or the control panel
         /// are shown)
-        let lastGarbageCollection: Date = dependencies.standardUserDefaults[.lastGarbageCollection]
+        let lastGarbageCollection: Date = dependencies[singleton: .standardUserDefaults][.lastGarbageCollection]
             .defaulting(to: Date.distantPast)
         let finalTypesToCollect: Set<Types> = {
             guard
@@ -58,7 +58,7 @@ public enum GarbageCollectionJob: JobExecutor {
             return typesToCollect.asSet()
         }()
         
-        dependencies.storage.writeAsync(
+        dependencies[singleton: .storage].writeAsync(
             updates: { db in
                 /// Remove any typing indicators
                 if finalTypesToCollect.contains(.threadTypingIndicators) {
@@ -345,7 +345,7 @@ public enum GarbageCollectionJob: JobExecutor {
                         let profileAvatarFilenames: Set<String>
                     }
                     
-                    let maybeFileInfo: FileInfo? = Storage.shared.read { db -> FileInfo in
+                    let maybeFileInfo: FileInfo? = dependencies[singleton: .storage].read { db -> FileInfo in
                         var attachmentLocalRelativePaths: Set<String> = []
                         var profileAvatarFilenames: Set<String> = []
                         
@@ -461,7 +461,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     // If we did a full collection then update the 'lastGarbageCollection' date to
                     // prevent a full collection from running again in the next 23 hours
                     if job.behaviour == .recurringOnActive && dependencies.dateNow.timeIntervalSince(lastGarbageCollection) > (23 * 60 * 60) {
-                        dependencies.standardUserDefaults[.lastGarbageCollection] = dependencies.dateNow
+                        dependencies[singleton: .standardUserDefaults][.lastGarbageCollection] = dependencies.dateNow
                     }
                     
                     success(job, false, dependencies)

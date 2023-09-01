@@ -48,4 +48,13 @@ class MockJobRunner: Mock<JobRunnerType>, JobRunnerType {
     func insert(_ db: Database, job: Job?, before otherJob: Job) -> (Int64, Job)? {
         return accept(args: [db, job, otherJob]) as? (Int64, Job)
     }
+    
+    func afterCurrentlyRunningJob(_ job: Job?, callback: @escaping (JobRunner.JobResult) -> ()) {
+        accept(args: [job, callback])
+        callback(.succeeded)
+    }
+    
+    func removePendingJob(_ job: Job?) {
+        accept(args: [job])
+    }
 }

@@ -113,7 +113,7 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
         }
         .removeDuplicates()
         .handleEvents(didFail: { SNLog("[PrivacySettingsViewModel] Observation failed with error: \($0)") })
-        .publisher(in: dependencies.storage)
+        .publisher(in: dependencies[singleton: .storage], scheduling: dependencies[singleton: .scheduler])
         .withPrevious()
         .map { [dependencies] (previous: State?, current: State) -> [SectionModel] in
             return [
@@ -148,7 +148,7 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                                     return
                                 }
                                 
-                                dependencies.storage.write { db in
+                                dependencies[singleton: .storage].write { db in
                                     try db.setAndUpdateConfig(
                                         .isScreenLockEnabled,
                                         to: !db[.isScreenLockEnabled],
@@ -174,7 +174,7 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                                 )
                             ),
                             onTap: { [weak self] in
-                                dependencies.storage.write { db in
+                                dependencies[singleton: .storage].write { db in
                                     try db.setAndUpdateConfig(
                                         .checkForCommunityMessageRequests,
                                         to: !db[.checkForCommunityMessageRequests],
@@ -200,7 +200,7 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                                 )
                             ),
                             onTap: {
-                                dependencies.storage.write { db in
+                                dependencies[singleton: .storage].write { db in
                                     try db.setAndUpdateConfig(
                                         .areReadReceiptsEnabled,
                                         to: !db[.areReadReceiptsEnabled],
@@ -258,7 +258,7 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                                 )
                             ),
                             onTap: {
-                                dependencies.storage.write { db in
+                                dependencies[singleton: .storage].write { db in
                                     try db.setAndUpdateConfig(
                                         .typingIndicatorsEnabled,
                                         to: !db[.typingIndicatorsEnabled],
@@ -284,7 +284,7 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                                 )
                             ),
                             onTap: {
-                                dependencies.storage.write { db in
+                                dependencies[singleton: .storage].write { db in
                                     try db.setAndUpdateConfig(
                                         .areLinkPreviewsEnabled,
                                         to: !db[.areLinkPreviewsEnabled],
@@ -322,7 +322,7 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                                 onConfirm: { _ in Permissions.requestMicrophonePermissionIfNeeded() }
                             ),
                             onTap: {
-                                dependencies.storage.write { db in
+                                dependencies[singleton: .storage].write { db in
                                     try db.setAndUpdateConfig(
                                         .areCallsEnabled,
                                         to: !db[.areCallsEnabled],

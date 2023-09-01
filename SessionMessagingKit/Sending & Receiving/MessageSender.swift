@@ -413,7 +413,7 @@ public final class MessageSender {
                 return SessionId(.unblinded, publicKey: userEdKeyPair.publicKey).hexString
             }
             guard
-                let blindedKeyPair: KeyPair = dependencies.crypto.generate(
+                let blindedKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
                     .blindedKeyPair(serverPublicKey: openGroup.publicKey, edKeyPair: userEdKeyPair, using: dependencies)
                 )
             else { throw MessageSenderError.signingFailed }
@@ -617,7 +617,7 @@ public final class MessageSender {
                     // Make sure to actually handle this as a failure (if we don't then the message
                     // won't go into an error state correctly)
                     if let message: Message = data.message {
-                        dependencies.storage.read { db in
+                        dependencies[singleton: .storage].read { db in
                             MessageSender.handleFailedMessageSend(
                                 db,
                                 message: message,
@@ -661,7 +661,7 @@ public final class MessageSender {
                 .eraseToAnyPublisher()
         }
         
-        return dependencies.network
+        return dependencies[singleton: .network]
             .send(.message(snodeMessage, in: namespace, using: dependencies))
             .flatMap { info, response -> AnyPublisher<Void, Error> in
                 let updatedMessage: Message = message
@@ -687,7 +687,7 @@ public final class MessageSender {
                     }
                 }()
 
-                return dependencies.storage
+                return dependencies[singleton: .storage]
                     .writePublisher { db -> Void in
                         try MessageSender.handleSuccessfulMessageSend(
                             db,
@@ -700,7 +700,7 @@ public final class MessageSender {
 
                         guard shouldNotify else { return () }
 
-                        dependencies.jobRunner.add(db, job: job, canStartJob: true, using: dependencies)
+                        dependencies[singleton: .jobRunner].add(db, job: job, canStartJob: true, using: dependencies)
                         return ()
                     }
                     .flatMap { _ -> AnyPublisher<Void, Error> in
@@ -747,7 +747,7 @@ public final class MessageSender {
                         case .failure(let error):
                             SNLog("Couldn't send message due to error: \(error).")
 
-                            dependencies.storage.read { db in
+                            dependencies[singleton: .storage].read { db in
                                 MessageSender.handleFailedMessageSend(
                                     db,
                                     message: message,
@@ -779,7 +779,7 @@ public final class MessageSender {
         }
         
         // Send the result
-        return dependencies.storage
+        return dependencies[singleton: .storage]
             .readPublisher { db in
                 try OpenGroupAPI
                     .preparedSend(
@@ -799,7 +799,7 @@ public final class MessageSender {
                 let updatedMessage: Message = message
                 updatedMessage.openGroupServerMessageId = UInt64(responseData.id)
                 
-                return dependencies.storage.writePublisher { db in
+                return dependencies[singleton: .storage].writePublisher { db in
                     // The `posted` value is in seconds but we sent it in ms so need that for de-duping
                     try MessageSender.handleSuccessfulMessageSend(
                         db,
@@ -818,7 +818,7 @@ public final class MessageSender {
                     switch result {
                         case .finished: break
                         case .failure(let error):
-                            dependencies.storage.read { db in
+                            dependencies[singleton: .storage].read { db in
                                 MessageSender.handleFailedMessageSend(
                                     db,
                                     message: message,
@@ -847,7 +847,7 @@ public final class MessageSender {
         }
         
         // Send the result
-        return dependencies.storage
+        return dependencies[singleton: .storage]
             .readPublisher { db in
                 try OpenGroupAPI
                     .preparedSend(
@@ -863,7 +863,7 @@ public final class MessageSender {
                 let updatedMessage: Message = message
                 updatedMessage.openGroupServerMessageId = UInt64(responseData.id)
                 
-                return dependencies.storage.writePublisher { db in
+                return dependencies[singleton: .storage].writePublisher { db in
                     // The `posted` value is in seconds but we sent it in ms so need that for de-duping
                     try MessageSender.handleSuccessfulMessageSend(
                         db,
@@ -882,7 +882,7 @@ public final class MessageSender {
                     switch result {
                         case .finished: break
                         case .failure(let error):
-                            dependencies.storage.read { db in
+                            dependencies[singleton: .storage].read { db in
                                 MessageSender.handleFailedMessageSend(
                                     db,
                                     message: message,
@@ -970,7 +970,7 @@ public final class MessageSender {
                         let serverHash: String = message.serverHash
                     {
                         let expirationTimestampMs: Int64 = Int64(startedAtMs + expiresInSeconds * 1000)
-                        JobRunner.add(
+                        dependencies[singleton: .jobRunner].add(
                             db,
                             job: Job(
                                 variant: .expirationUpdate,
@@ -980,7 +980,9 @@ public final class MessageSender {
                                     serverHashes: [serverHash],
                                     expirationTimestampMs: expirationTimestampMs
                                 )
-                            )
+                            ),
+                            canStartJob: true,
+                            using: dependencies
                         )
                     }
                 }
@@ -1052,7 +1054,7 @@ public final class MessageSender {
         // Need to dispatch to a different thread to prevent a potential db re-entrancy
         // issue from occuring in some cases
         DispatchQueue.global(qos: .background).async {
-            dependencies.storage.write { db in
+            dependencies[singleton: .storage].write { db in
                 try RecipientState
                     .filter(rowIds.contains(Column.rowID))
                     .updateAll(
@@ -1106,7 +1108,7 @@ public final class MessageSender {
             if let message = message as? VisibleMessage { message.syncTarget = publicKey }
             if let message = message as? ExpirationTimerUpdate { message.syncTarget = publicKey }
             
-            dependencies.jobRunner.add(
+            dependencies[singleton: .jobRunner].add(
                 db,
                 job: Job(
                     variant: .messageSend,

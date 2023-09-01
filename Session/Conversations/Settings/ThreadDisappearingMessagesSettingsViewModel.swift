@@ -483,7 +483,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
 
         guard self.config != updatedConfig else { return }
 
-        dependencies.storage.writeAsync(using: dependencies) { db in
+        dependencies[singleton: .storage].writeAsync(using: dependencies) { db in
             _ = try updatedConfig.saved(db)
             
             _ = try Interaction
@@ -523,7 +523,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
         }
         
         // Contacts & legacy closed groups need to update the SessionUtil
-        dependencies.storage.writeAsync(using: dependencies) { db in
+        dependencies[singleton: .storage].writeAsync(using: dependencies) { db in
             switch threadVariant {
                 case .contact:
                     try SessionUtil

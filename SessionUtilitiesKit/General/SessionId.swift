@@ -48,6 +48,6 @@ public struct SessionId {
     
     public init(_ type: Prefix, publicKey: Bytes) {
         self.prefix = type
-        self.publicKey = publicKey.map { String(format: "%02hhx", $0) }.joined()
+        self.publicKey = publicKey.toHexString()
     }
 }

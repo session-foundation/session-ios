@@ -22,7 +22,7 @@ public enum GroupInviteMemberJob: JobExecutor {
         guard
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
-            let currentInfo: (groupName: String, adminProfile: Profile) = dependencies.storage.read({ db in
+            let currentInfo: (groupName: String, adminProfile: Profile) = dependencies[singleton: .storage].read({ db in
                 let maybeGroupName: String? = try ClosedGroup
                     .filter(id: threadId)
                     .select(.name)

@@ -31,6 +31,18 @@ class ConversationSettingsViewModel: SessionTableViewModel<NoNav, ConversationSe
         }
     }
     
+    private let dependencies: Dependencies
+    
+    // MARK: - Initialization
+    
+    init(
+        using dependencies: Dependencies = Dependencies()
+    ) {
+        self.dependencies = dependencies
+        
+        super.init()
+    }
+    
     // MARK: - Content
     
     private struct State: Equatable {
@@ -58,9 +70,9 @@ class ConversationSettingsViewModel: SessionTableViewModel<NoNav, ConversationSe
         }
         .removeDuplicates()
         .handleEvents(didFail: { SNLog("[ConversationSettingsViewModel] Observation failed with error: \($0)") })
-        .publisher(in: Storage.shared)
+        .publisher(in: dependencies[singleton: .storage], scheduling: dependencies[singleton: .scheduler])
         .withPrevious()
-        .map { (previous: State?, current: State) -> [SectionModel] in
+        .map { [dependencies] (previous: State?, current: State) -> [SectionModel] in
             return [
                 SectionModel(
                     model: .messageTrimming,
@@ -77,7 +89,7 @@ class ConversationSettingsViewModel: SessionTableViewModel<NoNav, ConversationSe
                                 )
                             ),
                             onTap: {
-                                Storage.shared.write { db in
+                                dependencies[singleton: .storage].write { db in
                                     db[.trimOpenGroupMessagesOlderThanSixMonths] = !db[.trimOpenGroupMessagesOlderThanSixMonths]
                                 }
                             }
@@ -99,7 +111,7 @@ class ConversationSettingsViewModel: SessionTableViewModel<NoNav, ConversationSe
                                 )
                             ),
                             onTap: {
-                                Storage.shared.write { db in
+                                dependencies[singleton: .storage].write { db in
                                     db[.shouldAutoPlayConsecutiveAudioMessages] = !db[.shouldAutoPlayConsecutiveAudioMessages]
                                 }
                             }

@@ -34,7 +34,7 @@ public enum SendReadReceiptsJob: JobExecutor {
             return success(job, true, dependencies)
         }
         
-        dependencies.storage
+        dependencies[singleton: .storage]
             .writePublisher { db in
                 try MessageSender.preparedSendData(
                     db,
@@ -61,7 +61,7 @@ public enum SendReadReceiptsJob: JobExecutor {
                             var shouldFinishCurrentJob: Bool = false
                             let nextRunTimestamp: TimeInterval = (dependencies.dateNow.timeIntervalSince1970 + maxRunFrequency)
                             
-                            let updatedJob: Job? = Storage.shared.write { db in
+                            let updatedJob: Job? = dependencies[singleton: .storage].write { db in
                                 // If another 'sendReadReceipts' job was scheduled then update that one
                                 // to run at 'nextRunTimestamp' and make the current job stop
                                 if
@@ -70,7 +70,7 @@ public enum SendReadReceiptsJob: JobExecutor {
                                         .filter(Job.Columns.variant == Job.Variant.sendReadReceipts)
                                         .filter(Job.Columns.threadId == threadId)
                                         .fetchOne(db),
-                                    !JobRunner.isCurrentlyRunning(existingJob)
+                                    !dependencies[singleton: .jobRunner].isCurrentlyRunning(existingJob)
                                 {
                                     _ = try existingJob
                                         .with(nextRunTimestamp: nextRunTimestamp)
@@ -110,7 +110,12 @@ public extension SendReadReceiptsJob {
     ///
     /// **Note:** This method assumes that the provided `interactionIds` are valid and won't filter out any invalid ids so
     /// ensure that is done correctly beforehand
-    @discardableResult static func createOrUpdateIfNeeded(_ db: Database, threadId: String, interactionIds: [Int64]) -> Job? {
+    @discardableResult static func createOrUpdateIfNeeded(
+        _ db: Database,
+        threadId: String,
+        interactionIds: [Int64],
+        using dependencies: Dependencies
+    ) -> Job? {
         guard db[.areReadReceiptsEnabled] == true else { return nil }
         guard !interactionIds.isEmpty else { return nil }
         
@@ -132,7 +137,7 @@ public extension SendReadReceiptsJob {
                 .filter(Job.Columns.variant == Job.Variant.sendReadReceipts)
                 .filter(Job.Columns.threadId == threadId)
                 .fetchOne(db),
-            !JobRunner.isCurrentlyRunning(existingJob),
+            !dependencies[singleton: .jobRunner].isCurrentlyRunning(existingJob),
             let existingDetailsData: Data = existingJob.details,
             let existingDetails: Details = try? JSONDecoder().decode(Details.self, from: existingDetailsData)
         {

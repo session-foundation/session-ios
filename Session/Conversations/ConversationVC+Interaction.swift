@@ -77,7 +77,7 @@ extension ConversationVC:
     @objc func startCall(_ sender: Any?) {
         guard SessionCall.isEnabled else { return }
         guard viewModel.threadData.threadIsBlocked == false else { return }
-        guard Storage.shared[.areCallsEnabled] else {
+        guard Dependencies()[singleton: .storage][.areCallsEnabled] else {
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "modal_call_permission_request_title".localized(),
@@ -111,7 +111,7 @@ extension ConversationVC:
         guard AVAudioSession.sharedInstance().recordPermission == .granted else { return }
         guard self.viewModel.threadData.threadVariant == .contact else { return }
         guard AppEnvironment.shared.callManager.currentCall == nil else { return }
-        guard let call: SessionCall = Storage.shared.read({ db in SessionCall(db, for: threadId, uuid: UUID().uuidString.lowercased(), mode: .offer, outgoing: true) }) else {
+        guard let call: SessionCall = Dependencies()[singleton: .storage].read({ db in SessionCall(db, for: threadId, uuid: UUID().uuidString.lowercased(), mode: .offer, outgoing: true) }) else {
             return
         }
         
@@ -240,14 +240,14 @@ extension ConversationVC:
     // MARK: - ExpandingAttachmentsButtonDelegate
 
     func handleGIFButtonTapped() {
-        guard Storage.shared[.isGiphyEnabled] else {
+        guard Dependencies()[singleton: .storage][.isGiphyEnabled] else {
             let modal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "GIPHY_PERMISSION_TITLE".localized(),
                     body: .text("GIPHY_PERMISSION_MESSAGE".localized()),
                     confirmTitle: "continue_2".localized()
                 ) { [weak self] _ in
-                    Storage.shared.writeAsync(
+                    Dependencies()[singleton: .storage].writeAsync(
                         updates: { db in
                             db[.isGiphyEnabled] = true
                         },
@@ -539,7 +539,7 @@ extension ConversationVC:
             let quoteThumbnailAttachment: Attachment? = optimisticData.quoteModel?.attachment?.cloneAsQuoteThumbnail()
             
             // Actually send the message
-            dependencies.storage
+            dependencies[singleton: .storage]
                 .writePublisher { [weak self] db in
                     // Update the thread to be visible (if it isn't already)
                     if self?.viewModel.threadData.threadShouldBeVisible == false {
@@ -592,12 +592,13 @@ extension ConversationVC:
                     )
                     
                     // Trigger disappear after read
-                    dependencies.jobRunner.upsert(
+                    dependencies[singleton: .jobRunner].upsert(
                         db,
                         job: DisappearingMessagesJob.updateNextRunIfNeeded(
                             db,
                             interaction: insertedInteraction,
-                            startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs())
+                            startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs(using: dependencies)),
+                            using: dependencies
                         ),
                         canStartJob: true,
                         using: dependencies
@@ -619,14 +620,14 @@ extension ConversationVC:
     }
 
     func handleMessageSent() {
-        if Storage.shared[.playNotificationSoundInForeground] {
+        if Dependencies()[singleton: .storage][.playNotificationSoundInForeground] {
             let soundID = Preferences.Sound.systemSoundId(for: .messageSent, quiet: true)
             AudioServicesPlaySystemSound(soundID)
         }
         
         let threadId: String = self.viewModel.threadData.threadId
         
-        Storage.shared.writeAsync { db in
+        Dependencies()[singleton: .storage].writeAsync { db in
             TypingIndicators.didStopTyping(db, threadId: threadId, direction: .outgoing)
             
             _ = try SessionThread
@@ -642,7 +643,7 @@ extension ConversationVC:
                 body: .text("modal_link_previews_explanation".localized()),
                 confirmTitle: "modal_link_previews_button_title".localized()
             ) { [weak self] _ in
-                Storage.shared.writeAsync { db in
+                Dependencies()[singleton: .storage].writeAsync { db in
                     db[.areLinkPreviewsEnabled] = true
                 }
                 
@@ -675,7 +676,7 @@ extension ConversationVC:
             )
             
             if needsToStartTypingIndicator {
-                Storage.shared.writeAsync { db in
+                Dependencies()[singleton: .storage].writeAsync { db in
                     TypingIndicators.start(db, threadId: threadId, direction: .outgoing)
                 }
             }
@@ -939,8 +940,8 @@ extension ConversationVC:
                         let threadId: String = self.viewModel.threadData.threadId
                         
                         // Retry downloading the failed attachment
-                        dependencies.storage.writeAsync { db in
-                            dependencies.jobRunner.add(
+                        dependencies[singleton: .storage].writeAsync { db in
+                            dependencies[singleton: .jobRunner].add(
                                 db,
                                 job: Job(
                                     variant: .attachmentDownload,
@@ -1026,7 +1027,7 @@ extension ConversationVC:
             case .textOnlyMessage:
                 if let quote: Quote = cellViewModel.quote {
                     // Scroll to the original quoted message
-                    let maybeOriginalInteractionInfo: Interaction.TimestampInfo? = Storage.shared.read { db in
+                    let maybeOriginalInteractionInfo: Interaction.TimestampInfo? = Dependencies()[singleton: .storage].read { db in
                         try quote.originalInteraction
                             .select(.id, .timestampMs)
                             .asRequest(of: Interaction.TimestampInfo.self)
@@ -1099,7 +1100,7 @@ extension ConversationVC:
         // FIXME: Add in support for starting a thread with a 'blinded25' id
         guard SessionId.Prefix(from: sessionId) != .blinded25 else { return }
         guard SessionId.Prefix(from: sessionId) == .blinded15 else {
-            Storage.shared.write { db in
+            Dependencies()[singleton: .storage].write { db in
                 try SessionThread
                     .fetchOrCreate(db, id: sessionId, variant: .contact, shouldBeVisible: nil)
             }
@@ -1116,7 +1117,7 @@ extension ConversationVC:
             return
         }
         
-        let targetThreadId: String? = Storage.shared.write { db in
+        let targetThreadId: String? = Dependencies()[singleton: .storage].write { db in
             let lookup: BlindedIdLookup = try BlindedIdLookup
                 .fetchOrCreate(
                     db,
@@ -1211,7 +1212,7 @@ extension ConversationVC:
     func removeAllReactions(_ cellViewModel: MessageViewModel, for emoji: String, using dependencies: Dependencies) {
         guard cellViewModel.threadVariant == .community else { return }
         
-        Storage.shared
+        Dependencies()[singleton: .storage]
             .readPublisher { db -> (HTTP.PreparedRequest<OpenGroupAPI.ReactionRemoveAllResponse>, OpenGroupAPI.PendingChange) in
                 guard
                     let openGroup: OpenGroup = try? OpenGroup
@@ -1258,7 +1259,7 @@ extension ConversationVC:
             }
             .sinkUntilComplete(
                 receiveCompletion: { _ in
-                    Storage.shared.writeAsync { db in
+                    Dependencies()[singleton: .storage].writeAsync { db in
                         _ = try Reaction
                             .filter(Reaction.Columns.interactionId == cellViewModel.id)
                             .filter(Reaction.Columns.emoji == emoji)
@@ -1285,7 +1286,7 @@ extension ConversationVC:
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         let openGroupRoom: String? = self.viewModel.threadData.openGroupRoomToken
         let sentTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs()
-        let recentReactionTimestamps: [Int64] = dependencies.caches[.general].recentReactionTimestamps
+        let recentReactionTimestamps: [Int64] = dependencies[cache: .general].recentReactionTimestamps
         
         guard
             recentReactionTimestamps.count < 20 ||
@@ -1303,7 +1304,7 @@ extension ConversationVC:
             return
         }
         
-        dependencies.caches.mutate(cache: .general) {
+        dependencies.mutate(cache: .general) {
             $0.recentReactionTimestamps = Array($0.recentReactionTimestamps
                 .suffix(19))
                 .appending(sentTimestamp)
@@ -1340,7 +1341,7 @@ extension ConversationVC:
         }
         .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
         .flatMap { pendingChange -> AnyPublisher<(MessageSender.PreparedSendData?, OpenGroupInfo?), Error> in
-            dependencies.storage.writePublisher { [weak self] db -> (MessageSender.PreparedSendData?, OpenGroupInfo?) in
+            dependencies[singleton: .storage].writePublisher { [weak self] db -> (MessageSender.PreparedSendData?, OpenGroupInfo?) in
                 // Update the thread to be visible (if it isn't already)
                 if self?.viewModel.threadData.threadShouldBeVisible == false {
                     _ = try SessionThread
@@ -1496,7 +1497,7 @@ extension ConversationVC:
     
     func handleReactionSentFailure(_ pendingReaction: Reaction?, remove: Bool) {
         guard let pendingReaction = pendingReaction else { return }
-        Storage.shared.writeAsync { db in
+        Dependencies()[singleton: .storage].writeAsync { db in
             // Reverse the database
             if remove {
                 try pendingReaction.insert(db)
@@ -1547,7 +1548,7 @@ extension ConversationVC:
         
         if cellViewModel.state != .failedToSync {
             sheet.addAction(UIAlertAction(title: "TXT_DELETE_TITLE".localized(), style: .destructive, handler: { _ in
-                Storage.shared.writeAsync { db in
+                dependencies[singleton: .storage].writeAsync { db in
                     try Interaction
                         .filter(id: cellViewModel.id)
                         .deleteAll(db)
@@ -1614,7 +1615,7 @@ extension ConversationVC:
                         return presentingViewController.present(errorModal, animated: true, completion: nil)
                     }
                     
-                    Storage.shared
+                    Dependencies()[singleton: .storage]
                         .writePublisher { db in
                             OpenGroupManager.shared.add(
                                 db,
@@ -1643,7 +1644,7 @@ extension ConversationVC:
                                         // If there was a failure then the group will be in invalid state until
                                         // the next launch so remove it (the user will be left on the previous
                                         // screen so can re-trigger the join)
-                                        Storage.shared.writeAsync { db in
+                                        Dependencies()[singleton: .storage].writeAsync { db in
                                             OpenGroupManager.shared.delete(
                                                 db,
                                                 openGroupId: OpenGroup.idFor(roomToken: room, server: server),
@@ -1710,7 +1711,7 @@ extension ConversationVC:
             return
         }
         
-        dependencies.storage.writeAsync { [weak self] db in
+        dependencies[singleton: .storage].writeAsync { [weak self] db in
             guard
                 let threadId: String = self?.viewModel.threadData.threadId,
                 let threadVariant: SessionThread.Variant = self?.viewModel.threadData.threadVariant,
@@ -1828,7 +1829,7 @@ extension ConversationVC:
                 // Info messages and unsent messages should just trigger a local
                 // deletion (they are created as side effects so we wouldn't be
                 // able to delete them for all participants anyway)
-                Storage.shared.writeAsync { db in
+                Dependencies()[singleton: .storage].writeAsync { db in
                     _ = try Interaction
                         .filter(id: cellViewModel.id)
                         .deleteAll(db)
@@ -1862,7 +1863,7 @@ extension ConversationVC:
                         case .failure: break
                         case .finished:
                             // Delete the interaction (and associated data) from the database
-                            Storage.shared.writeAsync { db in
+                            Dependencies()[singleton: .storage].writeAsync { db in
                                 _ = try Interaction
                                     .filter(id: cellViewModel.id)
                                     .deleteAll(db)
@@ -1884,7 +1885,7 @@ extension ConversationVC:
             // Handle open group messages the old way
             case .community:
                 // If it's an incoming message the user must have moderator status
-                let result: (openGroupServerMessageId: Int64?, openGroup: OpenGroup?)? = Storage.shared.read { db -> (Int64?, OpenGroup?) in
+                let result: (openGroupServerMessageId: Int64?, openGroup: OpenGroup?)? = dependencies[singleton: .storage].read { db -> (Int64?, OpenGroup?) in
                     (
                         try Interaction
                             .select(.openGroupServerMessageId)
@@ -1910,7 +1911,7 @@ extension ConversationVC:
                     guard cellViewModel.state == .sending || cellViewModel.state == .failed else { return }
                     
                     // Retrieve any message send jobs for this interaction
-                    let jobs: [Job] = Storage.shared
+                    let jobs: [Job] = dependencies[singleton: .storage]
                         .read { db in
                             try? Job
                                 .filter(Job.Columns.variant == Job.Variant.messageSend)
@@ -1921,10 +1922,12 @@ extension ConversationVC:
                     
                     // If the job is currently running then wait until it's done before triggering
                     // the deletion
-                    let targetJob: Job? = jobs.first(where: { JobRunner.isCurrentlyRunning($0) })
+                    let targetJob: Job? = jobs.first(where: { job -> Bool in
+                        dependencies[singleton: .jobRunner].isCurrentlyRunning(job)
+                    })
                     
                     guard targetJob == nil else {
-                        JobRunner.afterCurrentlyRunningJob(targetJob) { [weak self] result in
+                        dependencies[singleton: .jobRunner].afterCurrentlyRunningJob(targetJob) { [weak self] result in
                             switch result {
                                 // If it succeeded then we'll need to delete from the server so re-run
                                 // this function (if we still don't have the server id for some reason
@@ -1934,9 +1937,9 @@ extension ConversationVC:
                                 // Otherwise we just need to cancel the pending job (in case it retries)
                                 // and delete the interaction
                                 default:
-                                    JobRunner.removePendingJob(targetJob)
+                                    dependencies[singleton: .jobRunner].removePendingJob(targetJob)
                                     
-                                    Storage.shared.writeAsync { db in
+                                    dependencies[singleton: .storage].writeAsync { db in
                                         _ = try Interaction
                                             .filter(id: cellViewModel.id)
                                             .deleteAll(db)
@@ -1948,9 +1951,9 @@ extension ConversationVC:
                     
                     // If it's not currently running then remove any pending jobs (just to be safe) and
                     // delete the interaction locally
-                    jobs.forEach { JobRunner.removePendingJob($0) }
+                    jobs.forEach { dependencies[singleton: .jobRunner].removePendingJob($0) }
                     
-                    Storage.shared.writeAsync { db in
+                    dependencies[singleton: .storage].writeAsync { db in
                         _ = try Interaction
                             .filter(id: cellViewModel.id)
                             .deleteAll(db)
@@ -1961,7 +1964,7 @@ extension ConversationVC:
                 // Delete the message from the open group
                 deleteRemotely(
                     from: self,
-                    request: Storage.shared
+                    request: dependencies[singleton: .storage]
                         .readPublisher { db in
                             try OpenGroupAPI.preparedMessageDelete(
                                 db,
@@ -1982,7 +1985,7 @@ extension ConversationVC:
                     userPublicKey :
                     cellViewModel.threadId
                 )
-                let serverHash: String? = Storage.shared.read { db -> String? in
+                let serverHash: String? = dependencies[singleton: .storage].read { db -> String? in
                     try Interaction
                         .select(.serverHash)
                         .filter(id: cellViewModel.id)
@@ -1999,7 +2002,7 @@ extension ConversationVC:
                 
                 // For incoming interactions or interactions with no serverHash just delete them locally
                 guard cellViewModel.variant == .standardOutgoing, let serverHash: String = serverHash else {
-                    Storage.shared.writeAsync { db in
+                    dependencies[singleton: .storage].writeAsync { db in
                         _ = try Interaction
                             .filter(id: cellViewModel.id)
                             .deleteAll(db)
@@ -2027,7 +2030,7 @@ extension ConversationVC:
                     accessibilityIdentifier: "Delete for me",
                     style: .destructive
                 ) { [weak self] _ in
-                    Storage.shared.writeAsync { db in
+                    dependencies[singleton: .storage].writeAsync { db in
                         _ = try Interaction
                             .filter(id: cellViewModel.id)
                             .deleteAll(db)
@@ -2060,7 +2063,7 @@ extension ConversationVC:
                     style: .destructive
                 ) { [weak self] _ in
                     let completeServerDeletion = { [weak self] in
-                        Storage.shared.writeAsync { db in
+                        dependencies[singleton: .storage].writeAsync { db in
                             try MessageSender
                                 .send(
                                     db,
@@ -2159,7 +2162,7 @@ extension ConversationVC:
                 confirmTitle: "BUTTON_OK".localized(),
                 cancelStyle: .alert_text,
                 onConfirm: { [weak self] _ in
-                    Storage.shared
+                    Dependencies()[singleton: .storage]
                         .readPublisher { db -> HTTP.PreparedRequest<NoResponse> in
                             guard let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId) else {
                                 throw StorageError.objectNotFound
@@ -2215,7 +2218,7 @@ extension ConversationVC:
                 confirmTitle: "BUTTON_OK".localized(),
                 cancelStyle: .alert_text,
                 onConfirm: { [weak self] _ in
-                    dependencies.storage
+                    dependencies[singleton: .storage]
                         .readPublisher { db in
                             guard let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId) else {
                                 throw StorageError.objectNotFound
@@ -2407,7 +2410,7 @@ extension ConversationVC:
         let threadId: String = self.viewModel.threadData.threadId
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         
-        dependencies.storage.writeAsync { db in
+        dependencies[singleton: .storage].writeAsync { db in
             try MessageSender.send(
                 db,
                 message: DataExtractionNotification(
@@ -2477,11 +2480,11 @@ extension ConversationVC {
         // (it'll be updated with correct profile info if they accept the message request so this
         // shouldn't cause weird behaviours)
         guard
-            let contact: Contact = Storage.shared.read({ db in Contact.fetchOrCreate(db, id: threadId) }),
+            let contact: Contact = Dependencies()[singleton: .storage].read({ db in Contact.fetchOrCreate(db, id: threadId) }),
             !contact.isApproved
         else { return }
         
-        Storage.shared
+        Dependencies()[singleton: .storage]
             .writePublisher { db in
                 // If we aren't creating a new thread (ie. sending a message request) then send a
                 // messageRequestResponse back to the sender (this allows the sender to know that

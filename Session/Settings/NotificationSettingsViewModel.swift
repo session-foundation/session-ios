@@ -39,6 +39,18 @@ class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSe
         case content
     }
     
+    private let dependencies: Dependencies
+    
+    // MARK: - Initialization
+    
+    init(
+        using dependencies: Dependencies = Dependencies()
+    ) {
+        self.dependencies = dependencies
+        
+        super.init()
+    }
+    
     // MARK: - Content
     
     private struct State: Equatable {
@@ -72,7 +84,7 @@ class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSe
         }
         .removeDuplicates()
         .handleEvents(didFail: { SNLog("[NotificationSettingsViewModel] Observation failed with error: \($0)") })
-        .publisher(in: Storage.shared)
+        .publisher(in: dependencies[singleton: .storage], scheduling: dependencies[singleton: .scheduler])
         .manualRefreshFrom(forcedRefresh)
         .map { dbState -> State in
             State(
@@ -83,7 +95,7 @@ class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSe
             )
         }
         .withPrevious()
-        .map { (previous: State?, current: State) -> [SectionModel] in
+        .map { [dependencies] (previous: State?, current: State) -> [SectionModel] in
             return [
                 SectionModel(
                     model: .strategy,
@@ -154,7 +166,7 @@ class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSe
                                 )
                             ),
                             onTap: {
-                                Storage.shared.write { db in
+                                dependencies[singleton: .storage].write { db in
                                     db[.playNotificationSoundInForeground] = !db[.playNotificationSoundInForeground]
                                 }
                             }

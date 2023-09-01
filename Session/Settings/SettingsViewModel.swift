@@ -69,6 +69,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     // MARK: - Variables
     
     private let userSessionId: String
+    private let dependencies: Dependencies
     private lazy var imagePickerHandler: ImagePickerHandler = ImagePickerHandler(
         onTransition: { [weak self] in self?.transitionToScreen($0, transitionType: $1) },
         onImageDataPicked: { [weak self] resultImageData in
@@ -87,9 +88,12 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     
     // MARK: - Initialization
     
-    override init() {
-        self.userSessionId = getUserHexEncodedPublicKey()
-        self.oldDisplayName = Profile.fetchOrCreateCurrentUser().name
+    init(
+        using dependencies: Dependencies = Dependencies()
+    ) {
+        self.userSessionId = getUserHexEncodedPublicKey(using: dependencies)
+        self.oldDisplayName = Profile.fetchOrCreateCurrentUser(using: dependencies).name
+        self.dependencies = dependencies
         
         super.init()
     }
@@ -482,7 +486,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
         }
         .removeDuplicates()
         .handleEvents(didFail: { SNLog("[SettingsViewModel] Observation failed with error: \($0)") })
-        .publisher(in: Storage.shared)
+        .publisher(in: dependencies[singleton: .storage], scheduling: dependencies[singleton: .scheduler])
         .mapToSessionTableViewData(for: self)
     
     public override var footerView: AnyPublisher<UIView?, Never> {

@@ -59,11 +59,11 @@ public extension Crypto.Action {
             id: "encryptAeadXChaCha20",
             args: [message, secretKey, nonce, additionalData]
         ) {
-            guard secretKey.count == dependencies.crypto.size(.aeadXChaCha20KeyBytes) else { return nil }
+            guard secretKey.count == dependencies[singleton: .crypto].size(.aeadXChaCha20KeyBytes) else { return nil }
 
             var authenticatedCipherText = Bytes(
                 repeating: 0,
-                count: message.count + dependencies.crypto.size(.aeadXChaCha20ABytes)
+                count: message.count + dependencies[singleton: .crypto].size(.aeadXChaCha20ABytes)
             )
             var authenticatedCipherTextLen: UInt64 = 0
 
@@ -132,7 +132,7 @@ public extension Crypto.Action {
             
             guard
                 !serverPubKeyData.isEmpty,
-                let serverPublicKeyHashBytes: Bytes = try? dependencies.crypto.perform(
+                let serverPublicKeyHashBytes: Bytes = try? dependencies[singleton: .crypto].perform(
                     .hash(message: [UInt8](serverPubKeyData), outputLength: 64)
                 )
             else { return nil }
@@ -290,11 +290,11 @@ public extension Crypto.Action {
             args: [secretKey, otherBlindedPublicKey, kA, kB]
         ) {
             let aBytes: Bytes = generatePrivateKeyScalar(secretKey: secretKey)
-            let combinedKeyBytes: Bytes = try dependencies.crypto.perform(
+            let combinedKeyBytes: Bytes = try dependencies[singleton: .crypto].perform(
                 .combineKeys(lhsKeyBytes: aBytes, rhsKeyBytes: otherBlindedPublicKey)
             )
             
-            return try dependencies.crypto.perform(
+            return try dependencies[singleton: .crypto].perform(
                 .hash(message: (combinedKeyBytes + kA + kB), outputLength: 32)
             )
         }
@@ -315,7 +315,7 @@ public extension Crypto.KeyPairType {
             guard
                 edKeyPair.publicKey.count == Crypto.Action.publicKeyLength,
                 edKeyPair.secretKey.count == Crypto.Action.secretKeyLength,
-                let kBytes: Bytes = try? dependencies.crypto.perform(
+                let kBytes: Bytes = try? dependencies[singleton: .crypto].perform(
                     .generateBlindingFactor(serverPublicKey: serverPublicKey, using: dependencies)
                 )
             else { return nil }
@@ -371,7 +371,7 @@ public extension Crypto.Verification {
                     blindedId.prefix == .blinded15 ||
                     blindedId.prefix == .blinded25
                 ),
-                let kBytes: Bytes = try? dependencies.crypto.perform(
+                let kBytes: Bytes = try? dependencies[singleton: .crypto].perform(
                     .generateBlindingFactor(serverPublicKey: serverPublicKey, using: dependencies)
                 )
             else { return false }
@@ -385,7 +385,7 @@ public extension Crypto.Verification {
             
             /// Blind the positive public key
             guard
-                let pk1: Bytes = try? dependencies.crypto.perform(
+                let pk1: Bytes = try? dependencies[singleton: .crypto].perform(
                     .combineKeys(lhsKeyBytes: kBytes, rhsKeyBytes: xEd25519Key.bytes)
                 )
             else { return false }

@@ -48,7 +48,7 @@ enum Onboarding {
             .map { _ -> String? in
                 guard requestId == profileNameRetrievalIdentifier.wrappedValue else { return nil }
                 
-                return Storage.shared.read { db in
+                return dependencies[singleton: .storage].read { db in
                     try Profile
                         .filter(id: userPublicKey)
                         .select(.name)
@@ -89,7 +89,7 @@ enum Onboarding {
             SessionUtil.clearMemoryState(using: dependencies)
             
             // Clear any data which gets set during Onboarding
-            dependencies.storage.write { db in
+            dependencies[singleton: .storage].write { db in
                 db[.hasViewedSeed] = false
                 
                 try SessionThread.deleteAll(db)
@@ -104,7 +104,7 @@ enum Onboarding {
             profileNameRetrievalIdentifier.mutate { $0 = nil }
             profileNameRetrievalPublisher.mutate { $0 = nil }
             
-            dependencies.standardUserDefaults[.hasSyncedInitialConfiguration] = false
+            dependencies[singleton: .standardUserDefaults][.hasSyncedInitialConfiguration] = false
         }
         
         func preregister(
@@ -116,7 +116,7 @@ enum Onboarding {
             let x25519PublicKey = x25519KeyPair.hexEncodedPublicKey
             
             // Store the user identity information
-            Storage.shared.write { db in
+            dependencies[singleton: .storage].write { db in
                 try Identity.store(
                     db,
                     seed: seed,
@@ -166,7 +166,7 @@ enum Onboarding {
             // home screen a configuration sync is triggered (yes, the logic is a
             // bit weird). This is needed so that if the user registers and
             // immediately links a device, there'll be a configuration in their swarm.
-            dependencies.standardUserDefaults[.hasSyncedInitialConfiguration] = (self == .register)
+            dependencies[singleton: .standardUserDefaults][.hasSyncedInitialConfiguration] = (self == .register)
             
             // Only continue if this isn't a new account
             guard self != .register else { return }
@@ -182,7 +182,7 @@ enum Onboarding {
             // what the user set in the display name step with whatever we find in their
             // swarm (otherwise the user could enter a display name and have it immediately
             // overwritten due to the config request running slow)
-            dependencies.storage.write { db in
+            dependencies[singleton: .storage].write { db in
                 try Profile
                     .filter(id: getUserHexEncodedPublicKey(db))
                     .updateAllAndConfig(

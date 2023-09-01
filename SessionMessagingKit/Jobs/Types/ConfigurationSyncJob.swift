@@ -30,8 +30,7 @@ public enum ConfigurationSyncJob: JobExecutor {
         // between the jobs we just continue to defer the subsequent job while the first one is running in
         // order to prevent multiple configurationSync jobs with the same target from running at the same time
         guard
-            dependencies
-                .jobRunner
+            dependencies[singleton: .jobRunner]
                 .jobInfoFor(state: .running, variant: .configurationSync)
                 .filter({ key, info in
                     key != job.id &&                // Exclude this job
@@ -41,7 +40,7 @@ public enum ConfigurationSyncJob: JobExecutor {
         else {
             // Defer the job to run 'maxRunFrequency' from when this one ran (if we don't it'll try start
             // it again immediately which is pointless)
-            let updatedJob: Job? = dependencies.storage.write { db in
+            let updatedJob: Job? = dependencies[singleton: .storage].write { db in
                 try job
                     .with(nextRunTimestamp: dependencies.dateNow.timeIntervalSince1970 + maxRunFrequency)
                     .saved(db)
@@ -56,7 +55,7 @@ public enum ConfigurationSyncJob: JobExecutor {
         // fresh install due to the migrations getting run)
         guard
             let publicKey: String = job.threadId,
-            let pendingConfigChanges: [SessionUtil.OutgoingConfResult] = dependencies.storage
+            let pendingConfigChanges: [SessionUtil.OutgoingConfResult] = dependencies[singleton: .storage]
                 .read(using: dependencies, { db in
                     try SessionUtil.pendingChanges(db, publicKey: publicKey, using: dependencies)
                 })
@@ -73,7 +72,7 @@ public enum ConfigurationSyncJob: JobExecutor {
         }
         
         // Identify the destination and merge all obsolete hashes into a single set
-        let destination: Message.Destination = (publicKey == getUserHexEncodedPublicKey() ?
+        let destination: Message.Destination = (publicKey == getUserHexEncodedPublicKey(using: dependencies) ?
             Message.Destination.contact(publicKey: publicKey) :
             Message.Destination.closedGroup(groupPublicKey: publicKey)
         )
@@ -84,7 +83,7 @@ public enum ConfigurationSyncJob: JobExecutor {
         let jobStartTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         SNLog("[ConfigurationSyncJob] For \(publicKey) started with \(pendingConfigChanges.count) change\(pendingConfigChanges.count == 1 ? "" : "s")")
         
-        dependencies.storage
+        dependencies[singleton: .storage]
             .readPublisher { db in
                 try pendingConfigChanges.map { change -> MessageSender.PreparedSendData in
                     try MessageSender.preparedSendData(
@@ -152,7 +151,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                     var shouldFinishCurrentJob: Bool = false
                     
                     // Lastly we need to save the updated dumps to the database
-                    let updatedJob: Job? = dependencies.storage.write { db in
+                    let updatedJob: Job? = dependencies[singleton: .storage].write { db in
                         // Save the updated dumps to the database
                         try configDumps.forEach { try $0.save(db) }
                         
@@ -173,7 +172,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                         {
                             // If the next job isn't currently running then delay it's start time
                             // until the 'nextRunTimestamp'
-                            if !dependencies.jobRunner.isCurrentlyRunning(existingJob) {
+                            if !dependencies[singleton: .jobRunner].isCurrentlyRunning(existingJob) {
                                 _ = try existingJob
                                     .with(nextRunTimestamp: nextRunTimestamp)
                                     .saved(db)
@@ -204,7 +203,7 @@ public extension ConfigurationSyncJob {
         dependencies: Dependencies = Dependencies()
     ) {
         // Upsert a config sync job if needed
-        dependencies.jobRunner.upsert(
+        dependencies[singleton: .jobRunner].upsert(
             db,
             job: ConfigurationSyncJob.createIfNeeded(db, publicKey: publicKey, using: dependencies),
             canStartJob: true,
@@ -222,7 +221,7 @@ public extension ConfigurationSyncJob {
         ///
         /// **Note:** Jobs with different `threadId` values can run concurrently
         guard
-            dependencies.jobRunner
+            dependencies[singleton: .jobRunner]
                 .jobInfoFor(state: .running, variant: .configurationSync)
                 .filter({ _, info in info.threadId == publicKey })
                 .isEmpty,

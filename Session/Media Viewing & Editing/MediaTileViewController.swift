@@ -39,7 +39,7 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
 
     init(viewModel: MediaGalleryViewModel) {
         self.viewModel = viewModel
-        Storage.shared.addObserver(viewModel.pagedDataObserver)
+        Dependencies()[singleton: .storage].addObserver(viewModel.pagedDataObserver)
 
         super.init(nibName: nil, bundle: nil)
     }
@@ -691,7 +691,7 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
         }()
 
         let deleteAction = UIAlertAction(title: confirmationTitle, style: .destructive) { [weak self] _ in
-            Storage.shared.writeAsync { db in
+            Dependencies()[singleton: .storage].writeAsync { db in
                 let interactionIds: Set<Int64> = items
                     .map { $0.interactionId }
                     .asSet()
@@ -701,7 +701,7 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
                     .deleteAll(db)
                 
                 // Add the garbage collection job to delete orphaned attachment files
-                JobRunner.add(
+                Dependencies()[singleton: .jobRunner].add(
                     db,
                     job: Job(
                         variant: .garbageCollection,
@@ -709,7 +709,9 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
                         details: GarbageCollectionJob.Details(
                             typesToCollect: [.orphanedAttachmentFiles]
                         )
-                    )
+                    ),
+                    canStartJob: true,
+                    using: Dependencies()
                 )
                 
                 // Delete any interactions which had all of their attachments removed

@@ -24,13 +24,13 @@ public enum UpdateProfilePictureJob: JobExecutor {
         
         // Only re-upload the profile picture if enough time has passed since the last upload
         guard
-            let lastProfilePictureUpload: Date = dependencies.standardUserDefaults[.lastProfilePictureUpload],
+            let lastProfilePictureUpload: Date = dependencies[singleton: .standardUserDefaults][.lastProfilePictureUpload],
             dependencies.dateNow.timeIntervalSince(lastProfilePictureUpload) > (14 * 24 * 60 * 60)
         else {
             // Reset the `nextRunTimestamp` value just in case the last run failed so we don't get stuck
             // in a loop endlessly deferring the job
             if let jobId: Int64 = job.id {
-                dependencies.storage.write { db in
+                dependencies[singleton: .storage].write { db in
                     try Job
                         .filter(id: jobId)
                         .updateAll(db, Job.Columns.nextRunTimestamp.set(to: 0))

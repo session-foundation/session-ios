@@ -3,9 +3,21 @@
 import Foundation
 import Combine
 
+// MARK: - Singleton
+
+public extension Singleton {
+    static let network: SingletonInfo.Config<NetworkType> = SingletonInfo.create { _ in
+        Network()
+    }
+}
+
+// MARK: - NetworkType
+
 public protocol NetworkType {
     func send<T>(_ request: Network.RequestType<T>) -> AnyPublisher<(ResponseInfoType, T), Error>
 }
+
+// MARK: - Network
 
 public class Network: NetworkType {
     public struct RequestType<T> {

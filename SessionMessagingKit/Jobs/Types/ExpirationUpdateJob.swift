@@ -62,7 +62,7 @@ public enum ExpirationUpdateJob: JobExecutor {
                 receiveValue: { unchangedMessages in
                     guard !unchangedMessages.isEmpty else { return }
                     
-                    dependencies.storage.writeAsync(using: dependencies) { db in
+                    dependencies[singleton: .storage].writeAsync(using: dependencies) { db in
                         try unchangedMessages.forEach { updatedExpiry, hashes in
                             try hashes.forEach { hash in
                                 guard

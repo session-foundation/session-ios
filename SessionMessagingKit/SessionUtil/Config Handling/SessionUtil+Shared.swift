@@ -68,7 +68,7 @@ internal extension SessionUtil {
         let needsPush: Bool
         
         do {
-            needsPush = try dependencies.caches[.sessionUtil]
+            needsPush = try dependencies[cache: .sessionUtil]
                 .config(for: variant, publicKey: publicKey)
                 .mutate { config in
                     // Peform the change
@@ -257,7 +257,7 @@ internal extension SessionUtil {
         // Currently the only synced setting is 'checkForCommunityMessageRequests'
         switch key {
             case Setting.BoolKey.checkForCommunityMessageRequests.rawValue:
-                return try dependencies.caches[.sessionUtil]
+                return try dependencies[cache: .sessionUtil]
                     .config(for: .userProfile, publicKey: userPublicKey)
                     .wrappedValue
                     .map { config -> Bool in (try SessionUtil.rawBlindedMessageRequestValue(in: config) >= 0) }
@@ -439,7 +439,7 @@ public extension SessionUtil {
             }
         }()
         
-        return dependencies.caches[.sessionUtil]
+        return dependencies[cache: .sessionUtil]
             .config(for: configVariant, publicKey: userPublicKey)
             .wrappedValue
             .map { config in
@@ -467,7 +467,7 @@ public extension SessionUtil {
                         return (!visibleOnly || SessionUtil.shouldBeVisible(priority: contact.priority))
                         
                     case .community:
-                        let maybeUrlInfo: OpenGroupUrlInfo? = Storage.shared
+                        let maybeUrlInfo: OpenGroupUrlInfo? = dependencies[singleton: .storage]
                             .read { db in try OpenGroupUrlInfo.fetchAll(db, ids: [threadId]) }?
                             .first
                         

@@ -27,7 +27,7 @@ public enum NotifyPushServerJob: JobExecutor {
             return failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
         }
         
-        dependencies.storage
+        dependencies[singleton: .storage]
             .readPublisher(using: dependencies) { db in
                 try PushNotificationAPI.preparedLegacyNotify(
                     recipient: details.message.recipient,

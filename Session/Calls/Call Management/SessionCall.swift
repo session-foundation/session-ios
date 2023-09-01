@@ -274,7 +274,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         webRTCSession.hangUp()
         
-        Storage.shared.writeAsync { [weak self] db in
+        Dependencies()[singleton: .storage].writeAsync { [weak self] db in
             try self?.webRTCSession.endCall(db, with: sessionId)
         }
         
@@ -289,7 +289,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         let duration: TimeInterval = self.duration
         let hasStartedConnecting: Bool = self.hasStartedConnecting
         
-        dependencies.storage.writeAsync(
+        dependencies[singleton: .storage].writeAsync(
             updates: { db in
                 guard let interaction: Interaction = try? Interaction.fetchOne(db, id: callInteractionId) else {
                     return
@@ -430,7 +430,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         let sessionId: String = self.sessionId
         let webRTCSession: WebRTCSession = self.webRTCSession
         
-        guard let thread: SessionThread = Storage.shared.read({ db in try SessionThread.fetchOne(db, id: sessionId) }) else {
+        guard let thread: SessionThread = Dependencies()[singleton: .storage].read({ db in try SessionThread.fetchOne(db, id: sessionId) }) else {
             return
         }
         

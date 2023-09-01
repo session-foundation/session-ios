@@ -47,7 +47,7 @@ public enum AppSetup {
             appSpecificBlock()
             
             /// `performMainSetup` **MUST** run before `perform(migrations:)`
-            Configuration.performMainSetup()
+            Configuration.performMainSetup(using: dependencies)
             
             runPostSetupMigrations(
                 backgroundTask: backgroundTask,
@@ -65,10 +65,10 @@ public enum AppSetup {
         backgroundTask: OWSBackgroundTask? = nil,
         migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
         migrationsCompletion: @escaping (Result<Void, Error>, Bool) -> (),
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) {
         // If the database can't be initialised into a valid state then error
-        guard Storage.shared.isValid else {
+        guard dependencies[singleton: .storage].isValid else {
             DispatchQueue.main.async {
                 migrationsCompletion(Result.failure(StorageError.databaseInvalid), false)
             }
@@ -77,7 +77,7 @@ public enum AppSetup {
         
         var backgroundTask: OWSBackgroundTask? = (backgroundTask ?? OWSBackgroundTask(labelStr: #function))
         
-        dependencies.storage.perform(
+        dependencies[singleton: .storage].perform(
             migrationTargets: [
                 SNUtilitiesKit.self,
                 SNSnodeKit.self,
@@ -88,7 +88,7 @@ public enum AppSetup {
             onMigrationRequirement: { db, requirement in
                 switch requirement {
                     case .sessionUtilStateLoaded:
-                        guard Identity.userExists(db) else { return }
+                        guard Identity.userExists(db, using: dependencies) else { return }
                         
                         // After the migrations have run but before the migration completion we load the
                         // SessionUtil state
@@ -98,7 +98,7 @@ public enum AppSetup {
             onComplete: { result, needsConfigSync in
                 // The 'needsConfigSync' flag should be based on whether either a migration or the
                 // configs need to be sync'ed
-                migrationsCompletion(result, (needsConfigSync || dependencies.caches[.sessionUtil].needsSync))
+                migrationsCompletion(result, (needsConfigSync || dependencies[cache: .sessionUtil].needsSync))
                 
                 // The 'if' is only there to prevent the "variable never read" warning from showing
                 if backgroundTask != nil { backgroundTask = nil }

@@ -14,7 +14,7 @@ public enum General {
 
 public extension Cache {
     static let general: CacheInfo.Config<GeneralCacheType, ImmutableGeneralCacheType> = CacheInfo.create(
-        createInstance: { General.Cache() },
+        createInstance: { _ in General.Cache() },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )
@@ -31,13 +31,13 @@ public enum GeneralError: Error {
 // MARK: - Convenience
 
 public func getUserHexEncodedPublicKey(_ db: Database? = nil, using dependencies: Dependencies = Dependencies()) -> String {
-    if let cachedKey: String = dependencies.caches[.general].encodedPublicKey { return cachedKey }
+    if let cachedKey: String = dependencies[cache: .general].encodedPublicKey { return cachedKey }
     
     // Can be nil under some circumstances
     if let publicKey: Data = Identity.fetchUserPublicKey(db, using: dependencies) {
         let sessionId: SessionId = SessionId(.standard, publicKey: publicKey.bytes)
         
-        dependencies.caches.mutate(cache: .general) { $0.encodedPublicKey = sessionId.hexString }
+        dependencies.mutate(cache: .general) { $0.encodedPublicKey = sessionId.hexString }
         return sessionId.hexString
     }
     

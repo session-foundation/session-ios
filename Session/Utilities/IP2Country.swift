@@ -63,7 +63,7 @@ final class IP2Country {
     }
 
     @discardableResult func populateCacheIfNeeded() -> Bool {
-        guard let pathToDisplay: [Snode] = OnionRequestAPI.paths.first else { return false }
+        guard let pathToDisplay: [Snode] = Dependencies()[cache: .onionRequestAPI].paths.first else { return false }
         
         countryNamesCache.mutate { [weak self] cache in
             pathToDisplay.forEach { snode in

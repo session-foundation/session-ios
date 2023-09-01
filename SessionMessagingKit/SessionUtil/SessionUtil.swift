@@ -40,7 +40,7 @@ public enum SessionUtil {
     // MARK: - Loading
     
     public static func clearMemoryState(using dependencies: Dependencies) {
-        dependencies.caches.mutate(cache: .sessionUtil) { cache in
+        dependencies.mutate(cache: .sessionUtil) { cache in
             cache.removeAll()
         }
     }
@@ -49,8 +49,8 @@ public enum SessionUtil {
         // Ensure we have the ed25519 key and that we haven't already loaded the state before
         // we continue
         guard
-            let ed25519SecretKey: [UInt8] = Identity.fetchUserEd25519KeyPair(db)?.secretKey,
-            dependencies.caches[.sessionUtil].isEmpty
+            let ed25519SecretKey: [UInt8] = Identity.fetchUserEd25519KeyPair(db, using: dependencies)?.secretKey,
+            dependencies[cache: .sessionUtil].isEmpty
         else { return }
         
         // Retrieve the existing dumps from the database
@@ -71,7 +71,7 @@ public enum SessionUtil {
             .defaulting(to: [:])
         
         // Create the 'config_object' records for each dump
-        dependencies.caches.mutate(cache: .sessionUtil) { cache in
+        dependencies.mutate(cache: .sessionUtil) { cache in
             existingDumps.forEach { dump in
                 cache.setConfig(
                     for: dump.variant,
@@ -82,7 +82,7 @@ public enum SessionUtil {
                         userEd25519SecretKey: ed25519SecretKey,
                         groupEd25519SecretKey: groupsByKey[dump.publicKey].map { Array($0) },
                         cachedData: dump.data,
-                        using: dependencies
+                        cache: cache
                     )
                 )
             }
@@ -97,7 +97,7 @@ public enum SessionUtil {
                         userEd25519SecretKey: ed25519SecretKey,
                         groupEd25519SecretKey: nil,
                         cachedData: nil,
-                        using: dependencies
+                        cache: cache
                     )
                 )
             }
@@ -110,7 +110,7 @@ public enum SessionUtil {
         userEd25519SecretKey: [UInt8],
         groupEd25519SecretKey: [UInt8]?,
         cachedData: Data?,
-        using dependencies: Dependencies
+        cache: SessionUtilCacheType
     ) throws -> Config {
         // Setup initial variables (including getting the memory address for any cached data)
         var conf: UnsafeMutablePointer<config_object>? = nil
@@ -218,10 +218,10 @@ public enum SessionUtil {
                 case .groupKeys:
                     var identityPublicKey: [UInt8] = Array(Data(hex: publicKey))
                     var adminSecretKey: [UInt8]? = groupEd25519SecretKey
-                    let infoConfig: Config? = dependencies.caches[.sessionUtil]
+                    let infoConfig: Config? = cache
                         .config(for: .groupInfo, publicKey: publicKey)
                         .wrappedValue
-                    let membersConfig: Config? = dependencies.caches[.sessionUtil]
+                    let membersConfig: Config? = cache
                         .config(for: .groupMembers, publicKey: publicKey)
                         .wrappedValue
                     
@@ -299,7 +299,7 @@ public enum SessionUtil {
         // data yet (to deal with first launch cases)
         return try existingDumpVariants
             .compactMap { variant -> OutgoingConfResult? in
-                try dependencies.caches[.sessionUtil]
+                try dependencies[cache: .sessionUtil]
                     .config(for: variant, publicKey: publicKey)
                     .wrappedValue
                     .map { config -> OutgoingConfResult? in
@@ -357,7 +357,7 @@ public enum SessionUtil {
         publicKey: String,
         using dependencies: Dependencies
     ) -> ConfigDump? {
-        return dependencies.caches[.sessionUtil]
+        return dependencies[cache: .sessionUtil]
             .config(for: message.kind.configDumpVariant, publicKey: publicKey)
             .mutate { config -> ConfigDump? in
                 guard config != nil else { return nil }
@@ -381,7 +381,7 @@ public enum SessionUtil {
         for publicKey: String,
         using dependencies: Dependencies
     ) -> [String] {
-        return dependencies.storage
+        return dependencies[singleton: .storage]
             .read { db -> Set<ConfigDump.Variant> in
                 guard Identity.userExists(db) else { return [] }
                 
@@ -394,7 +394,7 @@ public enum SessionUtil {
             .defaulting(to: [])
             .map { variant -> [String] in
                 /// Extract all existing hashes for any dumps associated with the given `publicKey`
-                dependencies.caches[.sessionUtil]
+                dependencies[cache: .sessionUtil]
                     .config(for: variant, publicKey: publicKey)
                     .wrappedValue
                     .map { $0.currentHashes() }
@@ -421,7 +421,7 @@ public enum SessionUtil {
             .sorted { lhs, rhs in lhs.key.processingOrder < rhs.key.processingOrder }
             .reduce(false) { prevNeedsPush, next -> Bool in
                 let latestConfigSentTimestampMs: Int64 = Int64(next.value.compactMap { $0.sentTimestamp }.max() ?? 0)
-                let needsPush: Bool = try dependencies.caches[.sessionUtil]
+                let needsPush: Bool = try dependencies[cache: .sessionUtil]
                     .config(for: next.key, publicKey: publicKey)
                     .mutate { config in
                         // Merge the messages
@@ -622,7 +622,7 @@ public extension SessionUtil {
 
 public extension Cache {
     static let sessionUtil: CacheInfo.Config<SessionUtilCacheType, SessionUtilImmutableCacheType> = CacheInfo.create(
-        createInstance: { SessionUtil.Cache() },
+        createInstance: { _ in SessionUtil.Cache() },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )

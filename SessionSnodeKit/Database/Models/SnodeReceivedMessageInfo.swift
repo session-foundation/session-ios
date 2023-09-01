@@ -85,7 +85,7 @@ public extension SnodeReceivedMessageInfo {
         // Delete any expired SnodeReceivedMessageInfo values associated to a specific node (even
         // though this runs very quickly we fetch the rowIds we want to delete from a 'read' call
         // to avoid blocking the write queue since this method is called very frequently)
-        let rowIds: [Int64] = dependencies.storage
+        let rowIds: [Int64] = dependencies[singleton: .storage]
             .read { db in
                 // Only prune the hashes if new hashes exist for this Snode (if they don't then
                 // we don't want to clear out the legacy hashes)
@@ -107,7 +107,7 @@ public extension SnodeReceivedMessageInfo {
         // If there are no rowIds to delete then do nothing
         guard !rowIds.isEmpty else { return }
         
-        dependencies.storage.write { db in
+        dependencies[singleton: .storage].write { db in
             try SnodeReceivedMessageInfo
                 .filter(rowIds.contains(Column.rowID))
                 .deleteAll(db)
@@ -125,7 +125,7 @@ public extension SnodeReceivedMessageInfo {
         associatedWith publicKey: String,
         using dependencies: Dependencies
     ) -> SnodeReceivedMessageInfo? {
-        return dependencies.storage.read { db in
+        return dependencies[singleton: .storage].read { db in
             let nonLegacyHash: SnodeReceivedMessageInfo? = try SnodeReceivedMessageInfo
                 .filter(
                     SnodeReceivedMessageInfo.Columns.wasDeletedOrInvalid == nil ||

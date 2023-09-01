@@ -30,6 +30,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         guard let notificationContent = request.content.mutableCopy() as? UNMutableNotificationContent else {
             return self.completeSilenty()
         }
+        
+        // Called via the OS so create a default 'Dependencies' instance
+        let dependencies: Dependencies = Dependencies()
 
         // Abort if the main app is running
         guard !(UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false) else {
@@ -45,12 +48,12 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             .defaulting(to: false)
 
         // Perform main setup
-        Storage.resumeDatabaseAccess()
-        DispatchQueue.main.sync { self.setUpIfNecessary() { } }
+        Storage.resumeDatabaseAccess(using: dependencies)
+        DispatchQueue.main.sync { self.setUpIfNecessary(using: dependencies) }
 
         // Handle the push notification
         AppReadiness.runNowOrWhenAppDidBecomeReady {
-            let openGroupPollingPublishers: [AnyPublisher<Void, Error>] = self.pollForOpenGroups()
+            let openGroupPollingPublishers: [AnyPublisher<Void, Error>] = self.pollForOpenGroups(using: dependencies)
             defer {
                 Publishers
                     .MergeMany(openGroupPollingPublishers)
@@ -84,7 +87,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             // HACK: It is important to use write synchronously here to avoid a race condition
             // where the completeSilenty() is called before the local notification request
             // is added to notification center
-            Storage.shared.write { db in
+            dependencies[singleton: .storage].write { db in
                 do {
                     guard let processedMessage: ProcessedMessage = try Message.processRawReceivedMessageAsNotification(db, envelope: envelope) else {
                         self.handleFailure(for: notificationContent)
@@ -203,7 +206,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     try MessageReceiver.postHandleMessage(
                         db,
                         threadId: processedMessage.threadId,
-                        message: processedMessage.messageInfo.message
+                        message: processedMessage.messageInfo.message,
+                        using: dependencies
                     )
                 }
                 catch {
@@ -220,7 +224,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 
     // MARK: Setup
 
-    private func setUpIfNecessary(completion: @escaping () -> Void) {
+    private func setUpIfNecessary(
+        using dependencies: Dependencies,
+        completion: @escaping () -> Void = {}
+    ) {
         AssertIsOnMainThread()
 
         // The NSE will often re-use the same process, so if we're
@@ -254,49 +261,59 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         // this path should never occur. However, the service does have our push token
                         // so it is possible that could change in the future. If it does, do nothing
                         // and don't disturb the user. Messages will be processed when they open the app.
-                        guard Storage.shared[.isReadyForAppExtensions] else {
+                        guard dependencies[singleton: .storage][.isReadyForAppExtensions] else {
                             NSLog("[NotificationServiceExtension] Not ready for extensions")
                             self?.completeSilenty()
                             return
                         }
                         
                         DispatchQueue.main.async {
-                            self?.versionMigrationsDidComplete(needsConfigSync: needsConfigSync)
+                            self?.versionMigrationsDidComplete(
+                                needsConfigSync: needsConfigSync,
+                                using: dependencies
+                            )
                         }
                 }
                 
                 completion()
-            }
+            },
+            using: dependencies
         )
     }
     
-    private func versionMigrationsDidComplete(needsConfigSync: Bool) {
+    private func versionMigrationsDidComplete(
+        needsConfigSync: Bool,
+        using dependencies: Dependencies
+    ) {
         AssertIsOnMainThread()
 
         // If we need a config sync then trigger it now
         if needsConfigSync {
-            Storage.shared.write { db in
-                ConfigurationSyncJob.enqueue(db, publicKey: getUserHexEncodedPublicKey(db))
+            dependencies[singleton: .storage].write { db in
+                ConfigurationSyncJob.enqueue(db, publicKey: getUserHexEncodedPublicKey(db, using: dependencies))
             }
         }
 
-        checkIsAppReady(migrationsCompleted: true)
+        checkIsAppReady(migrationsCompleted: true, using: dependencies)
     }
 
-    private func checkIsAppReady(migrationsCompleted: Bool) {
+    private func checkIsAppReady(
+        migrationsCompleted: Bool,
+        using dependencies: Dependencies
+    ) {
         AssertIsOnMainThread()
 
         // Only mark the app as ready once.
         guard !AppReadiness.isAppReady() else { return }
 
         // App isn't ready until storage is ready AND all version migrations are complete.
-        guard Storage.shared.isValid && migrationsCompleted else {
+        guard dependencies[singleton: .storage].isValid && migrationsCompleted else {
             NSLog("[NotificationServiceExtension] Storage invalid")
             self.completeSilenty()
             return
         }
 
-        SignalUtilitiesKit.Configuration.performMainSetup()
+        SignalUtilitiesKit.Configuration.performMainSetup(using: dependencies)
 
         // Note that this does much more than set a flag; it will also run all deferred blocks.
         AppReadiness.setAppIsReady()
@@ -387,8 +404,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     
     // MARK: - Poll for open groups
     
-    private func pollForOpenGroups() -> [AnyPublisher<Void, Error>] {
-        return Storage.shared
+    private func pollForOpenGroups(
+        using dependencies: Dependencies
+    ) -> [AnyPublisher<Void, Error>] {
+        return dependencies[singleton: .storage]
             .read { db in
                 // The default room promise creates an OpenGroup with an empty `roomToken` value,
                 // we don't want to start a poller for this as the user hasn't actually joined a room

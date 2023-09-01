@@ -282,14 +282,16 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         quoteView.pin(.bottom, to: .bottom, of: additionalContentContainer, withInset: -6)
     }
 
-    private func autoGenerateLinkPreviewIfPossible() {
+    private func autoGenerateLinkPreviewIfPossible(
+        using dependencies: Dependencies = Dependencies()
+    ) {
         // Don't allow link previews on 'none' or 'textOnly' input
         guard enabledMessageTypes == .all else { return }
 
         // Suggest that the user enable link previews if they haven't already and we haven't
         // told them about link previews yet
         let text = inputTextView.text!
-        let areLinkPreviewsEnabled: Bool = Storage.shared[.areLinkPreviewsEnabled]
+        let areLinkPreviewsEnabled: Bool = dependencies[singleton: .storage][.areLinkPreviewsEnabled]
         
         if
             !LinkPreview.allPreviewUrls(forMessageBodyText: text).isEmpty &&

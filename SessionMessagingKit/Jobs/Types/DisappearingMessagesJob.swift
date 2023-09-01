@@ -24,7 +24,7 @@ public enum DisappearingMessagesJob: JobExecutor {
         var backgroundTask: OWSBackgroundTask? = OWSBackgroundTask(label: #function)
         var numDeleted: Int = -1
         
-        let updatedJob: Job? = Storage.shared.write { db in
+        let updatedJob: Job? = dependencies[singleton: .storage].write { db in
             numDeleted = try Interaction
                 .filter(Interaction.Columns.expiresStartedAtMs != nil)
                 .filter((Interaction.Columns.expiresStartedAtMs + (Interaction.Columns.expiresInSeconds * 1000)) <= timestampNowMs)
@@ -79,7 +79,12 @@ public extension DisappearingMessagesJob {
             .saved(db)
     }
     
-    static func updateNextRunIfNeeded(_ db: Database, lastReadTimestampMs: Int64, threadId: String) {
+    static func updateNextRunIfNeeded(
+        _ db: Database,
+        lastReadTimestampMs: Int64,
+        threadId: String,
+        using dependencies: Dependencies
+    ) {
         struct ExpirationInfo: Codable, Hashable, FetchableRecord {
             let expiresInSeconds: TimeInterval
             let serverHash: String
@@ -105,7 +110,7 @@ public extension DisappearingMessagesJob {
         
         let startedAtTimestampMs: Double = Double(SnodeAPI.currentOffsetTimestampMs())
         
-        JobRunner.add(
+        dependencies[singleton: .jobRunner].add(
             db,
             job: Job(
                 variant: .getExpiration,
@@ -115,11 +120,19 @@ public extension DisappearingMessagesJob {
                     expirationInfo: expirationInfo,
                     startedAtTimestampMs: startedAtTimestampMs
                 )
-            )
+            ),
+            canStartJob: true,
+            using: dependencies
         )
     }
     
-    @discardableResult static func updateNextRunIfNeeded(_ db: Database, interactionIds: [Int64], startedAtMs: Double, threadId: String) -> Job? {
+    @discardableResult static func updateNextRunIfNeeded(
+        _ db: Database,
+        interactionIds: [Int64],
+        startedAtMs: Double,
+        threadId: String,
+        using dependencies: Dependencies
+    ) -> Job? {
         struct ExpirationInfo: Codable, Hashable, FetchableRecord {
             let id: Int64
             let expiresInSeconds: TimeInterval
@@ -159,7 +172,7 @@ public extension DisappearingMessagesJob {
         
         interactionExpirationInfosByExpiresInSeconds.forEach { expiresInSeconds, expirationInfos in
             let expirationTimestampMs: Int64 = Int64(startedAtMs + expiresInSeconds * 1000)
-            JobRunner.add(
+            dependencies[singleton: .jobRunner].add(
                 db,
                 job: Job(
                     variant: .expirationUpdate,
@@ -169,14 +182,21 @@ public extension DisappearingMessagesJob {
                         serverHashes: expirationInfos.map { $0.serverHash },
                         expirationTimestampMs: expirationTimestampMs
                     )
-                )
+                ),
+                canStartJob: true,
+                using: dependencies
             )
         }
         
         return updateNextRunIfNeeded(db)
     }
     
-    @discardableResult static func updateNextRunIfNeeded(_ db: Database, interaction: Interaction, startedAtMs: Double) -> Job? {
+    @discardableResult static func updateNextRunIfNeeded(
+        _ db: Database,
+        interaction: Interaction,
+        startedAtMs: Double,
+        using dependencies: Dependencies
+    ) -> Job? {
         guard interaction.isExpiringMessage else { return nil }
         
         // Don't clobber if multiple actions simultaneously triggered expiration
@@ -189,7 +209,13 @@ public extension DisappearingMessagesJob {
                 throw StorageError.objectNotFound
             }
             
-            return updateNextRunIfNeeded(db, interactionIds: [interactionId], startedAtMs: startedAtMs, threadId: interaction.threadId)
+            return updateNextRunIfNeeded(
+                db,
+                interactionIds: [interactionId],
+                startedAtMs: startedAtMs,
+                threadId: interaction.threadId,
+                using: dependencies
+            )
         }
         catch {
             SNLog("[DisappearingMessagesJob] Failed to update the expiring messages timer on an interaction")

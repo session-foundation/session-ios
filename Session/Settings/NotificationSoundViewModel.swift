@@ -22,14 +22,21 @@ class NotificationSoundViewModel: SessionTableViewModel<NotificationSoundViewMod
     
     // FIXME: Remove `threadId` once we ditch the per-thread notification sound
     private let threadId: String?
+    private let dependencies: Dependencies
     private var audioPlayer: OWSAudioPlayer?
     private var storedSelection: Preferences.Sound?
     private var currentSelection: CurrentValueSubject<Preferences.Sound?, Never> = CurrentValueSubject(nil)
     
     // MARK: - Initialization
     
-    init(threadId: String? = nil) {
+    init(
+        threadId: String? = nil,
+        using dependencies: Dependencies = Dependencies()
+    ) {
         self.threadId = threadId
+        self.dependencies = dependencies
+        
+        super.init()
     }
     
     deinit {
@@ -147,7 +154,7 @@ class NotificationSoundViewModel: SessionTableViewModel<NotificationSoundViewMod
         }
         .removeDuplicates()
         .handleEvents(didFail: { SNLog("[NotificationSoundViewModel] Observation failed with error: \($0)") })
-        .publisher(in: Storage.shared)
+        .publisher(in: dependencies[singleton: .storage], scheduling: dependencies[singleton: .scheduler])
         .mapToSessionTableViewData(for: self)
     
     // MARK: - Functions
@@ -157,7 +164,7 @@ class NotificationSoundViewModel: SessionTableViewModel<NotificationSoundViewMod
 
         let threadId: String? = self.threadId
         
-        Storage.shared.writeAsync { db in
+        dependencies[singleton: .storage].writeAsync { db in
             guard let threadId: String = threadId else {
                 db[.defaultNotificationSound] = currentSelection
                 return

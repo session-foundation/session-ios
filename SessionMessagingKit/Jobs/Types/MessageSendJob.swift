@@ -52,7 +52,7 @@ public enum MessageSendJob: JobExecutor {
             // Retrieve the current attachment state
             typealias AttachmentState = (error: Error?, pendingUploadAttachmentIds: [String], preparedFileIds: [String])
 
-            let attachmentState: AttachmentState = dependencies.storage
+            let attachmentState: AttachmentState = dependencies[singleton: .storage]
                 .read { db in
                     // If the original interaction no longer exists then don't bother sending the message (ie. the
                     // message was deleted before it even got sent)
@@ -113,11 +113,11 @@ public enum MessageSendJob: JobExecutor {
             /// If we have any pending (or failed) attachment uploads then we should create jobs for them and insert them into the
             /// queue before the current job and defer it (this will mean the current job will re-run after these inserted jobs complete)
             guard attachmentState.pendingUploadAttachmentIds.isEmpty else {
-                dependencies.storage.write { db in
+                dependencies[singleton: .storage].write { db in
                     try attachmentState.pendingUploadAttachmentIds
                         .filter { attachmentId in
                             // Don't add a new job if there is one already in the queue
-                            !dependencies.jobRunner.hasJob(
+                            !dependencies[singleton: .jobRunner].hasJob(
                                 of: .attachmentUpload,
                                 with: AttachmentUploadJob.Details(
                                     messageSendJobId: jobId,
@@ -126,7 +126,7 @@ public enum MessageSendJob: JobExecutor {
                             )
                         }
                         .compactMap { attachmentId -> (jobId: Int64, job: Job)? in
-                            dependencies.jobRunner
+                            dependencies[singleton: .jobRunner]
                                 .insert(
                                     db,
                                     job: Job(
@@ -167,7 +167,7 @@ public enum MessageSendJob: JobExecutor {
         ///
         /// **Note:** No need to upload attachments as part of this process as the above logic splits that out into it's own job
         /// so we shouldn't get here until attachments have already been uploaded
-        dependencies.storage
+        dependencies[singleton: .storage]
             .writePublisher { db in
                 try MessageSender.preparedSendData(
                     db,
@@ -207,7 +207,7 @@ public enum MessageSendJob: JobExecutor {
                                     if details.message is VisibleMessage {
                                         guard
                                             let interactionId: Int64 = job.interactionId,
-                                            dependencies.storage.read({ db in try Interaction.exists(db, id: interactionId) }) == true
+                                            dependencies[singleton: .storage].read({ db in try Interaction.exists(db, id: interactionId) }) == true
                                         else {
                                             // The message has been deleted so permanently fail the job
                                             return failure(job, error, true, dependencies)

@@ -31,7 +31,7 @@ public class DocumentTileViewController: UIViewController, UITableViewDelegate, 
 
     init(viewModel: MediaGalleryViewModel) {
         self.viewModel = viewModel
-        Storage.shared.addObserver(viewModel.pagedDataObserver)
+        Dependencies()[singleton: .storage].addObserver(viewModel.pagedDataObserver)
 
         super.init(nibName: nil, bundle: nil)
     }

@@ -14,24 +14,25 @@ class MessageReceiverDecryptionSpec: QuickSpec {
     // MARK: - Spec
 
     override func spec() {
+        var dependencies: TestDependencies!
         var mockStorage: Storage!
         var mockCrypto: MockCrypto!
-        var dependencies: Dependencies!
         
         describe("a MessageReceiver") {
             beforeEach {
+                dependencies = TestDependencies()
                 mockStorage = SynchronousStorage(
                     customWriter: try! DatabaseQueue(),
                     customMigrationTargets: [
                         SNUtilitiesKit.self,
                         SNMessagingKit.self
-                    ]
+                    ],
+                    using: dependencies
                 )
                 mockCrypto = MockCrypto()
-                dependencies = Dependencies(
-                    storage: mockStorage,
-                    crypto: mockCrypto
-                )
+                
+                dependencies[singleton: .storage] = mockStorage
+                dependencies[singleton: .crypto] = mockCrypto
                 
                 mockStorage.write { db in
                     try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
@@ -134,7 +135,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             publicKey: Data(hex: TestConstants.publicKey).bytes,
                             secretKey: Data(hex: TestConstants.privateKey).bytes
                         ),
-                        using: Dependencies()
+                        using: Dependencies()   // Don't mock
                     )
                     
                     expect(String(data: (result?.plaintext ?? Data()), encoding: .utf8)).to(equal("TestMessage"))
@@ -244,7 +245,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             publicKey: Data(hex: TestConstants.edPublicKey).bytes,
                             secretKey: Data(hex: TestConstants.edSecretKey).bytes
                         ),
-                        using: Dependencies()
+                        using: Dependencies()   // Don't mock
                     )
                     
                     expect(String(data: (result?.plaintext ?? Data()), encoding: .utf8)).to(equal("TestMessage"))

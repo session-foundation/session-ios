@@ -94,7 +94,7 @@ public extension BlindedIdLookup {
         // If we we given a sessionId then validate it is correct and if so save it
         if
             let sessionId: String = sessionId,
-            dependencies.crypto.verify(
+            dependencies[singleton: .crypto].verify(
                 .sessionId(
                     sessionId,
                     matchesBlindedId: blindedId,
@@ -118,7 +118,7 @@ public extension BlindedIdLookup {
         
         while let contact: Contact = try contactsThatApprovedMeCursor.next() {
             guard
-                dependencies.crypto.verify(
+                dependencies[singleton: .crypto].verify(
                     .sessionId(
                         contact.id,
                         matchesBlindedId: blindedId,
@@ -160,7 +160,7 @@ public extension BlindedIdLookup {
         while let otherLookup: BlindedIdLookup = try blindedIdLookupCursor.next() {
             guard
                 let sessionId: String = otherLookup.sessionId,
-                dependencies.crypto.verify(
+                dependencies[singleton: .crypto].verify(
                     .sessionId(
                         sessionId,
                         matchesBlindedId: blindedId,

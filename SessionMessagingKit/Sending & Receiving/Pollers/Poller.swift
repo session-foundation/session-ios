@@ -273,7 +273,7 @@ public class Poller {
                 var standardMessageJobsToRun: [Job] = []
                 var pollerLogOutput: String = "\(pollerName) failed to process any messages"
                 
-                dependencies.storage.write { db in
+                dependencies[singleton: .storage].write { db in
                     let allProcessedMessages: [ProcessedMessage] = allMessages
                         .compactMap { message -> ProcessedMessage? in
                             do {
@@ -330,7 +330,7 @@ public class Poller {
                             // If we are force-polling then add to the JobRunner so they are
                             // persistent and will retry on the next app run if they fail but
                             // don't let them auto-start
-                            let updatedJob: Job? = dependencies.jobRunner
+                            let updatedJob: Job? = dependencies[singleton: .jobRunner]
                                 .add(
                                     db,
                                     job: jobToRun,
@@ -364,7 +364,7 @@ public class Poller {
                             // If we are force-polling then add to the JobRunner so they are
                             // persistent and will retry on the next app run if they fail but
                             // don't let them auto-start
-                            let updatedJob: Job? = dependencies.jobRunner
+                            let updatedJob: Job? = dependencies[singleton: .jobRunner]
                                 .add(
                                     db,
                                     job: jobToRun,

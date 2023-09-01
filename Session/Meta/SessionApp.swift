@@ -40,9 +40,10 @@ public struct SessionApp {
         variant: SessionThread.Variant,
         action: ConversationViewModel.Action = .none,
         dismissing presentingViewController: UIViewController?,
-        animated: Bool
+        animated: Bool,
+        using dependencies: Dependencies = Dependencies()
     ) {
-        let threadInfo: (threadExists: Bool, isMessageRequest: Bool)? = Storage.shared.read { db in
+        let threadInfo: (threadExists: Bool, isMessageRequest: Bool)? = dependencies[singleton: .storage].read { db in
             let isMessageRequest: Bool = {
                 switch variant {
                     case .contact:
@@ -50,7 +51,7 @@ public struct SessionApp {
                             .isMessageRequest(
                                 id: threadId,
                                 variant: .contact,
-                                currentUserPublicKey: getUserHexEncodedPublicKey(db),
+                                currentUserPublicKey: getUserHexEncodedPublicKey(db, using: dependencies),
                                 shouldBeVisible: nil,
                                 contactIsApproved: (try? Contact
                                     .filter(id: threadId)
@@ -86,7 +87,7 @@ public struct SessionApp {
         /// should do it on a background thread just in case something is keeping the DBWrite thread busy as in the past this could cause the app to hang
         guard threadInfo?.threadExists == true else {
             DispatchQueue.global(qos: .userInitiated).async {
-                Storage.shared.write { db in
+                dependencies[singleton: .storage].write { db in
                     try SessionThread.fetchOrCreate(db, id: threadId, variant: variant, shouldBeVisible: nil)
                 }
 

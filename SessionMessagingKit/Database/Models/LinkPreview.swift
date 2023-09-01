@@ -211,8 +211,12 @@ public extension LinkPreview {
 
     private static var previewUrlCache: Atomic<NSCache<NSString, NSString>> = Atomic(NSCache())
 
-    static func previewUrl(for body: String?, selectedRange: NSRange? = nil) -> String? {
-        guard Storage.shared[.areLinkPreviewsEnabled] else { return nil }
+    static func previewUrl(
+        for body: String?,
+        selectedRange: NSRange? = nil,
+        using dependencies: Dependencies = Dependencies()
+    ) -> String? {
+        guard dependencies[singleton: .storage][.areLinkPreviewsEnabled] else { return nil }
         guard let body: String = body else { return nil }
 
         if let cachedUrl = previewUrlCache.wrappedValue.object(forKey: body as NSString) as String? {
@@ -284,20 +288,27 @@ public extension LinkPreview {
         }
     }
     
-    private static func setCachedLinkPreview(_ linkPreviewDraft: LinkPreviewDraft, forPreviewUrl previewUrl: String) {
+    private static func setCachedLinkPreview(
+        _ linkPreviewDraft: LinkPreviewDraft,
+        forPreviewUrl previewUrl: String,
+        using dependencies: Dependencies = Dependencies()
+    ) {
         assert(previewUrl == linkPreviewDraft.urlString)
 
         // Exit early if link previews are not enabled in order to avoid
         // tainting the cache.
-        guard Storage.shared[.areLinkPreviewsEnabled] else { return }
+        guard dependencies[singleton: .storage][.areLinkPreviewsEnabled] else { return }
 
         serialQueue.sync {
             linkPreviewDraftCache = linkPreviewDraft
         }
     }
     
-    static func tryToBuildPreviewInfo(previewUrl: String?) -> AnyPublisher<LinkPreviewDraft, Error> {
-        guard Storage.shared[.areLinkPreviewsEnabled] else {
+    static func tryToBuildPreviewInfo(
+        previewUrl: String?,
+        using dependencies: Dependencies = Dependencies()
+    ) -> AnyPublisher<LinkPreviewDraft, Error> {
+        guard dependencies[singleton: .storage][.areLinkPreviewsEnabled] else {
             return Fail(error: LinkPreviewError.featureDisabled)
                 .eraseToAnyPublisher()
         }

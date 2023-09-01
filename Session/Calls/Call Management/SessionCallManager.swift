@@ -188,10 +188,12 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         callUpdate.supportsDTMF = false
     }
     
-    public static func suspendDatabaseIfCallEndedInBackground() {
+    public static func suspendDatabaseIfCallEndedInBackground(
+        using dependencies: Dependencies = Dependencies()
+    ) {
         if CurrentAppContext().isInBackground() {
             // Stop all jobs except for message sending and when completed suspend the database
-            JobRunner.stopAndClearPendingJobs(exceptForVariant: .messageSend) {
+            dependencies[singleton: .jobRunner].stopAndClearPendingJobs(exceptForVariant: .messageSend) {
                 Storage.suspendDatabaseAccess()
             }
         }
@@ -200,7 +202,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     // MARK: - UI
     
     public func showCallUIForCall(caller: String, uuid: String, mode: CallMode, interactionId: Int64?) {
-        guard let call: SessionCall = Storage.shared.read({ db in SessionCall(db, for: caller, uuid: uuid, mode: mode) }) else {
+        guard let call: SessionCall = Dependencies()[singleton: .storage].read({ db in SessionCall(db, for: caller, uuid: uuid, mode: mode) }) else {
             return
         }
         

@@ -13,14 +13,17 @@ class CryptoSMKSpec: QuickSpec {
     // MARK: - Spec
 
     override func spec() {
-        var crypto: Crypto!
+        var dependencies: TestDependencies!
         var mockCrypto: MockCrypto!
-        var dependencies: Dependencies!
+        
+        var crypto: Crypto!
         
         beforeEach {
-            crypto = Crypto()
+            dependencies = TestDependencies()
             mockCrypto = MockCrypto()
-            dependencies = Dependencies(crypto: crypto)
+            crypto = Crypto()
+            
+            dependencies[singleton: .crypto] = crypto
         }
         
         describe("Crypto for SessionMessagingKit") {
@@ -75,7 +78,8 @@ class CryptoSMKSpec: QuickSpec {
                     
                     // MARK: --- fails if it cannot hash the serverPublicKey bytes
                     it("fails if it cannot hash the serverPublicKey bytes") {
-                        dependencies = Dependencies(crypto: mockCrypto)
+                        dependencies[singleton: .crypto] = mockCrypto
+                        
                         mockCrypto
                             .when { try $0.perform(.hash(message: anyArray(), outputLength: any())) }
                             .thenReturn(nil)
@@ -357,7 +361,7 @@ class CryptoSMKSpec: QuickSpec {
                                 secretKey: Data(hex: TestConstants.publicKey).bytes,
                                 nonce: "TestNonce".bytes,
                                 additionalData: nil,
-                                using: Dependencies()
+                                using: Dependencies()   // Don't mock
                             )
                         )
                         
@@ -373,7 +377,7 @@ class CryptoSMKSpec: QuickSpec {
                                 secretKey: Data(hex: TestConstants.publicKey).bytes,
                                 nonce: "TestNonce".bytes,
                                 additionalData: "TestData".bytes,
-                                using: Dependencies()
+                                using: Dependencies()   // Don't mock
                             )
                         )
                         
@@ -389,7 +393,7 @@ class CryptoSMKSpec: QuickSpec {
                                 secretKey: "TestKey".bytes,
                                 nonce: "TestNonce".bytes,
                                 additionalData: "TestData".bytes,
-                                using: Dependencies()
+                                using: Dependencies()   // Don't mock
                             )
                         )
                         

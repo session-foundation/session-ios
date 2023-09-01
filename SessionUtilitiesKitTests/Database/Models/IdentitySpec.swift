@@ -12,16 +12,20 @@ class IdentitySpec: QuickSpec {
     // MARK: - Spec
 
     override func spec() {
+        var dependencies: TestDependencies!
         var mockStorage: Storage!
         
         describe("an Identity") {
             beforeEach {
+                dependencies = TestDependencies()
                 mockStorage = SynchronousStorage(
                     customWriter: try! DatabaseQueue(),
                     customMigrationTargets: [
                         SNUtilitiesKit.self
-                    ]
+                    ],
+                    using: dependencies
                 )
+                dependencies[singleton: .storage] = mockStorage
             }
             
             it("correctly retrieves the user user public key") {
@@ -96,7 +100,7 @@ class IdentitySpec: QuickSpec {
                 }
                 
                 mockStorage.read { db in
-                    expect(Identity.fetchHexEncodedSeed(db))
+                    expect(Identity.fetchHexEncodedSeed(db, using: dependencies))
                         .to(equal("5465737437"))
                 }
             }

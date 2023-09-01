@@ -407,7 +407,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     init(threadId: String, threadVariant: SessionThread.Variant, focusedInteractionInfo: Interaction.TimestampInfo? = nil) {
         self.viewModel = ConversationViewModel(threadId: threadId, threadVariant: threadVariant, focusedInteractionInfo: focusedInteractionInfo)
         
-        Storage.shared.addObserver(viewModel.pagedDataObserver)
+        Dependencies()[singleton: .storage].addObserver(viewModel.pagedDataObserver)
         
         super.init(nibName: nil, bundle: nil)
     }
@@ -617,7 +617,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                 visibleOnly: true
             )
         {
-            Storage.shared.writeAsync { db in
+            Dependencies()[singleton: .storage].writeAsync { db in
                 _ = try SessionThread   // Intentionally use `deleteAll` here instead of `deleteOrLeave`
                     .filter(id: threadId)
                     .deleteAll(db)
@@ -652,7 +652,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     private func startObservingChanges(didReturnFromBackground: Bool = false) {
         guard dataChangeObservable == nil else { return }
         
-        dataChangeObservable = Storage.shared.start(
+        dataChangeObservable = Dependencies()[singleton: .storage].start(
             viewModel.observableThreadData,
             onError:  { _ in },
             onChange: { [weak self] maybeThreadData in
@@ -665,7 +665,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                             SessionId.Prefix(from: sessionId) == .blinded15 ||
                             SessionId.Prefix(from: sessionId) == .blinded25
                         ),
-                        let blindedLookup: BlindedIdLookup = Storage.shared.read({ db in
+                        let blindedLookup: BlindedIdLookup = Dependencies()[singleton: .storage].read({ db in
                             try BlindedIdLookup
                                 .filter(id: sessionId)
                                 .fetchOne(db)
@@ -689,13 +689,13 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                     
                     // Stop observing changes
                     self?.stopObservingChanges()
-                    Storage.shared.removeObserver(self?.viewModel.pagedDataObserver)
+                    Dependencies()[singleton: .storage].removeObserver(self?.viewModel.pagedDataObserver)
                     
                     // Swap the observing to the updated thread
                     self?.viewModel.swapToThread(updatedThreadId: unblindedId)
                     
                     // Start observing changes again
-                    Storage.shared.addObserver(self?.viewModel.pagedDataObserver)
+                    Dependencies()[singleton: .storage].addObserver(self?.viewModel.pagedDataObserver)
                     self?.startObservingChanges()
                     return
                 }

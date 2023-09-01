@@ -51,7 +51,7 @@ public enum MessageReceiveJob: JobExecutor {
                 }
             }
         
-        dependencies.storage.write { db in
+        dependencies[singleton: .storage].write { db in
             for (messageInfo, protoContent) in messageData {
                 do {
                     try MessageReceiver.handle(

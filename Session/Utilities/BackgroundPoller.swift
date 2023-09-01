@@ -20,7 +20,7 @@ public final class BackgroundPoller {
                 [pollForMessages(using: dependencies)]
                     .appending(contentsOf: pollForClosedGroupMessages(using: dependencies))
                     .appending(
-                        contentsOf: Storage.shared
+                        contentsOf: dependencies[singleton: .storage]
                             .read { db in
                                 /// The default room promise creates an OpenGroup with an empty `roomToken` value, we
                                 /// don't want to start a poller for this as the user hasn't actually joined a room
@@ -95,7 +95,7 @@ public final class BackgroundPoller {
     ) -> [AnyPublisher<Void, Error>] {
         // Fetch all closed groups (excluding any don't contain the current user as a
         // GroupMemeber as the user is no longer a member of those)
-        return Storage.shared
+        return dependencies[singleton: .storage]
             .read { db in
                 try ClosedGroup
                     .select(.threadId)

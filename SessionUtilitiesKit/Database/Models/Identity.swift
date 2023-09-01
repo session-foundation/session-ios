@@ -86,7 +86,7 @@ public extension Identity {
         using dependencies: Dependencies = Dependencies()
     ) -> Data? {
         guard let db: Database = db else {
-            return dependencies.storage.read { db in fetchUserPublicKey(db, using: dependencies) }
+            return dependencies[singleton: .storage].read { db in fetchUserPublicKey(db, using: dependencies) }
         }
         
         return try? Identity.fetchOne(db, id: .x25519PublicKey)?.data
@@ -97,7 +97,7 @@ public extension Identity {
         using dependencies: Dependencies = Dependencies()
     ) -> Data? {
         guard let db: Database = db else {
-            return dependencies.storage.read { db in fetchUserPrivateKey(db, using: dependencies) }
+            return dependencies[singleton: .storage].read { db in fetchUserPrivateKey(db, using: dependencies) }
         }
         
         return try? Identity.fetchOne(db, id: .x25519PrivateKey)?.data
@@ -108,7 +108,7 @@ public extension Identity {
         using dependencies: Dependencies = Dependencies()
     ) -> KeyPair? {
         guard let db: Database = db else {
-            return dependencies.storage.read { db in fetchUserKeyPair(db, using: dependencies) }
+            return dependencies[singleton: .storage].read { db in fetchUserKeyPair(db, using: dependencies) }
         }
         guard
             let publicKey: Data = fetchUserPublicKey(db, using: dependencies),
@@ -126,7 +126,7 @@ public extension Identity {
         using dependencies: Dependencies = Dependencies()
     ) -> KeyPair? {
         guard let db: Database = db else {
-            return dependencies.storage.read { db in fetchUserEd25519KeyPair(db, using: dependencies) }
+            return dependencies[singleton: .storage].read { db in fetchUserEd25519KeyPair(db, using: dependencies) }
         }
         guard
             let publicKey: Data = try? Identity.fetchOne(db, id: .ed25519PublicKey)?.data,
@@ -139,9 +139,14 @@ public extension Identity {
         )
     }
     
-    static func fetchHexEncodedSeed(_ db: Database? = nil) -> String? {
+    static func fetchHexEncodedSeed(
+        _ db: Database? = nil,
+        using dependencies: Dependencies
+    ) -> String? {
         guard let db: Database = db else {
-            return Storage.shared.read { db in fetchHexEncodedSeed(db) }
+            return dependencies[singleton: .storage].read { db in
+                fetchHexEncodedSeed(db, using: dependencies)
+            }
         }
         
         guard let data: Data = try? Identity.fetchOne(db, id: .seed)?.data else {

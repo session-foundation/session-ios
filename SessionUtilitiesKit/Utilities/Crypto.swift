@@ -6,6 +6,14 @@ import Clibsodium
 import Sodium
 import Curve25519Kit
 
+// MARK: - Singleton
+
+public extension Singleton {
+    static let crypto: SingletonInfo.Config<CryptoType> = SingletonInfo.create { _ in
+        Crypto()
+    }
+}
+
 // MARK: - CryptoType
 
 public protocol CryptoType {

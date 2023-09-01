@@ -1,5 +1,14 @@
 import Foundation
 
+// MARK: - Singleton
+public extension Singleton {
+    static let standardUserDefaults: SingletonInfo.Config<UserDefaultsType> = SingletonInfo.create { _ in
+        UserDefaults.standard
+    }
+}
+
+// MARK: - UserDefaultsType
+
 public protocol UserDefaultsType: AnyObject {
     func object(forKey defaultName: String) -> Any?
     func string(forKey defaultName: String) -> String?
@@ -61,7 +70,7 @@ public enum SNUserDefaults {
 }
 
 public extension UserDefaults {
-    public static let applicationGroup: String = "group.com.loki-project.loki-messenger"
+    static let applicationGroup: String = "group.com.loki-project.loki-messenger"
     
     @objc static var sharedLokiProject: UserDefaults? {
         UserDefaults(suiteName: UserDefaults.applicationGroup)

@@ -25,7 +25,7 @@ public enum ConfigMessageReceiveJob: JobExecutor {
         let removeDependencyOnMessageReceiveJobs: () -> () = {
             guard let jobId: Int64 = job.id else { return }
             
-            dependencies.storage.write { db in
+            dependencies[singleton: .storage].write { db in
                 try JobDependencies
                     .filter(JobDependencies.Columns.dependantId == jobId)
                     .joining(
@@ -55,7 +55,7 @@ public enum ConfigMessageReceiveJob: JobExecutor {
         let sharedConfigMessages: [SharedConfigMessage] = details.messages
             .compactMap { $0.message as? SharedConfigMessage }
         
-        dependencies.storage.write { db in
+        dependencies[singleton: .storage].write { db in
             // Send any SharedConfigMessages to the SessionUtil to handle it
             do {
                 try SessionUtil.handleConfigMessages(

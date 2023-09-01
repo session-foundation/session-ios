@@ -8,17 +8,14 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 
 class NotificationContentViewModel: SessionTableViewModel<NoNav, NotificationSettingsViewModel.Section, Preferences.NotificationPreviewType> {
-    private let storage: Storage
-    private let scheduler: ValueObservationScheduler
+    private let dependencies: Dependencies
     
     // MARK: - Initialization
     
     init(
-        storage: Storage = Storage.shared,
-        scheduling scheduler: ValueObservationScheduler = Storage.defaultPublisherScheduler
+        using dependencies: Dependencies = Dependencies()
     ) {
-        self.storage = storage
-        self.scheduler = scheduler
+        self.dependencies = dependencies
     }
     
     // MARK: - Section
@@ -41,7 +38,7 @@ class NotificationContentViewModel: SessionTableViewModel<NoNav, NotificationSet
     /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
     private lazy var _observableTableData: ObservableData = ValueObservation
-        .trackingConstantRegion { [storage] db -> [SectionModel] in
+        .trackingConstantRegion { [dependencies] db -> [SectionModel] in
             let currentSelection: Preferences.NotificationPreviewType? = db[.preferencesNotificationPreviewType]
                 .defaulting(to: .defaultPreviewType)
             
@@ -57,7 +54,7 @@ class NotificationContentViewModel: SessionTableViewModel<NoNav, NotificationSet
                                     isSelected: { (currentSelection == previewType) }
                                 ),
                                 onTap: { [weak self] in
-                                    storage.writeAsync { db in
+                                    dependencies[singleton: .storage].writeAsync { db in
                                         db[.preferencesNotificationPreviewType] = previewType
                                     }
                                     
@@ -70,6 +67,6 @@ class NotificationContentViewModel: SessionTableViewModel<NoNav, NotificationSet
         }
         .removeDuplicates()
         .handleEvents(didFail: { SNLog("[NotificationContentViewModel] Observation failed with error: \($0)") })
-        .publisher(in: storage, scheduling: scheduler)
+        .publisher(in: dependencies[singleton: .storage], scheduling: dependencies[singleton: .scheduler])
         .mapToSessionTableViewData(for: self)
 }

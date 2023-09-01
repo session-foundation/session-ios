@@ -75,7 +75,7 @@ class EmojiPickerCollectionView: UICollectionView {
         tapGestureRecognizer.delegate = self
         
         // Fetch the emoji data from the database
-        let maybeEmojiData: (recent: [EmojiWithSkinTones], allGrouped: [Emoji.Category: [EmojiWithSkinTones]])? = Storage.shared.read { db in
+        let maybeEmojiData: (recent: [EmojiWithSkinTones], allGrouped: [Emoji.Category: [EmojiWithSkinTones]])? = Dependencies()[singleton: .storage].read { db in
             // Some emoji have two different code points but identical appearances. Let's remove them!
             // If we normalize to a different emoji than the one currently in our array, we want to drop
             // the non-normalized variant if the normalized variant already exists. Otherwise, map to the
@@ -188,7 +188,7 @@ class EmojiPickerCollectionView: UICollectionView {
             currentSkinTonePicker?.dismiss()
             currentSkinTonePicker = EmojiSkinTonePicker.present(referenceView: cell, emoji: emoji) { [weak self] emoji in
                 if let emoji: EmojiWithSkinTones = emoji {
-                    Storage.shared.writeAsync { db in
+                    Dependencies()[singleton: .storage].writeAsync { db in
                         emoji.baseEmoji?.setPreferredSkinTones(
                             db,
                             preferredSkinTonePermutation: emoji.skinTones

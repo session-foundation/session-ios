@@ -16,25 +16,25 @@ class MessageSenderEncryptionSpec: QuickSpec {
     override func spec() {
         var mockStorage: Storage!
         var mockCrypto: MockCrypto!
-        var dependencies: Dependencies!
+        var dependencies: TestDependencies!
         
         describe("a MessageSender") {
             // MARK: - Configuration
             
             beforeEach {
+                dependencies = TestDependencies()
                 mockStorage = SynchronousStorage(
                     customWriter: try! DatabaseQueue(),
                     customMigrationTargets: [
                         SNUtilitiesKit.self,
                         SNMessagingKit.self
-                    ]
+                    ],
+                    using: dependencies
                 )
                 mockCrypto = MockCrypto()
                 
-                dependencies = Dependencies(
-                    storage: mockStorage,
-                    crypto: mockCrypto
-                )
+                dependencies[singleton: .storage] = mockStorage
+                dependencies[singleton: .crypto] = mockCrypto
                 
                 mockStorage.write { db in
                     try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)

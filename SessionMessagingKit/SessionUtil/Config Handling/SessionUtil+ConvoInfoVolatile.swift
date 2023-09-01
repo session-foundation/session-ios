@@ -91,7 +91,8 @@ internal extension SessionUtil {
                 DisappearingMessagesJob.updateNextRunIfNeeded(
                     db,
                     lastReadTimestampMs: lastReadTimestampMs,
-                    threadId: threadId
+                    threadId: threadId,
+                    using: dependencies
                 )
                 return nil
             }
@@ -362,7 +363,7 @@ public extension SessionUtil {
         openGroup: OpenGroup?,
         using dependencies: Dependencies
     ) -> Bool {
-        return dependencies.caches[.sessionUtil]
+        return dependencies[cache: .sessionUtil]
             .config(for: .convoInfoVolatile, publicKey: userPublicKey)
             .wrappedValue
             .map { config in

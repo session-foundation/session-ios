@@ -121,13 +121,17 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     
     // MARK: - Updating
     
-    private func startObservingChanges() {
+    private func startObservingChanges(
+        using dependencies: Dependencies = Dependencies()
+    ) {
         guard dataChangeObservable == nil else { return }
         
         // Start observing for data changes
-        dataChangeObservable = Storage.shared.start(
+        dataChangeObservable = dependencies[singleton: .storage].start(
             viewModel.observableViewData,
-            onError:  { [weak self] _ in self?.databaseErrorLabel.isHidden = Storage.shared.isValid },
+            onError:  { [weak self] _ in
+                self?.databaseErrorLabel.isHidden = dependencies[singleton: .storage].isValid
+            },
             onChange: { [weak self] viewData in
                 // The defaul scheduler emits changes on the main thread
                 self?.handleUpdates(viewData)
@@ -258,7 +262,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         .eraseToAnyPublisher()
                 }
                 .flatMap { _ in
-                    dependencies.storage.writePublisher { db -> MessageSender.PreparedSendData in
+                    dependencies[singleton: .storage].writePublisher { db -> MessageSender.PreparedSendData in
                         guard
                             let threadVariant: SessionThread.Variant = try SessionThread
                                 .filter(id: threadId)

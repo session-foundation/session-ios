@@ -155,7 +155,7 @@ final class PNModeVC: BaseVC, OptionViewDelegate {
         
         // Check if we already have a profile name (ie. profile retrieval completed while waiting on
         // this screen)
-        let existingProfileName: String? = Storage.shared
+        let existingProfileName: String? = Dependencies()[singleton: .storage]
             .read { db in
                 try Profile
                     .filter(id: getUserHexEncodedPublicKey(db))

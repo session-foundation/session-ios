@@ -188,7 +188,7 @@ public class MessageRequestsViewModel {
         groupThreadIds: [String]
     ) {
         // Clear the requests
-        Storage.shared.write { db in
+        Dependencies()[singleton: .storage].write { db in
             // Remove the one-to-one requests
             try SessionThread.deleteOrLeave(
                 db,

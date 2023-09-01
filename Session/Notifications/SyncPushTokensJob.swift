@@ -37,7 +37,7 @@ public enum SyncPushTokensJob: JobExecutor {
         // If the job is running and 'Fast Mode' is disabled then we should try to unregister the existing
         // token
         guard isUsingFullAPNs else {
-            Just(dependencies.storage[.lastRecordedPushToken])
+            Just(dependencies[singleton: .storage][.lastRecordedPushToken])
                 .setFailureType(to: Error.self)
                 .flatMap { lastRecordedPushToken -> AnyPublisher<Void, Error> in
                     // Tell the device to unregister for remote notifications (essentially try to invalidate
@@ -46,7 +46,7 @@ public enum SyncPushTokensJob: JobExecutor {
                     DispatchQueue.main.sync { UIApplication.shared.unregisterForRemoteNotifications() }
                     
                     // Clear the old token
-                    dependencies.storage.write(using: dependencies) { db in
+                    dependencies[singleton: .storage].write(using: dependencies) { db in
                         db[.lastRecordedPushToken] = nil
                     }
                     
@@ -102,9 +102,9 @@ public enum SyncPushTokensJob: JobExecutor {
                                 case .finished:
                                     Logger.warn("Recording push tokens locally. pushToken: \(redact(pushToken)), voipToken: \(redact(voipToken))")
                                     SNLog("[SyncPushTokensJob] Completed")
-                                    dependencies.standardUserDefaults[.lastPushNotificationSync] = dependencies.dateNow
+                                    dependencies[singleton: .standardUserDefaults][.lastPushNotificationSync] = dependencies.dateNow
 
-                                    dependencies.storage.write(using: dependencies) { db in
+                                    dependencies[singleton: .storage].write(using: dependencies) { db in
                                         db[.lastRecordedPushToken] = pushToken
                                         db[.lastRecordedVoipToken] = voipToken
                                     }

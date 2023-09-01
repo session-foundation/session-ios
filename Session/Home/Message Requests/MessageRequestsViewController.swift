@@ -24,7 +24,7 @@ class MessageRequestsViewController: BaseVC, SessionUtilRespondingViewController
     // MARK: - Intialization
     
     init() {
-        Storage.shared.addObserver(viewModel.pagedDataObserver)
+        Dependencies()[singleton: .storage].addObserver(viewModel.pagedDataObserver)
         
         super.init(nibName: nil, bundle: nil)
     }

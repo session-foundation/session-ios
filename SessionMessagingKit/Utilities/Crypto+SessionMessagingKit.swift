@@ -156,8 +156,8 @@ public extension Crypto.KeyPairType {
         using dependencies: Dependencies = Dependencies()
     ) -> Crypto.KeyPairType {
         return Crypto.KeyPairType(id: "ed25519KeyPair") {
-            let pkSize: Int = dependencies.crypto.size(.publicKey)
-            let skSize: Int = dependencies.crypto.size(.secretKey)
+            let pkSize: Int = dependencies[singleton: .crypto].size(.publicKey)
+            let skSize: Int = dependencies[singleton: .crypto].size(.secretKey)
             var edPK: [UInt8] = [UInt8](repeating: 0, count: pkSize)
             var edSK: [UInt8] = [UInt8](repeating: 0, count: skSize)
             var targetSeed: [UInt8] = ((seed ?? (try? Randomness.generateRandomBytes(numberBytes: skSize)))

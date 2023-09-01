@@ -36,23 +36,30 @@ public struct ProfileManager {
         return (profileUrl.utf8CString.count > SessionUtil.libSessionMaxProfileUrlByteLength)
     }
     
-    public static func profileAvatar(_ db: Database? = nil, id: String) -> Data? {
+    public static func profileAvatar(
+        _ db: Database? = nil,
+        id: String,
+        using dependencies: Dependencies = Dependencies()
+    ) -> Data? {
         guard let db: Database = db else {
-            return Storage.shared.read { db in profileAvatar(db, id: id) }
+            return dependencies[singleton: .storage].read { db in profileAvatar(db, id: id) }
         }
         guard let profile: Profile = try? Profile.fetchOne(db, id: id) else { return nil }
         
         return profileAvatar(profile: profile)
     }
     
-    public static func profileAvatar(profile: Profile) -> Data? {
+    public static func profileAvatar(
+        profile: Profile,
+        using dependencies: Dependencies = Dependencies()
+    ) -> Data? {
         if let profileFileName: String = profile.profilePictureFileName, !profileFileName.isEmpty {
-            return loadProfileAvatar(for: profileFileName, profile: profile)
+            return loadProfileAvatar(for: profileFileName, profile: profile, using: dependencies)
         }
         
         if let profilePictureUrl: String = profile.profilePictureUrl, !profilePictureUrl.isEmpty {
             // FIXME: Refactor avatar downloading to be a proper Job so we can avoid this
-            JobRunner.afterBlockingQueue {
+            dependencies[singleton: .jobRunner].afterBlockingQueue {
                 ProfileManager.downloadAvatar(for: profile)
             }
         }
@@ -60,7 +67,11 @@ public struct ProfileManager {
         return nil
     }
     
-    private static func loadProfileAvatar(for fileName: String, profile: Profile) -> Data? {
+    private static func loadProfileAvatar(
+        for fileName: String,
+        profile: Profile,
+        using dependencies: Dependencies
+    ) -> Data? {
         if let cachedImageData: Data = profileAvatarCache.wrappedValue[fileName] {
             return cachedImageData
         }
@@ -72,7 +83,7 @@ public struct ProfileManager {
         else {
             // If we can't load the avatar or it's an invalid/corrupted image then clear out
             // the 'profilePictureFileName' and try to re-download
-            Storage.shared.writeAsync(
+            dependencies[singleton: .storage].writeAsync(
                 updates: { db in
                     _ = try? Profile
                         .filter(id: profile.id)
@@ -82,7 +93,7 @@ public struct ProfileManager {
                     // Try to re-download the avatar if it has a URL
                     if let profilePictureUrl: String = profile.profilePictureUrl, !profilePictureUrl.isEmpty {
                         // FIXME: Refactor avatar downloading to be a proper Job so we can avoid this
-                        JobRunner.afterBlockingQueue {
+                        dependencies[singleton: .jobRunner].afterBlockingQueue {
                             ProfileManager.downloadAvatar(for: profile)
                         }
                     }
@@ -164,9 +175,13 @@ public struct ProfileManager {
         return path
     }()
     
-    public static func profileAvatarFilepath(_ db: Database? = nil, id: String) -> String? {
+    public static func profileAvatarFilepath(
+        _ db: Database? = nil,
+        id: String,
+        using dependencies: Dependencies = Dependencies()
+    ) -> String? {
         guard let db: Database = db else {
-            return Storage.shared.read { db in profileAvatarFilepath(db, id: id) }
+            return dependencies[singleton: .storage].read { db in profileAvatarFilepath(db, id: id) }
         }
         
         let maybeFileName: String? = try? Profile
@@ -192,7 +207,11 @@ public struct ProfileManager {
     
     // MARK: - Other Users' Profiles
     
-    public static func downloadAvatar(for profile: Profile, funcName: String = #function) {
+    public static func downloadAvatar(
+        for profile: Profile,
+        funcName: String = #function,
+        using dependencies: Dependencies = Dependencies()
+    ) {
         guard !currentAvatarDownloads.wrappedValue.contains(profile.id) else {
             // Download already in flight; ignore
             return
@@ -220,8 +239,8 @@ public struct ProfileManager {
         
         FileServerAPI
             .download(fileId, useOldServer: useOldServer)
-            .subscribe(on: DispatchQueue.global(qos: .background))
-            .receive(on: DispatchQueue.global(qos: .background))
+            .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
+            .receive(on: DispatchQueue.global(qos: .background), using: dependencies)
             .sinkUntilComplete(
                 receiveCompletion: { _ in
                     currentAvatarDownloads.mutate { $0.remove(profile.id) }
@@ -231,7 +250,7 @@ public struct ProfileManager {
                     if backgroundTask != nil { backgroundTask = nil }
                 },
                 receiveValue: { data in
-                    guard let latestProfile: Profile = Storage.shared.read({ db in try Profile.fetchOne(db, id: profile.id) }) else {
+                    guard let latestProfile: Profile = dependencies[singleton: .storage].read({ db in try Profile.fetchOne(db, id: profile.id) }) else {
                         return
                     }
                     
@@ -270,7 +289,7 @@ public struct ProfileManager {
                     profileAvatarCache.mutate { $0[fileName] = decryptedData }
                     
                     // Store the updated 'profilePictureFileName'
-                    Storage.shared.write { db in
+                    dependencies[singleton: .storage].write { db in
                         _ = try? Profile
                             .filter(id: profile.id)
                             .updateAll(db, Profile.Columns.profilePictureFileName.set(to: fileName))
@@ -299,7 +318,7 @@ public struct ProfileManager {
         
         switch avatarUpdate {
             case .none, .remove, .updateTo:
-                dependencies.storage.writeAsync { db in
+                dependencies[singleton: .storage].writeAsync { db in
                     if isRemovingAvatar {
                         let existingProfileUrl: String? = try Profile
                             .filter(id: userPublicKey)
@@ -341,7 +360,7 @@ public struct ProfileManager {
                     queue: queue,
                     imageData: data,
                     success: { downloadUrl, fileName, newProfileKey in
-                        Storage.shared.writeAsync { db in
+                        dependencies[singleton: .storage].writeAsync { db in
                             try ProfileManager.updateProfileIfNeeded(
                                 db,
                                 publicKey: userPublicKey,
@@ -593,7 +612,7 @@ public struct ProfileManager {
             let targetProfile: Profile = Profile.fetchOrCreate(db, id: publicKey)
             
             // FIXME: Refactor avatar downloading to be a proper Job so we can avoid this
-            dependencies.jobRunner.afterBlockingQueue {
+            dependencies[singleton: .jobRunner].afterBlockingQueue {
                 ProfileManager.downloadAvatar(for: targetProfile)
             }
         }

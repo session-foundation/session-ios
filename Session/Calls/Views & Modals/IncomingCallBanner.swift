@@ -114,7 +114,7 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
             publicKey: call.sessionId,
             threadVariant: .contact,
             customImageData: nil,
-            profile: Storage.shared.read { db in Profile.fetchOrCreate(db, id: call.sessionId) },
+            profile: Dependencies()[singleton: .storage].read { db in Profile.fetchOrCreate(db, id: call.sessionId) },
             additionalProfile: nil
         )
         displayNameLabel.text = call.contactName

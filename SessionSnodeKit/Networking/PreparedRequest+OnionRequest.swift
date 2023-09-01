@@ -7,7 +7,7 @@ import SessionUtilitiesKit
 public extension HTTP.PreparedRequest {
     /// Send an onion request for the prepared data
     func send(using dependencies: Dependencies) -> AnyPublisher<(ResponseInfoType, R), Error> {
-        return dependencies.network
+        return dependencies[singleton: .network]
             .send(
                 .onionRequest(
                     request,

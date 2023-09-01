@@ -26,7 +26,7 @@ enum _015_BlockCommunityMessageRequests: Migration {
             Identity.userExists(db),
             (try Setting.exists(db, id: Setting.BoolKey.checkForCommunityMessageRequests.rawValue)) == false
         {
-            let rawBlindedMessageRequestValue: Int32 = try dependencies.caches[.sessionUtil]
+            let rawBlindedMessageRequestValue: Int32 = try dependencies[cache: .sessionUtil]
                 .config(for: .userProfile, publicKey: getUserHexEncodedPublicKey(db))
                 .wrappedValue
                 .map { config -> Int32 in try SessionUtil.rawBlindedMessageRequestValue(in: config) }
@@ -39,6 +39,6 @@ enum _015_BlockCommunityMessageRequests: Migration {
             )
         }
         
-        Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
+        Storage.update(progress: 1, for: self, in: target, using: dependencies)
     }
 }

@@ -79,7 +79,7 @@ extension OpenGroupAPI.Message {
             switch SessionId.Prefix(from: sender) {
                 case .blinded15, .blinded25:
                     guard
-                        dependencies.crypto.verify(
+                        dependencies[singleton: .crypto].verify(
                             .signature(message: data.bytes, publicKey: publicKey.bytes, signature: signature.bytes)
                         )
                     else {
@@ -89,7 +89,7 @@ extension OpenGroupAPI.Message {
                     
                 case .standard, .unblinded:
                     guard
-                        dependencies.crypto.verify(
+                        dependencies[singleton: .crypto].verify(
                             .signatureEd25519(signature, publicKey: publicKey, data: data)
                         )
                     else {

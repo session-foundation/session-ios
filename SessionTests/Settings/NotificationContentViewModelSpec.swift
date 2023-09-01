@@ -14,6 +14,7 @@ class NotificationContentViewModelSpec: QuickSpec {
     // MARK: - Spec
 
     override func spec() {
+        var dependencies: TestDependencies!
         var mockStorage: Storage!
         var dataChangeCancellable: AnyCancellable?
         var dismissCancellable: AnyCancellable?
@@ -23,6 +24,7 @@ class NotificationContentViewModelSpec: QuickSpec {
             // MARK: - Configuration
             
             beforeEach {
+                dependencies = TestDependencies()
                 mockStorage = SynchronousStorage(
                     customWriter: try! DatabaseQueue(),
                     customMigrationTargets: [
@@ -30,9 +32,13 @@ class NotificationContentViewModelSpec: QuickSpec {
                         SNSnodeKit.self,
                         SNMessagingKit.self,
                         SNUIKit.self
-                    ]
+                    ],
+                    using: dependencies
                 )
-                viewModel = NotificationContentViewModel(storage: mockStorage, scheduling: .immediate)
+                dependencies[singleton: .storage] = mockStorage
+                dependencies[singleton: .scheduler] = .immediate
+                
+                viewModel = NotificationContentViewModel(using: dependencies)
                 dataChangeCancellable = viewModel.observableTableData
                     .receive(on: ImmediateScheduler.shared)
                     .sink(
@@ -45,6 +51,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                 dataChangeCancellable?.cancel()
                 dismissCancellable?.cancel()
                 
+                dependencies = nil
                 mockStorage = nil
                 dataChangeCancellable = nil
                 dismissCancellable = nil
@@ -100,7 +107,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                 mockStorage.write { db in
                     db[.preferencesNotificationPreviewType] = Preferences.NotificationPreviewType.nameNoPreview
                 }
-                viewModel = NotificationContentViewModel(storage: mockStorage, scheduling: .immediate)
+                viewModel = NotificationContentViewModel(using: dependencies)
                 dataChangeCancellable = viewModel.observableTableData
                     .receive(on: ImmediateScheduler.shared)
                     .sink(

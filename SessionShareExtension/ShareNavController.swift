@@ -50,6 +50,9 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
             // TODO: Do we need to implement isRunningTests in the SAE context?
             return
         }
+        
+        // Called via the OS so create a default 'Dependencies' instance
+        let dependencies: Dependencies = Dependencies()
 
         AppSetup.setupEnvironment(
             appSpecificBlock: {
@@ -65,14 +68,18 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                             // Need to manually trigger these since we don't have a "mainWindow" here
                             // and the current theme might have been changed since the share extension
                             // was last opened
-                            ThemeManager.applySavedTheme()
+                            ThemeManager.applySavedTheme(using: dependencies)
                             
                             // performUpdateCheck must be invoked after Environment has been initialized because
                             // upgrade process may depend on Environment.
-                            self?.versionMigrationsDidComplete(needsConfigSync: needsConfigSync)
+                            self?.versionMigrationsDidComplete(
+                                needsConfigSync: needsConfigSync,
+                                using: dependencies
+                            )
                         }
                 }
-            }
+            },
+            using: dependencies
         )
 
         // We don't need to use "screen protection" in the SAE.
@@ -87,7 +94,10 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         /// results in the `AppSetup` not actually running (and the UI not actually being loaded correctly) - in order to avoid this
         /// we call `checkIsAppReady` explicitly here assuming that either the `AppSetup` _hasn't_ complete or won't ever
         /// get run
-        checkIsAppReady(migrationsCompleted: versionMigrationsComplete.wrappedValue)
+        checkIsAppReady(
+            migrationsCompleted: versionMigrationsComplete.wrappedValue,
+            using: dependencies
+        )
     }
     
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -98,39 +108,45 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         ThemeManager.traitCollectionDidChange(previousTraitCollection)
     }
 
-    func versionMigrationsDidComplete(needsConfigSync: Bool) {
+    func versionMigrationsDidComplete(
+        needsConfigSync: Bool,
+        using dependencies: Dependencies
+    ) {
         AssertIsOnMainThread()
 
         Logger.debug("")
 
         // If we need a config sync then trigger it now
         if needsConfigSync {
-            Storage.shared.write { db in
-                ConfigurationSyncJob.enqueue(db, publicKey: getUserHexEncodedPublicKey(db))
+            dependencies[singleton: .storage].write { db in
+                ConfigurationSyncJob.enqueue(db, publicKey: getUserHexEncodedPublicKey(db, using: dependencies))
             }
         }
 
         versionMigrationsComplete.mutate { $0 = true }
-        checkIsAppReady(migrationsCompleted: true)
+        checkIsAppReady(migrationsCompleted: true, using: dependencies)
     }
 
-    func checkIsAppReady(migrationsCompleted: Bool) {
+    func checkIsAppReady(
+        migrationsCompleted: Bool,
+        using dependencies: Dependencies
+    ) {
         AssertIsOnMainThread()
 
         // App isn't ready until storage is ready AND all version migrations are complete.
         guard migrationsCompleted else { return }
-        guard Storage.shared.isValid else {
+        guard dependencies[singleton: .storage].isValid else {
             // If the database is invalid then the UI will handle it
-            showLockScreenOrMainContent()
+            showLockScreenOrMainContent(using: dependencies)
             return
         }
         guard !AppReadiness.isAppReady() else {
             // Only mark the app as ready once.
-            showLockScreenOrMainContent()
+            showLockScreenOrMainContent(using: dependencies)
             return
         }
 
-        SignalUtilitiesKit.Configuration.performMainSetup()
+        SignalUtilitiesKit.Configuration.performMainSetup(using: dependencies)
 
         Logger.debug("")
 
@@ -144,7 +160,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
 
         AppVersion.sharedInstance().saeLaunchDidComplete()
 
-        showLockScreenOrMainContent()
+        showLockScreenOrMainContent(using: dependencies)
 
         // We don't need to use OWSMessageReceiver in the SAE.
         // We don't need to use OWSBatchMessageProcessor in the SAE.
@@ -154,9 +170,12 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        // Called via the OS so create a default 'Dependencies' instance
+        let dependencies: Dependencies = Dependencies()
+        
         AppReadiness.runNowOrWhenAppDidBecomeReady { [weak self] in
             AssertIsOnMainThread()
-            self?.showLockScreenOrMainContent()
+            self?.showLockScreenOrMainContent(using: dependencies)
         }
     }
 
@@ -165,8 +184,11 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         AssertIsOnMainThread()
 
         Logger.info("")
+        
+        // Called via the OS so create a default 'Dependencies' instance
+        let dependencies: Dependencies = Dependencies()
 
-        if Storage.shared[.isScreenLockEnabled] {
+        if dependencies[singleton: .storage][.isScreenLockEnabled] {
             self.dismiss(animated: false) { [weak self] in
                 AssertIsOnMainThread()
                 self?.extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
@@ -185,8 +207,10 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     
     // MARK: - Updating
     
-    private func showLockScreenOrMainContent() {
-        if Storage.shared[.isScreenLockEnabled] {
+    private func showLockScreenOrMainContent(
+        using dependencies: Dependencies
+    ) {
+        if dependencies[singleton: .storage][.isScreenLockEnabled] {
             showLockScreen()
         }
         else {
