@@ -28,16 +28,9 @@ public struct ClosedGroup: Codable, Identifiable, FetchableRecord, PersistableRe
         case lastDisplayPictureUpdate
         
         case groupIdentityPrivateKey
-        case tag
-        case subkey
+        case authData
         case approved
     }
-    
-    /// The Group public key takes up 32 bytes
-    static let pubkeyByteLength: Int = 32
-    
-    /// The Group secret key takes up 32 bytes
-    static let secretKeyByteLength: Int = 32
     
     public var id: String { threadId }  // Identifiable
     public var publicKey: String { threadId }
@@ -64,15 +57,10 @@ public struct ClosedGroup: Codable, Identifiable, FetchableRecord, PersistableRe
     /// The private key for performing admin actions on this group
     public let groupIdentityPrivateKey: Data?
     
-    /// The unique tag for the user within the group
+    /// The unique authData for the current user within the group
     ///
     /// **Note:** This will be `null` if the `groupIdentityPrivateKey`  is set
-    public let tag: Data?
-    
-    /// The unique subkey for the user within the group
-    ///
-    /// **Note:** This will be `null` if the `groupIdentityPrivateKey`  is set
-    public let subkey: Data?
+    public let authData: Data?
     
     /// A flag indicating whether the user has approved the group invitation
     public let approved: Bool
@@ -122,8 +110,7 @@ public struct ClosedGroup: Codable, Identifiable, FetchableRecord, PersistableRe
         displayPictureEncryptionKey: Data? = nil,
         lastDisplayPictureUpdate: TimeInterval = 0,
         groupIdentityPrivateKey: Data? = nil,
-        tag: Data? = nil,
-        subkey: Data? = nil,
+        authData: Data? = nil,
         approved: Bool
     ) {
         self.threadId = threadId
@@ -134,8 +121,7 @@ public struct ClosedGroup: Codable, Identifiable, FetchableRecord, PersistableRe
         self.displayPictureEncryptionKey = displayPictureEncryptionKey
         self.lastDisplayPictureUpdate = lastDisplayPictureUpdate
         self.groupIdentityPrivateKey = groupIdentityPrivateKey
-        self.tag = tag
-        self.subkey = subkey
+        self.authData = authData
         self.approved = approved
     }
 }
@@ -170,6 +156,27 @@ public extension ClosedGroup {
         case standard
         case silent
         case forced
+    }
+    
+    /// The Group public key takes up 32 bytes
+    static func pubKeyByteLength(for variant: SessionThread.Variant) -> Int {
+        return 32
+    }
+    
+    /// The Group secret key size differs between legacy and updated groups
+    static func secretKeyByteLength(for variant: SessionThread.Variant) -> Int {
+        switch variant {
+            case .group: return 64
+            default: return 32
+        }
+    }
+    
+    /// The Group authData size differs between legacy and updated groups
+    static func authDataByteLength(for variant: SessionThread.Variant) -> Int {
+        switch variant {
+            case .group: return 100
+            default: return 0
+        }
     }
     
     static func removeKeysAndUnsubscribe(
@@ -271,6 +278,17 @@ public extension ClosedGroup {
                     .map { $0.id },
                 using: dependencies
             )
+            
+            // Remove the group config states
+            threadVariants
+                .filter { $0.variant == .group }
+                .forEach { threadIdVariant in
+                    SessionUtil.removeGroupStateIfNeeded(
+                        db,
+                        groupIdentityPublicKey: threadIdVariant.id,
+                        using: dependencies
+                    )
+                }
         }
     }
 }

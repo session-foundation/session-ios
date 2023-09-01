@@ -57,8 +57,11 @@ public struct ConfigDump: Codable, Equatable, Hashable, FetchableRecord, Persist
 // MARK: - Convenience
 
 public extension ConfigDump.Variant {
-    static let userVariants: [ConfigDump.Variant] = [
+    static let userVariants: Set<ConfigDump.Variant> = [
         .userProfile, .contacts, .convoInfoVolatile, .userGroups
+    ]
+    static let groupVariants: Set<ConfigDump.Variant> = [
+        .groupInfo, .groupMembers, .groupKeys
     ]
     
     var configMessageKind: SharedConfigMessage.Kind {
@@ -84,6 +87,15 @@ public extension ConfigDump.Variant {
             case .groupInfo: return SnodeAPI.Namespace.configGroupInfo
             case .groupMembers: return SnodeAPI.Namespace.configGroupMembers
             case .groupKeys: return SnodeAPI.Namespace.configGroupKeys
+        }
+    }
+    
+    /// This value defines the order that the ConfigDump records should be loaded in, we need to load the `groupKeys`
+    /// config _after_ the `groupInfo` and `groupMembers` configs as it requires those to be passed as arguments
+    var loadOrder: Int {
+        switch self {
+            case .groupKeys: return 1
+            default: return 0
         }
     }
     

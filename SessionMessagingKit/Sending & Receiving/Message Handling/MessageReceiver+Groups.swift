@@ -22,9 +22,8 @@ extension MessageReceiver {
         _ db: Database,
         groupIdentityPublicKey: String,
         groupIdentityPrivateKey: Data?,
-        name: String,
-        tag: Data?,
-        subkey: Data?,
+        name: String?,
+        authData: Data?,
         created: Int64,
         approved: Bool,
         calledFromConfigHandling: Bool,
@@ -36,23 +35,34 @@ extension MessageReceiver {
             .fetchOrCreate(db, id: groupIdentityPublicKey, variant: .group, shouldBeVisible: true)
         let closedGroup: ClosedGroup = try ClosedGroup(
             threadId: groupIdentityPublicKey,
-            name: name,
+            name: (name ?? "GROUP_TITLE_FALLBACK".localized()),
             formationTimestamp: TimeInterval(created),
             groupIdentityPrivateKey: groupIdentityPrivateKey,
-            tag: tag,
-            subkey: subkey,
+            authData: authData,
             approved: approved
         ).saved(db)
         
+        if !calledFromConfigHandling {
+            // Update libSession
+            try? SessionUtil.add(
+                db,
+                groupIdentityPublicKey: groupIdentityPublicKey,
+                groupIdentityPrivateKey: groupIdentityPrivateKey,
+                name: name,
+                authData: authData,
+                joinedAt: created,
+                using: dependencies
+            )
+        }
         
         // Only start polling and subscribe for PNs if the user has approved the group
         guard approved else { return }
         
         // Start polling
-        ClosedGroupPoller.shared.startIfNeeded(for: groupIdentityPublicKey, using: dependencies)
+        dependencies[singleton: .closedGroupPoller].startIfNeeded(for: groupIdentityPublicKey, using: dependencies)
         
         // Resubscribe for group push notifications
-        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
+        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
         
     }
 }

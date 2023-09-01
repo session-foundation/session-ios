@@ -18,7 +18,7 @@ extension SnodeAPI {
             messageHashes: [String],
             requireSuccessfulDeletion: Bool,
             pubkey: String,
-            ed25519PublicKey: [UInt8],
+            ed25519PublicKey: [UInt8]?,
             ed25519SecretKey: [UInt8]
         ) {
             self.messageHashes = messageHashes

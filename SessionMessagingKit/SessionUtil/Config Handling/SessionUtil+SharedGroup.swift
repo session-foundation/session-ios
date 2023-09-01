@@ -10,6 +10,13 @@ import SessionUtilitiesKit
 // MARK: - Convenience
 
 internal extension SessionUtil {
+    typealias CreatedGroupInfo = (
+        identityKeyPair: KeyPair,
+        groupState: [ConfigDump.Variant: Config],
+        group: ClosedGroup,
+        members: [GroupMember]
+    )
+    
     static func createGroup(
         _ db: Database,
         name: String,
@@ -19,7 +26,7 @@ internal extension SessionUtil {
         members: [(id: String, profile: Profile?)],
         admins: [(id: String, profile: Profile?)],
         using dependencies: Dependencies
-    ) throws -> (identityKeyPair: KeyPair, group: ClosedGroup, members: [GroupMember]) {
+    ) throws -> CreatedGroupInfo {
         guard
             let groupIdentityKeyPair: KeyPair = dependencies[singleton: .crypto].generate(.ed25519KeyPair()),
             let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db, using: dependencies)
@@ -125,42 +132,22 @@ internal extension SessionUtil {
                 groups_members_set(membersConf, &member)
             }
         }
-        // Load them into memory
+        // Define the config state map and load it into memory
         let groupState: [ConfigDump.Variant: Config] = [
             .groupKeys: .groupKeys(keysConf, info: infoConf, members: membersConf),
             .groupInfo: .object(infoConf),
             .groupMembers: .object(membersConf),
         ]
+        
         dependencies.mutate(cache: .sessionUtil) { cache in
             groupState.forEach { variant, config in
                 cache.setConfig(for: variant, publicKey: groupId.hexString, to: config)
             }
         }
         
-        // Create and save dumps for the configs
-        try groupState.forEach { variant, config in
-            try SessionUtil.createDump(
-                config: config,
-                for: variant,
-                publicKey: groupId.hexString,
-                timestampMs: Int64(floor(creationTimestamp * 1000))
-            )?.save(db)
-        }
-        
-        // Add the new group to the USER_GROUPS config message
-        try SessionUtil.add(
-            db,
-            groupIdentityPublicKey: groupId.hexString,
-            groupIdentityPrivateKey: Data(groupIdentityPrivateKey),
-            name: name,
-            tag: nil,
-            subkey: nil,
-            joinedAt: Int64(floor(creationTimestamp)),
-            using: dependencies
-        )
-        
         return (
             groupIdentityKeyPair,
+            groupState,
             ClosedGroup(
                 threadId: groupId.hexString,
                 name: name,
@@ -180,6 +167,50 @@ internal extension SessionUtil {
                     isHidden: false
                 )
             }
+        )
+    }
+    
+    static func removeGroupStateIfNeeded(
+        _ db: Database,
+        groupIdentityPublicKey: String,
+        using dependencies: Dependencies
+    ) {
+        dependencies.mutate(cache: .sessionUtil) { cache in
+            cache.setConfig(for: .groupKeys, publicKey: groupIdentityPublicKey, to: nil)
+            cache.setConfig(for: .groupInfo, publicKey: groupIdentityPublicKey, to: nil)
+            cache.setConfig(for: .groupMembers, publicKey: groupIdentityPublicKey, to: nil)
+        }
+        
+        _ = try? ConfigDump
+            .filter(ConfigDump.Columns.publicKey == groupIdentityPublicKey)
+            .deleteAll(db)
+    }
+    
+    static func saveCreatedGroup(
+        _ db: Database,
+        group: ClosedGroup,
+        groupState: [ConfigDump.Variant: Config],
+        using dependencies: Dependencies
+    ) throws {
+        // Create and save dumps for the configs
+        try groupState.forEach { variant, config in
+            try SessionUtil.createDump(
+                config: config,
+                for: variant,
+                publicKey: group.id,
+                timestampMs: Int64(floor(group.formationTimestamp * 1000))
+            )?.save(db)
+        }
+        
+        // Add the new group to the USER_GROUPS config message
+        try SessionUtil.add(
+            db,
+            groupIdentityPublicKey: group.id,
+            groupIdentityPrivateKey: group.groupIdentityPrivateKey,
+            name: group.name,
+            authData: group.authData,
+            joinedAt: Int64(floor(group.formationTimestamp)),
+            using: dependencies
         )
     }
     

@@ -13,7 +13,9 @@ public class SnodeAuthenticatedRequestBody: Encodable {
     }
     
     private let pubkey: String
-    private let ed25519PublicKey: [UInt8]
+    
+    /// This value should only be provided if the `pubkey` value is an x25519 public key
+    private let ed25519PublicKey: [UInt8]?
     internal let ed25519SecretKey: [UInt8]
     private let subkey: String?
     internal let timestampMs: UInt64?
@@ -22,7 +24,7 @@ public class SnodeAuthenticatedRequestBody: Encodable {
 
     public init(
         pubkey: String,
-        ed25519PublicKey: [UInt8],
+        ed25519PublicKey: [UInt8]?,
         ed25519SecretKey: [UInt8],
         subkey: String? = nil,
         timestampMs: UInt64? = nil
@@ -44,7 +46,7 @@ public class SnodeAuthenticatedRequestBody: Encodable {
         try container.encode(pubkey, forKey: .pubkey)
         try container.encodeIfPresent(subkey, forKey: .subkey)
         try container.encodeIfPresent(timestampMs, forKey: .timestampMs)
-        try container.encode(ed25519PublicKey.toHexString(), forKey: .ed25519PublicKey)
+        try container.encodeIfPresent(ed25519PublicKey?.toHexString(), forKey: .ed25519PublicKey)
         try container.encode(signatureBase64, forKey: .signatureBase64)
     }
     

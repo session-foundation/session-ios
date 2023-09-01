@@ -18,7 +18,7 @@ extension SnodeAPI {
             namespace: SnodeAPI.Namespace,
             subkey: String?,
             timestampMs: UInt64,
-            ed25519PublicKey: [UInt8],
+            ed25519PublicKey: [UInt8]?,
             ed25519SecretKey: [UInt8]
         ) {
             self.message = message

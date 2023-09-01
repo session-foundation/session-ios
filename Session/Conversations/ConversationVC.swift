@@ -614,7 +614,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
             !SessionUtil.conversationInConfig(
                 threadId: threadId,
                 threadVariant: viewModel.threadData.threadVariant,
-                visibleOnly: true
+                visibleOnly: false
             )
         {
             Dependencies()[singleton: .storage].writeAsync { db in

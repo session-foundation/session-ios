@@ -55,14 +55,12 @@ public enum SessionUtil {
         
         // Retrieve the existing dumps from the database
         let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
-        let existingDumps: Set<ConfigDump> = ((try? ConfigDump.fetchSet(db)) ?? [])
-            .sorted { lhs, rhs in lhs.variant.processingOrder < rhs.variant.processingOrder }
-            .asSet()
+        let existingDumps: [ConfigDump] = ((try? ConfigDump.fetchSet(db)) ?? [])
+            .sorted { lhs, rhs in lhs.variant.loadOrder < rhs.variant.loadOrder }
         let existingDumpVariants: Set<ConfigDump.Variant> = existingDumps
             .map { $0.variant }
             .asSet()
         let missingRequiredVariants: Set<ConfigDump.Variant> = ConfigDump.Variant.userVariants
-            .asSet()
             .subtracting(existingDumpVariants)
         let groupsByKey: [String: Data] = (try? ClosedGroup
             .filter(ids: existingDumps.map { $0.publicKey })
@@ -70,7 +68,7 @@ public enum SessionUtil {
             .reduce(into: [:]) { result, next in result[next.threadId] = next.groupIdentityPrivateKey })
             .defaulting(to: [:])
         
-        // Create the 'config_object' records for each dump
+        // Create the config records for each dump
         dependencies.mutate(cache: .sessionUtil) { cache in
             existingDumps.forEach { dump in
                 cache.setConfig(
@@ -280,24 +278,20 @@ public enum SessionUtil {
         publicKey: String,
         using dependencies: Dependencies
     ) throws -> [OutgoingConfResult] {
-        guard Identity.userExists(db) else { throw SessionUtilError.userDoesNotExist }
+        guard Identity.userExists(db, using: dependencies) else { throw SessionUtilError.userDoesNotExist }
         
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
-        var existingDumpVariants: Set<ConfigDump.Variant> = try ConfigDump
-            .select(.variant)
-            .filter(ConfigDump.Columns.publicKey == publicKey)
-            .asRequest(of: ConfigDump.Variant.self)
-            .fetchSet(db)
+        // Get a list of the different config variants for the provided publicKey
+        let currenUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        let targetVariants: Set<ConfigDump.Variant> = {
+            switch (publicKey, SessionId.Prefix(from: publicKey)) {
+                case (currenUserPublicKey, _): return ConfigDump.Variant.userVariants
+                case (_, .group): return ConfigDump.Variant.groupVariants
+                default: return []
+            }
+        }()
         
-        // Ensure we always check the required user config types for changes even if there is no dump
-        // data yet (to deal with first launch cases)
-        if publicKey == userPublicKey {
-            ConfigDump.Variant.userVariants.forEach { existingDumpVariants.insert($0) }
-        }
-        
-        // Ensure we always check the required user config types for changes even if there is no dump
-        // data yet (to deal with first launch cases)
-        return try existingDumpVariants
+        // Extract any pending changes from the cached config entry for each variant
+        return try targetVariants
             .compactMap { variant -> OutgoingConfResult? in
                 try dependencies[cache: .sessionUtil]
                     .config(for: variant, publicKey: publicKey)
@@ -323,8 +317,12 @@ public enum SessionUtil {
                                         result = "\(convo_info_volatile_size(conf)) volatile conversations"
 
                                     case (_, .groupInfo): result = "1 group info"
-                                    case (.object(let conf), .groupMembers): result = ""
-                                    case (_, .groupKeys): result = ""
+                                    case (.object(let conf), .groupMembers):
+                                        result = "\(groups_members_size(conf)) group members"
+                                        
+                                    case (.groupKeys(let conf, _, _), .groupKeys):
+                                        result = "\(groups_keys_size(conf)) group keys"
+                                        
                                     default: break
                                 }
                             }
@@ -415,6 +413,7 @@ public enum SessionUtil {
         guard !publicKey.isEmpty else { throw MessageReceiverError.noThread }
         
         let groupedMessages: [ConfigDump.Variant: [SharedConfigMessage]] = messages
+            .sorted { lhs, rhs in lhs.seqNo < rhs.seqNo }
             .grouped(by: \.kind.configDumpVariant)
         
         let needsPush: Bool = try groupedMessages
@@ -601,7 +600,7 @@ public extension SessionUtil {
         // MARK: - Functions
         
         public func setConfig(for variant: ConfigDump.Variant, publicKey: String, to config: SessionUtil.Config?) {
-            configStore[Key(variant: variant, publicKey: publicKey)] = Atomic(config)
+            configStore[Key(variant: variant, publicKey: publicKey)] = config.map { Atomic($0) }
         }
         
         public func config(

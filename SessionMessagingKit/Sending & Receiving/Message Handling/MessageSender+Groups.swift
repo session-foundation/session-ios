@@ -9,11 +9,11 @@ import SessionSnodeKit
 
 extension MessageSender {
     private typealias PreparedGroupData = (
+        groupState: [ConfigDump.Variant: SessionUtil.Config],
         thread: SessionThread,
         group: ClosedGroup,
         members: [GroupMember],
-        preparedNotificationsSubscription: HTTP.PreparedRequest<PushNotificationAPI.SubscribeResponse>?,
-        currentUserPublicKey: String
+        preparedNotificationsSubscription: HTTP.PreparedRequest<PushNotificationAPI.SubscribeResponse>?
     )
     public static func createGroup(
         name: String,
@@ -21,7 +21,7 @@ extension MessageSender {
         members: [(String, Profile?)],
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<SessionThread, Error> {
-        Just(())
+        return Just(())
             .setFailureType(to: Error.self)
             .flatMap { _ -> AnyPublisher<(url: String, filename: String, encryptionKey: Data)?, Error> in
                 guard let displayPicture: SignalAttachment = displayPicture else {
@@ -34,12 +34,12 @@ extension MessageSender {
                     .setFailureType(to: Error.self)
                     .eraseToAnyPublisher()
             }
-            .map { displayPictureInfo -> PreparedGroupData? in
-                dependencies[singleton: .storage].write(using: dependencies) { db -> PreparedGroupData in
+            .flatMap { displayPictureInfo -> AnyPublisher<PreparedGroupData, Error> in
+                dependencies[singleton: .storage].writePublisher(using: dependencies) { db -> PreparedGroupData in
                     // Create and cache the libSession entries
                     let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
                     let currentUserProfile: Profile = Profile.fetchOrCreateCurrentUser(db, using: dependencies)
-                    let groupData: (identityKeyPair: KeyPair, group: ClosedGroup, members: [GroupMember]) = try SessionUtil.createGroup(
+                    let createdInfo: SessionUtil.CreatedGroupInfo = try SessionUtil.createGroup(
                         db,
                         name: name,
                         displayPictureUrl: displayPictureInfo?.url,
@@ -49,58 +49,90 @@ extension MessageSender {
                         admins: [(currentUserPublicKey, currentUserProfile)],
                         using: dependencies
                     )
-                    let preparedNotificationSubscription = try? PushNotificationAPI
-                        .preparedSubscribe(
-                            publicKey: groupData.group.id,
-                            subkey: nil,
-                            ed25519KeyPair: groupData.identityKeyPair,
-                            using: dependencies
-                        )
                     
                     // Save the relevant objects to the database
                     let thread: SessionThread = try SessionThread
                         .fetchOrCreate(
                             db,
-                            id: groupData.group.id,
+                            id: createdInfo.group.id,
                             variant: .group,
                             shouldBeVisible: true,
                             using: dependencies
                         )
-                    try groupData.group.insert(db)
-                    try groupData.members.forEach { try $0.insert(db) }
+                    try createdInfo.group.insert(db)
+                    try createdInfo.members.forEach { try $0.insert(db) }
+                    
+                    // Prepare the notification subscription
+                    let preparedNotificationSubscription = try? PushNotificationAPI
+                        .preparedSubscribe(
+                            publicKey: createdInfo.group.id,
+                            subkey: nil,
+                            ed25519KeyPair: createdInfo.identityKeyPair,
+                            using: dependencies
+                        )
                     
                     return (
+                        createdInfo.groupState,
                         thread,
-                        groupData.group,
-                        groupData.members,
-                        preparedNotificationSubscription,
-                        currentUserPublicKey
+                        createdInfo.group,
+                        createdInfo.members,
+                        preparedNotificationSubscription
                     )
                 }
             }
-            .tryFlatMap { maybePreparedData -> AnyPublisher<PreparedGroupData, Error> in
-                guard let preparedData: PreparedGroupData = maybePreparedData else {
-                    throw StorageError.failedToSave
-                }
-                
-                return ConfigurationSyncJob
-                    .run(publicKey: preparedData.group.id, using: dependencies)
-                    .map { _ in preparedData }
+            .flatMap { preparedGroupData -> AnyPublisher<PreparedGroupData, Error> in
+                ConfigurationSyncJob
+                    .run(publicKey: preparedGroupData.group.id, using: dependencies)
+                    .flatMap { _ in
+                        dependencies[singleton: .storage].writePublisher(using: dependencies) { db in
+                            // Save the successfully created group and add to the user config
+                            try SessionUtil.saveCreatedGroup(
+                                db,
+                                group: preparedGroupData.group,
+                                groupState: preparedGroupData.groupState,
+                                using: dependencies
+                            )
+                            
+                            return preparedGroupData
+                        }
+                    }
+                    .handleEvents(
+                        receiveCompletion: { result in
+                            switch result {
+                                case .finished: break
+                                case .failure:
+                                    // Remove the config and database states
+                                    dependencies[singleton: .storage].writeAsync(using: dependencies) { db in
+                                        SessionUtil.removeGroupStateIfNeeded(
+                                            db,
+                                            groupIdentityPublicKey: preparedGroupData.group.id,
+                                            using: dependencies
+                                        )
+                                        
+                                        _ = try? preparedGroupData.thread.delete(db)
+                                        _ = try? preparedGroupData.group.delete(db)
+                                        try? preparedGroupData.members.forEach { try $0.delete(db) }
+                                    }
+                            }
+                        }
+                    )
                     .eraseToAnyPublisher()
             }
             .handleEvents(
-                receiveOutput: { _, group, members, preparedNotificationSubscription, currentUserPublicKey in
+                receiveOutput: { _, thread, _, members, preparedNotificationSubscription in
                     // Start polling
-                    dependencies[singleton: .closedGroupPoller].startIfNeeded(for: group.id, using: dependencies)
+                    dependencies[singleton: .closedGroupPoller].startIfNeeded(for: thread.id, using: dependencies)
                     
                     // Subscribe for push notifications (if PNs are enabled)
                     preparedNotificationSubscription?
                         .send(using: dependencies)
-                        .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+                        .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
                         .sinkUntilComplete()
                     
                     // Save jobs for sending group member invitations
                     dependencies[singleton: .storage].write(using: dependencies) { db in
+                        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+                        
                         members
                             .filter { $0.profileId != currentUserPublicKey }
                             .forEach { member in
@@ -108,6 +140,7 @@ extension MessageSender {
                                     db,
                                     job: Job(
                                         variant: .groupInviteMemberJob,
+                                        threadId: thread.id,
                                         details: GroupInviteMemberJob.Details(
                                             memberSubkey: Data(),
                                             memberTag: Data()
@@ -124,7 +157,7 @@ extension MessageSender {
                     }
                 }
             )
-            .map { thread, _, _, _, _ in thread }
+            .map { _, thread, _, _, _ in thread }
             .eraseToAnyPublisher()
     }
 }

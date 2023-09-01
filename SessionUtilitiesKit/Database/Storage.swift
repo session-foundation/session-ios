@@ -146,10 +146,32 @@ open class Storage {
         
         // Create the DatabasePool to allow us to connect to the database and mark the storage as valid
         do {
-            dbWriter = try DatabasePool(
-                path: "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)",
-                configuration: config
-            )
+            do {
+                dbWriter = try DatabasePool(
+                    path: "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)",
+                    configuration: config
+                )
+            }
+            catch {
+                switch error {
+                    case DatabaseError.SQLITE_BUSY:
+                        /// According to the docs in GRDB there are a few edge-cases where opening the database
+                        /// can fail due to it reporting a "busy" state, by changing the behaviour from `immediateError`
+                        /// to `timeout(1)` we give the database a 1 second grace period to deal with it's issues
+                        /// and get back into a valid state - adding this helps the database resolve situations where it
+                        /// can get confused due to crashing mid-transaction
+                        config.busyMode = .timeout(1)
+                        SNLog("[Database Warning] Database reported busy state during statup, adding grace period to allow startup to continue")
+                        
+                        // Try to initialise the dbWriter again (hoping the above resolves the lock)
+                        dbWriter = try DatabasePool(
+                            path: "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)",
+                            configuration: config
+                        )
+                        
+                    default: throw error
+                }
+            }
             isValid = true
             Storage.internalHasCreatedValidInstance.mutate { $0 = true }
         }

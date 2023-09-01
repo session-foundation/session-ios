@@ -740,24 +740,19 @@ public final class SnodeAPI {
     
     public static func sendConfigMessages(
         _ messages: [(message: SnodeMessage, namespace: Namespace)],
+        signedWith ed25519KeyPair: KeyPair,
         allObsoleteHashes: [String],
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<(ResponseInfoType, HTTP.BatchResponse), Error> {
         guard
             !messages.isEmpty,
-            let recipient: String = messages.first?.message.recipient
+            let recipient: String = messages.first?.message.recipient,
+            let recipientPrefix: SessionId.Prefix = SessionId.Prefix(from: recipient)
         else {
             return Fail(error: SnodeAPIError.generic)
                 .eraseToAnyPublisher()
         }
-        // TODO: Need to get either the closed group subKey or the userEd25519 key for auth
-        guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair() else {
-            return Fail(error: SnodeAPIError.noKeyPair)
-                .eraseToAnyPublisher()
-        }
         
-        let userX25519PublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
-        let publicKey: String = recipient
         var requests: [SnodeAPI.BatchRequest.Info] = messages
             .map { message, namespace in
                 // Check if this namespace requires authentication
@@ -782,8 +777,8 @@ public final class SnodeAPI {
                             namespace: namespace,
                             subkey: nil,    // TODO: Need to get this
                             timestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs()),
-                            ed25519PublicKey: userED25519KeyPair.publicKey,
-                            ed25519SecretKey: userED25519KeyPair.secretKey
+                            ed25519PublicKey: (recipientPrefix != .standard ? nil : ed25519KeyPair.publicKey),
+                            ed25519SecretKey: ed25519KeyPair.secretKey
                         )
                     ),
                     responseType: SendMessagesResponse.self
@@ -799,9 +794,9 @@ public final class SnodeAPI {
                         body: DeleteMessagesRequest(
                             messageHashes: allObsoleteHashes,
                             requireSuccessfulDeletion: false,
-                            pubkey: userX25519PublicKey,
-                            ed25519PublicKey: userED25519KeyPair.publicKey,
-                            ed25519SecretKey: userED25519KeyPair.secretKey
+                            pubkey: recipient,
+                            ed25519PublicKey: (recipientPrefix != .standard ? nil : ed25519KeyPair.publicKey),
+                            ed25519SecretKey: ed25519KeyPair.secretKey
                         )
                     ),
                     responseType: DeleteMessagesResponse.self
@@ -811,7 +806,7 @@ public final class SnodeAPI {
         
         let responseTypes = requests.map { $0.responseType }
         
-        return getSwarm(for: publicKey)
+        return getSwarm(for: recipient)
             .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<(ResponseInfoType, HTTP.BatchResponse), Error> in
                 SnodeAPI
                     .send(
@@ -820,7 +815,7 @@ public final class SnodeAPI {
                             body: BatchRequest(requests: requests)
                         ),
                         to: snode,
-                        associatedWith: publicKey,
+                        associatedWith: recipient,
                         using: dependencies
                     )
                     .eraseToAnyPublisher()

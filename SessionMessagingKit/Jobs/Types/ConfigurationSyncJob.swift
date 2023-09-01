@@ -84,8 +84,8 @@ public enum ConfigurationSyncJob: JobExecutor {
         SNLog("[ConfigurationSyncJob] For \(publicKey) started with \(pendingConfigChanges.count) change\(pendingConfigChanges.count == 1 ? "" : "s")")
         
         dependencies[singleton: .storage]
-            .readPublisher { db in
-                try pendingConfigChanges.map { change -> MessageSender.PreparedSendData in
+            .readPublisher { db -> (keyPair: KeyPair, changes: [MessageSender.PreparedSendData]) in
+                let changes: [MessageSender.PreparedSendData] = try pendingConfigChanges.map { change -> MessageSender.PreparedSendData in
                     try MessageSender.preparedSendData(
                         db,
                         message: change.message,
@@ -94,8 +94,39 @@ public enum ConfigurationSyncJob: JobExecutor {
                         interactionId: nil
                     )
                 }
+                
+                switch destination {
+                    case .contact:
+                        return (
+                            (
+                                try Identity.fetchUserEd25519KeyPair(db, using: dependencies) ??
+                                { throw SnodeAPIError.noKeyPair }()
+                            ),
+                            changes
+                        )
+                        
+                    case .closedGroup(let groupPublicKey):
+                        // Only admins can update the group config messages
+                        let keyPair: KeyPair = try {
+                            guard
+                                let group: ClosedGroup = try ClosedGroup.fetchOne(db, id: groupPublicKey),
+                                let adminKey: Data = group.groupIdentityPrivateKey
+                            else {
+                                throw MessageSenderError.invalidClosedGroupUpdate
+                            }
+                            
+                            return KeyPair(
+                                publicKey: Array(Data(hex: groupPublicKey).removingIdPrefixIfNeeded()),
+                                secretKey: Array(adminKey)
+                            )
+                        }()
+                        
+                        return (keyPair, changes)
+                        
+                    default: throw HTTPError.invalidPreparedRequest
+                }
             }
-            .flatMap { (changes: [MessageSender.PreparedSendData]) -> AnyPublisher<(ResponseInfoType, HTTP.BatchResponse), Error> in
+            .flatMap { (keyPair: KeyPair, changes: [MessageSender.PreparedSendData]) -> AnyPublisher<(ResponseInfoType, HTTP.BatchResponse), Error> in
                 SnodeAPI
                     .sendConfigMessages(
                         changes.compactMap { change in
@@ -106,6 +137,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                             
                             return (snodeMessage, namespace)
                         },
+                        signedWith: keyPair,
                         allObsoleteHashes: Array(allObsoleteHashes),
                         using: dependencies
                     )

@@ -98,7 +98,7 @@ public extension SnodeReceivedMessageInfo {
                 return try SnodeReceivedMessageInfo
                     .select(Column.rowID)
                     .filter(SnodeReceivedMessageInfo.Columns.key == key(for: snode, publicKey: publicKey, namespace: namespace))
-                    .filter(SnodeReceivedMessageInfo.Columns.expirationDateMs <= SnodeAPI.currentOffsetTimestampMs())
+                    .filter(SnodeReceivedMessageInfo.Columns.expirationDateMs <= SnodeAPI.currentOffsetTimestampMs(using: dependencies))
                     .asRequest(of: Int64.self)
                     .fetchAll(db)
             }
