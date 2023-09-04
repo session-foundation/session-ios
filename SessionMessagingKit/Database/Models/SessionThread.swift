@@ -312,6 +312,7 @@ public extension SessionThread {
                         .filter(id: currentUserPublicKey)
                         .updateAllAndConfig(
                             db,
+                            calledFromConfig: calledFromConfigHandling,
                             SessionThread.Columns.pinnedPriority.set(to: 0),
                             SessionThread.Columns.shouldBeVisible.set(to: false)
                         )
@@ -320,10 +321,10 @@ public extension SessionThread {
                 // Update any other threads to be hidden (don't want to actually delete the thread
                 // record in case it's settings get changed while it's not visible)
                 _ = try SessionThread
-                    .filter(id: remainingThreadIds)
+                    .filter(ids: remainingThreadIds)
                     .updateAllAndConfig(
                         db,
-                        calledFromConfig: calledFromConfig,
+                        calledFromConfig: calledFromConfigHandling,
                         SessionThread.Columns.pinnedPriority.set(to: SessionUtil.hiddenPriority),
                         SessionThread.Columns.shouldBeVisible.set(to: false)
                     )
@@ -332,11 +333,11 @@ public extension SessionThread {
                 // If this wasn't called from config handling then we need to hide the conversation
                 if !calledFromConfigHandling {
                     try SessionUtil
-                        .remove(db, contactIds: remainingThreadIds)
+                        .remove(db, contactIds: Array(remainingThreadIds))
                 }
                 
                 _ = try SessionThread
-                    .filter(id: remainingThreadIds)
+                    .filter(ids: remainingThreadIds)
                     .deleteAll(db)
                 
             case (.legacyGroup, .standard), (.group, .standard):
