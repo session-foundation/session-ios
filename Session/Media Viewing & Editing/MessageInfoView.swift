@@ -49,14 +49,8 @@ struct MessageInfoView: View {
                                 
                                 Text(body)
                                     .foregroundColor(themeColor: bubbleTextColor)
-                                    .padding(
-                                        EdgeInsets(
-                                            top: 8,
-                                            leading: 16,
-                                            bottom: 8,
-                                            trailing: 16
-                                        )
-                                    )
+                                    .padding(.vertical, Values.smallSpacing)
+                                    .padding(.horizontal, Values.mediumSpacing)
                             }
                             .frame(
                                 maxWidth: .infinity,
@@ -64,14 +58,9 @@ struct MessageInfoView: View {
                                 alignment: .topLeading
                             )
                             .fixedSize(horizontal: true, vertical: true)
-                            .padding(
-                                EdgeInsets(
-                                    top: 8,
-                                    leading: 30,
-                                    bottom: 4,
-                                    trailing: 30
-                                )
-                            )
+                            .padding(.top, Values.smallSpacing)
+                            .padding(.bottom, Values.verySmallSpacing)
+                            .padding(.horizontal, 30)
                         }
                         
                         if isMessageFailed {
@@ -91,18 +80,13 @@ struct MessageInfoView: View {
                                 
                                 if let statusText: String = statusText {
                                     Text(statusText)
-                                        .font(.system(size: 11))
+                                        .font(.system(size: Values.verySmallFontSize))
                                         .foregroundColor(themeColor: tintColor)
                                 }
                             }
-                            .padding(
-                                EdgeInsets(
-                                    top: -8,
-                                    leading: 30,
-                                    bottom: 4,
-                                    trailing: 30
-                                )
-                            )
+                            .padding(.top, -Values.smallSpacing)
+                            .padding(.bottom, Values.verySmallSpacing)
+                            .padding(.horizontal, 30)
                         }
                         
                         if let attachments = messageViewModel.attachments {
@@ -134,14 +118,7 @@ struct MessageInfoView: View {
                                     )
                                     .aspectRatio(1, contentMode: .fit)
                                     .clipShape(RoundedRectangle(cornerRadius: 15))
-                                    .padding(
-                                        EdgeInsets(
-                                            top: 0,
-                                            leading: 30,
-                                            bottom: 0,
-                                            trailing: 30
-                                        )
-                                    )
+                                    .padding(.horizontal, 30)
                                 }
                                 
                                 Button {
@@ -164,23 +141,10 @@ struct MessageInfoView: View {
                                     }
                                     .frame(width: 26, height: 26)
                                 }
-                                .padding(
-                                    EdgeInsets(
-                                        top: 0,
-                                        leading: 0,
-                                        bottom: 8,
-                                        trailing: 38
-                                    )
-                                )
+                                .padding(.bottom, Values.smallSpacing)
+                                .padding(.trailing, 38)
                             }
-                            .padding(
-                                EdgeInsets(
-                                    top: 4,
-                                    leading: 0,
-                                    bottom: 4,
-                                    trailing: 0
-                                )
-                            )
+                            .padding(.vertical, Values.verySmallSpacing)
                             
                             // Attachment Info
                             ZStack {
@@ -189,11 +153,11 @@ struct MessageInfoView: View {
                                     
                                 VStack(
                                     alignment: .leading,
-                                    spacing: 16
+                                    spacing: Values.mediumSpacing
                                 ) {
                                     InfoBlock(title: "ATTACHMENT_INFO_FILE_ID".localized() + ":") {
                                         Text(attachment.serverId ?? "")
-                                            .font(.system(size: 16))
+                                            .font(.system(size: Values.mediumFontSize))
                                             .foregroundColor(themeColor: .textPrimary)
                                     }
                                     
@@ -202,7 +166,7 @@ struct MessageInfoView: View {
                                     ) {
                                         InfoBlock(title: "ATTACHMENT_INFO_FILE_TYPE".localized() + ":") {
                                             Text(attachment.contentType)
-                                                .font(.system(size: 16))
+                                                .font(.system(size: Values.mediumFontSize))
                                                 .foregroundColor(themeColor: .textPrimary)
                                         }
                                         
@@ -210,7 +174,7 @@ struct MessageInfoView: View {
                                         
                                         InfoBlock(title: "ATTACHMENT_INFO_FILE_SIZE".localized() + ":") {
                                             Text(Format.fileSize(attachment.byteCount))
-                                                .font(.system(size: 16))
+                                                .font(.system(size: Values.mediumFontSize))
                                                 .foregroundColor(themeColor: .textPrimary)
                                         }
                                         
@@ -225,7 +189,7 @@ struct MessageInfoView: View {
                                         }()
                                         InfoBlock(title: "ATTACHMENT_INFO_RESOLUTION".localized() + ":") {
                                             Text(resolution)
-                                                .font(.system(size: 16))
+                                                .font(.system(size: Values.mediumFontSize))
                                                 .foregroundColor(themeColor: .textPrimary)
                                         }
                                         
@@ -237,7 +201,7 @@ struct MessageInfoView: View {
                                         }()
                                         InfoBlock(title: "ATTACHMENT_INFO_DURATION".localized() + ":") {
                                             Text(duration)
-                                                .font(.system(size: 16))
+                                                .font(.system(size: Values.mediumFontSize))
                                                 .foregroundColor(themeColor: .textPrimary)
                                         }
                                         
@@ -249,25 +213,12 @@ struct MessageInfoView: View {
                                     maxHeight: .infinity,
                                     alignment: .topLeading
                                 )
-                                .padding(
-                                    EdgeInsets(
-                                        top: 24,
-                                        leading: 24,
-                                        bottom: 24,
-                                        trailing: 24
-                                    )
-                                )
+                                .padding(.all, Values.largeSpacing)
                             }
                             .frame(maxHeight: .infinity)
                             .fixedSize(horizontal: false, vertical: true)
-                            .padding(
-                                EdgeInsets(
-                                    top: 4,
-                                    leading: 30,
-                                    bottom: 4,
-                                    trailing: 30
-                                )
-                            )
+                            .padding(.vertical, Values.verySmallSpacing)
+                            .padding(.horizontal, 30)
                         }
 
                         // Message Info
@@ -277,17 +228,17 @@ struct MessageInfoView: View {
                                 
                             VStack(
                                 alignment: .leading,
-                                spacing: 16
+                                spacing: Values.mediumSpacing
                             ) {
                                 InfoBlock(title: "MESSAGE_INFO_SENT".localized() + ":") {
                                     Text(messageViewModel.dateForUI.fromattedForMessageInfo)
-                                        .font(.system(size: 16))
+                                        .font(.system(size: Values.mediumFontSize))
                                         .foregroundColor(themeColor: .textPrimary)
                                 }
                                 
                                 InfoBlock(title: "MESSAGE_INFO_RECEIVED".localized() + ":") {
                                     Text(messageViewModel.receivedDateForUI.fromattedForMessageInfo)
-                                        .font(.system(size: 16))
+                                        .font(.system(size: Values.mediumFontSize))
                                         .foregroundColor(themeColor: .textPrimary)
                                 }
                                 
@@ -295,7 +246,7 @@ struct MessageInfoView: View {
                                     let failureText: String = messageViewModel.mostRecentFailureText ?? "Message failed to send"
                                     InfoBlock(title: "ALERT_ERROR_TITLE".localized() + ":") {
                                         Text(failureText)
-                                            .font(.system(size: 16))
+                                            .font(.system(size: Values.mediumFontSize))
                                             .foregroundColor(themeColor: .danger)
                                     }
                                 }
@@ -335,11 +286,11 @@ struct MessageInfoView: View {
                                             if !messageViewModel.authorName.isEmpty  {
                                                 Text(messageViewModel.authorName)
                                                     .bold()
-                                                    .font(.system(size: 18))
+                                                    .font(.system(size: Values.mediumLargeFontSize))
                                                     .foregroundColor(themeColor: .textPrimary)
                                             }
                                             Text(messageViewModel.authorId)
-                                                .font(.spaceMono(size: 16))
+                                                .font(.spaceMono(size: Values.mediumFontSize))
                                                 .foregroundColor(themeColor: .textPrimary)
                                         }
                                     }
@@ -350,25 +301,12 @@ struct MessageInfoView: View {
                                 maxHeight: .infinity,
                                 alignment: .topLeading
                             )
-                            .padding(
-                                EdgeInsets(
-                                    top: 24,
-                                    leading: 24,
-                                    bottom: 24,
-                                    trailing: 24
-                                )
-                            )
+                            .padding(.all, Values.largeSpacing)
                         }
                         .frame(maxHeight: .infinity)
                         .fixedSize(horizontal: false, vertical: true)
-                        .padding(
-                            EdgeInsets(
-                                top: 4,
-                                leading: 30,
-                                bottom: 4,
-                                trailing: 30
-                            )
-                        )
+                        .padding(.vertical, Values.verySmallSpacing)
+                        .padding(.horizontal, 30)
 
                         // Actions
                         if !actions.isEmpty {
@@ -391,7 +329,7 @@ struct MessageInfoView: View {
                                                 dismiss?()
                                             },
                                             label: {
-                                                HStack(spacing: 24) {
+                                                HStack(spacing: Values.largeSpacing) {
                                                     Image(uiImage: actions[index].icon!.withRenderingMode(.alwaysTemplate))
                                                         .resizable()
                                                         .scaledToFit()
@@ -399,7 +337,7 @@ struct MessageInfoView: View {
                                                         .frame(width: 26, height: 26)
                                                     Text(actions[index].title)
                                                         .bold()
-                                                        .font(.system(size: 18))
+                                                        .font(.system(size: Values.mediumLargeFontSize))
                                                         .foregroundColor(themeColor: tintColor)
                                                 }
                                                 .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -418,25 +356,12 @@ struct MessageInfoView: View {
                                     maxHeight: .infinity,
                                     alignment: .topLeading
                                 )
-                                .padding(
-                                    EdgeInsets(
-                                        top: 0,
-                                        leading: 24,
-                                        bottom: 0,
-                                        trailing: 24
-                                    )
-                                )
+                                .padding(.horizontal, Values.largeSpacing)
                             }
                             .frame(maxHeight: .infinity)
                             .fixedSize(horizontal: false, vertical: true)
-                            .padding(
-                                EdgeInsets(
-                                    top: 4,
-                                    leading: 30,
-                                    bottom: 4,
-                                    trailing: 30
-                                )
-                            )
+                            .padding(.vertical, Values.verySmallSpacing)
+                            .padding(.horizontal, 30)
                         }
                     }
                 }
@@ -452,11 +377,11 @@ struct InfoBlock<Content>: View where Content: View {
     var body: some View {
         VStack(
             alignment: .leading,
-            spacing: 4
+            spacing: Values.verySmallSpacing
         ) {
             Text(self.title)
                 .bold()
-                .font(.system(size: 18))
+                .font(.system(size: Values.mediumLargeFontSize))
                 .foregroundColor(themeColor: .textPrimary)
             self.content()
         }
