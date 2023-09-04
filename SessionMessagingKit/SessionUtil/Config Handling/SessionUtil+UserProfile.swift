@@ -113,7 +113,7 @@ internal extension SessionUtil {
                         db,
                         threadId: userPublicKey,
                         threadVariant: .contact,
-                        groupLeaveType: .forced,
+                        groupLeaveType: .silent,
                         calledFromConfigHandling: true
                     )
             }

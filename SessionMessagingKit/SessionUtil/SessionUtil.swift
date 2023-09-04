@@ -360,6 +360,7 @@ public enum SessionUtil {
         guard !publicKey.isEmpty else { throw MessageReceiverError.noThread }
         
         let groupedMessages: [ConfigDump.Variant: [SharedConfigMessage]] = messages
+            .sorted { lhs, rhs in lhs.seqNo < rhs.seqNo }
             .grouped(by: \.kind.configDumpVariant)
         
         let needsPush: Bool = try groupedMessages
