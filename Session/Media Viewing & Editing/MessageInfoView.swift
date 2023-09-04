@@ -60,7 +60,7 @@ struct MessageInfoView: View {
                             .fixedSize(horizontal: true, vertical: true)
                             .padding(.top, Values.smallSpacing)
                             .padding(.bottom, Values.verySmallSpacing)
-                            .padding(.horizontal, 30)
+                            .padding(.horizontal, Values.largeSpacing)
                         }
                         
                         if isMessageFailed {
@@ -86,7 +86,7 @@ struct MessageInfoView: View {
                             }
                             .padding(.top, -Values.smallSpacing)
                             .padding(.bottom, Values.verySmallSpacing)
-                            .padding(.horizontal, 30)
+                            .padding(.horizontal, Values.largeSpacing)
                         }
                         
                         if let attachments = messageViewModel.attachments {
@@ -118,7 +118,7 @@ struct MessageInfoView: View {
                                     )
                                     .aspectRatio(1, contentMode: .fit)
                                     .clipShape(RoundedRectangle(cornerRadius: 15))
-                                    .padding(.horizontal, 30)
+                                    .padding(.horizontal, Values.largeSpacing)
                                 }
                                 
                                 Button {
@@ -218,7 +218,7 @@ struct MessageInfoView: View {
                             .frame(maxHeight: .infinity)
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.vertical, Values.verySmallSpacing)
-                            .padding(.horizontal, 30)
+                            .padding(.horizontal, Values.largeSpacing)
                         }
 
                         // Message Info
@@ -281,7 +281,7 @@ struct MessageInfoView: View {
                                         
                                         VStack(
                                             alignment: .leading,
-                                            spacing: 4
+                                            spacing: Values.verySmallSpacing
                                         ) {
                                             if !messageViewModel.authorName.isEmpty  {
                                                 Text(messageViewModel.authorName)
@@ -306,7 +306,7 @@ struct MessageInfoView: View {
                         .frame(maxHeight: .infinity)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.vertical, Values.verySmallSpacing)
-                        .padding(.horizontal, 30)
+                        .padding(.horizontal, Values.largeSpacing)
 
                         // Actions
                         if !actions.isEmpty {
@@ -361,7 +361,7 @@ struct MessageInfoView: View {
                             .frame(maxHeight: .infinity)
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.vertical, Values.verySmallSpacing)
-                            .padding(.horizontal, 30)
+                            .padding(.horizontal, Values.largeSpacing)
                         }
                     }
                 }
@@ -373,6 +373,8 @@ struct MessageInfoView: View {
 struct InfoBlock<Content>: View where Content: View {
     let title: String
     let content: () -> Content
+    
+    private let minWidth: CGFloat = 100
     
     var body: some View {
         VStack(
@@ -386,7 +388,7 @@ struct InfoBlock<Content>: View where Content: View {
             self.content()
         }
         .frame(
-            minWidth: 100,
+            minWidth: minWidth,
             alignment: .leading
         )
     }
