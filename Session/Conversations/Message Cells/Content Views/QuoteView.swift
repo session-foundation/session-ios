@@ -156,7 +156,7 @@ final class QuoteView: UIView {
             if attachment.isVisualMedia {
                 attachment.thumbnail(
                     size: .small,
-                    success: { image, _ in
+                    success: { [imageView] image, _ in
                         guard Thread.isMainThread else {
                             DispatchQueue.main.async {
                                 imageView.image = image
@@ -234,8 +234,6 @@ final class QuoteView: UIView {
         }
         
         // Label stack view
-        let bodyLabelSize = bodyLabel.systemLayoutSizeFitting(availableSpace)
-        
         let isCurrentUser: Bool = [
             currentUserPublicKey,
             currentUserBlinded15PublicKey,
@@ -288,9 +286,8 @@ final class QuoteView: UIView {
             cancelButton.set(.height, to: cancelButtonSize)
             cancelButton.addTarget(self, action: #selector(cancel), for: UIControl.Event.touchUpInside)
             
-            addSubview(cancelButton)
+            mainStackView.addArrangedSubview(cancelButton)
             cancelButton.center(.vertical, in: self)
-            cancelButton.pin(.right, to: .right, of: self)
         }
     }
 

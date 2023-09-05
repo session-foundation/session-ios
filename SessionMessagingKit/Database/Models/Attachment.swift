@@ -522,7 +522,7 @@ extension Attachment {
                     \(interaction[.id]) = \(interactionAttachment[.interactionId]) OR
                     (
                         \(interaction[.linkPreviewUrl]) = \(linkPreview[.url]) AND
-                        \(Interaction.linkPreviewFilterLiteral)
+                        \(Interaction.linkPreviewFilterLiteral())
                     )
                 )
             
@@ -568,7 +568,7 @@ extension Attachment {
                     \(interaction[.id]) = \(interactionAttachment[.interactionId]) OR
                     (
                         \(interaction[.linkPreviewUrl]) = \(linkPreview[.url]) AND
-                        \(Interaction.linkPreviewFilterLiteral)
+                        \(Interaction.linkPreviewFilterLiteral())
                     )
                 )
             
@@ -1039,7 +1039,10 @@ extension Attachment {
             }
     }
     
-    internal func upload(to destination: Attachment.Destination) -> AnyPublisher<String?, Error> {
+    internal func upload(
+        to destination: Attachment.Destination,
+        using dependencies: Dependencies
+    ) -> AnyPublisher<String?, Error> {
         // This can occur if an AttachmnetUploadJob was explicitly created for a message
         // dependant on the attachment being uploaded (in this case the attachment has
         // already been uploaded so just succeed)

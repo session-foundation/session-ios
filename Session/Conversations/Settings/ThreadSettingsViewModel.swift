@@ -9,6 +9,7 @@ import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.NavButton, ThreadSettingsViewModel.Section, ThreadSettingsViewModel.Setting> {
     // MARK: - Config
@@ -60,10 +61,10 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
     // MARK: - Initialization
     
     init(
-        dependencies: Dependencies = Dependencies(),
         threadId: String,
         threadVariant: SessionThread.Variant,
-        didTriggerSearch: @escaping () -> ()
+        didTriggerSearch: @escaping () -> (),
+        using dependencies: Dependencies = Dependencies()
     ) {
         self.dependencies = dependencies
         self.threadId = threadId
@@ -178,6 +179,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
     
     // MARK: - Content
     
+    private var originalState: SessionThreadViewModel?
     override var title: String {
         switch threadVariant {
             case .contact: return "vc_settings_title".localized()
@@ -196,7 +198,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
     private lazy var _observableTableData: ObservableData = ValueObservation
         .trackingConstantRegion { [weak self, dependencies, threadId = self.threadId, threadVariant = self.threadVariant] db -> [SectionModel] in
-            let userPublicKey: String = getUserHexEncodedPublicKey(db, dependencies: dependencies)
+            let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
             let maybeThreadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
                 .conversationSettingsQuery(threadId: threadId, userPublicKey: userPublicKey)
                 .fetchOne(db)
@@ -235,6 +237,8 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                 threadViewModel.currentUserIsClosedGroupAdmin == true
             )
             let editIcon: UIImage? = UIImage(named: "icon_edit")
+            let originalState: SessionThreadViewModel = (self?.originalState ?? threadViewModel)
+            self?.originalState = threadViewModel
             
             return [
                 SectionModel(
@@ -577,7 +581,10 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 title: "vc_conversation_settings_notify_for_mentions_only_title".localized(),
                                 subtitle: "vc_conversation_settings_notify_for_mentions_only_explanation".localized(),
                                 rightAccessory: .toggle(
-                                    .boolValue(threadViewModel.threadOnlyNotifyForMentions == true)
+                                    .boolValue(
+                                        threadViewModel.threadOnlyNotifyForMentions == true,
+                                        oldValue: (originalState.threadOnlyNotifyForMentions == true)
+                                    )
                                 ),
                                 isEnabled: (
                                     (
@@ -615,7 +622,10 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 ),
                                 title: "CONVERSATION_SETTINGS_MUTE_LABEL".localized(),
                                 rightAccessory: .toggle(
-                                    .boolValue(threadViewModel.threadMutedUntilTimestamp != nil)
+                                    .boolValue(
+                                        threadViewModel.threadMutedUntilTimestamp != nil,
+                                        oldValue: (originalState.threadMutedUntilTimestamp != nil)
+                                    )
                                 ),
                                 isEnabled: (
                                     (
@@ -661,7 +671,10 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 ),
                                 title: "CONVERSATION_SETTINGS_BLOCK_THIS_USER".localized(),
                                 rightAccessory: .toggle(
-                                    .boolValue(threadViewModel.threadIsBlocked == true)
+                                    .boolValue(
+                                        threadViewModel.threadIsBlocked == true,
+                                        oldValue: (originalState.threadIsBlocked == true)
+                                    )
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "\(ThreadSettingsViewModel.self).block",
@@ -755,7 +768,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
             publicKey: publicKey
         )
         
-        dependencies.storage.writeAsync { db in
+        dependencies.storage.writeAsync { [dependencies] db in
             try selectedUsers.forEach { userId in
                 let thread: SessionThread = try SessionThread
                     .fetchOrCreate(db, id: userId, variant: .contact, shouldBeVisible: nil)
@@ -786,7 +799,8 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                     db,
                     interaction: interaction,
                     threadId: thread.id,
-                    threadVariant: thread.variant
+                    threadVariant: thread.variant,
+                    using: dependencies
                 )
             }
         }

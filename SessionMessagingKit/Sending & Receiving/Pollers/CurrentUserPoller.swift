@@ -14,12 +14,7 @@ public final class CurrentUserPoller: Poller {
 
     // MARK: - Settings
     
-    override var namespaces: [SnodeAPI.Namespace] {
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard SessionUtil.userConfigsEnabled else { return [.default] }
-        
-        return CurrentUserPoller.namespaces
-    }
+    override var namespaces: [SnodeAPI.Namespace] { CurrentUserPoller.namespaces }
     
     /// After polling a given snode this many times we always switch to a new one.
     ///
@@ -33,13 +28,13 @@ public final class CurrentUserPoller: Poller {
     
     // MARK: - Convenience Functions
     
-    public func start() {
-        let publicKey: String = getUserHexEncodedPublicKey()
+    public func start(using dependencies: Dependencies = Dependencies()) {
+        let publicKey: String = getUserHexEncodedPublicKey(using: dependencies)
         
         guard isPolling.wrappedValue[publicKey] != true else { return }
         
         SNLog("Started polling.")
-        super.startIfNeeded(for: publicKey)
+        super.startIfNeeded(for: publicKey, using: dependencies)
     }
     
     public func stop() {
@@ -53,7 +48,7 @@ public final class CurrentUserPoller: Poller {
         return "Main Poller"
     }
     
-    override func nextPollDelay(for publicKey: String) -> TimeInterval {
+    override func nextPollDelay(for publicKey: String, using dependencies: Dependencies) -> TimeInterval {
         let failureCount: TimeInterval = TimeInterval(failureCount.wrappedValue[publicKey] ?? 0)
         
         // If there have been no failures then just use the 'minPollInterval'
@@ -65,11 +60,7 @@ public final class CurrentUserPoller: Poller {
         return min(maxRetryInterval, nextDelay)
     }
     
-    override func handlePollError(
-        _ error: Error,
-        for publicKey: String,
-        using dependencies: SMKDependencies = SMKDependencies()
-    ) -> Bool {
+    override func handlePollError(_ error: Error, for publicKey: String, using dependencies: Dependencies) -> Bool {
         if UserDefaults.sharedLokiProject?[.isMainAppActive] != true {
             // Do nothing when an error gets throws right after returning from the background (happens frequently)
         }

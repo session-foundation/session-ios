@@ -12,10 +12,11 @@ extension MessageReceiver {
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        message: ClosedGroupControlMessage
+        message: ClosedGroupControlMessage,
+        using dependencies: Dependencies = Dependencies()
     ) throws {
         switch message.kind {
-            case .new: try handleNewClosedGroup(db, message: message)
+            case .new: try handleNewClosedGroup(db, message: message, using: dependencies)
             
             case .encryptionKeyPair:
                 try handleClosedGroupEncryptionKeyPair(
@@ -65,7 +66,11 @@ extension MessageReceiver {
     
     // MARK: - Specific Handling
     
-    private static func handleNewClosedGroup(_ db: Database, message: ClosedGroupControlMessage) throws {
+    private static func handleNewClosedGroup(
+        _ db: Database,
+        message: ClosedGroupControlMessage,
+        using dependencies: Dependencies
+    ) throws {
         guard case let .new(publicKeyAsData, name, encryptionKeyPair, membersAsData, adminsAsData, expirationTimer) = message.kind else {
             return
         }
@@ -112,7 +117,8 @@ extension MessageReceiver {
             admins: adminsAsData.map { $0.toHexString() },
             expirationTimer: expirationTimer,
             formationTimestampMs: sentTimestamp,
-            calledFromConfigHandling: false
+            calledFromConfigHandling: false,
+            using: dependencies
         )
     }
 
@@ -125,7 +131,8 @@ extension MessageReceiver {
         admins: [String],
         expirationTimer: UInt32,
         formationTimestampMs: UInt64,
-        calledFromConfigHandling: Bool
+        calledFromConfigHandling: Bool,
+        using dependencies: Dependencies
     ) throws {
         // With new closed groups we only want to create them if the admin creating the closed group is an
         // approved contact (to prevent spam via closed groups getting around message requests if users are
@@ -222,10 +229,26 @@ extension MessageReceiver {
         }
         
         // Start polling
-        ClosedGroupPoller.shared.startIfNeeded(for: groupPublicKey)
+        ClosedGroupPoller.shared.startIfNeeded(for: groupPublicKey, using: dependencies)
         
-        // Notify the PN server
-        let _ = PushNotificationAPI.performOperation(.subscribe, for: groupPublicKey, publicKey: getUserHexEncodedPublicKey(db))
+        // Resubscribe for group push notifications
+        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
+        
+        PushNotificationAPI
+            .subscribeToLegacyGroups(
+                currentUserPublicKey: currentUserPublicKey,
+                legacyGroupIds: try ClosedGroup
+                    .select(.threadId)
+                    .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%"))
+                    .joining(
+                        required: ClosedGroup.members
+                            .filter(GroupMember.Columns.profileId == currentUserPublicKey)
+                    )
+                    .asRequest(of: String.self)
+                    .fetchSet(db)
+                    .inserting(groupPublicKey)  // Insert the new key just to be sure
+            )
+            .sinkUntilComplete()
     }
 
     /// Extracts and adds the new encryption key pair to our list of key pairs if there is one for our public key, AND the message was

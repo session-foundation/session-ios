@@ -4,9 +4,9 @@ import Combine
 import GRDB
 import Quick
 import Nimble
-
 import SessionUIKit
 import SessionSnodeKit
+import SessionUtilitiesKit
 
 @testable import Session
 
@@ -23,7 +23,7 @@ class NotificationContentViewModelSpec: QuickSpec {
             // MARK: - Configuration
             
             beforeEach {
-                mockStorage = Storage(
+                mockStorage = SynchronousStorage(
                     customWriter: try! DatabaseQueue(),
                     customMigrationTargets: [
                         SNUtilitiesKit.self,

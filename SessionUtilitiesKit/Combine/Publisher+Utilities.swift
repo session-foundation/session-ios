@@ -43,6 +43,45 @@ public extension Publisher {
             }
             .eraseToAnyPublisher()
     }
+    
+    func subscribe<S>(
+        on scheduler: S,
+        options: S.SchedulerOptions? = nil,
+        using dependencies: Dependencies = Dependencies()
+    ) -> AnyPublisher<Output, Failure> where S: Scheduler {
+        guard !dependencies.forceSynchronous else { return self.eraseToAnyPublisher() }
+        
+        return self.subscribe(on: scheduler, options: options)
+            .eraseToAnyPublisher()
+    }
+    
+    func receive<S>(
+        on scheduler: S,
+        options: S.SchedulerOptions? = nil,
+        using dependencies: Dependencies = Dependencies()
+    ) -> AnyPublisher<Output, Failure> where S: Scheduler {
+        guard !dependencies.forceSynchronous else { return self.eraseToAnyPublisher() }
+        
+        return self.receive(on: scheduler, options: options)
+            .eraseToAnyPublisher()
+    }
+    
+    func manualRefreshFrom(_ refreshTrigger: some Publisher<Void, Never>) -> AnyPublisher<Output, Failure> {
+        return Publishers
+            .CombineLatest(refreshTrigger.prepend(()).setFailureType(to: Failure.self), self)
+            .map { _, value in value }
+            .eraseToAnyPublisher()
+    }
+    
+    func withPrevious() -> AnyPublisher<(previous: Output?, current: Output), Failure> {
+        scan(Optional<(Output?, Output)>.none) { ($0?.1, $1) }
+            .compactMap { $0 }
+            .eraseToAnyPublisher()
+    }
+    
+    func withPrevious(_ initialPreviousValue: Output) -> AnyPublisher<(previous: Output, current: Output), Failure> {
+        scan((initialPreviousValue, initialPreviousValue)) { ($0.1, $1) }.eraseToAnyPublisher()
+    }
 }
 
 // MARK: - Convenience

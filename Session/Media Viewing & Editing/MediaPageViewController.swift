@@ -6,6 +6,8 @@ import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
 import SignalCoreKit
+import SessionUtilitiesKit
+import SessionSnodeKit
 
 class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSource, UIPageViewControllerDelegate, MediaDetailViewControllerDelegate, InteractivelyDismissableViewController {
     class DynamicallySizedView: UIView {
@@ -505,8 +507,9 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         dismissSelf(animated: true)
     }
 
-    @objc
-    public func didPressShare(_ sender: Any) {
+    @objc public func didPressShare(_ sender: Any) { share() }
+    
+    public func share(using dependencies: Dependencies = Dependencies()) {
         guard let currentViewController = self.viewControllers?[0] as? MediaDetailViewController else {
             owsFailDebug("currentViewController was unexpectedly nil")
             return
@@ -553,7 +556,8 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                     ),
                     interactionId: nil, // Show no interaction for the current user
                     threadId: threadId,
-                    threadVariant: threadVariant
+                    threadVariant: threadVariant,
+                    using: dependencies
                 )
             }
         }

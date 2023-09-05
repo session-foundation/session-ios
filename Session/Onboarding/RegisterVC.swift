@@ -4,6 +4,7 @@ import UIKit
 import Sodium
 import SessionUIKit
 import SignalUtilitiesKit
+import SessionUtilitiesKit
 
 final class RegisterVC : BaseVC {
     private var seed: Data! { didSet { updateKeyPair() } }

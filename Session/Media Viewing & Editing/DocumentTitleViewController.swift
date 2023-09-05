@@ -7,6 +7,7 @@ import DifferenceKit
 import SessionUIKit
 import SignalUtilitiesKit
 import SignalCoreKit
+import SessionUtilitiesKit
 
 public class DocumentTileViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
     
@@ -46,6 +47,10 @@ public class DocumentTileViewController: UIViewController, UITableViewDelegate, 
     // MARK: - UI
     
     override public var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+        if UIDevice.current.isIPad {
+            return .all
+        }
+
         return .allButUpsideDown
     }
     

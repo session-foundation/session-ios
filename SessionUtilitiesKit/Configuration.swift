@@ -4,6 +4,10 @@ import Foundation
 import GRDB
 
 public enum SNUtilitiesKit: MigratableTarget { // Just to make the external API nice
+    public static var isRunningTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    }
+
     public static func migrations(_ db: Database) -> TargetMigrations {
         return TargetMigrations(
             identifier: .utilitiesKit,
@@ -32,4 +36,5 @@ public enum SNUtilitiesKit: MigratableTarget { // Just to make the external API 
 
 @objc public final class SNUtilitiesKitConfiguration: NSObject {
     @objc public static var maxFileSize: UInt = 0
+    @objc public static var isRunningTests: Bool { return SNUtilitiesKit.isRunningTests }
 }

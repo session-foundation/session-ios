@@ -199,16 +199,18 @@ public class MediaGalleryViewModel {
         }
     }
     
-    public struct Item: FetchableRecordWithRowId, Decodable, Identifiable, Differentiable, Equatable, Hashable {
-        fileprivate static let interactionIdKey: SQL = SQL(stringLiteral: CodingKeys.interactionId.stringValue)
-        fileprivate static let interactionVariantKey: SQL = SQL(stringLiteral: CodingKeys.interactionVariant.stringValue)
-        fileprivate static let interactionAuthorIdKey: SQL = SQL(stringLiteral: CodingKeys.interactionAuthorId.stringValue)
-        fileprivate static let interactionTimestampMsKey: SQL = SQL(stringLiteral: CodingKeys.interactionTimestampMs.stringValue)
-        fileprivate static let rowIdKey: SQL = SQL(stringLiteral: CodingKeys.rowId.stringValue)
-        fileprivate static let attachmentKey: SQL = SQL(stringLiteral: CodingKeys.attachment.stringValue)
-        fileprivate static let attachmentAlbumIndexKey: SQL = SQL(stringLiteral: CodingKeys.attachmentAlbumIndex.stringValue)
-        
-        fileprivate static let attachmentString: String = CodingKeys.attachment.stringValue
+    public struct Item: FetchableRecordWithRowId, Decodable, Identifiable, Differentiable, Equatable, Hashable, ColumnExpressible {
+        public typealias Columns = CodingKeys
+        public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
+            case interactionId
+            case interactionVariant
+            case interactionAuthorId
+            case interactionTimestampMs
+            
+            case rowId
+            case attachmentAlbumIndex
+            case attachment
+        }
         
         public var id: String { attachment.id }
         public var differenceIdentifier: String { attachment.id }
@@ -306,7 +308,7 @@ public class MediaGalleryViewModel {
                 let finalFilterSQL: SQL = {
                     guard let customFilters: SQL = customFilters else {
                         return """
-                            WHERE \(attachment.alias[Column.rowID]) IN \(rowIds)
+                            WHERE \(attachment[.rowId]) IN \(rowIds)
                         """
                     }
 
@@ -318,14 +320,14 @@ public class MediaGalleryViewModel {
                 }()
                 let request: SQLRequest<Item> = """
                     SELECT
-                        \(interaction[.id]) AS \(Item.interactionIdKey),
-                        \(interaction[.variant]) AS \(Item.interactionVariantKey),
-                        \(interaction[.authorId]) AS \(Item.interactionAuthorIdKey),
-                        \(interaction[.timestampMs]) AS \(Item.interactionTimestampMsKey),
+                        \(interaction[.id]) AS \(Item.Columns.interactionId),
+                        \(interaction[.variant]) AS \(Item.Columns.interactionVariant),
+                        \(interaction[.authorId]) AS \(Item.Columns.interactionAuthorId),
+                        \(interaction[.timestampMs]) AS \(Item.Columns.interactionTimestampMs),
 
-                        \(attachment.alias[Column.rowID]) AS \(Item.rowIdKey),
-                        \(interactionAttachment[.albumIndex]) AS \(Item.attachmentAlbumIndexKey),
-                        \(Item.attachmentKey).*
+                        \(attachment[.rowId]) AS \(Item.Columns.rowId),
+                        \(interactionAttachment[.albumIndex]) AS \(Item.Columns.attachmentAlbumIndex),
+                        \(attachment.allColumns)
                     FROM \(Attachment.self)
                     \(joinSQL)
                     \(finalFilterSQL)
@@ -338,8 +340,8 @@ public class MediaGalleryViewModel {
                         Attachment.numberOfSelectedColumns(db)
                     ])
 
-                    return ScopeAdapter([
-                        Item.attachmentString: adapters[1]
+                    return ScopeAdapter.with(Item.self, [
+                        .attachment: adapters[1]
                     ])
                 }
             }

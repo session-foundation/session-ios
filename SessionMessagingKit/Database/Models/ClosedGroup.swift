@@ -95,6 +95,19 @@ public extension ClosedGroup {
     }
 }
 
+// MARK: - Search Queries
+
+public extension ClosedGroup {
+    struct FullTextSearch: Decodable, ColumnExpressible {
+        public typealias Columns = CodingKeys
+        public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
+            case name
+        }
+        
+        let name: String
+    }
+}
+
 // MARK: - Convenience
 
 public extension ClosedGroup {
@@ -144,10 +157,9 @@ public extension ClosedGroup {
             ClosedGroupPoller.shared.stopPolling(for: threadId)
             
             PushNotificationAPI
-                .performOperation(
-                    .unsubscribe,
-                    for: threadId,
-                    publicKey: userPublicKey
+                .unsubscribeFromLegacyGroup(
+                    legacyGroupId: threadId,
+                    currentUserPublicKey: userPublicKey
                 )
                 .sinkUntilComplete()
         }

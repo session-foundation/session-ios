@@ -600,7 +600,7 @@ struct SessionProtos_DataMessage {
     set {_uniqueStorage()._attachments = newValue}
   }
 
-  /// optional GroupContext           group                     = 3;  // No longer used
+  /// optional GroupContext           group                          = 3;  // No longer used
   var flags: UInt32 {
     get {return _storage._flags ?? 0}
     set {_uniqueStorage()._flags = newValue}
@@ -695,6 +695,15 @@ struct SessionProtos_DataMessage {
   var hasSyncTarget: Bool {return _storage._syncTarget != nil}
   /// Clears the value of `syncTarget`. Subsequent reads from it will return its default value.
   mutating func clearSyncTarget() {_uniqueStorage()._syncTarget = nil}
+
+  var blocksCommunityMessageRequests: Bool {
+    get {return _storage._blocksCommunityMessageRequests ?? false}
+    set {_uniqueStorage()._blocksCommunityMessageRequests = newValue}
+  }
+  /// Returns true if `blocksCommunityMessageRequests` has been explicitly set.
+  var hasBlocksCommunityMessageRequests: Bool {return _storage._blocksCommunityMessageRequests != nil}
+  /// Clears the value of `blocksCommunityMessageRequests`. Subsequent reads from it will return its default value.
+  mutating func clearBlocksCommunityMessageRequests() {_uniqueStorage()._blocksCommunityMessageRequests = nil}
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -1665,6 +1674,43 @@ extension SessionProtos_SharedConfigMessage.Kind: CaseIterable {
 
 #endif  // swift(>=4.2)
 
+#if swift(>=5.5) && canImport(_Concurrency)
+extension SessionProtos_Envelope: @unchecked Sendable {}
+extension SessionProtos_Envelope.TypeEnum: @unchecked Sendable {}
+extension SessionProtos_TypingMessage: @unchecked Sendable {}
+extension SessionProtos_TypingMessage.Action: @unchecked Sendable {}
+extension SessionProtos_UnsendRequest: @unchecked Sendable {}
+extension SessionProtos_MessageRequestResponse: @unchecked Sendable {}
+extension SessionProtos_Content: @unchecked Sendable {}
+extension SessionProtos_CallMessage: @unchecked Sendable {}
+extension SessionProtos_CallMessage.TypeEnum: @unchecked Sendable {}
+extension SessionProtos_KeyPair: @unchecked Sendable {}
+extension SessionProtos_DataExtractionNotification: @unchecked Sendable {}
+extension SessionProtos_DataExtractionNotification.TypeEnum: @unchecked Sendable {}
+extension SessionProtos_LokiProfile: @unchecked Sendable {}
+extension SessionProtos_DataMessage: @unchecked Sendable {}
+extension SessionProtos_DataMessage.Flags: @unchecked Sendable {}
+extension SessionProtos_DataMessage.Quote: @unchecked Sendable {}
+extension SessionProtos_DataMessage.Quote.QuotedAttachment: @unchecked Sendable {}
+extension SessionProtos_DataMessage.Quote.QuotedAttachment.Flags: @unchecked Sendable {}
+extension SessionProtos_DataMessage.Preview: @unchecked Sendable {}
+extension SessionProtos_DataMessage.Reaction: @unchecked Sendable {}
+extension SessionProtos_DataMessage.Reaction.Action: @unchecked Sendable {}
+extension SessionProtos_DataMessage.OpenGroupInvitation: @unchecked Sendable {}
+extension SessionProtos_DataMessage.ClosedGroupControlMessage: @unchecked Sendable {}
+extension SessionProtos_DataMessage.ClosedGroupControlMessage.TypeEnum: @unchecked Sendable {}
+extension SessionProtos_DataMessage.ClosedGroupControlMessage.KeyPairWrapper: @unchecked Sendable {}
+extension SessionProtos_ConfigurationMessage: @unchecked Sendable {}
+extension SessionProtos_ConfigurationMessage.ClosedGroup: @unchecked Sendable {}
+extension SessionProtos_ConfigurationMessage.Contact: @unchecked Sendable {}
+extension SessionProtos_ReceiptMessage: @unchecked Sendable {}
+extension SessionProtos_ReceiptMessage.TypeEnum: @unchecked Sendable {}
+extension SessionProtos_AttachmentPointer: @unchecked Sendable {}
+extension SessionProtos_AttachmentPointer.Flags: @unchecked Sendable {}
+extension SessionProtos_SharedConfigMessage: @unchecked Sendable {}
+extension SessionProtos_SharedConfigMessage.Kind: @unchecked Sendable {}
+#endif  // swift(>=5.5) && canImport(_Concurrency)
+
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 fileprivate let _protobuf_package = "SessionProtos"
@@ -2288,6 +2334,7 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
     102: .same(proto: "openGroupInvitation"),
     104: .same(proto: "closedGroupControlMessage"),
     105: .same(proto: "syncTarget"),
+    106: .same(proto: "blocksCommunityMessageRequests"),
   ]
 
   fileprivate class _StorageClass {
@@ -2304,6 +2351,7 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
     var _openGroupInvitation: SessionProtos_DataMessage.OpenGroupInvitation? = nil
     var _closedGroupControlMessage: SessionProtos_DataMessage.ClosedGroupControlMessage? = nil
     var _syncTarget: String? = nil
+    var _blocksCommunityMessageRequests: Bool? = nil
 
     static let defaultInstance = _StorageClass()
 
@@ -2323,6 +2371,7 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
       _openGroupInvitation = source._openGroupInvitation
       _closedGroupControlMessage = source._closedGroupControlMessage
       _syncTarget = source._syncTarget
+      _blocksCommunityMessageRequests = source._blocksCommunityMessageRequests
     }
   }
 
@@ -2366,6 +2415,7 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
         case 102: try { try decoder.decodeSingularMessageField(value: &_storage._openGroupInvitation) }()
         case 104: try { try decoder.decodeSingularMessageField(value: &_storage._closedGroupControlMessage) }()
         case 105: try { try decoder.decodeSingularStringField(value: &_storage._syncTarget) }()
+        case 106: try { try decoder.decodeSingularBoolField(value: &_storage._blocksCommunityMessageRequests) }()
         default: break
         }
       }
@@ -2417,6 +2467,9 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
       try { if let v = _storage._syncTarget {
         try visitor.visitSingularStringField(value: v, fieldNumber: 105)
       } }()
+      try { if let v = _storage._blocksCommunityMessageRequests {
+        try visitor.visitSingularBoolField(value: v, fieldNumber: 106)
+      } }()
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -2439,6 +2492,7 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
         if _storage._openGroupInvitation != rhs_storage._openGroupInvitation {return false}
         if _storage._closedGroupControlMessage != rhs_storage._closedGroupControlMessage {return false}
         if _storage._syncTarget != rhs_storage._syncTarget {return false}
+        if _storage._blocksCommunityMessageRequests != rhs_storage._blocksCommunityMessageRequests {return false}
         return true
       }
       if !storagesAreEqual {return false}

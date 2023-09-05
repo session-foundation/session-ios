@@ -6,8 +6,6 @@ import SessionUtil
 import SessionUtilitiesKit
 
 /// This migration goes through the current state of the database and generates config dumps for the user config types
-///
-/// **Note:** This migration won't be run until the `useSharedUtilForUserConfig` feature flag is enabled
 enum _014_GenerateInitialUserConfigDumps: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "GenerateInitialUserConfigDumps"

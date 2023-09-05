@@ -46,8 +46,11 @@ open class Storage {
     public static let defaultPublisherScheduler: ValueObservationScheduler = .async(onQueue: .main)
     
     fileprivate var dbWriter: DatabaseWriter?
+    internal var testDbWriter: DatabaseWriter? { dbWriter }
+    private var unprocessedMigrationRequirements: Atomic<[MigrationRequirement]> = Atomic(MigrationRequirement.allCases)
     private var migrator: DatabaseMigrator?
     private var migrationProgressUpdater: Atomic<((String, CGFloat) -> ())>?
+    private var migrationRequirementProcesser: Atomic<(Database?, MigrationRequirement) -> ()>?
     
     // MARK: - Initialization
     
@@ -76,18 +79,24 @@ open class Storage {
                 migrationTargets: (customMigrationTargets ?? []),
                 async: false,
                 onProgressUpdate: nil,
+                onMigrationRequirement: { _, _ in },
                 onComplete: { _, _ in }
             )
             return
         }
         
-        // Generate the database KeySpec if needed (this MUST be done before we try to access the database
-        // as a different thread might attempt to access the database before the key is successfully created)
-        //
-        // Note: We reset the bytes immediately after generation to ensure the database key doesn't hang
-        // around in memory unintentionally
-        var tmpKeySpec: Data = Storage.getOrGenerateDatabaseKeySpec()
-        tmpKeySpec.resetBytes(in: 0..<tmpKeySpec.count)
+        /// Generate the database KeySpec if needed (this MUST be done before we try to access the database as a different thread
+        /// might attempt to access the database before the key is successfully created)
+        ///
+        /// We reset the bytes immediately after generation to ensure the database key doesn't hang around in memory unintentionally
+        ///
+        /// **Note:** If we fail to get/generate the keySpec then don't bother continuing to setup the Database as it'll just be invalid,
+        /// in this case the App/Extensions will have logic that checks the `isValid` flag of the database
+        do {
+            var tmpKeySpec: Data = try Storage.getOrGenerateDatabaseKeySpec()
+            tmpKeySpec.resetBytes(in: 0..<tmpKeySpec.count)
+        }
+        catch { return }
         
         // Configure the database and create the DatabasePool for interacting with the database
         var config = Configuration()
@@ -95,7 +104,7 @@ open class Storage {
         config.maximumReaderCount = 10  // Increase the max read connection limit - Default is 5
         config.observesSuspensionNotifications = true // Minimise `0xDEAD10CC` exceptions
         config.prepareDatabase { db in
-            var keySpec: Data = Storage.getOrGenerateDatabaseKeySpec()
+            var keySpec: Data = try Storage.getOrGenerateDatabaseKeySpec()
             defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
             
             // Use a raw key spec, where the 96 hexadecimal digits are provided
@@ -142,6 +151,7 @@ open class Storage {
         migrationTargets: [MigratableTarget.Type],
         async: Bool = true,
         onProgressUpdate: ((CGFloat, TimeInterval) -> ())?,
+        onMigrationRequirement: @escaping (Database?, MigrationRequirement) -> (),
         onComplete: @escaping (Swift.Result<Void, Error>, Bool) -> ()
     ) {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
@@ -226,12 +236,23 @@ open class Storage {
                 onProgressUpdate?(totalProgress, totalMinExpectedDuration)
             }
         })
+        self.migrationRequirementProcesser = Atomic(onMigrationRequirement)
         
         // Store the logic to run when the migration completes
         let migrationCompleted: (Swift.Result<Void, Error>) -> () = { [weak self] result in
+            // Process any unprocessed requirements which need to be processed before completion
+            // then clear out the state
+            self?.unprocessedMigrationRequirements.wrappedValue
+                .filter { $0.shouldProcessAtCompletionIfNotRequired }
+                .forEach { self?.migrationRequirementProcesser?.wrappedValue(nil, $0) }
             self?.migrationsCompleted.mutate { $0 = true }
             self?.migrationProgressUpdater = nil
+            self?.migrationRequirementProcesser = nil
             SUKLegacy.clearLegacyDatabaseInstance()
+            
+            // Reset in case there is a requirement on a migration which runs when returning from
+            // the background
+            self?.unprocessedMigrationRequirements.mutate { $0 = MigrationRequirement.allCases }
             
             // Don't log anything in the case of a 'success' or if the database is suspended (the
             // latter will happen if the user happens to return to the background too quickly on
@@ -282,16 +303,29 @@ open class Storage {
         }
     }
     
+    public func willStartMigration(_ db: Database, _ migration: Migration.Type) {
+        let unprocessedRequirements: Set<MigrationRequirement> = migration.requirements.asSet()
+            .intersection(unprocessedMigrationRequirements.wrappedValue.asSet())
+
+        // No need to do anything if there are no unprocessed requirements
+        guard !unprocessedRequirements.isEmpty else { return }
+
+        // Process all of the requirements for this migration
+        unprocessedRequirements.forEach { migrationRequirementProcesser?.wrappedValue(db, $0) }
+
+        // Remove any processed requirements from the list (don't want to process them multiple times)
+        unprocessedMigrationRequirements.mutate {
+            $0 = Array($0.asSet().subtracting(migration.requirements.asSet()))
+        }
+    }
+    
     public static func update(
         progress: CGFloat,
         for migration: Migration.Type,
         in target: TargetMigrations.Identifier
     ) {
-        // In test builds ignore any migration progress updates (we run in a custom database writer anyway),
-        // this code should be the same as 'CurrentAppContext().isRunningTests' but since the tests can run
-        // without being attached to a host application the `CurrentAppContext` might not have been set and
-        // would crash as it gets force-unwrapped - better to just do the check explicitly instead
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        // In test builds ignore any migration progress updates (we run in a custom database writer anyway)
+        guard !SNUtilitiesKit.isRunningTests else { return }
         
         Storage.shared.migrationProgressUpdater?.wrappedValue(target.key(with: migration), progress)
     }
@@ -302,7 +336,7 @@ open class Storage {
         return try SSKDefaultKeychainStorage.shared.data(forService: keychainService, key: dbCipherKeySpecKey)
     }
     
-    @discardableResult private static func getOrGenerateDatabaseKeySpec() -> Data {
+    @discardableResult private static func getOrGenerateDatabaseKeySpec() throws -> Data {
         do {
             var keySpec: Data = try getDatabaseCipherKeySpec()
             defer { keySpec.resetBytes(in: 0..<keySpec.count) }
@@ -317,7 +351,7 @@ open class Storage {
                     // For these cases it means either the keySpec or the keychain has become corrupt so in order to
                     // get back to a "known good state" and behave like a new install we need to reset the storage
                     // and regenerate the key
-                    if !CurrentAppContext().isRunningTests {
+                    if !SNUtilitiesKit.isRunningTests {
                         // Try to reset app by deleting database.
                         resetAllStorage()
                     }
@@ -333,8 +367,9 @@ open class Storage {
                         return keySpec
                     }
                     catch {
+                        SNLog("Setting keychain value failed with error: \(error.localizedDescription)")
                         Thread.sleep(forTimeInterval: 15)    // Sleep to allow any background behaviours to complete
-                        fatalError("Setting keychain value failed with error: \(error.localizedDescription)")
+                        throw StorageError.keySpecCreationFailed
                     }
                     
                 default:
@@ -344,15 +379,18 @@ open class Storage {
                     // just terminate by throwing an uncaught exception
                     if CurrentAppContext().isMainApp || CurrentAppContext().isInBackground() {
                         let appState: UIApplication.State = CurrentAppContext().reportedApplicationState
+                        SNLog("CipherKeySpec inaccessible. New install or no unlock since device restart?, ApplicationState: \(NSStringForUIApplicationState(appState))")
                         
-                        // In this case we should have already detected the situation earlier and exited gracefully (in the
-                        // app delegate) using isDatabasePasswordAccessible, but we want to stop the app running here anyway
+                        // In this case we should have already detected the situation earlier and exited
+                        // gracefully (in the app delegate) using isDatabasePasswordAccessible, but we
+                        // want to stop the app running here anyway
                         Thread.sleep(forTimeInterval: 5)    // Sleep to allow any background behaviours to complete
-                        fatalError("CipherKeySpec inaccessible. New install or no unlock since device restart?, ApplicationState: \(NSStringForUIApplicationState(appState))")
+                        throw StorageError.keySpecInaccessible
                     }
                     
+                    SNLog("CipherKeySpec inaccessible; not main app.")
                     Thread.sleep(forTimeInterval: 5)    // Sleep to allow any background behaviours to complete
-                    fatalError("CipherKeySpec inaccessible; not main app.")
+                    throw StorageError.keySpecInaccessible
             }
         }
     }
@@ -368,14 +406,14 @@ open class Storage {
     /// database and other files into the App folder
     public static func suspendDatabaseAccess(using dependencies: Dependencies = Dependencies()) {
         NotificationCenter.default.post(name: Database.suspendNotification, object: self)
-        dependencies.storage.isSuspendedUnsafe = true
+        if Storage.hasCreatedValidInstance { dependencies.storage.isSuspendedUnsafe = true }
     }
     
     /// This method reverses the database suspension used to prevent the `0xdead10cc` exception (see `suspendDatabaseAccess()`
     /// above for more information
     public static func resumeDatabaseAccess(using dependencies: Dependencies = Dependencies()) {
         NotificationCenter.default.post(name: Database.resumeNotification, object: self)
-        dependencies.storage.isSuspendedUnsafe = false
+        if Storage.hasCreatedValidInstance { dependencies.storage.isSuspendedUnsafe = false }
     }
     
     public static func resetAllStorage() {
@@ -463,10 +501,11 @@ open class Storage {
     
     // MARK: - Functions
     
-    @discardableResult public final func write<T>(
+    @discardableResult public func write<T>(
         fileName: String = #file,
         functionName: String = #function,
         lineNumber: Int = #line,
+        using dependencies: Dependencies = Dependencies(),
         updates: @escaping (Database) throws -> T?
     ) -> T? {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return nil }
@@ -481,12 +520,14 @@ open class Storage {
         fileName: String = #file,
         functionName: String = #function,
         lineNumber: Int = #line,
+        using dependencies: Dependencies = Dependencies(),
         updates: @escaping (Database) throws -> T
     ) {
         writeAsync(
             fileName: fileName,
             functionName: functionName,
             lineNumber: lineNumber,
+            using: dependencies,
             updates: updates,
             completion: { _, _ in }
         )
@@ -496,6 +537,7 @@ open class Storage {
         fileName: String = #file,
         functionName: String = #function,
         lineNumber: Int = #line,
+        using dependencies: Dependencies = Dependencies(),
         updates: @escaping (Database) throws -> T,
         completion: @escaping (Database, Swift.Result<T, Error>) throws -> Void
     ) {
@@ -520,6 +562,7 @@ open class Storage {
         fileName: String = #file,
         functionName: String = #function,
         lineNumber: Int = #line,
+        using dependencies: Dependencies = Dependencies(),
         updates: @escaping (Database) throws -> T
     ) -> AnyPublisher<T, Error> {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
@@ -548,6 +591,7 @@ open class Storage {
     }
     
     open func readPublisher<T>(
+        using dependencies: Dependencies = Dependencies(),
         value: @escaping (Database) throws -> T
     ) -> AnyPublisher<T, Error> {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
@@ -573,7 +617,10 @@ open class Storage {
         }.eraseToAnyPublisher()
     }
     
-    @discardableResult public final func read<T>(_ value: (Database) throws -> T?) -> T? {
+    @discardableResult public func read<T>(
+        using dependencies: Dependencies = Dependencies(),
+        _ value: (Database) throws -> T?
+    ) -> T? {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return nil }
         
         do { return try dbWriter.read(value) }
@@ -595,7 +642,10 @@ open class Storage {
         onError: @escaping (Error) -> Void,
         onChange: @escaping (Reducer.Value) -> Void
     ) -> DatabaseCancellable {
-        guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return AnyDatabaseCancellable(cancel: {}) }
+        guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
+            onError(StorageError.databaseInvalid)
+            return AnyDatabaseCancellable(cancel: {})
+        }
         
         return observation.start(
             in: dbWriter,

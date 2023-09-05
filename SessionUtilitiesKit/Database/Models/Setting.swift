@@ -15,6 +15,7 @@ public struct Setting: Codable, Identifiable, FetchableRecord, PersistableRecord
     }
     
     public var id: String { key }
+    public var rawValue: Data { value }
     
     let key: String
     let value: Data
@@ -53,7 +54,7 @@ extension Setting {
         self.value = Data(bytes: &targetValue, count: MemoryLayout.size(ofValue: targetValue))
     }
     
-    fileprivate func value(as type: Bool.Type) -> Bool? {
+    public func unsafeValue(as type: Bool.Type) -> Bool? {
         // Note: The 'assumingMemoryBound' is essentially going to try to convert
         // the memory into the provided type so can result in invalid data being
         // returned if the type is incorrect. But it does seem safer than the 'load'
@@ -189,7 +190,7 @@ public extension Database {
     subscript(key: Setting.BoolKey) -> Bool {
         get {
             // Default to false if it doesn't exist
-            (self[key.rawValue]?.value(as: Bool.self) ?? false)
+            (self[key.rawValue]?.unsafeValue(as: Bool.self) ?? false)
         }
         set { self[key.rawValue] = Setting(key: key.rawValue, value: newValue) }
     }
@@ -244,5 +245,48 @@ public extension Database {
                 value: newValue.map { $0.timeIntervalSince1970 }
             )
         }
+    }
+    
+    func setting(key: Setting.BoolKey, to newValue: Bool) -> Setting? {
+        let result: Setting? = Setting(key: key.rawValue, value: newValue)
+        self[key.rawValue] = result
+        return result
+    }
+    
+    func setting(key: Setting.DoubleKey, to newValue: Double?) -> Setting? {
+        let result: Setting? = Setting(key: key.rawValue, value: newValue)
+        self[key.rawValue] = result
+        return result
+    }
+    
+    func setting(key: Setting.IntKey, to newValue: Int?) -> Setting? {
+        let result: Setting? = Setting(key: key.rawValue, value: newValue)
+        self[key.rawValue] = result
+        return result
+    }
+    
+    func setting(key: Setting.StringKey, to newValue: String?) -> Setting? {
+        let result: Setting? = Setting(key: key.rawValue, value: newValue)
+        self[key.rawValue] = result
+        return result
+    }
+    
+    func setting<T: EnumIntSetting>(key: Setting.EnumKey, to newValue: T?) -> Setting? {
+        let result: Setting? = Setting(key: key.rawValue, value: newValue?.rawValue)
+        self[key.rawValue] = result
+        return result
+    }
+    
+    func setting<T: EnumStringSetting>(key: Setting.EnumKey, to newValue: T?) -> Setting? {
+        let result: Setting? = Setting(key: key.rawValue, value: newValue?.rawValue)
+        self[key.rawValue] = result
+        return result
+    }
+    
+    /// Value will be stored as a timestamp in seconds since 1970
+    func setting(key: Setting.DateKey, to newValue: Date?) -> Setting? {
+        let result: Setting? = Setting(key: key.rawValue, value: newValue.map { $0.timeIntervalSince1970 })
+        self[key.rawValue] = result
+        return result
     }
 }

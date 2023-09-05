@@ -7,6 +7,7 @@ import DifferenceKit
 import SessionUIKit
 import SignalUtilitiesKit
 import SignalCoreKit
+import SessionUtilitiesKit
 
 public class MediaTileViewController: UIViewController, UICollectionViewDataSource, UICollectionViewDelegate, UICollectionViewDelegateFlowLayout {
     
@@ -54,6 +55,10 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
     // MARK: - UI
     
     override public var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+        if UIDevice.current.isIPad {
+            return .all
+        }
+
         return .allButUpsideDown
     }
     

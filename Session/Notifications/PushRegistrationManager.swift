@@ -4,8 +4,10 @@ import Foundation
 import Combine
 import PushKit
 import GRDB
+import SessionMessagingKit
 import SignalUtilitiesKit
 import SignalCoreKit
+import SessionUtilitiesKit
 
 public enum PushRegistrationError: Error {
     case assertionError(description: String)
@@ -53,8 +55,6 @@ public enum PushRegistrationError: Error {
         Logger.info("")
         
         return registerUserNotificationSettings()
-            .subscribe(on: DispatchQueue.global(qos: .default))
-            .receive(on: DispatchQueue.main)    // MUST be on main thread
             .setFailureType(to: Error.self)
             .tryFlatMap { _ -> AnyPublisher<(pushToken: String, voipToken: String), Error> in
                 #if targetEnvironment(simulator)
@@ -75,24 +75,27 @@ public enum PushRegistrationError: Error {
     // MARK: Vanilla push token
 
     // Vanilla push token is obtained from the system via AppDelegate
-    public func didReceiveVanillaPushToken(_ tokenData: Data) {
+    public func didReceiveVanillaPushToken(_ tokenData: Data, using dependencies: Dependencies = Dependencies()) {
         guard let vanillaTokenResolver = self.vanillaTokenResolver else {
             owsFailDebug("publisher completion in \(#function) unexpectedly nil")
             return
         }
 
-        vanillaTokenResolver(Result.success(tokenData))
+        DispatchQueue.global(qos: .default).async(using: dependencies) {
+            vanillaTokenResolver(Result.success(tokenData))
+        }
     }
 
     // Vanilla push token is obtained from the system via AppDelegate    
-    @objc
-    public func didFailToReceiveVanillaPushToken(error: Error) {
+    public func didFailToReceiveVanillaPushToken(error: Error, using dependencies: Dependencies = Dependencies()) {
         guard let vanillaTokenResolver = self.vanillaTokenResolver else {
             owsFailDebug("publisher completion in \(#function) unexpectedly nil")
             return
         }
 
-        vanillaTokenResolver(Result.failure(error))
+        DispatchQueue.global(qos: .default).async(using: dependencies) {
+            vanillaTokenResolver(Result.failure(error))
+        }
     }
 
     // MARK: helpers
@@ -111,9 +114,8 @@ public enum PushRegistrationError: Error {
      * in this case we've verified that we *have* properly registered notification settings.
      */
     private var isSusceptibleToFailedPushRegistration: Bool {
-
         // Only affects users who have disabled both: background refresh *and* notifications
-        guard UIApplication.shared.backgroundRefreshStatus == .denied else {
+        guard DispatchQueue.main.sync(execute: { UIApplication.shared.backgroundRefreshStatus }) == .denied else {
             return false
         }
 
@@ -128,10 +130,7 @@ public enum PushRegistrationError: Error {
         return true
     }
 
-    // FIXME: Might be nice to try to avoid having this required to run on the main thread (follow a similar approach to the 'SyncPushTokensJob' & `Atomic<T>`?)
     private func registerForVanillaPushToken() -> AnyPublisher<String, Error> {
-        AssertIsOnMainThread()
-        
         // Use the existing publisher if it exists
         if let vanillaTokenPublisher: AnyPublisher<Data, Error> = self.vanillaTokenPublisher {
             return vanillaTokenPublisher
@@ -139,19 +138,23 @@ public enum PushRegistrationError: Error {
                 .eraseToAnyPublisher()
         }
         
-        UIApplication.shared.registerForRemoteNotifications()
-        
         // No pending vanilla token yet; create a new publisher
         let publisher: AnyPublisher<Data, Error> = Deferred {
-            Future<Data, Error> { self.vanillaTokenResolver = $0 }
+            Future<Data, Error> {
+                self.vanillaTokenResolver = $0
+                
+                // Tell the device to register for remote notifications
+                DispatchQueue.main.sync { UIApplication.shared.registerForRemoteNotifications() }
+            }
         }
+        .shareReplay(1)
         .eraseToAnyPublisher()
         self.vanillaTokenPublisher = publisher
         
         return publisher
             .timeout(
                 .seconds(10),
-                scheduler: DispatchQueue.main,
+                scheduler: DispatchQueue.global(qos: .default),
                 customError: { PushRegistrationError.timeout }
             )
             .catch { error -> AnyPublisher<Data, Error> in
@@ -200,9 +203,8 @@ public enum PushRegistrationError: Error {
     }
     
     public func createVoipRegistryIfNecessary() {
-        AssertIsOnMainThread()
-
         guard voipRegistry == nil else { return }
+        
         let voipRegistry = PKPushRegistry(queue: nil)
         self.voipRegistry = voipRegistry
         voipRegistry.desiredPushTypes = [.voIP]
@@ -210,8 +212,6 @@ public enum PushRegistrationError: Error {
     }
     
     private func registerForVoipPushToken() -> AnyPublisher<String?, Error> {
-        AssertIsOnMainThread()
-        
         // Use the existing publisher if it exists
         if let voipTokenPublisher: AnyPublisher<Data?, Error> = self.voipTokenPublisher {
             return voipTokenPublisher

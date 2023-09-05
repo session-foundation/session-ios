@@ -52,14 +52,16 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
     @discardableResult
     func updateAllAndConfig(
         _ db: Database,
+        calledFromConfig: Bool = false,
         _ assignments: ConfigColumnAssignment...
     ) throws -> Int {
-        return try updateAllAndConfig(db, assignments)
+        return try updateAllAndConfig(db, calledFromConfig: calledFromConfig, assignments)
     }
     
     @discardableResult
     func updateAllAndConfig(
         _ db: Database,
+        calledFromConfig: Bool = false,
         _ assignments: [ConfigColumnAssignment]
     ) throws -> Int {
         let targetAssignments: [ColumnAssignment] = assignments.map { $0.assignment }
@@ -69,7 +71,7 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
             return try self.updateAll(db, targetAssignments)
         }
         
-        return try self.updateAndFetchAllAndUpdateConfig(db, assignments).count
+        return try self.updateAndFetchAllAndUpdateConfig(db, calledFromConfig: calledFromConfig, assignments).count
     }
     
     // MARK: -- updateAndFetchAll
@@ -77,14 +79,16 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
     @discardableResult
     func updateAndFetchAllAndUpdateConfig(
         _ db: Database,
+        calledFromConfig: Bool = false,
         _ assignments: ConfigColumnAssignment...
     ) throws -> [RowDecoder] {
-        return try updateAndFetchAllAndUpdateConfig(db, assignments)
+        return try updateAndFetchAllAndUpdateConfig(db, calledFromConfig: calledFromConfig, assignments)
     }
     
     @discardableResult
     func updateAndFetchAllAndUpdateConfig(
         _ db: Database,
+        calledFromConfig: Bool = false,
         _ assignments: [ConfigColumnAssignment]
     ) throws -> [RowDecoder] {
         // First perform the actual updates
@@ -92,8 +96,7 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
         
         // Then check if any of the changes could affect the config
         guard
-            // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-            SessionUtil.userConfigsEnabled(db, ignoreRequirementsForRunningMigrations: true),
+            !calledFromConfig &&
             SessionUtil.assignmentsRequireConfigUpdate(assignments)
         else { return updatedData }
         

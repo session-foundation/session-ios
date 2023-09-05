@@ -31,7 +31,7 @@ public enum OpenGroupAPI {
         server: String,
         hasPerformedInitialPoll: Bool,
         timeSinceLastPoll: TimeInterval,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<BatchResponse> {
         let lastInboxMessageId: Int64 = (try? OpenGroup
             .select(.inboxLatestMessageId)
@@ -109,10 +109,12 @@ public enum OpenGroupAPI {
                 // The 'inbox' and 'outbox' only work with blinded keys so don't bother polling them if not blinded
                 !capabilities.contains(.blind) ? [] :
                 [
-                    // Inbox
-                    (lastInboxMessageId == 0 ?
-                        try preparedInbox(db, on: server, using: dependencies) :
-                        try preparedInboxSince(db, id: lastInboxMessageId, on: server, using: dependencies)
+                    // Inbox (only check the inbox if the user want's community message requests)
+                    (!db[.checkForCommunityMessageRequests] ? nil :
+                        (lastInboxMessageId == 0 ?
+                            try preparedInbox(db, on: server, using: dependencies) :
+                            try preparedInboxSince(db, id: lastInboxMessageId, on: server, using: dependencies)
+                        )
                     ),
                     
                     // Outbox
@@ -120,7 +122,7 @@ public enum OpenGroupAPI {
                         try preparedOutbox(db, on: server, using: dependencies) :
                         try preparedOutboxSince(db, id: lastOutboxMessageId, on: server, using: dependencies)
                     ),
-                ]
+                ].compactMap { $0 }
             )
         )
         
@@ -143,7 +145,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         server: String,
         requests: [ErasedPreparedSendData],
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<BatchResponse> {
         return try OpenGroupAPI
             .prepareSendData(
@@ -173,7 +175,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         server: String,
         requests: [ErasedPreparedSendData],
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<BatchResponse> {
         return try OpenGroupAPI
             .prepareSendData(
@@ -202,7 +204,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         server: String,
         forceBlinded: Bool = false,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<Capabilities> {
         return try OpenGroupAPI
             .prepareSendData(
@@ -225,7 +227,7 @@ public enum OpenGroupAPI {
     public static func preparedRooms(
         _ db: Database,
         server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<[Room]> {
         return try OpenGroupAPI
             .prepareSendData(
@@ -244,7 +246,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         for roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<Room> {
         return try OpenGroupAPI
             .prepareSendData(
@@ -267,7 +269,7 @@ public enum OpenGroupAPI {
         lastUpdated: Int64,
         for roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<RoomPollInfo> {
         return try OpenGroupAPI
             .prepareSendData(
@@ -292,7 +294,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         for roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<CapabilitiesAndRoomResponse> {
         return try OpenGroupAPI
             .preparedSequence(
@@ -332,13 +334,18 @@ public enum OpenGroupAPI {
             }
     }
     
+    public typealias CapabilitiesAndRoomsResponse = (
+        capabilities: (info: ResponseInfoType, data: Capabilities),
+        rooms: (info: ResponseInfoType, data: [Room])
+    )
+    
     /// This is a convenience method which constructs a `/sequence` of the `capabilities` and `rooms`  requests, refer to those
     /// methods for the documented behaviour of each method
     public static func preparedCapabilitiesAndRooms(
         _ db: Database,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
-    ) throws -> PreparedSendData<(capabilities: (info: ResponseInfoType, data: Capabilities), rooms: (info: ResponseInfoType, data: [Room]))> {
+        using dependencies: Dependencies = Dependencies()
+    ) throws -> PreparedSendData<CapabilitiesAndRoomsResponse> {
         return try OpenGroupAPI
             .preparedSequence(
                 db,
@@ -351,7 +358,7 @@ public enum OpenGroupAPI {
                 ],
                 using: dependencies
             )
-            .map { (info: ResponseInfoType, response: BatchResponse) -> (capabilities: (info: ResponseInfoType, data: Capabilities), rooms: (info: ResponseInfoType, data: [Room])) in
+            .map { (info: ResponseInfoType, response: BatchResponse) -> CapabilitiesAndRoomsResponse in
                 let maybeCapabilities: HTTP.BatchSubResponse<Capabilities>? = (response[.capabilities] as? HTTP.BatchSubResponse<Capabilities>)
                 let maybeRooms: HTTP.BatchSubResponse<[Room]>? = response.data
                     .first(where: { key, _ in
@@ -387,7 +394,7 @@ public enum OpenGroupAPI {
         whisperTo: String?,
         whisperMods: Bool,
         fileIds: [String]?,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<Message> {
         guard let signResult: (publicKey: String, signature: Bytes) = sign(db, messageBytes: plaintext.bytes, for: server, fallbackSigningType: .standard, using: dependencies) else {
             throw OpenGroupAPIError.signingFailed
@@ -419,7 +426,7 @@ public enum OpenGroupAPI {
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<Message> {
         return try OpenGroupAPI
             .prepareSendData(
@@ -443,7 +450,7 @@ public enum OpenGroupAPI {
         fileIds: [Int64]?,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<NoResponse> {
         guard let signResult: (publicKey: String, signature: Bytes) = sign(db, messageBytes: plaintext.bytes, for: server, fallbackSigningType: .standard, using: dependencies) else {
             throw OpenGroupAPIError.signingFailed
@@ -473,7 +480,7 @@ public enum OpenGroupAPI {
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<NoResponse> {
         return try OpenGroupAPI
             .prepareSendData(
@@ -497,7 +504,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<[Failable<Message>]> {
         return try OpenGroupAPI
             .prepareSendData(
@@ -526,7 +533,7 @@ public enum OpenGroupAPI {
         messageId: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<[Failable<Message>]> {
         return try OpenGroupAPI
             .prepareSendData(
@@ -555,7 +562,7 @@ public enum OpenGroupAPI {
         seqNo: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<[Failable<Message>]> {
         return try OpenGroupAPI
             .prepareSendData(
@@ -591,7 +598,7 @@ public enum OpenGroupAPI {
         sessionId: String,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<NoResponse> {
         return try OpenGroupAPI
             .prepareSendData(
@@ -615,7 +622,7 @@ public enum OpenGroupAPI {
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<NoResponse> {
         /// URL(String:) won't convert raw emojis, so need to do a little encoding here.
         /// The raw emoji will come back when calling url.path
@@ -646,7 +653,7 @@ public enum OpenGroupAPI {
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<ReactionAddResponse> {
         /// URL(String:) won't convert raw emojis, so need to do a little encoding here.
         /// The raw emoji will come back when calling url.path
@@ -675,7 +682,7 @@ public enum OpenGroupAPI {
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<ReactionRemoveResponse> {
         /// URL(String:) won't convert raw emojis, so need to do a little encoding here.
         /// The raw emoji will come back when calling url.path
@@ -705,7 +712,7 @@ public enum OpenGroupAPI {
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<ReactionRemoveAllResponse> {
         /// URL(String:) won't convert raw emojis, so need to do a little encoding here.
         /// The raw emoji will come back when calling url.path
@@ -743,7 +750,7 @@ public enum OpenGroupAPI {
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<NoResponse> {
         return try OpenGroupAPI
             .prepareSendData(
@@ -766,7 +773,7 @@ public enum OpenGroupAPI {
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<NoResponse> {
         return try OpenGroupAPI
             .prepareSendData(
@@ -788,7 +795,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<NoResponse> {
         return try OpenGroupAPI
             .prepareSendData(
@@ -817,7 +824,7 @@ public enum OpenGroupAPI {
         fileName: String? = nil,
         to roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<FileUploadResponse> {
         return try OpenGroupAPI
             .prepareSendData(
@@ -849,7 +856,7 @@ public enum OpenGroupAPI {
         fileId: String,
         from roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<Data> {
         return try OpenGroupAPI
             .prepareSendData(
@@ -872,7 +879,7 @@ public enum OpenGroupAPI {
     public static func preparedInbox(
         _ db: Database,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<[DirectMessage]?> {
         return try OpenGroupAPI
             .prepareSendData(
@@ -893,7 +900,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         id: Int64,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<[DirectMessage]?> {
         return try OpenGroupAPI
             .prepareSendData(
@@ -915,7 +922,7 @@ public enum OpenGroupAPI {
         ciphertext: Data,
         toInboxFor blindedSessionId: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies
     ) throws -> PreparedSendData<SendDirectMessageResponse> {
         return try OpenGroupAPI
             .prepareSendData(
@@ -939,7 +946,7 @@ public enum OpenGroupAPI {
     public static func preparedOutbox(
         _ db: Database,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<[DirectMessage]?> {
         return try OpenGroupAPI
             .prepareSendData(
@@ -960,7 +967,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         id: Int64,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<[DirectMessage]?> {
         return try OpenGroupAPI
             .prepareSendData(
@@ -1013,7 +1020,7 @@ public enum OpenGroupAPI {
         for timeout: TimeInterval? = nil,
         from roomTokens: [String]? = nil,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<NoResponse> {
         return try OpenGroupAPI
             .prepareSendData(
@@ -1062,7 +1069,7 @@ public enum OpenGroupAPI {
         sessionId: String,
         from roomTokens: [String]?,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<NoResponse> {
         return try OpenGroupAPI
             .prepareSendData(
@@ -1140,7 +1147,7 @@ public enum OpenGroupAPI {
         visible: Bool,
         for roomTokens: [String]?,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<NoResponse> {
         guard (moderator != nil && admin == nil) || (moderator == nil && admin != nil) else {
             throw HTTPError.generic
@@ -1173,7 +1180,7 @@ public enum OpenGroupAPI {
         sessionId: String,
         in roomToken: String,
         on server: String,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<BatchResponse> {
         return try OpenGroupAPI
             .preparedSequence(
@@ -1208,7 +1215,7 @@ public enum OpenGroupAPI {
         for serverName: String,
         fallbackSigningType signingType: SessionId.Prefix,
         forceBlinded: Bool = false,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies
     ) -> (publicKey: String, signature: Bytes)? {
         guard
             let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
@@ -1228,13 +1235,14 @@ public enum OpenGroupAPI {
 
         // If we have no capabilities or if the server supports blinded keys then sign using the blinded key
         if forceBlinded || capabilities.isEmpty || capabilities.contains(.blind) {
-            guard let blindedKeyPair: KeyPair = dependencies.sodium.blindedKeyPair(serverPublicKey: serverPublicKey, edKeyPair: userEdKeyPair, genericHash: dependencies.genericHash) else {
-                return nil
-            }
-
-            guard let signatureResult: Bytes = dependencies.sodium.sogsSignature(message: messageBytes, secretKey: userEdKeyPair.secretKey, blindedSecretKey: blindedKeyPair.secretKey, blindedPublicKey: blindedKeyPair.publicKey) else {
-                return nil
-            }
+            guard
+                let blindedKeyPair: KeyPair = dependencies.crypto.generate(
+                    .blindedKeyPair(serverPublicKey: serverPublicKey, edKeyPair: userEdKeyPair, using: dependencies)
+                ),
+                let signatureResult: Bytes = try? dependencies.crypto.perform(
+                    .sogsSignature(message: messageBytes, secretKey: userEdKeyPair.secretKey, blindedSecretKey: blindedKeyPair.secretKey, blindedPublicKey: blindedKeyPair.publicKey)
+                )
+            else { return nil }
 
             return (
                 publicKey: SessionId(.blinded15, publicKey: blindedKeyPair.publicKey).hexString,
@@ -1245,9 +1253,11 @@ public enum OpenGroupAPI {
         // Otherwise sign using the fallback type
         switch signingType {
             case .unblinded:
-                guard let signatureResult: Bytes = dependencies.sign.signature(message: messageBytes, secretKey: userEdKeyPair.secretKey) else {
-                    return nil
-                }
+                guard
+                    let signatureResult: Bytes = try? dependencies.crypto.perform(
+                        .signature(message: messageBytes, secretKey: userEdKeyPair.secretKey)
+                    )
+                else { return nil }
 
                 return (
                     publicKey: SessionId(.unblinded, publicKey: userEdKeyPair.publicKey).hexString,
@@ -1256,10 +1266,12 @@ public enum OpenGroupAPI {
                 
             // Default to using the 'standard' key
             default:
-                guard let userKeyPair: KeyPair = Identity.fetchUserKeyPair(db) else { return nil }
-                guard let signatureResult: Bytes = try? dependencies.ed25519.sign(data: messageBytes, keyPair: userKeyPair) else {
-                    return nil
-                }
+                guard
+                    let userKeyPair: KeyPair = Identity.fetchUserKeyPair(db),
+                    let signatureResult: Bytes = try? dependencies.crypto.perform(
+                        .signEd25519(data: messageBytes, keyPair: userKeyPair)
+                    )
+                else { return nil }
                 
                 return (
                     publicKey: SessionId(.standard, publicKey: userKeyPair.publicKey).hexString,
@@ -1275,7 +1287,7 @@ public enum OpenGroupAPI {
         for serverName: String,
         with serverPublicKey: String,
         forceBlinded: Bool = false,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) -> URLRequest? {
         guard let url: URL = request.url else { return nil }
         
@@ -1283,12 +1295,12 @@ public enum OpenGroupAPI {
         let path: String = url.path
             .appending(url.query.map { value in "?\(value)" })
         let method: String = (request.httpMethod ?? "GET")
-        let timestamp: Int = Int(floor(Date().timeIntervalSince1970))
-        let nonce: Data = Data(dependencies.nonceGenerator16.nonce())
+        let timestamp: Int = Int(floor(dependencies.dateNow.timeIntervalSince1970))
         let serverPublicKeyData: Data = Data(hex: serverPublicKey)
         
         guard
             !serverPublicKeyData.isEmpty,
+            let nonce: Data = (try? dependencies.crypto.perform(.generateNonce16())).map({ Data($0) }),
             let timestampBytes: Bytes = "\(timestamp)".data(using: .ascii)?.bytes
         else { return nil }
         
@@ -1296,7 +1308,7 @@ public enum OpenGroupAPI {
         let bodyHash: Bytes? = {
             guard let body: Data = request.httpBody else { return nil }
             
-            return dependencies.genericHash.hash(message: body.bytes, outputLength: 64)
+            return try? dependencies.crypto.perform(.hash(message: body.bytes, outputLength: 64))
         }()
         
         /// Generate the signature message
@@ -1341,7 +1353,7 @@ public enum OpenGroupAPI {
         responseType: R.Type,
         forceBlinded: Bool = false,
         timeout: TimeInterval = HTTP.defaultTimeout,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) throws -> PreparedSendData<R> {
         let urlRequest: URLRequest = try request.generateUrlRequest()
         let maybePublicKey: String? = try? OpenGroup
@@ -1369,19 +1381,21 @@ public enum OpenGroupAPI {
     /// This method takes in the `PreparedSendData<R>` and actually sends it to the API
     public static func send<R>(
         data: PreparedSendData<R>?,
-        using dependencies: SMKDependencies = SMKDependencies()
+        using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<(ResponseInfoType, R), Error> {
         guard let validData: PreparedSendData<R> = data else {
             return Fail(error: OpenGroupAPIError.invalidPreparedData)
                 .eraseToAnyPublisher()
         }
         
-        return dependencies.onionApi
-            .sendOnionRequest(
-                validData.request,
-                to: validData.server,
-                with: validData.publicKey,
-                timeout: validData.timeout
+        return dependencies.network
+            .send(
+                .onionRequest(
+                    validData.request,
+                    to: validData.server,
+                    with: validData.publicKey,
+                    timeout: validData.timeout
+                )
             )
             .decoded(with: validData, using: dependencies)
             .eraseToAnyPublisher()

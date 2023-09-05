@@ -313,7 +313,7 @@ public class SessionCell: UITableViewCell {
         botSeparator.isHidden = true
     }
     
-    public func update<ID: Hashable & Differentiable>(with info: Info<ID>) {
+    public func update<ID: Hashable & Differentiable>(with info: Info<ID>, isManualReload: Bool = false) {
         interactionMode = (info.title?.interaction ?? .none)
         shouldHighlightTitle = (info.title?.interaction != .copy)
         titleExtraView = info.title?.extraViewGenerator?()
@@ -332,7 +332,8 @@ public class SessionCell: UITableViewCell {
         leftAccessoryView.update(
             with: info.leftAccessory,
             tintColor: info.styling.tintColor,
-            isEnabled: info.isEnabled
+            isEnabled: info.isEnabled,
+            isManualReload: isManualReload
         )
         titleStackView.isHidden = (info.title == nil && info.subtitle == nil)
         titleLabel.isUserInteractionEnabled = (info.title?.interaction == .copy)
@@ -356,7 +357,8 @@ public class SessionCell: UITableViewCell {
         rightAccessoryView.update(
             with: info.rightAccessory,
             tintColor: info.styling.tintColor,
-            isEnabled: info.isEnabled
+            isEnabled: info.isEnabled,
+            isManualReload: isManualReload
         )
         
         contentStackViewLeadingConstraint.isActive = (info.styling.alignment == .leading)

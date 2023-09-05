@@ -14,9 +14,10 @@ public enum AttachmentDownloadJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool) -> (),
-        failure: @escaping (Job, Error?, Bool) -> (),
-        deferred: @escaping (Job) -> ()
+        success: @escaping (Job, Bool, Dependencies) -> (),
+        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
+        deferred: @escaping (Job, Dependencies) -> (),
+        using dependencies: Dependencies
     ) {
         guard
             let threadId: String = job.threadId,
@@ -25,7 +26,7 @@ public enum AttachmentDownloadJob: JobExecutor {
             let attachment: Attachment = Storage.shared
                 .read({ db in try Attachment.fetchOne(db, id: details.attachmentId) })
         else {
-            failure(job, JobRunnerError.missingRequiredDetails, true)
+            failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
             return
         }
         
@@ -33,7 +34,7 @@ public enum AttachmentDownloadJob: JobExecutor {
         // an AttachmentDownloadJob to get created for an attachment which has already been
         // downloaded/uploaded so in those cases just succeed immediately
         guard attachment.state != .downloaded && attachment.state != .uploaded else {
-            success(job, false)
+            success(job, false, dependencies)
             return
         }
         
@@ -41,8 +42,8 @@ public enum AttachmentDownloadJob: JobExecutor {
         // the same attachment multiple times at the same time (it also adds a "clean up" mechanism
         // if an attachment ends up stuck in a "downloading" state incorrectly
         guard attachment.state != .downloading else {
-            let otherCurrentJobAttachmentIds: Set<String> = JobRunner
-                .infoForCurrentlyRunningJobs(of: .attachmentDownload)
+            let otherCurrentJobAttachmentIds: Set<String> = dependencies.jobRunner
+                .jobInfoFor(state: .running, variant: .attachmentDownload)
                 .filter { key, _ in key != job.id }
                 .values
                 .compactMap { info -> String? in
@@ -57,7 +58,7 @@ public enum AttachmentDownloadJob: JobExecutor {
             // then we should update the state of the attachment to be failed to avoid having attachments
             // appear in an endlessly downloading state
             if !otherCurrentJobAttachmentIds.contains(attachment.id) {
-                Storage.shared.write { db in
+                dependencies.storage.write { db in
                     _ = try Attachment
                         .filter(id: attachment.id)
                         .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.failedDownload))
@@ -70,12 +71,12 @@ public enum AttachmentDownloadJob: JobExecutor {
             // If there is another current job then just fail this one permanently, otherwise let it
             // retry (if there are more retry attempts available) and in the next retry it's state should
             // be 'failedDownload' so we won't get stuck in a loop
-            failure(job, nil, otherCurrentJobAttachmentIds.contains(attachment.id))
+            failure(job, nil, otherCurrentJobAttachmentIds.contains(attachment.id), dependencies)
             return
         }
         
         // Update to the 'downloading' state (no need to update the 'attachment' instance)
-        Storage.shared.write { db in
+        dependencies.storage.write { db in
             try Attachment
                 .filter(id: attachment.id)
                 .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.downloading))
@@ -155,16 +156,16 @@ public enum AttachmentDownloadJob: JobExecutor {
             }
             .sinkUntilComplete(
                 receiveCompletion: { result in
+                    // Remove the temporary file
+                    OWSFileSystem.deleteFile(temporaryFileUrl.path)
+
                     switch result {
                         case .finished:
-                            // Remove the temporary file
-                            OWSFileSystem.deleteFile(temporaryFileUrl.path)
-                            
                             /// Update the attachment state
                             ///
                             /// **Note:** We **MUST** use the `'with()` function here as it will update the
                             /// `isValid` and `duration` values based on the downloaded data and the state
-                            Storage.shared.write { db in
+                            dependencies.storage.write { db in
                                 _ = try attachment
                                     .with(
                                         state: .downloaded,
@@ -177,11 +178,9 @@ public enum AttachmentDownloadJob: JobExecutor {
                                     .saved(db)
                             }
                             
-                            success(job, false)
+                            success(job, false, dependencies)
                             
                         case .failure(let error):
-                            OWSFileSystem.deleteFile(temporaryFileUrl.path)
-                            
                             let targetState: Attachment.State
                             let permanentFailure: Bool
                             
@@ -211,14 +210,14 @@ public enum AttachmentDownloadJob: JobExecutor {
                             ///
                             /// **Note:** We **MUST** use the `'with()` function here as it will update the
                             /// `isValid` and `duration` values based on the downloaded data and the state
-                            Storage.shared.write { db in
+                            dependencies.storage.write { db in
                                 _ = try Attachment
                                     .filter(id: attachment.id)
                                     .updateAll(db, Attachment.Columns.state.set(to: targetState))
                             }
                             
                             /// Trigger the failure and provide the `permanentFailure` value defined above
-                            failure(job, error, permanentFailure)
+                            failure(job, error, permanentFailure, dependencies)
                     }
                 }
             )

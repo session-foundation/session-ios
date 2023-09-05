@@ -5,6 +5,9 @@ import SessionUtilitiesKit
 
 public extension Date {
     var formattedForDisplay: String {
+        // If we don't have a date then
+        guard self.timeIntervalSince1970 > 0 else { return "" }
+        
         let dateNow: Date = Date()
         
         guard Calendar.current.isDate(self, equalTo: dateNow, toGranularity: .year) else {

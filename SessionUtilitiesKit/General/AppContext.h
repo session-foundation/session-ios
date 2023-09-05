@@ -2,15 +2,6 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-static inline BOOL OWSIsDebugBuild()
-{
-#ifdef DEBUG
-    return YES;
-#else
-    return NO;
-#endif
-}
-
 // These are fired whenever the corresponding "main app" or "app extension"
 // notification is fired.
 //
@@ -41,8 +32,6 @@ NSString *NSStringForUIApplicationState(UIApplicationState value);
 
 // Whether the user is using a right-to-left language like Arabic.
 @property (nonatomic, readonly) BOOL isRTL;
-
-@property (nonatomic, readonly) BOOL isRunningTests;
 
 @property (atomic, nullable) UIWindow *mainWindow;
 

@@ -9,6 +9,7 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 import SignalCoreKit
+import SessionSnodeKit
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
@@ -92,7 +93,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
         
         // No point continuing if we are running tests
-        guard !CurrentAppContext().isRunningTests else { return true }
+        guard !SNUtilitiesKit.isRunningTests else { return true }
 
         self.window = mainWindow
         CurrentAppContext().mainWindow = mainWindow
@@ -212,7 +213,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
     
     func applicationDidBecomeActive(_ application: UIApplication) {
-        guard !CurrentAppContext().isRunningTests else { return }
+        guard !SNUtilitiesKit.isRunningTests else { return }
         
         UserDefaults.sharedLokiProject?[.isMainAppActive] = true
         
@@ -248,7 +249,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
         if UIDevice.current.isIPad {
-            return .allButUpsideDown
+            return .all
         }
         
         return .portrait
@@ -314,7 +315,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private func completePostMigrationSetup(calledFrom lifecycleMethod: LifecycleMethod, needsConfigSync: Bool) {
         SNLog("Migrations completed, performing setup and ensuring rootViewController")
         Configuration.performMainSetup()
-        JobRunner.add(executor: SyncPushTokensJob.self, for: .syncPushTokens)
+        JobRunner.setExecutor(SyncPushTokensJob.self, for: .syncPushTokens)
         
         // Setup the UI if needed, then trigger any post-UI setup actions
         self.ensureRootViewController(calledFrom: lifecycleMethod) { [weak self] success in
@@ -522,7 +523,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         startPollersIfNeeded()
         
         if CurrentAppContext().isMainApp {
-            syncConfigurationIfNeeded()
             handleAppActivatedWithOngoingCallIfNeeded()
         }
     }
@@ -867,36 +867,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
         
         presentingVC.present(callVC, animated: true, completion: nil)
-    }
-    
-    // MARK: - Config Sync
-    
-    func syncConfigurationIfNeeded() {
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard !SessionUtil.userConfigsEnabled else { return }
-        
-        let lastSync: Date = (UserDefaults.standard[.lastConfigurationSync] ?? .distantPast)
-        
-        guard Date().timeIntervalSince(lastSync) > (7 * 24 * 60 * 60) else { return } // Sync every 2 days
-        
-        Storage.shared
-            .writeAsync(
-                updates: { db in
-                    ConfigurationSyncJob.enqueue(db, publicKey: getUserHexEncodedPublicKey(db))
-                },
-                completion: { _, result in
-                    switch result {
-                        case .failure: break
-                        case .success:
-                            // Only update the 'lastConfigurationSync' timestamp if we have done the
-                            // first sync (Don't want a new device config sync to override config
-                            // syncs from other devices)
-                            if UserDefaults.standard[.hasSyncedInitialConfiguration] {
-                                UserDefaults.standard[.lastConfigurationSync] = Date()
-                            }
-                    }
-                }
-            )
     }
 }
 

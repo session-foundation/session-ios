@@ -6,6 +6,8 @@ import GRDB
 import SessionMessagingKit
 import SignalUtilitiesKit
 import SignalCoreKit
+import SessionUtilitiesKit
+import SessionSnodeKit
 
 /// There are two primary components in our system notification integration:
 ///
@@ -553,7 +555,8 @@ class NotificationActionHandler {
     func reply(
         userInfo: [AnyHashable: Any],
         replyText: String,
-        applicationState: UIApplication.State
+        applicationState: UIApplication.State,
+        using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
         guard let threadId = userInfo[AppNotificationUserInfoKey.threadId] as? String else {
             return Fail<Void, Error>(error: NotificationError.failDebug("threadId was unexpectedly nil"))
@@ -599,10 +602,11 @@ class NotificationActionHandler {
                     db,
                     interaction: interaction,
                     threadId: threadId,
-                    threadVariant: thread.variant
+                    threadVariant: thread.variant,
+                    using: dependencies
                 )
             }
-            .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
+            .flatMap { MessageSender.sendImmediate(data: $0, using: dependencies) }
             .handleEvents(
                 receiveCompletion: { result in
                     switch result {

@@ -44,11 +44,13 @@ class BatchRequestInfoSpec: QuickSpec {
                             )
                         ]
                     )
-                    let requestData: Data = try! JSONEncoder().encode(request)
-                    let requestString: String? = String(data: requestData, encoding: .utf8)
                     
-                    expect(requestString)
-                        .to(equal("[{\"path\":\"\\/batch\",\"method\":\"GET\",\"b64\":\"testBody\"}]"))
+                    let requestData: Data? = try? JSONEncoder().encode(request)
+                    let requestJson: [[String: Any]]? = requestData
+                        .map { try? JSONSerialization.jsonObject(with: $0) as? [[String: Any]] }
+                    expect(requestJson?.first?["path"] as? String).to(equal("/batch"))
+                    expect(requestJson?.first?["method"] as? String).to(equal("GET"))
+                    expect(requestJson?.first?["b64"] as? String).to(equal("testBody"))
                 }
                 
                 it("successfully encodes a byte body") {
@@ -70,11 +72,13 @@ class BatchRequestInfoSpec: QuickSpec {
                             )
                         ]
                     )
-                    let requestData: Data = try! JSONEncoder().encode(request)
-                    let requestString: String? = String(data: requestData, encoding: .utf8)
                     
-                    expect(requestString)
-                        .to(equal("[{\"path\":\"\\/batch\",\"method\":\"GET\",\"bytes\":[1,2,3]}]"))
+                    let requestData: Data? = try? JSONEncoder().encode(request)
+                    let requestJson: [[String: Any]]? = requestData
+                        .map { try? JSONSerialization.jsonObject(with: $0) as? [[String: Any]] }
+                    expect(requestJson?.first?["path"] as? String).to(equal("/batch"))
+                    expect(requestJson?.first?["method"] as? String).to(equal("GET"))
+                    expect(requestJson?.first?["bytes"] as? [Int]).to(equal([1, 2, 3]))
                 }
                 
                 it("successfully encodes a JSON body") {
@@ -96,11 +100,13 @@ class BatchRequestInfoSpec: QuickSpec {
                             )
                         ]
                     )
-                    let requestData: Data = try! JSONEncoder().encode(request)
-                    let requestString: String? = String(data: requestData, encoding: .utf8)
                     
-                    expect(requestString)
-                        .to(equal("[{\"path\":\"\\/batch\",\"method\":\"GET\",\"json\":{\"stringValue\":\"testValue\"}}]"))
+                    let requestData: Data? = try? JSONEncoder().encode(request)
+                    let requestJson: [[String: Any]]? = requestData
+                        .map { try? JSONSerialization.jsonObject(with: $0) as? [[String: Any]] }
+                    expect(requestJson?.first?["path"] as? String).to(equal("/batch"))
+                    expect(requestJson?.first?["method"] as? String).to(equal("GET"))
+                    expect(requestJson?.first?["json"] as? [String: String]).to(equal(["stringValue": "testValue"]))
                 }
                 
                 it("strips authentication headers") {

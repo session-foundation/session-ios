@@ -15,22 +15,21 @@ public enum ConfigurationSyncJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool) -> (),
-        failure: @escaping (Job, Error?, Bool) -> (),
-        deferred: @escaping (Job) -> ()
+        success: @escaping (Job, Bool, Dependencies) -> (),
+        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
+        deferred: @escaping (Job, Dependencies) -> (),
+        using dependencies: Dependencies
     ) {
-        guard
-            SessionUtil.userConfigsEnabled,
-            Identity.userCompletedRequiredOnboarding()
-        else { return success(job, true) }
+        guard Identity.userCompletedRequiredOnboarding() else { return success(job, true, dependencies) }
         
         // It's possible for multiple ConfigSyncJob's with the same target (user/group) to try to run at the
         // same time since as soon as one is started we will enqueue a second one, rather than adding dependencies
         // between the jobs we just continue to defer the subsequent job while the first one is running in
         // order to prevent multiple configurationSync jobs with the same target from running at the same time
         guard
-            JobRunner
-                .infoForCurrentlyRunningJobs(of: .configurationSync)
+            dependencies
+                .jobRunner
+                .jobInfoFor(state: .running, variant: .configurationSync)
                 .filter({ key, info in
                     key != job.id &&                // Exclude this job
                     info.threadId == job.threadId   // Exclude jobs for different ids
@@ -39,14 +38,14 @@ public enum ConfigurationSyncJob: JobExecutor {
         else {
             // Defer the job to run 'maxRunFrequency' from when this one ran (if we don't it'll try start
             // it again immediately which is pointless)
-            let updatedJob: Job? = Storage.shared.write { db in
+            let updatedJob: Job? = dependencies.storage.write { db in
                 try job
-                    .with(nextRunTimestamp: Date().timeIntervalSince1970 + maxRunFrequency)
+                    .with(nextRunTimestamp: dependencies.dateNow.timeIntervalSince1970 + maxRunFrequency)
                     .saved(db)
             }
             
             SNLog("[ConfigurationSyncJob] For \(job.threadId ?? "UnknownId") deferred due to in progress job")
-            return deferred(updatedJob ?? job)
+            return deferred(updatedJob ?? job, dependencies)
         }
         
         // If we don't have a userKeyPair yet then there is no need to sync the configuration
@@ -58,14 +57,14 @@ public enum ConfigurationSyncJob: JobExecutor {
                 .read({ db in try SessionUtil.pendingChanges(db, publicKey: publicKey) })
         else {
             SNLog("[ConfigurationSyncJob] For \(job.threadId ?? "UnknownId") failed due to invalid data")
-            return failure(job, StorageError.generic, false)
+            return failure(job, StorageError.generic, false, dependencies)
         }
         
         // If there are no pending changes then the job can just complete (next time something
         // is updated we want to try and run immediately so don't scuedule another run in this case)
         guard !pendingConfigChanges.isEmpty else {
             SNLog("[ConfigurationSyncJob] For \(publicKey) completed with no pending changes")
-            return success(job, true)
+            return success(job, true, dependencies)
         }
         
         // Identify the destination and merge all obsolete hashes into a single set
@@ -77,10 +76,10 @@ public enum ConfigurationSyncJob: JobExecutor {
             .map { $0.obsoleteHashes }
             .reduce([], +)
             .asSet()
-        let jobStartTimestamp: TimeInterval = Date().timeIntervalSince1970
+        let jobStartTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         SNLog("[ConfigurationSyncJob] For \(publicKey) started with \(pendingConfigChanges.count) change\(pendingConfigChanges.count == 1 ? "" : "s")")
         
-        Storage.shared
+        dependencies.storage
             .readPublisher { db in
                 try pendingConfigChanges.map { change -> MessageSender.PreparedSendData in
                     try MessageSender.preparedSendData(
@@ -103,7 +102,8 @@ public enum ConfigurationSyncJob: JobExecutor {
                             
                             return (snodeMessage, namespace)
                         },
-                        allObsoleteHashes: Array(allObsoleteHashes)
+                        allObsoleteHashes: Array(allObsoleteHashes),
+                        using: dependencies
                     )
             }
             .subscribe(on: queue)
@@ -138,7 +138,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                         case .finished: SNLog("[ConfigurationSyncJob] For \(publicKey) completed")
                         case .failure(let error):
                             SNLog("[ConfigurationSyncJob] For \(publicKey) failed due to error: \(error)")
-                            failure(job, error, false)
+                            failure(job, error, false, dependencies)
                     }
                 },
                 receiveValue: { (configDumps: [ConfigDump]) in
@@ -146,7 +146,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                     var shouldFinishCurrentJob: Bool = false
                     
                     // Lastly we need to save the updated dumps to the database
-                    let updatedJob: Job? = Storage.shared.write { db in
+                    let updatedJob: Job? = dependencies.storage.write { db in
                         // Save the updated dumps to the database
                         try configDumps.forEach { try $0.save(db) }
                         
@@ -167,7 +167,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                         {
                             // If the next job isn't currently running then delay it's start time
                             // until the 'nextRunTimestamp'
-                            if !JobRunner.isCurrentlyRunning(existingJob) {
+                            if !dependencies.jobRunner.isCurrentlyRunning(existingJob) {
                                 _ = try existingJob
                                     .with(nextRunTimestamp: nextRunTimestamp)
                                     .saved(db)
@@ -183,7 +183,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                             .saved(db)
                     }
                     
-                    success((updatedJob ?? job), shouldFinishCurrentJob)
+                    success((updatedJob ?? job), shouldFinishCurrentJob, dependencies)
                 }
             )
     }
@@ -192,49 +192,32 @@ public enum ConfigurationSyncJob: JobExecutor {
 // MARK: - Convenience
 
 public extension ConfigurationSyncJob {
-    static func enqueue(_ db: Database, publicKey: String) {
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard SessionUtil.userConfigsEnabled(db) else {
-            // If we don't have a userKeyPair (or name) yet then there is no need to sync the
-            // configuration as the user doesn't fully exist yet (this will get triggered on
-            // the first launch of a fresh install due to the migrations getting run and a few
-            // times during onboarding)
-            guard
-                Identity.userCompletedRequiredOnboarding(db),
-                let legacyConfigMessage: Message = try? ConfigurationMessage.getCurrent(db)
-            else { return }
-            
-            let publicKey: String = getUserHexEncodedPublicKey(db)
-            
-            JobRunner.add(
-                db,
-                job: Job(
-                    variant: .messageSend,
-                    threadId: publicKey,
-                    details: MessageSendJob.Details(
-                        destination: Message.Destination.contact(publicKey: publicKey),
-                        message: legacyConfigMessage
-                    )
-                )
-            )
-            return
-        }
-        
+    static func enqueue(
+        _ db: Database,
+        publicKey: String,
+        dependencies: Dependencies = Dependencies()
+    ) {
         // Upsert a config sync job if needed
-        JobRunner.upsert(
+        dependencies.jobRunner.upsert(
             db,
-            job: ConfigurationSyncJob.createIfNeeded(db, publicKey: publicKey)
+            job: ConfigurationSyncJob.createIfNeeded(db, publicKey: publicKey, using: dependencies),
+            canStartJob: true,
+            using: dependencies
         )
     }
     
-    @discardableResult static func createIfNeeded(_ db: Database, publicKey: String) -> Job? {
+    @discardableResult static func createIfNeeded(
+        _ db: Database,
+        publicKey: String,
+        using dependencies: Dependencies = Dependencies()
+    ) -> Job? {
         /// The ConfigurationSyncJob will automatically reschedule itself to run again after 3 seconds so if there is an existing
         /// job then there is no need to create another instance
         ///
         /// **Note:** Jobs with different `threadId` values can run concurrently
         guard
-            JobRunner
-                .infoForCurrentlyRunningJobs(of: .configurationSync)
+            dependencies.jobRunner
+                .jobInfoFor(state: .running, variant: .configurationSync)
                 .filter({ _, info in info.threadId == publicKey })
                 .isEmpty,
             (try? Job
@@ -252,39 +235,17 @@ public extension ConfigurationSyncJob {
         )
     }
     
-    static func run() -> AnyPublisher<Void, Error> {
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard SessionUtil.userConfigsEnabled else {
-            return Storage.shared
-                .writePublisher { db -> MessageSender.PreparedSendData in
-                    // If we don't have a userKeyPair yet then there is no need to sync the configuration
-                    // as the user doesn't exist yet (this will get triggered on the first launch of a
-                    // fresh install due to the migrations getting run)
-                    guard Identity.userCompletedRequiredOnboarding(db) else { throw StorageError.generic }
-                    
-                    let publicKey: String = getUserHexEncodedPublicKey(db)
-                    
-                    return try MessageSender.preparedSendData(
-                        db,
-                        message: try ConfigurationMessage.getCurrent(db),
-                        to: Message.Destination.contact(publicKey: publicKey),
-                        namespace: .default,
-                        interactionId: nil
-                    )
-                }
-                .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
-                .eraseToAnyPublisher()
-        }
-        
+    static func run(using dependencies: Dependencies = Dependencies()) -> AnyPublisher<Void, Error> {
         // Trigger the job emitting the result when completed
         return Deferred {
             Future { resolver in
                 ConfigurationSyncJob.run(
                     Job(variant: .configurationSync),
                     queue: .global(qos: .userInitiated),
-                    success: { _, _ in resolver(Result.success(())) },
-                    failure: { _, error, _ in resolver(Result.failure(error ?? HTTPError.generic)) },
-                    deferred: { _ in }
+                    success: { _, _, _ in resolver(Result.success(())) },
+                    failure: { _, error, _, _ in resolver(Result.failure(error ?? HTTPError.generic)) },
+                    deferred: { _, _ in },
+                    using: dependencies
                 )
             }
         }

@@ -6,6 +6,7 @@ import GRDB
 import DifferenceKit
 import SessionUIKit
 import SignalUtilitiesKit
+import SessionUtilitiesKit
 
 class BlockedContactsViewModel: SessionTableViewModel<NoNav, BlockedContactsViewModel.Section, Profile> {
     // MARK: - Section
@@ -257,11 +258,12 @@ class BlockedContactsViewModel: SessionTableViewModel<NoNav, BlockedContactsView
     
     // MARK: - DataModel
 
-    public struct DataModel: FetchableRecordWithRowId, Decodable, Equatable, Hashable, Identifiable, Differentiable {
-        public static let rowIdKey: SQL = SQL(stringLiteral: CodingKeys.rowId.stringValue)
-        public static let profileKey: SQL = SQL(stringLiteral: CodingKeys.profile.stringValue)
-        
-        public static let profileString: String = CodingKeys.profile.stringValue
+    public struct DataModel: FetchableRecordWithRowId, Decodable, Equatable, Hashable, Identifiable, Differentiable, ColumnExpressible {
+        public typealias Columns = CodingKeys
+        public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
+            case rowId
+            case profile
+        }
         
         public var differenceIdentifier: String { profile.id }
         public var id: String { profile.id }
@@ -285,11 +287,11 @@ class BlockedContactsViewModel: SessionTableViewModel<NoNav, BlockedContactsView
                 
                 let request: SQLRequest<DataModel> = """
                     SELECT
-                        \(profile.alias[Column.rowID]) AS \(DataModel.rowIdKey),
-                        \(DataModel.profileKey).*
+                        \(profile[.rowId]) AS \(DataModel.Columns.rowId),
+                        \(profile.allColumns)
                     
                     FROM \(Profile.self)
-                    WHERE \(profile.alias[Column.rowID]) IN \(rowIds)
+                    WHERE \(profile[.rowId]) IN \(rowIds)
                     ORDER BY \(orderSQL)
                 """
                 
@@ -299,8 +301,8 @@ class BlockedContactsViewModel: SessionTableViewModel<NoNav, BlockedContactsView
                         Profile.numberOfSelectedColumns(db)
                     ])
                     
-                    return ScopeAdapter([
-                        DataModel.profileString: adapters[1]
+                    return ScopeAdapter.with(DataModel.self, [
+                        .profile: adapters[1]
                     ])
                 }
             }

@@ -10,15 +10,22 @@ public extension VisibleMessage {
         public let displayName: String?
         public let profileKey: Data?
         public let profilePictureUrl: String?
+        public let blocksCommunityMessageRequests: Bool?
         
         // MARK: - Initialization
 
-        internal init(displayName: String, profileKey: Data? = nil, profilePictureUrl: String? = nil) {
+        internal init(
+            displayName: String,
+            profileKey: Data? = nil,
+            profilePictureUrl: String? = nil,
+            blocksCommunityMessageRequests: Bool? = nil
+        ) {
             let hasUrlAndKey: Bool = (profileKey != nil && profilePictureUrl != nil)
             
             self.displayName = displayName
             self.profileKey = (hasUrlAndKey ? profileKey : nil)
             self.profilePictureUrl = (hasUrlAndKey ? profilePictureUrl : nil)
+            self.blocksCommunityMessageRequests = blocksCommunityMessageRequests
         }
 
         // MARK: - Proto Conversion
@@ -32,7 +39,8 @@ public extension VisibleMessage {
             return VMProfile(
                 displayName: displayName,
                 profileKey: proto.profileKey,
-                profilePictureUrl: profileProto.profilePicture
+                profilePictureUrl: profileProto.profilePicture,
+                blocksCommunityMessageRequests: (proto.hasBlocksCommunityMessageRequests ? proto.blocksCommunityMessageRequests : nil)
             )
         }
 
@@ -44,6 +52,10 @@ public extension VisibleMessage {
             let dataMessageProto = SNProtoDataMessage.builder()
             let profileProto = SNProtoLokiProfile.builder()
             profileProto.setDisplayName(displayName)
+            
+            if let blocksCommunityMessageRequests: Bool = self.blocksCommunityMessageRequests {
+                dataMessageProto.setBlocksCommunityMessageRequests(blocksCommunityMessageRequests)
+            }
             
             if let profileKey = profileKey, let profilePictureUrl = profilePictureUrl {
                 dataMessageProto.setProfileKey(profileKey)
@@ -112,10 +124,14 @@ public extension VisibleMessage {
 // MARK: - Conversion
 
 extension VisibleMessage.VMProfile {
-    init(profile: Profile) {
+    init(
+        profile: Profile,
+        blocksCommunityMessageRequests: Bool?
+    ) {
         self.displayName = profile.name
         self.profileKey = profile.profileEncryptionKey
         self.profilePictureUrl = profile.profilePictureUrl
+        self.blocksCommunityMessageRequests = blocksCommunityMessageRequests
     }
 }
 

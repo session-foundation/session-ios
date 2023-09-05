@@ -483,6 +483,9 @@
 "PRIVACY_SECTION_SCREEN_SECURITY" = "ความปลอดภัยหน้าจอ";
 "PRIVACY_SCREEN_SECURITY_LOCK_SESSION_TITLE" = "Lock Session";
 "PRIVACY_SCREEN_SECURITY_LOCK_SESSION_DESCRIPTION" = "Require Touch ID, Face ID or your passcode to unlock Session.";
+"PRIVACY_SECTION_MESSAGE_REQUESTS" = "Message Requests";
+"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE" = "Community Message Requests";
+"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION" = "Allow message requests from Community conversations.";
 "PRIVACY_SECTION_READ_RECEIPTS" = "แจ้งการอ่านข้อความ";
 "PRIVACY_READ_RECEIPTS_TITLE" = "แจ้งการอ่านข้อความ";
 "PRIVACY_READ_RECEIPTS_DESCRIPTION" = "Send read receipts in one-to-one chats.";
@@ -645,6 +648,8 @@
 "CONVERSATION_EMPTY_STATE" = "You have no messages from %@. Send a message to start the conversation!";
 "CONVERSATION_EMPTY_STATE_READ_ONLY" = "There are no messages in %@.";
 "CONVERSATION_EMPTY_STATE_NOTE_TO_SELF" = "You have no messages in %@.";
+"COMMUNITY_MESSAGE_REQUEST_DISABLED_EMPTY_STATE" = "%@ has message requests from Community conversations turned off, so you cannot send them a message.";
 "USER_CONFIG_OUTDATED_WARNING" = "Some of your devices are using outdated versions. Syncing may be unreliable until they are updated.";
 "LOAD_RECOVERY_PASSWORD_ERROR" = "An error occurred when trying to load your recovery password.\n\nPlease export your logs, then upload the file though Session's Help Desk to help resolve this issue.";
 "FAILED_TO_STORE_OUTGOING_MESSAGE" = "An error occurred when trying to store the outgoing message for sending, you may need to restart the app before you can send messages.";
+"database_inaccessible_error" = "There is an issue opening the database. Please restart the app and try again.";

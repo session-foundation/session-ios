@@ -31,34 +31,29 @@ public enum SNMessagingKit: MigratableTarget { // Just to make the external API 
                     _011_AddPendingReadReceipts.self,
                     _012_AddFTSIfNeeded.self,
                     _013_SessionUtilChanges.self,
-                    // Wait until the feature is turned on before doing the migration that generates
-                    // the config dump data
-                    // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-                    (Features.useSharedUtilForUserConfig(db) ?
-                        _014_GenerateInitialUserConfigDumps.self :
-                        (nil as Migration.Type?)
-                    )
-                ].compactMap { $0 }
+                    _014_GenerateInitialUserConfigDumps.self,
+                    _015_BlockCommunityMessageRequests.self
+                ]
             ]
         )
     }
     
     public static func configure() {
         // Configure the job executors
-        JobRunner.add(executor: DisappearingMessagesJob.self, for: .disappearingMessages)
-        JobRunner.add(executor: FailedMessageSendsJob.self, for: .failedMessageSends)
-        JobRunner.add(executor: FailedAttachmentDownloadsJob.self, for: .failedAttachmentDownloads)
-        JobRunner.add(executor: UpdateProfilePictureJob.self, for: .updateProfilePicture)
-        JobRunner.add(executor: RetrieveDefaultOpenGroupRoomsJob.self, for: .retrieveDefaultOpenGroupRooms)
-        JobRunner.add(executor: GarbageCollectionJob.self, for: .garbageCollection)
-        JobRunner.add(executor: MessageSendJob.self, for: .messageSend)
-        JobRunner.add(executor: MessageReceiveJob.self, for: .messageReceive)
-        JobRunner.add(executor: NotifyPushServerJob.self, for: .notifyPushServer)
-        JobRunner.add(executor: SendReadReceiptsJob.self, for: .sendReadReceipts)
-        JobRunner.add(executor: AttachmentUploadJob.self, for: .attachmentUpload)
-        JobRunner.add(executor: GroupLeavingJob.self, for: .groupLeaving)
-        JobRunner.add(executor: AttachmentDownloadJob.self, for: .attachmentDownload)
-        JobRunner.add(executor: ConfigurationSyncJob.self, for: .configurationSync)
-        JobRunner.add(executor: ConfigMessageReceiveJob.self, for: .configMessageReceive)
+        JobRunner.setExecutor(DisappearingMessagesJob.self, for: .disappearingMessages)
+        JobRunner.setExecutor(FailedMessageSendsJob.self, for: .failedMessageSends)
+        JobRunner.setExecutor(FailedAttachmentDownloadsJob.self, for: .failedAttachmentDownloads)
+        JobRunner.setExecutor(UpdateProfilePictureJob.self, for: .updateProfilePicture)
+        JobRunner.setExecutor(RetrieveDefaultOpenGroupRoomsJob.self, for: .retrieveDefaultOpenGroupRooms)
+        JobRunner.setExecutor(GarbageCollectionJob.self, for: .garbageCollection)
+        JobRunner.setExecutor(MessageSendJob.self, for: .messageSend)
+        JobRunner.setExecutor(MessageReceiveJob.self, for: .messageReceive)
+        JobRunner.setExecutor(NotifyPushServerJob.self, for: .notifyPushServer)
+        JobRunner.setExecutor(SendReadReceiptsJob.self, for: .sendReadReceipts)
+        JobRunner.setExecutor(AttachmentUploadJob.self, for: .attachmentUpload)
+        JobRunner.setExecutor(GroupLeavingJob.self, for: .groupLeaving)
+        JobRunner.setExecutor(AttachmentDownloadJob.self, for: .attachmentDownload)
+        JobRunner.setExecutor(ConfigurationSyncJob.self, for: .configurationSync)
+        JobRunner.setExecutor(ConfigMessageReceiveJob.self, for: .configMessageReceive)
     }
 }

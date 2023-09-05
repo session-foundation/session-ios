@@ -3,6 +3,7 @@
 import UIKit
 import SessionMessagingKit
 import SessionUIKit
+import SessionUtilitiesKit
 
 protocol SwipeActionOptimisticCell {
     func optimisticUpdate(isMuted: Bool?, isBlocked: Bool?, isPinned: Bool?, hasUnread: Bool?)
@@ -163,7 +164,7 @@ public extension UIContextualAction {
                                                         db,
                                                         threadId: threadViewModel.threadId,
                                                         threadVariant: threadViewModel.threadVariant,
-                                                        groupLeaveType: .forced,
+                                                        groupLeaveType: .silent,
                                                         calledFromConfigHandling: false
                                                     )
                                                 }

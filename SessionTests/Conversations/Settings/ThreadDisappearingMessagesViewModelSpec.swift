@@ -6,6 +6,7 @@ import Quick
 import Nimble
 import SessionUIKit
 import SessionSnodeKit
+import SessionUtilitiesKit
 
 @testable import Session
 
@@ -24,7 +25,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
             // MARK: - Configuration
             
             beforeEach {
-                mockStorage = Storage(
+                mockStorage = SynchronousStorage(
                     customWriter: try! DatabaseQueue(),
                     customMigrationTargets: [
                         SNUtilitiesKit.self,
@@ -44,10 +45,10 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     ).insert(db)
                 }
                 viewModel = ThreadDisappearingMessagesSettingsViewModel(
-                    dependencies: dependencies,
                     threadId: "TestId",
                     threadVariant: .contact,
-                    config: DisappearingMessagesConfiguration.defaultWith("TestId")
+                    config: DisappearingMessagesConfiguration.defaultWith("TestId"),
+                    using: dependencies
                 )
                 cancellables.append(
                     viewModel.observableTableData
@@ -127,10 +128,10 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     _ = try config.saved(db)
                 }
                 viewModel = ThreadDisappearingMessagesSettingsViewModel(
-                    dependencies: dependencies,
                     threadId: "TestId",
                     threadVariant: .contact,
-                    config: config
+                    config: config,
+                    using: dependencies
                 )
                 cancellables.append(
                     viewModel.observableTableData
@@ -232,11 +233,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                         
                         items?.first?.action?()
                         
-                        expect(didDismissScreen)
-                            .toEventually(
-                                beTrue(),
-                                timeout: .milliseconds(100)
-                            )
+                        expect(didDismissScreen).to(beTrue())
                     }
                     
                     it("saves the updated config") {

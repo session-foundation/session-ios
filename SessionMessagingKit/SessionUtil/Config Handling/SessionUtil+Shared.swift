@@ -50,9 +50,6 @@ internal extension SessionUtil {
         publicKey: String,
         change: (UnsafeMutablePointer<config_object>?) throws -> ()
     ) throws {
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard SessionUtil.userConfigsEnabled(db, ignoreRequirementsForRunningMigrations: true) else { return }
-        
         // Since we are doing direct memory manipulation we are using an `Atomic`
         // type which has blocking access in it's `mutate` closure
         let needsPush: Bool
@@ -213,6 +210,46 @@ internal extension SessionUtil {
         return updated
     }
     
+    static func hasSetting(_ db: Database, forKey key: String) throws -> Bool {
+        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        
+        // Currently the only synced setting is 'checkForCommunityMessageRequests'
+        switch key {
+            case Setting.BoolKey.checkForCommunityMessageRequests.rawValue:
+                return try SessionUtil
+                    .config(for: .userProfile, publicKey: userPublicKey)
+                    .wrappedValue
+                    .map { conf -> Bool in (try SessionUtil.rawBlindedMessageRequestValue(in: conf) >= 0) }
+                    .defaulting(to: false)
+                
+            default: return false
+        }
+    }
+    
+    static func updatingSetting(_ db: Database, _ updated: Setting?) throws {
+        // Don't current support any nullable settings
+        guard let updatedSetting: Setting = updated else { return }
+        
+        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        
+        // Currently the only synced setting is 'checkForCommunityMessageRequests'
+        switch updatedSetting.id {
+            case Setting.BoolKey.checkForCommunityMessageRequests.rawValue:
+                try SessionUtil.performAndPushChange(
+                    db,
+                    for: .userProfile,
+                    publicKey: userPublicKey
+                ) { conf in
+                    try SessionUtil.updateSettings(
+                        checkForCommunityMessageRequests: updatedSetting.unsafeValue(as: Bool.self),
+                        in: conf
+                    )
+                }
+                
+            default: break
+        }
+    }
+    
     static func kickFromConversationUIIfNeeded(removedThreadIds: [String]) {
         guard !removedThreadIds.isEmpty else { return }
         
@@ -307,9 +344,6 @@ internal extension SessionUtil {
         targetConfig: ConfigDump.Variant,
         changeTimestampMs: Int64
     ) -> Bool {
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard SessionUtil.userConfigsEnabled(db) else { return true }
-        
         let targetPublicKey: String = {
             switch targetConfig {
                 default: return getUserHexEncodedPublicKey(db)
@@ -349,10 +383,7 @@ public extension SessionUtil {
         threadVariant: SessionThread.Variant,
         visibleOnly: Bool
     ) -> Bool {
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard SessionUtil.userConfigsEnabled(db) else { return true }
-        
-        let userPublicKey: String = getUserHexEncodedPublicKey()
+        let userPublicKey: String = getUserHexEncodedPublicKey(db)
         let configVariant: ConfigDump.Variant = {
             switch threadVariant {
                 case .contact: return (threadId == userPublicKey ? .userProfile : .contacts)

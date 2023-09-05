@@ -9,13 +9,16 @@ import CoreServices
 import SessionUIKit
 import SessionMessagingKit
 import SignalCoreKit
+import SessionUtilitiesKit
 
 public protocol AttachmentApprovalViewControllerDelegate: AnyObject {
     func attachmentApproval(
         _ attachmentApproval: AttachmentApprovalViewController,
         didApproveAttachments attachments: [SignalAttachment],
         forThreadId threadId: String,
-        messageText: String?
+        threadVariant: SessionThread.Variant,
+        messageText: String?,
+        using dependencies: Dependencies
     )
 
     func attachmentApprovalDidCancel(_ attachmentApproval: AttachmentApprovalViewController)
@@ -57,6 +60,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
 
     private let mode: Mode
     private let threadId: String
+    private let threadVariant: SessionThread.Variant
     private let isAddMoreVisible: Bool
 
     public weak var approvalDelegate: AttachmentApprovalViewControllerDelegate?
@@ -126,11 +130,13 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     required public init(
         mode: Mode,
         threadId: String,
+        threadVariant: SessionThread.Variant,
         attachments: [SignalAttachment]
     ) {
         assert(attachments.count > 0)
         self.mode = mode
         self.threadId = threadId
+        self.threadVariant = threadVariant
         let attachmentItems = attachments.map { SignalAttachmentItem(attachment: $0 )}
         self.isAddMoreVisible = (mode == .sharedNavigation)
 
@@ -160,10 +166,16 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
 
     public class func wrappedInNavController(
         threadId: String,
+        threadVariant: SessionThread.Variant,
         attachments: [SignalAttachment],
         approvalDelegate: AttachmentApprovalViewControllerDelegate
     ) -> UINavigationController {
-        let vc = AttachmentApprovalViewController(mode: .modal, threadId: threadId, attachments: attachments)
+        let vc = AttachmentApprovalViewController(
+            mode: .modal,
+            threadId: threadId,
+            threadVariant: threadVariant,
+            attachments: attachments
+        )
         vc.approvalDelegate = approvalDelegate
         
         let navController = StyledNavigationController(rootViewController: vc)
@@ -664,7 +676,7 @@ extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
 
     func attachmentTextToolbarDidEndEditing(_ attachmentTextToolbar: AttachmentTextToolbar) {}
 
-    func attachmentTextToolbarDidTapSend(_ attachmentTextToolbar: AttachmentTextToolbar) {
+    func attachmentTextToolbarDidTapSend(_ attachmentTextToolbar: AttachmentTextToolbar, using dependencies: Dependencies) {
         // Toolbar flickers in and out if there are errors
         // and remains visible momentarily after share extension is dismissed.
         // It's easiest to just hide it at this point since we're done with it.
@@ -672,7 +684,14 @@ extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
         attachmentTextToolbar.isUserInteractionEnabled = false
         attachmentTextToolbar.isHidden = true
 
-        approvalDelegate?.attachmentApproval(self, didApproveAttachments: attachments, forThreadId: threadId, messageText: attachmentTextToolbar.messageText)
+        approvalDelegate?.attachmentApproval(
+            self,
+            didApproveAttachments: attachments,
+            forThreadId: threadId,
+            threadVariant: threadVariant,
+            messageText: attachmentTextToolbar.messageText,
+            using: dependencies
+        )
     }
 
     func attachmentTextToolbarDidChange(_ attachmentTextToolbar: AttachmentTextToolbar) {

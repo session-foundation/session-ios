@@ -29,7 +29,7 @@ public extension OpenGroupAPI {
         private let method: HTTPMethod
         private let path: String
         public let endpoint: Endpoint
-        fileprivate let batchEndpoints: [Endpoint]
+        internal let batchEndpoints: [Endpoint]
         public let batchResponseTypes: [Decodable.Type]
         
         /// The `jsonBodyEncoder` is used to simplify the encoding for `BatchRequest`
@@ -185,7 +185,7 @@ public extension OpenGroupAPI.PreparedSendData {
 public extension Publisher where Output == (ResponseInfoType, Data?), Failure == Error {
     func decoded<R>(
         with preparedData: OpenGroupAPI.PreparedSendData<R>,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) -> AnyPublisher<(ResponseInfoType, R), Error> {
         self
             .tryMap { responseInfo, maybeData -> (ResponseInfoType, R) in

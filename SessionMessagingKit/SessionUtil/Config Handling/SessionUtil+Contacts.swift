@@ -138,46 +138,37 @@ internal extension SessionUtil {
                 let threadExists: Bool = (threadInfo != nil)
                 let updatedShouldBeVisible: Bool = SessionUtil.shouldBeVisible(priority: data.priority)
 
-                switch (updatedShouldBeVisible, threadExists) {
-                    case (false, true):
-                        SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: [sessionId])
-                        
-                        try SessionThread
-                            .deleteOrLeave(
-                                db,
-                                threadId: sessionId,
-                                threadVariant: .contact,
-                                groupLeaveType: .forced,
-                                calledFromConfigHandling: true
-                            )
-                        
-                    case (true, false):
-                        try SessionThread(
-                            id: sessionId,
-                            variant: .contact,
-                            creationDateTimestamp: data.created,
-                            shouldBeVisible: true,
-                            pinnedPriority: data.priority
-                        ).save(db)
-                        
-                    case (true, true):
-                        let changes: [ConfigColumnAssignment] = [
-                            (threadInfo?.shouldBeVisible == updatedShouldBeVisible ? nil :
-                                SessionThread.Columns.shouldBeVisible.set(to: updatedShouldBeVisible)
-                            ),
-                            (threadInfo?.pinnedPriority == data.priority ? nil :
-                                SessionThread.Columns.pinnedPriority.set(to: data.priority)
-                            )
-                        ].compactMap { $0 }
-                        
-                        try SessionThread
-                            .filter(id: sessionId)
-                            .updateAll( // Handling a config update so don't use `updateAllAndConfig`
-                                db,
-                                changes
-                            )
-                        
-                    case (false, false): break
+                /// If we are hiding the conversation then kick the user from it if it's currently open
+                if !updatedShouldBeVisible {
+                    SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: [sessionId])
+                }
+                
+                /// Create the thread if it doesn't exist, otherwise just update it's state
+                if !threadExists {
+                    try SessionThread(
+                        id: sessionId,
+                        variant: .contact,
+                        creationDateTimestamp: data.created,
+                        shouldBeVisible: updatedShouldBeVisible,
+                        pinnedPriority: data.priority
+                    ).save(db)
+                }
+                else {
+                    let changes: [ConfigColumnAssignment] = [
+                        (threadInfo?.shouldBeVisible == updatedShouldBeVisible ? nil :
+                            SessionThread.Columns.shouldBeVisible.set(to: updatedShouldBeVisible)
+                        ),
+                        (threadInfo?.pinnedPriority == data.priority ? nil :
+                            SessionThread.Columns.pinnedPriority.set(to: data.priority)
+                        )
+                    ].compactMap { $0 }
+                    
+                    try SessionThread
+                        .filter(id: sessionId)
+                        .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                            db,
+                            changes
+                        )
                 }
             }
         
@@ -573,7 +564,8 @@ private extension SessionUtil {
                         count: ProfileManager.avatarAES256KeyByteLength
                     )
                 ),
-                lastProfilePictureUpdate: (TimeInterval(latestConfigSentTimestampMs) / 1000)
+                lastProfilePictureUpdate: (TimeInterval(latestConfigSentTimestampMs) / 1000),
+                lastBlocksCommunityMessageRequests: 0
             )
             
             result[contactId] = ContactData(

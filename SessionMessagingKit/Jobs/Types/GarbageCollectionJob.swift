@@ -20,9 +20,10 @@ public enum GarbageCollectionJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool) -> (),
-        failure: @escaping (Job, Error?, Bool) -> (),
-        deferred: @escaping (Job) -> ()
+        success: @escaping (Job, Bool, Dependencies) -> (),
+        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
+        deferred: @escaping (Job, Dependencies) -> (),
+        using dependencies: Dependencies
     ) {
         /// Determine what types of data we want to collect (if we didn't provide any then assume we want to collect everything)
         ///
@@ -32,18 +33,18 @@ public enum GarbageCollectionJob: JobExecutor {
             .map { try? JSONDecoder().decode(Details.self, from: $0) }?
             .typesToCollect)
             .defaulting(to: Types.allCases)
-        let timestampNow: TimeInterval = Date().timeIntervalSince1970
+        let timestampNow: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         
         /// Only do a full collection if the job isn't the recurring one or it's been 23 hours since it last ran (23 hours so a user who opens the
         /// app at about the same time every day will trigger the garbage collection) - since this runs when the app becomes active we
         /// want to prevent it running to frequently (the app becomes active if a system alert, the notification center or the control panel
         /// are shown)
-        let lastGarbageCollection: Date = UserDefaults.standard[.lastGarbageCollection]
+        let lastGarbageCollection: Date = dependencies.standardUserDefaults[.lastGarbageCollection]
             .defaulting(to: Date.distantPast)
         let finalTypesToCollect: Set<Types> = {
             guard
                 job.behaviour != .recurringOnActive ||
-                Date().timeIntervalSince(lastGarbageCollection) > (23 * 60 * 60)
+                dependencies.dateNow.timeIntervalSince(lastGarbageCollection) > (23 * 60 * 60)
             else {
                 // Note: This should only contain the `Types` which are unlikely to ever cause
                 // a startup delay (ie. avoid mass deletions and file management)
@@ -56,7 +57,7 @@ public enum GarbageCollectionJob: JobExecutor {
             return typesToCollect.asSet()
         }()
         
-        Storage.shared.writeAsync(
+        dependencies.storage.writeAsync(
             updates: { db in
                 /// Remove any typing indicators
                 if finalTypesToCollect.contains(.threadTypingIndicators) {
@@ -81,7 +82,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     try db.execute(literal: """
                         DELETE FROM \(Interaction.self)
                         WHERE \(Column.rowID) IN (
-                            SELECT \(interaction.alias[Column.rowID])
+                            SELECT \(interaction[.rowId])
                             FROM \(Interaction.self)
                             JOIN \(SessionThread.self) ON (
                                 \(SQL("\(thread[.variant]) = \(SessionThread.Variant.community)")) AND
@@ -89,7 +90,7 @@ public enum GarbageCollectionJob: JobExecutor {
                             )
                             JOIN (
                                 SELECT
-                                    COUNT(\(interaction.alias[Column.rowID])) AS interactionCount,
+                                    COUNT(\(interaction[.rowId])) AS interactionCount,
                                     \(interaction[.threadId])
                                 FROM \(Interaction.self)
                                 GROUP BY \(interaction[.threadId])
@@ -111,7 +112,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     try db.execute(literal: """
                         DELETE FROM \(Job.self)
                         WHERE \(Column.rowID) IN (
-                            SELECT \(job.alias[Column.rowID])
+                            SELECT \(job[.rowId])
                             FROM \(Job.self)
                             LEFT JOIN \(SessionThread.self) ON \(thread[.id]) = \(job[.threadId])
                             LEFT JOIN \(Interaction.self) ON \(interaction[.id]) = \(job[.interactionId])
@@ -138,11 +139,11 @@ public enum GarbageCollectionJob: JobExecutor {
                     try db.execute(literal: """
                         DELETE FROM \(LinkPreview.self)
                         WHERE \(Column.rowID) IN (
-                            SELECT \(linkPreview.alias[Column.rowID])
+                            SELECT \(linkPreview[.rowId])
                             FROM \(LinkPreview.self)
                             LEFT JOIN \(Interaction.self) ON (
                                 \(interaction[.linkPreviewUrl]) = \(linkPreview[.url]) AND
-                                \(Interaction.linkPreviewFilterLiteral)
+                                \(Interaction.linkPreviewFilterLiteral())
                             )
                             WHERE \(interaction[.id]) IS NULL
                         )
@@ -158,7 +159,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     try db.execute(literal: """
                         DELETE FROM \(OpenGroup.self)
                         WHERE \(Column.rowID) IN (
-                            SELECT \(openGroup.alias[Column.rowID])
+                            SELECT \(openGroup[.rowId])
                             FROM \(OpenGroup.self)
                             LEFT JOIN \(SessionThread.self) ON \(thread[.id]) = \(openGroup[.threadId])
                             WHERE (
@@ -177,7 +178,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     try db.execute(literal: """
                         DELETE FROM \(Capability.self)
                         WHERE \(Column.rowID) IN (
-                            SELECT \(capability.alias[Column.rowID])
+                            SELECT \(capability[.rowId])
                             FROM \(Capability.self)
                             LEFT JOIN \(OpenGroup.self) ON \(openGroup[.server]) = \(capability[.openGroupServer])
                             WHERE \(openGroup[.threadId]) IS NULL
@@ -194,7 +195,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     try db.execute(literal: """
                         DELETE FROM \(BlindedIdLookup.self)
                         WHERE \(Column.rowID) IN (
-                            SELECT \(blindedIdLookup.alias[Column.rowID])
+                            SELECT \(blindedIdLookup[.rowId])
                             FROM \(BlindedIdLookup.self)
                             LEFT JOIN \(SessionThread.self) ON (
                                 \(thread[.id]) = \(blindedIdLookup[.blindedId]) OR
@@ -221,7 +222,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     try db.execute(literal: """
                         DELETE FROM \(Contact.self)
                         WHERE \(Column.rowID) IN (
-                            SELECT \(contact.alias[Column.rowID])
+                            SELECT \(contact[.rowId])
                             FROM \(Contact.self)
                             LEFT JOIN \(BlindedIdLookup.self) ON (
                                 \(blindedIdLookup[.blindedId]) = \(contact[.id]) AND
@@ -242,7 +243,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     try db.execute(literal: """
                         DELETE FROM \(Attachment.self)
                         WHERE \(Column.rowID) IN (
-                            SELECT \(attachment.alias[Column.rowID])
+                            SELECT \(attachment[.rowId])
                             FROM \(Attachment.self)
                             LEFT JOIN \(Quote.self) ON \(quote[.attachmentId]) = \(attachment[.id])
                             LEFT JOIN \(LinkPreview.self) ON \(linkPreview[.attachmentId]) = \(attachment[.id])
@@ -268,7 +269,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     try db.execute(literal: """
                         DELETE FROM \(Profile.self)
                         WHERE \(Column.rowID) IN (
-                            SELECT \(profile.alias[Column.rowID])
+                            SELECT \(profile[.rowId])
                             FROM \(Profile.self)
                             LEFT JOIN \(SessionThread.self) ON \(thread[.id]) = \(profile[.id])
                             LEFT JOIN \(Interaction.self) ON \(interaction[.authorId]) = \(profile[.id])
@@ -309,7 +310,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     try db.execute(literal: """
                         DELETE FROM \(SessionThread.self)
                         WHERE \(Column.rowID) IN (
-                            SELECT \(thread.alias[Column.rowID])
+                            SELECT \(thread[.rowId])
                             FROM \(SessionThread.self)
                             LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])
                             LEFT JOIN \(OpenGroup.self) ON \(openGroup[.threadId]) = \(thread[.id])
@@ -368,7 +369,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     
                     // If we couldn't get the file lists then fail (invalid state and don't want to delete all attachment/profile files)
                     guard let fileInfo: FileInfo = maybeFileInfo else {
-                        failure(job, StorageError.generic, false)
+                        failure(job, StorageError.generic, false, dependencies)
                         return
                     }
                         
@@ -443,17 +444,17 @@ public enum GarbageCollectionJob: JobExecutor {
                     
                     // Report a single file deletion as a job failure (even if other content was successfully removed)
                     guard deletionErrors.isEmpty else {
-                        failure(job, (deletionErrors.first ?? StorageError.generic), false)
+                        failure(job, (deletionErrors.first ?? StorageError.generic), false, dependencies)
                         return
                     }
                     
                     // If we did a full collection then update the 'lastGarbageCollection' date to
                     // prevent a full collection from running again in the next 23 hours
-                    if job.behaviour == .recurringOnActive && Date().timeIntervalSince(lastGarbageCollection) > (23 * 60 * 60) {
-                        UserDefaults.standard[.lastGarbageCollection] = Date()
+                    if job.behaviour == .recurringOnActive && dependencies.dateNow.timeIntervalSince(lastGarbageCollection) > (23 * 60 * 60) {
+                        dependencies.standardUserDefaults[.lastGarbageCollection] = dependencies.dateNow
                     }
                     
-                    success(job, false)
+                    success(job, false, dependencies)
                 }
             }
         )

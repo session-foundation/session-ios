@@ -7,4 +7,3 @@
 #import "OWSBezierPathView.h"
 #import "OWSMessageTimerView.h"
 #import "OWSWindowManager.h"
-#import "MainAppContext.h"

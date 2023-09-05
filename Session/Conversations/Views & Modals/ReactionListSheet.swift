@@ -5,6 +5,7 @@ import DifferenceKit
 import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
+import SessionUtilitiesKit
 
 final class ReactionListSheet: BaseVC {
     public struct ReactionSummary: Hashable, Differentiable {
@@ -368,10 +369,12 @@ final class ReactionListSheet: BaseVC {
         dismiss(animated: true, completion: nil)
     }
     
-    @objc private func clearAllTapped() {
+    @objc private func clearAllTapped() { clearAll() }
+    
+    private func clearAll(using dependencies: Dependencies = Dependencies()) {
         guard let selectedReaction: EmojiWithSkinTones = self.reactionSummaries.first(where: { $0.isSelected })?.emoji else { return }
         
-        delegate?.removeAllReactions(messageViewModel, for: selectedReaction.rawValue)
+        delegate?.removeAllReactions(messageViewModel, for: selectedReaction.rawValue, using: dependencies)
     }
 }
 
@@ -599,7 +602,13 @@ extension ReactionListSheet {
 // MARK: - Delegate
 
 protocol ReactionDelegate: AnyObject {
-    func react(_ cellViewModel: MessageViewModel, with emoji: EmojiWithSkinTones)
-    func removeReact(_ cellViewModel: MessageViewModel, for emoji: EmojiWithSkinTones)
-    func removeAllReactions(_ cellViewModel: MessageViewModel, for emoji: String)
+    func react(_ cellViewModel: MessageViewModel, with emoji: EmojiWithSkinTones, using dependencies: Dependencies)
+    func removeReact(_ cellViewModel: MessageViewModel, for emoji: EmojiWithSkinTones, using dependencies: Dependencies)
+    func removeAllReactions(_ cellViewModel: MessageViewModel, for emoji: String, using dependencies: Dependencies)
+}
+
+extension ReactionDelegate {
+    func removeReact(_ cellViewModel: MessageViewModel, for emoji: EmojiWithSkinTones) {
+        removeReact(cellViewModel, for: emoji, using: Dependencies())
+    }
 }

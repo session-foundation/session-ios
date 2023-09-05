@@ -296,31 +296,44 @@ public extension SessionThread {
         calledFromConfigHandling: Bool
     ) throws {
         let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
-        let remainingThreadIds: [String] = threadIds.filter { $0 != currentUserPublicKey }
+        let remainingThreadIds: Set<String> = threadIds.asSet().removing(currentUserPublicKey)
         
         switch (threadVariant, groupLeaveType) {
-            case (.contact, _):
+            case (.contact, .standard), (.contact, .silent):
+                // Clear any interactions for the deleted thread
+                _ = try Interaction
+                    .filter(threadIds.contains(Interaction.Columns.threadId))
+                    .deleteAll(db)
+                
                 // We need to custom handle the 'Note to Self' conversation (it should just be
-                // hidden rather than deleted
+                // hidden locally rather than deleted)
                 if threadIds.contains(currentUserPublicKey) {
-                    _ = try Interaction
-                        .filter(Interaction.Columns.threadId == currentUserPublicKey)
-                        .deleteAll(db)
-                    
                     _ = try SessionThread
                         .filter(id: currentUserPublicKey)
                         .updateAllAndConfig(
                             db,
+                            calledFromConfig: calledFromConfigHandling,
                             SessionThread.Columns.pinnedPriority.set(to: 0),
                             SessionThread.Columns.shouldBeVisible.set(to: false)
                         )
-                    return
                 }
                 
+                // Update any other threads to be hidden (don't want to actually delete the thread
+                // record in case it's settings get changed while it's not visible)
+                _ = try SessionThread
+                    .filter(ids: remainingThreadIds)
+                    .updateAllAndConfig(
+                        db,
+                        calledFromConfig: calledFromConfigHandling,
+                        SessionThread.Columns.pinnedPriority.set(to: SessionUtil.hiddenPriority),
+                        SessionThread.Columns.shouldBeVisible.set(to: false)
+                    )
+                
+            case (.contact, .forced):
                 // If this wasn't called from config handling then we need to hide the conversation
                 if !calledFromConfigHandling {
                     try SessionUtil
-                        .hide(db, contactIds: threadIds)
+                        .remove(db, contactIds: Array(remainingThreadIds))
                 }
                 
                 _ = try SessionThread
@@ -365,7 +378,7 @@ public extension SessionThread {
         let contact: TypedTableAlias<Contact> = TypedTableAlias()
         
         return """
-            SELECT \(thread.allColumns())
+            SELECT \(thread.allColumns)
             FROM \(SessionThread.self)
             LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])
             WHERE (
@@ -525,12 +538,19 @@ public extension SessionThread {
         _ db: Database? = nil,
         threadId: String,
         threadVariant: Variant,
-        blindingPrefix: SessionId.Prefix
+        blindingPrefix: SessionId.Prefix,
+        using dependencies: Dependencies = Dependencies()
     ) -> String? {
         guard threadVariant == .community else { return nil }
         guard let db: Database = db else {
-            return Storage.shared.read { db in
-                getUserHexEncodedBlindedKey(db, threadId: threadId, threadVariant: threadVariant, blindingPrefix: blindingPrefix)
+            return dependencies.storage.read { db in
+                getUserHexEncodedBlindedKey(
+                    db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    blindingPrefix: blindingPrefix,
+                    using: dependencies
+                )
             }
         }
         
@@ -559,12 +579,8 @@ public extension SessionThread {
         
         guard capabilities.isEmpty || capabilities.contains(.blind) else { return nil }
         
-        let sodium: Sodium = Sodium()
-        
-        let blindedKeyPair: KeyPair? = sodium.blindedKeyPair(
-            serverPublicKey: openGroupInfo.publicKey,
-            edKeyPair: userEdKeyPair,
-            genericHash: sodium.getGenericHash()
+        let blindedKeyPair: KeyPair? = dependencies.crypto.generate(
+            .blindedKeyPair(serverPublicKey: openGroupInfo.publicKey, edKeyPair: userEdKeyPair, using: dependencies)
         )
         
         return blindedKeyPair.map { keyPair -> String in

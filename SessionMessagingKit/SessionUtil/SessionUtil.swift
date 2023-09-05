@@ -6,25 +6,6 @@ import SessionSnodeKit
 import SessionUtil
 import SessionUtilitiesKit
 
-// MARK: - Features
-
-public extension Features {
-    static func useSharedUtilForUserConfig(_ db: Database? = nil) -> Bool {
-        guard Date().timeIntervalSince1970 < 1690761600 else { return true }
-        guard !SessionUtil.hasCheckedMigrationsCompleted.wrappedValue else {
-            return SessionUtil.userConfigsEnabledIgnoringFeatureFlag
-        }
-        
-        if let db: Database = db {
-            return SessionUtil.refreshingUserConfigsEnabled(db)
-        }
-        
-        return Storage.shared
-            .read { db in SessionUtil.refreshingUserConfigsEnabled(db) }
-            .defaulting(to: false)
-    }
-}
-
 // MARK: - SessionUtil
 
 public enum SessionUtil {
@@ -70,10 +51,7 @@ public enum SessionUtil {
     /// Returns `true` if there is a config which needs to be pushed, but returns `false` if the configs are all up to date or haven't been
     /// loaded yet (eg. fresh install)
     public static var needsSync: Bool {
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard SessionUtil.userConfigsEnabled else { return false }
-        
-        return configStore
+        configStore
             .wrappedValue
             .contains { _, atomicConf in
                 guard atomicConf.wrappedValue != nil else { return false }
@@ -84,56 +62,6 @@ public enum SessionUtil {
     
     public static var libSessionVersion: String { String(cString: LIBSESSION_UTIL_VERSION_STR) }
     
-    fileprivate static let hasCheckedMigrationsCompleted: Atomic<Bool> = Atomic(false)
-    private static let requiredMigrationsCompleted: Atomic<Bool> = Atomic(false)
-    private static let requiredMigrationIdentifiers: Set<String> = [
-        TargetMigrations.Identifier.messagingKit.key(with: _013_SessionUtilChanges.self),
-        TargetMigrations.Identifier.messagingKit.key(with: _014_GenerateInitialUserConfigDumps.self)
-    ]
-    
-    public static var userConfigsEnabled: Bool {
-        return userConfigsEnabled(nil)
-    }
-    
-    public static func userConfigsEnabled(_ db: Database?) -> Bool {
-        Features.useSharedUtilForUserConfig(db) &&
-        SessionUtil.userConfigsEnabledIgnoringFeatureFlag
-    }
-    
-    public static var userConfigsEnabledIgnoringFeatureFlag: Bool {
-        SessionUtil.requiredMigrationsCompleted.wrappedValue
-    }
-    
-    internal static func userConfigsEnabled(
-        _ db: Database,
-        ignoreRequirementsForRunningMigrations: Bool
-    ) -> Bool {
-        // First check if we are enabled regardless of what we want to ignore
-        guard
-            Features.useSharedUtilForUserConfig(db),
-            !SessionUtil.requiredMigrationsCompleted.wrappedValue,
-            !SessionUtil.refreshingUserConfigsEnabled(db),
-            ignoreRequirementsForRunningMigrations,
-            let currentlyRunningMigration: (identifier: TargetMigrations.Identifier, migration: Migration.Type) = Storage.shared.currentlyRunningMigration
-        else { return true }
-        
-        let nonIgnoredMigrationIdentifiers: Set<String> = SessionUtil.requiredMigrationIdentifiers
-            .removing(currentlyRunningMigration.identifier.key(with: currentlyRunningMigration.migration))
-        
-        return Storage.appliedMigrationIdentifiers(db)
-            .isSuperset(of: nonIgnoredMigrationIdentifiers)
-    }
-    
-    @discardableResult public static func refreshingUserConfigsEnabled(_ db: Database) -> Bool {
-        let result: Bool = Storage.appliedMigrationIdentifiers(db)
-            .isSuperset(of: SessionUtil.requiredMigrationIdentifiers)
-        
-        requiredMigrationsCompleted.mutate { $0 = result }
-        hasCheckedMigrationsCompleted.mutate { $0 = true }
-        
-        return result
-    }
-    
     internal static func lastError(_ conf: UnsafeMutablePointer<config_object>?) -> String {
         return (conf?.pointee.last_error.map { String(cString: $0) } ?? "Unknown")
     }
@@ -141,9 +69,6 @@ public enum SessionUtil {
     // MARK: - Loading
     
     public static func clearMemoryState() {
-        // Ensure we have a loaded state before we continue
-        guard !SessionUtil.configStore.wrappedValue.isEmpty else { return }
-        
         SessionUtil.configStore.mutate { confStore in
             confStore.removeAll()
         }
@@ -168,9 +93,6 @@ public enum SessionUtil {
             }
             return
         }
-        
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard SessionUtil.userConfigsEnabled(db, ignoreRequirementsForRunningMigrations: true) else { return }
         
         // Retrieve the existing dumps from the database
         let existingDumps: Set<ConfigDump> = ((try? ConfigDump.fetchSet(db)) ?? [])
@@ -395,9 +317,6 @@ public enum SessionUtil {
     }
     
     public static func configHashes(for publicKey: String) -> [String] {
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard SessionUtil.userConfigsEnabled else { return [] }
-        
         return Storage.shared
             .read { db -> Set<ConfigDump.Variant> in
                 guard Identity.userExists(db) else { return [] }
@@ -437,12 +356,11 @@ public enum SessionUtil {
         messages: [SharedConfigMessage],
         publicKey: String
     ) throws {
-        // FIXME: Remove this once `useSharedUtilForUserConfig` is permanent
-        guard SessionUtil.userConfigsEnabled(db) else { return }
         guard !messages.isEmpty else { return }
         guard !publicKey.isEmpty else { throw MessageReceiverError.noThread }
         
         let groupedMessages: [ConfigDump.Variant: [SharedConfigMessage]] = messages
+            .sorted { lhs, rhs in lhs.seqNo < rhs.seqNo }
             .grouped(by: \.kind.configDumpVariant)
         
         let needsPush: Bool = try groupedMessages

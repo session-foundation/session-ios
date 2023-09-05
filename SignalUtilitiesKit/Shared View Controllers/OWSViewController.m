@@ -8,17 +8,18 @@
 #import <PureLayout/PureLayout.h>
 #import <SessionUIKit/SessionUIKit.h>
 #import <SignalCoreKit/OWSAsserts.h>
+#import <SessionUtilitiesKit/SessionUtilitiesKit.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
 BOOL IsLandscapeOrientationEnabled(void)
 {
-    return NO;
+    return UIDevice.currentDevice.isIPad;
 }
 
 UIInterfaceOrientationMask DefaultUIInterfaceOrientationMask(void)
 {
-    return (IsLandscapeOrientationEnabled() ? UIInterfaceOrientationMaskAllButUpsideDown
+    return (IsLandscapeOrientationEnabled() ? UIInterfaceOrientationMaskAll
                                             : UIInterfaceOrientationMaskPortrait);
 }
 

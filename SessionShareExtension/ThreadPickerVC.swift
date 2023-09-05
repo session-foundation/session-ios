@@ -7,6 +7,7 @@ import DifferenceKit
 import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
+import SessionSnodeKit
 
 final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableViewDelegate, AttachmentApprovalViewControllerDelegate {
     private let viewModel: ThreadPickerViewModel = ThreadPickerViewModel()
@@ -33,6 +34,18 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         
         return titleLabel
     }()
+    
+    private lazy var databaseErrorLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.font = .systemFont(ofSize: Values.mediumFontSize)
+        result.text = "database_inaccessible_error".localized()
+        result.textAlignment = .center
+        result.themeTextColor = .textPrimary
+        result.numberOfLines = 0
+        result.isHidden = true
+        
+        return result
+    }()
 
     private lazy var tableView: UITableView = {
         let tableView: UITableView = UITableView()
@@ -55,6 +68,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         
         view.themeBackgroundColor = .backgroundPrimary
         view.addSubview(tableView)
+        view.addSubview(databaseErrorLabel)
         
         setupLayout()
         
@@ -99,6 +113,10 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     
     private func setupLayout() {
         tableView.pin(to: view)
+        
+        databaseErrorLabel.pin(.top, to: .top, of: view, withInset: Values.massiveSpacing)
+        databaseErrorLabel.pin(.leading, to: .leading, of: view, withInset: Values.veryLargeSpacing)
+        databaseErrorLabel.pin(.trailing, to: .trailing, of: view, withInset: -Values.veryLargeSpacing)
     }
     
     // MARK: - Updating
@@ -109,7 +127,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         // Start observing for data changes
         dataChangeObservable = Storage.shared.start(
             viewModel.observableViewData,
-            onError:  { _ in },
+            onError:  { [weak self] _ in self?.databaseErrorLabel.isHidden = Storage.shared.isValid },
             onChange: { [weak self] viewData in
                 // The defaul scheduler emits changes on the main thread
                 self?.handleUpdates(viewData)
@@ -167,6 +185,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     
                     let approvalVC: UINavigationController = AttachmentApprovalViewController.wrappedInNavController(
                         threadId: strongSelf.viewModel.viewData[indexPath.row].threadId,
+                        threadVariant: strongSelf.viewModel.viewData[indexPath.row].threadVariant,
                         attachments: attachments,
                         approvalDelegate: strongSelf
                     )
@@ -175,7 +194,14 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             )
     }
     
-    func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didApproveAttachments attachments: [SignalAttachment], forThreadId threadId: String, messageText: String?) {
+    func attachmentApproval(
+        _ attachmentApproval: AttachmentApprovalViewController,
+        didApproveAttachments attachments: [SignalAttachment],
+        forThreadId threadId: String,
+        threadVariant: SessionThread.Variant,
+        messageText: String?,
+        using dependencies: Dependencies = Dependencies()
+    ) {
         // Sharing a URL or plain text will populate the 'messageText' field so in those
         // cases we should ignore the attachments
         let isSharingUrl: Bool = (attachments.count == 1 && attachments[0].isUrl)
@@ -197,77 +223,111 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         ModalActivityIndicatorViewController.present(fromViewController: shareNavController!, canCancel: false, message: "vc_share_sending_message".localized()) { activityIndicator in
             Storage.resumeDatabaseAccess()
             
-            Storage.shared
-                .writePublisher { db -> MessageSender.PreparedSendData in
-                    guard
-                        let threadVariant: SessionThread.Variant = try SessionThread
-                            .filter(id: threadId)
-                            .select(.variant)
-                            .asRequest(of: SessionThread.Variant.self)
-                            .fetchOne(db)
-                    else { throw MessageSenderError.noThread }
-                    
-                    // Create the interaction
-                    let interaction: Interaction = try Interaction(
-                        threadId: threadId,
-                        authorId: getUserHexEncodedPublicKey(db),
-                        variant: .standardOutgoing,
-                        body: body,
-                        timestampMs: SnodeAPI.currentOffsetTimestampMs(),
-                        hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: body),
-                        expiresInSeconds: try? DisappearingMessagesConfiguration
-                            .select(.durationSeconds)
-                            .filter(id: threadId)
-                            .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
-                            .asRequest(of: TimeInterval.self)
-                            .fetchOne(db),
-                        linkPreviewUrl: (isSharingUrl ? attachments.first?.linkPreviewDraft?.urlString : nil)
-                    ).inserted(db)
-                    
-                    guard let interactionId: Int64 = interaction.id else {
-                        throw StorageError.failedToSave
+            /// When we prepare the message we set the timestamp to be the `SnodeAPI.currentOffsetTimestampMs()`
+            /// but won't actually have a value because the share extension won't have talked to a service node yet which can cause
+            /// issues with Disappearing Messages, as a result we need to explicitly `getNetworkTime` in order to ensure it's accurate
+            Just(())
+                .setFailureType(to: Error.self)
+                .flatMap { _ in
+                    // We may not have sufficient snodes, so rather than failing we try to load/fetch
+                    // them if needed
+                    guard !SnodeAPI.hasCachedSnodesIncludingExpired() else {
+                        return Just(())
+                            .setFailureType(to: Error.self)
+                            .eraseToAnyPublisher()
                     }
                     
-                    // If the user is sharing a Url, there is a LinkPreview and it doesn't match an existing
-                    // one then add it now
-                    if
-                        isSharingUrl,
-                        let linkPreviewDraft: LinkPreviewDraft = attachments.first?.linkPreviewDraft,
-                        (try? interaction.linkPreview.isEmpty(db)) == true
-                    {
-                        try LinkPreview(
-                            url: linkPreviewDraft.urlString,
-                            title: linkPreviewDraft.title,
-                            attachmentId: LinkPreview
-                                .generateAttachmentIfPossible(
-                                    imageData: linkPreviewDraft.jpegImageData,
-                                    mimeType: OWSMimeTypeImageJpeg
-                                )?
-                                .inserted(db)
-                                .id
-                        ).insert(db)
-                    }
-                    
-                    // Prepare any attachments
-                    try Attachment.process(
-                        db,
-                        data: Attachment.prepare(attachments: finalAttachments),
-                        for: interactionId
-                    )
-                    
-                    // Prepare the message send data
-                    return try MessageSender
-                        .preparedSendData(
-                            db,
-                            interaction: interaction,
-                            threadId: threadId,
-                            threadVariant: threadVariant
-                        )
+                    return SnodeAPI.getSnodePool()
+                        .map { _ in () }
+                        .eraseToAnyPublisher()
                 }
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .flatMap { MessageSender.performUploadsIfNeeded(preparedSendData: $0) }
-                .flatMap { MessageSender.sendImmediate(preparedSendData: $0) }
-                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+                .flatMap { _ in
+                    SnodeAPI
+                        .getSwarm(
+                            for: {
+                                switch threadVariant {
+                                    case .contact, .legacyGroup, .group: return threadId
+                                    case .community: return getUserHexEncodedPublicKey(using: dependencies)
+                                }
+                            }(),
+                            using: dependencies
+                        )
+                        .tryFlatMapWithRandomSnode { SnodeAPI.getNetworkTime(from: $0, using: dependencies) }
+                        .map { _ in () }
+                        .eraseToAnyPublisher()
+                }
+                .flatMap { _ in
+                    dependencies.storage.writePublisher { db -> MessageSender.PreparedSendData in
+                        guard
+                            let threadVariant: SessionThread.Variant = try SessionThread
+                                .filter(id: threadId)
+                                .select(.variant)
+                                .asRequest(of: SessionThread.Variant.self)
+                                .fetchOne(db)
+                        else { throw MessageSenderError.noThread }
+                        
+                        // Create the interaction
+                        let interaction: Interaction = try Interaction(
+                            threadId: threadId,
+                            authorId: getUserHexEncodedPublicKey(db),
+                            variant: .standardOutgoing,
+                            body: body,
+                            timestampMs: SnodeAPI.currentOffsetTimestampMs(),
+                            hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: body),
+                            expiresInSeconds: try? DisappearingMessagesConfiguration
+                                .select(.durationSeconds)
+                                .filter(id: threadId)
+                                .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
+                                .asRequest(of: TimeInterval.self)
+                                .fetchOne(db),
+                            linkPreviewUrl: (isSharingUrl ? attachments.first?.linkPreviewDraft?.urlString : nil)
+                        ).inserted(db)
+                        
+                        guard let interactionId: Int64 = interaction.id else {
+                            throw StorageError.failedToSave
+                        }
+                        
+                        // If the user is sharing a Url, there is a LinkPreview and it doesn't match an existing
+                        // one then add it now
+                        if
+                            isSharingUrl,
+                            let linkPreviewDraft: LinkPreviewDraft = attachments.first?.linkPreviewDraft,
+                            (try? interaction.linkPreview.isEmpty(db)) == true
+                        {
+                            try LinkPreview(
+                                url: linkPreviewDraft.urlString,
+                                title: linkPreviewDraft.title,
+                                attachmentId: LinkPreview
+                                    .generateAttachmentIfPossible(
+                                        imageData: linkPreviewDraft.jpegImageData,
+                                        mimeType: OWSMimeTypeImageJpeg
+                                    )?
+                                    .inserted(db)
+                                    .id
+                            ).insert(db)
+                        }
+                        
+                        // Prepare any attachments
+                        try Attachment.process(
+                            db,
+                            data: Attachment.prepare(attachments: finalAttachments),
+                            for: interactionId
+                        )
+                        
+                        // Prepare the message send data
+                        return try MessageSender
+                            .preparedSendData(
+                                db,
+                                interaction: interaction,
+                                threadId: threadId,
+                                threadVariant: threadVariant,
+                                using: dependencies
+                            )
+                    }
+                }
+                .flatMap { MessageSender.performUploadsIfNeeded(preparedSendData: $0, using: dependencies) }
+                .flatMap { MessageSender.sendImmediate(data: $0, using: dependencies) }
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveCompletion: { [weak self] result in
