@@ -12,6 +12,8 @@ struct MessageInfoView: View {
     @State var index = 1
     @State var showingAttachmentFullScreen = false
     
+    static private let cornerRadius: CGFloat = 18
+    
     var actions: [ContextMenuVC.Action]
     var messageViewModel: MessageViewModel
     var isMessageFailed: Bool {
@@ -44,7 +46,7 @@ struct MessageInfoView: View {
                             (.messageBubble_outgoingBackground, .messageBubble_outgoingText)
                             
                             ZStack {
-                                RoundedRectangle(cornerRadius: 18)
+                                RoundedRectangle(cornerRadius: Self.cornerRadius)
                                     .fill(themeColor: bubbleBackgroundColor)
                                 
                                 Text(body)
@@ -148,7 +150,7 @@ struct MessageInfoView: View {
                             
                             // Attachment Info
                             ZStack {
-                                RoundedRectangle(cornerRadius: 17)
+                                RoundedRectangle(cornerRadius: Self.cornerRadius)
                                     .fill(themeColor: .backgroundSecondary)
                                     
                                 VStack(
@@ -223,7 +225,7 @@ struct MessageInfoView: View {
 
                         // Message Info
                         ZStack {
-                            RoundedRectangle(cornerRadius: 17)
+                            RoundedRectangle(cornerRadius: Self.cornerRadius)
                                 .fill(themeColor: .backgroundSecondary)
                                 
                             VStack(
@@ -311,7 +313,7 @@ struct MessageInfoView: View {
                         // Actions
                         if !actions.isEmpty {
                             ZStack {
-                                RoundedRectangle(cornerRadius: 17)
+                                RoundedRectangle(cornerRadius: Self.cornerRadius)
                                     .fill(themeColor: .backgroundSecondary)
                                 
                                 VStack(
